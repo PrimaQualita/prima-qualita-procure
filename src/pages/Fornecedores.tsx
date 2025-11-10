@@ -286,11 +286,17 @@ export default function Fornecedores() {
 
           console.log("Certificado upado, salvando no banco:", certUrl);
 
+          // Converter data para formato ISO sem problemas de timezone
+          const dataValidadeISO = dataValidadeCertificado 
+            ? `${dataValidadeCertificado}T00:00:00.000Z`
+            : null;
+
           const { error: certInsertError } = await supabase.from("documentos_fornecedor").insert({
             fornecedor_id: fornecedorSelecionado.id,
             tipo_documento: "certificado_gestor",
             nome_arquivo: certificado.name,
             url_arquivo: certUrl,
+            data_validade: dataValidadeISO,
             em_vigor: true
           });
 

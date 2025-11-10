@@ -49,7 +49,7 @@ const DOCUMENTOS_VALIDADE = [
   { tipo: "cndt", label: "CNDT", temValidade: true },
   { tipo: "contrato_social", label: "Contrato Social Consolidado", temValidade: false },
   { tipo: "cartao_cnpj", label: "Cartão CNPJ", temValidade: false },
-  { tipo: "certificado_gestor", label: "Certificado de Fornecedor", temValidade: false },
+  { tipo: "certificado_gestor", label: "Certificado de Fornecedor", temValidade: true },
   { tipo: "relatorio_kpmg", label: "Relatório da KPMG", temValidade: false },
 ];
 
