@@ -13,19 +13,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, Shield, User } from "lucide-react";
+import { ArrowLeft, Plus, Shield, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { DialogUsuario } from "@/components/usuarios/DialogUsuario";
 
 
 interface Usuario {
@@ -45,8 +37,6 @@ const Usuarios = () => {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [filtro, setFiltro] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [usuarioParaEditar, setUsuarioParaEditar] = useState<Usuario | null>(null);
-  const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<string | null>(null);
   const [isGestor, setIsGestor] = useState(false);
 
   useEffect(() => {
@@ -119,22 +109,37 @@ const Usuarios = () => {
     }
   };
 
-  const handleSave = async (usuario: any) => {
+  const handleToggleRole = async (userId: string, currentRole: string) => {
     try {
-      // Implementation would require admin API for user creation
-      toast({ 
-        title: "Funcionalidade em desenvolvimento", 
-        description: "Criação de usuários via admin API será implementada em breve.",
-        variant: "default"
+      const newRole = currentRole === "gestor" ? "colaborador" : "gestor";
+
+      // Deletar role atual
+      const { error: deleteError } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId);
+
+      if (deleteError) throw deleteError;
+
+      // Criar nova role
+      const { error: insertError } = await supabase
+        .from("user_roles")
+        .insert([{ user_id: userId, role: newRole }]);
+
+      if (insertError) throw insertError;
+
+      toast({
+        title: "Perfil atualizado",
+        description: `Usuário agora é ${newRole}.`,
       });
-      setDialogOpen(false);
+
+      loadUsuarios();
     } catch (error: any) {
       toast({
-        title: "Erro ao salvar usuário",
+        title: "Erro ao atualizar perfil",
         description: error.message,
         variant: "destructive",
       });
-      throw error;
     }
   };
 
@@ -178,6 +183,10 @@ const Usuarios = () => {
                   Gerencie gestores e colaboradores do sistema
                 </CardDescription>
               </div>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Usuário
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -202,6 +211,7 @@ const Usuarios = () => {
                     <TableHead>CPF</TableHead>
                     <TableHead>Perfil</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Gestor</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -232,6 +242,12 @@ const Usuarios = () => {
                           <Badge variant="secondary">Inativo</Badge>
                         )}
                       </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={usuario.role === "gestor"}
+                          onCheckedChange={() => handleToggleRole(usuario.id, usuario.role || "colaborador")}
+                        />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -239,6 +255,12 @@ const Usuarios = () => {
             )}
           </CardContent>
         </Card>
+
+        <DialogUsuario
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSuccess={loadUsuarios}
+        />
       </div>
     </div>
   );

@@ -251,7 +251,7 @@ const Auth = () => {
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Cadastro</TabsTrigger>
+              <TabsTrigger value="signup">Cadastro Fornecedor</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -284,6 +284,12 @@ const Auth = () => {
             </TabsContent>
 
             <TabsContent value="signup">
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Atenção:</strong> Este cadastro é exclusivo para fornecedores. 
+                  Colaboradores e gestores internos são cadastrados pelos administradores do sistema.
+                </p>
+              </div>
               <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Nome Completo</Label>
