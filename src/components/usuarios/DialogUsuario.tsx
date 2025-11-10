@@ -82,7 +82,9 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
       }
 
       // Gerar senha temporária a partir da data de nascimento (formato: ddmmaaaa)
-      const senhaTemporaria = dataNascimento.replace(/\D/g, "").split("-").reverse().join("");
+      // Data vem como YYYY-MM-DD, converter para DDMMYYYY
+      const [ano, mes, dia] = dataNascimento.split("-");
+      const senhaTemporaria = `${dia}${mes}${ano}`;
 
       // Chamar edge function para criar usuário via Admin API
       const { data: functionData, error: functionError } = await supabase.functions.invoke(
