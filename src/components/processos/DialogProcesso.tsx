@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog,
   DialogContent,
@@ -126,12 +126,10 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
             </div>
             <div className="grid gap-2">
               <Label htmlFor="objeto_resumido">Objeto Resumido *</Label>
-              <Textarea
-                id="objeto_resumido"
+              <RichTextEditor
                 value={formData.objeto_resumido}
-                onChange={(e) => setFormData({ ...formData, objeto_resumido: e.target.value })}
-                required
-                rows={3}
+                onChange={(value) => setFormData({ ...formData, objeto_resumido: value })}
+                placeholder="Descreva o objeto do processo de compra..."
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -175,15 +173,14 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="valor_estimado_anual">Valor Estimado Anual (R$) *</Label>
+                <Label htmlFor="valor_estimado_anual">Valor Estimado Anual (R$)</Label>
                 <Input
                   id="valor_estimado_anual"
                   type="number"
                   min="0"
                   step="0.01"
                   value={formData.valor_estimado_anual}
-                  onChange={(e) => setFormData({ ...formData, valor_estimado_anual: parseFloat(e.target.value) })}
-                  required
+                  onChange={(e) => setFormData({ ...formData, valor_estimado_anual: parseFloat(e.target.value) || 0 })}
                 />
               </div>
             </div>
@@ -229,11 +226,10 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
             </div>
             <div className="grid gap-2">
               <Label htmlFor="observacoes">Observações</Label>
-              <Textarea
-                id="observacoes"
-                value={formData.observacoes}
-                onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                rows={3}
+              <RichTextEditor
+                value={formData.observacoes || ""}
+                onChange={(value) => setFormData({ ...formData, observacoes: value })}
+                placeholder="Adicione observações sobre o processo..."
               />
             </div>
           </div>

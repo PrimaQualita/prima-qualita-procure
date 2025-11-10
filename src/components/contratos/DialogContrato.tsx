@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog,
   DialogContent,
@@ -151,11 +151,10 @@ export function DialogContrato({ open, onOpenChange, contrato, onSave }: DialogC
             </div>
             <div className="grid gap-2">
               <Label htmlFor="observacoes">Observações</Label>
-              <Textarea
-                id="observacoes"
-                value={formData.observacoes}
-                onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                rows={3}
+              <RichTextEditor
+                value={formData.observacoes || ""}
+                onChange={(value) => setFormData({ ...formData, observacoes: value })}
+                placeholder="Adicione observações sobre o contrato..."
               />
             </div>
           </div>
