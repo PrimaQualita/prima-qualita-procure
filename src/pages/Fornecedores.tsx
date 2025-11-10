@@ -399,9 +399,10 @@ export default function Fornecedores() {
   };
 
   const getNivelPontuacao = (pontos: number) => {
-    if (pontos === 0) return { label: "satisfatório", cor: "text-green-600", bg: "bg-green-500/10" };
-    if (pontos >= 200) return { label: "alto", cor: "text-red-600", bg: "bg-red-500/10" };
-    return { label: "médio", cor: "text-yellow-600", bg: "bg-yellow-500/10" };
+    if (pontos === 0) {
+      return { label: "Satisfatório", cor: "text-green-600", bg: "bg-green-500/10" };
+    }
+    return { label: "Não Satisfatório", cor: "text-red-600", bg: "bg-red-500/10" };
   };
 
   const copiarLinkFormulario = () => {
@@ -646,9 +647,8 @@ export default function Fornecedores() {
             <div className="bg-muted p-4 rounded-lg space-y-2">
               <p className="text-sm font-semibold">Níveis de Risco:</p>
               <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• 0 pontos = <span className="text-green-600 font-semibold">Satisfatório</span> (baixo risco)</li>
-                <li>• 1-199 pontos = <span className="text-yellow-600 font-semibold">Médio</span></li>
-                <li>• 200+ pontos = <span className="text-red-600 font-semibold">Alto</span> risco</li>
+                <li>• <span className="text-green-600 font-semibold">0 pontos = Satisfatório</span> (baixo risco)</li>
+                <li>• <span className="text-red-600 font-semibold">200 pontos = Não Satisfatório</span> (alto risco)</li>
               </ul>
             </div>
 
@@ -718,11 +718,11 @@ export default function Fornecedores() {
               
               {respostasDueDiligence.length > 0 && (
                 <div className="mt-4 p-4 bg-muted rounded-lg">
-                  <p className="font-semibold">
+                  <p className="font-semibold text-lg">
                     Score Total: <span className={getNivelPontuacao(calcularScore()).cor}>{calcularScore()} pontos</span>
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Nível de Risco: <span className={getNivelPontuacao(calcularScore()).cor + " font-semibold"}>
+                    Classificação de Risco: <span className={getNivelPontuacao(calcularScore()).cor + " font-semibold"}>
                       {getNivelPontuacao(calcularScore()).label.toUpperCase()}
                     </span>
                   </p>
