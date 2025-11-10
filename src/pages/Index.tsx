@@ -10,12 +10,28 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check if user is already logged in and redirect appropriately
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate("/dashboard");
+        // Verificar se é fornecedor
+        const { data: fornecedorData } = await supabase
+          .from("fornecedores")
+          .select("id, status_aprovacao")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+
+        if (fornecedorData) {
+          // É fornecedor - redirecionar para portal do fornecedor
+          navigate("/portal-fornecedor");
+        } else {
+          // É usuário interno - redirecionar para dashboard
+          navigate("/dashboard");
+        }
       }
-    });
+    };
+    
+    checkSession();
   }, [navigate]);
 
   return (
