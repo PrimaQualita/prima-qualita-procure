@@ -291,14 +291,23 @@ export default function CadastroFornecedor() {
         
         if (msg.includes("user already registered") || msg.includes("already registered")) {
           mensagemErro = "Este e-mail já está cadastrado no sistema";
+        } else if (msg.includes("row") && msg.includes("security") && msg.includes("policy")) {
+          mensagemErro = "Erro de permissão ao criar cadastro. Tente novamente.";
+        } else if (msg.includes("policy") && msg.includes("violation")) {
+          mensagemErro = "Erro de permissão. Entre em contato com o suporte.";
         } else if (msg.includes("password")) {
           mensagemErro = "Erro na senha. Verifique os requisitos de senha";
         } else if (msg.includes("email")) {
           mensagemErro = "E-mail inválido ou já cadastrado";
         } else if (msg.includes("duplicate key")) {
           mensagemErro = "CNPJ ou e-mail já cadastrado no sistema";
+        } else if (msg.includes("invalid") || msg.includes("not valid")) {
+          mensagemErro = "Dados inválidos. Verifique as informações preenchidas";
+        } else if (msg.includes("missing") || msg.includes("required")) {
+          mensagemErro = "Campos obrigatórios não preenchidos";
         } else {
-          mensagemErro = error.message;
+          // Se ainda tiver mensagem em inglês, não mostrar para o usuário
+          mensagemErro = "Erro ao realizar cadastro. Tente novamente ou entre em contato com o suporte.";
         }
       }
       
