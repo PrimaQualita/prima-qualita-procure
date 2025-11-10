@@ -313,7 +313,7 @@ export default function CadastroFornecedor() {
       
       // Opcional: redirecionar após alguns segundos
       setTimeout(() => {
-        navigate("/auth");
+        navigate("/portal-fornecedor");
       }, 6000);
 
     } catch (error: any) {

@@ -18,6 +18,7 @@ import CadastroFornecedor from "./pages/CadastroFornecedor";
 import AprovacaoFornecedores from "./pages/AprovacaoFornecedores";
 import PerguntasDueDiligence from "./pages/PerguntasDueDiligence";
 import LimpezaUsuarioOrfao from "./pages/LimpezaUsuarioOrfao";
+import PortalFornecedor from "./pages/PortalFornecedor";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/contatos" element={<Contatos />} />
           <Route path="/auditoria" element={<Auditoria />} />
           <Route path="/limpeza-usuario-orfao" element={<LimpezaUsuarioOrfao />} />
+          <Route path="/portal-fornecedor" element={<PortalFornecedor />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -57,7 +57,24 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.session) {
-        // Verificar se é primeiro acesso
+        // Verificar se é fornecedor
+        const { data: fornecedorData } = await supabase
+          .from("fornecedores")
+          .select("id, status_aprovacao")
+          .eq("user_id", data.session.user.id)
+          .maybeSingle();
+
+        if (fornecedorData) {
+          // É fornecedor - redirecionar para portal do fornecedor
+          toast({
+            title: "Login realizado com sucesso!",
+            description: "Bem-vindo ao Portal do Fornecedor.",
+          });
+          navigate("/portal-fornecedor");
+          return;
+        }
+
+        // Não é fornecedor - verificar se é primeiro acesso de usuário interno
         const { data: profile } = await supabase
           .from("profiles")
           .select("primeiro_acesso, senha_temporaria")
