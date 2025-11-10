@@ -231,7 +231,9 @@ export default function Fornecedores() {
     const { data: docs } = await supabase
       .from("documentos_fornecedor")
       .select("*")
-      .eq("fornecedor_id", fornecedor.id);
+      .eq("fornecedor_id", fornecedor.id)
+      .order("tipo_documento", { ascending: true })
+      .order("data_upload", { ascending: false });
     setDocumentosFornecedor(docs || []);
     
     const { data: respostas } = await supabase
