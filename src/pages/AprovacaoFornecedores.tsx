@@ -44,9 +44,12 @@ export default function AprovacaoFornecedores() {
   const [acao, setAcao] = useState<"aprovar" | "reprovar" | null>(null);
   
   const [certificado, setCertificado] = useState<File | null>(null);
-  const [relatorioDueDiligence, setRelatorioDueDiligence] = useState<File | null>(null);
+  const [relatorioKPMG, setRelatorioKPMG] = useState<File | null>(null);
+  const [dataValidadeCertificado, setDataValidadeCertificado] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [processando, setProcessando] = useState(false);
+  const [documentosFornecedor, setDocumentosFornecedor] = useState<any[]>([]);
+  const [respostasDueDiligence, setRespostasDueDiligence] = useState<any[]>([]);
 
   useEffect(() => {
     checkAuth();
@@ -90,20 +93,38 @@ export default function AprovacaoFornecedores() {
     }
   };
 
-  const handleAbrirDialog = (fornecedor: Fornecedor, tipoAcao: "aprovar" | "reprovar") => {
+  const handleAbrirDialog = async (fornecedor: Fornecedor, tipoAcao: "aprovar" | "reprovar") => {
     setSelectedFornecedor(fornecedor);
     setAcao(tipoAcao);
     setDialogOpen(true);
     setObservacoes("");
     setCertificado(null);
-    setRelatorioDueDiligence(null);
+    setRelatorioKPMG(null);
+    setDataValidadeCertificado("");
+    
+    // Carregar documentos do fornecedor
+    const { data: docs } = await supabase
+      .from("documentos_fornecedor")
+      .select("*")
+      .eq("fornecedor_id", fornecedor.id);
+    setDocumentosFornecedor(docs || []);
+    
+    // Carregar respostas de due diligence
+    const { data: respostas } = await supabase
+      .from("respostas_due_diligence_fornecedor")
+      .select(`
+        *,
+        perguntas_due_diligence (texto_pergunta, pontuacao_sim, pontuacao_nao)
+      `)
+      .eq("fornecedor_id", fornecedor.id);
+    setRespostasDueDiligence(respostas || []);
   };
 
   const handleProcessar = async () => {
     if (!selectedFornecedor || !acao) return;
 
-    if (acao === "aprovar" && (!certificado || !relatorioDueDiligence)) {
-      toast.error("Para aprovar, é necessário anexar o Certificado e o Relatório de Due Diligence da KPMG");
+    if (acao === "aprovar" && (!certificado || !relatorioKPMG || !dataValidadeCertificado)) {
+      toast.error("Para aprovar, é necessário anexar o Certificado, o Relatório da KPMG e informar a data de validade do certificado");
       return;
     }
 
@@ -137,11 +158,11 @@ export default function AprovacaoFornecedores() {
         }
 
         // Upload Relatório KPMG
-        if (relatorioDueDiligence) {
+        if (relatorioKPMG) {
           const kpmgFileName = `fornecedor_${selectedFornecedor.id}/relatorio_kpmg_${Date.now()}.pdf`;
           const { error: kpmgUploadError } = await supabase.storage
             .from("processo-anexos")
-            .upload(kpmgFileName, relatorioDueDiligence);
+            .upload(kpmgFileName, relatorioKPMG);
 
           if (kpmgUploadError) throw kpmgUploadError;
 
@@ -152,7 +173,7 @@ export default function AprovacaoFornecedores() {
           await supabase.from("documentos_fornecedor").insert({
             fornecedor_id: selectedFornecedor.id,
             tipo_documento: "relatorio_kpmg",
-            nome_arquivo: relatorioDueDiligence.name,
+            nome_arquivo: relatorioKPMG.name,
             url_arquivo: kpmgUrl,
             em_vigor: true
           });
@@ -167,6 +188,7 @@ export default function AprovacaoFornecedores() {
           data_aprovacao: new Date().toISOString(),
           gestor_aprovador_id: user.id,
           observacoes_gestor: observacoes,
+          data_validade_certificado: acao === "aprovar" ? dataValidadeCertificado : null,
           ativo: acao === "aprovar"
         })
         .eq("id", selectedFornecedor.id);
@@ -277,41 +299,100 @@ export default function AprovacaoFornecedores() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+              {/* Documentos já enviados pelo fornecedor */}
+              <div className="space-y-2">
+                <h3 className="font-semibold">Documentos do Fornecedor</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {documentosFornecedor.map((doc) => (
+                    <div key={doc.id} className="flex items-center gap-2 p-2 border rounded">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex-1">
+                        <p className="font-medium text-xs">{doc.tipo_documento}</p>
+                        {doc.data_validade && (
+                          <p className="text-xs text-muted-foreground">
+                            Validade: {new Date(doc.data_validade).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Respostas de Due Diligence */}
+              {respostasDueDiligence.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold">Questionário Due Diligence</h3>
+                  <div className="space-y-2">
+                    {respostasDueDiligence.map((resposta: any) => (
+                      <div key={resposta.id} className="p-2 border rounded text-sm">
+                        <p className="font-medium">{resposta.perguntas_due_diligence?.texto_pergunta}</p>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className={resposta.resposta_texto === "SIM" ? "text-green-600" : "text-red-600"}>
+                            {resposta.resposta_texto}
+                          </span>
+                          <Badge variant="outline">
+                            Score: {resposta.resposta_texto === "SIM" 
+                              ? resposta.perguntas_due_diligence?.pontuacao_sim 
+                              : resposta.perguntas_due_diligence?.pontuacao_nao}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {acao === "aprovar" && (
                 <>
-                  <div className="space-y-2">
-                    <Label htmlFor="certificado">Certificado *</Label>
-                    <Input
-                      id="certificado"
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => setCertificado(e.target.files?.[0] || null)}
-                      required
-                    />
-                    {certificado && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        {certificado.name}
-                      </p>
-                    )}
-                  </div>
+                  <div className="border-t pt-4 space-y-4">
+                    <h3 className="font-semibold">Documentos do Gestor</h3>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="certificado">Certificado de Fornecedor *</Label>
+                      <Input
+                        id="certificado"
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => setCertificado(e.target.files?.[0] || null)}
+                        required
+                      />
+                      {certificado && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          {certificado.name}
+                        </p>
+                      )}
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="relatorio_kpmg">Relatório de Due Diligence da KPMG *</Label>
-                    <Input
-                      id="relatorio_kpmg"
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => setRelatorioDueDiligence(e.target.files?.[0] || null)}
-                      required
-                    />
-                    {relatorioDueDiligence && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        {relatorioDueDiligence.name}
-                      </p>
-                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="data_validade_cert">Data de Validade do Certificado *</Label>
+                      <Input
+                        id="data_validade_cert"
+                        type="date"
+                        value={dataValidadeCertificado}
+                        onChange={(e) => setDataValidadeCertificado(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="relatorio_kpmg">Relatório da KPMG *</Label>
+                      <Input
+                        id="relatorio_kpmg"
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => setRelatorioKPMG(e.target.files?.[0] || null)}
+                        required
+                      />
+                      {relatorioKPMG && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          {relatorioKPMG.name}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </>
               )}

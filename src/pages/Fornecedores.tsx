@@ -185,13 +185,10 @@ const Fornecedores = () => {
                 </CardDescription>
               </div>
               <Button
-                onClick={() => {
-                  setFornecedorParaEditar(null);
-                  setDialogOpen(true);
-                }}
+                onClick={() => navigate("/perguntas-due-diligence")}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Novo Fornecedor
+                Adicionar Nova Pergunta
               </Button>
             </div>
           </CardHeader>

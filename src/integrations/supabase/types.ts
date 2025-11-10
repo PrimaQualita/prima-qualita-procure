@@ -406,6 +406,7 @@ export type Database = {
           created_at: string | null
           data_aprovacao: string | null
           data_cadastro: string | null
+          data_validade_certificado: string | null
           email: string
           endereco_comercial: string | null
           gestor_aprovador_id: string | null
@@ -427,6 +428,7 @@ export type Database = {
           created_at?: string | null
           data_aprovacao?: string | null
           data_cadastro?: string | null
+          data_validade_certificado?: string | null
           email: string
           endereco_comercial?: string | null
           gestor_aprovador_id?: string | null
@@ -448,6 +450,7 @@ export type Database = {
           created_at?: string | null
           data_aprovacao?: string | null
           data_cadastro?: string | null
+          data_validade_certificado?: string | null
           email?: string
           endereco_comercial?: string | null
           gestor_aprovador_id?: string | null
@@ -572,6 +575,8 @@ export type Database = {
           created_at: string | null
           id: string
           ordem: number
+          pontuacao_nao: number | null
+          pontuacao_sim: number | null
           texto_pergunta: string
           tipo_resposta: string
         }
@@ -580,6 +585,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           ordem?: number
+          pontuacao_nao?: number | null
+          pontuacao_sim?: number | null
           texto_pergunta: string
           tipo_resposta?: string
         }
@@ -588,6 +595,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           ordem?: number
+          pontuacao_nao?: number | null
+          pontuacao_sim?: number | null
           texto_pergunta?: string
           tipo_resposta?: string
         }
