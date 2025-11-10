@@ -258,7 +258,27 @@ export default function CadastroFornecedor() {
 
     } catch (error: any) {
       console.error("Erro ao cadastrar fornecedor:", error);
-      toast.error(error.message || "Erro ao realizar cadastro");
+      
+      // Traduzir mensagens de erro do Supabase para português
+      let mensagemErro = "Erro ao realizar cadastro";
+      
+      if (error.message) {
+        const msg = error.message.toLowerCase();
+        
+        if (msg.includes("user already registered") || msg.includes("already registered")) {
+          mensagemErro = "Este e-mail já está cadastrado no sistema";
+        } else if (msg.includes("password")) {
+          mensagemErro = "Erro na senha. Verifique os requisitos de senha";
+        } else if (msg.includes("email")) {
+          mensagemErro = "E-mail inválido ou já cadastrado";
+        } else if (msg.includes("duplicate key")) {
+          mensagemErro = "CNPJ ou e-mail já cadastrado no sistema";
+        } else {
+          mensagemErro = error.message;
+        }
+      }
+      
+      toast.error(mensagemErro);
     } finally {
       setLoading(false);
     }
