@@ -17,6 +17,7 @@ import Auditoria from "./pages/Auditoria";
 import CadastroFornecedor from "./pages/CadastroFornecedor";
 import AprovacaoFornecedores from "./pages/AprovacaoFornecedores";
 import PerguntasDueDiligence from "./pages/PerguntasDueDiligence";
+import LimpezaUsuarioOrfao from "./pages/LimpezaUsuarioOrfao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
           <Route path="/perguntas-due-diligence" element={<PerguntasDueDiligence />} />
           <Route path="/contatos" element={<Contatos />} />
           <Route path="/auditoria" element={<Auditoria />} />
+          <Route path="/limpeza-usuario-orfao" element={<LimpezaUsuarioOrfao />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
