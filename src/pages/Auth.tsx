@@ -251,7 +251,7 @@ const Auth = () => {
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Cadastro Fornecedor</TabsTrigger>
+              <TabsTrigger value="signup">Cadastro</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -284,10 +284,16 @@ const Auth = () => {
             </TabsContent>
 
             <TabsContent value="signup">
-              <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg border text-center">
                 <p className="text-sm text-muted-foreground">
-                  <strong>Atenção:</strong> Este cadastro é exclusivo para fornecedores. 
-                  Colaboradores e gestores internos são cadastrados pelos administradores do sistema.
+                  Novo fornecedor?{" "}
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto text-primary"
+                    onClick={() => navigate("/cadastro-fornecedor")}
+                  >
+                    Clique aqui para o cadastro completo
+                  </Button>
                 </p>
               </div>
               <form onSubmit={handleSignup} className="space-y-4">

@@ -404,15 +404,19 @@ export type Database = {
           ativo: boolean | null
           cnpj: string
           created_at: string | null
+          data_aprovacao: string | null
           data_cadastro: string | null
           email: string
           endereco_comercial: string | null
+          gestor_aprovador_id: string | null
           id: string
           nome_fantasia: string | null
-          nome_socio_administrador: string
+          nome_socio_administrador: string | null
           nomes_socios_cotistas: string | null
+          observacoes_gestor: string | null
           razao_social: string
           segmento_atividade: string | null
+          status_aprovacao: string | null
           telefone: string
           updated_at: string | null
           user_id: string | null
@@ -421,15 +425,19 @@ export type Database = {
           ativo?: boolean | null
           cnpj: string
           created_at?: string | null
+          data_aprovacao?: string | null
           data_cadastro?: string | null
           email: string
           endereco_comercial?: string | null
+          gestor_aprovador_id?: string | null
           id?: string
           nome_fantasia?: string | null
-          nome_socio_administrador: string
+          nome_socio_administrador?: string | null
           nomes_socios_cotistas?: string | null
+          observacoes_gestor?: string | null
           razao_social: string
           segmento_atividade?: string | null
+          status_aprovacao?: string | null
           telefone: string
           updated_at?: string | null
           user_id?: string | null
@@ -438,20 +446,32 @@ export type Database = {
           ativo?: boolean | null
           cnpj?: string
           created_at?: string | null
+          data_aprovacao?: string | null
           data_cadastro?: string | null
           email?: string
           endereco_comercial?: string | null
+          gestor_aprovador_id?: string | null
           id?: string
           nome_fantasia?: string | null
-          nome_socio_administrador?: string
+          nome_socio_administrador?: string | null
           nomes_socios_cotistas?: string | null
+          observacoes_gestor?: string | null
           razao_social?: string
           segmento_atividade?: string | null
+          status_aprovacao?: string | null
           telefone?: string
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fornecedores_gestor_aprovador_id_fkey"
+            columns: ["gestor_aprovador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lances_fornecedores: {
         Row: {
