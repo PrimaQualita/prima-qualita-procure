@@ -555,11 +555,18 @@ export default function Fornecedores() {
                       <TableCell>{fornecedor.cnpj}</TableCell>
                       <TableCell>{fornecedor.email}</TableCell>
                       <TableCell>
-                        {new Date(fornecedor.data_cadastro).toLocaleDateString()}
+                        {fornecedor.data_cadastro 
+                          ? new Date(fornecedor.data_cadastro + 'T00:00:00').toLocaleDateString('pt-BR')
+                          : "-"}
                       </TableCell>
                       <TableCell>
                         {fornecedor.data_validade_certificado 
-                          ? new Date(fornecedor.data_validade_certificado).toLocaleDateString()
+                          ? (() => {
+                              // Extrair apenas a data sem conversão de timezone
+                              const dateStr = fornecedor.data_validade_certificado.split('T')[0];
+                              const [year, month, day] = dateStr.split('-');
+                              return `${day}/${month}/${year}`;
+                            })()
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right">
