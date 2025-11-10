@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import primaLogo from "@/assets/prima-qualita-logo.png";
+import { validarCPF, mascaraCPF } from "@/lib/validators";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -80,6 +81,16 @@ const Auth = () => {
       toast({
         title: "Erro",
         description: "A senha deve ter no mínimo 6 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar CPF
+    if (!validarCPF(cpf)) {
+      toast({
+        title: "CPF Inválido",
+        description: "Por favor, informe um CPF válido.",
         variant: "destructive",
       });
       return;
@@ -215,8 +226,9 @@ const Auth = () => {
                     type="text"
                     placeholder="000.000.000-00"
                     value={cpf}
-                    onChange={(e) => setCpf(e.target.value)}
+                    onChange={(e) => setCpf(mascaraCPF(e.target.value))}
                     required
+                    maxLength={14}
                   />
                 </div>
                 <div className="space-y-2">
