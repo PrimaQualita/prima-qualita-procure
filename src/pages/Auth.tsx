@@ -19,45 +19,93 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [nomeCompleto, setNomeCompleto] = useState("");
   const [cpf, setCpf] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState(""); // Email ou CPF
 
   useEffect(() => {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/dashboard");
+        checkFirstAccess(session.user.id);
       }
     });
   }, [navigate]);
+
+  const checkFirstAccess = async (userId: string) => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("primeiro_acesso")
+      .eq("id", userId)
+      .single();
+
+    if (profile?.primeiro_acesso) {
+      navigate("/troca-senha");
+    } else {
+      navigate("/dashboard");
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // Verificar se é CPF ou email
+      const isCPF = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(loginIdentifier);
+      let emailToLogin = loginIdentifier;
+
+      if (isCPF) {
+        // Buscar email pelo CPF
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("cpf", loginIdentifier)
+          .single();
+
+        if (profileError || !profile) {
+          throw new Error("CPF não encontrado no sistema");
+        }
+        emailToLogin = profile.email;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: emailToLogin,
         password,
       });
 
       if (error) throw error;
 
       if (data.session) {
-        // Update last login
-        await supabase
+        // Verificar se é primeiro acesso
+        const { data: profile } = await supabase
           .from("profiles")
-          .update({ data_ultimo_login: new Date().toISOString() })
-          .eq("id", data.session.user.id);
+          .select("primeiro_acesso, senha_temporaria")
+          .eq("id", data.session.user.id)
+          .single();
 
-        toast({
-          title: "Login realizado com sucesso!",
-          description: "Bem-vindo ao Sistema de Compras.",
-        });
-        navigate("/dashboard");
+        if (profile?.primeiro_acesso || profile?.senha_temporaria) {
+          toast({
+            title: "Primeiro acesso detectado",
+            description: "Por favor, crie uma nova senha.",
+          });
+          navigate("/troca-senha");
+        } else {
+          // Update last login
+          await supabase
+            .from("profiles")
+            .update({ data_ultimo_login: new Date().toISOString() })
+            .eq("id", data.session.user.id);
+
+          toast({
+            title: "Login realizado com sucesso!",
+            description: "Bem-vindo ao Sistema de Compras.",
+          });
+          navigate("/dashboard");
+        }
       }
     } catch (error: any) {
       toast({
         title: "Erro no login",
-        description: error.message || "Email ou senha incorretos.",
+        description: error.message || "Email/CPF ou senha incorretos.",
         variant: "destructive",
       });
     } finally {
@@ -180,13 +228,13 @@ const Auth = () => {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">E-mail</Label>
+                  <Label htmlFor="login-identifier">E-mail ou CPF</Label>
                   <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="login-identifier"
+                    type="text"
+                    placeholder="seu@email.com ou 000.000.000-00"
+                    value={loginIdentifier}
+                    onChange={(e) => setLoginIdentifier(e.target.value)}
                     required
                   />
                 </div>
