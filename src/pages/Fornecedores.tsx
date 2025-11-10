@@ -126,13 +126,43 @@ const Fornecedores = () => {
     if (!fornecedorParaExcluir) return;
 
     try {
-      const { error } = await supabase
+      // Buscar o user_id do fornecedor antes de excluir
+      const { data: fornecedorData, error: fetchError } = await supabase
+        .from("fornecedores")
+        .select("user_id")
+        .eq("id", fornecedorParaExcluir)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Deletar o registro de fornecedor
+      const { error: deleteError } = await supabase
         .from("fornecedores")
         .delete()
         .eq("id", fornecedorParaExcluir);
 
-      if (error) throw error;
-      toast({ title: "Fornecedor excluído com sucesso!" });
+      if (deleteError) throw deleteError;
+
+      // Se o fornecedor tinha um user_id, deletar o usuário de autenticação
+      if (fornecedorData?.user_id) {
+        const { error: authError } = await supabase.functions.invoke("deletar-usuario-admin", {
+          body: { userId: fornecedorData.user_id },
+        });
+
+        if (authError) {
+          console.error("Erro ao deletar usuário de autenticação:", authError);
+          toast({
+            title: "Fornecedor excluído parcialmente",
+            description: "O registro foi removido mas houve erro ao deletar o acesso do sistema",
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: "Fornecedor excluído com sucesso!" });
+        }
+      } else {
+        toast({ title: "Fornecedor excluído com sucesso!" });
+      }
+      
       loadFornecedores();
     } catch (error: any) {
       toast({
