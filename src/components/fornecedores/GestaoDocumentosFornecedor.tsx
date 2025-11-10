@@ -128,6 +128,67 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
     setDialogOpen(true);
   };
 
+  const handleExtrairDataPDF = async (arquivo: File) => {
+    try {
+      // Converter arquivo para base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          const base64Data = base64.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(arquivo);
+      });
+
+      const pdfBase64 = await base64Promise;
+
+      // Chamar edge function para extrair data
+      const { data, error } = await supabase.functions.invoke('extrair-data-pdf', {
+        body: {
+          pdfBase64,
+          tipoDocumento: tipoDocumentoAtualizar
+        }
+      });
+
+      if (error) {
+        console.error("Erro ao extrair data:", error);
+        return null;
+      }
+
+      return data.dataValidade;
+    } catch (error) {
+      console.error("Erro ao processar PDF:", error);
+      return null;
+    }
+  };
+
+  const handleArquivoSelecionado = async (arquivo: File | null) => {
+    setNovoArquivo(arquivo);
+    
+    if (!arquivo) {
+      setDataValidadeCertificado("");
+      return;
+    }
+
+    const docConfig = DOCUMENTOS_VALIDADE.find(d => d.tipo === tipoDocumentoAtualizar);
+    
+    // Se o documento tem validade, tentar extrair automaticamente
+    if (docConfig?.temValidade) {
+      toast.info("Extraindo data de validade do PDF...");
+      const dataExtraida = await handleExtrairDataPDF(arquivo);
+      
+      if (dataExtraida) {
+        setDataValidadeCertificado(dataExtraida);
+        toast.success("Data de validade extraída automaticamente!");
+      } else {
+        toast.warning("Não foi possível extrair a data automaticamente. Por favor, informe manualmente.");
+        setDataValidadeCertificado("");
+      }
+    }
+  };
+
   const handleAtualizarDocumento = async () => {
     if (!novoArquivo) {
       toast.error("Selecione um arquivo");
@@ -161,7 +222,12 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         .eq("fornecedor_id", fornecedorId)
         .eq("tipo_documento", tipoDocumentoAtualizar);
 
-      // 3. Inserir novo documento
+      // 3. Converter data para formato ISO sem problemas de timezone
+      const dataValidadeISO = dataValidadeCertificado 
+        ? `${dataValidadeCertificado}T00:00:00.000Z`
+        : null;
+
+      // 4. Inserir novo documento
       const { error: insertError } = await supabase
         .from("documentos_fornecedor")
         .insert({
@@ -169,7 +235,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
           tipo_documento: tipoDocumentoAtualizar,
           nome_arquivo: novoArquivo.name,
           url_arquivo: publicUrl,
-          data_validade: docConfig?.temValidade ? dataValidadeCertificado : null,
+          data_validade: dataValidadeISO,
           em_vigor: true
         });
 
@@ -336,7 +402,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
                 id="arquivo"
                 type="file"
                 accept=".pdf"
-                onChange={(e) => setNovoArquivo(e.target.files?.[0] || null)}
+                onChange={(e) => handleArquivoSelecionado(e.target.files?.[0] || null)}
               />
               {novoArquivo && (
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
