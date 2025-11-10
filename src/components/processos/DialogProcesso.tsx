@@ -95,7 +95,13 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     e.preventDefault();
     setLoading(true);
     try {
-      await onSave(formData);
+      // Convert empty date strings to null
+      const dataToSave = {
+        ...formData,
+        data_abertura: formData.data_abertura || null,
+        data_encerramento_prevista: formData.data_encerramento_prevista || null,
+      };
+      await onSave(dataToSave);
       onOpenChange(false);
     } finally {
       setLoading(false);
