@@ -77,11 +77,14 @@ serve(async (req) => {
         const context = pdfText.substring(keywordIndex, keywordIndex + 300);
         console.log(`Contexto encontrado para "${keyword}":`, context);
         
-        // Tentar extrair data do contexto
+        // Para CRF FGTS, extrair TODAS as datas do contexto e pegar a última/segunda
+        const contextDates: Date[] = [];
+        
+        // Tentar extrair todas as datas do contexto
         for (const pattern of datePatterns) {
           pattern.lastIndex = 0; // Reset regex
-          const match = pattern.exec(context);
-          if (match) {
+          let match;
+          while ((match = pattern.exec(context)) !== null) {
             console.log('Match encontrado:', match[0]);
             let day: number, month: number, year: number;
             
@@ -108,16 +111,26 @@ serve(async (req) => {
             // Validar data
             if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
               const date = new Date(year, month - 1, day);
+              contextDates.push(date);
               extractedDates.push(date);
               console.log('Data válida adicionada:', date.toISOString());
-              
-              // Se encontrou uma data próxima à palavra-chave, usar essa
-              dataValidade = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              break;
             }
           }
         }
-        if (dataValidade) break;
+        
+        // Para CRF FGTS, se houver múltiplas datas no contexto, pegar a ÚLTIMA (segunda)
+        if (tipoDocumento === 'crf_fgts' && contextDates.length >= 2) {
+          const lastDate = contextDates[contextDates.length - 1];
+          dataValidade = `${lastDate.getFullYear()}-${String(lastDate.getMonth() + 1).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`;
+          console.log('CRF FGTS - Última data do contexto (validade):', dataValidade);
+          break;
+        } else if (contextDates.length > 0) {
+          // Para outros documentos, usar a primeira data encontrada
+          const firstDate = contextDates[0];
+          dataValidade = `${firstDate.getFullYear()}-${String(firstDate.getMonth() + 1).padStart(2, '0')}-${String(firstDate.getDate()).padStart(2, '0')}`;
+          console.log('Data encontrada próxima à palavra-chave:', dataValidade);
+          break;
+        }
       }
     }
     
