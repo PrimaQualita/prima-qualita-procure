@@ -158,13 +158,14 @@ serve(async (req) => {
         console.log('Datas encontradas:', extractedDates.map(d => d.toISOString().split('T')[0]));
       }
       
-      // Para CRF FGTS, pegar sempre a data mais recente
-      if (tipoDocumento === 'crf_fgts' && extractedDates.length > 0) {
-        const latestDate = extractedDates.reduce((latest, current) => 
-          current > latest ? current : latest
-        );
-        dataValidade = latestDate.toISOString().split('T')[0];
-        console.log('CRF FGTS - Data mais recente:', dataValidade);
+      // Para CRF FGTS, pegar sempre a SEGUNDA data (primeira é emissão, segunda é validade)
+      if (tipoDocumento === 'crf_fgts' && extractedDates.length >= 2) {
+        dataValidade = extractedDates[1].toISOString().split('T')[0];
+        console.log('CRF FGTS - Segunda data (validade):', dataValidade);
+      } else if (tipoDocumento === 'crf_fgts' && extractedDates.length === 1) {
+        // Se só tem uma data, usar ela
+        dataValidade = extractedDates[0].toISOString().split('T')[0];
+        console.log('CRF FGTS - Única data encontrada:', dataValidade);
       } else if (extractedDates.length > 0) {
         // Para outros documentos, pegar a data mais recente que está no futuro
         const now = new Date();
