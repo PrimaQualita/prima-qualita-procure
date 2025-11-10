@@ -49,6 +49,8 @@ const DOCUMENTOS_VALIDADE = [
   { tipo: "cndt", label: "CNDT", temValidade: true },
   { tipo: "contrato_social", label: "Contrato Social Consolidado", temValidade: false },
   { tipo: "cartao_cnpj", label: "Cartão CNPJ", temValidade: false },
+  { tipo: "certificado_gestor", label: "Certificado de Fornecedor", temValidade: false },
+  { tipo: "relatorio_kpmg", label: "Relatório da KPMG", temValidade: false },
 ];
 
 export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
@@ -298,14 +300,16 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
                           Ver
                         </Button>
                       )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAbrirDialogAtualizar(docConfig.tipo)}
-                      >
-                        <Upload className="h-4 w-4 mr-1" />
-                        {doc ? "Atualizar" : "Enviar"}
-                      </Button>
+                      {!["certificado_gestor", "relatorio_kpmg"].includes(docConfig.tipo) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAbrirDialogAtualizar(docConfig.tipo)}
+                        >
+                          <Upload className="h-4 w-4 mr-1" />
+                          {doc ? "Atualizar" : "Enviar"}
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
