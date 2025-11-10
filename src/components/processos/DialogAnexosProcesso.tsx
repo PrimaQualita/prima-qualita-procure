@@ -1,0 +1,265 @@
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { FileUp, Download, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { Label } from "@/components/ui/label";
+
+interface AnexoProcesso {
+  id: string;
+  processo_compra_id: string;
+  tipo_anexo: string;
+  nome_arquivo: string;
+  url_arquivo: string;
+  data_upload: string;
+  usuario_upload_id?: string;
+}
+
+interface DialogAnexosProcessoProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  processoId: string;
+  processoNumero: string;
+}
+
+const TIPOS_ANEXOS_OBRIGATORIOS = [
+  { tipo: "capa_processo", label: "Capa do Processo" },
+  { tipo: "requisicao", label: "Requisição" },
+  { tipo: "autorizacao_despesa", label: "Autorização da Despesa" },
+  { tipo: "termo_referencia", label: "Termo de Referência" },
+];
+
+export function DialogAnexosProcesso({
+  open,
+  onOpenChange,
+  processoId,
+  processoNumero,
+}: DialogAnexosProcessoProps) {
+  const { toast } = useToast();
+  const [anexos, setAnexos] = useState<AnexoProcesso[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && processoId) {
+      loadAnexos();
+    }
+  }, [open, processoId]);
+
+  const loadAnexos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("anexos_processo_compra")
+        .select("*")
+        .eq("processo_compra_id", processoId);
+
+      if (error) throw error;
+      setAnexos(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao carregar anexos",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileUpload = async (tipo: string, file: File) => {
+    setUploading(tipo);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Upload file to storage
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${processoId}/${tipo}_${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("processo-anexos")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("processo-anexos")
+        .getPublicUrl(fileName);
+
+      // Save to database
+      const { error: dbError } = await supabase
+        .from("anexos_processo_compra")
+        .insert({
+          processo_compra_id: processoId,
+          tipo_anexo: tipo,
+          nome_arquivo: file.name,
+          url_arquivo: publicUrl,
+          usuario_upload_id: user.id,
+        });
+
+      if (dbError) throw dbError;
+
+      toast({ title: "Anexo enviado com sucesso!" });
+      loadAnexos();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao enviar anexo",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const handleDownload = async (anexo: AnexoProcesso) => {
+    try {
+      const link = document.createElement("a");
+      link.href = anexo.url_arquivo;
+      link.download = anexo.nome_arquivo;
+      link.click();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao baixar arquivo",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async (anexo: AnexoProcesso) => {
+    if (!confirm("Deseja realmente excluir este anexo?")) return;
+
+    try {
+      // Delete from storage
+      const fileName = anexo.url_arquivo.split("/").pop();
+      if (fileName) {
+        await supabase.storage
+          .from("processo-anexos")
+          .remove([`${processoId}/${fileName}`]);
+      }
+
+      // Delete from database
+      const { error } = await supabase
+        .from("anexos_processo_compra")
+        .delete()
+        .eq("id", anexo.id);
+
+      if (error) throw error;
+
+      toast({ title: "Anexo excluído com sucesso!" });
+      loadAnexos();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir anexo",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getAnexoPorTipo = (tipo: string) => {
+    return anexos.find((a) => a.tipo_anexo === tipo);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Anexos do Processo {processoNumero}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {TIPOS_ANEXOS_OBRIGATORIOS.map(({ tipo, label }) => {
+            const anexo = getAnexoPorTipo(tipo);
+            const isUploading = uploading === tipo;
+
+            return (
+              <div key={tipo} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="font-medium">{label}</Label>
+                    <Badge variant="destructive" className="text-xs">
+                      Obrigatório
+                    </Badge>
+                  </div>
+                  {anexo ? (
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-destructive" />
+                  )}
+                </div>
+
+                {anexo ? (
+                  <div className="flex items-center justify-between bg-muted p-3 rounded">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{anexo.nome_arquivo}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Enviado em {new Date(anexo.data_upload).toLocaleString("pt-BR")}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDownload(anexo)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDelete(anexo)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="file"
+                      id={`file-${tipo}`}
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(tipo, file);
+                      }}
+                      disabled={isUploading}
+                    />
+                    <label htmlFor={`file-${tipo}`}>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        disabled={isUploading}
+                        asChild
+                      >
+                        <span>
+                          <FileUp className="mr-2 h-4 w-4" />
+                          {isUploading ? "Enviando..." : "Anexar Arquivo"}
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

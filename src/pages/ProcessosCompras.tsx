@@ -24,10 +24,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogContrato } from "@/components/contratos/DialogContrato";
 import { DialogProcesso } from "@/components/processos/DialogProcesso";
+import { DialogAnexosProcesso } from "@/components/processos/DialogAnexosProcesso";
+import { stripHtml, truncateText } from "@/lib/htmlUtils";
 
 interface Contrato {
   id: string;
@@ -75,6 +77,8 @@ const ProcessosCompras = () => {
   const [dialogProcessoOpen, setDialogProcessoOpen] = useState(false);
   const [processoParaEditar, setProcessoParaEditar] = useState<Processo | null>(null);
   const [processoParaExcluir, setProcessoParaExcluir] = useState<string | null>(null);
+  const [dialogAnexosOpen, setDialogAnexosOpen] = useState(false);
+  const [processoParaAnexos, setProcessoParaAnexos] = useState<Processo | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -449,6 +453,7 @@ const ProcessosCompras = () => {
                       <TableHead>Tipo</TableHead>
                       <TableHead>Valor Estimado</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Anexos</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -456,7 +461,9 @@ const ProcessosCompras = () => {
                     {processosFiltrados.map((processo) => (
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
-                        <TableCell className="max-w-[300px] truncate">{processo.objeto_resumido}</TableCell>
+                        <TableCell className="max-w-[300px] truncate">
+                          {truncateText(stripHtml(processo.objeto_resumido), 100)}
+                        </TableCell>
                         <TableCell>{processo.ano_referencia}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{processo.tipo.replace(/_/g, " ")}</Badge>
@@ -468,6 +475,19 @@ const ProcessosCompras = () => {
                           }).format(processo.valor_estimado_anual)}
                         </TableCell>
                         <TableCell>{getStatusBadge(processo.status_processo)}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setProcessoParaAnexos(processo);
+                              setDialogAnexosOpen(true);
+                            }}
+                            title="Gerenciar Anexos"
+                          >
+                            <Paperclip className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -547,6 +567,15 @@ const ProcessosCompras = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {processoParaAnexos && (
+        <DialogAnexosProcesso
+          open={dialogAnexosOpen}
+          onOpenChange={setDialogAnexosOpen}
+          processoId={processoParaAnexos.id}
+          processoNumero={processoParaAnexos.numero_processo_interno}
+        />
+      )}
     </div>
   );
 };
