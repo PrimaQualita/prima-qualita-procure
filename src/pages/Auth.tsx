@@ -23,20 +23,8 @@ const Auth = () => {
   const [loginIdentifier, setLoginIdentifier] = useState(""); // Email ou CPF
   const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
 
-  useEffect(() => {
-    // Check if user is already logged in - simplified to avoid loops
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // User is logged in, redirect to dashboard
-        // The dashboard will handle first access check
-        navigate("/dashboard");
-      }
-    };
-    
-    checkSession();
-    // Only run once on mount
-  }, []);
+  // Removed auto-redirect to prevent login screen issues
+  // User must explicitly login
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

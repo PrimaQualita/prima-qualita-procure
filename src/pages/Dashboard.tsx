@@ -47,11 +47,11 @@ const Dashboard = () => {
   useEffect(() => {
     if (user) {
       loadUserProfile();
-    } else if (user === null) {
-      // Only navigate if explicitly null (not loading)
+    } else if (user === null && !loading) {
+      // Only navigate if explicitly null and not loading
       navigate("/auth");
     }
-  }, [user]);
+  }, [user, loading]);
 
   const loadUserProfile = async () => {
     if (!user) return;
