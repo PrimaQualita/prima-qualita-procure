@@ -36,7 +36,12 @@ export default function CadastroFornecedor() {
     razao_social: "",
     nome_fantasia: "",
     cnpj: "",
-    endereco_comercial: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    municipio: "",
+    cep: "",
     telefone: "",
     email: "",
     senha: "",
@@ -170,6 +175,16 @@ export default function CadastroFornecedor() {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Erro ao criar usuário");
 
+      // Montar endereço completo
+      const enderecoCompleto = [
+        formData.logradouro,
+        formData.numero ? `Nº ${formData.numero}` : "",
+        formData.complemento,
+        formData.bairro,
+        formData.municipio,
+        formData.cep ? `CEP: ${formData.cep}` : ""
+      ].filter(Boolean).join(", ");
+
       // 2. Criar registro de fornecedor
       const { data: fornecedorData, error: fornecedorError } = await supabase
         .from("fornecedores")
@@ -178,7 +193,7 @@ export default function CadastroFornecedor() {
           razao_social: formData.razao_social,
           nome_fantasia: formData.nome_fantasia || null,
           cnpj: formData.cnpj.replace(/\D/g, ''),
-          endereco_comercial: formData.endereco_comercial,
+          endereco_comercial: enderecoCompleto,
           telefone: formData.telefone,
           email: formData.email,
           status_aprovacao: 'pendente',
@@ -323,13 +338,70 @@ export default function CadastroFornecedor() {
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="endereco_comercial">Endereço Comercial *</Label>
-                    <Textarea
-                      id="endereco_comercial"
-                      value={formData.endereco_comercial}
-                      onChange={(e) => setFormData({ ...formData, endereco_comercial: e.target.value })}
+                    <h4 className="font-medium">Endereço Comercial</h4>
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="logradouro">Logradouro *</Label>
+                    <Input
+                      id="logradouro"
+                      value={formData.logradouro}
+                      onChange={(e) => setFormData({ ...formData, logradouro: e.target.value })}
                       required
-                      rows={2}
+                      placeholder="Rua, Avenida, etc."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="numero">Nº *</Label>
+                    <Input
+                      id="numero"
+                      value={formData.numero}
+                      onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
+                      required
+                      placeholder="000"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="complemento">Complemento</Label>
+                    <Input
+                      id="complemento"
+                      value={formData.complemento}
+                      onChange={(e) => setFormData({ ...formData, complemento: e.target.value })}
+                      placeholder="Sala, Andar, etc."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bairro">Bairro *</Label>
+                    <Input
+                      id="bairro"
+                      value={formData.bairro}
+                      onChange={(e) => setFormData({ ...formData, bairro: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="municipio">Município *</Label>
+                    <Input
+                      id="municipio"
+                      value={formData.municipio}
+                      onChange={(e) => setFormData({ ...formData, municipio: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cep">CEP *</Label>
+                    <Input
+                      id="cep"
+                      value={formData.cep}
+                      onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
+                      required
+                      placeholder="00000-000"
+                      maxLength={9}
                     />
                   </div>
 
