@@ -406,6 +406,7 @@ export type Database = {
           created_at: string | null
           data_cadastro: string | null
           email: string
+          endereco_comercial: string | null
           id: string
           nome_fantasia: string | null
           nome_socio_administrador: string
@@ -422,6 +423,7 @@ export type Database = {
           created_at?: string | null
           data_cadastro?: string | null
           email: string
+          endereco_comercial?: string | null
           id?: string
           nome_fantasia?: string | null
           nome_socio_administrador: string
@@ -438,6 +440,7 @@ export type Database = {
           created_at?: string | null
           data_cadastro?: string | null
           email?: string
+          endereco_comercial?: string | null
           id?: string
           nome_fantasia?: string | null
           nome_socio_administrador?: string
