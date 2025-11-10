@@ -64,12 +64,27 @@ serve(async (req) => {
     const extractedDates: Date[] = [];
     
     // PRIMEIRO: Verificar se o documento menciona "válida por X dias" ou similar
-    const validadeDiasPattern = /(?:válida?|valida?)\s+por\s+(\d+)\s+dias?/gi;
-    const validadeDiasMatch = validadeDiasPattern.exec(pdfText);
+    // Padrões mais flexíveis para capturar variações
+    const validadeDiasPatterns = [
+      /(?:válida?|valida?)\s+(?:por)?\s*(\d+)\s+dias?/gi,
+      /(?:prazo|validade)\s+(?:de)?\s*(\d+)\s+dias?/gi,
+      /(\d+)\s+dias?.*?(?:válida?|valida?|validade)/gi,
+    ];
     
-    if (validadeDiasMatch) {
-      const numeroDias = parseInt(validadeDiasMatch[1]);
-      console.log(`Documento válido por ${numeroDias} dias - calculando data de validade...`);
+    let numeroDias: number | null = null;
+    
+    for (const pattern of validadeDiasPatterns) {
+      pattern.lastIndex = 0;
+      const match = pattern.exec(pdfText);
+      if (match) {
+        numeroDias = parseInt(match[1]);
+        console.log(`ENCONTRADO: Documento válido por ${numeroDias} dias`);
+        break;
+      }
+    }
+    
+    if (numeroDias) {
+      console.log(`Calculando data de validade: data de emissão + ${numeroDias} dias`);
       
       // Extrair a PRIMEIRA data do documento (data de emissão)
       for (const pattern of datePatterns) {
@@ -95,14 +110,14 @@ serve(async (req) => {
           
           if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
             const dataEmissao = new Date(year, month - 1, day);
-            console.log('Data de emissão encontrada:', dataEmissao.toISOString().split('T')[0]);
+            console.log('Data de emissão identificada:', dataEmissao.toISOString().split('T')[0]);
             
             // Adicionar os dias de validade
             const dataValidadeCalculada = new Date(dataEmissao);
             dataValidadeCalculada.setDate(dataValidadeCalculada.getDate() + numeroDias);
             
             dataValidade = `${dataValidadeCalculada.getFullYear()}-${String(dataValidadeCalculada.getMonth() + 1).padStart(2, '0')}-${String(dataValidadeCalculada.getDate()).padStart(2, '0')}`;
-            console.log(`Data de validade calculada (${numeroDias} dias após emissão):`, dataValidade);
+            console.log(`Data de validade CALCULADA (emissão ${dataEmissao.toISOString().split('T')[0]} + ${numeroDias} dias):`, dataValidade);
             break;
           }
         }
