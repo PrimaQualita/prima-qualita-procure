@@ -121,17 +121,33 @@ serve(async (req) => {
       }
       
       if (todasDatas.length > 0) {
-        // Ordenar por posição no texto (primeira data que aparece)
-        todasDatas.sort((a, b) => a.position - b.position);
-        
         console.log('Todas as datas encontradas (em ordem de aparição):');
         todasDatas.forEach((d, i) => {
           console.log(`  ${i + 1}. ${d.text} = ${d.date.toISOString().split('T')[0]} (posição ${d.position})`);
         });
         
-        // Pegar a PRIMEIRA data (data de emissão)
-        const dataEmissao = todasDatas[0].date;
-        console.log(`>>> DATA DE EMISSÃO (primeira data): ${dataEmissao.toISOString().split('T')[0]}`);
+        // Procurar data de emissão perto de palavras-chave como cidade/estado
+        const localidadePattern = /(?:rio\s+de\s+janeiro|são\s+paulo|brasília|brasil|rj|sp|df),?\s*([^\n]*?)(\d{2})[\/\-](\d{2})[\/\-](\d{4})/gi;
+        const localidadeMatch = localidadePattern.exec(pdfText);
+        
+        let dataEmissao: Date | null = null;
+        
+        if (localidadeMatch) {
+          const day = parseInt(localidadeMatch[2]);
+          const month = parseInt(localidadeMatch[3]);
+          const year = parseInt(localidadeMatch[4]);
+          
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
+            dataEmissao = new Date(year, month - 1, day);
+            console.log(`>>> DATA DE EMISSÃO encontrada perto de localidade: ${dataEmissao.toISOString().split('T')[0]}`);
+          }
+        }
+        
+        // Se não encontrou perto de localidade, pegar a ÚLTIMA data (geralmente é a data de emissão)
+        if (!dataEmissao) {
+          dataEmissao = todasDatas[todasDatas.length - 1].date;
+          console.log(`>>> DATA DE EMISSÃO (última data do documento): ${dataEmissao.toISOString().split('T')[0]}`);
+        }
         
         // Calcular validade: emissão + dias
         const dataValidadeCalculada = new Date(dataEmissao);
