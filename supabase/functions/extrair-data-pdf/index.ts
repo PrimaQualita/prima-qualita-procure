@@ -127,15 +127,16 @@ serve(async (req) => {
         });
         
         // Procurar data de emissão perto de palavras-chave como cidade/estado
-        const localidadePattern = /(?:rio\s+de\s+janeiro|são\s+paulo|brasília|brasil|rj|sp|df),?\s*([^\n]*?)(\d{2})[\/\-](\d{2})[\/\-](\d{4})/gi;
-        const localidadeMatch = localidadePattern.exec(pdfText);
+        // Essa data geralmente aparece no formato: "Rio de Janeiro, RJ, 30/10/2025"
+        const localidadePattern = /(?:rio\s+de\s+janeiro|são\s+paulo|brasília|brasil),?\s*(?:rj|sp|df)?,?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{4})/gi;
+        let localidadeMatch = localidadePattern.exec(pdfText);
         
         let dataEmissao: Date | null = null;
         
         if (localidadeMatch) {
-          const day = parseInt(localidadeMatch[2]);
-          const month = parseInt(localidadeMatch[3]);
-          const year = parseInt(localidadeMatch[4]);
+          const day = parseInt(localidadeMatch[1]);
+          const month = parseInt(localidadeMatch[2]);
+          const year = parseInt(localidadeMatch[3]);
           
           if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
             dataEmissao = new Date(year, month - 1, day);
@@ -143,20 +144,24 @@ serve(async (req) => {
           }
         }
         
-        // Se não encontrou perto de localidade, pegar a ÚLTIMA data (geralmente é a data de emissão)
-        if (!dataEmissao) {
+        // Se não encontrou perto de localidade, pegar a ÚLTIMA data (geralmente é a data de emissão em certidões)
+        if (!dataEmissao && todasDatas.length > 0) {
           dataEmissao = todasDatas[todasDatas.length - 1].date;
           console.log(`>>> DATA DE EMISSÃO (última data do documento): ${dataEmissao.toISOString().split('T')[0]}`);
         }
         
-        // Calcular validade: emissão + dias
-        const dataValidadeCalculada = new Date(dataEmissao);
-        dataValidadeCalculada.setDate(dataValidadeCalculada.getDate() + numeroDias);
-        
-        dataValidade = `${dataValidadeCalculada.getFullYear()}-${String(dataValidadeCalculada.getMonth() + 1).padStart(2, '0')}-${String(dataValidadeCalculada.getDate()).padStart(2, '0')}`;
-        
-        console.log(`>>> DATA DE VALIDADE CALCULADA: ${dataEmissao.toISOString().split('T')[0]} + ${numeroDias} dias = ${dataValidade}`);
-        console.log('=============================================================');
+        // Calcular validade: emissão + dias (somente se encontrou data de emissão)
+        if (dataEmissao) {
+          const dataValidadeCalculada = new Date(dataEmissao);
+          dataValidadeCalculada.setDate(dataValidadeCalculada.getDate() + numeroDias);
+          
+          dataValidade = `${dataValidadeCalculada.getFullYear()}-${String(dataValidadeCalculada.getMonth() + 1).padStart(2, '0')}-${String(dataValidadeCalculada.getDate()).padStart(2, '0')}`;
+          
+          console.log(`>>> DATA DE VALIDADE CALCULADA: ${dataEmissao.toISOString().split('T')[0]} + ${numeroDias} dias = ${dataValidade}`);
+          console.log('=============================================================');
+        } else {
+          console.log('>>> ERRO: Não foi possível identificar data de emissão para calcular validade');
+        }
       }
     }
     
