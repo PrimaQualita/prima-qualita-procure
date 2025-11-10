@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { validarCPF, mascaraCPF } from "@/lib/validators";
+import { validarCPF, mascaraCPF, validarSenhaForte } from "@/lib/validators";
+import { RequisitosSenha } from "@/components/RequisitosSenha";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ const Auth = () => {
   const [nomeCompleto, setNomeCompleto] = useState("");
   const [cpf, setCpf] = useState("");
   const [loginIdentifier, setLoginIdentifier] = useState(""); // Email ou CPF
+  const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
 
   useEffect(() => {
     // Check if user is already logged in
@@ -125,10 +127,12 @@ const Auth = () => {
       return;
     }
 
-    if (password.length < 6) {
+    // Validar senha forte
+    const validacao = validarSenhaForte(password);
+    if (!validacao.valida) {
       toast({
-        title: "Erro",
-        description: "A senha deve ter no mínimo 6 caracteres.",
+        title: "Senha fraca",
+        description: "A senha deve atender a todos os requisitos de segurança.",
         variant: "destructive",
       });
       return;
@@ -296,11 +300,16 @@ const Auth = () => {
                     id="signup-password"
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setValidacaoSenha(validarSenhaForte(e.target.value));
+                    }}
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
+                
+                <RequisitosSenha validacao={validacaoSenha} />
                 <div className="space-y-2">
                   <Label htmlFor="signup-confirm">Confirmar Senha</Label>
                   <Input

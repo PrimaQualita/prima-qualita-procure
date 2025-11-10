@@ -1,3 +1,33 @@
+// Validação de Senha Forte
+export interface ValidacaoSenha {
+  valida: boolean;
+  temMinimo8: boolean;
+  temMaiuscula: boolean;
+  temMinuscula: boolean;
+  temNumero: boolean;
+  temEspecial: boolean;
+}
+
+export function validarSenhaForte(senha: string): ValidacaoSenha {
+  const resultado: ValidacaoSenha = {
+    valida: false,
+    temMinimo8: senha.length >= 8,
+    temMaiuscula: /[A-Z]/.test(senha),
+    temMinuscula: /[a-z]/.test(senha),
+    temNumero: /[0-9]/.test(senha),
+    temEspecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha),
+  };
+
+  resultado.valida =
+    resultado.temMinimo8 &&
+    resultado.temMaiuscula &&
+    resultado.temMinuscula &&
+    resultado.temNumero &&
+    resultado.temEspecial;
+
+  return resultado;
+}
+
 // Validação de CPF
 export function validarCPF(cpf: string): boolean {
   // Remove caracteres não numéricos

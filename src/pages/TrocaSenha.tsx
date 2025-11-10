@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { validarSenhaForte } from "@/lib/validators";
+import { RequisitosSenha } from "@/components/RequisitosSenha";
 
 const TrocaSenha = () => {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ const TrocaSenha = () => {
   const [loading, setLoading] = useState(false);
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmaSenha, setConfirmaSenha] = useState("");
+  const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
 
   const handleTrocaSenha = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,10 +32,12 @@ const TrocaSenha = () => {
       return;
     }
 
-    if (novaSenha.length < 6) {
+    // Validar senha forte
+    const validacao = validarSenhaForte(novaSenha);
+    if (!validacao.valida) {
       toast({
-        title: "Erro",
-        description: "A nova senha deve ter no mínimo 6 caracteres.",
+        title: "Senha fraca",
+        description: "A nova senha deve atender a todos os requisitos de segurança.",
         variant: "destructive",
       });
       return;
@@ -113,13 +118,18 @@ const TrocaSenha = () => {
               <Input
                 id="nova-senha"
                 type="password"
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres"
                 value={novaSenha}
-                onChange={(e) => setNovaSenha(e.target.value)}
+                onChange={(e) => {
+                  setNovaSenha(e.target.value);
+                  setValidacaoSenha(validarSenhaForte(e.target.value));
+                }}
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
+
+            <RequisitosSenha validacao={validacaoSenha} />
             <div className="space-y-2">
               <Label htmlFor="confirma-senha">Confirmar Nova Senha</Label>
               <Input
