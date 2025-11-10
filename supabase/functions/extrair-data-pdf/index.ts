@@ -64,7 +64,6 @@ serve(async (req) => {
     const extractedDates: Date[] = [];
     
     // PRIMEIRO: Verificar se o documento menciona "válida por X dias" ou similar
-    // Padrões mais flexíveis para capturar variações
     const validadeDiasPatterns = [
       /(?:válida?|valida?)\s+(?:por)?\s*(\d+)\s+dias?/gi,
       /(?:prazo|validade)\s+(?:de)?\s*(\d+)\s+dias?/gi,
@@ -78,15 +77,17 @@ serve(async (req) => {
       const match = pattern.exec(pdfText);
       if (match) {
         numeroDias = parseInt(match[1]);
-        console.log(`ENCONTRADO: Documento válido por ${numeroDias} dias`);
+        console.log(`===== ENCONTRADO: Documento válido por ${numeroDias} dias =====`);
         break;
       }
     }
     
     if (numeroDias) {
-      console.log(`Calculando data de validade: data de emissão + ${numeroDias} dias`);
+      console.log(`Buscando data de emissão para calcular validade...`);
       
-      // Extrair a PRIMEIRA data do documento (data de emissão)
+      // Extrair TODAS as datas do documento primeiro
+      const todasDatas: Array<{date: Date, text: string, position: number}> = [];
+      
       for (const pattern of datePatterns) {
         pattern.lastIndex = 0;
         let match;
@@ -109,19 +110,37 @@ serve(async (req) => {
           }
           
           if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
-            const dataEmissao = new Date(year, month - 1, day);
-            console.log('Data de emissão identificada:', dataEmissao.toISOString().split('T')[0]);
-            
-            // Adicionar os dias de validade
-            const dataValidadeCalculada = new Date(dataEmissao);
-            dataValidadeCalculada.setDate(dataValidadeCalculada.getDate() + numeroDias);
-            
-            dataValidade = `${dataValidadeCalculada.getFullYear()}-${String(dataValidadeCalculada.getMonth() + 1).padStart(2, '0')}-${String(dataValidadeCalculada.getDate()).padStart(2, '0')}`;
-            console.log(`Data de validade CALCULADA (emissão ${dataEmissao.toISOString().split('T')[0]} + ${numeroDias} dias):`, dataValidade);
-            break;
+            const date = new Date(year, month - 1, day);
+            todasDatas.push({
+              date: date,
+              text: match[0],
+              position: match.index
+            });
           }
         }
-        if (dataValidade) break;
+      }
+      
+      if (todasDatas.length > 0) {
+        // Ordenar por posição no texto (primeira data que aparece)
+        todasDatas.sort((a, b) => a.position - b.position);
+        
+        console.log('Todas as datas encontradas (em ordem de aparição):');
+        todasDatas.forEach((d, i) => {
+          console.log(`  ${i + 1}. ${d.text} = ${d.date.toISOString().split('T')[0]} (posição ${d.position})`);
+        });
+        
+        // Pegar a PRIMEIRA data (data de emissão)
+        const dataEmissao = todasDatas[0].date;
+        console.log(`>>> DATA DE EMISSÃO (primeira data): ${dataEmissao.toISOString().split('T')[0]}`);
+        
+        // Calcular validade: emissão + dias
+        const dataValidadeCalculada = new Date(dataEmissao);
+        dataValidadeCalculada.setDate(dataValidadeCalculada.getDate() + numeroDias);
+        
+        dataValidade = `${dataValidadeCalculada.getFullYear()}-${String(dataValidadeCalculada.getMonth() + 1).padStart(2, '0')}-${String(dataValidadeCalculada.getDate()).padStart(2, '0')}`;
+        
+        console.log(`>>> DATA DE VALIDADE CALCULADA: ${dataEmissao.toISOString().split('T')[0]} + ${numeroDias} dias = ${dataValidade}`);
+        console.log('=============================================================');
       }
     }
     
