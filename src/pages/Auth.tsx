@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,16 +23,7 @@ const Auth = () => {
   const [loginIdentifier, setLoginIdentifier] = useState(""); // Email ou CPF
   const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
 
-  useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        checkFirstAccess(session.user.id);
-      }
-    });
-  }, [navigate]);
-
-  const checkFirstAccess = async (userId: string) => {
+  const checkFirstAccess = useCallback(async (userId: string) => {
     const { data: profile } = await supabase
       .from("profiles")
       .select("primeiro_acesso")
@@ -44,7 +35,16 @@ const Auth = () => {
     } else {
       navigate("/dashboard");
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        checkFirstAccess(session.user.id);
+      }
+    });
+  }, [checkFirstAccess]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
