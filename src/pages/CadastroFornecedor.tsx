@@ -66,16 +66,27 @@ export default function CadastroFornecedor() {
 
   const loadPerguntas = async () => {
     try {
+      console.log("Carregando perguntas de due diligence...");
       const { data, error } = await supabase
         .from("perguntas_due_diligence")
         .select("id, texto_pergunta")
         .eq("ativo", true)
         .order("ordem");
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao buscar perguntas:", error);
+        throw error;
+      }
+      
+      console.log("Perguntas carregadas:", data);
       setPerguntas(data || []);
+      
+      if (!data || data.length === 0) {
+        console.warn("Nenhuma pergunta ativa encontrada no banco de dados");
+      }
     } catch (error) {
       console.error("Erro ao carregar perguntas:", error);
+      toast.error("Erro ao carregar questionário de Due Diligence");
     }
   };
 
@@ -294,9 +305,9 @@ export default function CadastroFornecedor() {
         
         <Card>
           <CardHeader>
-            <CardTitle>Cadastro de Fornecedor</CardTitle>
+            <CardTitle>Cadastro de Fornecedor - Prima Qualitá Saúde</CardTitle>
             <CardDescription>
-              Preencha todos os dados e envie os documentos necessários para análise
+              Preencha todos os dados, responda o questionário de Due Diligence e envie os documentos necessários para análise
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -453,30 +464,41 @@ export default function CadastroFornecedor() {
               </div>
 
               {/* Perguntas Due Diligence */}
-              {perguntas.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Questionário</h3>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Questionário de Due Diligence</h3>
+                {perguntas.length === 0 ? (
+                  <p className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/50">
+                    Nenhuma pergunta disponível no momento. Entre em contato com o gestor.
+                  </p>
+                ) : (
                   <div className="space-y-3">
-                    {perguntas.map((pergunta) => (
-                      <div key={pergunta.id} className="flex items-center space-x-3 p-3 border rounded-md">
-                        <Checkbox
-                          id={pergunta.id}
-                          checked={respostas[pergunta.id] || false}
-                          onCheckedChange={(checked) =>
-                            setRespostas({ ...respostas, [pergunta.id]: checked as boolean })
-                          }
-                        />
-                        <Label htmlFor={pergunta.id} className="flex-1 cursor-pointer">
-                          {pergunta.texto_pergunta}
-                        </Label>
-                        <span className="text-sm font-medium">
-                          {respostas[pergunta.id] ? "SIM" : "NÃO"}
-                        </span>
+                    {perguntas.map((pergunta, index) => (
+                      <div key={pergunta.id} className="flex items-start gap-3 p-3 border rounded-md">
+                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold mt-0.5">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <Label htmlFor={pergunta.id} className="cursor-pointer text-sm">
+                            {pergunta.texto_pergunta}
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={pergunta.id}
+                            checked={respostas[pergunta.id] || false}
+                            onCheckedChange={(checked) =>
+                              setRespostas({ ...respostas, [pergunta.id]: checked as boolean })
+                            }
+                          />
+                          <span className={`text-sm font-medium min-w-[40px] ${respostas[pergunta.id] ? "text-green-600" : "text-red-600"}`}>
+                            {respostas[pergunta.id] ? "SIM" : "NÃO"}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Documentos */}
               <div className="space-y-4">
