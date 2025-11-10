@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { validarCNPJ, mascaraCNPJ } from "@/lib/validators";
 import { FileText, Upload } from "lucide-react";
+import primaLogo from "@/assets/prima-qualita-logo.png";
 
 interface DueDiligencePergunta {
   id: string;
@@ -103,7 +104,10 @@ export default function CadastroFornecedor() {
           }));
 
           if (data.dataValidade) {
-            toast.success(`Data de validade extraída: ${new Date(data.dataValidade).toLocaleDateString()}`);
+            // Formatar data sem conversão para evitar problema de timezone
+            const [year, month, day] = data.dataValidade.split('-');
+            const dataFormatada = `${day}/${month}/${year}`;
+            toast.success(`Data de validade extraída: ${dataFormatada}`);
           } else {
             toast.warning("Não foi possível extrair a data de validade automaticamente");
           }
@@ -248,6 +252,11 @@ export default function CadastroFornecedor() {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-16" />
+        </div>
+        
         <Card>
           <CardHeader>
             <CardTitle>Cadastro de Fornecedor</CardTitle>
