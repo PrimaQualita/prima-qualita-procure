@@ -228,12 +228,23 @@ const Fornecedores = () => {
                   Visualize e gerencie cadastros de fornecedores
                 </CardDescription>
               </div>
-              <Button
-                onClick={() => navigate("/perguntas-due-diligence")}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Adicionar Nova Pergunta
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setFornecedorParaEditar(null);
+                    setDialogOpen(true);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Fornecedor
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/perguntas-due-diligence")}
+                >
+                  Gerenciar Perguntas Due Diligence
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
