@@ -151,6 +151,25 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      // Verificar se já existe um perfil com este CPF
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("email, cpf")
+        .or(`email.eq.${email},cpf.eq.${cpf}`)
+        .maybeSingle();
+
+      if (existingProfile) {
+        toast({
+          title: "Usuário já cadastrado",
+          description: `Já existe um cadastro com este ${
+            existingProfile.email === email ? "e-mail" : "CPF"
+          }. Por favor, faça login.`,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -162,7 +181,19 @@ const Auth = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Tratamento específico para usuário já existente no auth
+        if (error.message.includes("already registered") || error.message.includes("User already registered")) {
+          toast({
+            title: "E-mail já cadastrado",
+            description: "Este e-mail já está em uso. Tente fazer login ou use outro e-mail.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
 
       if (data.user) {
         // Create profile
@@ -175,7 +206,17 @@ const Auth = () => {
           },
         ]);
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          // Se falhar ao criar perfil, tentar deletar o usuário auth criado
+          console.error("Erro ao criar perfil:", profileError);
+          toast({
+            title: "Erro no cadastro",
+            description: "Houve um problema ao criar seu perfil. Tente novamente.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
 
         // Create role (default: colaborador)
         const { error: roleError } = await supabase.from("user_roles").insert([
@@ -185,24 +226,28 @@ const Auth = () => {
           },
         ]);
 
-        if (roleError) throw roleError;
+        if (roleError) {
+          console.error("Erro ao criar role:", roleError);
+        }
 
         toast({
           title: "Cadastro realizado com sucesso!",
           description: "Você já pode fazer login.",
         });
 
-        // Switch to login tab
+        // Limpar campos
         setEmail("");
         setPassword("");
         setConfirmPassword("");
         setNomeCompleto("");
         setCpf("");
+        setValidacaoSenha(validarSenhaForte(""));
       }
     } catch (error: any) {
+      console.error("Erro completo:", error);
       toast({
         title: "Erro no cadastro",
-        description: error.message,
+        description: error.message || "Ocorreu um erro ao criar sua conta.",
         variant: "destructive",
       });
     } finally {
