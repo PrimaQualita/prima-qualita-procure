@@ -24,9 +24,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { DialogFornecedor } from "@/components/fornecedores/DialogFornecedor";
 
 interface Fornecedor {
   id: string;
@@ -48,8 +47,6 @@ const Fornecedores = () => {
   const [loading, setLoading] = useState(true);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [filtro, setFiltro] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [fornecedorParaEditar, setFornecedorParaEditar] = useState<Fornecedor | null>(null);
   const [fornecedorParaExcluir, setFornecedorParaExcluir] = useState<string | null>(null);
   const [isGestor, setIsGestor] = useState(false);
 
@@ -95,32 +92,6 @@ const Fornecedores = () => {
     }
   };
 
-  const handleSave = async (fornecedor: Omit<Fornecedor, "id">) => {
-    try {
-      if (fornecedorParaEditar) {
-        const { error } = await supabase
-          .from("fornecedores")
-          .update(fornecedor)
-          .eq("id", fornecedorParaEditar.id);
-
-        if (error) throw error;
-        toast({ title: "Fornecedor atualizado com sucesso!" });
-      } else {
-        const { error } = await supabase.from("fornecedores").insert([fornecedor]);
-        if (error) throw error;
-        toast({ title: "Fornecedor cadastrado com sucesso!" });
-      }
-      loadFornecedores();
-      setFornecedorParaEditar(null);
-    } catch (error: any) {
-      toast({
-        title: "Erro ao salvar fornecedor",
-        description: error.message,
-        variant: "destructive",
-      });
-      throw error;
-    }
-  };
 
   const handleDelete = async () => {
     if (!fornecedorParaExcluir) return;
@@ -228,23 +199,12 @@ const Fornecedores = () => {
                   Visualize e gerencie cadastros de fornecedores
                 </CardDescription>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => {
-                    setFornecedorParaEditar(null);
-                    setDialogOpen(true);
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Fornecedor
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/perguntas-due-diligence")}
-                >
-                  Gerenciar Perguntas Due Diligence
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/perguntas-due-diligence")}
+              >
+                Gerenciar Perguntas Due Diligence
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -305,17 +265,6 @@ const Fornecedores = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setFornecedorParaEditar(fornecedor);
-                              setDialogOpen(true);
-                            }}
-                            title="Editar"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
                           {isGestor && (
                             <Button
                               variant="ghost"
@@ -336,13 +285,6 @@ const Fornecedores = () => {
           </CardContent>
         </Card>
       </div>
-
-      <DialogFornecedor
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        fornecedor={fornecedorParaEditar}
-        onSave={handleSave}
-      />
 
       <AlertDialog open={!!fornecedorParaExcluir} onOpenChange={() => setFornecedorParaExcluir(null)}>
         <AlertDialogContent>
