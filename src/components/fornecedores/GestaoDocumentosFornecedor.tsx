@@ -222,7 +222,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
                 const statusValidade = doc?.data_validade 
                   ? getStatusValidade(doc.data_validade) 
                   : { 
-                      label: "Pendente", 
+                      label: docConfig.temValidade ? "Pendente" : "-", 
                       variant: "outline" as const, 
                       cor: "text-gray-600",
                       diasRestantes: null as number | null
@@ -246,14 +246,20 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
                     </TableCell>
                     <TableCell>
                       {doc ? (
-                        <Badge variant={statusValidade.variant} className={statusValidade.cor}>
-                          {statusValidade.diasRestantes !== null && statusValidade.diasRestantes !== undefined && statusValidade.diasRestantes < 0 && (
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                          )}
-                          {statusValidade.label}
-                        </Badge>
+                        docConfig.temValidade ? (
+                          <Badge variant={statusValidade.variant} className={statusValidade.cor}>
+                            {statusValidade.diasRestantes !== null && statusValidade.diasRestantes !== undefined && statusValidade.diasRestantes < 0 && (
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                            )}
+                            {statusValidade.label}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )
                       ) : (
-                        <Badge variant="outline" className="text-gray-600">Não enviado</Badge>
+                        <Badge variant="outline" className="text-gray-600">
+                          {docConfig.temValidade ? "Não enviado" : "-"}
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right space-x-2">
