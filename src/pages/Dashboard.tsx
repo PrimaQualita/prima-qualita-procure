@@ -47,10 +47,11 @@ const Dashboard = () => {
   useEffect(() => {
     if (user) {
       loadUserProfile();
-    } else {
+    } else if (user === null) {
+      // Only navigate if explicitly null (not loading)
       navigate("/auth");
     }
-  }, [user, navigate]);
+  }, [user]);
 
   const loadUserProfile = async () => {
     if (!user) return;
@@ -65,6 +66,12 @@ const Dashboard = () => {
 
       if (profileError) throw profileError;
       setProfile(profileData);
+
+      // Check if first access
+      if (profileData?.primeiro_acesso) {
+        navigate("/troca-senha");
+        return;
+      }
 
       // Check if user is gestor
       const { data: roleData, error: roleError } = await supabase

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,28 +23,20 @@ const Auth = () => {
   const [loginIdentifier, setLoginIdentifier] = useState(""); // Email ou CPF
   const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
 
-  const checkFirstAccess = useCallback(async (userId: string) => {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("primeiro_acesso")
-      .eq("id", userId)
-      .single();
-
-    if (profile?.primeiro_acesso) {
-      navigate("/troca-senha");
-    } else {
-      navigate("/dashboard");
-    }
-  }, [navigate]);
-
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check if user is already logged in - simplified to avoid loops
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        checkFirstAccess(session.user.id);
+        // User is logged in, redirect to dashboard
+        // The dashboard will handle first access check
+        navigate("/dashboard");
       }
-    });
-  }, [checkFirstAccess]);
+    };
+    
+    checkSession();
+    // Only run once on mount
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
