@@ -14,8 +14,18 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Shield, User, RotateCcw } from "lucide-react";
+import { ArrowLeft, Plus, Shield, User, RotateCcw, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogUsuario } from "@/components/usuarios/DialogUsuario";
 
@@ -38,6 +48,7 @@ const Usuarios = () => {
   const [filtro, setFiltro] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isGestor, setIsGestor] = useState(false);
+  const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -144,6 +155,7 @@ const Usuarios = () => {
   };
 
 
+
   const handleResetSenha = async (userId: string, dataNascimento: string | undefined) => {
     if (!dataNascimento) {
       toast({
@@ -174,6 +186,36 @@ const Usuarios = () => {
     } catch (error: any) {
       toast({
         title: "Erro ao resetar senha",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteUsuario = async () => {
+    if (!usuarioParaExcluir) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("deletar-usuario-admin", {
+        body: { userId: usuarioParaExcluir },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: "Usuário excluído com sucesso!",
+        description: "O usuário foi removido do sistema.",
+      });
+
+      setUsuarioParaExcluir(null);
+      loadUsuarios();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir usuário",
         description: error.message,
         variant: "destructive",
       });
@@ -287,14 +329,25 @@ const Usuarios = () => {
                         />
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleResetSenha(usuario.id, usuario.data_nascimento)}
-                          title="Resetar senha para data de nascimento"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleResetSenha(usuario.id, usuario.data_nascimento)}
+                            title="Resetar senha para data de nascimento"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setUsuarioParaExcluir(usuario.id)}
+                            title="Excluir usuário"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -309,6 +362,24 @@ const Usuarios = () => {
           onOpenChange={setDialogOpen}
           onSuccess={loadUsuarios}
         />
+
+        <AlertDialog open={!!usuarioParaExcluir} onOpenChange={() => setUsuarioParaExcluir(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.
+                Todos os dados do usuário serão removidos permanentemente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteUsuario} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
