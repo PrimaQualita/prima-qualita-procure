@@ -680,21 +680,73 @@ export default function Fornecedores() {
             <div>
               <h3 className="font-semibold mb-2">Documentos Anexados</h3>
               <div className="space-y-2">
-                {documentosFornecedor.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-2 border rounded">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      <span className="text-sm">{doc.tipo_documento}</span>
+                {documentosFornecedor.filter(doc => doc.em_vigor).map((doc) => {
+                  const DOCUMENTOS_VALIDADE = [
+                    { tipo: "cnd_federal", label: "CND Federal", temValidade: true },
+                    { tipo: "cnd_tributos_estaduais", label: "CND Tributos Estaduais", temValidade: true },
+                    { tipo: "cnd_divida_ativa_estadual", label: "CND Dívida Ativa Estadual", temValidade: true },
+                    { tipo: "cnd_tributos_municipais", label: "CND Tributos Municipais", temValidade: true },
+                    { tipo: "cnd_divida_ativa_municipal", label: "CND Dívida Ativa Municipal", temValidade: true },
+                    { tipo: "crf_fgts", label: "CRF FGTS", temValidade: true },
+                    { tipo: "cndt", label: "CNDT", temValidade: true },
+                    { tipo: "contrato_social", label: "Contrato Social Consolidado", temValidade: false },
+                    { tipo: "cartao_cnpj", label: "Cartão CNPJ", temValidade: false },
+                  ];
+                  const tipoDocInfo = DOCUMENTOS_VALIDADE.find(d => d.tipo === doc.tipo_documento);
+                  const temValidade = tipoDocInfo?.temValidade || false;
+                  
+                  return (
+                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3 flex-1">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <div className="flex-1">
+                          <p className="font-medium">{tipoDocInfo?.label || doc.tipo_documento}</p>
+                          <p className="text-sm text-muted-foreground">{doc.nome_arquivo}</p>
+                          {temValidade && (
+                            <div className="mt-1">
+                              {doc.data_validade ? (
+                                <p className="text-xs">
+                                  <span className="font-medium">Validade:</span>{" "}
+                                  {new Date(doc.data_validade).toLocaleDateString('pt-BR')}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-amber-600 font-medium">
+                                  Data de validade não extraída
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const pathMatch = doc.url_arquivo.match(/processo-anexos\/(.+)$/);
+                            if (!pathMatch) {
+                              toast.error("URL do documento inválida");
+                              return;
+                            }
+                            const filePath = pathMatch[1];
+                            const { data, error } = await supabase.storage
+                              .from('processo-anexos')
+                              .createSignedUrl(filePath, 60);
+                            if (error) throw error;
+                            if (!data?.signedUrl) throw new Error("Não foi possível gerar URL de acesso");
+                            window.open(data.signedUrl, '_blank');
+                          } catch (error) {
+                            console.error("Erro ao abrir documento:", error);
+                            toast.error("Erro ao visualizar documento");
+                          }
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Visualizar
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(doc.url_arquivo, "_blank")}
-                    >
-                      Visualizar
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

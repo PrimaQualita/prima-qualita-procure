@@ -261,7 +261,25 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => window.open(doc.url_arquivo, "_blank")}
+                          onClick={async () => {
+                            try {
+                              const pathMatch = doc.url_arquivo.match(/processo-anexos\/(.+)$/);
+                              if (!pathMatch) {
+                                toast.error("URL do documento inválida");
+                                return;
+                              }
+                              const filePath = pathMatch[1];
+                              const { data, error } = await supabase.storage
+                                .from('processo-anexos')
+                                .createSignedUrl(filePath, 60);
+                              if (error) throw error;
+                              if (!data?.signedUrl) throw new Error("Não foi possível gerar URL de acesso");
+                              window.open(data.signedUrl, '_blank');
+                            } catch (error) {
+                              console.error("Erro ao abrir documento:", error);
+                              toast.error("Erro ao visualizar documento");
+                            }
+                          }}
                         >
                           <ExternalLink className="h-4 w-4 mr-1" />
                           Ver
