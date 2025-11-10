@@ -313,12 +313,12 @@ export default function AprovacaoFornecedores() {
                     <div key={doc.id} className="flex items-center gap-2 p-2 border rounded">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <div className="flex-1">
-                        <p className="font-medium text-xs">{doc.tipo_documento}</p>
-                        {doc.data_validade && (
-                          <p className="text-xs text-muted-foreground">
-                            Validade: {new Date(doc.data_validade).toLocaleDateString()}
-                          </p>
-                        )}
+                         <p className="font-medium text-xs">{doc.tipo_documento}</p>
+                         {doc.data_validade && (
+                           <p className="text-xs text-muted-foreground">
+                             Validade: {doc.data_validade.split('T')[0].split('-').reverse().join('/')}
+                           </p>
+                         )}
                       </div>
                     </div>
                   ))}

@@ -305,11 +305,11 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {doc ? new Date(doc.data_upload).toLocaleDateString() : "-"}
+                      {doc ? doc.data_upload.split('T')[0].split('-').reverse().join('/') : "-"}
                     </TableCell>
                     <TableCell>
                       {doc?.data_validade 
-                        ? new Date(doc.data_validade).toLocaleDateString()
+                        ? doc.data_validade.split('T')[0].split('-').reverse().join('/')
                         : docConfig.temValidade ? "-" : "Sem validade"}
                     </TableCell>
                     <TableCell>

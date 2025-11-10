@@ -483,15 +483,15 @@ export default function PerguntasDueDiligence() {
                       <TableCell>{getStatusBadge(fornecedor.status_aprovacao)}</TableCell>
                       <TableCell className="font-medium">{fornecedor.razao_social}</TableCell>
                       <TableCell>{fornecedor.cnpj}</TableCell>
-                      <TableCell>{fornecedor.email}</TableCell>
-                      <TableCell>
-                        {new Date(fornecedor.data_cadastro).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        {fornecedor.data_validade_certificado 
-                          ? new Date(fornecedor.data_validade_certificado).toLocaleDateString()
-                          : "-"}
-                      </TableCell>
+                       <TableCell>{fornecedor.email}</TableCell>
+                       <TableCell>
+                         {fornecedor.data_cadastro.split('T')[0].split('-').reverse().join('/')}
+                       </TableCell>
+                       <TableCell>
+                         {fornecedor.data_validade_certificado 
+                           ? fornecedor.data_validade_certificado.split('T')[0].split('-').reverse().join('/')
+                           : "-"}
+                       </TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
@@ -644,11 +644,11 @@ export default function PerguntasDueDiligence() {
                     <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-xs truncate">{doc.tipo_documento}</p>
-                      {doc.data_validade && (
-                        <p className="text-xs text-muted-foreground">
-                          Validade: {new Date(doc.data_validade).toLocaleDateString()}
-                        </p>
-                      )}
+                       {doc.data_validade && (
+                         <p className="text-xs text-muted-foreground">
+                           Validade: {doc.data_validade.split('T')[0].split('-').reverse().join('/')}
+                         </p>
+                       )}
                     </div>
                   </div>
                 ))}

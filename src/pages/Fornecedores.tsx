@@ -749,11 +749,11 @@ export default function Fornecedores() {
                           <p className="text-sm text-muted-foreground">{doc.nome_arquivo}</p>
                           {temValidade && (
                             <div className="mt-1">
-                              {doc.data_validade ? (
-                                <p className="text-xs">
-                                  <span className="font-medium">Validade:</span>{" "}
-                                  {new Date(doc.data_validade).toLocaleDateString('pt-BR')}
-                                </p>
+                               {doc.data_validade ? (
+                                 <p className="text-xs">
+                                   <span className="font-medium">Validade:</span>{" "}
+                                   {doc.data_validade.split('T')[0].split('-').reverse().join('/')}
+                                 </p>
                               ) : (
                                 <p className="text-xs text-amber-600 font-medium">
                                   Data de validade não extraída

@@ -225,10 +225,10 @@ export default function PortalFornecedor() {
                       </div>
                       {fornecedor?.data_validade_certificado && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Validade do Certificado</p>
-                          <p className="font-medium">
-                            {new Date(fornecedor.data_validade_certificado).toLocaleDateString()}
-                          </p>
+                           <p className="text-sm text-muted-foreground">Validade do Certificado</p>
+                           <p className="font-medium">
+                             {fornecedor.data_validade_certificado.split('T')[0].split('-').reverse().join('/')}
+                           </p>
                         </div>
                       )}
                       <div>
