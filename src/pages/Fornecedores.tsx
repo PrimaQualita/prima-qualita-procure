@@ -559,16 +559,14 @@ export default function Fornecedores() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          {fornecedor.status_aprovacao === "pendente" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleAbrirAvaliacao(fornecedor)}
-                              title="Avaliar"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleAbrirAvaliacao(fornecedor)}
+                            title="Ver Detalhes"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           {isGestor && (
                             <Button
                               variant="ghost"

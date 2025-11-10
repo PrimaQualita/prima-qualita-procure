@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { LogOut, FileText, Gavel, MessageSquare } from "lucide-react";
+import { LogOut, FileText, Gavel, MessageSquare, User } from "lucide-react";
 import { toast } from "sonner";
+import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
 
 export default function PortalFornecedor() {
   const navigate = useNavigate();
@@ -170,8 +171,12 @@ export default function PortalFornecedor() {
         )}
 
         {fornecedor?.status_aprovacao === "aprovado" && (
-          <Tabs defaultValue="cotacoes" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs defaultValue="perfil" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="perfil">
+                <User className="mr-2 h-4 w-4" />
+                Meu Perfil
+              </TabsTrigger>
               <TabsTrigger value="cotacoes">
                 <FileText className="mr-2 h-4 w-4" />
                 Cotações de Preços
@@ -185,6 +190,61 @@ export default function PortalFornecedor() {
                 Contato
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="perfil">
+              <div className="space-y-6">
+                {/* Informações do Cadastro */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Informações do Cadastro</CardTitle>
+                    <CardDescription>
+                      Dados do seu cadastro como fornecedor
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Razão Social</p>
+                        <p className="font-medium">{fornecedor?.razao_social}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">CNPJ</p>
+                        <p className="font-medium">{fornecedor?.cnpj}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">E-mail</p>
+                        <p className="font-medium">{fornecedor?.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Data de Aprovação</p>
+                        <p className="font-medium">
+                          {fornecedor?.data_aprovacao 
+                            ? new Date(fornecedor.data_aprovacao).toLocaleDateString()
+                            : "-"}
+                        </p>
+                      </div>
+                      {fornecedor?.data_validade_certificado && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Validade do Certificado</p>
+                          <p className="font-medium">
+                            {new Date(fornecedor.data_validade_certificado).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <Badge variant="outline" className="bg-green-500/10 text-green-600">
+                          Aprovado
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Gestão de Documentos */}
+                <GestaoDocumentosFornecedor fornecedorId={fornecedor.id} />
+              </div>
+            </TabsContent>
 
             <TabsContent value="cotacoes">
               <Card>

@@ -1,0 +1,346 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from "@/components/ui/dialog";
+import { FileText, Upload, ExternalLink, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
+import { differenceInDays } from "date-fns";
+
+interface Documento {
+  id: string;
+  tipo_documento: string;
+  nome_arquivo: string;
+  url_arquivo: string;
+  data_validade: string | null;
+  data_upload: string;
+  em_vigor: boolean;
+}
+
+interface Props {
+  fornecedorId: string;
+}
+
+const DOCUMENTOS_VALIDADE = [
+  { tipo: "cnd_federal", label: "CND Federal", temValidade: true },
+  { tipo: "cnd_tributos_estaduais", label: "CND Tributos Estaduais", temValidade: true },
+  { tipo: "cnd_divida_ativa_estadual", label: "CND Dívida Ativa Estadual", temValidade: true },
+  { tipo: "cnd_tributos_municipais", label: "CND Tributos Municipais", temValidade: true },
+  { tipo: "cnd_divida_ativa_municipal", label: "CND Dívida Ativa Municipal", temValidade: true },
+  { tipo: "crf_fgts", label: "CRF FGTS", temValidade: true },
+  { tipo: "cndt", label: "CNDT", temValidade: true },
+  { tipo: "contrato_social", label: "Contrato Social Consolidado", temValidade: false },
+  { tipo: "cartao_cnpj", label: "Cartão CNPJ", temValidade: false },
+];
+
+export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
+  const [documentos, setDocumentos] = useState<Documento[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [tipoDocumentoAtualizar, setTipoDocumentoAtualizar] = useState<string>("");
+  const [novoArquivo, setNovoArquivo] = useState<File | null>(null);
+  const [processando, setProcessando] = useState(false);
+  const [dataValidadeCertificado, setDataValidadeCertificado] = useState("");
+
+  useEffect(() => {
+    loadDocumentos();
+  }, [fornecedorId]);
+
+  const loadDocumentos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("documentos_fornecedor")
+        .select("*")
+        .eq("fornecedor_id", fornecedorId)
+        .order("data_upload", { ascending: false });
+
+      if (error) throw error;
+      setDocumentos(data || []);
+    } catch (error: any) {
+      toast.error("Erro ao carregar documentos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusValidade = (dataValidade: string | null) => {
+    if (!dataValidade) {
+      return { 
+        label: "Sem validade", 
+        variant: "outline" as const, 
+        diasRestantes: null as number | null,
+        cor: "text-gray-600" 
+      };
+    }
+
+    const hoje = new Date();
+    const validade = new Date(dataValidade);
+    const diasRestantes = differenceInDays(validade, hoje);
+
+    if (diasRestantes < 0) {
+      return { 
+        label: "Vencido", 
+        variant: "destructive" as const, 
+        diasRestantes: diasRestantes as number | null,
+        cor: "text-red-600 bg-red-50"
+      };
+    } else if (diasRestantes <= 30) {
+      return { 
+        label: `Vence em ${diasRestantes} dias`, 
+        variant: "outline" as const, 
+        diasRestantes: diasRestantes as number | null,
+        cor: "text-yellow-600 bg-yellow-50"
+      };
+    } else {
+      return { 
+        label: `Válido (${diasRestantes} dias)`, 
+        variant: "outline" as const, 
+        diasRestantes: diasRestantes as number | null,
+        cor: "text-green-600 bg-green-50"
+      };
+    }
+  };
+
+  const handleAbrirDialogAtualizar = (tipoDocumento: string) => {
+    setTipoDocumentoAtualizar(tipoDocumento);
+    setNovoArquivo(null);
+    setDataValidadeCertificado("");
+    setDialogOpen(true);
+  };
+
+  const handleAtualizarDocumento = async () => {
+    if (!novoArquivo) {
+      toast.error("Selecione um arquivo");
+      return;
+    }
+
+    const docConfig = DOCUMENTOS_VALIDADE.find(d => d.tipo === tipoDocumentoAtualizar);
+    if (docConfig?.temValidade && !dataValidadeCertificado) {
+      toast.error("Informe a data de validade do documento");
+      return;
+    }
+
+    setProcessando(true);
+    try {
+      // 1. Upload do novo arquivo
+      const fileName = `fornecedor_${fornecedorId}/${tipoDocumentoAtualizar}_${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from("processo-anexos")
+        .upload(fileName, novoArquivo);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("processo-anexos")
+        .getPublicUrl(fileName);
+
+      // 2. Desativar documento antigo
+      await supabase
+        .from("documentos_fornecedor")
+        .update({ em_vigor: false })
+        .eq("fornecedor_id", fornecedorId)
+        .eq("tipo_documento", tipoDocumentoAtualizar);
+
+      // 3. Inserir novo documento
+      const { error: insertError } = await supabase
+        .from("documentos_fornecedor")
+        .insert({
+          fornecedor_id: fornecedorId,
+          tipo_documento: tipoDocumentoAtualizar,
+          nome_arquivo: novoArquivo.name,
+          url_arquivo: publicUrl,
+          data_validade: docConfig?.temValidade ? dataValidadeCertificado : null,
+          em_vigor: true
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success("Documento atualizado com sucesso!");
+      setDialogOpen(false);
+      loadDocumentos();
+    } catch (error: any) {
+      console.error("Erro ao atualizar documento:", error);
+      toast.error("Erro ao atualizar documento");
+    } finally {
+      setProcessando(false);
+    }
+  };
+
+  const getTipoDocumentoLabel = (tipo: string) => {
+    return DOCUMENTOS_VALIDADE.find(d => d.tipo === tipo)?.label || tipo;
+  };
+
+  const getDocumentoMaisRecente = (tipo: string) => {
+    return documentos.find(d => d.tipo_documento === tipo && d.em_vigor);
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Carregando documentos...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Meus Documentos e Certidões</CardTitle>
+          <CardDescription>
+            Mantenha seus documentos atualizados para garantir a validade do seu cadastro
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Documento</TableHead>
+                <TableHead>Última Atualização</TableHead>
+                <TableHead>Validade</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {DOCUMENTOS_VALIDADE.map((docConfig) => {
+                const doc = getDocumentoMaisRecente(docConfig.tipo);
+                const statusValidade = doc?.data_validade 
+                  ? getStatusValidade(doc.data_validade) 
+                  : { 
+                      label: "Pendente", 
+                      variant: "outline" as const, 
+                      cor: "text-gray-600",
+                      diasRestantes: null as number | null
+                    };
+
+                return (
+                  <TableRow key={docConfig.tipo}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        {docConfig.label}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {doc ? new Date(doc.data_upload).toLocaleDateString() : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {doc?.data_validade 
+                        ? new Date(doc.data_validade).toLocaleDateString()
+                        : docConfig.temValidade ? "-" : "Sem validade"}
+                    </TableCell>
+                    <TableCell>
+                      {doc ? (
+                        <Badge variant={statusValidade.variant} className={statusValidade.cor}>
+                          {statusValidade.diasRestantes !== null && statusValidade.diasRestantes !== undefined && statusValidade.diasRestantes < 0 && (
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                          )}
+                          {statusValidade.label}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-gray-600">Não enviado</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right space-x-2">
+                      {doc && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(doc.url_arquivo, "_blank")}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAbrirDialogAtualizar(docConfig.tipo)}
+                      >
+                        <Upload className="h-4 w-4 mr-1" />
+                        {doc ? "Atualizar" : "Enviar"}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Dialog para atualizar documento */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Atualizar Documento</DialogTitle>
+            <DialogDescription>
+              {getTipoDocumentoLabel(tipoDocumentoAtualizar)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="arquivo">Arquivo PDF *</Label>
+              <Input
+                id="arquivo"
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setNovoArquivo(e.target.files?.[0] || null)}
+              />
+              {novoArquivo && (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  {novoArquivo.name}
+                </p>
+              )}
+            </div>
+
+            {DOCUMENTOS_VALIDADE.find(d => d.tipo === tipoDocumentoAtualizar)?.temValidade && (
+              <div className="space-y-2">
+                <Label htmlFor="data_validade">Data de Validade *</Label>
+                <Input
+                  id="data_validade"
+                  type="date"
+                  value={dataValidadeCertificado}
+                  onChange={(e) => setDataValidadeCertificado(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              disabled={processando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAtualizarDocumento}
+              disabled={processando}
+            >
+              {processando ? "Enviando..." : "Enviar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
