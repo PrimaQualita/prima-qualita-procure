@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { validarCNPJ, mascaraCNPJ } from "@/lib/validators";
@@ -30,7 +30,7 @@ export default function CadastroFornecedor() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [perguntas, setPerguntas] = useState<DueDiligencePergunta[]>([]);
-  const [respostas, setRespostas] = useState<Record<string, boolean>>({});
+  const [respostas, setRespostas] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
     razao_social: "",
@@ -160,6 +160,15 @@ export default function CadastroFornecedor() {
       return;
     }
 
+    // Validar se todas as perguntas foram respondidas
+    if (perguntas.length > 0) {
+      const perguntasNaoRespondidas = perguntas.filter(p => !respostas[p.id]);
+      if (perguntasNaoRespondidas.length > 0) {
+        toast.error("Por favor, responda todas as perguntas do questionário de Due Diligence");
+        return;
+      }
+    }
+
     // Verificar se todos os documentos obrigatórios foram enviados
     const documentosFaltando = Object.entries(documentos)
       .filter(([_, doc]) => doc.obrigatorio && !doc.arquivo)
@@ -218,10 +227,10 @@ export default function CadastroFornecedor() {
 
       // 3. Salvar respostas de due diligence
       if (Object.keys(respostas).length > 0) {
-        const respostasArray = Object.entries(respostas).map(([perguntaId, valor]) => ({
+        const respostasArray = Object.entries(respostas).map(([perguntaId, respostaTexto]) => ({
           fornecedor_id: fornecedorData.id,
           pergunta_id: perguntaId,
-          resposta_texto: valor ? "SIM" : "NÃO"
+          resposta_texto: respostaTexto // Já é "SIM" ou "NÃO"
         }));
 
         const { error: respostasError } = await supabase
@@ -472,29 +481,36 @@ export default function CadastroFornecedor() {
                     Nenhuma pergunta disponível no momento. Entre em contato com o gestor.
                   </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {perguntas.map((pergunta, index) => (
-                      <div key={pergunta.id} className="flex items-start gap-3 p-3 border rounded-md">
-                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold mt-0.5">
-                          {index + 1}
+                      <div key={pergunta.id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
+                            {index + 1}
+                          </div>
+                          <p className="text-sm flex-1">{pergunta.texto_pergunta}</p>
                         </div>
-                        <div className="flex-1">
-                          <Label htmlFor={pergunta.id} className="cursor-pointer text-sm">
-                            {pergunta.texto_pergunta}
-                          </Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            id={pergunta.id}
-                            checked={respostas[pergunta.id] || false}
-                            onCheckedChange={(checked) =>
-                              setRespostas({ ...respostas, [pergunta.id]: checked as boolean })
-                            }
-                          />
-                          <span className={`text-sm font-medium min-w-[40px] ${respostas[pergunta.id] ? "text-green-600" : "text-red-600"}`}>
-                            {respostas[pergunta.id] ? "SIM" : "NÃO"}
-                          </span>
-                        </div>
+                        
+                        <RadioGroup
+                          value={respostas[pergunta.id] || ""}
+                          onValueChange={(value) => setRespostas({ ...respostas, [pergunta.id]: value })}
+                          required
+                        >
+                          <div className="flex gap-6">
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="SIM" id={`${pergunta.id}-sim`} />
+                              <Label htmlFor={`${pergunta.id}-sim`} className="cursor-pointer font-medium text-green-600">
+                                SIM
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="NÃO" id={`${pergunta.id}-nao`} />
+                              <Label htmlFor={`${pergunta.id}-nao`} className="cursor-pointer font-medium text-red-600">
+                                NÃO
+                              </Label>
+                            </div>
+                          </div>
+                        </RadioGroup>
                       </div>
                     ))}
                   </div>
