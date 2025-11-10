@@ -422,6 +422,7 @@ export default function CadastroFornecedor() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                           <Input
+                            key={doc.arquivo ? `${key}-with-file` : `${key}-no-file`}
                             type="file"
                             accept=".pdf"
                             onChange={(e) => {
