@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Shield, User } from "lucide-react";
+import { ArrowLeft, Plus, Shield, User, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogUsuario } from "@/components/usuarios/DialogUsuario";
 
@@ -143,6 +143,43 @@ const Usuarios = () => {
     }
   };
 
+
+  const handleResetSenha = async (userId: string, dataNascimento: string | undefined) => {
+    if (!dataNascimento) {
+      toast({
+        title: "Erro",
+        description: "Usuário não possui data de nascimento cadastrada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("resetar-senha-usuario", {
+        body: { userId, dataNascimento },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: "Senha resetada com sucesso!",
+        description: `A nova senha temporária é: ${data.senha}. O usuário deverá trocá-la no próximo login.`,
+      });
+
+      loadUsuarios();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao resetar senha",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const usuariosFiltrados = usuarios.filter(
     (u) =>
       u.nome_completo.toLowerCase().includes(filtro.toLowerCase()) ||
@@ -212,6 +249,7 @@ const Usuarios = () => {
                     <TableHead>Perfil</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-center">Gestor</TableHead>
+                    <TableHead className="text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -247,6 +285,16 @@ const Usuarios = () => {
                           checked={usuario.role === "gestor"}
                           onCheckedChange={() => handleToggleRole(usuario.id, usuario.role || "colaborador")}
                         />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleResetSenha(usuario.id, usuario.data_nascimento)}
+                          title="Resetar senha para data de nascimento"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

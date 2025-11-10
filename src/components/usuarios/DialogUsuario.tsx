@@ -84,56 +84,35 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
       // Gerar senha temporária a partir da data de nascimento (formato: ddmmaaaa)
       const senhaTemporaria = dataNascimento.replace(/\D/g, "").split("-").reverse().join("");
 
-      // Criar usuário no auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password: senhaTemporaria,
-        options: {
-          data: {
-            nome_completo: nomeCompleto,
-            cpf,
-          },
-        },
-      });
-
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // Criar profile
-        const { error: profileError } = await supabase.from("profiles").insert([
-          {
-            id: authData.user.id,
-            nome_completo: nomeCompleto,
-            cpf,
+      // Chamar edge function para criar usuário via Admin API
+      const { data: functionData, error: functionError } = await supabase.functions.invoke(
+        "criar-usuario-admin",
+        {
+          body: {
             email,
-            data_nascimento: dataNascimento,
-            primeiro_acesso: true,
-            senha_temporaria: true,
-            ativo: true,
-          },
-        ]);
-
-        if (profileError) throw profileError;
-
-        // Criar role
-        const { error: roleError } = await supabase.from("user_roles").insert([
-          {
-            user_id: authData.user.id,
+            password: senhaTemporaria,
+            nomeCompleto,
+            cpf,
+            dataNascimento,
             role,
           },
-        ]);
+        }
+      );
 
-        if (roleError) throw roleError;
+      if (functionError) throw functionError;
 
-        toast({
-          title: "Usuário criado com sucesso!",
-          description: `${nomeCompleto} foi cadastrado como ${role}. A senha temporária é a data de nascimento (${senhaTemporaria}).`,
-        });
-
-        resetForm();
-        onSuccess();
-        onOpenChange(false);
+      if (functionData?.error) {
+        throw new Error(functionData.error);
       }
+
+      toast({
+        title: "Usuário criado com sucesso!",
+        description: `${nomeCompleto} foi cadastrado como ${role}. A senha temporária é a data de nascimento (${senhaTemporaria}).`,
+      });
+
+      resetForm();
+      onSuccess();
+      onOpenChange(false);
     } catch (error: any) {
       console.error("Erro ao criar usuário:", error);
       toast({
