@@ -2,103 +2,551 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
+import { ArrowLeft, Plus, Edit, Trash2, FileText } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { DialogContrato } from "@/components/contratos/DialogContrato";
+import { DialogProcesso } from "@/components/processos/DialogProcesso";
+
+interface Contrato {
+  id: string;
+  nome_contrato: string;
+  ente_federativo: string;
+  data_inicio: string;
+  data_fim: string;
+  status: "ativo" | "encerrado" | "suspenso";
+  observacoes?: string;
+}
+
+interface Processo {
+  id: string;
+  contrato_gestao_id: string;
+  ano_referencia: number;
+  numero_processo_interno: string;
+  objeto_resumido: string;
+  tipo: "material" | "servico" | "mao_obra_exclusiva" | "outros";
+  centro_custo?: string;
+  valor_estimado_anual: number;
+  status_processo: "planejado" | "em_cotacao" | "cotacao_concluida" | "em_selecao" | "contratado" | "concluido" | "cancelado";
+  data_abertura?: string;
+  data_encerramento_prevista?: string;
+  observacoes?: string;
+}
 
 const ProcessosCompras = () => {
   const navigate = useNavigate();
-  const [contratos, setContratos] = useState<any[]>([]);
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [isGestor, setIsGestor] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Estados para contratos
+  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [filtroContrato, setFiltroContrato] = useState("");
+  const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
+  const [dialogContratoOpen, setDialogContratoOpen] = useState(false);
+  const [contratoParaEditar, setContratoParaEditar] = useState<Contrato | null>(null);
+  const [contratoParaExcluir, setContratoParaExcluir] = useState<string | null>(null);
+  
+  // Estados para processos
+  const [processos, setProcessos] = useState<Processo[]>([]);
+  const [filtroProcesso, setFiltroProcesso] = useState("");
+  const [dialogProcessoOpen, setDialogProcessoOpen] = useState(false);
+  const [processoParaEditar, setProcessoParaEditar] = useState<Processo | null>(null);
+  const [processoParaExcluir, setProcessoParaExcluir] = useState<string | null>(null);
 
   useEffect(() => {
-    loadContratos();
+    checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadContratos();
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (contratoSelecionado) {
+      loadProcessos(contratoSelecionado.id);
+    }
+  }, [contratoSelecionado]);
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      navigate("/auth");
+      return;
+    }
+
+    setUserId(session.user.id);
+
+    // Verificar se é gestor
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .eq("role", "gestor")
+      .maybeSingle();
+
+    setIsGestor(!!roleData);
+    setLoading(false);
+  };
 
   const loadContratos = async () => {
     try {
       const { data, error } = await supabase
         .from("contratos_gestao")
         .select("*")
-        .order("data_inicio", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setContratos(data || []);
-    } catch (error) {
-      console.error("Erro ao carregar contratos:", error);
-    } finally {
-      setLoading(false);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao carregar contratos",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
+  const loadProcessos = async (contratoId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("processos_compras")
+        .select("*")
+        .eq("contrato_gestao_id", contratoId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setProcessos(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao carregar processos",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveContrato = async (contrato: Omit<Contrato, "id">) => {
+    try {
+      if (contratoParaEditar) {
+        const { error } = await supabase
+          .from("contratos_gestao")
+          .update(contrato)
+          .eq("id", contratoParaEditar.id);
+
+        if (error) throw error;
+        toast({ title: "Contrato atualizado com sucesso!" });
+      } else {
+        const { error } = await supabase.from("contratos_gestao").insert([contrato]);
+        if (error) throw error;
+        toast({ title: "Contrato criado com sucesso!" });
+      }
+      loadContratos();
+      setContratoParaEditar(null);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao salvar contrato",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const handleDeleteContrato = async () => {
+    if (!contratoParaExcluir) return;
+
+    try {
+      const { error } = await supabase
+        .from("contratos_gestao")
+        .delete()
+        .eq("id", contratoParaExcluir);
+
+      if (error) throw error;
+      toast({ title: "Contrato excluído com sucesso!" });
+      loadContratos();
+      if (contratoSelecionado?.id === contratoParaExcluir) {
+        setContratoSelecionado(null);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir contrato",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setContratoParaExcluir(null);
+    }
+  };
+
+  const handleSaveProcesso = async (processo: Omit<Processo, "id">) => {
+    try {
+      if (processoParaEditar) {
+        const { error } = await supabase
+          .from("processos_compras")
+          .update(processo)
+          .eq("id", processoParaEditar.id);
+
+        if (error) throw error;
+        toast({ title: "Processo atualizado com sucesso!" });
+      } else {
+        const { error } = await supabase.from("processos_compras").insert([processo]);
+        if (error) throw error;
+        toast({ title: "Processo criado com sucesso!" });
+      }
+      if (contratoSelecionado) {
+        loadProcessos(contratoSelecionado.id);
+      }
+      setProcessoParaEditar(null);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao salvar processo",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const handleDeleteProcesso = async () => {
+    if (!processoParaExcluir) return;
+
+    try {
+      const { error } = await supabase
+        .from("processos_compras")
+        .delete()
+        .eq("id", processoParaExcluir);
+
+      if (error) throw error;
+      toast({ title: "Processo excluído com sucesso!" });
+      if (contratoSelecionado) {
+        loadProcessos(contratoSelecionado.id);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir processo",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setProcessoParaExcluir(null);
+    }
+  };
+
+  const contratosFiltrados = contratos.filter(
+    (c) =>
+      c.nome_contrato.toLowerCase().includes(filtroContrato.toLowerCase()) ||
+      c.ente_federativo.toLowerCase().includes(filtroContrato.toLowerCase())
+  );
+
+  const processosFiltrados = processos.filter(
+    (p) =>
+      p.numero_processo_interno.toLowerCase().includes(filtroProcesso.toLowerCase()) ||
+      p.objeto_resumido.toLowerCase().includes(filtroProcesso.toLowerCase())
+  );
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "destructive"> = {
+      ativo: "default",
+      encerrado: "secondary",
+      suspenso: "destructive",
+      planejado: "secondary",
+      em_cotacao: "default",
+      cotacao_concluida: "default",
+      em_selecao: "default",
+      contratado: "default",
+      concluido: "secondary",
+      cancelado: "destructive",
+    };
+    return <Badge variant={variants[status] || "default"}>{status.replace(/_/g, " ").toUpperCase()}</Badge>;
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+    <div className="min-h-screen bg-background">
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-12" />
             <div>
-              <h1 className="text-xl font-bold text-foreground">Processos de Compras</h1>
-              <p className="text-sm text-muted-foreground">Gestão de Contratos e Processos</p>
+              <h1 className="text-xl font-bold">Gestão de Contratos e Processos</h1>
+              <p className="text-sm text-muted-foreground">
+                {contratoSelecionado ? `Processos - ${contratoSelecionado.nome_contrato}` : "Contratos de Gestão"}
+              </p>
             </div>
           </div>
-          <Button variant="outline" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
+          <Button variant="outline" onClick={() => contratoSelecionado ? setContratoSelecionado(null) : navigate("/dashboard")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar
           </Button>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Contratos de Gestão</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-muted-foreground">Carregando contratos...</p>
-            ) : contratos.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">
-                  Nenhum contrato de gestão cadastrado
+        {!contratoSelecionado ? (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Contratos de Gestão</CardTitle>
+                  <CardDescription>
+                    Gerencie todos os contratos de gestão
+                  </CardDescription>
+                </div>
+                <Button onClick={() => {
+                  setContratoParaEditar(null);
+                  setDialogContratoOpen(true);
+                }}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Contrato
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <Input
+                  placeholder="Buscar por nome ou ente federativo..."
+                  value={filtroContrato}
+                  onChange={(e) => setFiltroContrato(e.target.value)}
+                />
+              </div>
+
+              {contratosFiltrados.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  {contratos.length === 0 
+                    ? "Nenhum contrato de gestão cadastrado. Clique em 'Novo Contrato' para começar."
+                    : "Nenhum contrato encontrado com os filtros aplicados."}
                 </p>
-                <Button>Cadastrar Primeiro Contrato</Button>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome do Contrato</TableHead>
+                      <TableHead>Ente Federativo</TableHead>
+                      <TableHead>Período</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contratosFiltrados.map((contrato) => (
+                      <TableRow key={contrato.id}>
+                        <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
+                        <TableCell>{contrato.ente_federativo}</TableCell>
+                        <TableCell>
+                          {new Date(contrato.data_inicio).toLocaleDateString()} até{" "}
+                          {new Date(contrato.data_fim).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(contrato.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setContratoSelecionado(contrato)}
+                              title="Ver Processos"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setContratoParaEditar(contrato);
+                                setDialogContratoOpen(true);
+                              }}
+                              title="Editar"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {isGestor && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setContratoParaExcluir(contrato.id)}
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Processos de Compras</CardTitle>
+                  <CardDescription>
+                    Contrato: {contratoSelecionado.nome_contrato}
+                  </CardDescription>
+                </div>
+                <Button onClick={() => {
+                  setProcessoParaEditar(null);
+                  setDialogProcessoOpen(true);
+                }}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Processo
+                </Button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {contratos.map((contrato) => (
-                  <Card key={contrato.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-lg">{contrato.nome_contrato}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {contrato.ente_federativo}
-                      </p>
-                      <div className="mt-2 flex items-center gap-4 text-sm">
-                        <span>
-                          Início:{" "}
-                          {new Date(contrato.data_inicio).toLocaleDateString("pt-BR")}
-                        </span>
-                        <span>
-                          Fim: {new Date(contrato.data_fim).toLocaleDateString("pt-BR")}
-                        </span>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs ${
-                            contrato.status === "ativo"
-                              ? "bg-primary/20 text-primary"
-                              : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {contrato.status}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <Input
+                  placeholder="Buscar por número ou objeto..."
+                  value={filtroProcesso}
+                  onChange={(e) => setFiltroProcesso(e.target.value)}
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {processosFiltrados.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  {processos.length === 0
+                    ? "Nenhum processo cadastrado para este contrato. Clique em 'Novo Processo' para começar."
+                    : "Nenhum processo encontrado com os filtros aplicados."}
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nº Processo</TableHead>
+                      <TableHead>Objeto</TableHead>
+                      <TableHead>Ano</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Valor Estimado</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {processosFiltrados.map((processo) => (
+                      <TableRow key={processo.id}>
+                        <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
+                        <TableCell className="max-w-[300px] truncate">{processo.objeto_resumido}</TableCell>
+                        <TableCell>{processo.ano_referencia}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{processo.tipo.replace(/_/g, " ")}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          }).format(processo.valor_estimado_anual)}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(processo.status_processo)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setProcessoParaEditar(processo);
+                                setDialogProcessoOpen(true);
+                              }}
+                              title="Editar"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {isGestor && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setProcessoParaExcluir(processo.id)}
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      <DialogContrato
+        open={dialogContratoOpen}
+        onOpenChange={setDialogContratoOpen}
+        contrato={contratoParaEditar}
+        onSave={handleSaveContrato}
+      />
+
+      <DialogProcesso
+        open={dialogProcessoOpen}
+        onOpenChange={setDialogProcessoOpen}
+        processo={processoParaEditar}
+        contratoId={contratoSelecionado?.id || ""}
+        onSave={handleSaveProcesso}
+      />
+
+      <AlertDialog open={!!contratoParaExcluir} onOpenChange={() => setContratoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este contrato? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteContrato}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!processoParaExcluir} onOpenChange={() => setProcessoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este processo? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteProcesso}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
