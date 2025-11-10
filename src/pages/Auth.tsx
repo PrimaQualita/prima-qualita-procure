@@ -251,7 +251,7 @@ const Auth = () => {
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Cadastro</TabsTrigger>
+              <TabsTrigger value="fornecedor">Sou Fornecedor</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -283,84 +283,37 @@ const Auth = () => {
               </form>
             </TabsContent>
 
-            <TabsContent value="signup">
-              <div className="mb-4 p-3 bg-muted/50 rounded-lg border text-center">
-                <p className="text-sm text-muted-foreground">
-                  Novo fornecedor?{" "}
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto text-primary"
-                    onClick={() => navigate("/cadastro-fornecedor")}
-                  >
-                    Clique aqui para o cadastro completo
-                  </Button>
-                </p>
-              </div>
-              <form onSubmit={handleSignup} className="space-y-4">
+            <TabsContent value="fornecedor">
+              <div className="space-y-4 py-6 text-center">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome Completo</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Seu nome completo"
-                    value={nomeCompleto}
-                    onChange={(e) => setNomeCompleto(e.target.value)}
-                    required
-                  />
+                  <h3 className="text-lg font-semibold">Cadastro de Fornecedor</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Complete o cadastro com todos os seus dados e documentação necessária
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-cpf">CPF</Label>
-                  <Input
-                    id="signup-cpf"
-                    type="text"
-                    placeholder="000.000.000-00"
-                    value={cpf}
-                    onChange={(e) => setCpf(mascaraCPF(e.target.value))}
-                    required
-                    maxLength={14}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">E-mail</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setValidacaoSenha(validarSenhaForte(e.target.value));
-                    }}
-                    required
-                    minLength={8}
-                  />
-                </div>
-                
-                <RequisitosSenha validacao={validacaoSenha} />
-                <div className="space-y-2">
-                  <Label htmlFor="signup-confirm">Confirmar Senha</Label>
-                  <Input
-                    id="signup-confirm"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Cadastrando..." : "Cadastrar"}
+                <Button
+                  onClick={() => navigate("/cadastro-fornecedor")}
+                  className="w-full"
+                  size="lg"
+                >
+                  Iniciar Cadastro Completo
                 </Button>
-              </form>
+                <div className="pt-4 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    Já possui cadastro?{" "}
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto text-xs"
+                      onClick={() => {
+                        const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+                        loginTab?.click();
+                      }}
+                    >
+                      Faça login aqui
+                    </Button>
+                  </p>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>

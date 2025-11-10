@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { readAll } from "https://deno.land/std@0.168.0/streams/read_all.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,103 +16,162 @@ serve(async (req) => {
     
     console.log('Recebido PDF para processamento, tipo:', tipoDocumento);
     
-    // Decode base64
-    const pdfBytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
+    // Decode base64 to binary
+    const binaryString = atob(pdfBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
     
-    // Convert to text (simple extraction - in production, use proper PDF parser)
-    const text = new TextDecoder().decode(pdfBytes);
+    // Extract text from PDF (simple extraction - gets text content)
+    const pdfText = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
     
-    // Extract dates based on document type
+    console.log('Texto extraído do PDF (primeiros 500 caracteres):', pdfText.substring(0, 500));
+    
     let dataValidade: string | null = null;
     
-    // Regex patterns for different date formats
+    // Padrões de data mais robustos
     const datePatterns = [
-      /(\d{2})\/(\d{2})\/(\d{4})/g, // DD/MM/YYYY
-      /(\d{2})-(\d{2})-(\d{4})/g,   // DD-MM-YYYY
-      /(\d{4})-(\d{2})-(\d{2})/g,   // YYYY-MM-DD
+      // DD/MM/YYYY
+      /(\d{2})[\/\-\.](\d{2})[\/\-\.](\d{4})/g,
+      // DD de MMMM de YYYY (por extenso)
+      /(\d{2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi,
+      // YYYY-MM-DD
+      /(\d{4})[\/\-](\d{2})[\/\-](\d{2})/g,
     ];
     
-    const dates: Date[] = [];
+    const monthNames: { [key: string]: number } = {
+      'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4,
+      'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8,
+      'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12,
+      'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
+      'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
+    };
     
-    // Extract all dates from text
-    for (const pattern of datePatterns) {
-      const matches = text.matchAll(pattern);
-      for (const match of matches) {
-        let day: number, month: number, year: number;
+    const extractedDates: Date[] = [];
+    
+    // Palavras-chave que indicam validade
+    const validadeKeywords = [
+      'validade', 'válido até', 'vencimento', 'válida até',
+      'expira em', 'prazo', 'vigência', 'data de vencimento'
+    ];
+    
+    // Procurar por datas próximas às palavras-chave de validade
+    for (const keyword of validadeKeywords) {
+      const keywordIndex = pdfText.toLowerCase().indexOf(keyword.toLowerCase());
+      if (keywordIndex !== -1) {
+        // Pegar um contexto de 200 caracteres após a palavra-chave
+        const context = pdfText.substring(keywordIndex, keywordIndex + 200);
+        console.log(`Contexto encontrado para "${keyword}":`, context);
         
-        if (match[0].includes('-') && match[1].length === 4) {
-          // YYYY-MM-DD format
-          year = parseInt(match[1]);
-          month = parseInt(match[2]);
-          day = parseInt(match[3]);
-        } else {
-          // DD/MM/YYYY or DD-MM-YYYY format
-          day = parseInt(match[1]);
-          month = parseInt(match[2]);
-          year = parseInt(match[3]);
+        // Tentar extrair data do contexto
+        for (const pattern of datePatterns) {
+          pattern.lastIndex = 0; // Reset regex
+          const match = pattern.exec(context);
+          if (match) {
+            console.log('Match encontrado:', match[0]);
+            let day: number, month: number, year: number;
+            
+            // Verificar se é data por extenso
+            if (match[0].includes('de') && isNaN(parseInt(match[2]))) {
+              day = parseInt(match[1]);
+              const monthName = match[2].toLowerCase().trim();
+              month = monthNames[monthName] || 0;
+              year = parseInt(match[3]);
+            } else if (match[1].length === 4) {
+              // YYYY-MM-DD
+              year = parseInt(match[1]);
+              month = parseInt(match[2]);
+              day = parseInt(match[3]);
+            } else {
+              // DD/MM/YYYY
+              day = parseInt(match[1]);
+              month = parseInt(match[2]);
+              year = parseInt(match[3]);
+            }
+            
+            console.log('Data extraída:', { day, month, year });
+            
+            // Validar data
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
+              const date = new Date(year, month - 1, day);
+              extractedDates.push(date);
+              console.log('Data válida adicionada:', date.toISOString());
+              
+              // Se encontrou uma data próxima à palavra-chave, usar essa
+              dataValidade = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              break;
+            }
+          }
         }
-        
-        if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2000 && year <= 2100) {
-          dates.push(new Date(year, month - 1, day));
-        }
+        if (dataValidade) break;
       }
     }
     
-    // For CRF FGTS, get the latest date
-    if (tipoDocumento === 'crf_fgts' && dates.length > 0) {
-      const latestDate = dates.reduce((latest, current) => 
-        current > latest ? current : latest
-      );
-      dataValidade = latestDate.toISOString().split('T')[0];
-    } else if (dates.length > 0) {
-      // For other documents, try to find the validity date
-      // Usually appears after keywords like "validade", "válido até", etc.
-      const validadeKeywords = ['validade', 'válido até', 'vencimento', 'expira em'];
+    // Se não encontrou data com palavras-chave, extrair todas as datas e pegar a mais recente no futuro
+    if (!dataValidade) {
+      console.log('Não encontrou data com palavras-chave, extraindo todas as datas...');
       
-      for (const keyword of validadeKeywords) {
-        const keywordIndex = text.toLowerCase().indexOf(keyword);
-        if (keywordIndex !== -1) {
-          // Find the first date after the keyword
-          const textAfterKeyword = text.substring(keywordIndex);
-          for (const pattern of datePatterns) {
-            const match = textAfterKeyword.match(pattern);
-            if (match) {
-              let day: number, month: number, year: number;
-              
-              if (match[0].includes('-') && match[0].length > 8) {
-                // YYYY-MM-DD format
-                const parts = match[0].split('-');
-                year = parseInt(parts[0]);
-                month = parseInt(parts[1]);
-                day = parseInt(parts[2]);
-              } else {
-                // DD/MM/YYYY or DD-MM-YYYY format
-                const parts = match[0].split(/[/-]/);
-                day = parseInt(parts[0]);
-                month = parseInt(parts[1]);
-                year = parseInt(parts[2]);
-              }
-              
-              if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-                dataValidade = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                break;
-              }
-            }
+      for (const pattern of datePatterns) {
+        pattern.lastIndex = 0;
+        let match;
+        while ((match = pattern.exec(pdfText)) !== null) {
+          let day: number, month: number, year: number;
+          
+          if (match[0].includes('de') && isNaN(parseInt(match[2]))) {
+            day = parseInt(match[1]);
+            const monthName = match[2].toLowerCase().trim();
+            month = monthNames[monthName] || 0;
+            year = parseInt(match[3]);
+          } else if (match[1].length === 4) {
+            year = parseInt(match[1]);
+            month = parseInt(match[2]);
+            day = parseInt(match[3]);
+          } else {
+            day = parseInt(match[1]);
+            month = parseInt(match[2]);
+            year = parseInt(match[3]);
           }
-          if (dataValidade) break;
+          
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
+            const date = new Date(year, month - 1, day);
+            extractedDates.push(date);
+          }
         }
       }
       
-      // If no validity date found, use the latest date
-      if (!dataValidade && dates.length > 0) {
-        const latestDate = dates.reduce((latest, current) => 
+      console.log(`Total de datas extraídas: ${extractedDates.length}`);
+      
+      // Para CRF FGTS, pegar sempre a data mais recente
+      if (tipoDocumento === 'crf_fgts' && extractedDates.length > 0) {
+        const latestDate = extractedDates.reduce((latest, current) => 
           current > latest ? current : latest
         );
         dataValidade = latestDate.toISOString().split('T')[0];
+        console.log('CRF FGTS - Data mais recente:', dataValidade);
+      } else if (extractedDates.length > 0) {
+        // Para outros documentos, pegar a data mais recente que está no futuro
+        const now = new Date();
+        const futureDates = extractedDates.filter(d => d > now);
+        
+        if (futureDates.length > 0) {
+          const nextDate = futureDates.reduce((nearest, current) => 
+            current < nearest ? current : nearest
+          );
+          dataValidade = nextDate.toISOString().split('T')[0];
+          console.log('Data futura mais próxima:', dataValidade);
+        } else {
+          // Se não há datas futuras, pegar a mais recente
+          const latestDate = extractedDates.reduce((latest, current) => 
+            current > latest ? current : latest
+          );
+          dataValidade = latestDate.toISOString().split('T')[0];
+          console.log('Data mais recente (passada):', dataValidade);
+        }
       }
     }
     
-    console.log('Data de validade extraída:', dataValidade);
+    console.log('Data de validade final extraída:', dataValidade);
     
     return new Response(
       JSON.stringify({ dataValidade }),
