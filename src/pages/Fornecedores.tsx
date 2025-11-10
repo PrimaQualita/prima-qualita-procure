@@ -556,7 +556,11 @@ export default function Fornecedores() {
                       <TableCell>{fornecedor.email}</TableCell>
                       <TableCell>
                         {fornecedor.data_cadastro 
-                          ? new Date(fornecedor.data_cadastro + 'T00:00:00').toLocaleDateString('pt-BR')
+                          ? (() => {
+                              const dateStr = fornecedor.data_cadastro.split('T')[0];
+                              const [year, month, day] = dateStr.split('-');
+                              return `${day}/${month}/${year}`;
+                            })()
                           : "-"}
                       </TableCell>
                       <TableCell>
