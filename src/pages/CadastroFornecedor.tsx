@@ -273,12 +273,48 @@ export default function CadastroFornecedor() {
         }
       }
 
-      toast.success("Cadastro realizado com sucesso! Aguarde aprovação do gestor.");
+      toast.success("✅ Cadastro realizado com sucesso! Aguarde a aprovação do gestor por e-mail.", {
+        duration: 6000,
+      });
       
-      // Redirecionar para página de login
+      // Limpar formulário completamente
+      setFormData({
+        razao_social: "",
+        nome_fantasia: "",
+        cnpj: "",
+        logradouro: "",
+        numero: "",
+        complemento: "",
+        bairro: "",
+        municipio: "",
+        cep: "",
+        telefone: "",
+        email: "",
+        senha: "",
+        confirmar_senha: ""
+      });
+      
+      setDocumentos({
+        cnd_federal: { tipo: "cnd_federal", label: "CND Federal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        cnd_estadual: { tipo: "cnd_estadual", label: "CND Tributos Estaduais", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        cnd_divida_ativa_estadual: { tipo: "cnd_divida_ativa_estadual", label: "CND Dívida Ativa Estadual", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        cnd_municipal: { tipo: "cnd_municipal", label: "CND Tributos Municipais", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        cnd_divida_ativa_municipal: { tipo: "cnd_divida_ativa_municipal", label: "CND Dívida Ativa Municipal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        crf_fgts: { tipo: "crf_fgts", label: "CRF FGTS", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        cndt: { tipo: "cndt", label: "CNDT", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        contrato_social: { tipo: "contrato_social", label: "Contrato Social Consolidado", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        cartao_cnpj: { tipo: "cartao_cnpj", label: "Cartão CNPJ", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+      });
+      
+      setRespostas({});
+      
+      // Rolar para o topo da página
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Opcional: redirecionar após alguns segundos
       setTimeout(() => {
         navigate("/auth");
-      }, 2000);
+      }, 6000);
 
     } catch (error: any) {
       console.error("Erro ao cadastrar fornecedor:", error);
