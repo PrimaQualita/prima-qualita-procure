@@ -126,45 +126,59 @@ const Fornecedores = () => {
     if (!fornecedorParaExcluir) return;
 
     try {
-      // Buscar o user_id do fornecedor antes de excluir
+      // 1. Buscar o user_id do fornecedor ANTES de excluir
       const { data: fornecedorData, error: fetchError } = await supabase
         .from("fornecedores")
         .select("user_id")
         .eq("id", fornecedorParaExcluir)
         .single();
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error("Erro ao buscar fornecedor:", fetchError);
+        throw fetchError;
+      }
 
-      // Deletar o registro de fornecedor
+      console.log("Fornecedor encontrado, user_id:", fornecedorData?.user_id);
+
+      // 2. Se o fornecedor tem user_id, deletar o usuário de autenticação PRIMEIRO
+      if (fornecedorData?.user_id) {
+        console.log("Chamando edge function para deletar usuário:", fornecedorData.user_id);
+        
+        const { data: deleteUserData, error: authError } = await supabase.functions.invoke(
+          "deletar-usuario-admin",
+          {
+            body: { userId: fornecedorData.user_id },
+          }
+        );
+
+        console.log("Resposta da edge function:", deleteUserData, authError);
+
+        if (authError) {
+          console.error("Erro ao deletar usuário de autenticação:", authError);
+          toast({
+            title: "Erro ao excluir acesso do fornecedor",
+            description: "Não foi possível remover o acesso do sistema. Tente novamente.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // 3. Agora deletar o registro de fornecedor
       const { error: deleteError } = await supabase
         .from("fornecedores")
         .delete()
         .eq("id", fornecedorParaExcluir);
 
-      if (deleteError) throw deleteError;
-
-      // Se o fornecedor tinha um user_id, deletar o usuário de autenticação
-      if (fornecedorData?.user_id) {
-        const { error: authError } = await supabase.functions.invoke("deletar-usuario-admin", {
-          body: { userId: fornecedorData.user_id },
-        });
-
-        if (authError) {
-          console.error("Erro ao deletar usuário de autenticação:", authError);
-          toast({
-            title: "Fornecedor excluído parcialmente",
-            description: "O registro foi removido mas houve erro ao deletar o acesso do sistema",
-            variant: "destructive",
-          });
-        } else {
-          toast({ title: "Fornecedor excluído com sucesso!" });
-        }
-      } else {
-        toast({ title: "Fornecedor excluído com sucesso!" });
+      if (deleteError) {
+        console.error("Erro ao deletar fornecedor:", deleteError);
+        throw deleteError;
       }
-      
+
+      toast({ title: "Fornecedor excluído com sucesso!" });
       loadFornecedores();
     } catch (error: any) {
+      console.error("Erro no processo de exclusão:", error);
       toast({
         title: "Erro ao excluir fornecedor",
         description: error.message,
