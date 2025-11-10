@@ -61,6 +61,7 @@ export default function CadastroFornecedor() {
   });
 
   useEffect(() => {
+    console.log("=== INICIANDO CARREGAMENTO DO FORMULÁRIO ===");
     loadPerguntas();
   }, []);
 
@@ -586,7 +587,7 @@ export default function CadastroFornecedor() {
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={loading} className="flex-1">
-                  {loading ? "Cadastrando..." : "Cadastrar Fornecedor"}
+                  {loading ? "Processando..." : "Enviar Cadastro"}
                 </Button>
               </div>
             </form>
