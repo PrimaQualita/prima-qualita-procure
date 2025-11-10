@@ -338,6 +338,12 @@ export default function PerguntasDueDiligence() {
     }
   };
 
+  const getNivelPontuacao = (pontos: number) => {
+    if (pontos === 0) return { label: "satisfatório", cor: "text-green-600", bg: "bg-green-500/10" };
+    if (pontos >= 200) return { label: "alto", cor: "text-red-600", bg: "bg-red-500/10" };
+    return { label: "médio", cor: "text-yellow-600", bg: "bg-yellow-500/10" };
+  };
+
   const copiarLinkFormulario = () => {
     const link = `${window.location.origin}/cadastro-fornecedor`;
     navigator.clipboard.writeText(link);
@@ -401,11 +407,11 @@ export default function PerguntasDueDiligence() {
                 <div className="flex-1">
                   <p className="text-sm">{pergunta.texto_pergunta}</p>
                   <div className="flex gap-2 mt-2">
-                    <Badge variant="outline" className="bg-green-500/10 text-green-600">
-                      SIM: {pergunta.pontuacao_sim} pts (✓)
+                    <Badge variant="outline" className={getNivelPontuacao(pergunta.pontuacao_sim).bg + " " + getNivelPontuacao(pergunta.pontuacao_sim).cor}>
+                      SIM: {pergunta.pontuacao_sim} pts ({getNivelPontuacao(pergunta.pontuacao_sim).label})
                     </Badge>
-                    <Badge variant="outline" className="bg-red-500/10 text-red-600">
-                      NÃO: {pergunta.pontuacao_nao} pts (✗)
+                    <Badge variant="outline" className={getNivelPontuacao(pergunta.pontuacao_nao).bg + " " + getNivelPontuacao(pergunta.pontuacao_nao).cor}>
+                      NÃO: {pergunta.pontuacao_nao} pts ({getNivelPontuacao(pergunta.pontuacao_nao).label})
                     </Badge>
                   </div>
                 </div>
@@ -549,7 +555,9 @@ export default function PerguntasDueDiligence() {
                   onChange={(e) => setFormDataPergunta({ ...formDataPergunta, pontuacao_sim: parseInt(e.target.value) })}
                   required
                 />
-                <p className="text-xs text-muted-foreground">Score satisfatório</p>
+                <p className="text-xs text-muted-foreground">
+                  0 = satisfatório, 200+ = alto
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -561,7 +569,9 @@ export default function PerguntasDueDiligence() {
                   onChange={(e) => setFormDataPergunta({ ...formDataPergunta, pontuacao_nao: parseInt(e.target.value) })}
                   required
                 />
-                <p className="text-xs text-muted-foreground">Score alto</p>
+                <p className="text-xs text-muted-foreground">
+                  0 = satisfatório, 200+ = alto
+                </p>
               </div>
             </div>
 
