@@ -70,20 +70,23 @@ export default function CadastroFornecedor() {
       console.log("Carregando perguntas de due diligence...");
       const { data, error } = await supabase
         .from("perguntas_due_diligence")
-        .select("id, texto_pergunta")
+        .select("*")
         .eq("ativo", true)
         .order("ordem");
 
       if (error) {
         console.error("Erro ao buscar perguntas:", error);
-        throw error;
+        toast.error("Erro ao carregar questionário: " + error.message);
+        return;
       }
       
       console.log("Perguntas carregadas:", data);
+      console.log("Total de perguntas:", data?.length || 0);
       setPerguntas(data || []);
       
       if (!data || data.length === 0) {
         console.warn("Nenhuma pergunta ativa encontrada no banco de dados");
+        toast.info("Nenhuma pergunta de Due Diligence cadastrada ainda");
       }
     } catch (error) {
       console.error("Erro ao carregar perguntas:", error);
