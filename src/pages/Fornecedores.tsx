@@ -734,7 +734,14 @@ export default function Fornecedores() {
                               .createSignedUrl(filePath, 60);
                             if (error) throw error;
                             if (!data?.signedUrl) throw new Error("Não foi possível gerar URL de acesso");
-                            window.open(data.signedUrl, '_blank');
+                            
+                            // Construir URL completa
+                            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                            const fullUrl = data.signedUrl.startsWith('http') 
+                              ? data.signedUrl 
+                              : `${supabaseUrl}/storage/v1${data.signedUrl}`;
+                            
+                            window.open(fullUrl, '_blank');
                           } catch (error) {
                             console.error("Erro ao abrir documento:", error);
                             toast.error("Erro ao visualizar documento");
