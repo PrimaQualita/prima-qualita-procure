@@ -1,10 +1,60 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { readAll } from "https://deno.land/std@0.168.0/streams/read_all.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Função auxiliar para extrair texto de PDF usando regex nos streams
+function extractTextFromPDFBytes(bytes: Uint8Array): string {
+  const decoder = new TextDecoder('latin1');
+  const pdfText = decoder.decode(bytes);
+  
+  // Extrair texto entre stream e endstream
+  const textContent: string[] = [];
+  const streamRegex = /stream\s+([\s\S]*?)\s+endstream/g;
+  let match;
+  
+  while ((match = streamRegex.exec(pdfText)) !== null) {
+    const streamContent = match[1];
+    
+    // Tentar extrair texto visível (caracteres ASCII imprimíveis)
+    const textMatch = streamContent.match(/\(([^)]+)\)/g);
+    if (textMatch) {
+      textMatch.forEach(text => {
+        const cleaned = text
+          .replace(/^\(/, '')
+          .replace(/\)$/, '')
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\r')
+          .replace(/\\\(/g, '(')
+          .replace(/\\\)/g, ')')
+          .replace(/\\\\/g, '\\');
+        if (cleaned.length > 0 && cleaned.trim()) {
+          textContent.push(cleaned);
+        }
+      });
+    }
+    
+    // Também procurar por texto em formato /Tj ou /TJ
+    const tjRegex = /\[(.*?)\]\s*TJ/g;
+    let tjMatch;
+    while ((tjMatch = tjRegex.exec(streamContent)) !== null) {
+      const content = tjMatch[1];
+      const stringsInArray = content.match(/\(([^)]+)\)/g);
+      if (stringsInArray) {
+        stringsInArray.forEach(str => {
+          const cleaned = str.replace(/^\(/, '').replace(/\)$/, '').trim();
+          if (cleaned.length > 0) {
+            textContent.push(cleaned);
+          }
+        });
+      }
+    }
+  }
+  
+  return textContent.join(' ');
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -23,10 +73,11 @@ serve(async (req) => {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    // Extract text from PDF (simple extraction - gets text content)
-    const pdfText = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    // Extract text from PDF
+    const pdfText = extractTextFromPDFBytes(bytes);
     
-    console.log('Texto extraído do PDF (primeiros 500 caracteres):', pdfText.substring(0, 500));
+    console.log('Texto extraído do PDF:', pdfText.substring(0, 1000));
+    console.log('Tamanho total do texto:', pdfText.length);
     
     let dataValidade: string | null = null;
     
@@ -41,7 +92,7 @@ serve(async (req) => {
     ];
     
     const monthNames: { [key: string]: number } = {
-      'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4,
+      'janeiro': 1, 'fevereiro': 2, 'março': 3, 'marco': 3, 'abril': 4,
       'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8,
       'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12,
       'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
@@ -52,16 +103,16 @@ serve(async (req) => {
     
     // Palavras-chave que indicam validade
     const validadeKeywords = [
-      'validade', 'válido até', 'vencimento', 'válida até',
-      'expira em', 'prazo', 'vigência', 'data de vencimento'
+      'validade', 'válido até', 'valido ate', 'vencimento', 'válida até', 'valida ate',
+      'expira em', 'prazo', 'vigência', 'vigencia', 'data de vencimento', 'vence em'
     ];
     
     // Procurar por datas próximas às palavras-chave de validade
     for (const keyword of validadeKeywords) {
       const keywordIndex = pdfText.toLowerCase().indexOf(keyword.toLowerCase());
       if (keywordIndex !== -1) {
-        // Pegar um contexto de 200 caracteres após a palavra-chave
-        const context = pdfText.substring(keywordIndex, keywordIndex + 200);
+        // Pegar um contexto de 300 caracteres após a palavra-chave
+        const context = pdfText.substring(keywordIndex, keywordIndex + 300);
         console.log(`Contexto encontrado para "${keyword}":`, context);
         
         // Tentar extrair data do contexto
@@ -73,7 +124,7 @@ serve(async (req) => {
             let day: number, month: number, year: number;
             
             // Verificar se é data por extenso
-            if (match[0].includes('de') && isNaN(parseInt(match[2]))) {
+            if (match[0].toLowerCase().includes('de') && isNaN(parseInt(match[2]))) {
               day = parseInt(match[1]);
               const monthName = match[2].toLowerCase().trim();
               month = monthNames[monthName] || 0;
@@ -108,7 +159,7 @@ serve(async (req) => {
       }
     }
     
-    // Se não encontrou data com palavras-chave, extrair todas as datas e pegar a mais recente no futuro
+    // Se não encontrou data com palavras-chave, extrair todas as datas do texto
     if (!dataValidade) {
       console.log('Não encontrou data com palavras-chave, extraindo todas as datas...');
       
@@ -118,7 +169,7 @@ serve(async (req) => {
         while ((match = pattern.exec(pdfText)) !== null) {
           let day: number, month: number, year: number;
           
-          if (match[0].includes('de') && isNaN(parseInt(match[2]))) {
+          if (match[0].toLowerCase().includes('de') && isNaN(parseInt(match[2]))) {
             day = parseInt(match[1]);
             const monthName = match[2].toLowerCase().trim();
             month = monthNames[monthName] || 0;
@@ -141,6 +192,9 @@ serve(async (req) => {
       }
       
       console.log(`Total de datas extraídas: ${extractedDates.length}`);
+      if (extractedDates.length > 0) {
+        console.log('Datas encontradas:', extractedDates.map(d => d.toISOString().split('T')[0]));
+      }
       
       // Para CRF FGTS, pegar sempre a data mais recente
       if (tipoDocumento === 'crf_fgts' && extractedDates.length > 0) {

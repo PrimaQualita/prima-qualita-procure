@@ -386,10 +386,27 @@ export default function CadastroFornecedor() {
                       <div className="flex items-center justify-between">
                         <Label className="font-medium">{doc.label} *</Label>
                         {doc.arquivo && (
-                          <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <FileText className="h-4 w-4" />
-                            {doc.arquivo.name}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <FileText className="h-4 w-4" />
+                              {doc.arquivo.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setDocumentos({
+                                  ...documentos,
+                                  [key]: { ...doc, arquivo: null, dataValidade: "" }
+                                });
+                                toast.info("Documento removido");
+                              }}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              ✕
+                            </Button>
+                          </div>
                         )}
                       </div>
                       
@@ -402,7 +419,7 @@ export default function CadastroFornecedor() {
                               const file = e.target.files?.[0];
                               if (file) handleFileUpload(key, file);
                             }}
-                            required={doc.obrigatorio}
+                            required={doc.obrigatorio && !doc.arquivo}
                             className="cursor-pointer"
                           />
                         </div>
@@ -423,7 +440,7 @@ export default function CadastroFornecedor() {
                               required
                             />
                             {doc.processando && (
-                              <p className="text-xs text-muted-foreground">Extraindo data...</p>
+                              <p className="text-xs text-muted-foreground">Extraindo data do PDF...</p>
                             )}
                           </div>
                         )}
