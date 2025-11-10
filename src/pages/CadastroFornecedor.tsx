@@ -394,12 +394,28 @@ export default function CadastroFornecedor() {
                     <div key={key} className="border rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="font-medium">{doc.label} *</Label>
-                        {doc.arquivo && (
-                          <div className="flex items-center gap-2">
-                            <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <FileText className="h-4 w-4" />
-                              {doc.arquivo.name}
-                            </span>
+                      </div>
+                      
+                      {!doc.arquivo ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <Input
+                              type="file"
+                              accept=".pdf"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileUpload(key, file);
+                              }}
+                              required={doc.obrigatorio}
+                              className="cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+                            <FileText className="h-5 w-5 text-primary" />
+                            <span className="flex-1 text-sm font-medium">{doc.arquivo.name}</span>
                             <Button
                               type="button"
                               variant="ghost"
@@ -411,50 +427,35 @@ export default function CadastroFornecedor() {
                                 });
                                 toast.info("Documento removido");
                               }}
-                              className="text-destructive hover:text-destructive"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             >
                               ✕
                             </Button>
                           </div>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <Input
-                            key={doc.arquivo ? `${key}-with-file` : `${key}-no-file`}
-                            type="file"
-                            accept=".pdf"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleFileUpload(key, file);
-                            }}
-                            required={doc.obrigatorio && !doc.arquivo}
-                            className="cursor-pointer"
-                          />
+                          
+                          {!["contrato_social", "cartao_cnpj"].includes(key) && (
+                            <div className="space-y-1">
+                              <Label className="text-sm text-muted-foreground">Data de Validade</Label>
+                              <Input
+                                type="date"
+                                value={doc.dataValidade}
+                                onChange={(e) =>
+                                  setDocumentos({
+                                    ...documentos,
+                                    [key]: { ...doc, dataValidade: e.target.value }
+                                  })
+                                }
+                                placeholder="Data de Validade"
+                                disabled={doc.processando}
+                                required
+                              />
+                              {doc.processando && (
+                                <p className="text-xs text-muted-foreground">Extraindo data automaticamente...</p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        
-                        {!["contrato_social", "cartao_cnpj"].includes(key) && (
-                          <div className="space-y-1">
-                            <Input
-                              type="date"
-                              value={doc.dataValidade}
-                              onChange={(e) =>
-                                setDocumentos({
-                                  ...documentos,
-                                  [key]: { ...doc, dataValidade: e.target.value }
-                                })
-                              }
-                              placeholder="Data de Validade"
-                              disabled={doc.processando}
-                              required
-                            />
-                            {doc.processando && (
-                              <p className="text-xs text-muted-foreground">Extraindo data do PDF...</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>
