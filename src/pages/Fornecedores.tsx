@@ -313,6 +313,11 @@ export default function Fornecedores() {
       }
 
       // Atualizar fornecedor
+      // Converter data para formato ISO sem problemas de timezone
+      const dataValidadeISO = dataValidadeCertificado 
+        ? `${dataValidadeCertificado}T00:00:00.000Z`
+        : null;
+
       const { error: updateError } = await supabase
         .from("fornecedores")
         .update({
@@ -320,7 +325,7 @@ export default function Fornecedores() {
           data_aprovacao: new Date().toISOString(),
           gestor_aprovador_id: user.id,
           observacoes_gestor: observacoes,
-          data_validade_certificado: acao === "aprovar" ? dataValidadeCertificado : null,
+          data_validade_certificado: acao === "aprovar" ? dataValidadeISO : null,
           ativo: acao === "aprovar"
         })
         .eq("id", fornecedorSelecionado.id);
