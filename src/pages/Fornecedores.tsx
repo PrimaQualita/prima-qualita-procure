@@ -269,46 +269,74 @@ export default function Fornecedores() {
       if (acao === "aprovar") {
         // Upload certificado
         if (certificado) {
+          console.log("Iniciando upload do certificado...");
           const certFileName = `fornecedor_${fornecedorSelecionado.id}/certificado_${Date.now()}.pdf`;
           const { error: certUploadError } = await supabase.storage
             .from("processo-anexos")
             .upload(certFileName, certificado);
 
-          if (certUploadError) throw certUploadError;
+          if (certUploadError) {
+            console.error("Erro ao fazer upload do certificado:", certUploadError);
+            throw certUploadError;
+          }
 
           const { data: { publicUrl: certUrl } } = supabase.storage
             .from("processo-anexos")
             .getPublicUrl(certFileName);
 
-          await supabase.from("documentos_fornecedor").insert({
+          console.log("Certificado upado, salvando no banco:", certUrl);
+
+          const { error: certInsertError } = await supabase.from("documentos_fornecedor").insert({
             fornecedor_id: fornecedorSelecionado.id,
             tipo_documento: "certificado_gestor",
             nome_arquivo: certificado.name,
             url_arquivo: certUrl,
             em_vigor: true
           });
+
+          if (certInsertError) {
+            console.error("Erro ao inserir certificado no banco:", certInsertError);
+            throw certInsertError;
+          }
+          console.log("Certificado salvo com sucesso!");
+        } else {
+          console.warn("Certificado não foi selecionado!");
         }
 
         // Upload relatório KPMG
         if (relatorioKPMG) {
+          console.log("Iniciando upload do relatório KPMG...");
           const kpmgFileName = `fornecedor_${fornecedorSelecionado.id}/relatorio_kpmg_${Date.now()}.pdf`;
           const { error: kpmgUploadError } = await supabase.storage
             .from("processo-anexos")
             .upload(kpmgFileName, relatorioKPMG);
 
-          if (kpmgUploadError) throw kpmgUploadError;
+          if (kpmgUploadError) {
+            console.error("Erro ao fazer upload do relatório KPMG:", kpmgUploadError);
+            throw kpmgUploadError;
+          }
 
           const { data: { publicUrl: kpmgUrl } } = supabase.storage
             .from("processo-anexos")
             .getPublicUrl(kpmgFileName);
 
-          await supabase.from("documentos_fornecedor").insert({
+          console.log("Relatório KPMG upado, salvando no banco:", kpmgUrl);
+
+          const { error: kpmgInsertError } = await supabase.from("documentos_fornecedor").insert({
             fornecedor_id: fornecedorSelecionado.id,
             tipo_documento: "relatorio_kpmg",
             nome_arquivo: relatorioKPMG.name,
             url_arquivo: kpmgUrl,
             em_vigor: true
           });
+
+          if (kpmgInsertError) {
+            console.error("Erro ao inserir relatório KPMG no banco:", kpmgInsertError);
+            throw kpmgInsertError;
+          }
+          console.log("Relatório KPMG salvo com sucesso!");
+        } else {
+          console.warn("Relatório KPMG não foi selecionado!");
         }
       }
 
