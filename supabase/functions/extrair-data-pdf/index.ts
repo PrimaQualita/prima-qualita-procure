@@ -1,60 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Função auxiliar para extrair texto de PDF usando regex nos streams
-function extractTextFromPDFBytes(bytes: Uint8Array): string {
-  const decoder = new TextDecoder('latin1');
-  const pdfText = decoder.decode(bytes);
-  
-  // Extrair texto entre stream e endstream
-  const textContent: string[] = [];
-  const streamRegex = /stream\s+([\s\S]*?)\s+endstream/g;
-  let match;
-  
-  while ((match = streamRegex.exec(pdfText)) !== null) {
-    const streamContent = match[1];
-    
-    // Tentar extrair texto visível (caracteres ASCII imprimíveis)
-    const textMatch = streamContent.match(/\(([^)]+)\)/g);
-    if (textMatch) {
-      textMatch.forEach(text => {
-        const cleaned = text
-          .replace(/^\(/, '')
-          .replace(/\)$/, '')
-          .replace(/\\n/g, '\n')
-          .replace(/\\r/g, '\r')
-          .replace(/\\\(/g, '(')
-          .replace(/\\\)/g, ')')
-          .replace(/\\\\/g, '\\');
-        if (cleaned.length > 0 && cleaned.trim()) {
-          textContent.push(cleaned);
-        }
-      });
-    }
-    
-    // Também procurar por texto em formato /Tj ou /TJ
-    const tjRegex = /\[(.*?)\]\s*TJ/g;
-    let tjMatch;
-    while ((tjMatch = tjRegex.exec(streamContent)) !== null) {
-      const content = tjMatch[1];
-      const stringsInArray = content.match(/\(([^)]+)\)/g);
-      if (stringsInArray) {
-        stringsInArray.forEach(str => {
-          const cleaned = str.replace(/^\(/, '').replace(/\)$/, '').trim();
-          if (cleaned.length > 0) {
-            textContent.push(cleaned);
-          }
-        });
-      }
-    }
-  }
-  
-  return textContent.join(' ');
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -73,10 +23,22 @@ serve(async (req) => {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    // Extract text from PDF
-    const pdfText = extractTextFromPDFBytes(bytes);
+    // Parse PDF using pdfjs-serverless
+    const doc = await getDocument(bytes).promise;
+    const numPages = doc.numPages;
     
-    console.log('Texto extraído do PDF:', pdfText.substring(0, 1000));
+    console.log('Total de páginas:', numPages);
+    
+    // Extract text from all pages
+    let pdfText = '';
+    for (let i = 1; i <= numPages; i++) {
+      const page = await doc.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      pdfText += pageText + ' ';
+    }
+    
+    console.log('Texto extraído do PDF (primeiros 1000 caracteres):', pdfText.substring(0, 1000));
     console.log('Tamanho total do texto:', pdfText.length);
     
     let dataValidade: string | null = null;
@@ -104,7 +66,7 @@ serve(async (req) => {
     // Palavras-chave que indicam validade
     const validadeKeywords = [
       'validade', 'válido até', 'valido ate', 'vencimento', 'válida até', 'valida ate',
-      'expira em', 'prazo', 'vigência', 'vigencia', 'data de vencimento', 'vence em'
+      'expira em', 'prazo', 'vigência', 'vigencia', 'data de vencimento', 'vence em', 'vencimento'
     ];
     
     // Procurar por datas próximas às palavras-chave de validade
