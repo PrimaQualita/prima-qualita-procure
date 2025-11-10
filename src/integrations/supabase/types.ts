@@ -1,0 +1,1017 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
+  public: {
+    Tables: {
+      anexos_cotacao_fornecedor: {
+        Row: {
+          cotacao_resposta_fornecedor_id: string
+          data_upload: string | null
+          id: string
+          nome_arquivo: string
+          tipo_anexo: string
+          url_arquivo: string
+        }
+        Insert: {
+          cotacao_resposta_fornecedor_id: string
+          data_upload?: string | null
+          id?: string
+          nome_arquivo: string
+          tipo_anexo: string
+          url_arquivo: string
+        }
+        Update: {
+          cotacao_resposta_fornecedor_id?: string
+          data_upload?: string | null
+          id?: string
+          nome_arquivo?: string
+          tipo_anexo?: string
+          url_arquivo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anexos_cotacao_fornecedor_cotacao_resposta_fornecedor_id_fkey"
+            columns: ["cotacao_resposta_fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "cotacao_respostas_fornecedor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      anexos_processo_compra: {
+        Row: {
+          data_upload: string | null
+          id: string
+          nome_arquivo: string
+          processo_compra_id: string
+          tipo_anexo: string
+          url_arquivo: string
+          usuario_upload_id: string | null
+        }
+        Insert: {
+          data_upload?: string | null
+          id?: string
+          nome_arquivo: string
+          processo_compra_id: string
+          tipo_anexo: string
+          url_arquivo: string
+          usuario_upload_id?: string | null
+        }
+        Update: {
+          data_upload?: string | null
+          id?: string
+          nome_arquivo?: string
+          processo_compra_id?: string
+          tipo_anexo?: string
+          url_arquivo?: string
+          usuario_upload_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anexos_processo_compra_processo_compra_id_fkey"
+            columns: ["processo_compra_id"]
+            isOneToOne: false
+            referencedRelation: "processos_compras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          acao: string
+          created_at: string | null
+          detalhes: Json | null
+          entidade: string
+          entidade_id: string | null
+          id: string
+          usuario_id: string | null
+          usuario_nome: string | null
+          usuario_tipo: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string | null
+          detalhes?: Json | null
+          entidade: string
+          entidade_id?: string | null
+          id?: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+          usuario_tipo?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string | null
+          detalhes?: Json | null
+          entidade?: string
+          entidade_id?: string | null
+          id?: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+          usuario_tipo?: string | null
+        }
+        Relationships: []
+      }
+      contatos: {
+        Row: {
+          assunto: string
+          categoria: string
+          created_at: string | null
+          data_resposta: string | null
+          fornecedor_id: string | null
+          id: string
+          mensagem: string
+          resposta_interna: string | null
+          status_atendimento:
+            | Database["public"]["Enums"]["status_atendimento"]
+            | null
+          tipo_usuario: string
+          usuario_interno_id: string | null
+        }
+        Insert: {
+          assunto: string
+          categoria: string
+          created_at?: string | null
+          data_resposta?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          mensagem: string
+          resposta_interna?: string | null
+          status_atendimento?:
+            | Database["public"]["Enums"]["status_atendimento"]
+            | null
+          tipo_usuario: string
+          usuario_interno_id?: string | null
+        }
+        Update: {
+          assunto?: string
+          categoria?: string
+          created_at?: string | null
+          data_resposta?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          mensagem?: string
+          resposta_interna?: string | null
+          status_atendimento?:
+            | Database["public"]["Enums"]["status_atendimento"]
+            | null
+          tipo_usuario?: string
+          usuario_interno_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contatos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contratos_gestao: {
+        Row: {
+          created_at: string | null
+          data_fim: string
+          data_inicio: string
+          ente_federativo: string
+          id: string
+          nome_contrato: string
+          observacoes: string | null
+          status: Database["public"]["Enums"]["status_contrato"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_fim: string
+          data_inicio: string
+          ente_federativo: string
+          id?: string
+          nome_contrato: string
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["status_contrato"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_fim?: string
+          data_inicio?: string
+          ente_federativo?: string
+          id?: string
+          nome_contrato?: string
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["status_contrato"] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      cotacao_fornecedor_convites: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          data_hora_acesso_primeiro: string | null
+          email_enviado_em: string | null
+          fornecedor_id: string
+          id: string
+          link_acesso_unico: string | null
+          status_convite: string | null
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          data_hora_acesso_primeiro?: string | null
+          email_enviado_em?: string | null
+          fornecedor_id: string
+          id?: string
+          link_acesso_unico?: string | null
+          status_convite?: string | null
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          data_hora_acesso_primeiro?: string | null
+          email_enviado_em?: string | null
+          fornecedor_id?: string
+          id?: string
+          link_acesso_unico?: string | null
+          status_convite?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotacao_fornecedor_convites_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotacao_fornecedor_convites_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cotacao_respostas_fornecedor: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          data_envio_resposta: string | null
+          fornecedor_id: string
+          id: string
+          observacoes_fornecedor: string | null
+          valor_total_anual_ofertado: number
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          data_envio_resposta?: string | null
+          fornecedor_id: string
+          id?: string
+          observacoes_fornecedor?: string | null
+          valor_total_anual_ofertado: number
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          data_envio_resposta?: string | null
+          fornecedor_id?: string
+          id?: string
+          observacoes_fornecedor?: string | null
+          valor_total_anual_ofertado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotacao_respostas_fornecedor_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotacao_respostas_fornecedor_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cotacoes_precos: {
+        Row: {
+          created_at: string | null
+          data_envio: string | null
+          data_limite_resposta: string
+          descricao_cotacao: string | null
+          id: string
+          processo_compra_id: string
+          status_cotacao: Database["public"]["Enums"]["status_cotacao"] | null
+          titulo_cotacao: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_envio?: string | null
+          data_limite_resposta: string
+          descricao_cotacao?: string | null
+          id?: string
+          processo_compra_id: string
+          status_cotacao?: Database["public"]["Enums"]["status_cotacao"] | null
+          titulo_cotacao: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_envio?: string | null
+          data_limite_resposta?: string
+          descricao_cotacao?: string | null
+          id?: string
+          processo_compra_id?: string
+          status_cotacao?: Database["public"]["Enums"]["status_cotacao"] | null
+          titulo_cotacao?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotacoes_precos_processo_compra_id_fkey"
+            columns: ["processo_compra_id"]
+            isOneToOne: false
+            referencedRelation: "processos_compras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentos_fornecedor: {
+        Row: {
+          created_at: string | null
+          data_emissao: string | null
+          data_upload: string | null
+          data_validade: string | null
+          em_vigor: boolean | null
+          fornecedor_id: string
+          id: string
+          nome_arquivo: string
+          tipo_documento: string
+          url_arquivo: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_emissao?: string | null
+          data_upload?: string | null
+          data_validade?: string | null
+          em_vigor?: boolean | null
+          fornecedor_id: string
+          id?: string
+          nome_arquivo: string
+          tipo_documento: string
+          url_arquivo: string
+        }
+        Update: {
+          created_at?: string | null
+          data_emissao?: string | null
+          data_upload?: string | null
+          data_validade?: string | null
+          em_vigor?: boolean | null
+          fornecedor_id?: string
+          id?: string
+          nome_arquivo?: string
+          tipo_documento?: string
+          url_arquivo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_fornecedor_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fornecedores: {
+        Row: {
+          ativo: boolean | null
+          cnpj: string
+          created_at: string | null
+          data_cadastro: string | null
+          email: string
+          id: string
+          nome_fantasia: string | null
+          nome_socio_administrador: string
+          nomes_socios_cotistas: string | null
+          razao_social: string
+          segmento_atividade: string | null
+          telefone: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cnpj: string
+          created_at?: string | null
+          data_cadastro?: string | null
+          email: string
+          id?: string
+          nome_fantasia?: string | null
+          nome_socio_administrador: string
+          nomes_socios_cotistas?: string | null
+          razao_social: string
+          segmento_atividade?: string | null
+          telefone: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cnpj?: string
+          created_at?: string | null
+          data_cadastro?: string | null
+          email?: string
+          id?: string
+          nome_fantasia?: string | null
+          nome_socio_administrador?: string
+          nomes_socios_cotistas?: string | null
+          razao_social?: string
+          segmento_atividade?: string | null
+          telefone?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      lances_fornecedores: {
+        Row: {
+          created_at: string | null
+          data_hora_lance: string | null
+          fornecedor_id: string
+          id: string
+          indicativo_lance_vencedor: boolean | null
+          observacao_lance: string | null
+          selecao_id: string
+          valor_lance: number
+        }
+        Insert: {
+          created_at?: string | null
+          data_hora_lance?: string | null
+          fornecedor_id: string
+          id?: string
+          indicativo_lance_vencedor?: boolean | null
+          observacao_lance?: string | null
+          selecao_id: string
+          valor_lance: number
+        }
+        Update: {
+          created_at?: string | null
+          data_hora_lance?: string | null
+          fornecedor_id?: string
+          id?: string
+          indicativo_lance_vencedor?: boolean | null
+          observacao_lance?: string | null
+          selecao_id?: string
+          valor_lance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lances_fornecedores_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lances_fornecedores_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notificacoes_fornecedor: {
+        Row: {
+          created_at: string | null
+          data_envio: string | null
+          documento_id: string | null
+          fornecedor_id: string
+          id: string
+          status_envio: string | null
+          tipo_notificacao: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_envio?: string | null
+          documento_id?: string | null
+          fornecedor_id: string
+          id?: string
+          status_envio?: string | null
+          tipo_notificacao: string
+        }
+        Update: {
+          created_at?: string | null
+          data_envio?: string | null
+          documento_id?: string | null
+          fornecedor_id?: string
+          id?: string
+          status_envio?: string | null
+          tipo_notificacao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_fornecedor_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_fornecedor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_fornecedor_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      perguntas_due_diligence: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          id: string
+          ordem: number
+          texto_pergunta: string
+          tipo_resposta: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          id?: string
+          ordem?: number
+          texto_pergunta: string
+          tipo_resposta?: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          id?: string
+          ordem?: number
+          texto_pergunta?: string
+          tipo_resposta?: string
+        }
+        Relationships: []
+      }
+      processos_compras: {
+        Row: {
+          ano_referencia: number
+          centro_custo: string | null
+          contrato_gestao_id: string
+          created_at: string | null
+          data_abertura: string | null
+          data_encerramento_prevista: string | null
+          data_encerramento_real: string | null
+          id: string
+          numero_processo_interno: string
+          objeto_resumido: string
+          observacoes: string | null
+          status_processo: Database["public"]["Enums"]["status_processo"] | null
+          tipo: Database["public"]["Enums"]["tipo_processo"]
+          updated_at: string | null
+          valor_estimado_anual: number
+        }
+        Insert: {
+          ano_referencia: number
+          centro_custo?: string | null
+          contrato_gestao_id: string
+          created_at?: string | null
+          data_abertura?: string | null
+          data_encerramento_prevista?: string | null
+          data_encerramento_real?: string | null
+          id?: string
+          numero_processo_interno: string
+          objeto_resumido: string
+          observacoes?: string | null
+          status_processo?:
+            | Database["public"]["Enums"]["status_processo"]
+            | null
+          tipo: Database["public"]["Enums"]["tipo_processo"]
+          updated_at?: string | null
+          valor_estimado_anual?: number
+        }
+        Update: {
+          ano_referencia?: number
+          centro_custo?: string | null
+          contrato_gestao_id?: string
+          created_at?: string | null
+          data_abertura?: string | null
+          data_encerramento_prevista?: string | null
+          data_encerramento_real?: string | null
+          id?: string
+          numero_processo_interno?: string
+          objeto_resumido?: string
+          observacoes?: string | null
+          status_processo?:
+            | Database["public"]["Enums"]["status_processo"]
+            | null
+          tipo?: Database["public"]["Enums"]["tipo_processo"]
+          updated_at?: string | null
+          valor_estimado_anual?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processos_compras_contrato_gestao_id_fkey"
+            columns: ["contrato_gestao_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_gestao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          ativo: boolean | null
+          cpf: string
+          created_at: string | null
+          data_criacao: string | null
+          data_nascimento: string | null
+          data_ultimo_login: string | null
+          email: string
+          id: string
+          nome_completo: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cpf: string
+          created_at?: string | null
+          data_criacao?: string | null
+          data_nascimento?: string | null
+          data_ultimo_login?: string | null
+          email: string
+          id: string
+          nome_completo: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cpf?: string
+          created_at?: string | null
+          data_criacao?: string | null
+          data_nascimento?: string | null
+          data_ultimo_login?: string | null
+          email?: string
+          id?: string
+          nome_completo?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      respostas_due_diligence_fornecedor: {
+        Row: {
+          created_at: string | null
+          fornecedor_id: string
+          id: string
+          pergunta_id: string
+          resposta_texto: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fornecedor_id: string
+          id?: string
+          pergunta_id: string
+          resposta_texto?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fornecedor_id?: string
+          id?: string
+          pergunta_id?: string
+          resposta_texto?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "respostas_due_diligence_fornecedor_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "respostas_due_diligence_fornecedor_pergunta_id_fkey"
+            columns: ["pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_due_diligence"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      selecao_fornecedor_convites: {
+        Row: {
+          created_at: string | null
+          email_enviado_em: string | null
+          fornecedor_id: string
+          id: string
+          link_acesso_unico: string | null
+          selecao_id: string
+          status_convite: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_enviado_em?: string | null
+          fornecedor_id: string
+          id?: string
+          link_acesso_unico?: string | null
+          selecao_id: string
+          status_convite?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_enviado_em?: string | null
+          fornecedor_id?: string
+          id?: string
+          link_acesso_unico?: string | null
+          selecao_id?: string
+          status_convite?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selecao_fornecedor_convites_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "selecao_fornecedor_convites_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      selecoes_fornecedores: {
+        Row: {
+          cotacao_relacionada_id: string | null
+          created_at: string | null
+          criterios_julgamento: string | null
+          data_sessao_disputa: string
+          descricao: string | null
+          hora_sessao_disputa: string
+          id: string
+          processo_compra_id: string
+          status_selecao: Database["public"]["Enums"]["status_selecao"] | null
+          titulo_selecao: string
+          updated_at: string | null
+          valor_estimado_anual: number
+        }
+        Insert: {
+          cotacao_relacionada_id?: string | null
+          created_at?: string | null
+          criterios_julgamento?: string | null
+          data_sessao_disputa: string
+          descricao?: string | null
+          hora_sessao_disputa: string
+          id?: string
+          processo_compra_id: string
+          status_selecao?: Database["public"]["Enums"]["status_selecao"] | null
+          titulo_selecao: string
+          updated_at?: string | null
+          valor_estimado_anual: number
+        }
+        Update: {
+          cotacao_relacionada_id?: string | null
+          created_at?: string | null
+          criterios_julgamento?: string | null
+          data_sessao_disputa?: string
+          descricao?: string | null
+          hora_sessao_disputa?: string
+          id?: string
+          processo_compra_id?: string
+          status_selecao?: Database["public"]["Enums"]["status_selecao"] | null
+          titulo_selecao?: string
+          updated_at?: string | null
+          valor_estimado_anual?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selecoes_fornecedores_cotacao_relacionada_id_fkey"
+            columns: ["cotacao_relacionada_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "selecoes_fornecedores_processo_compra_id_fkey"
+            columns: ["processo_compra_id"]
+            isOneToOne: false
+            referencedRelation: "processos_compras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+    }
+    Enums: {
+      app_role: "gestor" | "colaborador"
+      status_atendimento: "aberto" | "em_analise" | "respondido" | "fechado"
+      status_contrato: "ativo" | "encerrado" | "suspenso"
+      status_cotacao: "em_aberto" | "encerrada" | "cancelada"
+      status_processo:
+        | "planejado"
+        | "em_cotacao"
+        | "cotacao_concluida"
+        | "em_selecao"
+        | "contratado"
+        | "concluido"
+        | "cancelado"
+      status_selecao: "planejada" | "em_disputa" | "encerrada" | "cancelada"
+      tipo_processo: "material" | "servico" | "mao_obra_exclusiva" | "outros"
+      user_profile: "gestor" | "colaborador" | "fornecedor"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["gestor", "colaborador"],
+      status_atendimento: ["aberto", "em_analise", "respondido", "fechado"],
+      status_contrato: ["ativo", "encerrado", "suspenso"],
+      status_cotacao: ["em_aberto", "encerrada", "cancelada"],
+      status_processo: [
+        "planejado",
+        "em_cotacao",
+        "cotacao_concluida",
+        "em_selecao",
+        "contratado",
+        "concluido",
+        "cancelado",
+      ],
+      status_selecao: ["planejada", "em_disputa", "encerrada", "cancelada"],
+      tipo_processo: ["material", "servico", "mao_obra_exclusiva", "outros"],
+      user_profile: ["gestor", "colaborador", "fornecedor"],
+    },
+  },
+} as const
