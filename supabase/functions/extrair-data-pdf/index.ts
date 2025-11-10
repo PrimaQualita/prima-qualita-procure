@@ -77,59 +77,83 @@ serve(async (req) => {
         const context = pdfText.substring(keywordIndex, keywordIndex + 300);
         console.log(`Contexto encontrado para "${keyword}":`, context);
         
-        // Para CRF FGTS, extrair TODAS as datas do contexto e pegar a última/segunda
-        const contextDates: Date[] = [];
-        
-        // Tentar extrair todas as datas do contexto
-        for (const pattern of datePatterns) {
-          pattern.lastIndex = 0; // Reset regex
-          let match;
-          while ((match = pattern.exec(context)) !== null) {
-            console.log('Match encontrado:', match[0]);
-            let day: number, month: number, year: number;
+        // Para CRF FGTS, procurar especificamente pelo padrão "DD/MM/YYYY a DD/MM/YYYY"
+        if (tipoDocumento === 'crf_fgts') {
+          // Padrão específico para intervalo de datas: "28/10/2025 a 26/11/2025"
+          const intervalPattern = /(\d{2})[\/\-](\d{2})[\/\-](\d{4})\s+a\s+(\d{2})[\/\-](\d{2})[\/\-](\d{4})/i;
+          const intervalMatch = intervalPattern.exec(context);
+          
+          if (intervalMatch) {
+            // Pegar a SEGUNDA data (fim do período de validade)
+            const day = parseInt(intervalMatch[4]);
+            const month = parseInt(intervalMatch[5]);
+            const year = parseInt(intervalMatch[6]);
             
-            // Verificar se é data por extenso
-            if (match[0].toLowerCase().includes('de') && isNaN(parseInt(match[2]))) {
-              day = parseInt(match[1]);
-              const monthName = match[2].toLowerCase().trim();
-              month = monthNames[monthName] || 0;
-              year = parseInt(match[3]);
-            } else if (match[1].length === 4) {
-              // YYYY-MM-DD
-              year = parseInt(match[1]);
-              month = parseInt(match[2]);
-              day = parseInt(match[3]);
-            } else {
-              // DD/MM/YYYY
-              day = parseInt(match[1]);
-              month = parseInt(match[2]);
-              year = parseInt(match[3]);
-            }
+            console.log('CRF FGTS - Intervalo encontrado, segunda data:', { day, month, year });
             
-            console.log('Data extraída:', { day, month, year });
-            
-            // Validar data
             if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
-              const date = new Date(year, month - 1, day);
-              contextDates.push(date);
-              extractedDates.push(date);
-              console.log('Data válida adicionada:', date.toISOString());
+              dataValidade = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              console.log('CRF FGTS - Data final do intervalo (validade):', dataValidade);
+              break;
             }
           }
         }
         
-        // Para CRF FGTS, se houver múltiplas datas no contexto, pegar a ÚLTIMA (segunda)
-        if (tipoDocumento === 'crf_fgts' && contextDates.length >= 2) {
-          const lastDate = contextDates[contextDates.length - 1];
-          dataValidade = `${lastDate.getFullYear()}-${String(lastDate.getMonth() + 1).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`;
-          console.log('CRF FGTS - Última data do contexto (validade):', dataValidade);
-          break;
-        } else if (contextDates.length > 0) {
-          // Para outros documentos, usar a primeira data encontrada
-          const firstDate = contextDates[0];
-          dataValidade = `${firstDate.getFullYear()}-${String(firstDate.getMonth() + 1).padStart(2, '0')}-${String(firstDate.getDate()).padStart(2, '0')}`;
-          console.log('Data encontrada próxima à palavra-chave:', dataValidade);
-          break;
+        // Se não encontrou o padrão de intervalo, extrair todas as datas do contexto
+        if (!dataValidade) {
+          const contextDates: Date[] = [];
+          
+          // Tentar extrair todas as datas do contexto
+          for (const pattern of datePatterns) {
+            pattern.lastIndex = 0; // Reset regex
+            let match;
+            while ((match = pattern.exec(context)) !== null) {
+              console.log('Match encontrado:', match[0]);
+              let day: number, month: number, year: number;
+              
+              // Verificar se é data por extenso
+              if (match[0].toLowerCase().includes('de') && isNaN(parseInt(match[2]))) {
+                day = parseInt(match[1]);
+                const monthName = match[2].toLowerCase().trim();
+                month = monthNames[monthName] || 0;
+                year = parseInt(match[3]);
+              } else if (match[1].length === 4) {
+                // YYYY-MM-DD
+                year = parseInt(match[1]);
+                month = parseInt(match[2]);
+                day = parseInt(match[3]);
+              } else {
+                // DD/MM/YYYY
+                day = parseInt(match[1]);
+                month = parseInt(match[2]);
+                year = parseInt(match[3]);
+              }
+              
+              console.log('Data extraída:', { day, month, year });
+              
+              // Validar data
+              if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
+                const date = new Date(year, month - 1, day);
+                contextDates.push(date);
+                extractedDates.push(date);
+                console.log('Data válida adicionada:', date.toISOString());
+              }
+            }
+          }
+          
+          // Para CRF FGTS, se houver múltiplas datas no contexto, pegar a ÚLTIMA (segunda)
+          if (tipoDocumento === 'crf_fgts' && contextDates.length >= 2) {
+            const lastDate = contextDates[contextDates.length - 1];
+            dataValidade = `${lastDate.getFullYear()}-${String(lastDate.getMonth() + 1).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`;
+            console.log('CRF FGTS - Última data do contexto (validade):', dataValidade);
+            break;
+          } else if (contextDates.length > 0) {
+            // Para outros documentos, usar a primeira data encontrada
+            const firstDate = contextDates[0];
+            dataValidade = `${firstDate.getFullYear()}-${String(firstDate.getMonth() + 1).padStart(2, '0')}-${String(firstDate.getDate()).padStart(2, '0')}`;
+            console.log('Data encontrada próxima à palavra-chave:', dataValidade);
+            break;
+          }
         }
       }
     }
