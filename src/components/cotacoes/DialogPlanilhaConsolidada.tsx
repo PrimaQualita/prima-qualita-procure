@@ -421,20 +421,40 @@ export function DialogPlanilhaConsolidada({
     }
   };
 
-  // Obter lista de itens únicos para configuração
+  // Obter lista de itens únicos para configuração de TODAS as respostas
   const itensUnicos = respostas.length > 0 
-    ? Array.from(new Set(respostas[0].itens.map(i => i.numero_item)))
-        .sort((a, b) => a - b)
-        .map(num => respostas[0].itens.find(i => i.numero_item === num)!)
+    ? (() => {
+        const todosItensMap = new Map<number, any>();
+        respostas.forEach(resposta => {
+          resposta.itens.forEach(item => {
+            if (!todosItensMap.has(item.numero_item)) {
+              todosItensMap.set(item.numero_item, item);
+            }
+          });
+        });
+        return Array.from(todosItensMap.values()).sort((a, b) => a.numero_item - b.numero_item);
+      })()
     : [];
 
-  // Obter lotes únicos
+  // Obter lotes únicos de TODAS as respostas
   const lotesUnicos = respostas.length > 0 && criterioJulgamento === "por_lote"
-    ? Array.from(new Map(
-        respostas[0].itens
-          .filter(i => i.lote_id)
-          .map(i => [i.lote_id!, { id: i.lote_id!, numero: i.lote_numero!, descricao: i.lote_descricao! }])
-      ).values()).sort((a, b) => a.numero - b.numero)
+    ? (() => {
+        const lotesMap = new Map<string, any>();
+        respostas.forEach(resposta => {
+          resposta.itens
+            .filter(i => i.lote_id)
+            .forEach(i => {
+              if (!lotesMap.has(i.lote_id!)) {
+                lotesMap.set(i.lote_id!, { 
+                  id: i.lote_id!, 
+                  numero: i.lote_numero!, 
+                  descricao: i.lote_descricao! 
+                });
+              }
+            });
+        });
+        return Array.from(lotesMap.values()).sort((a, b) => a.numero - b.numero);
+      })()
     : [];
 
   return (
