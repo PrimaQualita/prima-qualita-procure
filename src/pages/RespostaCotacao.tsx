@@ -222,37 +222,50 @@ const RespostaCotacao = () => {
     setSaving(true);
     try {
       const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
+      console.log("=== INÍCIO DO ENVIO ===");
+      console.log("CNPJ limpo:", cnpjLimpo);
+      
       let fornecedorId: string | undefined;
       
-      // SEMPRE tentar buscar primeiro
-      const { data: fornecedorBuscado } = await supabaseAnon
+      // Buscar fornecedor existente
+      console.log("1. Buscando fornecedor...");
+      const { data: fornecedorBuscado, error: erroBusca } = await supabaseAnon
         .from("fornecedores")
         .select("id")
         .eq("cnpj", cnpjLimpo)
         .limit(1)
         .maybeSingle();
 
+      console.log("Resultado busca:", fornecedorBuscado, "Erro:", erroBusca);
+
       if (fornecedorBuscado) {
-        // Já existe
         fornecedorId = fornecedorBuscado.id;
+        console.log("✓ Fornecedor encontrado:", fornecedorId);
       } else {
-        // Não existe, tentar criar
+        // Criar novo fornecedor
+        console.log("2. Criando novo fornecedor...");
+        const dadosFornecedor = {
+          razao_social: dadosEmpresa.razao_social,
+          cnpj: cnpjLimpo,
+          email: `cotacao-${cnpjLimpo}@temporario.com`,
+          telefone: "00000000000",
+          endereco_comercial: `${dadosEmpresa.logradouro}, ${dadosEmpresa.numero} - ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf} - CEP: ${dadosEmpresa.cep}`,
+          status_aprovacao: "pendente",
+          ativo: false,
+        };
+        console.log("Dados fornecedor:", dadosFornecedor);
+        
         const { data: fornecedorCriado, error: erroCreate } = await supabaseAnon
           .from("fornecedores")
-          .insert({
-            razao_social: dadosEmpresa.razao_social,
-            cnpj: cnpjLimpo,
-            email: `cotacao-${cnpjLimpo}@temporario.com`,
-            telefone: "00000000000",
-            endereco_comercial: `${dadosEmpresa.logradouro}, ${dadosEmpresa.numero} - ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf} - CEP: ${dadosEmpresa.cep}`,
-            status_aprovacao: "pendente",
-            ativo: false,
-          })
+          .insert(dadosFornecedor)
           .select("id")
           .single();
 
+        console.log("Resultado criação:", fornecedorCriado, "Erro:", erroCreate);
+
         if (erroCreate) {
-          // Se deu erro (provavelmente duplicado por race condition), buscar novamente
+          console.error("✗ Erro ao criar:", erroCreate);
+          // Tentar buscar novamente
           const { data: fornecedorRetry } = await supabaseAnon
             .from("fornecedores")
             .select("id")
@@ -261,11 +274,14 @@ const RespostaCotacao = () => {
           
           if (fornecedorRetry) {
             fornecedorId = fornecedorRetry.id;
+            console.log("✓ Fornecedor encontrado na retry:", fornecedorId);
           } else {
-            throw new Error("Não foi possível criar ou encontrar o fornecedor");
+            toast.error("Erro ao criar fornecedor: " + erroCreate.message);
+            throw erroCreate;
           }
         } else {
           fornecedorId = fornecedorCriado.id;
+          console.log("✓ Fornecedor criado:", fornecedorId);
         }
       }
 
@@ -277,8 +293,10 @@ const RespostaCotacao = () => {
       const valorTotal = itens.reduce((total, item) => {
         return total + (item.quantidade * (valoresItens[item.id] || 0));
       }, 0);
+      console.log("3. Valor total calculado:", valorTotal);
 
       // Criar resposta da cotação
+      console.log("4. Criando resposta da cotação...");
       const { data: resposta, error: respostaError } = await supabaseAnon
         .from("cotacao_respostas_fornecedor")
         .insert({
@@ -290,30 +308,43 @@ const RespostaCotacao = () => {
         .select()
         .single();
 
-      if (respostaError) throw respostaError;
+      console.log("Resultado resposta:", resposta, "Erro:", respostaError);
+
+      if (respostaError) {
+        toast.error("Erro ao criar resposta: " + respostaError.message);
+        throw respostaError;
+      }
 
       // Criar respostas dos itens
+      console.log("5. Criando respostas dos itens...");
       const respostasItens = itens.map(item => ({
         cotacao_resposta_fornecedor_id: resposta.id,
         item_cotacao_id: item.id,
         valor_unitario_ofertado: valoresItens[item.id],
       }));
+      console.log("Itens a inserir:", respostasItens);
 
       const { error: itensError } = await supabaseAnon
         .from("respostas_itens_fornecedor")
         .insert(respostasItens);
 
-      if (itensError) throw itensError;
+      console.log("Erro itens:", itensError);
 
+      if (itensError) {
+        toast.error("Erro ao criar itens: " + itensError.message);
+        throw itensError;
+      }
+
+      console.log("=== SUCESSO! ===");
       toast.success("Resposta enviada com sucesso!");
       
       setTimeout(() => {
         window.location.href = "/";
       }, 2000);
       
-    } catch (error) {
-      console.error("Erro ao enviar resposta:", error);
-      toast.error("Erro ao enviar resposta. Tente novamente.");
+    } catch (error: any) {
+      console.error("=== ERRO GERAL ===", error);
+      toast.error("Erro: " + (error?.message || "Erro desconhecido"));
     } finally {
       setSaving(false);
     }
