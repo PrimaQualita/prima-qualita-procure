@@ -155,6 +155,8 @@ const RespostaCotacao = () => {
 
   const loadCotacao = async () => {
     try {
+      console.log("🔍 Carregando cotação com ID:", cotacaoIdParam);
+      
       // Buscar cotação diretamente com join para obter tipo do processo
       const { data: cotacao, error: cotacaoError } = await supabaseAnon
         .from("cotacoes_precos")
@@ -164,6 +166,9 @@ const RespostaCotacao = () => {
         `)
         .eq("id", cotacaoIdParam)
         .single();
+
+      console.log("📊 Dados da cotação:", cotacao);
+      console.log("❌ Erro ao buscar cotação:", cotacaoError);
 
       if (cotacaoError || !cotacao) {
         toast.error("Cotação não encontrada");
@@ -208,11 +213,15 @@ const RespostaCotacao = () => {
         .eq("cotacao_id", cotacao.id)
         .order("numero_item", { ascending: true });
 
+      console.log("📋 Itens carregados:", itensData);
+      console.log("❌ Erro ao carregar itens:", itensError);
+
       if (itensError) {
-        toast.error("Erro ao carregar itens");
-        console.error(itensError);
+        toast.error("Erro ao carregar itens da cotação");
+        console.error("Erro completo:", itensError);
       } else {
         setItens(itensData || []);
+        console.log(`✅ ${itensData?.length || 0} itens carregados com sucesso`);
       }
 
       setLoading(false);

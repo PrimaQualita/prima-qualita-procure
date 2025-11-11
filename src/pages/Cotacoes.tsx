@@ -777,21 +777,24 @@ const Cotacoes = () => {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>{cotacaoSelecionada.titulo_cotacao}</CardTitle>
-                    <CardDescription>
-                      Processo: {processoSelecionado?.numero_processo_interno}
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setCotacaoSelecionada(null)}>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <CardTitle>{cotacaoSelecionada.titulo_cotacao}</CardTitle>
+                      <CardDescription>
+                        Processo: {processoSelecionado?.numero_processo_interno}
+                      </CardDescription>
+                    </div>
+                    <Button variant="outline" onClick={() => setCotacaoSelecionada(null)} className="shrink-0">
                       <ArrowLeft className="h-4 w-4 mr-2" />
                       Voltar
                     </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       onClick={() => setDialogImportarOpen(true)}
+                      size="sm"
                     >
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
                       Importar Excel
@@ -799,6 +802,7 @@ const Cotacoes = () => {
                     <Button 
                       variant="secondary"
                       onClick={() => setDialogRespostasOpen(true)}
+                      size="sm"
                     >
                       Ver Respostas
                     </Button>
@@ -806,6 +810,7 @@ const Cotacoes = () => {
                       variant="default"
                       onClick={() => setDialogEnviarOpen(true)}
                       disabled={itens.length === 0}
+                      size="sm"
                     >
                       Enviar para Fornecedores
                     </Button>
@@ -813,6 +818,7 @@ const Cotacoes = () => {
                       <Button 
                         variant="destructive"
                         onClick={() => setConfirmDeleteAllOpen(true)}
+                        size="sm"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Excluir Itens
@@ -821,7 +827,7 @@ const Cotacoes = () => {
                     <Button onClick={() => {
                       setItemEditando(null);
                       setDialogItemOpen(true);
-                    }}>
+                    }} size="sm">
                       <Plus className="h-4 w-4 mr-2" />
                       Novo Item
                     </Button>
@@ -1043,7 +1049,7 @@ const Cotacoes = () => {
                                 {processoSelecionado?.tipo === "Material" && <TableHead className="w-32">Marca</TableHead>}
                                 <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
                                 <TableHead className="w-32 text-right">Vlr. Total</TableHead>
-                                <TableHead className="w-24 text-right">Ações</TableHead>
+                                <TableHead className="w-32 text-right">Ações</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1109,7 +1115,7 @@ const Cotacoes = () => {
                                   ))}
                                   <TableRow className="bg-muted/50">
                                     <TableCell></TableCell>
-                                    <TableCell colSpan={5} className="text-right font-semibold">
+                                    <TableCell colSpan={processoSelecionado?.tipo === "Material" ? 6 : 5} className="text-right font-semibold">
                                       TOTAL DO LOTE {lote.numero_lote}:
                                     </TableCell>
                                     <TableCell className="text-right font-bold text-lg">
@@ -1161,7 +1167,7 @@ const Cotacoes = () => {
                         {processoSelecionado?.tipo === "Material" && <TableHead className="w-32">Marca</TableHead>}
                         <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
                         <TableHead className="w-32 text-right">Vlr. Total</TableHead>
-                        <TableHead className="w-24 text-right">Ações</TableHead>
+                        <TableHead className="w-32 text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1227,7 +1233,7 @@ const Cotacoes = () => {
                           ))}
                           <TableRow className="font-bold bg-muted">
                             <TableCell></TableCell>
-                            <TableCell colSpan={5} className="text-right">TOTAL GERAL:</TableCell>
+                            <TableCell colSpan={processoSelecionado?.tipo === "Material" ? 6 : 5} className="text-right">TOTAL GERAL:</TableCell>
                             <TableCell className="text-right">
                               R$ {calcularTotal().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                             </TableCell>
