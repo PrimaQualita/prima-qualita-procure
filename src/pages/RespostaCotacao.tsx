@@ -181,13 +181,10 @@ const RespostaCotacao = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log("=== INICIANDO ENVIO DE RESPOSTA ===");
-    
     // Validar dados da empresa
     try {
       dadosEmpresaSchema.parse(dadosEmpresa);
       setErrors({});
-      console.log("✓ Dados da empresa validados");
     } catch (error) {
       if (error instanceof z.ZodError) {
         const newErrors: { [key: string]: string } = {};
@@ -197,7 +194,6 @@ const RespostaCotacao = () => {
           }
         });
         setErrors(newErrors);
-        console.error("✗ Erro na validação dos dados:", newErrors);
         toast.error("Por favor, preencha todos os campos obrigatórios corretamente");
         return;
       }
@@ -206,19 +202,15 @@ const RespostaCotacao = () => {
     // Validar se todos os itens têm valores
     const todosItensPreenchidos = itens.every(item => valoresItens[item.id] && valoresItens[item.id] > 0);
     if (!todosItensPreenchidos) {
-      console.error("✗ Nem todos os itens estão preenchidos");
       toast.error("Por favor, preencha os valores de todos os itens");
       return;
     }
-    console.log("✓ Todos os itens preenchidos");
 
     setSaving(true);
     try {
       const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
-      console.log("CNPJ limpo:", cnpjLimpo);
       
-      // 1. Verificar se fornecedor já existe pelo CNPJ
-      console.log("1. Verificando fornecedor existente...");
+      // Verificar se fornecedor já existe pelo CNPJ
       const { data: fornecedorExistente, error: buscaError } = await supabase
         .from("fornecedores")
         .select("id")
@@ -226,16 +218,14 @@ const RespostaCotacao = () => {
         .maybeSingle();
 
       if (buscaError) {
-        console.error("✗ Erro ao buscar fornecedor:", buscaError);
+        console.error("Erro ao buscar fornecedor:", buscaError);
         throw buscaError;
       }
 
       let fornecedorId = fornecedorExistente?.id;
-      console.log("Fornecedor existente:", fornecedorId ? "Sim - " + fornecedorId : "Não");
 
-      // 2. Se não existe, criar registro básico do fornecedor
+      // Se não existe, criar registro básico do fornecedor
       if (!fornecedorId) {
-        console.log("2. Criando novo fornecedor...");
         const { data: novoFornecedor, error: fornecedorError } = await supabase
           .from("fornecedores")
           .insert({
@@ -251,44 +241,18 @@ const RespostaCotacao = () => {
           .single();
 
         if (fornecedorError) {
-          console.error("✗ Erro ao criar fornecedor:", fornecedorError);
+          console.error("Erro ao criar fornecedor:", fornecedorError);
           throw fornecedorError;
         }
         fornecedorId = novoFornecedor.id;
-        console.log("✓ Fornecedor criado:", fornecedorId);
       }
 
-      // 3. Verificar se já existe resposta deste fornecedor para esta cotação
-      console.log("3. Verificando se já respondeu esta cotação...");
-      const { data: respostaExistente, error: respostaCheckError } = await supabase
-        .from("cotacao_respostas_fornecedor")
-        .select("id")
-        .eq("cotacao_id", cotacaoId)
-        .eq("fornecedor_id", fornecedorId)
-        .maybeSingle();
-
-      if (respostaCheckError) {
-        console.error("✗ Erro ao verificar resposta existente:", respostaCheckError);
-        throw respostaCheckError;
-      }
-
-      if (respostaExistente) {
-        console.error("✗ Fornecedor já respondeu esta cotação");
-        toast.error("Este CNPJ já enviou uma resposta para esta cotação");
-        setSaving(false);
-        return;
-      }
-      console.log("✓ Fornecedor ainda não respondeu");
-
-      // 4. Calcular valor total
-      console.log("4. Calculando valor total...");
+      // Calcular valor total
       const valorTotal = itens.reduce((total, item) => {
         return total + (item.quantidade * (valoresItens[item.id] || 0));
       }, 0);
-      console.log("✓ Valor total:", valorTotal);
 
-      // 5. Criar resposta da cotação
-      console.log("5. Criando resposta da cotação...");
+      // Criar resposta da cotação
       const { data: resposta, error: respostaError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .insert({
@@ -301,31 +265,26 @@ const RespostaCotacao = () => {
         .single();
 
       if (respostaError) {
-        console.error("✗ Erro ao criar resposta:", respostaError);
+        console.error("Erro ao criar resposta:", respostaError);
         throw respostaError;
       }
-      console.log("✓ Resposta criada:", resposta.id);
 
-      // 6. Criar respostas dos itens
-      console.log("6. Criando respostas dos itens...");
+      // Criar respostas dos itens
       const respostasItens = itens.map(item => ({
         cotacao_resposta_fornecedor_id: resposta.id,
         item_cotacao_id: item.id,
         valor_unitario_ofertado: valoresItens[item.id],
       }));
-      console.log("Itens a inserir:", respostasItens.length);
 
       const { error: itensError } = await supabase
         .from("respostas_itens_fornecedor")
         .insert(respostasItens);
 
       if (itensError) {
-        console.error("✗ Erro ao criar itens:", itensError);
+        console.error("Erro ao criar itens:", itensError);
         throw itensError;
       }
-      console.log("✓ Itens criados com sucesso");
 
-      console.log("=== RESPOSTA ENVIADA COM SUCESSO ===");
       toast.success("Resposta enviada com sucesso!");
       
       setTimeout(() => {
@@ -333,8 +292,8 @@ const RespostaCotacao = () => {
       }, 2000);
       
     } catch (error) {
-      console.error("=== ERRO GERAL ===", error);
-      toast.error("Erro ao enviar resposta. Verifique se este CNPJ já não respondeu esta cotação.");
+      console.error("Erro ao enviar resposta:", error);
+      toast.error("Erro ao enviar resposta");
     } finally {
       setSaving(false);
     }
