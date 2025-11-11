@@ -126,32 +126,35 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json<ItemPlanilha>(worksheet);
-
-      if (jsonData.length === 0) {
-        toast.error("A planilha está vazia");
-        setLoading(false);
-        return;
-      }
-
-      // Validar campos obrigatórios
-      const camposObrigatorios = ['Item', 'Descrição', 'Quantidade', 'Unidade'];
-      const primeiraLinha = jsonData[0];
-      const camposFaltando = camposObrigatorios.filter(campo => !(campo in primeiraLinha));
-
-      if (camposFaltando.length > 0) {
-        toast.error(`Campos obrigatórios faltando na planilha: ${camposFaltando.join(', ')}`);
-        setLoading(false);
-        return;
-      }
-
+      
       if (criterio === 'por_lote') {
-        await importarComLotes(jsonData);
+        // Para lotes, processar manualmente linha por linha
+        await importarPlanilhaLotes(worksheet);
       } else {
+        // Para global e por_item, usar o método padrão
+        const jsonData = XLSX.utils.sheet_to_json<ItemPlanilha>(worksheet);
+
+        if (jsonData.length === 0) {
+          toast.error("A planilha está vazia");
+          setLoading(false);
+          return;
+        }
+
+        // Validar campos obrigatórios
+        const camposObrigatorios = ['Item', 'Descrição', 'Quantidade', 'Unidade'];
+        const primeiraLinha = jsonData[0];
+        const camposFaltando = camposObrigatorios.filter(campo => !(campo in primeiraLinha));
+
+        if (camposFaltando.length > 0) {
+          toast.error(`Campos obrigatórios faltando na planilha: ${camposFaltando.join(', ')}`);
+          setLoading(false);
+          return;
+        }
+
         await importarSemLotes(jsonData);
       }
 
-      toast.success(`${jsonData.length} itens importados com sucesso!`);
+      toast.success("Itens importados com sucesso!");
       onImportSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -159,6 +162,98 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
       toast.error("Erro ao processar planilha. Verifique o formato.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const importarPlanilhaLotes = async (worksheet: XLSX.WorkSheet) => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    
+    // Converter para array de arrays
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    const rows: any[][] = [];
+    
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      const row: any[] = [];
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell = worksheet[cellAddress];
+        row.push(cell ? cell.v : undefined);
+      }
+      rows.push(row);
+    }
+
+    // Atualizar critério de julgamento
+    await supabase
+      .from("cotacoes_precos")
+      .update({ criterio_julgamento: 'por_lote' })
+      .eq("id", cotacaoId);
+
+    let loteAtual: { numero: number; descricao: string; id?: string } | null = null;
+    let numeroLote = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const primeiraColuna = row[0];
+
+      // Detectar título de lote (linha que começa com "LOTE")
+      if (primeiraColuna && typeof primeiraColuna === 'string' && primeiraColuna.toUpperCase().startsWith('LOTE')) {
+        numeroLote++;
+        loteAtual = {
+          numero: numeroLote,
+          descricao: primeiraColuna
+        };
+
+        // Criar lote no banco
+        const { data: loteData, error: loteError } = await supabase
+          .from("lotes_cotacao")
+          .insert({
+            cotacao_id: cotacaoId,
+            numero_lote: numeroLote,
+            descricao_lote: primeiraColuna,
+          })
+          .select()
+          .single();
+
+        if (loteError) throw loteError;
+        loteAtual.id = loteData.id;
+        continue;
+      }
+
+      // Pular linhas de cabeçalho (que contêm "Item", "Descrição", etc)
+      if (primeiraColuna && typeof primeiraColuna === 'string' && 
+          (primeiraColuna.toLowerCase() === 'item' || primeiraColuna === 'Item')) {
+        continue;
+      }
+
+      // Pular linhas vazias
+      if (!primeiraColuna && !row[1] && !row[2] && !row[3]) {
+        continue;
+      }
+
+      // Se temos um lote atual e a linha tem dados, é um item
+      if (loteAtual && loteAtual.id && primeiraColuna !== undefined) {
+        const numeroItem = typeof primeiraColuna === 'number' ? primeiraColuna : parseInt(String(primeiraColuna));
+        const descricao = row[1];
+        const quantidade = typeof row[2] === 'number' ? row[2] : parseFloat(String(row[2] || 0));
+        const unidade = row[3];
+
+        if (descricao && quantidade && unidade) {
+          // Inserir item
+          const { error: itemError } = await supabase
+            .from("itens_cotacao")
+            .insert({
+              cotacao_id: cotacaoId,
+              numero_item: numeroItem,
+              descricao: String(descricao),
+              quantidade: quantidade,
+              unidade: String(unidade),
+              valor_unitario_estimado: 0,
+              lote_id: loteAtual.id,
+            });
+
+          if (itemError) throw itemError;
+        }
+      }
     }
   };
 
