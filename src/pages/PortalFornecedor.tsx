@@ -194,16 +194,39 @@ export default function PortalFornecedor() {
         .from('processo-anexos')
         .getPublicUrl(fileName);
 
-      const { error: insertError } = await supabase
+      // Verificar se já existe documento para este campo
+      const { data: docExistente } = await supabase
         .from('documentos_finalizacao_fornecedor')
-        .insert({
-          fornecedor_id: fornecedor.id,
-          campo_documento_id: campoId,
-          url_arquivo: publicUrl,
-          nome_arquivo: file.name
-        });
+        .select('id')
+        .eq('campo_documento_id', campoId)
+        .eq('fornecedor_id', fornecedor.id)
+        .maybeSingle();
 
-      if (insertError) throw insertError;
+      if (docExistente) {
+        // Atualizar documento existente
+        const { error: updateError } = await supabase
+          .from('documentos_finalizacao_fornecedor')
+          .update({
+            url_arquivo: publicUrl,
+            nome_arquivo: file.name,
+            data_upload: new Date().toISOString()
+          })
+          .eq('id', docExistente.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Inserir novo documento
+        const { error: insertError } = await supabase
+          .from('documentos_finalizacao_fornecedor')
+          .insert({
+            fornecedor_id: fornecedor.id,
+            campo_documento_id: campoId,
+            url_arquivo: publicUrl,
+            nome_arquivo: file.name
+          });
+
+        if (insertError) throw insertError;
+      }
 
       // Atualizar status do campo para "em_analise"
       await supabase
