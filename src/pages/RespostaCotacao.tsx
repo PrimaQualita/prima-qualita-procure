@@ -680,6 +680,7 @@ const RespostaCotacao = () => {
                                 <TableCell>
                                    <Input
                                      type="text"
+                                     data-item-index={itensDoLote.findIndex(i => i.id === item.id)}
                                      value={valoresItens[item.id] !== undefined && valoresItens[item.id] !== 0 
                                        ? valoresItens[item.id].toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                                        : ""}
@@ -690,6 +691,25 @@ const RespostaCotacao = () => {
                                          ...valoresItens,
                                          [item.id]: valorNumerico
                                        });
+                                     }}
+                                     onKeyDown={(e) => {
+                                       if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                                         e.preventDefault();
+                                         const currentIndex = parseInt(e.currentTarget.getAttribute('data-item-index') || '0');
+                                         const nextInput = document.querySelector(`input[data-item-index="${currentIndex + 1}"]`) as HTMLInputElement;
+                                         if (nextInput) {
+                                           nextInput.focus();
+                                           nextInput.select();
+                                         }
+                                       } else if (e.key === 'ArrowUp') {
+                                         e.preventDefault();
+                                         const currentIndex = parseInt(e.currentTarget.getAttribute('data-item-index') || '0');
+                                         const prevInput = document.querySelector(`input[data-item-index="${currentIndex - 1}"]`) as HTMLInputElement;
+                                         if (prevInput) {
+                                           prevInput.focus();
+                                           prevInput.select();
+                                         }
+                                       }
                                      }}
                                      placeholder="0,00"
                                    />
@@ -753,6 +773,7 @@ const RespostaCotacao = () => {
                         <TableCell>
                           <Input
                             type="text"
+                            data-item-index={itens.findIndex(i => i.id === item.id)}
                             value={valoresItens[item.id] !== undefined && valoresItens[item.id] !== 0 
                               ? valoresItens[item.id].toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                               : ""}
@@ -763,6 +784,25 @@ const RespostaCotacao = () => {
                                 ...valoresItens,
                                 [item.id]: valorNumerico
                               });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                const currentIndex = parseInt(e.currentTarget.getAttribute('data-item-index') || '0');
+                                const nextInput = document.querySelector(`input[data-item-index="${currentIndex + 1}"]`) as HTMLInputElement;
+                                if (nextInput) {
+                                  nextInput.focus();
+                                  nextInput.select();
+                                }
+                              } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                const currentIndex = parseInt(e.currentTarget.getAttribute('data-item-index') || '0');
+                                const prevInput = document.querySelector(`input[data-item-index="${currentIndex - 1}"]`) as HTMLInputElement;
+                                if (prevInput) {
+                                  prevInput.focus();
+                                  prevInput.select();
+                                }
+                              }
                             }}
                             placeholder="0,00"
                           />

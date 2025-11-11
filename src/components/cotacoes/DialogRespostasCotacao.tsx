@@ -329,11 +329,12 @@ export function DialogRespostasCotacao({
             })} (Horário de Brasília)</p>
             <p><strong>CNPJ do Fornecedor:</strong> ${formatarCNPJ(resposta.fornecedor.cnpj)}</p>
             <p><strong>Hash de Verificação:</strong> <span class="hash">${resposta.id.replace(/-/g, "").substring(0, 32)}</span></p>
+            <p><strong>URL de Verificação:</strong> ${window.location.origin}/verificar-proposta?protocolo=${resposta.id}</p>
             
             <div class="autenticidade">
               Este documento foi gerado eletronicamente através do sistema de cotação de preços e possui validade jurídica conforme 
               Lei nº 14.063/2020 (Marco Legal da Assinatura Eletrônica). A autenticidade pode ser verificada através do protocolo de envio 
-              informado acima. Qualquer alteração após o envio invalidará este certificado.
+              informado acima ou acessando a URL de verificação. Qualquer alteração após o envio invalidará este certificado.
             </div>
           </div>
         </body>
