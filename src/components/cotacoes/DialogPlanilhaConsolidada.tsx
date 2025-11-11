@@ -51,7 +51,7 @@ export function DialogPlanilhaConsolidada({
   const [tipoVisualizacao, setTipoVisualizacao] = useState<"item" | "lote" | "global">(
     criterioJulgamento === "por_lote" ? "lote" : criterioJulgamento === "global" ? "global" : "item"
   );
-  const [calculosPorItem, setCalculosPorItem] = useState<Record<number, "media" | "mediana" | "menor">>({});
+  const [calculosPorItem, setCalculosPorItem] = useState<Record<string, "media" | "mediana" | "menor">>({});
   const [calculosPorLote, setCalculosPorLote] = useState<Record<string, "media" | "mediana" | "menor">>({});
   const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor">("menor");
   const [todosItens, setTodosItens] = useState<any[]>([]);
@@ -90,13 +90,20 @@ export function DialogPlanilhaConsolidada({
           quantidade,
           unidade,
           lote_id,
-          lote:lote_id (
+          lotes_cotacao!inner (
             numero_lote,
             descricao_lote
           )
         `)
         .eq("cotacao_id", cotacaoId)
         .order("numero_item");
+      
+      // Formatar os dados dos itens com informações do lote
+      const itensFormatados = (todosItensData || []).map((item: any) => ({
+        ...item,
+        numero_lote: item.lotes_cotacao?.numero_lote,
+        descricao_lote: item.lotes_cotacao?.descricao_lote
+      }));
 
       const respostasCompletas: RespostaConsolidada[] = [];
 
@@ -141,20 +148,22 @@ export function DialogPlanilhaConsolidada({
       setRespostas(respostasCompletas);
       
       // Armazenar TODOS os itens da cotação para usar na configuração
-      setTodosItens(todosItensData || []);
+      setTodosItens(itensFormatados || []);
       
       // Inicializar cálculos com "menor" para TODOS os itens da cotação
-      if (todosItensData && todosItensData.length > 0) {
-        const novosCalculos: Record<number, "media" | "mediana" | "menor"> = {};
-        todosItensData.forEach(item => {
-          novosCalculos[item.numero_item] = "menor";
+      // Usar chave composta "loteId_itemId" para diferenciar itens de lotes diferentes
+      if (itensFormatados && itensFormatados.length > 0) {
+        const novosCalculos: Record<string, "media" | "mediana" | "menor"> = {};
+        itensFormatados.forEach((item: any) => {
+          const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
+          novosCalculos[chave] = "menor";
         });
-        setCalculosPorItem(novosCalculos);
+        setCalculosPorItem(novosCalculos as any);
 
         // Inicializar cálculos por lote se aplicável
         if (criterioJulgamento === "por_lote") {
           const lotes = new Set<string>();
-          todosItensData.forEach((item: any) => {
+          itensFormatados.forEach((item: any) => {
             if (item.lote_id) lotes.add(item.lote_id);
           });
           const novosCalculosLote: Record<string, "media" | "mediana" | "menor"> = {};
@@ -201,7 +210,7 @@ export function DialogPlanilhaConsolidada({
             body { font-family: Arial, sans-serif; margin: 40px; }
             h1 { color: #0ea5e9; font-size: 24px; margin-bottom: 30px; }
             h2 { color: #0284c7; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
             th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; vertical-align: top; }
             th { background-color: #0ea5e9; color: white; font-weight: bold; }
             .text-right { text-align: right; }
@@ -209,9 +218,12 @@ export function DialogPlanilhaConsolidada({
             .estimativa { background-color: #fef3c7; font-weight: bold; }
             .lote-header { background-color: #0284c7; color: white; font-size: 16px; padding: 10px; margin-top: 20px; }
             .criterio-badge { display: inline-block; padding: 5px 15px; background-color: #0ea5e9; color: white; border-radius: 5px; font-size: 14px; margin-bottom: 20px; }
+            .col-item { width: 40px; }
+            .col-qtd { width: 50px; }
+            .col-unid { width: 70px; }
+            .col-descricao { width: 300px; word-wrap: break-word; }
             .empresa { 
-              max-width: 120px; 
-              width: 120px;
+              width: 150px;
               word-wrap: break-word; 
               word-break: break-word;
               overflow-wrap: break-word;
@@ -219,7 +231,6 @@ export function DialogPlanilhaConsolidada({
               font-size: 10px;
               line-height: 1.3;
             }
-            .descricao { max-width: 200px; word-wrap: break-word; }
             th.empresa {
               white-space: normal;
               line-height: 1.2;
@@ -287,10 +298,10 @@ export function DialogPlanilhaConsolidada({
             <table>
               <thead>
                 <tr>
-                  <th>Item</th>
-                  <th>Descrição</th>
-                  <th class="text-right">Qtd</th>
-                  <th>Unid</th>
+                  <th class="col-item">Item</th>
+                  <th class="col-descricao">Descrição</th>
+                  <th class="col-qtd text-right">Qtd</th>
+                  <th class="col-unid">Unid</th>
                   ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                   <th class="text-right">Estimativa</th>
                 </tr>
@@ -321,10 +332,10 @@ export function DialogPlanilhaConsolidada({
 
               html += `
                 <tr>
-                  <td>${numeroItem}</td>
-                  <td class="descricao">${stripHtml(item.descricao)}</td>
-                  <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
-                  <td>${item.unidade}</td>
+                  <td class="col-item">${numeroItem}</td>
+                  <td class="col-descricao">${stripHtml(item.descricao)}</td>
+                  <td class="col-qtd text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
+                  <td class="col-unid">${item.unidade}</td>
               `;
 
               respostas.forEach(resposta => {
@@ -378,10 +389,10 @@ export function DialogPlanilhaConsolidada({
           <table>
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Descrição</th>
-                <th class="text-right">Qtd</th>
-                <th>Unid</th>
+                <th class="col-item">Item</th>
+                <th class="col-descricao">Descrição</th>
+                <th class="col-qtd text-right">Qtd</th>
+                <th class="col-unid">Unid</th>
                 ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                 <th class="text-right">Estimativa</th>
               </tr>
@@ -395,7 +406,8 @@ export function DialogPlanilhaConsolidada({
           .sort(([a], [b]) => a - b)
           .forEach(([numeroItem, itens]) => {
             const item = itens[0];
-            const tipoCalculoItem = calculosPorItem[numeroItem] || "menor";
+            const chaveItem = `${item.lote_id || 'sem-lote'}_${item.item_cotacao?.id || item.id}`;
+            const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
             const valores = itens.map(i => i.valor_unitario_ofertado);
             const stats = calcularEstatisticas(valores);
             const valorEstimativa = stats[tipoCalculoItem];
@@ -404,10 +416,10 @@ export function DialogPlanilhaConsolidada({
 
             html += `
               <tr>
-                <td>${numeroItem}</td>
-                <td class="descricao">${stripHtml(item.descricao)}</td>
-                <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
-                <td>${item.unidade}</td>
+                <td class="col-item">${numeroItem}</td>
+                <td class="col-descricao">${stripHtml(item.descricao)}</td>
+                <td class="col-qtd text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
+                <td class="col-unid">${item.unidade}</td>
             `;
 
             respostas.forEach(resposta => {
@@ -481,8 +493,8 @@ export function DialogPlanilhaConsolidada({
             if (!lotesMap.has(i.lote_id!)) {
               lotesMap.set(i.lote_id!, { 
                 id: i.lote_id!, 
-                numero: i.lote?.numero_lote || 0, 
-                descricao: i.lote?.descricao_lote || ""
+                numero: i.numero_lote || 0, 
+                descricao: i.descricao_lote || ""
               });
             }
           });
@@ -566,29 +578,37 @@ export function DialogPlanilhaConsolidada({
             {tipoVisualizacao === "item" && (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Configurar Cálculo por Item</Label>
-                {itensUnicos.map((item) => (
-                  <div key={item.numero_item} className="flex items-center gap-3 p-3 border rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">Item {item.numero_item}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-1">{stripHtml(item.descricao)}</p>
+                {itensUnicos.map((item) => {
+                  const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
+                  return (
+                    <div key={chaveItem} className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">Item {item.numero_item}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{stripHtml(item.descricao)}</p>
+                        {item.lote_id && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Lote {item.numero_lote}: {item.descricao_lote}
+                          </p>
+                        )}
+                      </div>
+                      <Select 
+                        value={calculosPorItem[chaveItem] || "menor"} 
+                        onValueChange={(v: "media" | "mediana" | "menor") => {
+                          setCalculosPorItem(prev => ({ ...prev, [chaveItem]: v }));
+                        }}
+                      >
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="menor">Menor Preço</SelectItem>
+                          <SelectItem value="media">Média</SelectItem>
+                          <SelectItem value="mediana">Mediana</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <Select 
-                      value={calculosPorItem[item.numero_item] || "menor"} 
-                      onValueChange={(v: "media" | "mediana" | "menor") => {
-                        setCalculosPorItem(prev => ({ ...prev, [item.numero_item]: v }));
-                      }}
-                    >
-                      <SelectTrigger className="w-[160px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="menor">Menor Preço</SelectItem>
-                        <SelectItem value="media">Média</SelectItem>
-                        <SelectItem value="mediana">Mediana</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
