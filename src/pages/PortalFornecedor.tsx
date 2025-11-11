@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { DialogConsultarProposta } from "@/components/cotacoes/DialogConsultarProposta";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,8 @@ export default function PortalFornecedor() {
   const [cotacoes, setCotacoes] = useState<any[]>([]);
   const [selecoes, setSelecoes] = useState<any[]>([]);
   const [documentosPendentes, setDocumentosPendentes] = useState<any[]>([]);
+  const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
+  const [cotacaoSelecionada, setCotacaoSelecionada] = useState<string>("");
 
   useEffect(() => {
     checkAuth();
@@ -524,29 +527,35 @@ export default function PortalFornecedor() {
                     </p>
                   ) : (
                     <div className="space-y-4">
-                      {cotacoes.map((convite) => (
-                        <div key={convite.id} className="p-4 border rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h3 className="font-semibold">
-                                {convite.cotacoes_precos?.titulo_cotacao}
-                              </h3>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {convite.cotacoes_precos?.descricao_cotacao}
-                              </p>
-                              <div className="flex gap-4 mt-3 text-sm">
-                                <span>
-                                  Prazo: {new Date(convite.cotacoes_precos?.data_limite_resposta).toLocaleDateString()}
-                                </span>
-                                {getStatusCotacaoBadge(convite.cotacoes_precos?.status_cotacao)}
-                              </div>
+                    {cotacoes.map((cotacao) => (
+                      <div key={cotacao.id} className="p-4 border rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold">
+                              {cotacao.cotacoes_precos?.titulo_cotacao}
+                            </h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {cotacao.cotacoes_precos?.descricao_cotacao}
+                            </p>
+                            <div className="flex gap-4 mt-3 text-sm">
+                              <span>
+                                Data de Envio: {new Date(cotacao.created_at).toLocaleDateString()}
+                              </span>
+                              {getStatusCotacaoBadge(cotacao.cotacoes_precos?.status_cotacao)}
                             </div>
-                            <Button size="sm" disabled={convite.cotacoes_precos?.status_cotacao !== "em_aberto"}>
-                              Responder
-                            </Button>
                           </div>
+                          <Button 
+                            size="sm" 
+                            onClick={() => {
+                              setCotacaoSelecionada(cotacao.id);
+                              setDialogConsultarOpen(true);
+                            }}
+                          >
+                            Consultar Proposta
+                          </Button>
                         </div>
-                      ))}
+                      </div>
+                    ))}
                     </div>
                   )}
                 </CardContent>
@@ -622,6 +631,16 @@ export default function PortalFornecedor() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Dialog para consultar proposta */}
+      {fornecedor && (
+        <DialogConsultarProposta
+          open={dialogConsultarOpen}
+          onOpenChange={setDialogConsultarOpen}
+          cotacaoId={cotacaoSelecionada}
+          fornecedorId={fornecedor.id}
+        />
+      )}
     </div>
   );
 }
