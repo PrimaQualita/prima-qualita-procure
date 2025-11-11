@@ -209,20 +209,22 @@ const RespostaCotacao = () => {
     setSaving(true);
     try {
       const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
+      let fornecedorId: string | undefined;
       
-      // Verificar se fornecedor já existe pelo CNPJ
-      const { data: fornecedorExistente } = await supabase
+      // SEMPRE tentar buscar primeiro
+      const { data: fornecedorBuscado } = await supabase
         .from("fornecedores")
         .select("id")
         .eq("cnpj", cnpjLimpo)
+        .limit(1)
         .maybeSingle();
 
-      let fornecedorId = fornecedorExistente?.id;
-
-      // Se não existe, criar registro básico do fornecedor
-      if (!fornecedorId) {
-        // Tentar criar, mas se der erro de CNPJ duplicado, buscar novamente
-        const { data: novoFornecedor, error: fornecedorError } = await supabase
+      if (fornecedorBuscado) {
+        // Já existe
+        fornecedorId = fornecedorBuscado.id;
+      } else {
+        // Não existe, tentar criar
+        const { data: fornecedorCriado, error: erroCreate } = await supabase
           .from("fornecedores")
           .insert({
             razao_social: dadosEmpresa.razao_social,
@@ -233,29 +235,29 @@ const RespostaCotacao = () => {
             status_aprovacao: "pendente",
             ativo: false,
           })
-          .select()
+          .select("id")
           .single();
 
-        if (fornecedorError) {
-          // Se for erro de CNPJ duplicado, buscar o fornecedor existente
-          if (fornecedorError.message?.includes('fornecedores_cnpj_key')) {
-            const { data: fornecedorDuplicado } = await supabase
-              .from("fornecedores")
-              .select("id")
-              .eq("cnpj", cnpjLimpo)
-              .single();
-            
-            if (fornecedorDuplicado) {
-              fornecedorId = fornecedorDuplicado.id;
-            } else {
-              throw new Error("Erro ao identificar fornecedor");
-            }
+        if (erroCreate) {
+          // Se deu erro (provavelmente duplicado por race condition), buscar novamente
+          const { data: fornecedorRetry } = await supabase
+            .from("fornecedores")
+            .select("id")
+            .eq("cnpj", cnpjLimpo)
+            .single();
+          
+          if (fornecedorRetry) {
+            fornecedorId = fornecedorRetry.id;
           } else {
-            throw fornecedorError;
+            throw new Error("Não foi possível criar ou encontrar o fornecedor");
           }
         } else {
-          fornecedorId = novoFornecedor.id;
+          fornecedorId = fornecedorCriado.id;
         }
+      }
+
+      if (!fornecedorId) {
+        throw new Error("Fornecedor não identificado");
       }
 
       // Calcular valor total
@@ -275,10 +277,7 @@ const RespostaCotacao = () => {
         .select()
         .single();
 
-      if (respostaError) {
-        console.error("Erro ao criar resposta:", respostaError);
-        throw respostaError;
-      }
+      if (respostaError) throw respostaError;
 
       // Criar respostas dos itens
       const respostasItens = itens.map(item => ({
@@ -291,10 +290,7 @@ const RespostaCotacao = () => {
         .from("respostas_itens_fornecedor")
         .insert(respostasItens);
 
-      if (itensError) {
-        console.error("Erro ao criar itens:", itensError);
-        throw itensError;
-      }
+      if (itensError) throw itensError;
 
       toast.success("Resposta enviada com sucesso!");
       
@@ -304,7 +300,7 @@ const RespostaCotacao = () => {
       
     } catch (error) {
       console.error("Erro ao enviar resposta:", error);
-      toast.error("Erro ao enviar resposta");
+      toast.error("Erro ao enviar resposta. Tente novamente.");
     } finally {
       setSaving(false);
     }
