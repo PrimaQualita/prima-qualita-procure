@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.2';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { pdfToPng } from "npm:pdf-to-png-converter@3.5.0";
+// @deno-types="https://deno.land/x/canvas@v1.4.1/mod.ts"
+import { createCanvas, loadImage } from "https://deno.land/x/canvas@v1.4.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,19 +57,21 @@ serve(async (req) => {
           throw new Error('LOVABLE_API_KEY não configurada');
         }
         
-        // Converter PDF para PNG primeiro
-        console.log('Convertendo PDF para PNG...');
-        const pngPages = await pdfToPng(bytes.buffer as ArrayBuffer, {
-          pagesToProcess: [1], // Apenas primeira página
-        });
+        // Renderizar PDF para imagem usando canvas
+        console.log('Renderizando PDF em canvas...');
+        const page = await doc.getPage(1);
+        const viewport = page.getViewport({ scale: 2.0 });
         
-        if (!pngPages || pngPages.length === 0) {
-          throw new Error('Falha ao converter PDF para PNG');
-        }
+        const canvas = createCanvas(viewport.width, viewport.height);
+        const context = canvas.getContext('2d');
         
-        // Converter buffer para base64
-        const pngBuffer = pngPages[0].content;
-        const pngBase64 = btoa(String.fromCharCode(...new Uint8Array(pngBuffer)));
+        await page.render({
+          canvasContext: context as any,
+          viewport: viewport,
+        }).promise;
+        
+        // Converter canvas para base64
+        const pngBase64 = canvas.toDataURL('image/png').split(',')[1];
         console.log('PNG gerado, tamanho:', pngBase64.length, 'caracteres');
         
         const prompt = `Você é um especialista em extrair informações de certidões brasileiras.
