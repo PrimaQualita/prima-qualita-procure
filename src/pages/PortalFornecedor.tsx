@@ -52,10 +52,12 @@ export default function PortalFornecedor() {
 
   const loadCotacoes = async (fornecedorId: string) => {
     try {
-      const { data, error } = await supabase
-        .from("cotacao_fornecedor_convites")
+      // Buscar cotações onde o fornecedor respondeu
+      const { data: respostas, error: respostasError } = await supabase
+        .from("cotacao_respostas_fornecedor")
         .select(`
-          *,
+          cotacao_id,
+          created_at,
           cotacoes_precos (
             id,
             titulo_cotacao,
@@ -67,8 +69,16 @@ export default function PortalFornecedor() {
         .eq("fornecedor_id", fornecedorId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setCotacoes(data || []);
+      if (respostasError) throw respostasError;
+
+      // Transformar para formato compatível com a interface
+      const cotacoesFormatadas = (respostas || []).map((resposta: any) => ({
+        id: resposta.cotacao_id,
+        created_at: resposta.created_at,
+        cotacoes_precos: resposta.cotacoes_precos
+      }));
+
+      setCotacoes(cotacoesFormatadas);
     } catch (error: any) {
       toast.error("Erro ao carregar cotações");
     }
