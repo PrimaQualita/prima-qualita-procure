@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Trash2, ExternalLink, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -371,7 +371,15 @@ export function DialogFinalizarProcesso({
     
     const { data, error } = await supabase
       .from("campos_documentos_finalizacao")
-      .select("*")
+      .select(`
+        *,
+        documentos_finalizacao_fornecedor (
+          id,
+          nome_arquivo,
+          url_arquivo,
+          data_upload
+        )
+      `)
       .eq("cotacao_id", cotacaoId)
       .eq("fornecedor_id", fornecedorSelecionado)
       .order("ordem");
@@ -797,7 +805,57 @@ export function DialogFinalizarProcesso({
                     ⚪ Nenhuma Solicitação
                   </Badge>
                 </div>
-              )}
+          )}
+
+          {/* Documentos Enviados pelo Fornecedor */}
+          {fornecedorSelecionado && campos.length > 0 && campos.some((c: any) => c.documentos_finalizacao_fornecedor && c.documentos_finalizacao_fornecedor.length > 0) && (
+            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                📄 Documentos Enviados pelo Fornecedor
+              </h3>
+              <div className="space-y-3">
+                {campos.map((campo: any) => {
+                  const documentosEnviados = campo.documentos_finalizacao_fornecedor || [];
+                  if (documentosEnviados.length === 0) return null;
+                  
+                  return (
+                    <div key={campo.id} className="p-3 bg-white dark:bg-background rounded border">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium">{campo.nome_campo}</p>
+                          {campo.descricao && (
+                            <p className="text-sm text-muted-foreground mt-1">{campo.descricao}</p>
+                          )}
+                          <div className="mt-2 space-y-1">
+                            {documentosEnviados.map((doc: any) => (
+                              <div key={doc.id} className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <a
+                                  href={doc.url_arquivo}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-blue-600 hover:underline"
+                                >
+                                  {doc.nome_arquivo}
+                                </a>
+                                <span className="text-xs text-muted-foreground">
+                                  • {new Date(doc.data_upload).toLocaleDateString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          ✓ Enviado
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
             </div>
           )}
 
