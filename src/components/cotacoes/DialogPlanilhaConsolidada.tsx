@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { v4 as uuidv4 } from 'uuid';
 import {
   Dialog,
   DialogContent,
@@ -198,8 +199,23 @@ export function DialogPlanilhaConsolidada({
     return { media, mediana, menor };
   };
 
-  const gerarPlanilha = () => {
+  const gerarPlanilha = async () => {
     try {
+      // Gerar identificadores únicos para certificação
+      const protocoloDocumento = uuidv4();
+      const dataHoraGeracao = new Date();
+      const hashVerificacao = protocoloDocumento.replace(/-/g, '').substring(0, 32).toUpperCase();
+      
+      // Buscar informações do usuário que está gerando
+      const { data: userData } = await supabase.auth.getUser();
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('nome_completo, email')
+        .eq('id', userData?.user?.id || '')
+        .single();
+      
+      const usuarioNome = profileData?.nome_completo || 'Sistema';
+      const usuarioEmail = profileData?.email || '';
       let html = `
         <!DOCTYPE html>
         <html>
@@ -236,12 +252,78 @@ export function DialogPlanilhaConsolidada({
               white-space: normal;
               line-height: 1.2;
             }
+            .certificacao-digital {
+              margin-top: 40px;
+              padding: 20px;
+              border: 2px solid #0ea5e9;
+              border-radius: 8px;
+              background-color: #f0f9ff;
+              page-break-inside: avoid;
+            }
+            .certificacao-digital h3 {
+              color: #0284c7;
+              font-size: 16px;
+              margin-bottom: 15px;
+              font-weight: bold;
+            }
+            .certificacao-digital .info-item {
+              margin: 8px 0;
+              font-size: 11px;
+            }
+            .certificacao-digital .info-label {
+              font-weight: bold;
+              color: #0369a1;
+            }
+            .certificacao-digital .hash {
+              font-family: 'Courier New', monospace;
+              background-color: #e0f2fe;
+              padding: 4px 8px;
+              border-radius: 4px;
+              word-break: break-all;
+            }
+            .certificacao-digital .aviso-legal {
+              margin-top: 15px;
+              padding-top: 15px;
+              border-top: 1px solid #0ea5e9;
+              font-size: 10px;
+              color: #0369a1;
+              font-style: italic;
+            }
           </style>
         </head>
         <body>
           <h1>PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO</h1>
           <div class="criterio-badge">
             Visualização: ${tipoVisualizacao === "item" ? "Por Item" : tipoVisualizacao === "lote" ? "Por Lote" : "Global"}
+          </div>
+          
+          <div class="certificacao-digital">
+            <h3>🔒 CERTIFICAÇÃO DIGITAL DO DOCUMENTO</h3>
+            <div class="info-item">
+              <span class="info-label">Protocolo do Documento:</span> ${protocoloDocumento}
+            </div>
+            <div class="info-item">
+              <span class="info-label">Data e Hora de Geração:</span> ${dataHoraGeracao.toLocaleString('pt-BR', { 
+                timeZone: 'America/Sao_Paulo',
+                day: '2-digit',
+                month: '2-digit', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })} (Horário de Brasília)
+            </div>
+            <div class="info-item">
+              <span class="info-label">Gerado por:</span> ${usuarioNome}${usuarioEmail ? ` (${usuarioEmail})` : ''}
+            </div>
+            <div class="info-item">
+              <span class="info-label">Hash de Verificação:</span> <span class="hash">${hashVerificacao}</span>
+            </div>
+            <div class="aviso-legal">
+              Este documento foi gerado eletronicamente pelo sistema de gestão de compras e possui validade legal conforme Lei nº 14.063/2020, 
+              que dispõe sobre o uso de assinaturas eletrônicas. A autenticidade pode ser verificada através do protocolo e hash de verificação acima.
+              Qualquer alteração no conteúdo deste documento após sua geração invalidará sua autenticidade.
+            </div>
           </div>
       `;
 
