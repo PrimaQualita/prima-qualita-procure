@@ -40,6 +40,9 @@ interface Props {
 }
 
 const DOCUMENTOS_VALIDADE = [
+  { tipo: "contrato_social", label: "Contrato Social Consolidado", temValidade: false },
+  { tipo: "cartao_cnpj", label: "Cartão CNPJ", temValidade: false },
+  { tipo: "inscricao_estadual_municipal", label: "Inscrição Estadual ou Municipal", temValidade: false },
   { tipo: "cnd_federal", label: "CND Federal", temValidade: true },
   { tipo: "cnd_tributos_estaduais", label: "CND Tributos Estaduais", temValidade: true },
   { tipo: "cnd_divida_ativa_estadual", label: "CND Dívida Ativa Estadual", temValidade: true },
@@ -47,10 +50,7 @@ const DOCUMENTOS_VALIDADE = [
   { tipo: "cnd_divida_ativa_municipal", label: "CND Dívida Ativa Municipal", temValidade: true },
   { tipo: "crf_fgts", label: "CRF FGTS", temValidade: true },
   { tipo: "cndt", label: "CNDT", temValidade: true },
-  { tipo: "contrato_social", label: "Contrato Social Consolidado", temValidade: false },
-  { tipo: "cartao_cnpj", label: "Cartão CNPJ", temValidade: false },
   { tipo: "certificado_gestor", label: "Certificado de Fornecedor", temValidade: true },
-  { tipo: "relatorio_kpmg", label: "Relatório da KPMG", temValidade: false },
 ];
 
 export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
@@ -369,7 +369,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
                           Ver
                         </Button>
                       )}
-                      {!["certificado_gestor", "relatorio_kpmg"].includes(docConfig.tipo) && (
+                      {!["certificado_gestor"].includes(docConfig.tipo) && (
                         <Button
                           variant="outline"
                           size="sm"

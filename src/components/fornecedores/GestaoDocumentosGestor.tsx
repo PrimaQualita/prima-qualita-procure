@@ -61,7 +61,6 @@ const DOCUMENTOS_VALIDADE = [
   { tipo: "crf_fgts", label: "CRF FGTS", temValidade: true },
   { tipo: "cndt", label: "CNDT", temValidade: true },
   { tipo: "certificado_gestor", label: "Certificado de Fornecedor", temValidade: true },
-  { tipo: "relatorio_kpmg", label: "Relatório da KPMG", temValidade: false },
 ];
 
 export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
@@ -335,7 +334,7 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
                               Editar Validade
                             </Button>
                           )}
-                          {["certificado_gestor", "relatorio_kpmg"].includes(docConfig.tipo) && (
+                          {docConfig.tipo === "certificado_gestor" && (
                             <Button
                               variant="ghost"
                               size="sm"

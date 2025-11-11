@@ -141,7 +141,6 @@ export function DialogFinalizarProcesso({
       fgts: "CRF FGTS",
       cndt: "CNDT",
       certificado_gestor: "Certificado de Fornecedor",
-      relatorio_kpmg: "Relatório KPMG",
     };
     return labels[tipo] || tipo;
   };
