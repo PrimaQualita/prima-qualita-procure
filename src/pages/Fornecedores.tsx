@@ -91,6 +91,7 @@ export default function Fornecedores() {
   const [dataValidadeCertificado, setDataValidadeCertificado] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [processando, setProcessando] = useState(false);
+  const [extraindoDataCertificado, setExtraindoDataCertificado] = useState(false);
   
   const [formDataPergunta, setFormDataPergunta] = useState({
     texto_pergunta: "",
@@ -256,6 +257,70 @@ export default function Fornecedores() {
       return total + (pontuacao || 0);
     }, 0);
   };
+
+  const handleExtrairDataCertificado = async (arquivo: File) => {
+    try {
+      // Converter arquivo para base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          const base64Data = base64.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(arquivo);
+      });
+
+      const pdfBase64 = await base64Promise;
+
+      // Chamar edge function para extrair data
+      const { data, error } = await supabase.functions.invoke('extrair-data-pdf', {
+        body: {
+          pdfBase64,
+          tipoDocumento: 'certificado_gestor'
+        }
+      });
+
+      if (error) {
+        console.error("Erro ao extrair data:", error);
+        return { dataValidade: null, isScanned: false };
+      }
+
+      return { dataValidade: data.dataValidade, isScanned: data.isScanned || false };
+    } catch (error) {
+      console.error("Erro ao processar PDF:", error);
+      return { dataValidade: null, isScanned: false };
+    }
+  };
+
+  const handleCertificadoSelecionado = async (arquivo: File | null) => {
+    setCertificado(arquivo);
+    
+    if (!arquivo) {
+      setDataValidadeCertificado("");
+      return;
+    }
+
+    // Extrair data de validade automaticamente
+    setExtraindoDataCertificado(true);
+    toast.info("Extraindo data de validade do certificado...");
+    
+    const resultado = await handleExtrairDataCertificado(arquivo);
+    setExtraindoDataCertificado(false);
+    
+    if (resultado?.dataValidade) {
+      setDataValidadeCertificado(resultado.dataValidade);
+      toast.success("Data de validade extraída automaticamente!");
+    } else if (resultado?.isScanned) {
+      toast.warning("PDF digitalizado detectado. Por favor, informe a data de validade manualmente.");
+      setDataValidadeCertificado("");
+    } else {
+      toast.warning("Não foi possível extrair a data automaticamente. Por favor, informe manualmente.");
+      setDataValidadeCertificado("");
+    }
+  };
+
 
   const handleProcessarAvaliacao = async () => {
     if (!fornecedorSelecionado || !acao) return;
@@ -799,8 +864,15 @@ export default function Fornecedores() {
                     id="certificado"
                     type="file"
                     accept=".pdf"
-                    onChange={(e) => setCertificado(e.target.files?.[0] || null)}
+                    onChange={(e) => handleCertificadoSelecionado(e.target.files?.[0] || null)}
+                    disabled={extraindoDataCertificado}
                   />
+                  {certificado && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                      <FileText className="h-4 w-4" />
+                      {certificado.name}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -820,7 +892,13 @@ export default function Fornecedores() {
                     type="date"
                     value={dataValidadeCertificado}
                     onChange={(e) => setDataValidadeCertificado(e.target.value)}
+                    disabled={extraindoDataCertificado}
                   />
+                  {extraindoDataCertificado && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Extraindo data de validade do PDF...
+                    </p>
+                  )}
                 </div>
               </>
             )}
