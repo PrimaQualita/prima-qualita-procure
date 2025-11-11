@@ -109,6 +109,11 @@ export function DialogFinalizarProcesso({
 
       if (respostasError) throw respostasError;
 
+      if (!respostas || respostas.length === 0) {
+        setFornecedores([]);
+        return;
+      }
+
       // Buscar itens das respostas
       const { data: itens, error: itensError } = await supabase
         .from("respostas_itens_fornecedor")
@@ -119,7 +124,7 @@ export function DialogFinalizarProcesso({
           valor_unitario_ofertado,
           itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade)
         `)
-        .in("cotacao_resposta_fornecedor_id", respostas?.map(r => r.id) || []);
+        .in("cotacao_resposta_fornecedor_id", respostas.map(r => r.id));
 
       if (itensError) throw itensError;
 
@@ -128,70 +133,96 @@ export function DialogFinalizarProcesso({
 
       if (criterio === "global") {
         // Menor preço global - um único vencedor
-        const menorValor = Math.min(...(respostas?.map(r => Number(r.valor_total_anual_ofertado)) || []));
-        const vencedor = respostas?.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
-        if (vencedor) fornecedoresVencedores.add(vencedor.fornecedor_id);
-      } else if (criterio === "item") {
+        if (respostas.length > 0) {
+          const menorValor = Math.min(...respostas.map(r => Number(r.valor_total_anual_ofertado)));
+          const vencedor = respostas.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
+          if (vencedor) fornecedoresVencedores.add(vencedor.fornecedor_id);
+        }
+      } else if (criterio === "item" || criterio === "por_item") {
         // Menor preço por item - pode ter múltiplos vencedores
-        const itensPorNumero = itens?.reduce((acc, item) => {
-          const numItem = item.itens_cotacao.numero_item;
-          if (!acc[numItem]) acc[numItem] = [];
-          acc[numItem].push(item);
-          return acc;
-        }, {} as Record<number, any[]>) || {};
-
-        Object.values(itensPorNumero).forEach(itensDoNumero => {
-          const menorValor = Math.min(...itensDoNumero.map(i => Number(i.valor_unitario_ofertado)));
-          const vencedor = itensDoNumero.find(i => Number(i.valor_unitario_ofertado) === menorValor);
-          if (vencedor) {
-            const resposta = respostas?.find(r => r.id === vencedor.cotacao_resposta_fornecedor_id);
-            if (resposta) fornecedoresVencedores.add(resposta.fornecedor_id);
-          }
-        });
-      } else if (criterio === "lote") {
-        // Menor preço por lote - pode ter múltiplos vencedores
-        const itensPorLote = itens?.reduce((acc, item) => {
-          const loteId = item.itens_cotacao.lote_id;
-          if (!loteId) return acc;
-          if (!acc[loteId]) acc[loteId] = {};
+        if (itens && itens.length > 0) {
+          const itensPorNumero: Record<number, any[]> = {};
           
-          const respostaId = item.cotacao_resposta_fornecedor_id;
-          if (!acc[loteId][respostaId]) acc[loteId][respostaId] = [];
-          acc[loteId][respostaId].push(item);
-          return acc;
-        }, {} as Record<string, Record<string, any[]>>) || {};
-
-        Object.values(itensPorLote).forEach(respostasPorLote => {
-          const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itensLote]) => {
-            const total = itensLote.reduce((sum, item) => {
-              return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
-            }, 0);
-            return { respostaId, total };
+          itens.forEach(item => {
+            const numItem = item.itens_cotacao.numero_item;
+            if (!itensPorNumero[numItem]) {
+              itensPorNumero[numItem] = [];
+            }
+            itensPorNumero[numItem].push(item);
           });
 
-          const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
-          const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
-          if (vencedor) {
-            const resposta = respostas?.find(r => r.id === vencedor.respostaId);
-            if (resposta) fornecedoresVencedores.add(resposta.fornecedor_id);
-          }
-        });
+          Object.values(itensPorNumero).forEach(itensDoNumero => {
+            if (itensDoNumero.length > 0) {
+              const menorValor = Math.min(...itensDoNumero.map(i => Number(i.valor_unitario_ofertado)));
+              const vencedor = itensDoNumero.find(i => Number(i.valor_unitario_ofertado) === menorValor);
+              if (vencedor) {
+                const resposta = respostas.find(r => r.id === vencedor.cotacao_resposta_fornecedor_id);
+                if (resposta) {
+                  fornecedoresVencedores.add(resposta.fornecedor_id);
+                }
+              }
+            }
+          });
+        }
+      } else if (criterio === "lote" || criterio === "por_lote") {
+        // Menor preço por lote - pode ter múltiplos vencedores
+        if (itens && itens.length > 0) {
+          const itensPorLote: Record<string, Record<string, any[]>> = {};
+          
+          itens.forEach(item => {
+            const loteId = item.itens_cotacao.lote_id;
+            if (!loteId) return;
+            
+            if (!itensPorLote[loteId]) {
+              itensPorLote[loteId] = {};
+            }
+            
+            const respostaId = item.cotacao_resposta_fornecedor_id;
+            if (!itensPorLote[loteId][respostaId]) {
+              itensPorLote[loteId][respostaId] = [];
+            }
+            itensPorLote[loteId][respostaId].push(item);
+          });
+
+          Object.values(itensPorLote).forEach(respostasPorLote => {
+            const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itensLote]) => {
+              const total = itensLote.reduce((sum, item) => {
+                return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
+              }, 0);
+              return { respostaId, total };
+            });
+
+            if (totaisPorResposta.length > 0) {
+              const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
+              const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
+              if (vencedor) {
+                const resposta = respostas.find(r => r.id === vencedor.respostaId);
+                if (resposta) {
+                  fornecedoresVencedores.add(resposta.fornecedor_id);
+                }
+              }
+            }
+          });
+        }
       }
 
-      // Filtrar apenas fornecedores vencedores
-      const fornecedoresFiltrados = respostas
-        ?.filter(r => fornecedoresVencedores.has(r.fornecedor_id))
-        .map(r => ({
-          id: r.fornecedor_id,
-          razao_social: r.fornecedores.razao_social
-        }))
-        .filter((f, index, self) => self.findIndex(x => x.id === f.id) === index) // Remove duplicados
-        .sort((a, b) => a.razao_social.localeCompare(b.razao_social)) || [];
+      // Filtrar apenas fornecedores vencedores e remover duplicados
+      const fornecedoresFiltrados = Array.from(fornecedoresVencedores)
+        .map(fornecedorId => {
+          const resposta = respostas.find(r => r.fornecedor_id === fornecedorId);
+          return resposta ? {
+            id: fornecedorId,
+            razao_social: resposta.fornecedores.razao_social
+          } : null;
+        })
+        .filter((f): f is Fornecedor => f !== null)
+        .sort((a, b) => a.razao_social.localeCompare(b.razao_social));
 
       setFornecedores(fornecedoresFiltrados);
     } catch (error) {
       console.error("Erro ao carregar fornecedores vencedores:", error);
       toast.error("Erro ao carregar fornecedores vencedores");
+      setFornecedores([]);
     }
   };
 
