@@ -110,7 +110,11 @@ Retorne APENAS no formato JSON: {"dataValidade": "YYYY-MM-DD"} ou {"dataValidade
       }
 
       const aiResult = await aiResponse.json();
-      const resultText = aiResult.choices[0].message.content;
+      let resultText = aiResult.choices[0].message.content;
+      
+      // Remover markdown code blocks se existirem
+      resultText = resultText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
       const resultado = JSON.parse(resultText);
       
       console.log('✅ IA retornou:', resultado);
