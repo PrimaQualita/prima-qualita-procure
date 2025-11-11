@@ -237,11 +237,56 @@ const RespostaCotacao = () => {
       }
     }
 
-    // Validar se todos os itens têm valores
-    const todosItensPreenchidos = itens.every(item => valoresItens[item.id] && valoresItens[item.id] > 0);
-    if (!todosItensPreenchidos) {
-      toast.error("Por favor, preencha os valores de todos os itens");
-      return;
+    // Validar preenchimento de valores baseado no critério de julgamento
+    if (criterioJulgamento === 'global') {
+      // Global: TODOS os itens devem ser cotados obrigatoriamente
+      const todosItensPreenchidos = itens.every(item => valoresItens[item.id] && valoresItens[item.id] > 0);
+      if (!todosItensPreenchidos) {
+        toast.error("Para cotação global, todos os itens devem ser cotados");
+        return;
+      }
+    } else if (criterioJulgamento === 'por_lote') {
+      // Por lote: Se cotar algum item de um lote, deve cotar TODOS os itens daquele lote
+      const lotesComItens = new Map<string, { total: number; cotados: number }>();
+      
+      itens.forEach(item => {
+        if (item.lote_id) {
+          if (!lotesComItens.has(item.lote_id)) {
+            lotesComItens.set(item.lote_id, { total: 0, cotados: 0 });
+          }
+          const loteInfo = lotesComItens.get(item.lote_id)!;
+          loteInfo.total++;
+          if (valoresItens[item.id] && valoresItens[item.id] > 0) {
+            loteInfo.cotados++;
+          }
+        }
+      });
+
+      // Verificar se algum lote está parcialmente cotado
+      let loteInvalido = false;
+      lotesComItens.forEach((info, loteId) => {
+        if (info.cotados > 0 && info.cotados < info.total) {
+          const lote = lotes.find(l => l.id === loteId);
+          toast.error(`Lote ${lote?.numero_lote}: se cotar algum item do lote, deve cotar TODOS os itens deste lote`);
+          loteInvalido = true;
+        }
+      });
+
+      if (loteInvalido) return;
+
+      // Verificar se pelo menos um lote completo foi cotado
+      const algumLoteCotado = Array.from(lotesComItens.values()).some(info => info.cotados > 0);
+      if (!algumLoteCotado) {
+        toast.error("Você deve cotar pelo menos um lote completo");
+        return;
+      }
+    } else if (criterioJulgamento === 'por_item') {
+      // Por item: Pode deixar itens sem cotar, mas precisa cotar pelo menos um
+      const algumItemCotado = itens.some(item => valoresItens[item.id] && valoresItens[item.id] > 0);
+      if (!algumItemCotado) {
+        toast.error("Você deve cotar pelo menos um item");
+        return;
+      }
     }
 
     setSaving(true);
@@ -380,13 +425,15 @@ const RespostaCotacao = () => {
         throw respostaError;
       }
 
-      // Criar respostas dos itens
+      // Criar respostas dos itens (apenas itens que foram cotados)
       console.log("6. Criando respostas dos itens...");
-      const respostasItens = itens.map(item => ({
-        cotacao_resposta_fornecedor_id: resposta.id,
-        item_cotacao_id: item.id,
-        valor_unitario_ofertado: valoresItens[item.id],
-      }));
+      const respostasItens = itens
+        .filter(item => valoresItens[item.id] && valoresItens[item.id] > 0)
+        .map(item => ({
+          cotacao_resposta_fornecedor_id: resposta.id,
+          item_cotacao_id: item.id,
+          valor_unitario_ofertado: valoresItens[item.id],
+        }));
       console.log("Itens a inserir:", respostasItens);
 
       const { error: itensError } = await supabaseAnon
@@ -443,7 +490,11 @@ const RespostaCotacao = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }} className="space-y-6">
           {/* Dados da Empresa */}
           <Card>
             <CardHeader>
@@ -627,22 +678,21 @@ const RespostaCotacao = () => {
                                 <TableCell>{item.quantidade}</TableCell>
                                 <TableCell>{item.unidade}</TableCell>
                                 <TableCell>
-                                  <Input
-                                    type="text"
-                                    value={valoresItens[item.id] !== undefined && valoresItens[item.id] !== 0 
-                                      ? valoresItens[item.id].toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                      : ""}
-                                    onChange={(e) => {
-                                      const valorLimpo = e.target.value.replace(/\D/g, "");
-                                      const valorNumerico = valorLimpo ? parseFloat(valorLimpo) / 100 : 0;
-                                      setValoresItens({
-                                        ...valoresItens,
-                                        [item.id]: valorNumerico
-                                      });
-                                    }}
-                                    placeholder="0,00"
-                                    required
-                                  />
+                                   <Input
+                                     type="text"
+                                     value={valoresItens[item.id] !== undefined && valoresItens[item.id] !== 0 
+                                       ? valoresItens[item.id].toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                       : ""}
+                                     onChange={(e) => {
+                                       const valorLimpo = e.target.value.replace(/\D/g, "");
+                                       const valorNumerico = valorLimpo ? parseFloat(valorLimpo) / 100 : 0;
+                                       setValoresItens({
+                                         ...valoresItens,
+                                         [item.id]: valorNumerico
+                                       });
+                                     }}
+                                     placeholder="0,00"
+                                   />
                                 </TableCell>
                                 <TableCell className="text-right font-medium">
                                   R$ {((valoresItens[item.id] || 0) * item.quantidade).toLocaleString("pt-BR", {
@@ -715,7 +765,6 @@ const RespostaCotacao = () => {
                               });
                             }}
                             placeholder="0,00"
-                            required
                           />
                         </TableCell>
                         <TableCell className="text-right font-medium">
