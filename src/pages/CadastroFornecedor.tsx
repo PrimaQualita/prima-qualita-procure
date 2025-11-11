@@ -185,8 +185,24 @@ export default function CadastroFornecedor() {
 
     setLoading(true);
     try {
-      // 1. Criar usuário no Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // 1. Verificar se já existe usuário órfão com este e-mail ou CNPJ e limpar
+      const { data: fornecedoresExistentes } = await supabase
+        .from('fornecedores')
+        .select('user_id, cnpj, email')
+        .or(`cnpj.eq.${formData.cnpj.replace(/\D/g, '')},email.eq.${formData.email}`);
+
+      // Se existe CNPJ mas sem user_id, é registro temporário de cotação
+      const registroTemporario = fornecedoresExistentes?.find(f => !f.user_id);
+      if (registroTemporario) {
+        await supabase
+          .from('fornecedores')
+          .delete()
+          .eq('cnpj', registroTemporario.cnpj)
+          .is('user_id', null);
+      }
+
+      // 2. Tentar criar usuário no Supabase Auth
+      let authData = await supabase.auth.signUp({
         email: formData.email,
         password: formData.senha,
         options: {
@@ -197,8 +213,49 @@ export default function CadastroFornecedor() {
         }
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Erro ao criar usuário");
+      // Se usuário já existe no Auth mas não tem fornecedor, deletar e recriar
+      if (authData.error?.message === 'User already registered') {
+        console.log('Usuário órfão detectado, limpando...');
+        
+        // Deletar usuário órfão via edge function
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/deletar-usuario-admin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          },
+          body: JSON.stringify({ 
+            userId: formData.email // A edge function buscará pelo e-mail
+          })
+        });
+
+        if (!response.ok) {
+          console.error('Erro ao limpar usuário órfão');
+        }
+
+        // Aguardar um pouco antes de retentar
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Tentar criar novamente
+        authData = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.senha,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: {
+              tipo_usuario: 'fornecedor'
+            }
+          }
+        });
+      }
+
+      if (authData.error) throw authData.error;
+      if (!authData.data.user) throw new Error("Erro ao criar usuário");
+      
+      const userId = authData.data.user.id;
 
       // Montar endereço completo
       const enderecoCompleto = [
@@ -214,7 +271,7 @@ export default function CadastroFornecedor() {
       const { data: fornecedorData, error: fornecedorError } = await supabase
         .from("fornecedores")
         .insert([{
-          user_id: authData.user.id,
+          user_id: userId,
           razao_social: formData.razao_social,
           nome_fantasia: formData.nome_fantasia || null,
           cnpj: formData.cnpj.replace(/\D/g, ''),
