@@ -278,19 +278,30 @@ const Cotacoes = () => {
   const handleDeleteItem = async (id: string) => {
     if (!confirm("Deseja realmente excluir este item?")) return;
 
-    const { error } = await supabase
-      .from("itens_cotacao")
-      .delete()
-      .eq("id", id);
+    if (!cotacaoSelecionada) return;
 
-    if (error) {
+    try {
+      // Primeiro, deletar todas as respostas de fornecedores da cotação
+      const { error: respostasItensError } = await supabase
+        .from("respostas_itens_fornecedor")
+        .delete()
+        .eq("item_cotacao_id", id);
+
+      if (respostasItensError) throw respostasItensError;
+
+      // Depois deletar o item
+      const { error } = await supabase
+        .from("itens_cotacao")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Item excluído com sucesso");
+      loadItens(cotacaoSelecionada.id);
+    } catch (error) {
       toast.error("Erro ao excluir item");
       console.error(error);
-    } else {
-      toast.success("Item excluído com sucesso");
-      if (cotacaoSelecionada) {
-        loadItens(cotacaoSelecionada.id);
-      }
     }
   };
 
@@ -298,6 +309,32 @@ const Cotacoes = () => {
     if (!cotacaoSelecionada) return;
 
     try {
+      // Primeiro, deletar todas as respostas de fornecedores da cotação
+      const { data: respostasData } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select("id")
+        .eq("cotacao_id", cotacaoSelecionada.id);
+
+      if (respostasData && respostasData.length > 0) {
+        const respostaIds = respostasData.map(r => r.id);
+        
+        // Deletar respostas de itens
+        const { error: respostasItensError } = await supabase
+          .from("respostas_itens_fornecedor")
+          .delete()
+          .in("cotacao_resposta_fornecedor_id", respostaIds);
+
+        if (respostasItensError) throw respostasItensError;
+
+        // Deletar respostas de fornecedores
+        const { error: respostasError } = await supabase
+          .from("cotacao_respostas_fornecedor")
+          .delete()
+          .eq("cotacao_id", cotacaoSelecionada.id);
+
+        if (respostasError) throw respostasError;
+      }
+
       // Excluir todos os itens da cotação
       const { error: itensError } = await supabase
         .from("itens_cotacao")
@@ -316,7 +353,7 @@ const Cotacoes = () => {
         if (lotesError) throw lotesError;
       }
 
-      toast.success("Todos os itens foram excluídos com sucesso!");
+      toast.success("Todos os itens e respostas foram excluídos com sucesso!");
       setConfirmDeleteAllOpen(false);
       loadItens(cotacaoSelecionada.id);
       if (criterioJulgamento === 'por_lote') {
