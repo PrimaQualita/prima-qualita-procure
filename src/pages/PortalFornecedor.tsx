@@ -114,6 +114,8 @@ export default function PortalFornecedor() {
       console.log("🔍 Carregando documentos pendentes para fornecedor:", fornecedorId);
       
       // Buscar documentos solicitados na finalização do processo
+      // Apenas documentos com status "enviado" (ainda não enviados pelo fornecedor)
+      // ou "rejeitado" (recusados pelo gestor e precisam ser reenviados)
       const { data: camposSolicitados, error: camposError } = await supabase
         .from("campos_documentos_finalizacao")
         .select(`
@@ -128,7 +130,7 @@ export default function PortalFornecedor() {
           )
         `)
         .eq("fornecedor_id", fornecedorId)
-        .in("status_solicitacao", ["enviado", "em_analise"]);
+        .in("status_solicitacao", ["enviado", "rejeitado"]);
 
       if (camposError) {
         console.error("❌ Erro ao buscar campos solicitados:", camposError);
