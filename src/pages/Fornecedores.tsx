@@ -36,6 +36,7 @@ import {
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
 
 interface Pergunta {
   id: string;
@@ -724,85 +725,9 @@ export default function Fornecedores() {
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Documentos */}
+            {/* Gestão de Documentos pelo Gestor */}
             <div>
-              <h3 className="font-semibold mb-2">Documentos Anexados</h3>
-              <div className="space-y-2">
-                {documentosFornecedor.filter(doc => doc.em_vigor).map((doc) => {
-                  const DOCUMENTOS_VALIDADE = [
-                    { tipo: "cnd_federal", label: "CND Federal", temValidade: true },
-                    { tipo: "cnd_tributos_estaduais", label: "CND Tributos Estaduais", temValidade: true },
-                    { tipo: "cnd_divida_ativa_estadual", label: "CND Dívida Ativa Estadual", temValidade: true },
-                    { tipo: "cnd_tributos_municipais", label: "CND Tributos Municipais", temValidade: true },
-                    { tipo: "cnd_divida_ativa_municipal", label: "CND Dívida Ativa Municipal", temValidade: true },
-                    { tipo: "crf_fgts", label: "CRF FGTS", temValidade: true },
-                    { tipo: "cndt", label: "CNDT", temValidade: true },
-                    { tipo: "contrato_social", label: "Contrato Social Consolidado", temValidade: false },
-                    { tipo: "cartao_cnpj", label: "Cartão CNPJ", temValidade: false },
-                  ];
-                  const tipoDocInfo = DOCUMENTOS_VALIDADE.find(d => d.tipo === doc.tipo_documento);
-                  const temValidade = tipoDocInfo?.temValidade || false;
-                  
-                  return (
-                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3 flex-1">
-                        <FileText className="h-5 w-5 text-primary" />
-                        <div className="flex-1">
-                          <p className="font-medium">{tipoDocInfo?.label || doc.tipo_documento}</p>
-                          <p className="text-sm text-muted-foreground">{doc.nome_arquivo}</p>
-                          {temValidade && (
-                            <div className="mt-1">
-                               {doc.data_validade ? (
-                                 <p className="text-xs">
-                                   <span className="font-medium">Validade:</span>{" "}
-                                   {doc.data_validade.split('T')[0].split('-').reverse().join('/')}
-                                 </p>
-                              ) : (
-                                <p className="text-xs text-amber-600 font-medium">
-                                  Data de validade não extraída
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            const pathMatch = doc.url_arquivo.match(/processo-anexos\/(.+)$/);
-                            if (!pathMatch) {
-                              toast.error("URL do documento inválida");
-                              return;
-                            }
-                            const filePath = pathMatch[1];
-                            const { data, error } = await supabase.storage
-                              .from('processo-anexos')
-                              .createSignedUrl(filePath, 60);
-                            if (error) throw error;
-                            if (!data?.signedUrl) throw new Error("Não foi possível gerar URL de acesso");
-                            
-                            // Construir URL completa
-                            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                            const fullUrl = data.signedUrl.startsWith('http') 
-                              ? data.signedUrl 
-                              : `${supabaseUrl}/storage/v1${data.signedUrl}`;
-                            
-                            window.open(fullUrl, '_blank');
-                          } catch (error) {
-                            console.error("Erro ao abrir documento:", error);
-                            toast.error("Erro ao visualizar documento");
-                          }
-                        }}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Visualizar
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
+              <GestaoDocumentosGestor fornecedorId={fornecedorSelecionado.id} />
             </div>
 
             {/* Respostas Due Diligence */}
