@@ -37,6 +37,7 @@ interface RespostaFornecedor {
   fornecedor: {
     razao_social: string;
     cnpj: string;
+    endereco_comercial: string;
   };
 }
 
@@ -48,8 +49,8 @@ export function DialogRespostasCotacao({
 }: DialogRespostasCotacaoProps) {
   const [respostas, setRespostas] = useState<RespostaFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cotacaoDescricao, setCotacaoDescricao] = useState("");
   const [processoNumero, setProcessoNumero] = useState("");
+  const [processoObjeto, setProcessoObjeto] = useState("");
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -64,17 +65,17 @@ export function DialogRespostasCotacao({
       const { data: cotacao } = await supabase
         .from("cotacoes_precos")
         .select(`
-          descricao_cotacao,
           processos_compras:processo_compra_id (
-            numero_processo_interno
+            numero_processo_interno,
+            objeto_resumido
           )
         `)
         .eq("id", cotacaoId)
         .single();
 
       if (cotacao) {
-        setCotacaoDescricao(cotacao.descricao_cotacao || "");
         setProcessoNumero((cotacao.processos_compras as any)?.numero_processo_interno || "");
+        setProcessoObjeto((cotacao.processos_compras as any)?.objeto_resumido || "");
       }
 
       const { data, error } = await supabase
@@ -86,7 +87,8 @@ export function DialogRespostasCotacao({
           data_envio_resposta,
           fornecedores:fornecedor_id (
             razao_social,
-            cnpj
+            cnpj,
+            endereco_comercial
           )
         `)
         .eq("cotacao_id", cotacaoId)
@@ -103,6 +105,7 @@ export function DialogRespostasCotacao({
         fornecedor: {
           razao_social: r.fornecedores?.razao_social || "N/A",
           cnpj: r.fornecedores?.cnpj || "N/A",
+          endereco_comercial: r.fornecedores?.endereco_comercial || "",
         },
       }));
 
@@ -165,8 +168,7 @@ export function DialogRespostasCotacao({
           
           <div class="info">
             <p><strong>Processo:</strong> ${processoNumero}</p>
-            <p><strong>Cotação:</strong> ${tituloCotacao}</p>
-            <p><strong>Descrição:</strong> ${stripHtml(cotacaoDescricao)}</p>
+            <p><strong>Descrição:</strong> ${stripHtml(processoObjeto)}</p>
             <p><strong>Data de Envio:</strong> ${new Date(resposta.data_envio_resposta).toLocaleString("pt-BR")}</p>
           </div>
 
@@ -174,6 +176,7 @@ export function DialogRespostasCotacao({
           <div class="info">
             <p><strong>Razão Social:</strong> ${resposta.fornecedor.razao_social}</p>
             <p><strong>CNPJ:</strong> ${formatarCNPJ(resposta.fornecedor.cnpj)}</p>
+            <p><strong>Endereço:</strong> ${resposta.fornecedor.endereco_comercial}</p>
           </div>
 
           <h2>Itens Cotados</h2>
