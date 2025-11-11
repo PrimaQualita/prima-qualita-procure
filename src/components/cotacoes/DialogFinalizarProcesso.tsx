@@ -130,6 +130,7 @@ export function DialogFinalizarProcesso({
         "cnd_divida_ativa_estadual",
         "cnd_tributos_municipais",
         "cnd_divida_ativa_municipal",
+        "crf_fgts",
         "fgts",
         "cndt",
         "certificado_gestor"
@@ -164,6 +165,7 @@ export function DialogFinalizarProcesso({
       cnd_divida_ativa_estadual: "CND Dívida Ativa Estadual",
       cnd_tributos_municipais: "CND Tributos Municipais",
       cnd_divida_ativa_municipal: "CND Dívida Ativa Municipal",
+      crf_fgts: "CRF FGTS",
       fgts: "CRF FGTS",
       cndt: "CNDT",
       certificado_gestor: "Certificado de Fornecedor",
