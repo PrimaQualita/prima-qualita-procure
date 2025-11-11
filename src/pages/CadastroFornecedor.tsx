@@ -238,8 +238,25 @@ export default function CadastroFornecedor() {
         }
       });
 
-      // Se usuário órfão existe, limpar e recriar
+      // Se usuário já existe, verificar se é INTERNO antes de deletar
       if (authData.error?.message === 'User already registered') {
+        console.log('=== USUÁRIO JÁ EXISTE, VERIFICANDO SE É INTERNO OU ÓRFÃO ===');
+        
+        // CRÍTICO: Verificar se é usuário interno (gestor/colaborador) antes de deletar
+        const { data: profileCheck } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', formData.email)
+          .maybeSingle();
+
+        if (profileCheck) {
+          // É usuário INTERNO - NÃO deletar!
+          toast.error("Este email já está cadastrado como usuário interno do sistema.");
+          setLoading(false);
+          return;
+        }
+
+        // É órfão de fornecedor - pode deletar
         console.log('=== USUÁRIO ÓRFÃO DETECTADO, LIMPANDO E RECRIANDO ===');
         
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
