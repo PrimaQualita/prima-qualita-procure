@@ -80,7 +80,43 @@ serve(async (req) => {
       'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
     };
     
-    // Padrões explícitos de validade
+    // Primeiro, procurar por validade relativa (ex: "válida por X dias")
+    const validadeRelativaPattern = /válida?\s+por\s+(\d+)\s*\(?\w*\)?\s*dias?\s+a\s+partir\s+da\s+data\s+de\s+emissão/gi;
+    const matchRelativa = validadeRelativaPattern.exec(pdfText);
+    
+    if (matchRelativa) {
+      const diasValidade = parseInt(matchRelativa[1]);
+      console.log(`📝 Encontrado prazo de validade: ${diasValidade} dias`);
+      
+      // Procurar pela data de emissão no documento
+      // Padrão comum: "Cidade-UF, DD de MÊS de AAAA"
+      const emissaoPattern = /(\w+(?:-\w+)?),\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi;
+      const matchEmissao = emissaoPattern.exec(pdfText);
+      
+      if (matchEmissao) {
+        const dia = parseInt(matchEmissao[2]);
+        const mesNome = matchEmissao[3].toLowerCase();
+        const ano = parseInt(matchEmissao[4]);
+        const mes = monthNames[mesNome];
+        
+        if (mes && dia >= 1 && dia <= 31 && ano >= 2020) {
+          // Calcular data de validade somando os dias
+          const dataEmissao = new Date(ano, mes - 1, dia);
+          const dataValidade = new Date(dataEmissao);
+          dataValidade.setDate(dataValidade.getDate() + diasValidade);
+          
+          const validadeFormatada = `${dataValidade.getFullYear()}-${String(dataValidade.getMonth() + 1).padStart(2, '0')}-${String(dataValidade.getDate()).padStart(2, '0')}`;
+          
+          console.log(`✅ Data de emissão: ${dia}/${mes}/${ano}`);
+          console.log(`✅ Data de validade calculada: ${validadeFormatada} (${diasValidade} dias após emissão)`);
+          
+          return new Response(
+            JSON.stringify({ dataValidade: validadeFormatada, isScanned: false }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
     const validadeExplicitaPatterns = [
       /válida?\s+até[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
       /valida?\s+ate[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
