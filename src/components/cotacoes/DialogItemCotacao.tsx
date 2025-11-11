@@ -11,6 +11,7 @@ interface ItemCotacao {
   descricao: string;
   quantidade: number;
   unidade: string;
+  marca?: string;
 }
 
 interface DialogItemCotacaoProps {
@@ -18,15 +19,17 @@ interface DialogItemCotacaoProps {
   onOpenChange: (open: boolean) => void;
   item?: ItemCotacao | null;
   numeroProximo: number;
+  tipoProcesso?: string;
   onSave: (item: Omit<ItemCotacao, "id"> & { valor_unitario_estimado: number }) => Promise<void>;
 }
 
-export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, onSave }: DialogItemCotacaoProps) => {
+export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, tipoProcesso, onSave }: DialogItemCotacaoProps) => {
   const [formData, setFormData] = useState({
     numero_item: numeroProximo,
     descricao: "",
     quantidade: 1,
     unidade: "UND",
+    marca: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -37,6 +40,7 @@ export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, onS
         descricao: item.descricao,
         quantidade: item.quantidade,
         unidade: item.unidade,
+        marca: item.marca || "",
       });
     } else {
       setFormData({
@@ -44,6 +48,7 @@ export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, onS
         descricao: "",
         quantidade: 1,
         unidade: "UND",
+        marca: "",
       });
     }
   }, [item, numeroProximo, open]);
@@ -120,7 +125,7 @@ export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, onS
 
           <div className="p-4 bg-muted/50 rounded-md border">
             <p className="text-sm text-muted-foreground">
-              <strong>Nota:</strong> Os valores unitários serão preenchidos pelos fornecedores ao responderem a cotação.
+              <strong>Nota:</strong> Os valores unitários{tipoProcesso === "Material" ? " e marcas" : ""} serão preenchidos pelos fornecedores ao responderem a cotação.
             </p>
           </div>
         </div>

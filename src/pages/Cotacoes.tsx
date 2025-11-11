@@ -36,6 +36,7 @@ interface Processo {
   valor_estimado_anual: number;
   requer_cotacao: boolean;
   requer_selecao: boolean;
+  tipo: string;
 }
 
 interface Cotacao {
@@ -62,6 +63,7 @@ interface ItemCotacao {
   unidade: string;
   valor_unitario_estimado: number;
   lote_id: string | null;
+  marca?: string;
 }
 
 const Cotacoes = () => {
@@ -1038,6 +1040,7 @@ const Cotacoes = () => {
                                 <TableHead>Descrição</TableHead>
                                 <TableHead className="w-24">Qtd</TableHead>
                                 <TableHead className="w-24">Unid.</TableHead>
+                                {processoSelecionado?.tipo === "Material" && <TableHead className="w-32">Marca</TableHead>}
                                 <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
                                 <TableHead className="w-32 text-right">Vlr. Total</TableHead>
                                 <TableHead className="w-24 text-right">Ações</TableHead>
@@ -1072,6 +1075,9 @@ const Cotacoes = () => {
                                       <TableCell>{item.descricao}</TableCell>
                                       <TableCell>{item.quantidade}</TableCell>
                                       <TableCell>{item.unidade}</TableCell>
+                                      {processoSelecionado?.tipo === "Material" && (
+                                        <TableCell>{item.marca || "-"}</TableCell>
+                                      )}
                                       <TableCell className="text-right">
                                         R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                                       </TableCell>
@@ -1152,6 +1158,7 @@ const Cotacoes = () => {
                         <TableHead>Descrição</TableHead>
                         <TableHead className="w-24">Qtd</TableHead>
                         <TableHead className="w-24">Unid.</TableHead>
+                        {processoSelecionado?.tipo === "Material" && <TableHead className="w-32">Marca</TableHead>}
                         <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
                         <TableHead className="w-32 text-right">Vlr. Total</TableHead>
                         <TableHead className="w-24 text-right">Ações</TableHead>
@@ -1186,6 +1193,9 @@ const Cotacoes = () => {
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell>{item.quantidade}</TableCell>
                               <TableCell>{item.unidade}</TableCell>
+                              {processoSelecionado?.tipo === "Material" && (
+                                <TableCell>{item.marca || "-"}</TableCell>
+                              )}
                               <TableCell className="text-right">
                                 R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                               </TableCell>
@@ -1292,6 +1302,7 @@ const Cotacoes = () => {
         onOpenChange={setDialogItemOpen}
         item={itemEditando}
         numeroProximo={itens.length > 0 ? Math.max(...itens.map(i => i.numero_item)) + 1 : 1}
+        tipoProcesso={processoSelecionado?.tipo}
         onSave={handleSaveItem}
       />
 

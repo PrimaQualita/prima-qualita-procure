@@ -99,6 +99,7 @@ interface ItemCotacao {
   quantidade: number;
   unidade: string;
   lote_id: string | null;
+  marca?: string;
 }
 
 interface Lote {
@@ -138,7 +139,9 @@ const RespostaCotacao = () => {
   });
   
   const [valoresItens, setValoresItens] = useState<RespostaItem>({});
+  const [marcasItens, setMarcasItens] = useState<{ [key: string]: string }>({});
   const [observacoes, setObservacoes] = useState("");
+  const [tipoProcesso, setTipoProcesso] = useState<string>("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
@@ -152,10 +155,13 @@ const RespostaCotacao = () => {
 
   const loadCotacao = async () => {
     try {
-      // Buscar cotação diretamente
+      // Buscar cotação diretamente com join para obter tipo do processo
       const { data: cotacao, error: cotacaoError } = await supabaseAnon
         .from("cotacoes_precos")
-        .select("*")
+        .select(`
+          *,
+          processos_compras!inner(tipo)
+        `)
         .eq("id", cotacaoIdParam)
         .single();
 
@@ -178,6 +184,7 @@ const RespostaCotacao = () => {
       setCotacaoDescricao(cotacao.descricao_cotacao || "");
       setDataLimite(cotacao.data_limite_resposta);
       setCriterioJulgamento(cotacao.criterio_julgamento || 'global');
+      setTipoProcesso(cotacao.processos_compras?.tipo || "");
 
       // Carregar lotes se for por lote
       if (cotacao.criterio_julgamento === 'por_lote') {
@@ -425,6 +432,21 @@ const RespostaCotacao = () => {
         throw respostaError;
       }
 
+      // Atualizar marcas nos itens (se for Material)
+      if (tipoProcesso === "Material") {
+        console.log("6a. Atualizando marcas nos itens...");
+        const updateMarcasPromises = itens
+          .filter(item => marcasItens[item.id] && valoresItens[item.id] && valoresItens[item.id] > 0)
+          .map(item => 
+            supabaseAnon
+              .from("itens_cotacao")
+              .update({ marca: marcasItens[item.id] })
+              .eq("id", item.id)
+          );
+        
+        await Promise.all(updateMarcasPromises);
+      }
+
       // Criar respostas dos itens (apenas itens que foram cotados)
       console.log("6. Criando respostas dos itens...");
       const respostasItens = itens
@@ -660,23 +682,37 @@ const RespostaCotacao = () => {
                           </h3>
                         </div>
                         <Table>
-                          <TableHeader>
+                           <TableHeader>
                             <TableRow>
                               <TableHead className="w-20">Item</TableHead>
                               <TableHead>Descrição</TableHead>
                               <TableHead className="w-24">Qtd</TableHead>
                               <TableHead className="w-24">Unid.</TableHead>
+                              {tipoProcesso === "Material" && <TableHead className="w-40">Marca *</TableHead>}
                               <TableHead className="w-40">Valor Unitário (R$) *</TableHead>
                               <TableHead className="w-32 text-right">Valor Total</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {itensDoLote.map((item) => (
+                             {itensDoLote.map((item) => (
                               <TableRow key={item.id}>
                                 <TableCell>{item.numero_item}</TableCell>
                                 <TableCell>{item.descricao}</TableCell>
                                 <TableCell>{item.quantidade}</TableCell>
                                 <TableCell>{item.unidade}</TableCell>
+                                {tipoProcesso === "Material" && (
+                                  <TableCell>
+                                    <Input
+                                      type="text"
+                                      value={marcasItens[item.id] || ""}
+                                      onChange={(e) => setMarcasItens({
+                                        ...marcasItens,
+                                        [item.id]: e.target.value
+                                      })}
+                                      placeholder="Marca do produto"
+                                    />
+                                  </TableCell>
+                                )}
                                 <TableCell>
                                    <Input
                                      type="text"
@@ -759,6 +795,7 @@ const RespostaCotacao = () => {
                       <TableHead>Descrição</TableHead>
                       <TableHead className="w-24">Qtd</TableHead>
                       <TableHead className="w-24">Unid.</TableHead>
+                      {tipoProcesso === "Material" && <TableHead className="w-40">Marca *</TableHead>}
                       <TableHead className="w-40">Valor Unitário (R$) *</TableHead>
                       <TableHead className="w-32 text-right">Valor Total</TableHead>
                     </TableRow>
@@ -770,6 +807,19 @@ const RespostaCotacao = () => {
                         <TableCell>{item.descricao}</TableCell>
                         <TableCell>{item.quantidade}</TableCell>
                         <TableCell>{item.unidade}</TableCell>
+                        {tipoProcesso === "Material" && (
+                          <TableCell>
+                            <Input
+                              type="text"
+                              value={marcasItens[item.id] || ""}
+                              onChange={(e) => setMarcasItens({
+                                ...marcasItens,
+                                [item.id]: e.target.value
+                              })}
+                              placeholder="Marca do produto"
+                            />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Input
                             type="text"

@@ -613,6 +613,7 @@ export type Database = {
           descricao: string
           id: string
           lote_id: string | null
+          marca: string | null
           numero_item: number
           quantidade: number
           unidade: string
@@ -625,6 +626,7 @@ export type Database = {
           descricao: string
           id?: string
           lote_id?: string | null
+          marca?: string | null
           numero_item: number
           quantidade: number
           unidade: string
@@ -637,6 +639,7 @@ export type Database = {
           descricao?: string
           id?: string
           lote_id?: string | null
+          marca?: string | null
           numero_item?: number
           quantidade?: number
           unidade?: string
