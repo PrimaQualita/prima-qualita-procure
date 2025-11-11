@@ -278,7 +278,6 @@ const Auth = () => {
                   <Input
                     id="login-identifier"
                     type="text"
-                    placeholder="seu@email.com ou 000.000.000-00"
                     value={loginIdentifier}
                     onChange={(e) => setLoginIdentifier(e.target.value)}
                     required
