@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
@@ -622,6 +622,13 @@ const Cotacoes = () => {
                     <Button variant="outline" onClick={() => setCotacaoSelecionada(null)}>
                       <ArrowLeft className="h-4 w-4 mr-2" />
                       Voltar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setDialogImportarOpen(true)}
+                    >
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Importar Excel
                     </Button>
                     <Button 
                       variant="secondary"

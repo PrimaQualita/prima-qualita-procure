@@ -10,8 +10,20 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileDown } from "lucide-react";
+import { FileDown, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { stripHtml } from "@/lib/htmlUtils";
 
 interface DialogRespostasCotacaoProps {
@@ -51,6 +63,9 @@ export function DialogRespostasCotacao({
   const [loading, setLoading] = useState(true);
   const [processoNumero, setProcessoNumero] = useState("");
   const [processoObjeto, setProcessoObjeto] = useState("");
+  const [emailCorrecaoOpen, setEmailCorrecaoOpen] = useState(false);
+  const [respostaSelecionada, setRespostaSelecionada] = useState<RespostaFornecedor | null>(null);
+  const [emailTexto, setEmailTexto] = useState("");
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -277,6 +292,20 @@ export function DialogRespostasCotacao({
     ? Math.min(...respostas.map(r => r.valor_total_anual_ofertado))
     : 0;
 
+  const solicitarCorrecao = (resposta: RespostaFornecedor) => {
+    setRespostaSelecionada(resposta);
+    const linkCorrecao = `${window.location.origin}/resposta-cotacao?cotacao=${cotacaoId}`;
+    const textoEmail = `Prezado(a) fornecedor(a) ${resposta.fornecedor.razao_social},\n\nIdentificamos a necessidade de correção em sua proposta referente à cotação "${tituloCotacao}" do processo ${processoNumero}.\n\nPor favor, acesse o link abaixo para revisar e reenviar sua proposta:\n\n${linkCorrecao}\n\nData limite para resposta: [INFORMAR DATA]\n\nAtenciosamente,\nEquipe de Compras`;
+    setEmailTexto(textoEmail);
+    setEmailCorrecaoOpen(true);
+  };
+
+  const copiarEmailCorrecao = () => {
+    navigator.clipboard.writeText(emailTexto);
+    toast.success("Texto do e-mail copiado!");
+    setEmailCorrecaoOpen(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -338,14 +367,24 @@ export function DialogRespostasCotacao({
                         {resposta.observacoes_fornecedor || "-"}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => gerarPDFProposta(resposta)}
-                        >
-                          <FileDown className="h-4 w-4 mr-2" />
-                          Baixar Proposta
-                        </Button>
+                        <div className="flex gap-2 justify-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => gerarPDFProposta(resposta)}
+                          >
+                            <FileDown className="h-4 w-4 mr-2" />
+                            Baixar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => solicitarCorrecao(resposta)}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            Solicitar Correção
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -355,6 +394,37 @@ export function DialogRespostasCotacao({
           </div>
         )}
       </DialogContent>
+
+      <AlertDialog open={emailCorrecaoOpen} onOpenChange={setEmailCorrecaoOpen}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Solicitar Correção de Proposta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Fornecedor: {respostaSelecionada?.fornecedor.razao_social}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Texto do E-mail</Label>
+              <Textarea
+                value={emailTexto}
+                onChange={(e) => setEmailTexto(e.target.value)}
+                rows={12}
+                className="font-mono text-sm"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Copie este texto e envie para o e-mail do fornecedor solicitando a correção da proposta.
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={copiarEmailCorrecao}>
+              Copiar Texto
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

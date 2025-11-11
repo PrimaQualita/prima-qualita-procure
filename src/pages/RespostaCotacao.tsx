@@ -549,11 +549,21 @@ const RespostaCotacao = () => {
                           type="number"
                           min="0"
                           step="0.01"
-                          value={valoresItens[item.id] || ""}
-                          onChange={(e) => setValoresItens({
-                            ...valoresItens,
-                            [item.id]: parseFloat(e.target.value) || 0
-                          })}
+                          value={valoresItens[item.id] ? valoresItens[item.id].toFixed(2) : ""}
+                          onChange={(e) => {
+                            const valor = parseFloat(e.target.value) || 0;
+                            setValoresItens({
+                              ...valoresItens,
+                              [item.id]: parseFloat(valor.toFixed(2))
+                            });
+                          }}
+                          onBlur={(e) => {
+                            const valor = parseFloat(e.target.value) || 0;
+                            setValoresItens({
+                              ...valoresItens,
+                              [item.id]: parseFloat(valor.toFixed(2))
+                            });
+                          }}
                           placeholder="0,00"
                           required
                         />
