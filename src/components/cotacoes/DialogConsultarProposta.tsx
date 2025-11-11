@@ -83,6 +83,7 @@ export function DialogConsultarProposta({
           id,
           valor_unitario_ofertado,
           observacao,
+          item_cotacao_id,
           itens_cotacao (
             numero_item,
             descricao,
@@ -94,11 +95,16 @@ export function DialogConsultarProposta({
             )
           )
         `)
-        .eq("cotacao_resposta_fornecedor_id", respostaData.id)
-        .order("itens_cotacao(numero_item)", { ascending: true });
+        .eq("cotacao_resposta_fornecedor_id", respostaData.id);
 
       if (itensError) throw itensError;
-      setItensResposta(itensData || []);
+      
+      // Ordenar itens pelo numero_item após carregar
+      const itensSorted = (itensData || []).sort((a: any, b: any) => 
+        (a.itens_cotacao?.numero_item || 0) - (b.itens_cotacao?.numero_item || 0)
+      );
+      
+      setItensResposta(itensSorted);
     } catch (error: any) {
       console.error("Erro ao carregar proposta:", error);
       toast.error("Erro ao carregar proposta");
