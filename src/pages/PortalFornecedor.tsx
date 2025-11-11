@@ -160,18 +160,12 @@ export default function PortalFornecedor() {
           });
         }
 
-        // Verificar se já foi enviado
-        const { data: docExistente } = await supabase
-          .from("documentos_finalizacao_fornecedor")
-          .select("id, url_arquivo, nome_arquivo")
-          .eq("fornecedor_id", fornecedorId)
-          .eq("campo_documento_id", campo.id)
-          .maybeSingle();
-
+        // Se está nesta lista, significa que está com status "enviado" ou "rejeitado"
+        // ou seja, ainda não foi enviado pelo fornecedor ou precisa ser reenviado
         cotacoesMap.get(campo.cotacao_id).campos_documentos_finalizacao.push({
           ...campo,
-          enviado: !!docExistente,
-          arquivo: docExistente || null
+          enviado: false, // Status "enviado" ou "rejeitado" = documento não enviado
+          arquivo: null
         });
       }
 
