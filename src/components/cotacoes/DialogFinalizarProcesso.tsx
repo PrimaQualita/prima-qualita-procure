@@ -72,20 +72,23 @@ export function DialogFinalizarProcesso({
 
   useEffect(() => {
     if (open) {
+      console.log("📂 Dialog aberto, carregando fornecedores vencedores e aprovações");
       loadFornecedoresVencedores();
-      loadCamposExistentes();
       loadDocumentosAprovados();
     }
   }, [open, cotacaoId]);
 
   useEffect(() => {
     if (fornecedorSelecionado) {
+      console.log("🔄 Fornecedor selecionado mudou:", fornecedorSelecionado);
       loadDocumentosFornecedor(fornecedorSelecionado);
       loadItensVencedores(fornecedorSelecionado);
+      loadCamposExistentes(); // CRÍTICO: Carrega os documentos solicitados/enviados
       loadStatusDocumentosFornecedor(fornecedorSelecionado);
     } else {
       setDocumentosExistentes([]);
       setItensVencedores([]);
+      setCampos([]); // Limpa os campos quando nenhum fornecedor está selecionado
       setStatusDocumentosFornecedor("pendente");
     }
   }, [fornecedorSelecionado]);
@@ -369,6 +372,8 @@ export function DialogFinalizarProcesso({
   const loadCamposExistentes = async () => {
     if (!fornecedorSelecionado) return;
     
+    console.log("🔍 Carregando campos para fornecedor:", fornecedorSelecionado);
+    
     // Carregar TODOS os campos (não apenas os pendentes) para mostrar os documentos enviados
     const { data, error } = await supabase
       .from("campos_documentos_finalizacao")
@@ -386,9 +391,12 @@ export function DialogFinalizarProcesso({
       .order("ordem");
 
     if (error) {
-      console.error("Erro ao carregar campos:", error);
+      console.error("❌ Erro ao carregar campos:", error);
+      toast.error("Erro ao carregar documentos do fornecedor");
     } else {
-      console.log("📋 Campos carregados:", data);
+      console.log("✅ Campos carregados:", data);
+      console.log("📊 Total de campos:", data?.length);
+      console.log("📄 Campos com documentos:", data?.filter((c: any) => c.documentos_finalizacao_fornecedor?.length > 0).length);
       setCampos(data || []);
     }
   };
