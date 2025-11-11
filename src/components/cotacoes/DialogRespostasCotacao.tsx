@@ -345,13 +345,21 @@ export function DialogRespostasCotacao({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `Proposta_${resposta.fornecedor.razao_social.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date(resposta.data_envio_resposta).toLocaleDateString("pt-BR").replace(/\//g, "-")}.html`;
+      const nomeArquivo = `Proposta_${resposta.fornecedor.razao_social.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date(resposta.data_envio_resposta).toLocaleDateString("pt-BR").replace(/\//g, "-")}.html`;
+      link.download = nomeArquivo;
+      link.style.display = "none";
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      
+      // Forçar o download de forma mais robusta
+      setTimeout(() => {
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 100);
+      }, 100);
 
-      toast.success("PDF da proposta gerado com sucesso!");
+      toast.success("Proposta baixada com sucesso!");
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       toast.error("Erro ao gerar PDF da proposta");
@@ -447,16 +455,14 @@ export function DialogRespostasCotacao({
               <div className="text-sm text-muted-foreground">
                 Total de respostas: <strong>{respostas.length}</strong>
               </div>
-              {requerSelecao && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => setPlanilhaConsolidadaOpen(true)}
-                >
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  Planilha Consolidada
-                </Button>
-              )}
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setPlanilhaConsolidadaOpen(true)}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Planilha Consolidada
+              </Button>
             </div>
 
             <Table>
