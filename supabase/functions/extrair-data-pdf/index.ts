@@ -43,14 +43,21 @@ serve(async (req) => {
     
     let dataValidade: string | null = null;
     
-    // Padrões de data mais robustos
+    // Normalizar texto para melhorar extração de PDFs digitalizados/escaneados
+    // Remove espaços extras entre dígitos que podem vir de OCR
+    const normalizedText = pdfText
+      .replace(/(\d)\s+(\d)/g, '$1$2')  // Remove espaços entre números
+      .replace(/\s+/g, ' ')              // Normaliza múltiplos espaços
+      .trim();
+    
+    // Padrões de data mais robustos (aplicar no texto normalizado)
     const datePatterns = [
-      // DD/MM/YYYY
-      /(\d{2})[\/\-\.](\d{2})[\/\-\.](\d{4})/g,
+      // DD/MM/YYYY com separadores variados
+      /(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/g,
       // DD de MMMM de YYYY (por extenso)
       /(\d{2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi,
       // YYYY-MM-DD
-      /(\d{4})[\/\-](\d{2})[\/\-](\d{2})/g,
+      /(\d{4})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{2})/g,
     ];
     
     const monthNames: { [key: string]: number } = {
@@ -64,34 +71,59 @@ serve(async (req) => {
     const extractedDates: Date[] = [];
     
     // PRIMEIRO: Verificar se o documento menciona "válida por X dias" ou similar
+    // Aplicar nos dois textos (original e normalizado) para maior abrangência
     const validadeDiasPatterns = [
-      /(?:válida?|valida?)\s+(?:por)?\s*(\d+)\s+dias?/gi,
-      /(?:prazo|validade)\s+(?:de)?\s*(\d+)\s+dias?/gi,
-      /(\d+)\s+dias?.*?(?:válida?|valida?|validade)/gi,
+      /(?:válida?|valida?)\s+(?:por)?\s*(\d+)\s+(?:dias?|dia)/gi,
+      /(?:prazo|validade)\s+(?:de)?\s*(\d+)\s+(?:dias?|dia)/gi,
+      /(\d+)\s+(?:dias?|dia).*?(?:válida?|valida?|validade)/gi,
+      /(?:cento\s+e\s+oitenta|180)\s+(?:dias?|dia)/gi,  // Específico para 180 dias
+      /(?:noventa|90)\s+(?:dias?|dia)/gi,               // Específico para 90 dias
+      /(?:sessenta|60)\s+(?:dias?|dia)/gi,              // Específico para 60 dias
+      /(?:trinta|30)\s+(?:dias?|dia)/gi,                // Específico para 30 dias
+      /(?:cento\s+e\s+vinte|120)\s+(?:dias?|dia)/gi,   // Específico para 120 dias
     ];
     
     let numeroDias: number | null = null;
     
+    // Tentar primeiro no texto normalizado
     for (const pattern of validadeDiasPatterns) {
       pattern.lastIndex = 0;
-      const match = pattern.exec(pdfText);
+      let match = pattern.exec(normalizedText);
+      if (!match) {
+        pattern.lastIndex = 0;
+        match = pattern.exec(pdfText);
+      }
+      
       if (match) {
-        numeroDias = parseInt(match[1]);
-        console.log(`===== ENCONTRADO: Documento válido por ${numeroDias} dias =====`);
-        break;
+        // Se é um número por extenso, converter
+        const extensoMap: {[key: string]: number} = {
+          'cento e oitenta': 180, 'cento e vinte': 120,
+          'noventa': 90, 'sessenta': 60, 'trinta': 30
+        };
+        
+        const matchText = match[0].toLowerCase();
+        numeroDias = parseInt(match[1]) || Object.entries(extensoMap)
+          .find(([extenso]) => matchText.includes(extenso))?.[1] || null;
+        
+        if (numeroDias) {
+          console.log(`===== ENCONTRADO: Documento válido por ${numeroDias} dias =====`);
+          break;
+        }
       }
     }
     
     if (numeroDias) {
       console.log(`Buscando data de emissão para calcular validade...`);
       
-      // Extrair TODAS as datas do documento primeiro
+      // Extrair TODAS as datas do documento primeiro (usar texto normalizado)
       const todasDatas: Array<{date: Date, text: string, position: number}> = [];
       
       for (const pattern of datePatterns) {
         pattern.lastIndex = 0;
         let match;
-        while ((match = pattern.exec(pdfText)) !== null) {
+        // Tentar primeiro no texto normalizado
+        const textoParaBusca = normalizedText;
+        while ((match = pattern.exec(textoParaBusca)) !== null) {
           let day: number, month: number, year: number;
           
           if (match[0].toLowerCase().includes('de') && isNaN(parseInt(match[2]))) {
@@ -126,10 +158,24 @@ serve(async (req) => {
           console.log(`  ${i + 1}. ${d.text} = ${d.date.toISOString().split('T')[0]} (posição ${d.position})`);
         });
         
-        // Procurar data de emissão perto de palavras-chave como cidade/estado
-        // Essa data geralmente aparece no formato: "Rio de Janeiro, RJ, 30/10/2025"
-        const localidadePattern = /(?:rio\s+de\s+janeiro|são\s+paulo|brasília|brasil),?\s*(?:rj|sp|df)?,?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{4})/gi;
-        let localidadeMatch = localidadePattern.exec(pdfText);
+        // Procurar data de emissão perto de palavras-chave
+        // Padrões comuns: localidade + data, ou palavras como "expedição", "emissão"
+        const emissaoPatterns = [
+          /(?:rio\s+de\s+janeiro|são\s+paulo|brasília|brasil|saquarema|niterói),?\s*(?:rj|sp|df)?,?\s*(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
+          /(?:expedição|emissão|emitida\s+em|data\s+de\s+emissão)[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
+          /(?:expedição|emissão)[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
+        ];
+        
+        let localidadeMatch: RegExpExecArray | null = null;
+        for (const pattern of emissaoPatterns) {
+          pattern.lastIndex = 0;
+          localidadeMatch = pattern.exec(normalizedText);
+          if (!localidadeMatch) {
+            pattern.lastIndex = 0;
+            localidadeMatch = pattern.exec(pdfText);
+          }
+          if (localidadeMatch) break;
+        }
         
         let dataEmissao: Date | null = null;
         
