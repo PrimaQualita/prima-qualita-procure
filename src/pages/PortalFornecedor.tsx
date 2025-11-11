@@ -101,6 +101,8 @@ export default function PortalFornecedor() {
 
   const loadDocumentosPendentes = async (fornecedorId: string) => {
     try {
+      console.log("🔍 Carregando documentos pendentes para fornecedor:", fornecedorId);
+      
       // Buscar documentos solicitados na finalização do processo
       const { data: camposSolicitados, error: camposError } = await supabase
         .from("campos_documentos_finalizacao")
@@ -118,9 +120,15 @@ export default function PortalFornecedor() {
         .eq("fornecedor_id", fornecedorId)
         .in("status_solicitacao", ["enviado", "em_analise"]);
 
-      if (camposError) throw camposError;
+      if (camposError) {
+        console.error("❌ Erro ao buscar campos solicitados:", camposError);
+        throw camposError;
+      }
+
+      console.log("📋 Campos solicitados encontrados:", camposSolicitados);
 
       if (!camposSolicitados || camposSolicitados.length === 0) {
+        console.log("ℹ️ Nenhum documento pendente encontrado");
         setDocumentosPendentes([]);
         return;
       }
@@ -152,9 +160,11 @@ export default function PortalFornecedor() {
         });
       }
 
-      setDocumentosPendentes(Array.from(cotacoesMap.values()));
+      const documentosAgrupados = Array.from(cotacoesMap.values());
+      console.log("✅ Documentos agrupados por cotação:", documentosAgrupados);
+      setDocumentosPendentes(documentosAgrupados);
     } catch (error: any) {
-      console.error("Erro ao carregar documentos pendentes:", error);
+      console.error("❌ Erro ao carregar documentos pendentes:", error);
     }
   };
 
