@@ -157,6 +157,7 @@ const Cotacoes = () => {
   };
 
   const loadCotacoes = async (processoId: string) => {
+    console.log("Carregando cotações para processo:", processoId);
     const { data, error } = await supabase
       .from("cotacoes_precos")
       .select("*")
@@ -164,9 +165,10 @@ const Cotacoes = () => {
       .order("created_at", { ascending: false });
 
     if (error) {
+      console.error("Erro ao carregar cotações:", error);
       toast.error("Erro ao carregar cotações");
-      console.error(error);
     } else {
+      console.log("Cotações carregadas:", data);
       setCotacoes((data || []).map(c => ({
         ...c,
         criterio_julgamento: (c.criterio_julgamento || 'global') as 'por_item' | 'global' | 'por_lote'
