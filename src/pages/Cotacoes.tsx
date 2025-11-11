@@ -400,22 +400,51 @@ const Cotacoes = () => {
   };
 
   const handleDeleteLote = async (id: string) => {
-    if (!confirm("Deseja realmente excluir este lote? Todos os itens vinculados perderão o vínculo com o lote.")) return;
+    if (!confirm("Deseja realmente excluir este lote? Todos os itens vinculados a ele também serão excluídos.")) return;
 
-    const { error } = await supabase
-      .from("lotes_cotacao")
-      .delete()
-      .eq("id", id);
+    try {
+      // Buscar itens do lote
+      const { data: itensLote } = await supabase
+        .from("itens_cotacao")
+        .select("id")
+        .eq("lote_id", id);
 
-    if (error) {
-      toast.error("Erro ao excluir lote");
-      console.error(error);
-    } else {
-      toast.success("Lote excluído com sucesso");
+      if (itensLote && itensLote.length > 0) {
+        const itemIds = itensLote.map(item => item.id);
+
+        // Deletar respostas de fornecedores dos itens do lote
+        const { error: respostasError } = await supabase
+          .from("respostas_itens_fornecedor")
+          .delete()
+          .in("item_cotacao_id", itemIds);
+
+        if (respostasError) throw respostasError;
+
+        // Deletar itens do lote
+        const { error: itensError } = await supabase
+          .from("itens_cotacao")
+          .delete()
+          .eq("lote_id", id);
+
+        if (itensError) throw itensError;
+      }
+
+      // Deletar o lote
+      const { error } = await supabase
+        .from("lotes_cotacao")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Lote e todos os itens vinculados excluídos com sucesso");
       if (cotacaoSelecionada) {
         loadLotes(cotacaoSelecionada.id);
         loadItens(cotacaoSelecionada.id);
       }
+    } catch (error) {
+      toast.error("Erro ao excluir lote");
+      console.error(error);
     }
   };
 
