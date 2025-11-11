@@ -211,21 +211,17 @@ const RespostaCotacao = () => {
       const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
       
       // Verificar se fornecedor já existe pelo CNPJ
-      const { data: fornecedorExistente, error: buscaError } = await supabase
+      const { data: fornecedorExistente } = await supabase
         .from("fornecedores")
         .select("id")
         .eq("cnpj", cnpjLimpo)
         .maybeSingle();
 
-      if (buscaError) {
-        console.error("Erro ao buscar fornecedor:", buscaError);
-        throw buscaError;
-      }
-
       let fornecedorId = fornecedorExistente?.id;
 
       // Se não existe, criar registro básico do fornecedor
       if (!fornecedorId) {
+        // Tentar criar, mas se der erro de CNPJ duplicado, buscar novamente
         const { data: novoFornecedor, error: fornecedorError } = await supabase
           .from("fornecedores")
           .insert({
@@ -241,10 +237,25 @@ const RespostaCotacao = () => {
           .single();
 
         if (fornecedorError) {
-          console.error("Erro ao criar fornecedor:", fornecedorError);
-          throw fornecedorError;
+          // Se for erro de CNPJ duplicado, buscar o fornecedor existente
+          if (fornecedorError.message?.includes('fornecedores_cnpj_key')) {
+            const { data: fornecedorDuplicado } = await supabase
+              .from("fornecedores")
+              .select("id")
+              .eq("cnpj", cnpjLimpo)
+              .single();
+            
+            if (fornecedorDuplicado) {
+              fornecedorId = fornecedorDuplicado.id;
+            } else {
+              throw new Error("Erro ao identificar fornecedor");
+            }
+          } else {
+            throw fornecedorError;
+          }
+        } else {
+          fornecedorId = novoFornecedor.id;
         }
-        fornecedorId = novoFornecedor.id;
       }
 
       // Calcular valor total
