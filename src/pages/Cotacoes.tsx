@@ -14,6 +14,9 @@ import { ArrowLeft, Plus, Trash2, Edit, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
+import { DialogLote } from "@/components/cotacoes/DialogLote";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Contrato {
   id: string;
@@ -38,6 +41,13 @@ interface Cotacao {
   descricao_cotacao: string;
   status_cotacao: string;
   data_limite_resposta: string;
+  criterio_julgamento: 'por_item' | 'global' | 'por_lote';
+}
+
+interface Lote {
+  id: string;
+  numero_lote: number;
+  descricao_lote: string;
 }
 
 interface ItemCotacao {
@@ -47,6 +57,7 @@ interface ItemCotacao {
   quantidade: number;
   unidade: string;
   valor_unitario_estimado: number;
+  lote_id: string | null;
 }
 
 const Cotacoes = () => {
@@ -59,12 +70,16 @@ const Cotacoes = () => {
   const [cotacoes, setCotacoes] = useState<Cotacao[]>([]);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<Cotacao | null>(null);
   const [itens, setItens] = useState<ItemCotacao[]>([]);
+  const [lotes, setLotes] = useState<Lote[]>([]);
   const [filtro, setFiltro] = useState("");
   const [dialogItemOpen, setDialogItemOpen] = useState(false);
   const [dialogCotacaoOpen, setDialogCotacaoOpen] = useState(false);
   const [dialogEnviarOpen, setDialogEnviarOpen] = useState(false);
+  const [dialogLoteOpen, setDialogLoteOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
+  const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
+  const [criterioJulgamento, setCriterioJulgamento] = useState<'por_item' | 'global' | 'por_lote'>('global');
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
@@ -91,6 +106,8 @@ const Cotacoes = () => {
   useEffect(() => {
     if (cotacaoSelecionada) {
       loadItens(cotacaoSelecionada.id);
+      loadLotes(cotacaoSelecionada.id);
+      setCriterioJulgamento(cotacaoSelecionada.criterio_julgamento);
     }
   }, [cotacaoSelecionada]);
 
@@ -143,7 +160,25 @@ const Cotacoes = () => {
       toast.error("Erro ao carregar cotações");
       console.error(error);
     } else {
-      setCotacoes(data || []);
+      setCotacoes((data || []).map(c => ({
+        ...c,
+        criterio_julgamento: (c.criterio_julgamento || 'global') as 'por_item' | 'global' | 'por_lote'
+      })));
+    }
+  };
+
+  const loadLotes = async (cotacaoId: string) => {
+    const { data, error } = await supabase
+      .from("lotes_cotacao")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("numero_lote", { ascending: true });
+
+    if (error) {
+      toast.error("Erro ao carregar lotes");
+      console.error(error);
+    } else {
+      setLotes(data || []);
     }
   };
 
@@ -245,6 +280,78 @@ const Cotacoes = () => {
       if (cotacaoSelecionada) {
         loadItens(cotacaoSelecionada.id);
       }
+    }
+  };
+
+  const handleSaveLote = async (loteData: Omit<Lote, "id">) => {
+    if (!cotacaoSelecionada) return;
+
+    if (loteEditando) {
+      const { error } = await supabase
+        .from("lotes_cotacao")
+        .update(loteData)
+        .eq("id", loteEditando.id);
+
+      if (error) {
+        toast.error("Erro ao atualizar lote");
+        console.error(error);
+      } else {
+        toast.success("Lote atualizado com sucesso");
+        loadLotes(cotacaoSelecionada.id);
+      }
+    } else {
+      const { error } = await supabase
+        .from("lotes_cotacao")
+        .insert({
+          ...loteData,
+          cotacao_id: cotacaoSelecionada.id,
+        });
+
+      if (error) {
+        toast.error("Erro ao criar lote");
+        console.error(error);
+      } else {
+        toast.success("Lote criado com sucesso");
+        loadLotes(cotacaoSelecionada.id);
+      }
+    }
+  };
+
+  const handleDeleteLote = async (id: string) => {
+    if (!confirm("Deseja realmente excluir este lote? Todos os itens vinculados perderão o vínculo com o lote.")) return;
+
+    const { error } = await supabase
+      .from("lotes_cotacao")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao excluir lote");
+      console.error(error);
+    } else {
+      toast.success("Lote excluído com sucesso");
+      if (cotacaoSelecionada) {
+        loadLotes(cotacaoSelecionada.id);
+        loadItens(cotacaoSelecionada.id);
+      }
+    }
+  };
+
+  const handleUpdateCriterioJulgamento = async (criterio: 'por_item' | 'global' | 'por_lote') => {
+    if (!cotacaoSelecionada) return;
+
+    const { error } = await supabase
+      .from("cotacoes_precos")
+      .update({ criterio_julgamento: criterio })
+      .eq("id", cotacaoSelecionada.id);
+
+    if (error) {
+      toast.error("Erro ao atualizar critério de julgamento");
+      console.error(error);
+    } else {
+      toast.success("Critério atualizado com sucesso");
+      setCriterioJulgamento(criterio);
+      setCotacaoSelecionada({ ...cotacaoSelecionada, criterio_julgamento: criterio });
     }
   };
 
@@ -525,20 +632,106 @@ const Cotacoes = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="mb-4 p-4 border rounded-lg bg-muted/50">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="requer_selecao"
-                      checked={processoSelecionado?.requer_selecao || false}
-                      onChange={(e) => handleUpdateRequerSelecao(e.target.checked)}
-                      className="h-4 w-4 rounded border-input"
-                    />
-                    <label htmlFor="requer_selecao" className="text-sm font-medium cursor-pointer">
-                      Requer Seleção de Fornecedores (Valor total superior a R$ 20.000,00)
-                    </label>
+                <div className="mb-6 space-y-4 p-4 border rounded-lg bg-muted/50">
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="criterio_julgamento">Critério de Julgamento</Label>
+                      <Select
+                        value={criterioJulgamento}
+                        onValueChange={(value: 'por_item' | 'global' | 'por_lote') => 
+                          handleUpdateCriterioJulgamento(value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="global">Menor Preço Global</SelectItem>
+                          <SelectItem value="por_item">Menor Preço por Item</SelectItem>
+                          <SelectItem value="por_lote">Menor Preço por Lote</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {criterioJulgamento === 'global' && 'Vencedor será o fornecedor com menor valor total geral'}
+                        {criterioJulgamento === 'por_item' && 'Vencedor será escolhido item por item (menor preço em cada item)'}
+                        {criterioJulgamento === 'por_lote' && 'Vencedor será escolhido lote por lote (menor preço em cada lote)'}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="requer_selecao"
+                        checked={processoSelecionado?.requer_selecao || false}
+                        onCheckedChange={(checked) => handleUpdateRequerSelecao(checked as boolean)}
+                      />
+                      <label htmlFor="requer_selecao" className="text-sm font-medium cursor-pointer">
+                        Requer Seleção de Fornecedores (Valor total superior a R$ 20.000,00)
+                      </label>
+                    </div>
                   </div>
                 </div>
+
+                {criterioJulgamento === 'por_lote' && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">Lotes</h3>
+                      <Button size="sm" onClick={() => {
+                        setLoteEditando(null);
+                        setDialogLoteOpen(true);
+                      }}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Novo Lote
+                      </Button>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-24">Nº Lote</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead className="w-32 text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lotes.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center text-muted-foreground">
+                              Nenhum lote criado. Crie lotes para organizar os itens.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          lotes.map((lote) => (
+                            <TableRow key={lote.id}>
+                              <TableCell>{lote.numero_lote}</TableCell>
+                              <TableCell>{lote.descricao_lote}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex gap-2 justify-end">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setLoteEditando(lote);
+                                      setDialogLoteOpen(true);
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteLote(lote.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -682,6 +875,17 @@ const Cotacoes = () => {
           processoNumero={processoSelecionado.numero_processo_interno}
           tituloCotacao={cotacaoSelecionada.titulo_cotacao}
           dataLimite={cotacaoSelecionada.data_limite_resposta}
+        />
+      )}
+
+      {/* Dialog Lote */}
+      {cotacaoSelecionada && (
+        <DialogLote
+          open={dialogLoteOpen}
+          onOpenChange={setDialogLoteOpen}
+          lote={loteEditando}
+          numeroProximo={lotes.length > 0 ? Math.max(...lotes.map(l => l.numero_lote)) + 1 : 1}
+          onSave={handleSaveLote}
         />
       )}
     </div>

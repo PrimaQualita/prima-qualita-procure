@@ -311,6 +311,7 @@ export type Database = {
       cotacoes_precos: {
         Row: {
           created_at: string | null
+          criterio_julgamento: string | null
           data_envio: string | null
           data_limite_resposta: string
           descricao_cotacao: string | null
@@ -322,6 +323,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          criterio_julgamento?: string | null
           data_envio?: string | null
           data_limite_resposta: string
           descricao_cotacao?: string | null
@@ -333,6 +335,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          criterio_julgamento?: string | null
           data_envio?: string | null
           data_limite_resposta?: string
           descricao_cotacao?: string | null
@@ -482,6 +485,7 @@ export type Database = {
           created_at: string | null
           descricao: string
           id: string
+          lote_id: string | null
           numero_item: number
           quantidade: number
           unidade: string
@@ -493,6 +497,7 @@ export type Database = {
           created_at?: string | null
           descricao: string
           id?: string
+          lote_id?: string | null
           numero_item: number
           quantidade: number
           unidade: string
@@ -504,6 +509,7 @@ export type Database = {
           created_at?: string | null
           descricao?: string
           id?: string
+          lote_id?: string | null
           numero_item?: number
           quantidade?: number
           unidade?: string
@@ -516,6 +522,13 @@ export type Database = {
             columns: ["cotacao_id"]
             isOneToOne: false
             referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_cotacao_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes_cotacao"
             referencedColumns: ["id"]
           },
         ]
@@ -564,6 +577,41 @@ export type Database = {
             columns: ["selecao_id"]
             isOneToOne: false
             referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lotes_cotacao: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          descricao_lote: string
+          id: string
+          numero_lote: number
+          updated_at: string | null
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          descricao_lote: string
+          id?: string
+          numero_lote: number
+          updated_at?: string | null
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          descricao_lote?: string
+          id?: string
+          numero_lote?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lotes_cotacao_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
             referencedColumns: ["id"]
           },
         ]
