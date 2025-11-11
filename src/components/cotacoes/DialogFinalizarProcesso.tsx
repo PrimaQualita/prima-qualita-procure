@@ -120,16 +120,16 @@ export function DialogFinalizarProcesso({
 
       if (error) throw error;
 
-      // Definir ordem correta dos documentos
+      // Definir ordem correta dos documentos - usando os nomes EXATOS do banco
       const ordemDocumentos = [
         "contrato_social",
         "cartao_cnpj",
         "inscricao_estadual_municipal",
-        "certidao_negativa_debito_federal",
-        "certidao_negativa_debito_estadual",
-        "certidao_divida_ativa_estadual",
-        "certidao_negativa_debito_municipal",
-        "certidao_divida_ativa_municipal",
+        "cnd_federal",
+        "cnd_tributos_estaduais",
+        "cnd_divida_ativa_estadual",
+        "cnd_tributos_municipais",
+        "cnd_divida_ativa_municipal",
         "fgts",
         "cndt",
         "certificado_gestor"
@@ -141,6 +141,9 @@ export function DialogFinalizarProcesso({
         .sort((a, b) => {
           const indexA = ordemDocumentos.indexOf(a.tipo_documento);
           const indexB = ordemDocumentos.indexOf(b.tipo_documento);
+          // Se não encontrar o tipo na ordem, coloca no final
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
           return indexA - indexB;
         });
 
@@ -156,11 +159,11 @@ export function DialogFinalizarProcesso({
       contrato_social: "Contrato Social",
       cartao_cnpj: "Cartão CNPJ",
       inscricao_estadual_municipal: "Inscrição Estadual/Municipal",
-      certidao_negativa_debito_federal: "CND Federal",
-      certidao_negativa_debito_estadual: "CND Tributos Estaduais",
-      certidao_divida_ativa_estadual: "CND Dívida Ativa Estadual",
-      certidao_negativa_debito_municipal: "CND Tributos Municipais",
-      certidao_divida_ativa_municipal: "CND Dívida Ativa Municipal",
+      cnd_federal: "CND Federal",
+      cnd_tributos_estaduais: "CND Tributos Estaduais",
+      cnd_divida_ativa_estadual: "CND Dívida Ativa Estadual",
+      cnd_tributos_municipais: "CND Tributos Municipais",
+      cnd_divida_ativa_municipal: "CND Dívida Ativa Municipal",
       fgts: "CRF FGTS",
       cndt: "CNDT",
       certificado_gestor: "Certificado de Fornecedor",
