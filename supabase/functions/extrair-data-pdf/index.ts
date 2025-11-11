@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.2';
-import Tesseract from "https://esm.sh/tesseract.js@5.0.4";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,57 +42,81 @@ serve(async (req) => {
     console.log('Texto extraído do PDF (primeiros 1000 caracteres):', pdfText.substring(0, 1000));
     console.log('Tamanho total do texto:', pdfText.length);
     
-    // Se o texto extraído for muito pequeno (< 50 caracteres), provavelmente é um PDF digitalizado
-    // Precisamos usar OCR
+    // Se o texto extraído for muito pequeno (< 50 caracteres), é PDF digitalizado
+    // Usar Lovable AI Vision para OCR
     if (pdfText.trim().length < 50) {
-      console.log('⚠️ PDF parece ser digitalizado (texto insuficiente). Aplicando OCR...');
+      console.log('⚠️ PDF digitalizado detectado. Usando Lovable AI Vision para OCR...');
       
       try {
-        // Renderizar a primeira página como imagem e aplicar OCR
-        const page = await doc.getPage(1);
-        const viewport = page.getViewport({ scale: 2.0 }); // Scale 2x para melhor qualidade
+        const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+        if (!lovableApiKey) {
+          throw new Error('LOVABLE_API_KEY não configurada');
+        }
         
-        // Criar canvas para renderizar a página
-        const canvas = {
-          width: viewport.width,
-          height: viewport.height,
-          getContext: (type: string) => {
-            const imageData = new Uint8ClampedArray(viewport.width * viewport.height * 4);
-            return {
-              putImageData: () => {},
-              getImageData: () => ({ data: imageData, width: viewport.width, height: viewport.height }),
-              fillRect: () => {},
-              drawImage: () => {},
-              save: () => {},
-              restore: () => {},
-              scale: () => {},
-              translate: () => {},
-              transform: () => {},
-            };
+        // Usar o PDF base64 diretamente como imagem
+        const prompt = `Você é um especialista em extrair informações de certidões brasileiras.
+
+Analise esta imagem de certidão e extraia:
+1. A data de validade (procure por "VÁLIDA ATÉ", "VALIDADE", "VENCIMENTO", etc.)
+2. Se não houver data explícita mas mencionar "válida por X dias", encontre a data de emissão e calcule
+3. Para CRF FGTS, se houver intervalo de datas (ex: "25/10/2025 a 23/11/2025"), retorne a SEGUNDA data
+
+Retorne APENAS no formato JSON:
+{"dataValidade": "YYYY-MM-DD", "metodo": "explicito|calculado|intervalo"}
+
+Se não encontrar, retorne:
+{"dataValidade": null, "erro": "motivo"}`;
+
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${lovableApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: prompt },
+                  { 
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:application/pdf;base64,${pdfBase64}`
+                    }
+                  }
+                ]
+              }
+            ],
+            max_completion_tokens: 500,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erro na API Lovable AI:', errorText);
+          throw new Error(`Erro AI: ${response.status}`);
+        }
+
+        const aiResult = await response.json();
+        const aiText = aiResult.choices[0].message.content;
+        console.log('Resposta da AI:', aiText);
+
+        // Extrair JSON da resposta
+        const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.dataValidade) {
+            pdfText = `VALIDADE EXTRAÍDA POR OCR: ${parsed.dataValidade} (método: ${parsed.metodo})`;
+            console.log('✅ OCR concluído via Lovable AI Vision');
+            console.log('Data extraída:', parsed.dataValidade);
+          } else {
+            console.warn('AI não conseguiu extrair data:', parsed.erro);
           }
-        };
-        
-        const canvasContext: any = canvas.getContext('2d');
-        
-        await page.render({
-          canvasContext,
-          viewport,
-        }).promise;
-        
-        // Converter canvas para imagem base64
-        const imageData = canvasContext.getImageData(0, 0, viewport.width, viewport.height);
-        
-        // Aplicar OCR com Tesseract
-        console.log('Aplicando Tesseract OCR...');
-        const worker = await Tesseract.createWorker('por');
-        const { data: { text: ocrText } } = await worker.recognize(imageData);
-        await worker.terminate();
-        
-        pdfText = ocrText;
-        console.log('✅ OCR concluído. Texto extraído (primeiros 1000 caracteres):', pdfText.substring(0, 1000));
-        console.log('Tamanho do texto OCR:', pdfText.length);
+        }
       } catch (ocrError) {
-        console.error('❌ Erro ao aplicar OCR:', ocrError);
+        console.error('❌ Erro ao aplicar OCR com Lovable AI:', ocrError);
         console.log('Continuando com texto original (pode estar vazio)');
       }
     }
