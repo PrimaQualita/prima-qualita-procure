@@ -7,13 +7,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Eye } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+
+interface Contrato {
+  id: string;
+  nome_contrato: string;
+  ente_federativo: string;
+  status: string;
+}
 
 interface Processo {
   id: string;
   numero_processo_interno: string;
   objeto_resumido: string;
+  valor_estimado_anual: number;
+  requer_selecao: boolean;
 }
 
 interface Selecao {
@@ -24,19 +33,34 @@ interface Selecao {
   data_sessao_disputa: string;
   hora_sessao_disputa: string;
   valor_estimado_anual: number;
-  processos_compras?: Processo;
 }
 
 const Selecoes = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
+  const [processos, setProcessos] = useState<Processo[]>([]);
+  const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
   const [selecoes, setSelecoes] = useState<Selecao[]>([]);
   const [filtro, setFiltro] = useState("");
 
   useEffect(() => {
     checkAuth();
-    loadSelecoes();
+    loadContratos();
   }, []);
+
+  useEffect(() => {
+    if (contratoSelecionado) {
+      loadProcessos(contratoSelecionado.id);
+    }
+  }, [contratoSelecionado]);
+
+  useEffect(() => {
+    if (processoSelecionado) {
+      loadSelecoes(processoSelecionado.id);
+    }
+  }, [processoSelecionado]);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -46,17 +70,41 @@ const Selecoes = () => {
     setLoading(false);
   };
 
-  const loadSelecoes = async () => {
+  const loadContratos = async () => {
+    const { data, error } = await supabase
+      .from("contratos_gestao")
+      .select("*")
+      .order("nome_contrato", { ascending: true });
+
+    if (error) {
+      toast.error("Erro ao carregar contratos");
+      console.error(error);
+    } else {
+      setContratos(data || []);
+    }
+  };
+
+  const loadProcessos = async (contratoId: string) => {
+    const { data, error } = await supabase
+      .from("processos_compras")
+      .select("*")
+      .eq("contrato_gestao_id", contratoId)
+      .eq("requer_selecao", true)
+      .order("numero_processo_interno", { ascending: true });
+
+    if (error) {
+      toast.error("Erro ao carregar processos");
+      console.error(error);
+    } else {
+      setProcessos(data || []);
+    }
+  };
+
+  const loadSelecoes = async (processoId: string) => {
     const { data, error } = await supabase
       .from("selecoes_fornecedores")
-      .select(`
-        *,
-        processos_compras (
-          id,
-          numero_processo_interno,
-          objeto_resumido
-        )
-      `)
+      .select("*")
+      .eq("processo_compra_id", processoId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -67,9 +115,9 @@ const Selecoes = () => {
     }
   };
 
-  const selecoesFiltradas = selecoes.filter(s =>
-    s.titulo_selecao.toLowerCase().includes(filtro.toLowerCase()) ||
-    s.processos_compras?.numero_processo_interno.toLowerCase().includes(filtro.toLowerCase())
+  const contratosFiltrados = contratos.filter(c =>
+    c.nome_contrato.toLowerCase().includes(filtro.toLowerCase()) ||
+    c.ente_federativo.toLowerCase().includes(filtro.toLowerCase())
   );
 
   if (loading) {
@@ -95,68 +143,193 @@ const Selecoes = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Seleção de Fornecedores</CardTitle>
-            <CardDescription>
-              Gerencie processos de seleção e disputa de fornecedores
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
-              <Input
-                placeholder="Buscar seleção..."
-                value={filtro}
-                onChange={(e) => setFiltro(e.target.value)}
-              />
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Processo</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Data/Hora Disputa</TableHead>
-                  <TableHead className="text-right">Valor Estimado</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {selecoesFiltradas.length === 0 ? (
+        {/* Lista de Contratos */}
+        {!contratoSelecionado && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Contratos de Gestão</CardTitle>
+              <CardDescription>
+                Selecione um contrato para visualizar os processos que requerem seleção de fornecedores
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <Input
+                  placeholder="Buscar contrato..."
+                  value={filtro}
+                  onChange={(e) => setFiltro(e.target.value)}
+                />
+              </div>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      Nenhuma seleção encontrada
-                    </TableCell>
+                    <TableHead>Nome do Contrato</TableHead>
+                    <TableHead>Ente Federativo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ) : (
-                  selecoesFiltradas.map((selecao) => (
-                    <TableRow key={selecao.id}>
-                      <TableCell>{selecao.processos_compras?.numero_processo_interno}</TableCell>
-                      <TableCell>{selecao.titulo_selecao}</TableCell>
-                      <TableCell>
-                        <Badge variant={selecao.status_selecao === "planejada" ? "default" : "secondary"}>
-                          {selecao.status_selecao}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(selecao.data_sessao_disputa).toLocaleDateString("pt-BR")} às {selecao.hora_sessao_disputa}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        R$ {selecao.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-2" />
-                          Detalhes
-                        </Button>
+                </TableHeader>
+                <TableBody>
+                  {contratosFiltrados.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        Nenhum contrato encontrado
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  ) : (
+                    contratosFiltrados.map((contrato) => (
+                      <TableRow key={contrato.id}>
+                        <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
+                        <TableCell>{contrato.ente_federativo}</TableCell>
+                        <TableCell>
+                          <Badge variant={contrato.status === "ativo" ? "default" : "secondary"}>
+                            {contrato.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setContratoSelecionado(contrato)}
+                          >
+                            <ChevronRight className="h-4 w-4 mr-2" />
+                            Ver Processos
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Lista de Processos */}
+        {contratoSelecionado && !processoSelecionado && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Processos que Requerem Seleção de Fornecedores</CardTitle>
+                  <CardDescription>
+                    Contrato: {contratoSelecionado.nome_contrato}
+                  </CardDescription>
+                </div>
+                <Button variant="outline" onClick={() => setContratoSelecionado(null)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nº Processo</TableHead>
+                    <TableHead>Objeto</TableHead>
+                    <TableHead className="text-right">Valor Estimado</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {processos.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        Nenhum processo que requer seleção de fornecedores encontrado neste contrato
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    processos.map((processo) => (
+                      <TableRow key={processo.id}>
+                        <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
+                        <TableCell dangerouslySetInnerHTML={{ __html: processo.objeto_resumido }} />
+                        <TableCell className="text-right">
+                          R$ {processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setProcessoSelecionado(processo)}
+                          >
+                            <ChevronRight className="h-4 w-4 mr-2" />
+                            Ver Seleções
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Lista de Seleções */}
+        {processoSelecionado && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Seleções de Fornecedores</CardTitle>
+                  <CardDescription>
+                    Processo: {processoSelecionado.numero_processo_interno}
+                  </CardDescription>
+                </div>
+                <Button variant="outline" onClick={() => setProcessoSelecionado(null)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Título</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Data/Hora Disputa</TableHead>
+                    <TableHead className="text-right">Valor Estimado</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selecoes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Nenhuma seleção criada para este processo
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    selecoes.map((selecao) => (
+                      <TableRow key={selecao.id}>
+                        <TableCell className="font-medium">{selecao.titulo_selecao}</TableCell>
+                        <TableCell>
+                          <Badge variant={selecao.status_selecao === "planejada" ? "default" : "secondary"}>
+                            {selecao.status_selecao}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(selecao.data_sessao_disputa).toLocaleDateString("pt-BR")} às {selecao.hora_sessao_disputa}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          R$ {selecao.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm">
+                            <ChevronRight className="h-4 w-4 mr-2" />
+                            Detalhes
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

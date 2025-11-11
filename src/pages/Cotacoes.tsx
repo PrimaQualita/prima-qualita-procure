@@ -5,26 +5,38 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Trash2, Edit, Send, Eye } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
+
+interface Contrato {
+  id: string;
+  nome_contrato: string;
+  ente_federativo: string;
+  status: string;
+}
 
 interface Processo {
   id: string;
   numero_processo_interno: string;
   objeto_resumido: string;
   valor_estimado_anual: number;
+  requer_cotacao: boolean;
+  requer_selecao: boolean;
 }
 
 interface Cotacao {
   id: string;
   processo_compra_id: string;
   titulo_cotacao: string;
+  descricao_cotacao: string;
   status_cotacao: string;
   data_limite_resposta: string;
-  processos_compras?: Processo;
 }
 
 interface ItemCotacao {
@@ -39,17 +51,40 @@ interface ItemCotacao {
 const Cotacoes = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
+  const [processos, setProcessos] = useState<Processo[]>([]);
+  const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
   const [cotacoes, setCotacoes] = useState<Cotacao[]>([]);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<Cotacao | null>(null);
   const [itens, setItens] = useState<ItemCotacao[]>([]);
   const [filtro, setFiltro] = useState("");
   const [dialogItemOpen, setDialogItemOpen] = useState(false);
+  const [dialogCotacaoOpen, setDialogCotacaoOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
+  const [savingCotacao, setSavingCotacao] = useState(false);
+  const [novaCotacao, setNovaCotacao] = useState({
+    titulo_cotacao: "",
+    descricao_cotacao: "",
+    data_limite_resposta: "",
+  });
 
   useEffect(() => {
     checkAuth();
-    loadCotacoes();
+    loadContratos();
   }, []);
+
+  useEffect(() => {
+    if (contratoSelecionado) {
+      loadProcessos(contratoSelecionado.id);
+    }
+  }, [contratoSelecionado]);
+
+  useEffect(() => {
+    if (processoSelecionado) {
+      loadCotacoes(processoSelecionado.id);
+    }
+  }, [processoSelecionado]);
 
   useEffect(() => {
     if (cotacaoSelecionada) {
@@ -65,18 +100,41 @@ const Cotacoes = () => {
     setLoading(false);
   };
 
-  const loadCotacoes = async () => {
+  const loadContratos = async () => {
+    const { data, error } = await supabase
+      .from("contratos_gestao")
+      .select("*")
+      .order("nome_contrato", { ascending: true });
+
+    if (error) {
+      toast.error("Erro ao carregar contratos");
+      console.error(error);
+    } else {
+      setContratos(data || []);
+    }
+  };
+
+  const loadProcessos = async (contratoId: string) => {
+    const { data, error } = await supabase
+      .from("processos_compras")
+      .select("*")
+      .eq("contrato_gestao_id", contratoId)
+      .eq("requer_cotacao", true)
+      .order("numero_processo_interno", { ascending: true });
+
+    if (error) {
+      toast.error("Erro ao carregar processos");
+      console.error(error);
+    } else {
+      setProcessos(data || []);
+    }
+  };
+
+  const loadCotacoes = async (processoId: string) => {
     const { data, error } = await supabase
       .from("cotacoes_precos")
-      .select(`
-        *,
-        processos_compras (
-          id,
-          numero_processo_interno,
-          objeto_resumido,
-          valor_estimado_anual
-        )
-      `)
+      .select("*")
+      .eq("processo_compra_id", processoId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -99,6 +157,39 @@ const Cotacoes = () => {
       console.error(error);
     } else {
       setItens(data || []);
+    }
+  };
+
+  const handleSaveCotacao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!processoSelecionado) return;
+
+    setSavingCotacao(true);
+    try {
+      const { error } = await supabase
+        .from("cotacoes_precos")
+        .insert({
+          processo_compra_id: processoSelecionado.id,
+          titulo_cotacao: novaCotacao.titulo_cotacao,
+          descricao_cotacao: novaCotacao.descricao_cotacao,
+          data_limite_resposta: novaCotacao.data_limite_resposta,
+        });
+
+      if (error) throw error;
+
+      toast.success("Cotação criada com sucesso!");
+      setDialogCotacaoOpen(false);
+      setNovaCotacao({
+        titulo_cotacao: "",
+        descricao_cotacao: "",
+        data_limite_resposta: "",
+      });
+      loadCotacoes(processoSelecionado.id);
+    } catch (error) {
+      toast.error("Erro ao criar cotação");
+      console.error(error);
+    } finally {
+      setSavingCotacao(false);
     }
   };
 
@@ -155,13 +246,29 @@ const Cotacoes = () => {
     }
   };
 
+  const handleUpdateRequerSelecao = async (checked: boolean) => {
+    if (!processoSelecionado) return;
+
+    const { error } = await supabase
+      .from("processos_compras")
+      .update({ requer_selecao: checked })
+      .eq("id", processoSelecionado.id);
+
+    if (error) {
+      toast.error("Erro ao atualizar seleção de fornecedores");
+    } else {
+      toast.success(checked ? "Processo marcado para seleção de fornecedores" : "Processo desmarcado de seleção de fornecedores");
+      setProcessoSelecionado({ ...processoSelecionado, requer_selecao: checked });
+    }
+  };
+
   const calcularTotal = () => {
     return itens.reduce((total, item) => total + (item.quantidade * item.valor_unitario_estimado), 0);
   };
 
-  const cotacoesFiltradas = cotacoes.filter(c =>
-    c.titulo_cotacao.toLowerCase().includes(filtro.toLowerCase()) ||
-    c.processos_compras?.numero_processo_interno.toLowerCase().includes(filtro.toLowerCase())
+  const contratosFiltrados = contratos.filter(c =>
+    c.nome_contrato.toLowerCase().includes(filtro.toLowerCase()) ||
+    c.ente_federativo.toLowerCase().includes(filtro.toLowerCase())
   );
 
   if (loading) {
@@ -187,22 +294,19 @@ const Cotacoes = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {!cotacaoSelecionada ? (
+        {/* Lista de Contratos */}
+        {!contratoSelecionado && (
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Cotações de Preços</CardTitle>
-                  <CardDescription>
-                    Selecione uma cotação para gerenciar os itens
-                  </CardDescription>
-                </div>
-              </div>
+              <CardTitle>Contratos de Gestão</CardTitle>
+              <CardDescription>
+                Selecione um contrato para visualizar os processos que requerem cotação
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-4">
                 <Input
-                  placeholder="Buscar cotação..."
+                  placeholder="Buscar contrato..."
                   value={filtro}
                   onChange={(e) => setFiltro(e.target.value)}
                 />
@@ -210,7 +314,136 @@ const Cotacoes = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Processo</TableHead>
+                    <TableHead>Nome do Contrato</TableHead>
+                    <TableHead>Ente Federativo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contratosFiltrados.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        Nenhum contrato encontrado
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    contratosFiltrados.map((contrato) => (
+                      <TableRow key={contrato.id}>
+                        <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
+                        <TableCell>{contrato.ente_federativo}</TableCell>
+                        <TableCell>
+                          <Badge variant={contrato.status === "ativo" ? "default" : "secondary"}>
+                            {contrato.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setContratoSelecionado(contrato)}
+                          >
+                            <ChevronRight className="h-4 w-4 mr-2" />
+                            Ver Processos
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Lista de Processos */}
+        {contratoSelecionado && !processoSelecionado && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Processos que Requerem Cotação</CardTitle>
+                  <CardDescription>
+                    Contrato: {contratoSelecionado.nome_contrato}
+                  </CardDescription>
+                </div>
+                <Button variant="outline" onClick={() => setContratoSelecionado(null)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nº Processo</TableHead>
+                    <TableHead>Objeto</TableHead>
+                    <TableHead className="text-right">Valor Estimado</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {processos.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        Nenhum processo que requer cotação encontrado neste contrato
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    processos.map((processo) => (
+                      <TableRow key={processo.id}>
+                        <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
+                        <TableCell dangerouslySetInnerHTML={{ __html: processo.objeto_resumido }} />
+                        <TableCell className="text-right">
+                          R$ {processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setProcessoSelecionado(processo)}
+                          >
+                            <ChevronRight className="h-4 w-4 mr-2" />
+                            Ver Cotações
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Lista de Cotações */}
+        {processoSelecionado && !cotacaoSelecionada && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Cotações de Preços</CardTitle>
+                  <CardDescription>
+                    Processo: {processoSelecionado.numero_processo_interno}
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setProcessoSelecionado(null)}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar
+                  </Button>
+                  <Button onClick={() => setDialogCotacaoOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Cotação
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
                     <TableHead>Título</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Prazo</TableHead>
@@ -218,17 +451,16 @@ const Cotacoes = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cotacoesFiltradas.length === 0 ? (
+                  {cotacoes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
-                        Nenhuma cotação encontrada
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        Nenhuma cotação criada para este processo
                       </TableCell>
                     </TableRow>
                   ) : (
-                    cotacoesFiltradas.map((cotacao) => (
+                    cotacoes.map((cotacao) => (
                       <TableRow key={cotacao.id}>
-                        <TableCell>{cotacao.processos_compras?.numero_processo_interno}</TableCell>
-                        <TableCell>{cotacao.titulo_cotacao}</TableCell>
+                        <TableCell className="font-medium">{cotacao.titulo_cotacao}</TableCell>
                         <TableCell>
                           <Badge variant={cotacao.status_cotacao === "em_aberto" ? "default" : "secondary"}>
                             {cotacao.status_cotacao}
@@ -243,7 +475,7 @@ const Cotacoes = () => {
                             size="sm"
                             onClick={() => setCotacaoSelecionada(cotacao)}
                           >
-                            <Eye className="h-4 w-4 mr-2" />
+                            <ChevronRight className="h-4 w-4 mr-2" />
                             Gerenciar Itens
                           </Button>
                         </TableCell>
@@ -254,7 +486,10 @@ const Cotacoes = () => {
               </Table>
             </CardContent>
           </Card>
-        ) : (
+        )}
+
+        {/* Gerenciamento de Itens da Cotação */}
+        {cotacaoSelecionada && (
           <div className="space-y-4">
             <Card>
               <CardHeader>
@@ -262,7 +497,7 @@ const Cotacoes = () => {
                   <div>
                     <CardTitle>{cotacaoSelecionada.titulo_cotacao}</CardTitle>
                     <CardDescription>
-                      Processo: {cotacaoSelecionada.processos_compras?.numero_processo_interno}
+                      Processo: {processoSelecionado?.numero_processo_interno}
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
@@ -286,20 +521,8 @@ const Cotacoes = () => {
                     <input
                       type="checkbox"
                       id="requer_selecao"
-                      checked={cotacaoSelecionada.processos_compras ? true : false}
-                      onChange={async (e) => {
-                        const { error } = await supabase
-                          .from("processos_compras")
-                          .update({ requer_selecao: e.target.checked })
-                          .eq("id", cotacaoSelecionada.processo_compra_id);
-                        
-                        if (error) {
-                          toast.error("Erro ao atualizar seleção de fornecedores");
-                        } else {
-                          toast.success(e.target.checked ? "Processo marcado para seleção de fornecedores" : "Processo desmarcado de seleção de fornecedores");
-                          loadCotacoes();
-                        }
-                      }}
+                      checked={processoSelecionado?.requer_selecao || false}
+                      onChange={(e) => handleUpdateRequerSelecao(e.target.checked)}
                       className="h-4 w-4 rounded border-input"
                     />
                     <label htmlFor="requer_selecao" className="text-sm font-medium cursor-pointer">
@@ -380,6 +603,59 @@ const Cotacoes = () => {
         )}
       </div>
 
+      {/* Dialog Nova Cotação */}
+      <Dialog open={dialogCotacaoOpen} onOpenChange={setDialogCotacaoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Cotação de Preços</DialogTitle>
+            <DialogDescription>
+              Crie uma nova cotação para o processo {processoSelecionado?.numero_processo_interno}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveCotacao}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="titulo_cotacao">Título da Cotação *</Label>
+                <Input
+                  id="titulo_cotacao"
+                  value={novaCotacao.titulo_cotacao}
+                  onChange={(e) => setNovaCotacao({ ...novaCotacao, titulo_cotacao: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="descricao_cotacao">Descrição</Label>
+                <Textarea
+                  id="descricao_cotacao"
+                  value={novaCotacao.descricao_cotacao}
+                  onChange={(e) => setNovaCotacao({ ...novaCotacao, descricao_cotacao: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="data_limite_resposta">Data Limite para Resposta *</Label>
+                <Input
+                  id="data_limite_resposta"
+                  type="datetime-local"
+                  value={novaCotacao.data_limite_resposta}
+                  onChange={(e) => setNovaCotacao({ ...novaCotacao, data_limite_resposta: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogCotacaoOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={savingCotacao}>
+                {savingCotacao ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Item Cotação */}
       <DialogItemCotacao
         open={dialogItemOpen}
         onOpenChange={setDialogItemOpen}
