@@ -780,7 +780,7 @@ const RespostaCotacao = () => {
                               </TableRow>
                             ))}
                             <TableRow className="bg-muted/50">
-                              <TableCell colSpan={5} className="text-right font-semibold">
+                              <TableCell colSpan={tipoProcesso === "material" ? 6 : 5} className="text-right font-semibold">
                                 TOTAL DO LOTE {lote.numero_lote}:
                               </TableCell>
                               <TableCell className="text-right font-bold text-lg">
@@ -884,7 +884,7 @@ const RespostaCotacao = () => {
                       </TableRow>
                     ))}
                     <TableRow className="font-bold bg-muted">
-                      <TableCell colSpan={5} className="text-right">TOTAL GERAL:</TableCell>
+                      <TableCell colSpan={tipoProcesso === "material" ? 6 : 5} className="text-right">TOTAL GERAL:</TableCell>
                       <TableCell className="text-right">
                         R$ {calcularTotalGeral().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </TableCell>
