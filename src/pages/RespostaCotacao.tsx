@@ -12,10 +12,17 @@ import primaLogo from "@/assets/prima-qualita-logo.png";
 import { toast } from "sonner";
 import { z } from "zod";
 
-// Cliente Supabase anônimo para permitir envio sem autenticação
+// Cliente Supabase sem autenticação persistente - usa sessionStorage isolado
 const supabaseAnon = createClient(
   import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth: {
+      persistSession: false, // Não persiste sessão
+      autoRefreshToken: false, // Não atualiza token
+      detectSessionInUrl: false // Não detecta sessão na URL
+    }
+  }
 );
 
 const UFS = [
@@ -126,19 +133,12 @@ const RespostaCotacao = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
-    // Garantir que o acesso seja anônimo
-    const inicializar = async () => {
-      await supabaseAnon.auth.signOut();
-      
-      if (cotacaoIdParam) {
-        loadCotacao();
-      } else {
-        toast.error("Link de cotação inválido");
-        setLoading(false);
-      }
-    };
-    
-    inicializar();
+    if (cotacaoIdParam) {
+      loadCotacao();
+    } else {
+      toast.error("Link de cotação inválido");
+      setLoading(false);
+    }
   }, [cotacaoIdParam]);
 
   const loadCotacao = async () => {
