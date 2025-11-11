@@ -126,12 +126,19 @@ const RespostaCotacao = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
-    if (cotacaoIdParam) {
-      loadCotacao();
-    } else {
-      toast.error("Link de cotação inválido");
-      setLoading(false);
-    }
+    // Garantir que o acesso seja anônimo
+    const inicializar = async () => {
+      await supabaseAnon.auth.signOut();
+      
+      if (cotacaoIdParam) {
+        loadCotacao();
+      } else {
+        toast.error("Link de cotação inválido");
+        setLoading(false);
+      }
+    };
+    
+    inicializar();
   }, [cotacaoIdParam]);
 
   const loadCotacao = async () => {
