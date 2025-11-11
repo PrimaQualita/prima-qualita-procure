@@ -454,7 +454,7 @@ const RespostaCotacao = () => {
       }
 
       // Atualizar marcas nos itens (se for Material)
-      if (tipoProcesso === "Material") {
+      if (tipoProcesso === "material") {
         console.log("6a. Atualizando marcas nos itens...");
         const updateMarcasPromises = itens
           .filter(item => marcasItens[item.id] && valoresItens[item.id] && valoresItens[item.id] > 0)
@@ -709,7 +709,7 @@ const RespostaCotacao = () => {
                               <TableHead>Descrição</TableHead>
                               <TableHead className="w-24">Qtd</TableHead>
                               <TableHead className="w-24">Unid.</TableHead>
-                              {tipoProcesso === "Material" && <TableHead className="w-40">Marca *</TableHead>}
+                              {tipoProcesso === "material" && <TableHead className="w-40">Marca *</TableHead>}
                               <TableHead className="w-40">Valor Unitário (R$) *</TableHead>
                               <TableHead className="w-32 text-right">Valor Total</TableHead>
                             </TableRow>
@@ -721,7 +721,7 @@ const RespostaCotacao = () => {
                                 <TableCell>{item.descricao}</TableCell>
                                 <TableCell>{item.quantidade}</TableCell>
                                 <TableCell>{item.unidade}</TableCell>
-                                {tipoProcesso === "Material" && (
+                                {tipoProcesso === "material" && (
                                   <TableCell>
                                     <Input
                                       type="text"
@@ -816,7 +816,7 @@ const RespostaCotacao = () => {
                       <TableHead>Descrição</TableHead>
                       <TableHead className="w-24">Qtd</TableHead>
                       <TableHead className="w-24">Unid.</TableHead>
-                      {tipoProcesso === "Material" && <TableHead className="w-40">Marca *</TableHead>}
+                      {tipoProcesso === "material" && <TableHead className="w-40">Marca *</TableHead>}
                       <TableHead className="w-40">Valor Unitário (R$) *</TableHead>
                       <TableHead className="w-32 text-right">Valor Total</TableHead>
                     </TableRow>
@@ -828,7 +828,7 @@ const RespostaCotacao = () => {
                         <TableCell>{item.descricao}</TableCell>
                         <TableCell>{item.quantidade}</TableCell>
                         <TableCell>{item.unidade}</TableCell>
-                        {tipoProcesso === "Material" && (
+                        {tipoProcesso === "material" && (
                           <TableCell>
                             <Input
                               type="text"

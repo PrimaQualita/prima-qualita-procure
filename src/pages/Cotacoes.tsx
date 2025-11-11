@@ -1046,7 +1046,7 @@ const Cotacoes = () => {
                                 <TableHead>Descrição</TableHead>
                                 <TableHead className="w-24">Qtd</TableHead>
                                 <TableHead className="w-24">Unid.</TableHead>
-                                {processoSelecionado?.tipo === "Material" && <TableHead className="w-32">Marca</TableHead>}
+                                {processoSelecionado?.tipo === "material" && <TableHead className="w-32">Marca</TableHead>}
                                 <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
                                 <TableHead className="w-32 text-right">Vlr. Total</TableHead>
                                 <TableHead className="w-32 text-right">Ações</TableHead>
@@ -1055,7 +1055,7 @@ const Cotacoes = () => {
                             <TableBody>
                               {itensDoLote.length === 0 ? (
                                 <TableRow>
-                                  <TableCell colSpan={processoSelecionado?.tipo === "Material" ? 9 : 8} className="text-center text-muted-foreground">
+                                  <TableCell colSpan={processoSelecionado?.tipo === "material" ? 9 : 8} className="text-center text-muted-foreground">
                                     Nenhum item neste lote
                                   </TableCell>
                                 </TableRow>
@@ -1081,7 +1081,7 @@ const Cotacoes = () => {
                                        <TableCell>{item.descricao}</TableCell>
                                        <TableCell>{item.quantidade}</TableCell>
                                        <TableCell>{item.unidade}</TableCell>
-                                       {processoSelecionado?.tipo === "Material" && (
+                                       {processoSelecionado?.tipo === "material" && (
                                          <TableCell>{item.marca || "-"}</TableCell>
                                        )}
                                        <TableCell className="text-right">
@@ -1115,7 +1115,7 @@ const Cotacoes = () => {
                                   ))}
                                   <TableRow className="bg-muted/50">
                                     <TableCell></TableCell>
-                                    <TableCell colSpan={processoSelecionado?.tipo === "Material" ? 6 : 5} className="text-right font-semibold">
+                                    <TableCell colSpan={processoSelecionado?.tipo === "material" ? 6 : 5} className="text-right font-semibold">
                                       TOTAL DO LOTE {lote.numero_lote}:
                                     </TableCell>
                                     <TableCell className="text-right font-bold text-lg">
@@ -1164,7 +1164,7 @@ const Cotacoes = () => {
                         <TableHead>Descrição</TableHead>
                         <TableHead className="w-24">Qtd</TableHead>
                         <TableHead className="w-24">Unid.</TableHead>
-                        {processoSelecionado?.tipo === "Material" && <TableHead className="w-32">Marca</TableHead>}
+                        {processoSelecionado?.tipo === "material" && <TableHead className="w-32">Marca</TableHead>}
                         <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
                         <TableHead className="w-32 text-right">Vlr. Total</TableHead>
                         <TableHead className="w-32 text-right">Ações</TableHead>
@@ -1173,7 +1173,7 @@ const Cotacoes = () => {
                     <TableBody>
                       {itens.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={processoSelecionado?.tipo === "Material" ? 9 : 8} className="text-center text-muted-foreground">
+                          <TableCell colSpan={processoSelecionado?.tipo === "material" ? 9 : 8} className="text-center text-muted-foreground">
                             Nenhum item cadastrado
                           </TableCell>
                         </TableRow>
@@ -1199,7 +1199,7 @@ const Cotacoes = () => {
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell>{item.quantidade}</TableCell>
                               <TableCell>{item.unidade}</TableCell>
-                              {processoSelecionado?.tipo === "Material" && (
+                              {processoSelecionado?.tipo === "material" && (
                                 <TableCell>{item.marca || "-"}</TableCell>
                               )}
                               <TableCell className="text-right">
@@ -1233,7 +1233,7 @@ const Cotacoes = () => {
                           ))}
                           <TableRow className="font-bold bg-muted">
                             <TableCell></TableCell>
-                            <TableCell colSpan={processoSelecionado?.tipo === "Material" ? 6 : 5} className="text-right">TOTAL GERAL:</TableCell>
+                            <TableCell colSpan={processoSelecionado?.tipo === "material" ? 6 : 5} className="text-right">TOTAL GERAL:</TableCell>
                             <TableCell className="text-right">
                               R$ {calcularTotal().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                             </TableCell>
