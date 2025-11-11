@@ -127,29 +127,44 @@ export type Database = {
         Row: {
           cotacao_id: string
           created_at: string | null
+          data_aprovacao: string | null
+          data_conclusao: string | null
+          data_solicitacao: string | null
           descricao: string | null
+          fornecedor_id: string | null
           id: string
           nome_campo: string
           obrigatorio: boolean | null
           ordem: number
+          status_solicitacao: string | null
         }
         Insert: {
           cotacao_id: string
           created_at?: string | null
+          data_aprovacao?: string | null
+          data_conclusao?: string | null
+          data_solicitacao?: string | null
           descricao?: string | null
+          fornecedor_id?: string | null
           id?: string
           nome_campo: string
           obrigatorio?: boolean | null
           ordem?: number
+          status_solicitacao?: string | null
         }
         Update: {
           cotacao_id?: string
           created_at?: string | null
+          data_aprovacao?: string | null
+          data_conclusao?: string | null
+          data_solicitacao?: string | null
           descricao?: string | null
+          fornecedor_id?: string | null
           id?: string
           nome_campo?: string
           obrigatorio?: boolean | null
           ordem?: number
+          status_solicitacao?: string | null
         }
         Relationships: [
           {
@@ -157,6 +172,13 @@ export type Database = {
             columns: ["cotacao_id"]
             isOneToOne: false
             referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campos_documentos_finalizacao_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
             referencedColumns: ["id"]
           },
         ]
@@ -354,6 +376,7 @@ export type Database = {
           data_finalizacao: string | null
           data_limite_resposta: string
           descricao_cotacao: string | null
+          documentos_aprovados: Json | null
           enviado_para_selecao: boolean | null
           fornecedor_vencedor_id: string | null
           id: string
@@ -370,6 +393,7 @@ export type Database = {
           data_finalizacao?: string | null
           data_limite_resposta: string
           descricao_cotacao?: string | null
+          documentos_aprovados?: Json | null
           enviado_para_selecao?: boolean | null
           fornecedor_vencedor_id?: string | null
           id?: string
@@ -386,6 +410,7 @@ export type Database = {
           data_finalizacao?: string | null
           data_limite_resposta?: string
           descricao_cotacao?: string | null
+          documentos_aprovados?: Json | null
           enviado_para_selecao?: boolean | null
           fornecedor_vencedor_id?: string | null
           id?: string

@@ -67,11 +67,14 @@ export function DialogFinalizarProcesso({
     ordem: 0,
   });
   const [dataLimiteDocumentos, setDataLimiteDocumentos] = useState<string>("");
+  const [documentosAprovados, setDocumentosAprovados] = useState<Record<string, boolean>>({});
+  const [statusDocumentosFornecedor, setStatusDocumentosFornecedor] = useState<string>("pendente");
 
   useEffect(() => {
     if (open) {
       loadFornecedoresVencedores();
       loadCamposExistentes();
+      loadDocumentosAprovados();
     }
   }, [open, cotacaoId]);
 
@@ -79,9 +82,11 @@ export function DialogFinalizarProcesso({
     if (fornecedorSelecionado) {
       loadDocumentosFornecedor(fornecedorSelecionado);
       loadItensVencedores(fornecedorSelecionado);
+      loadStatusDocumentosFornecedor(fornecedorSelecionado);
     } else {
       setDocumentosExistentes([]);
       setItensVencedores([]);
+      setStatusDocumentosFornecedor("pendente");
     }
   }, [fornecedorSelecionado]);
 
@@ -362,16 +367,49 @@ export function DialogFinalizarProcesso({
   };
 
   const loadCamposExistentes = async () => {
+    if (!fornecedorSelecionado) return;
+    
     const { data, error } = await supabase
       .from("campos_documentos_finalizacao")
       .select("*")
       .eq("cotacao_id", cotacaoId)
+      .eq("fornecedor_id", fornecedorSelecionado)
       .order("ordem");
 
     if (error) {
       console.error("Erro ao carregar campos:", error);
     } else {
       setCampos(data || []);
+    }
+  };
+
+  const loadDocumentosAprovados = async () => {
+    const { data, error } = await supabase
+      .from("cotacoes_precos")
+      .select("documentos_aprovados")
+      .eq("id", cotacaoId)
+      .single();
+
+    if (error) {
+      console.error("Erro ao carregar aprovações:", error);
+    } else {
+      setDocumentosAprovados((data?.documentos_aprovados as Record<string, boolean>) || {});
+    }
+  };
+
+  const loadStatusDocumentosFornecedor = async (fornecedorId: string) => {
+    const { data, error } = await supabase
+      .from("campos_documentos_finalizacao")
+      .select("status_solicitacao")
+      .eq("cotacao_id", cotacaoId)
+      .eq("fornecedor_id", fornecedorId)
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // Ignora erro de "não encontrado"
+      console.error("Erro ao carregar status:", error);
+    } else {
+      setStatusDocumentosFornecedor(data?.status_solicitacao || "pendente");
     }
   };
 
@@ -484,24 +522,116 @@ export function DialogFinalizarProcesso({
     setCampos(campos.filter(c => c.ordem !== ordem));
   };
 
-  const handleFinalizar = async () => {
+  const handleEnviarSolicitacao = async () => {
     if (!fornecedorSelecionado) {
       toast.error("Selecione o fornecedor vencedor");
       return;
     }
 
-    if (campos.length > 0 && !dataLimiteDocumentos) {
+    if (campos.length === 0) {
+      toast.error("Adicione pelo menos um documento para solicitar");
+      return;
+    }
+
+    if (!dataLimiteDocumentos) {
       toast.error("Informe a data limite para envio dos documentos");
       return;
     }
 
     setLoading(true);
     try {
-      // Atualizar cotação com fornecedor vencedor e marcar como finalizada
+      // Deletar campos anteriores deste fornecedor se existirem
+      await supabase
+        .from("campos_documentos_finalizacao")
+        .delete()
+        .eq("cotacao_id", cotacaoId)
+        .eq("fornecedor_id", fornecedorSelecionado);
+
+      // Inserir novos campos com status "enviado"
+      const camposParaInserir = campos.map(campo => ({
+        cotacao_id: cotacaoId,
+        fornecedor_id: fornecedorSelecionado,
+        nome_campo: campo.nome_campo,
+        descricao: campo.descricao || `Data limite: ${new Date(dataLimiteDocumentos).toLocaleDateString('pt-BR')}`,
+        obrigatorio: campo.obrigatorio,
+        ordem: campo.ordem,
+        status_solicitacao: 'enviado',
+        data_solicitacao: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .insert(camposParaInserir);
+
+      if (error) throw error;
+
+      toast.success("Solicitação enviada ao fornecedor com sucesso!");
+      setCampos([]);
+      setDataLimiteDocumentos("");
+      await loadStatusDocumentosFornecedor(fornecedorSelecionado);
+    } catch (error) {
+      console.error("Erro ao enviar solicitação:", error);
+      toast.error("Erro ao enviar solicitação");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAprovarDocumentos = async () => {
+    if (!fornecedorSelecionado) {
+      toast.error("Selecione o fornecedor");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Atualizar status dos documentos para "aprovado"
+      await supabase
+        .from("campos_documentos_finalizacao")
+        .update({
+          status_solicitacao: 'aprovado',
+          data_aprovacao: new Date().toISOString(),
+        })
+        .eq("cotacao_id", cotacaoId)
+        .eq("fornecedor_id", fornecedorSelecionado);
+
+      // Atualizar registro de aprovação na cotação
+      const novosAprovados = {
+        ...documentosAprovados,
+        [fornecedorSelecionado]: true
+      };
+
+      await supabase
+        .from("cotacoes_precos")
+        .update({ documentos_aprovados: novosAprovados })
+        .eq("id", cotacaoId);
+
+      setDocumentosAprovados(novosAprovados);
+      toast.success("Documentos do fornecedor aprovados com sucesso!");
+      await loadStatusDocumentosFornecedor(fornecedorSelecionado);
+    } catch (error) {
+      console.error("Erro ao aprovar documentos:", error);
+      toast.error("Erro ao aprovar documentos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFinalizar = async () => {
+    // Verificar se todos os fornecedores vencedores tiveram documentos aprovados
+    const todosAprovados = fornecedores.every(f => documentosAprovados[f.id] === true);
+    
+    if (!todosAprovados) {
+      toast.error("É necessário aprovar os documentos de todos os fornecedores vencedores antes de finalizar o processo");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Atualizar cotação como finalizada
       const { error: cotacaoError } = await supabase
         .from("cotacoes_precos")
         .update({
-          fornecedor_vencedor_id: fornecedorSelecionado,
           processo_finalizado: true,
           data_finalizacao: new Date().toISOString(),
         })
@@ -509,26 +639,7 @@ export function DialogFinalizarProcesso({
 
       if (cotacaoError) throw cotacaoError;
 
-      // Inserir campos de documentos apenas se houver documentos faltantes
-      if (campos.length > 0) {
-        const camposParaInserir = campos.map(campo => ({
-          cotacao_id: cotacaoId,
-          nome_campo: campo.nome_campo,
-          descricao: campo.descricao || `Data limite: ${new Date(dataLimiteDocumentos).toLocaleDateString('pt-BR')}`,
-          obrigatorio: campo.obrigatorio,
-          ordem: campo.ordem,
-        }));
-
-        const { error: camposError } = await supabase
-          .from("campos_documentos_finalizacao")
-          .insert(camposParaInserir);
-
-        if (camposError) throw camposError;
-      }
-
-      toast.success(campos.length > 0 
-        ? "Processo finalizado! Fornecedor será notificado sobre documentos pendentes."
-        : "Processo finalizado com sucesso! Todos documentos já estão em ordem.");
+      toast.success("Processo finalizado com sucesso! Todos os fornecedores tiveram seus documentos aprovados.");
       onSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -644,13 +755,48 @@ export function DialogFinalizarProcesso({
             </div>
           )}
 
+          {/* Status dos Documentos do Fornecedor */}
+          {fornecedorSelecionado && (
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <h3 className="font-semibold mb-2">Status dos Documentos</h3>
+              {documentosAprovados[fornecedorSelecionado] ? (
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                  <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30">
+                    ✓ Documentos Aprovados
+                  </Badge>
+                </div>
+              ) : statusDocumentosFornecedor === "concluido" ? (
+                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                  <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/30">
+                    ⏳ Aguardando Aprovação
+                  </Badge>
+                  <p className="text-sm">Fornecedor enviou os documentos solicitados</p>
+                </div>
+              ) : statusDocumentosFornecedor === "enviado" ? (
+                <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
+                  <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900/30">
+                    📤 Solicitação Enviada
+                  </Badge>
+                  <p className="text-sm">Aguardando fornecedor enviar documentos</p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Badge variant="outline">
+                    ⚪ Nenhuma Solicitação
+                  </Badge>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Adicionar Novo Campo */}
-          <div className="border rounded-lg p-4 bg-muted/50">
-            <h3 className="font-semibold mb-2">Solicitar Documentos Adicionais/Faltantes</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Adicione apenas documentos que não constam no cadastro ou que precisam ser atualizados
-            </p>
-            <div className="grid gap-4">
+          {fornecedorSelecionado && statusDocumentosFornecedor !== "enviado" && statusDocumentosFornecedor !== "concluido" && !documentosAprovados[fornecedorSelecionado] && (
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <h3 className="font-semibold mb-2">Solicitar Documentos Adicionais/Faltantes</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Adicione apenas documentos que não constam no cadastro ou que precisam ser atualizados
+              </p>
+              <div className="grid gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="nome_campo">Nome do Documento *</Label>
@@ -689,79 +835,119 @@ export function DialogFinalizarProcesso({
                   Adicionar Campo
                 </Button>
               </div>
-            </div>
-          </div>
 
-          {/* Data Limite para Documentos */}
-          {campos.length > 0 && (
-            <div className="grid gap-2">
-              <Label htmlFor="data_limite">Data Limite para Envio dos Documentos *</Label>
-              <Input
-                id="data_limite"
-                type="date"
-                value={dataLimiteDocumentos}
-                onChange={(e) => setDataLimiteDocumentos(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-              />
-              <p className="text-sm text-muted-foreground">
-                O fornecedor será notificado e terá até esta data para enviar os documentos solicitados
-              </p>
-            </div>
-          )}
+              {/* Botão Enviar Solicitação */}
+              {campos.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <Button 
+                    type="button" 
+                    onClick={handleEnviarSolicitacao}
+                    disabled={loading || !dataLimiteDocumentos}
+                    className="w-full"
+                  >
+                    Enviar Solicitação ao Fornecedor
+                  </Button>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    O fornecedor receberá notificação e poderá enviar os documentos através do portal
+                  </p>
+                </div>
+              )}
+              </div>
+              
+              {/* Data Limite para Documentos */}
+              {campos.length > 0 && (
+                <div className="grid gap-2">
+                  <Label htmlFor="data_limite">Data Limite para Envio dos Documentos *</Label>
+                  <Input
+                    id="data_limite"
+                    type="date"
+                    value={dataLimiteDocumentos}
+                    onChange={(e) => setDataLimiteDocumentos(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    O fornecedor será notificado e terá até esta data para enviar os documentos solicitados
+                  </p>
+                </div>
+              )}
 
-          {/* Lista de Campos Adicionados */}
-          {campos.length > 0 && (
-            <div>
-              <h3 className="font-semibold mb-2">Documentos que Serão Solicitados ao Fornecedor</h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Nome do Documento</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="w-32">Obrigatório</TableHead>
-                    <TableHead className="w-20 text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {campos.map((campo, index) => (
-                    <TableRow key={campo.ordem}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell className="font-medium">{campo.nome_campo}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {campo.descricao || "-"}
-                      </TableCell>
-                      <TableCell>
-                        {campo.obrigatorio ? (
-                          <span className="text-destructive font-medium">Sim</span>
-                        ) : (
-                          <span className="text-muted-foreground">Não</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removerCampo(campo.ordem)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              {/* Lista de Campos Adicionados */}
+              {campos.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Documentos que Serão Solicitados ao Fornecedor</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>Nome do Documento</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead className="w-32">Obrigatório</TableHead>
+                        <TableHead className="w-20 text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {campos.map((campo, index) => (
+                        <TableRow key={campo.ordem}>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell className="font-medium">{campo.nome_campo}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {campo.descricao || "-"}
+                          </TableCell>
+                          <TableCell>
+                            {campo.obrigatorio ? (
+                              <span className="text-destructive font-medium">Sim</span>
+                            ) : (
+                              <span className="text-muted-foreground">Não</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removerCampo(campo.ordem)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleFinalizar} disabled={loading}>
+          
+          {/* Botão Aprovar Documentos do Fornecedor */}
+          {fornecedorSelecionado && statusDocumentosFornecedor === "concluido" && !documentosAprovados[fornecedorSelecionado] && (
+            <Button 
+              onClick={handleAprovarDocumentos} 
+              disabled={loading}
+              variant="default"
+            >
+              {loading ? "Aprovando..." : "Aprovar Documentos do Fornecedor"}
+            </Button>
+          )}
+          
+          {/* Botão Finalizar Processo - só habilitado quando todos aprovados */}
+          <Button 
+            onClick={handleFinalizar} 
+            disabled={loading || !fornecedores.every(f => documentosAprovados[f.id] === true)}
+          >
             {loading ? "Finalizando..." : "Finalizar Processo"}
           </Button>
+          
+          {!fornecedores.every(f => documentosAprovados[f.id] === true) && (
+            <p className="text-sm text-muted-foreground w-full text-center">
+              Aprove os documentos de todos os fornecedores vencedores para finalizar o processo
+            </p>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
