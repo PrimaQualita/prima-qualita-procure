@@ -791,9 +791,11 @@ export default function Fornecedores() {
 
           <div className="space-y-6">
             {/* Gestão de Documentos pelo Gestor */}
-            <div>
-              <GestaoDocumentosGestor fornecedorId={fornecedorSelecionado.id} />
-            </div>
+            {fornecedorSelecionado && (
+              <div>
+                <GestaoDocumentosGestor fornecedorId={fornecedorSelecionado.id} />
+              </div>
+            )}
 
             {/* Respostas Due Diligence */}
             <div>
