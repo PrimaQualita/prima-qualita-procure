@@ -476,6 +476,50 @@ export type Database = {
           },
         ]
       }
+      itens_cotacao: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          descricao: string
+          id: string
+          numero_item: number
+          quantidade: number
+          unidade: string
+          updated_at: string | null
+          valor_unitario_estimado: number | null
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          descricao: string
+          id?: string
+          numero_item: number
+          quantidade: number
+          unidade: string
+          updated_at?: string | null
+          valor_unitario_estimado?: number | null
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          descricao?: string
+          id?: string
+          numero_item?: number
+          quantidade?: number
+          unidade?: string
+          updated_at?: string | null
+          valor_unitario_estimado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_cotacao_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lances_fornecedores: {
         Row: {
           created_at: string | null
@@ -615,10 +659,13 @@ export type Database = {
           numero_processo_interno: string
           objeto_resumido: string
           observacoes: string | null
+          requer_cotacao: boolean | null
+          requer_selecao: boolean | null
           status_processo: Database["public"]["Enums"]["status_processo"] | null
           tipo: Database["public"]["Enums"]["tipo_processo"]
           updated_at: string | null
           valor_estimado_anual: number
+          valor_total_cotacao: number | null
         }
         Insert: {
           ano_referencia: number
@@ -632,12 +679,15 @@ export type Database = {
           numero_processo_interno: string
           objeto_resumido: string
           observacoes?: string | null
+          requer_cotacao?: boolean | null
+          requer_selecao?: boolean | null
           status_processo?:
             | Database["public"]["Enums"]["status_processo"]
             | null
           tipo: Database["public"]["Enums"]["tipo_processo"]
           updated_at?: string | null
           valor_estimado_anual?: number
+          valor_total_cotacao?: number | null
         }
         Update: {
           ano_referencia?: number
@@ -651,12 +701,15 @@ export type Database = {
           numero_processo_interno?: string
           objeto_resumido?: string
           observacoes?: string | null
+          requer_cotacao?: boolean | null
+          requer_selecao?: boolean | null
           status_processo?:
             | Database["public"]["Enums"]["status_processo"]
             | null
           tipo?: Database["public"]["Enums"]["tipo_processo"]
           updated_at?: string | null
           valor_estimado_anual?: number
+          valor_total_cotacao?: number | null
         }
         Relationships: [
           {
@@ -751,6 +804,48 @@ export type Database = {
             columns: ["pergunta_id"]
             isOneToOne: false
             referencedRelation: "perguntas_due_diligence"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      respostas_itens_fornecedor: {
+        Row: {
+          cotacao_resposta_fornecedor_id: string
+          created_at: string | null
+          id: string
+          item_cotacao_id: string
+          observacao: string | null
+          valor_unitario_ofertado: number
+        }
+        Insert: {
+          cotacao_resposta_fornecedor_id: string
+          created_at?: string | null
+          id?: string
+          item_cotacao_id: string
+          observacao?: string | null
+          valor_unitario_ofertado: number
+        }
+        Update: {
+          cotacao_resposta_fornecedor_id?: string
+          created_at?: string | null
+          id?: string
+          item_cotacao_id?: string
+          observacao?: string | null
+          valor_unitario_ofertado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "respostas_itens_fornecedor_cotacao_resposta_fornecedor_id_fkey"
+            columns: ["cotacao_resposta_fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "cotacao_respostas_fornecedor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "respostas_itens_fornecedor_item_cotacao_id_fkey"
+            columns: ["item_cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "itens_cotacao"
             referencedColumns: ["id"]
           },
         ]
