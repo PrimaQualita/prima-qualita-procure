@@ -813,7 +813,7 @@ const Cotacoes = () => {
                         onClick={() => setConfirmDeleteAllOpen(true)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir Todos os Itens
+                        Excluir Itens
                       </Button>
                     )}
                     <Button onClick={() => {
