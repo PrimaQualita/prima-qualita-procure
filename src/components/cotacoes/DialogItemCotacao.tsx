@@ -11,7 +11,6 @@ interface ItemCotacao {
   descricao: string;
   quantidade: number;
   unidade: string;
-  valor_unitario_estimado: number;
 }
 
 interface DialogItemCotacaoProps {
@@ -19,16 +18,15 @@ interface DialogItemCotacaoProps {
   onOpenChange: (open: boolean) => void;
   item?: ItemCotacao | null;
   numeroProximo: number;
-  onSave: (item: Omit<ItemCotacao, "id">) => Promise<void>;
+  onSave: (item: Omit<ItemCotacao, "id"> & { valor_unitario_estimado: number }) => Promise<void>;
 }
 
 export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, onSave }: DialogItemCotacaoProps) => {
-  const [formData, setFormData] = useState<Omit<ItemCotacao, "id">>({
+  const [formData, setFormData] = useState({
     numero_item: numeroProximo,
     descricao: "",
     quantidade: 1,
     unidade: "UND",
-    valor_unitario_estimado: 0,
   });
   const [loading, setLoading] = useState(false);
 
@@ -39,7 +37,6 @@ export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, onS
         descricao: item.descricao,
         quantidade: item.quantidade,
         unidade: item.unidade,
-        valor_unitario_estimado: item.valor_unitario_estimado,
       });
     } else {
       setFormData({
@@ -47,7 +44,6 @@ export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, onS
         descricao: "",
         quantidade: 1,
         unidade: "UND",
-        valor_unitario_estimado: 0,
       });
     }
   }, [item, numeroProximo, open]);
@@ -55,7 +51,10 @@ export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, onS
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      await onSave(formData);
+      await onSave({
+        ...formData,
+        valor_unitario_estimado: 0, // Será preenchido pelo fornecedor
+      });
       onOpenChange(false);
     } catch (error) {
       console.error("Erro ao salvar item:", error);
@@ -73,66 +72,56 @@ export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, onS
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="numero_item">Número do Item</Label>
+              <Label htmlFor="numero_item">Número do Item *</Label>
               <Input
                 id="numero_item"
                 type="number"
                 value={formData.numero_item}
                 onChange={(e) => setFormData({ ...formData, numero_item: parseInt(e.target.value) || 0 })}
+                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="unidade">Unidade</Label>
+              <Label htmlFor="unidade">Unidade *</Label>
               <Input
                 id="unidade"
                 value={formData.unidade}
-                onChange={(e) => setFormData({ ...formData, unidade: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, unidade: e.target.value.toUpperCase() })}
                 placeholder="Ex: UND, CX, KG, L"
+                required
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="descricao">Descrição</Label>
+            <Label htmlFor="descricao">Descrição *</Label>
             <Textarea
               id="descricao"
               value={formData.descricao}
               onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
               placeholder="Descrição detalhada do item"
               rows={3}
+              required
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="quantidade">Quantidade</Label>
-              <Input
-                id="quantidade"
-                type="number"
-                step="0.01"
-                value={formData.quantidade}
-                onChange={(e) => setFormData({ ...formData, quantidade: parseFloat(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="valor_unitario">Valor Unitário Estimado (R$)</Label>
-              <Input
-                id="valor_unitario"
-                type="number"
-                step="0.01"
-                value={formData.valor_unitario_estimado}
-                onChange={(e) => setFormData({ ...formData, valor_unitario_estimado: parseFloat(e.target.value) || 0 })}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="quantidade">Quantidade *</Label>
+            <Input
+              id="quantidade"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={formData.quantidade}
+              onChange={(e) => setFormData({ ...formData, quantidade: parseFloat(e.target.value) || 0 })}
+              required
+            />
           </div>
 
-          <div className="p-4 bg-muted rounded-md">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold">Valor Total Estimado:</span>
-              <span className="text-lg font-bold">
-                R$ {(formData.quantidade * formData.valor_unitario_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
+          <div className="p-4 bg-muted/50 rounded-md border">
+            <p className="text-sm text-muted-foreground">
+              <strong>Nota:</strong> Os valores unitários serão preenchidos pelos fornecedores ao responderem a cotação.
+            </p>
           </div>
         </div>
         <DialogFooter>
