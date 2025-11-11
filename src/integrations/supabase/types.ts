@@ -123,6 +123,44 @@ export type Database = {
         }
         Relationships: []
       }
+      campos_documentos_finalizacao: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nome_campo: string
+          obrigatorio: boolean | null
+          ordem: number
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome_campo: string
+          obrigatorio?: boolean | null
+          ordem?: number
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome_campo?: string
+          obrigatorio?: boolean | null
+          ordem?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campos_documentos_finalizacao_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contatos: {
         Row: {
           assunto: string
@@ -313,10 +351,13 @@ export type Database = {
           created_at: string | null
           criterio_julgamento: string | null
           data_envio: string | null
+          data_finalizacao: string | null
           data_limite_resposta: string
           descricao_cotacao: string | null
+          fornecedor_vencedor_id: string | null
           id: string
           processo_compra_id: string
+          processo_finalizado: boolean | null
           status_cotacao: Database["public"]["Enums"]["status_cotacao"] | null
           titulo_cotacao: string
           updated_at: string | null
@@ -325,10 +366,13 @@ export type Database = {
           created_at?: string | null
           criterio_julgamento?: string | null
           data_envio?: string | null
+          data_finalizacao?: string | null
           data_limite_resposta: string
           descricao_cotacao?: string | null
+          fornecedor_vencedor_id?: string | null
           id?: string
           processo_compra_id: string
+          processo_finalizado?: boolean | null
           status_cotacao?: Database["public"]["Enums"]["status_cotacao"] | null
           titulo_cotacao: string
           updated_at?: string | null
@@ -337,20 +381,75 @@ export type Database = {
           created_at?: string | null
           criterio_julgamento?: string | null
           data_envio?: string | null
+          data_finalizacao?: string | null
           data_limite_resposta?: string
           descricao_cotacao?: string | null
+          fornecedor_vencedor_id?: string | null
           id?: string
           processo_compra_id?: string
+          processo_finalizado?: boolean | null
           status_cotacao?: Database["public"]["Enums"]["status_cotacao"] | null
           titulo_cotacao?: string
           updated_at?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "cotacoes_precos_fornecedor_vencedor_id_fkey"
+            columns: ["fornecedor_vencedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cotacoes_precos_processo_compra_id_fkey"
             columns: ["processo_compra_id"]
             isOneToOne: false
             referencedRelation: "processos_compras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentos_finalizacao_fornecedor: {
+        Row: {
+          campo_documento_id: string
+          created_at: string | null
+          data_upload: string | null
+          fornecedor_id: string
+          id: string
+          nome_arquivo: string
+          url_arquivo: string
+        }
+        Insert: {
+          campo_documento_id: string
+          created_at?: string | null
+          data_upload?: string | null
+          fornecedor_id: string
+          id?: string
+          nome_arquivo: string
+          url_arquivo: string
+        }
+        Update: {
+          campo_documento_id?: string
+          created_at?: string | null
+          data_upload?: string | null
+          fornecedor_id?: string
+          id?: string
+          nome_arquivo?: string
+          url_arquivo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_finalizacao_fornecedor_campo_documento_id_fkey"
+            columns: ["campo_documento_id"]
+            isOneToOne: false
+            referencedRelation: "campos_documentos_finalizacao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_finalizacao_fornecedor_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
             referencedColumns: ["id"]
           },
         ]

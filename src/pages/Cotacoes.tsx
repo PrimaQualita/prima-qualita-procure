@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
 import { DialogLote } from "@/components/cotacoes/DialogLote";
+import { DialogFinalizarProcesso } from "@/components/cotacoes/DialogFinalizarProcesso";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -76,10 +77,12 @@ const Cotacoes = () => {
   const [dialogCotacaoOpen, setDialogCotacaoOpen] = useState(false);
   const [dialogEnviarOpen, setDialogEnviarOpen] = useState(false);
   const [dialogLoteOpen, setDialogLoteOpen] = useState(false);
+  const [dialogFinalizarOpen, setDialogFinalizarOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
   const [criterioJulgamento, setCriterioJulgamento] = useState<'por_item' | 'global' | 'por_lote'>('global');
+  const [naoRequerSelecao, setNaoRequerSelecao] = useState(false);
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
@@ -658,16 +661,48 @@ const Cotacoes = () => {
                       </p>
                     </div>
                     
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="requer_selecao"
-                        checked={processoSelecionado?.requer_selecao || false}
-                        onCheckedChange={(checked) => handleUpdateRequerSelecao(checked as boolean)}
-                      />
-                      <label htmlFor="requer_selecao" className="text-sm font-medium cursor-pointer">
-                        Requer Seleção de Fornecedores (Valor total superior a R$ 20.000,00)
-                      </label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="requer_selecao"
+                          checked={processoSelecionado?.requer_selecao || false}
+                          onCheckedChange={(checked) => {
+                            handleUpdateRequerSelecao(checked as boolean);
+                            if (checked) setNaoRequerSelecao(false);
+                          }}
+                        />
+                        <label htmlFor="requer_selecao" className="text-sm font-medium cursor-pointer">
+                          Requer Seleção de Fornecedores (Valor total superior a R$ 20.000,00)
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="nao_requer_selecao"
+                          checked={naoRequerSelecao}
+                          onCheckedChange={(checked) => {
+                            setNaoRequerSelecao(checked as boolean);
+                            if (checked) handleUpdateRequerSelecao(false);
+                          }}
+                        />
+                        <label htmlFor="nao_requer_selecao" className="text-sm font-medium cursor-pointer">
+                          Não Requer Seleção (Compra Direta)
+                        </label>
+                      </div>
                     </div>
+
+                    {naoRequerSelecao && (
+                      <div className="flex justify-center pt-2">
+                        <Button 
+                          onClick={() => setDialogFinalizarOpen(true)}
+                          disabled={itens.length === 0}
+                          size="lg"
+                          className="w-full max-w-md"
+                        >
+                          Finalizar Processo e Definir Documentos
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -886,6 +921,20 @@ const Cotacoes = () => {
           lote={loteEditando}
           numeroProximo={lotes.length > 0 ? Math.max(...lotes.map(l => l.numero_lote)) + 1 : 1}
           onSave={handleSaveLote}
+        />
+      )}
+
+      {/* Dialog Finalizar Processo */}
+      {cotacaoSelecionada && (
+        <DialogFinalizarProcesso
+          open={dialogFinalizarOpen}
+          onOpenChange={setDialogFinalizarOpen}
+          cotacaoId={cotacaoSelecionada.id}
+          onSuccess={() => {
+            if (processoSelecionado) {
+              loadCotacoes(processoSelecionado.id);
+            }
+          }}
         />
       )}
     </div>
