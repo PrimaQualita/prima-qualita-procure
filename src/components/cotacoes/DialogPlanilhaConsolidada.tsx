@@ -201,16 +201,29 @@ export function DialogPlanilhaConsolidada({
             body { font-family: Arial, sans-serif; margin: 40px; }
             h1 { color: #0ea5e9; font-size: 24px; margin-bottom: 30px; }
             h2 { color: #0284c7; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; vertical-align: top; }
             th { background-color: #0ea5e9; color: white; font-weight: bold; }
             .text-right { text-align: right; }
             .total { background-color: #f0f9ff; font-weight: bold; }
             .estimativa { background-color: #fef3c7; font-weight: bold; }
             .lote-header { background-color: #0284c7; color: white; font-size: 16px; padding: 10px; margin-top: 20px; }
             .criterio-badge { display: inline-block; padding: 5px 15px; background-color: #0ea5e9; color: white; border-radius: 5px; font-size: 14px; margin-bottom: 20px; }
-            .empresa { max-width: 150px; word-wrap: break-word; font-size: 11px; }
+            .empresa { 
+              max-width: 120px; 
+              width: 120px;
+              word-wrap: break-word; 
+              word-break: break-word;
+              overflow-wrap: break-word;
+              hyphens: auto;
+              font-size: 10px;
+              line-height: 1.3;
+            }
             .descricao { max-width: 200px; word-wrap: break-word; }
+            th.empresa {
+              white-space: normal;
+              line-height: 1.2;
+            }
           </style>
         </head>
         <body>
