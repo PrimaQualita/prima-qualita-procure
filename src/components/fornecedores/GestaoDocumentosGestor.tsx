@@ -21,7 +21,17 @@ import {
   DialogHeader, 
   DialogTitle 
 } from "@/components/ui/dialog";
-import { FileText, ExternalLink, AlertCircle, Edit } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { FileText, ExternalLink, AlertCircle, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 
@@ -61,6 +71,7 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
   const [documentoEditando, setDocumentoEditando] = useState<Documento | null>(null);
   const [novaDataValidade, setNovaDataValidade] = useState("");
   const [processando, setProcessando] = useState(false);
+  const [documentoParaExcluir, setDocumentoParaExcluir] = useState<Documento | null>(null);
 
   useEffect(() => {
     loadDocumentos();
@@ -162,6 +173,44 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
       setProcessando(false);
     }
   };
+
+  const handleExcluirDocumento = async () => {
+    if (!documentoParaExcluir) return;
+
+    setProcessando(true);
+    try {
+      // 1. Deletar arquivo do storage
+      const pathMatch = documentoParaExcluir.url_arquivo.match(/processo-anexos\/(.+)$/);
+      if (pathMatch) {
+        const filePath = pathMatch[1];
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove([filePath]);
+        
+        if (storageError) {
+          console.error("Erro ao deletar arquivo do storage:", storageError);
+        }
+      }
+
+      // 2. Deletar registro do banco
+      const { error } = await supabase
+        .from("documentos_fornecedor")
+        .delete()
+        .eq("id", documentoParaExcluir.id);
+
+      if (error) throw error;
+
+      toast.success("Documento excluído com sucesso!");
+      setDocumentoParaExcluir(null);
+      loadDocumentos();
+    } catch (error: any) {
+      console.error("Erro ao excluir documento:", error);
+      toast.error("Erro ao excluir documento");
+    } finally {
+      setProcessando(false);
+    }
+  };
+
 
   const getTipoDocumentoLabel = (tipo: string) => {
     return DOCUMENTOS_VALIDADE.find(d => d.tipo === tipo)?.label || tipo;
@@ -286,6 +335,15 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
                               Editar Validade
                             </Button>
                           )}
+                          {["certificado_gestor", "relatorio_kpmg"].includes(docConfig.tipo) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDocumentoParaExcluir(doc)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </>
                       )}
                     </TableCell>
@@ -339,6 +397,34 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog para confirmar exclusão */}
+      <AlertDialog open={!!documentoParaExcluir} onOpenChange={(open) => !open && setDocumentoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este documento? Esta ação não pode ser desfeita.
+              {documentoParaExcluir && (
+                <div className="mt-2 p-2 bg-muted rounded">
+                  <p className="font-medium">{getTipoDocumentoLabel(documentoParaExcluir.tipo_documento)}</p>
+                  <p className="text-sm text-muted-foreground">{documentoParaExcluir.nome_arquivo}</p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={processando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleExcluirDocumento}
+              disabled={processando}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {processando ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
