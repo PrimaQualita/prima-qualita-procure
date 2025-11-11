@@ -116,12 +116,35 @@ export function DialogFinalizarProcesso({
         .from("documentos_fornecedor")
         .select("id, tipo_documento, nome_arquivo, data_validade, em_vigor")
         .eq("fornecedor_id", fornecedorId)
-        .eq("em_vigor", true)
-        .order("tipo_documento");
+        .eq("em_vigor", true);
 
       if (error) throw error;
 
-      setDocumentosExistentes(data || []);
+      // Definir ordem correta dos documentos
+      const ordemDocumentos = [
+        "contrato_social",
+        "cartao_cnpj",
+        "inscricao_estadual_municipal",
+        "certidao_negativa_debito_federal",
+        "certidao_negativa_debito_estadual",
+        "certidao_divida_ativa_estadual",
+        "certidao_negativa_debito_municipal",
+        "certidao_divida_ativa_municipal",
+        "fgts",
+        "cndt",
+        "certificado_gestor"
+      ];
+
+      // Filtrar relatorio_kpmg e ordenar documentos
+      const documentosFiltrados = (data || [])
+        .filter(doc => doc.tipo_documento !== "relatorio_kpmg")
+        .sort((a, b) => {
+          const indexA = ordemDocumentos.indexOf(a.tipo_documento);
+          const indexB = ordemDocumentos.indexOf(b.tipo_documento);
+          return indexA - indexB;
+        });
+
+      setDocumentosExistentes(documentosFiltrados);
     } catch (error) {
       console.error("Erro ao carregar documentos do fornecedor:", error);
       toast.error("Erro ao carregar documentos do fornecedor");
