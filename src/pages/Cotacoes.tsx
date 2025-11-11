@@ -10,13 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Trash2, Edit, ChevronRight } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
 import { DialogLote } from "@/components/cotacoes/DialogLote";
 import { DialogFinalizarProcesso } from "@/components/cotacoes/DialogFinalizarProcesso";
 import { DialogRespostasCotacao } from "@/components/cotacoes/DialogRespostasCotacao";
+import { DialogImportarItens } from "@/components/cotacoes/DialogImportarItens";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -80,6 +81,7 @@ const Cotacoes = () => {
   const [dialogLoteOpen, setDialogLoteOpen] = useState(false);
   const [dialogFinalizarOpen, setDialogFinalizarOpen] = useState(false);
   const [dialogRespostasOpen, setDialogRespostasOpen] = useState(false);
+  const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
@@ -953,6 +955,22 @@ const Cotacoes = () => {
           onOpenChange={setDialogRespostasOpen}
           cotacaoId={cotacaoSelecionada.id}
           tituloCotacao={cotacaoSelecionada.titulo_cotacao}
+        />
+      )}
+
+      {/* Dialog Importar Itens */}
+      {cotacaoSelecionada && (
+        <DialogImportarItens
+          open={dialogImportarOpen}
+          onOpenChange={setDialogImportarOpen}
+          cotacaoId={cotacaoSelecionada.id}
+          onImportSuccess={() => {
+            if (cotacaoSelecionada) {
+              loadItens(cotacaoSelecionada.id);
+              loadLotes(cotacaoSelecionada.id);
+              loadCotacoes(processoSelecionado!.id);
+            }
+          }}
         />
       )}
     </div>
