@@ -178,9 +178,16 @@ export default function PortalFornecedor() {
   };
 
   const handleUploadDocumento = async (campoId: string, file: File) => {
-    if (!fornecedor) return;
+    console.log("🚀 Iniciando upload de documento:", { campoId, fileName: file.name, fornecedor: fornecedor?.id });
+    
+    if (!fornecedor) {
+      console.error("❌ Fornecedor não encontrado");
+      toast.error("Fornecedor não identificado");
+      return;
+    }
 
     try {
+      console.log("📤 Fazendo upload para storage...");
       const fileExt = file.name.split('.').pop();
       const fileName = `fornecedor_${fornecedor.id}/${campoId}_${Date.now()}.${fileExt}`;
 
@@ -188,12 +195,19 @@ export default function PortalFornecedor() {
         .from('processo-anexos')
         .upload(fileName, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("❌ Erro no upload do storage:", uploadError);
+        throw uploadError;
+      }
+
+      console.log("✅ Upload no storage concluído");
 
       const { data: { publicUrl } } = supabase.storage
         .from('processo-anexos')
         .getPublicUrl(fileName);
 
+      console.log("📝 Salvando registro do documento...");
+      
       // Usar upsert para inserir ou atualizar automaticamente
       const { error: upsertError } = await supabase
         .from('documentos_finalizacao_fornecedor')
@@ -207,7 +221,13 @@ export default function PortalFornecedor() {
           onConflict: 'fornecedor_id,campo_documento_id'
         });
 
-      if (upsertError) throw upsertError;
+      if (upsertError) {
+        console.error("❌ Erro ao salvar documento:", upsertError);
+        throw upsertError;
+      }
+
+      console.log("✅ Documento salvo no banco");
+      console.log("🔄 Atualizando status do campo...");
 
       // Atualizar status do campo para "em_analise"
       const { error: updateError } = await supabase
@@ -219,14 +239,18 @@ export default function PortalFornecedor() {
         .eq('id', campoId);
 
       if (updateError) {
-        console.error("Erro ao atualizar status:", updateError);
+        console.error("❌ Erro ao atualizar status:", updateError);
         throw updateError;
       }
 
+      console.log("✅ Status atualizado com sucesso!");
       toast.success("Documento enviado com sucesso!");
+      
+      console.log("🔄 Recarregando lista de documentos pendentes...");
       await loadDocumentosPendentes(fornecedor.id);
+      console.log("✅ Lista recarregada!");
     } catch (error: any) {
-      console.error("Erro ao fazer upload:", error);
+      console.error("❌ Erro ao fazer upload:", error);
       toast.error("Erro ao enviar documento");
     }
   };
