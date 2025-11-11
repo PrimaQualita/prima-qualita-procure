@@ -128,8 +128,16 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       
       if (criterio === 'por_lote') {
-        // Para lotes, processar manualmente linha por linha
-        await importarPlanilhaLotes(worksheet);
+        // Primeiro tentar ler como JSON para verificar se tem colunas Lote e Descrição do Lote
+        const jsonData = XLSX.utils.sheet_to_json<ItemPlanilha>(worksheet);
+        
+        if (jsonData.length > 0 && 'Lote' in jsonData[0] && 'Descrição do Lote' in jsonData[0]) {
+          // Formato com colunas Lote e Descrição do Lote
+          await importarComLotes(jsonData);
+        } else {
+          // Formato antigo com cabeçalhos LOTE I, LOTE II, etc
+          await importarPlanilhaLotes(worksheet);
+        }
       } else {
         // Para global e por_item, usar o método padrão
         const jsonData = XLSX.utils.sheet_to_json<ItemPlanilha>(worksheet);
