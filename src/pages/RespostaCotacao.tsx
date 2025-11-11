@@ -323,31 +323,10 @@ const RespostaCotacao = () => {
         .eq("fornecedor_id", fornecedorId)
         .maybeSingle();
 
-      // Se já existe, excluir resposta anterior e seus itens
+      // Se já existe resposta, bloquear nova submissão
       if (respostaExistente) {
-        console.log("✓ Resposta anterior encontrada, excluindo...");
-        
-        // Excluir itens da resposta anterior
-        const { error: erroExcluirItens } = await supabaseAnon
-          .from("respostas_itens_fornecedor")
-          .delete()
-          .eq("cotacao_resposta_fornecedor_id", respostaExistente.id);
-
-        if (erroExcluirItens) {
-          console.error("Erro ao excluir itens anteriores:", erroExcluirItens);
-        }
-
-        // Excluir resposta anterior
-        const { error: erroExcluirResposta } = await supabaseAnon
-          .from("cotacao_respostas_fornecedor")
-          .delete()
-          .eq("id", respostaExistente.id);
-
-        if (erroExcluirResposta) {
-          console.error("Erro ao excluir resposta anterior:", erroExcluirResposta);
-        }
-
-        console.log("✓ Resposta anterior excluída, sobrescrevendo...");
+        toast.error("Você já respondeu esta cotação. Para enviar nova proposta, o gestor precisa excluir sua resposta anterior.");
+        throw new Error("Fornecedor já respondeu esta cotação");
       }
 
       // Calcular valor total

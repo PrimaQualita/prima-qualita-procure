@@ -427,19 +427,7 @@ export function DialogRespostasCotacao({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Respostas Recebidas</span>
-            {requerSelecao && respostas.length > 0 && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => setPlanilhaConsolidadaOpen(true)}
-              >
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Planilha Consolidada
-              </Button>
-            )}
-          </DialogTitle>
+          <DialogTitle>Respostas Recebidas</DialogTitle>
           <DialogDescription>
             Cotação: {tituloCotacao}
           </DialogDescription>
@@ -455,8 +443,20 @@ export function DialogRespostasCotacao({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              Total de respostas: <strong>{respostas.length}</strong>
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Total de respostas: <strong>{respostas.length}</strong>
+              </div>
+              {requerSelecao && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => setPlanilhaConsolidadaOpen(true)}
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Planilha Consolidada
+                </Button>
+              )}
             </div>
 
             <Table>
@@ -581,6 +581,13 @@ export function DialogRespostasCotacao({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DialogPlanilhaConsolidada
+        open={planilhaConsolidadaOpen}
+        onOpenChange={setPlanilhaConsolidadaOpen}
+        cotacaoId={cotacaoId}
+        criterioJulgamento={criterioJulgamento}
+      />
     </Dialog>
   );
 }
