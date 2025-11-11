@@ -91,7 +91,7 @@ export function DialogPlanilhaConsolidada({
           quantidade,
           unidade,
           lote_id,
-          lotes_cotacao!inner (
+          lotes_cotacao (
             numero_lote,
             descricao_lote
           )
