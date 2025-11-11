@@ -13,6 +13,7 @@ import primaLogo from "@/assets/prima-qualita-logo.png";
 import { ArrowLeft, Plus, Trash2, Edit, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
+import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
 
 interface Contrato {
   id: string;
@@ -61,6 +62,7 @@ const Cotacoes = () => {
   const [filtro, setFiltro] = useState("");
   const [dialogItemOpen, setDialogItemOpen] = useState(false);
   const [dialogCotacaoOpen, setDialogCotacaoOpen] = useState(false);
+  const [dialogEnviarOpen, setDialogEnviarOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
   const [novaCotacao, setNovaCotacao] = useState({
@@ -505,6 +507,13 @@ const Cotacoes = () => {
                       <ArrowLeft className="h-4 w-4 mr-2" />
                       Voltar
                     </Button>
+                    <Button 
+                      variant="default"
+                      onClick={() => setDialogEnviarOpen(true)}
+                      disabled={itens.length === 0}
+                    >
+                      Enviar para Fornecedores
+                    </Button>
                     <Button onClick={() => {
                       setItemEditando(null);
                       setDialogItemOpen(true);
@@ -663,6 +672,18 @@ const Cotacoes = () => {
         numeroProximo={itens.length > 0 ? Math.max(...itens.map(i => i.numero_item)) + 1 : 1}
         onSave={handleSaveItem}
       />
+
+      {/* Dialog Enviar Cotação */}
+      {cotacaoSelecionada && processoSelecionado && (
+        <DialogEnviarCotacao
+          open={dialogEnviarOpen}
+          onOpenChange={setDialogEnviarOpen}
+          cotacaoId={cotacaoSelecionada.id}
+          processoNumero={processoSelecionado.numero_processo_interno}
+          tituloCotacao={cotacaoSelecionada.titulo_cotacao}
+          dataLimite={cotacaoSelecionada.data_limite_resposta}
+        />
+      )}
     </div>
   );
 };
