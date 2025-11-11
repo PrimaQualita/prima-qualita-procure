@@ -17,9 +17,60 @@ const UFS = [
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
+// Função para validar CNPJ
+const validarCNPJ = (cnpj: string): boolean => {
+  const cnpjLimpo = cnpj.replace(/[^\d]/g, "");
+  
+  if (cnpjLimpo.length !== 14) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(cnpjLimpo)) return false;
+  
+  // Validação dos dígitos verificadores
+  let tamanho = cnpjLimpo.length - 2;
+  let numeros = cnpjLimpo.substring(0, tamanho);
+  const digitos = cnpjLimpo.substring(tamanho);
+  let soma = 0;
+  let pos = tamanho - 7;
+  
+  for (let i = tamanho; i >= 1; i--) {
+    soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+  if (resultado !== parseInt(digitos.charAt(0))) return false;
+  
+  tamanho = tamanho + 1;
+  numeros = cnpjLimpo.substring(0, tamanho);
+  soma = 0;
+  pos = tamanho - 7;
+  
+  for (let i = tamanho; i >= 1; i--) {
+    soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+  return resultado === parseInt(digitos.charAt(1));
+};
+
+// Função para formatar CNPJ
+const formatarCNPJ = (valor: string): string => {
+  const apenasNumeros = valor.replace(/[^\d]/g, "");
+  
+  if (apenasNumeros.length <= 2) return apenasNumeros;
+  if (apenasNumeros.length <= 5) return `${apenasNumeros.slice(0, 2)}.${apenasNumeros.slice(2)}`;
+  if (apenasNumeros.length <= 8) return `${apenasNumeros.slice(0, 2)}.${apenasNumeros.slice(2, 5)}.${apenasNumeros.slice(5)}`;
+  if (apenasNumeros.length <= 12) return `${apenasNumeros.slice(0, 2)}.${apenasNumeros.slice(2, 5)}.${apenasNumeros.slice(5, 8)}/${apenasNumeros.slice(8)}`;
+  return `${apenasNumeros.slice(0, 2)}.${apenasNumeros.slice(2, 5)}.${apenasNumeros.slice(5, 8)}/${apenasNumeros.slice(8, 12)}-${apenasNumeros.slice(12, 14)}`;
+};
+
 const dadosEmpresaSchema = z.object({
   razao_social: z.string().trim().min(1, "Razão Social é obrigatória").max(255),
-  cnpj: z.string().trim().min(14, "CNPJ inválido").max(18),
+  cnpj: z.string().trim().min(1, "CNPJ é obrigatório").refine((val) => validarCNPJ(val), {
+    message: "CNPJ inválido",
+  }),
   logradouro: z.string().trim().min(1, "Logradouro é obrigatório").max(255),
   numero: z.string().trim().min(1, "Número é obrigatório").max(20),
   bairro: z.string().trim().min(1, "Bairro é obrigatório").max(100),
@@ -289,8 +340,12 @@ const RespostaCotacao = () => {
                   <Input
                     id="cnpj"
                     value={dadosEmpresa.cnpj}
-                    onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, cnpj: e.target.value })}
+                    onChange={(e) => {
+                      const cnpjFormatado = formatarCNPJ(e.target.value);
+                      setDadosEmpresa({ ...dadosEmpresa, cnpj: cnpjFormatado });
+                    }}
                     placeholder="00.000.000/0000-00"
+                    maxLength={18}
                     className={errors.cnpj ? "border-destructive" : ""}
                   />
                   {errors.cnpj && (
