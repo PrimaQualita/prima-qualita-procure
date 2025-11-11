@@ -1077,28 +1077,52 @@ export function DialogFinalizarProcesso({
             Cancelar
           </Button>
           
-          {/* Botão Aprovar Documentos do Fornecedor */}
-          {fornecedorSelecionado && statusDocumentosFornecedor === "concluido" && !documentosAprovados[fornecedorSelecionado] && (
+          {/* Botão OK por Fornecedor - aparece quando há documentos aprovados mas ainda não deu OK geral */}
+          {fornecedorSelecionado && 
+           campos.some((c: any) => c.status_solicitacao === 'aprovado') && 
+           !documentosAprovados[fornecedorSelecionado] && (
             <Button 
               onClick={handleAprovarDocumentos} 
-              disabled={loading}
+              disabled={loading || campos.some((c: any) => c.status_solicitacao === 'em_analise')}
               variant="default"
+              className="bg-blue-600 hover:bg-blue-700"
             >
-              {loading ? "Aprovando..." : "Aprovar Documentos do Fornecedor"}
+              {loading ? "Processando..." : "✓ OK por Fornecedor"}
             </Button>
+          )}
+          
+          {/* Mensagem quando há documentos pendentes de aprovação individual */}
+          {fornecedorSelecionado && 
+           campos.some((c: any) => c.status_solicitacao === 'em_analise') && 
+           !documentosAprovados[fornecedorSelecionado] && (
+            <p className="text-sm text-amber-600 dark:text-amber-400 w-full text-center font-medium">
+              ⚠️ Aprove ou rejeite todos os documentos individualmente antes de dar OK por fornecedor
+            </p>
+          )}
+          
+          {/* Indicador de fornecedor aprovado */}
+          {fornecedorSelecionado && documentosAprovados[fornecedorSelecionado] && (
+            <div className="w-full p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+              <p className="text-sm text-green-700 dark:text-green-400 text-center font-medium">
+                ✓ Documentos deste fornecedor aprovados
+              </p>
+            </div>
           )}
           
           {/* Botão Finalizar Processo - só habilitado quando todos aprovados */}
           <Button 
             onClick={handleFinalizar} 
             disabled={loading || !fornecedores.every(f => documentosAprovados[f.id] === true)}
+            className="bg-green-600 hover:bg-green-700"
           >
             {loading ? "Finalizando..." : "Finalizar Processo"}
           </Button>
           
           {!fornecedores.every(f => documentosAprovados[f.id] === true) && (
             <p className="text-sm text-muted-foreground w-full text-center">
-              Aprove os documentos de todos os fornecedores vencedores para finalizar o processo
+              {fornecedores.length > 1 
+                ? "Dê OK para todos os fornecedores vencedores para finalizar o processo" 
+                : "Dê OK para o fornecedor vencedor para finalizar o processo"}
             </p>
           )}
         </DialogFooter>
