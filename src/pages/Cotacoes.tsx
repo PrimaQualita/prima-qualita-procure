@@ -16,6 +16,7 @@ import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
 import { DialogLote } from "@/components/cotacoes/DialogLote";
 import { DialogFinalizarProcesso } from "@/components/cotacoes/DialogFinalizarProcesso";
+import { DialogRespostasCotacao } from "@/components/cotacoes/DialogRespostasCotacao";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -78,6 +79,7 @@ const Cotacoes = () => {
   const [dialogEnviarOpen, setDialogEnviarOpen] = useState(false);
   const [dialogLoteOpen, setDialogLoteOpen] = useState(false);
   const [dialogFinalizarOpen, setDialogFinalizarOpen] = useState(false);
+  const [dialogRespostasOpen, setDialogRespostasOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
@@ -618,6 +620,12 @@ const Cotacoes = () => {
                       Voltar
                     </Button>
                     <Button 
+                      variant="secondary"
+                      onClick={() => setDialogRespostasOpen(true)}
+                    >
+                      Ver Respostas
+                    </Button>
+                    <Button 
                       variant="default"
                       onClick={() => setDialogEnviarOpen(true)}
                       disabled={itens.length === 0}
@@ -935,6 +943,16 @@ const Cotacoes = () => {
               loadCotacoes(processoSelecionado.id);
             }
           }}
+        />
+      )}
+
+      {/* Dialog Respostas Cotação */}
+      {cotacaoSelecionada && (
+        <DialogRespostasCotacao
+          open={dialogRespostasOpen}
+          onOpenChange={setDialogRespostasOpen}
+          cotacaoId={cotacaoSelecionada.id}
+          tituloCotacao={cotacaoSelecionada.titulo_cotacao}
         />
       )}
     </div>
