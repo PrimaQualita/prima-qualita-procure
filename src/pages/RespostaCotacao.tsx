@@ -43,15 +43,15 @@ interface RespostaItem {
 const RespostaCotacao = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const conviteId = searchParams.get("convite");
+  const cotacaoIdParam = searchParams.get("cotacao");
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [cotacaoId, setCotacaoId] = useState<string | null>(null);
-  const [fornecedorId, setFornecedorId] = useState<string | null>(null);
   const [itens, setItens] = useState<ItemCotacao[]>([]);
   const [cotacaoTitulo, setCotacaoTitulo] = useState("");
   const [cotacaoDescricao, setCotacaoDescricao] = useState("");
+  const [dataLimite, setDataLimite] = useState("");
   
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
@@ -69,66 +69,47 @@ const RespostaCotacao = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
-    if (conviteId) {
+    if (cotacaoIdParam) {
       loadCotacao();
     } else {
-      toast.error("Link de convite inválido");
+      toast.error("Link de cotação inválido");
       setLoading(false);
     }
-  }, [conviteId]);
+  }, [cotacaoIdParam]);
 
   const loadCotacao = async () => {
     try {
-      // Buscar convite e validar
-      const { data: convite, error: conviteError } = await supabase
-        .from("cotacao_fornecedor_convites")
-        .select(`
-          *,
-          cotacoes_precos (
-            id,
-            titulo_cotacao,
-            descricao_cotacao,
-            data_limite_resposta
-          ),
-          fornecedores (
-            id,
-            razao_social,
-            cnpj
-          )
-        `)
-        .eq("id", conviteId)
-        .maybeSingle();
+      // Buscar cotação diretamente
+      const { data: cotacao, error: cotacaoError } = await supabase
+        .from("cotacoes_precos")
+        .select("*")
+        .eq("id", cotacaoIdParam)
+        .single();
 
-      if (conviteError || !convite) {
-        toast.error("Convite não encontrado");
-        setLoading(false);
-        return;
-      }
-
-      if (convite.status_convite === "respondido") {
-        toast.error("Esta cotação já foi respondida");
+      if (cotacaoError || !cotacao) {
+        toast.error("Cotação não encontrada");
         setLoading(false);
         return;
       }
 
       // Verificar data limite
-      const dataLimite = new Date(convite.cotacoes_precos.data_limite_resposta);
+      const dataLimite = new Date(cotacao.data_limite_resposta);
       if (dataLimite < new Date()) {
         toast.error("O prazo para resposta desta cotação expirou");
         setLoading(false);
         return;
       }
 
-      setCotacaoId(convite.cotacoes_precos.id);
-      setFornecedorId(convite.fornecedor_id);
-      setCotacaoTitulo(convite.cotacoes_precos.titulo_cotacao);
-      setCotacaoDescricao(convite.cotacoes_precos.descricao_cotacao || "");
+      setCotacaoId(cotacao.id);
+      setCotacaoTitulo(cotacao.titulo_cotacao);
+      setCotacaoDescricao(cotacao.descricao_cotacao || "");
+      setDataLimite(cotacao.data_limite_resposta);
 
       // Carregar itens da cotação
       const { data: itensData, error: itensError } = await supabase
         .from("itens_cotacao")
         .select("*")
-        .eq("cotacao_id", convite.cotacoes_precos.id)
+        .eq("cotacao_id", cotacao.id)
         .order("numero_item", { ascending: true });
 
       if (itensError) {
@@ -136,15 +117,6 @@ const RespostaCotacao = () => {
         console.error(itensError);
       } else {
         setItens(itensData || []);
-      }
-
-      // Pré-preencher dados do fornecedor se já cadastrado
-      if (convite.fornecedores) {
-        setDadosEmpresa(prev => ({
-          ...prev,
-          razao_social: convite.fornecedores.razao_social || "",
-          cnpj: convite.fornecedores.cnpj || "",
-        }));
       }
 
       setLoading(false);
@@ -185,6 +157,35 @@ const RespostaCotacao = () => {
 
     setSaving(true);
     try {
+      // Verificar se fornecedor já existe pelo CNPJ
+      const { data: fornecedorExistente } = await supabase
+        .from("fornecedores")
+        .select("id")
+        .eq("cnpj", dadosEmpresa.cnpj)
+        .maybeSingle();
+
+      let fornecedorId = fornecedorExistente?.id;
+
+      // Se não existe, criar registro básico do fornecedor
+      if (!fornecedorId) {
+        const { data: novoFornecedor, error: fornecedorError } = await supabase
+          .from("fornecedores")
+          .insert({
+            razao_social: dadosEmpresa.razao_social,
+            cnpj: dadosEmpresa.cnpj,
+            email: "nao-cadastrado@temporario.com", // Temporário
+            telefone: "00000000000", // Temporário
+            endereco_comercial: `${dadosEmpresa.logradouro}, ${dadosEmpresa.numero} - ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf} - CEP: ${dadosEmpresa.cep}`,
+            status_aprovacao: "pendente",
+            ativo: false, // Não ativo até completar cadastro
+          })
+          .select()
+          .single();
+
+        if (fornecedorError) throw fornecedorError;
+        fornecedorId = novoFornecedor.id;
+      }
+
       // Calcular valor total
       const valorTotal = itens.reduce((total, item) => {
         return total + (item.quantidade * (valoresItens[item.id] || 0));
@@ -217,17 +218,8 @@ const RespostaCotacao = () => {
 
       if (itensError) throw itensError;
 
-      // Atualizar status do convite
-      const { error: conviteError } = await supabase
-        .from("cotacao_fornecedor_convites")
-        .update({ status_convite: "respondido" })
-        .eq("id", conviteId);
-
-      if (conviteError) throw conviteError;
-
       toast.success("Resposta enviada com sucesso!");
       
-      // Redirecionar ou mostrar mensagem de sucesso
       setTimeout(() => {
         window.location.href = "/";
       }, 2000);
