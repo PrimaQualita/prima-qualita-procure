@@ -207,21 +207,26 @@ const RespostaCotacao = () => {
       }
 
       // Carregar itens da cotação
+      console.log("🔍 Carregando itens da cotação:", cotacao.id);
       const { data: itensData, error: itensError } = await supabaseAnon
         .from("itens_cotacao")
         .select("*")
         .eq("cotacao_id", cotacao.id)
         .order("numero_item", { ascending: true });
 
-      console.log("📋 Itens carregados:", itensData);
+      console.log("📋 Itens retornados do banco:", itensData);
       console.log("❌ Erro ao carregar itens:", itensError);
+      console.log("🔢 Quantidade de itens:", itensData?.length || 0);
 
       if (itensError) {
         toast.error("Erro ao carregar itens da cotação");
-        console.error("Erro completo:", itensError);
+        console.error("Erro completo ao carregar itens:", itensError);
+      } else if (!itensData || itensData.length === 0) {
+        console.warn("⚠️ Nenhum item encontrado para cotação:", cotacao.id);
+        toast.error("Esta cotação não possui itens cadastrados");
       } else {
-        setItens(itensData || []);
-        console.log(`✅ ${itensData?.length || 0} itens carregados com sucesso`);
+        console.log("✅ Itens carregados com sucesso:", itensData.length);
+        setItens(itensData);
       }
 
       setLoading(false);

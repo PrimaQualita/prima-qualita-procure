@@ -1055,49 +1055,49 @@ const Cotacoes = () => {
                             <TableBody>
                               {itensDoLote.length === 0 ? (
                                 <TableRow>
-                                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                  <TableCell colSpan={processoSelecionado?.tipo === "Material" ? 9 : 8} className="text-center text-muted-foreground">
                                     Nenhum item neste lote
                                   </TableCell>
                                 </TableRow>
-                              ) : (
-                                <>
-                                  {itensDoLote.map((item) => (
-                                    <TableRow key={item.id}>
-                                      <TableCell>
-                                        <Checkbox
-                                          checked={itensSelecionados.has(item.id)}
-                                          onCheckedChange={(checked) => {
-                                            const novaSelecao = new Set(itensSelecionados);
-                                            if (checked) {
-                                              novaSelecao.add(item.id);
-                                            } else {
-                                              novaSelecao.delete(item.id);
-                                            }
-                                            setItensSelecionados(novaSelecao);
-                                          }}
-                                        />
-                                      </TableCell>
-                                      <TableCell>{item.numero_item}</TableCell>
-                                      <TableCell>{item.descricao}</TableCell>
-                                      <TableCell>{item.quantidade}</TableCell>
-                                      <TableCell>{item.unidade}</TableCell>
-                                      {processoSelecionado?.tipo === "Material" && (
-                                        <TableCell>{item.marca || "-"}</TableCell>
-                                      )}
-                                      <TableCell className="text-right">
-                                        R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        R$ {(item.quantidade * item.valor_unitario_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        <div className="flex gap-1 justify-end">
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                              setItemEditando(item);
-                                              setDialogItemOpen(true);
+                               ) : (
+                                 <>
+                                   {itensDoLote.map((item) => (
+                                     <TableRow key={item.id}>
+                                       <TableCell>
+                                         <Checkbox
+                                           checked={itensSelecionados.has(item.id)}
+                                           onCheckedChange={(checked) => {
+                                             const novaSelecao = new Set(itensSelecionados);
+                                             if (checked) {
+                                               novaSelecao.add(item.id);
+                                             } else {
+                                               novaSelecao.delete(item.id);
+                                             }
+                                             setItensSelecionados(novaSelecao);
+                                           }}
+                                         />
+                                       </TableCell>
+                                       <TableCell>{item.numero_item}</TableCell>
+                                       <TableCell>{item.descricao}</TableCell>
+                                       <TableCell>{item.quantidade}</TableCell>
+                                       <TableCell>{item.unidade}</TableCell>
+                                       {processoSelecionado?.tipo === "Material" && (
+                                         <TableCell>{item.marca || "-"}</TableCell>
+                                       )}
+                                       <TableCell className="text-right">
+                                         R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                       </TableCell>
+                                       <TableCell className="text-right">
+                                         R$ {(item.quantidade * item.valor_unitario_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                       </TableCell>
+                                       <TableCell className="text-right">
+                                         <div className="flex gap-1 justify-end">
+                                           <Button
+                                             variant="ghost"
+                                             size="sm"
+                                             onClick={() => {
+                                               setItemEditando(item);
+                                               setDialogItemOpen(true);
                                             }}
                                           >
                                             <Edit className="h-4 w-4" />
@@ -1173,7 +1173,7 @@ const Cotacoes = () => {
                     <TableBody>
                       {itens.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-muted-foreground">
+                          <TableCell colSpan={processoSelecionado?.tipo === "Material" ? 9 : 8} className="text-center text-muted-foreground">
                             Nenhum item cadastrado
                           </TableCell>
                         </TableRow>
