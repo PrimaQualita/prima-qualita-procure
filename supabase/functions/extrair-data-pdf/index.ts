@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.2';
+import Tesseract from "https://esm.sh/tesseract.js@5.0.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,6 +41,61 @@ serve(async (req) => {
     
     console.log('Texto extraído do PDF (primeiros 1000 caracteres):', pdfText.substring(0, 1000));
     console.log('Tamanho total do texto:', pdfText.length);
+    
+    // Se o texto extraído for muito pequeno (< 50 caracteres), provavelmente é um PDF digitalizado
+    // Precisamos usar OCR
+    if (pdfText.trim().length < 50) {
+      console.log('⚠️ PDF parece ser digitalizado (texto insuficiente). Aplicando OCR...');
+      
+      try {
+        // Renderizar a primeira página como imagem e aplicar OCR
+        const page = await doc.getPage(1);
+        const viewport = page.getViewport({ scale: 2.0 }); // Scale 2x para melhor qualidade
+        
+        // Criar canvas para renderizar a página
+        const canvas = {
+          width: viewport.width,
+          height: viewport.height,
+          getContext: (type: string) => {
+            const imageData = new Uint8ClampedArray(viewport.width * viewport.height * 4);
+            return {
+              putImageData: () => {},
+              getImageData: () => ({ data: imageData, width: viewport.width, height: viewport.height }),
+              fillRect: () => {},
+              drawImage: () => {},
+              save: () => {},
+              restore: () => {},
+              scale: () => {},
+              translate: () => {},
+              transform: () => {},
+            };
+          }
+        };
+        
+        const canvasContext: any = canvas.getContext('2d');
+        
+        await page.render({
+          canvasContext,
+          viewport,
+        }).promise;
+        
+        // Converter canvas para imagem base64
+        const imageData = canvasContext.getImageData(0, 0, viewport.width, viewport.height);
+        
+        // Aplicar OCR com Tesseract
+        console.log('Aplicando Tesseract OCR...');
+        const worker = await Tesseract.createWorker('por');
+        const { data: { text: ocrText } } = await worker.recognize(imageData);
+        await worker.terminate();
+        
+        pdfText = ocrText;
+        console.log('✅ OCR concluído. Texto extraído (primeiros 1000 caracteres):', pdfText.substring(0, 1000));
+        console.log('Tamanho do texto OCR:', pdfText.length);
+      } catch (ocrError) {
+        console.error('❌ Erro ao aplicar OCR:', ocrError);
+        console.log('Continuando com texto original (pode estar vazio)');
+      }
+    }
     
     let dataValidade: string | null = null;
     
