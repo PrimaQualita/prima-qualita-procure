@@ -436,7 +436,11 @@ export function DialogPlanilhaConsolidada({
                 
                 const valores: number[] = [];
                 respostas.forEach(resposta => {
-                  const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+                  // Buscar item pela combinação de lote_id E numero_item para evitar duplicação
+                  const itemResposta = resposta.itens.find((i: any) => 
+                    i.numero_item === item.numero_item && 
+                    (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
+                  );
                   if (itemResposta) {
                     valores.push(Number(itemResposta.valor_unitario_ofertado));
                   }
@@ -456,8 +460,11 @@ export function DialogPlanilhaConsolidada({
                 `;
 
                 respostas.forEach(resposta => {
-                  const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
-                  const valorTotal = itemResposta 
+                  const itemResposta = resposta.itens.find((i: any) => 
+                    i.numero_item === item.numero_item && 
+                    (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
+                  );
+                  const valorTotal = itemResposta
                     ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
                     : 0;
                   html += `
@@ -528,7 +535,10 @@ export function DialogPlanilhaConsolidada({
             
             const valores: number[] = [];
             respostas.forEach(resposta => {
-              const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+              const itemResposta = resposta.itens.find((i: any) => 
+                i.numero_item === item.numero_item && 
+                (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
+              );
               if (itemResposta) {
                 valores.push(Number(itemResposta.valor_unitario_ofertado));
               }
@@ -548,8 +558,11 @@ export function DialogPlanilhaConsolidada({
             `;
 
             respostas.forEach(resposta => {
-              const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
-              const valorTotal = itemResposta 
+              const itemResposta = resposta.itens.find((i: any) => 
+                i.numero_item === item.numero_item && 
+                (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
+              );
+              const valorTotal = itemResposta
                 ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
                 : 0;
               html += `
@@ -674,7 +687,31 @@ export function DialogPlanilhaConsolidada({
 
             {tipoVisualizacao === "lote" && criterioJulgamento === "por_lote" && (
               <div className="space-y-3">
-                <Label className="text-base font-semibold">Configurar Cálculo por Lote</Label>
+                <div className="flex items-center justify-between mb-4">
+                  <Label className="text-base font-semibold">Configurar Cálculo por Lote</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm">Aplicar para todos:</Label>
+                    <Select 
+                      value="" 
+                      onValueChange={(v: "media" | "mediana" | "menor") => {
+                        const novosCalculos: Record<string, "media" | "mediana" | "menor"> = {};
+                        lotesUnicos.forEach(lote => {
+                          novosCalculos[lote.id] = v;
+                        });
+                        setCalculosPorLote(novosCalculos);
+                      }}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="menor">Menor Preço</SelectItem>
+                        <SelectItem value="media">Média</SelectItem>
+                        <SelectItem value="mediana">Mediana</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 {lotesUnicos.map((lote) => (
                   <div key={lote.id} className="flex items-center gap-3 p-3 border rounded-lg">
                     <div className="flex-1">
@@ -703,7 +740,32 @@ export function DialogPlanilhaConsolidada({
 
             {tipoVisualizacao === "item" && (
               <div className="space-y-3">
-                <Label className="text-base font-semibold">Configurar Cálculo por Item</Label>
+                <div className="flex items-center justify-between mb-4">
+                  <Label className="text-base font-semibold">Configurar Cálculo por Item</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm">Aplicar para todos:</Label>
+                    <Select 
+                      value="" 
+                      onValueChange={(v: "media" | "mediana" | "menor") => {
+                        const novosCalculos: Record<string, "media" | "mediana" | "menor"> = {};
+                        todosItens.forEach((item: any) => {
+                          const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
+                          novosCalculos[chave] = v;
+                        });
+                        setCalculosPorItem(novosCalculos as any);
+                      }}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="menor">Menor Preço</SelectItem>
+                        <SelectItem value="media">Média</SelectItem>
+                        <SelectItem value="mediana">Mediana</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 {itensUnicos.map((item) => {
                   const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
                   return (
