@@ -891,7 +891,7 @@ const Cotacoes = () => {
                             
                             const { error } = await supabase
                               .from('cotacoes_precos')
-                              .update({ status_cotacao: 'enviado_para_selecao' })
+                              .update({ enviado_para_selecao: true })
                               .eq('id', cotacaoSelecionada.id);
                             
                             if (error) {
