@@ -49,6 +49,9 @@ export default function CadastroFornecedor() {
   });
 
   const [documentos, setDocumentos] = useState<Record<string, DocumentoUpload>>({
+    contrato_social: { tipo: "contrato_social", label: "Contrato Social Consolidado (Última Alteração)", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+    cartao_cnpj: { tipo: "cartao_cnpj", label: "Cartão CNPJ", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+    inscricao_estadual_municipal: { tipo: "inscricao_estadual_municipal", label: "Inscrição Estadual ou Municipal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     cnd_federal: { tipo: "cnd_federal", label: "CND Federal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     cnd_tributos_estaduais: { tipo: "cnd_tributos_estaduais", label: "CND Tributos Estaduais", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     cnd_divida_ativa_estadual: { tipo: "cnd_divida_ativa_estadual", label: "CND Dívida Ativa Estadual", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
@@ -56,8 +59,6 @@ export default function CadastroFornecedor() {
     cnd_divida_ativa_municipal: { tipo: "cnd_divida_ativa_municipal", label: "CND Dívida Ativa Municipal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     crf_fgts: { tipo: "crf_fgts", label: "CRF FGTS", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     cndt: { tipo: "cndt", label: "CNDT", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
-    contrato_social: { tipo: "contrato_social", label: "Contrato Social Consolidado", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
-    cartao_cnpj: { tipo: "cartao_cnpj", label: "Cartão CNPJ", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
   });
 
   useEffect(() => {
@@ -95,7 +96,7 @@ export default function CadastroFornecedor() {
   };
 
   const handleFileUpload = async (tipoDoc: string, file: File) => {
-    const temValidade = !["contrato_social", "cartao_cnpj"].includes(tipoDoc);
+    const temValidade = !["contrato_social", "cartao_cnpj", "inscricao_estadual_municipal"].includes(tipoDoc);
     
     setDocumentos(prev => ({
       ...prev,
@@ -295,15 +296,16 @@ export default function CadastroFornecedor() {
       });
       
       setDocumentos({
+        contrato_social: { tipo: "contrato_social", label: "Contrato Social Consolidado (Última Alteração)", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        cartao_cnpj: { tipo: "cartao_cnpj", label: "Cartão CNPJ", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        inscricao_estadual_municipal: { tipo: "inscricao_estadual_municipal", label: "Inscrição Estadual ou Municipal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
         cnd_federal: { tipo: "cnd_federal", label: "CND Federal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
-        cnd_estadual: { tipo: "cnd_estadual", label: "CND Tributos Estaduais", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        cnd_tributos_estaduais: { tipo: "cnd_tributos_estaduais", label: "CND Tributos Estaduais", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
         cnd_divida_ativa_estadual: { tipo: "cnd_divida_ativa_estadual", label: "CND Dívida Ativa Estadual", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
-        cnd_municipal: { tipo: "cnd_municipal", label: "CND Tributos Municipais", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+        cnd_tributos_municipais: { tipo: "cnd_tributos_municipais", label: "CND Tributos Municipais", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
         cnd_divida_ativa_municipal: { tipo: "cnd_divida_ativa_municipal", label: "CND Dívida Ativa Municipal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
         crf_fgts: { tipo: "crf_fgts", label: "CRF FGTS", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
         cndt: { tipo: "cndt", label: "CNDT", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
-        contrato_social: { tipo: "contrato_social", label: "Contrato Social Consolidado", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
-        cartao_cnpj: { tipo: "cartao_cnpj", label: "Cartão CNPJ", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
       });
       
       setRespostas({});
@@ -612,7 +614,7 @@ export default function CadastroFornecedor() {
                             </Button>
                           </div>
                           
-                          {!["contrato_social", "cartao_cnpj"].includes(key) && (
+                          {!["contrato_social", "cartao_cnpj", "inscricao_estadual_municipal"].includes(key) && (
                             <div className="space-y-1">
                               <Label className="text-sm text-muted-foreground">Data de Validade</Label>
                               <Input
