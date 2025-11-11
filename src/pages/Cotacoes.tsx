@@ -85,7 +85,6 @@ const Cotacoes = () => {
   const [dialogRespostasOpen, setDialogRespostasOpen] = useState(false);
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
   const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
-  const [confirmDeleteSelectedOpen, setConfirmDeleteSelectedOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
@@ -332,7 +331,6 @@ const Cotacoes = () => {
 
       toast.success(`${itensSelecionados.size} ${itensSelecionados.size === 1 ? 'item excluído' : 'itens excluídos'} com sucesso`);
       setItensSelecionados(new Set());
-      setConfirmDeleteSelectedOpen(false);
       await renumerarItens();
       loadItens(cotacaoSelecionada.id);
     } catch (error) {
@@ -1333,65 +1331,71 @@ const Cotacoes = () => {
         />
       )}
 
-      {/* Dialog Confirmar Exclusão de Todos os Itens */}
+      {/* Dialog Confirmar Exclusão */}
       <AlertDialog open={confirmDeleteAllOpen} onOpenChange={setConfirmDeleteAllOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-destructive" />
-              Confirmar Exclusão de Todos os Itens
+              Excluir Itens
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>TODOS os {itens.length} itens</strong> desta cotação?
-              {criterioJulgamento === 'por_lote' && lotes.length > 0 && (
+              {itensSelecionados.size > 0 ? (
                 <>
+                  Você tem <strong>{itensSelecionados.size} {itensSelecionados.size === 1 ? 'item selecionado' : 'itens selecionados'}</strong>.
                   <br /><br />
-                  Esta ação também excluirá <strong>todos os {lotes.length} lotes</strong> criados.
+                  Escolha uma opção:
+                </>
+              ) : (
+                <>
+                  Tem certeza que deseja excluir <strong>TODOS os {itens.length} itens</strong> desta cotação?
+                  {criterioJulgamento === 'por_lote' && lotes.length > 0 && (
+                    <>
+                      <br /><br />
+                      Esta ação também excluirá <strong>todos os {lotes.length} lotes</strong> criados.
+                    </>
+                  )}
+                  <br /><br />
+                  <span className="text-destructive font-semibold">Esta ação não pode ser desfeita!</span>
                 </>
               )}
-              <br /><br />
-              <span className="text-destructive font-semibold">Esta ação não pode ser desfeita!</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteAllItems}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Excluir Todos os Itens
-            </AlertDialogAction>
+            {itensSelecionados.size > 0 ? (
+              <>
+                <AlertDialogAction 
+                  onClick={() => {
+                    handleDeleteSelectedItems();
+                    setConfirmDeleteAllOpen(false);
+                  }}
+                  className="bg-orange-600 text-white hover:bg-orange-700"
+                >
+                  Excluir Selecionados ({itensSelecionados.size})
+                </AlertDialogAction>
+                <AlertDialogAction 
+                  onClick={() => {
+                    handleDeleteAllItems();
+                    setConfirmDeleteAllOpen(false);
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Excluir Todos ({itens.length})
+                </AlertDialogAction>
+              </>
+            ) : (
+              <AlertDialogAction 
+                onClick={handleDeleteAllItems}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Excluir Todos os Itens
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog Confirmar Exclusão de Itens Selecionados */}
-      <AlertDialog open={confirmDeleteSelectedOpen} onOpenChange={setConfirmDeleteSelectedOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              Confirmar Exclusão de Itens Selecionados
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{itensSelecionados.size} {itensSelecionados.size === 1 ? 'item selecionado' : 'itens selecionados'}</strong>?
-              <br /><br />
-              Os itens restantes serão automaticamente renumerados em ordem sequencial.
-              <br /><br />
-              <span className="text-destructive font-semibold">Esta ação não pode ser desfeita!</span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteSelectedItems}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Excluir Selecionados
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
