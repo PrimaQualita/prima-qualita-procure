@@ -549,12 +549,12 @@ const RespostaCotacao = () => {
                           type="number"
                           min="0"
                           step="0.01"
-                          value={valoresItens[item.id] ? valoresItens[item.id].toFixed(2) : ""}
+                          value={valoresItens[item.id] ?? ""}
                           onChange={(e) => {
-                            const valor = parseFloat(e.target.value) || 0;
+                            const valor = e.target.value === "" ? 0 : parseFloat(e.target.value);
                             setValoresItens({
                               ...valoresItens,
-                              [item.id]: parseFloat(valor.toFixed(2))
+                              [item.id]: valor
                             });
                           }}
                           onBlur={(e) => {
