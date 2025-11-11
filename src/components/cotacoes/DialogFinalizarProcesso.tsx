@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -36,6 +36,7 @@ interface DocumentoExistente {
   id: string;
   tipo_documento: string;
   nome_arquivo: string;
+  url_arquivo: string;
   data_validade: string | null;
   em_vigor: boolean;
 }
@@ -114,7 +115,7 @@ export function DialogFinalizarProcesso({
     try {
       const { data, error } = await supabase
         .from("documentos_fornecedor")
-        .select("id, tipo_documento, nome_arquivo, data_validade, em_vigor")
+        .select("id, tipo_documento, nome_arquivo, url_arquivo, data_validade, em_vigor")
         .eq("fornecedor_id", fornecedorId)
         .eq("em_vigor", true);
 
@@ -171,6 +172,32 @@ export function DialogFinalizarProcesso({
       certificado_gestor: "Certificado de Fornecedor",
     };
     return labels[tipo] || tipo;
+  };
+
+  const handleVisualizarDocumento = async (doc: DocumentoExistente) => {
+    try {
+      const pathMatch = doc.url_arquivo.match(/processo-anexos\/(.+)$/);
+      if (!pathMatch) {
+        toast.error("URL do documento inválida");
+        return;
+      }
+      const filePath = pathMatch[1];
+      const { data, error } = await supabase.storage
+        .from('processo-anexos')
+        .createSignedUrl(filePath, 60);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error("Não foi possível gerar URL de acesso");
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const fullUrl = data.signedUrl.startsWith('http') 
+        ? data.signedUrl 
+        : `${supabaseUrl}/storage/v1${data.signedUrl}`;
+      
+      window.open(fullUrl, '_blank');
+    } catch (error) {
+      console.error("Erro ao abrir documento:", error);
+      toast.error("Erro ao visualizar documento");
+    }
   };
 
   const adicionarCampo = () => {
@@ -284,23 +311,33 @@ export function DialogFinalizarProcesso({
               </h3>
               <div className="space-y-2">
                 {documentosExistentes.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between text-sm p-2 bg-white dark:bg-background rounded">
-                    <span className="font-medium">{getTipoDocumentoLabel(doc.tipo_documento)}</span>
-                    <div className="flex items-center gap-2">
+                  <div key={doc.id} className="flex items-center justify-between text-sm p-2 bg-white dark:bg-background rounded border">
+                    <div className="flex-1">
+                      <span className="font-medium">{getTipoDocumentoLabel(doc.tipo_documento)}</span>
                       {doc.data_validade && (
-                        <span className="text-muted-foreground">
-                          Validade: {doc.data_validade.split('T')[0].split('-').reverse().join('/')}
+                        <span className="text-muted-foreground ml-2">
+                          • Validade: {doc.data_validade.split('T')[0].split('-').reverse().join('/')}
                         </span>
                       )}
+                    </div>
+                    <div className="flex items-center gap-2">
                       <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                         Em vigor
                       </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleVisualizarDocumento(doc)}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        Ver
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
               <p className="text-sm text-muted-foreground mt-3">
-                ℹ️ Estes documentos já estão válidos e não precisam ser solicitados novamente.
+                ℹ️ Clique em "Ver" para conferir visualmente cada documento antes de finalizar o processo.
               </p>
             </div>
           )}
