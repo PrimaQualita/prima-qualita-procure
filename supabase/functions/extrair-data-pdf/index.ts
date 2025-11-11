@@ -44,9 +44,7 @@ serve(async (req) => {
     console.log('Texto extraído do PDF (primeiros 500 caracteres):', pdfText.substring(0, 500));
     console.log('Tamanho total do texto:', pdfText.length);
     
-    // Para PDFs digitalizados com pouco texto extraível
-    // Infelizmente, OCR não é viável em Deno Edge Functions
-    // O usuário precisará preencher manualmente
+    // Para PDFs com pouco texto (digitalizados), retornar para preenchimento manual
     if (pdfText.trim().length < 50) {
       console.log('⚠️ PDF digitalizado detectado - retornando null para preenchimento manual');
       
@@ -58,6 +56,76 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+    
+    // Usar IA para interpretar o texto completo e extrair a data de validade
+    console.log('🤖 Usando IA para interpretar a certidão...');
+    
+    try {
+      const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+      if (!lovableApiKey) {
+        throw new Error('LOVABLE_API_KEY não configurada');
+      }
+      
+      const promptAnalise = `Você é um especialista em analisar certidões brasileiras (CNDs, CNDT, CRF FGTS, etc.).
+
+Analise o texto da certidão abaixo e extraia a DATA DE VALIDADE.
+
+A data de validade pode estar em diversos formatos:
+1. Data explícita: "válida até DD/MM/AAAA" ou "vencimento: DD/MM/AAAA"
+2. Período relativo: "válida por X dias a partir da emissão" - neste caso, encontre a data de emissão e calcule
+3. Intervalo de datas (CRF FGTS): "DD/MM/AAAA a DD/MM/AAAA" - pegue sempre a ÚLTIMA data
+4. Outros formatos que indicam validade
+
+IMPORTANTE:
+- Se houver "X dias a partir da emissão", encontre a data de emissão (geralmente no final: "Cidade-UF, DD de Mês de AAAA") e CALCULE a data de validade
+- Para CRF FGTS com intervalo, pegue sempre a data FINAL do período
+- Retorne APENAS a data de validade final no formato YYYY-MM-DD
+- Se não encontrar validade, retorne null
+
+TEXTO DA CERTIDÃO:
+${pdfText}
+
+Retorne APENAS no formato JSON: {"dataValidade": "YYYY-MM-DD"} ou {"dataValidade": null}`;
+
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'user', content: promptAnalise }
+          ],
+          response_format: { type: "json_object" }
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('Erro na API Lovable AI:', errorText);
+        throw new Error(`Erro AI: ${aiResponse.status}`);
+      }
+
+      const aiResult = await aiResponse.json();
+      const resultText = aiResult.choices[0].message.content;
+      const resultado = JSON.parse(resultText);
+      
+      console.log('✅ IA retornou:', resultado);
+      
+      if (resultado.dataValidade) {
+        console.log('📅 Data de validade extraída pela IA:', resultado.dataValidade);
+        
+        return new Response(
+          JSON.stringify({ dataValidade: resultado.dataValidade, isScanned: false }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (aiError) {
+      console.error('❌ Erro ao usar IA:', aiError);
+      console.log('Tentando com lógica de fallback...');
     }
     
     // Normalizar texto
