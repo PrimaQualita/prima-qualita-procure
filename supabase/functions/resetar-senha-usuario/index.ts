@@ -1,10 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const resetPasswordSchema = z.object({
+  userId: z.string().uuid(),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+function generateSecurePassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const array = new Uint8Array(12);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => chars[byte % chars.length]).join('');
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -23,12 +36,11 @@ serve(async (req) => {
       }
     );
 
-    const { userId, dataNascimento } = await req.json();
+    const body = resetPasswordSchema.parse(await req.json());
+    const { userId } = body;
 
-    // Gerar senha temporária a partir da data de nascimento (formato: ddmmaaaa)
-    // Data vem como YYYY-MM-DD, converter para DDMMYYYY
-    const [ano, mes, dia] = dataNascimento.split("-");
-    const senhaTemporaria = `${dia}${mes}${ano}`;
+    // Gerar senha temporária segura e aleatória
+    const senhaTemporaria = generateSecurePassword();
 
     // Resetar senha usando admin API
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {

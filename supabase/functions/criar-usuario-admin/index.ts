@@ -1,10 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const createUserSchema = z.object({
+  email: z.string().email().max(255),
+  password: z.string().min(8).max(100),
+  nomeCompleto: z.string().min(1).max(200),
+  cpf: z.string().regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  role: z.enum(['gestor', 'colaborador']),
+});
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -23,7 +33,7 @@ serve(async (req) => {
       }
     );
 
-    const { email, password, nomeCompleto, cpf, dataNascimento, role } = await req.json();
+    const { email, password, nomeCompleto, cpf, dataNascimento, role } = createUserSchema.parse(await req.json());
 
     // Verificar se o usuário já existe
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
