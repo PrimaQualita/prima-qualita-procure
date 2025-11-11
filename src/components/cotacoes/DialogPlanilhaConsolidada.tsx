@@ -216,6 +216,21 @@ export function DialogPlanilhaConsolidada({
       
       const usuarioNome = profileData?.nome_completo || 'Sistema';
       const usuarioEmail = profileData?.email || '';
+      // Converter logo para base64
+      const logoPath = '/src/assets/prima-qualita-logo-horizontal.png';
+      let logoBase64 = '';
+      try {
+        const response = await fetch(logoPath);
+        const blob = await response.blob();
+        logoBase64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.error("Erro ao carregar logo:", error);
+      }
+
       let html = `
         <!DOCTYPE html>
         <html>
@@ -224,7 +239,9 @@ export function DialogPlanilhaConsolidada({
           <title>Planilha Consolidada - Estimativa de Preços</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 40px; }
-            h1 { color: #0ea5e9; font-size: 24px; margin-bottom: 30px; }
+            .header-logo { text-align: center; margin-bottom: 30px; }
+            .header-logo img { max-width: 300px; height: auto; }
+            h1 { color: #0ea5e9; font-size: 24px; margin-bottom: 30px; text-align: center; }
             h2 { color: #0284c7; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
             th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; vertical-align: top; }
@@ -292,6 +309,7 @@ export function DialogPlanilhaConsolidada({
           </style>
         </head>
         <body>
+          ${logoBase64 ? `<div class="header-logo"><img src="${logoBase64}" alt="Prima Qualitá Saúde" /></div>` : ''}
           <h1>PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO</h1>
           <div class="criterio-badge">
             Visualização: ${tipoVisualizacao === "item" ? "Por Item" : tipoVisualizacao === "lote" ? "Por Lote" : "Global"}
