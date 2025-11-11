@@ -44,65 +44,11 @@ serve(async (req) => {
     console.log('Texto extraído do PDF (primeiros 500 caracteres):', pdfText.substring(0, 500));
     console.log('Tamanho total do texto:', pdfText.length);
     
-    // Se o texto extraído for muito pequeno (< 50 caracteres), é PDF digitalizado
-    // Usar Lovable AI Vision para OCR primeiro para extrair o texto, depois processar
+    // Para PDFs digitalizados com pouco texto extraível, retornar null
+    // O usuário deverá preencher manualmente a data de validade
     if (pdfText.trim().length < 50) {
-      console.log('⚠️ PDF digitalizado detectado. Usando Lovable AI Vision para OCR...');
-      
-      try {
-        const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-        if (!lovableApiKey) {
-          throw new Error('LOVABLE_API_KEY não configurada');
-        }
-        
-        // Criar data URL do PDF
-        const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`;
-        
-        const promptOCR = `Você é um especialista em ler certidões brasileiras escaneadas.
-
-Analise esta certidão e extraia TODO o texto visível. Transcreva exatamente como está escrito, incluindo datas, números, nomes de campos, etc.
-
-Retorne APENAS o texto extraído, sem comentários ou formatação adicional.`;
-
-        console.log('Chamando Lovable AI para OCR do texto...');
-        const ocrResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${lovableApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-pro',
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: promptOCR },
-                  { 
-                    type: 'image_url',
-                    image_url: { url: pdfDataUrl }
-                  }
-                ]
-              }
-            ],
-            max_completion_tokens: 2000,
-          }),
-        });
-
-        if (!ocrResponse.ok) {
-          const errorText = await ocrResponse.text();
-          console.error('Erro na API Lovable AI (OCR):', errorText);
-          throw new Error(`Erro AI OCR: ${ocrResponse.status}`);
-        }
-
-        const ocrResult = await ocrResponse.json();
-        pdfText = ocrResult.choices[0].message.content;
-        console.log('✅ Texto extraído via OCR:', pdfText.substring(0, 500));
-        console.log('Tamanho do texto OCR:', pdfText.length);
-      } catch (ocrError) {
-        console.error('❌ Erro ao aplicar OCR:', ocrError);
-        console.log('Continuando com lógica de fallback');
-      }
+      console.log('⚠️ PDF digitalizado detectado - texto extraído insuficiente');
+      console.log('Retornando null - usuário deve preencher manualmente');
     }
     
     // Normalizar texto
