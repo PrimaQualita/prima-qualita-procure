@@ -54,6 +54,7 @@ export function DialogPlanilhaConsolidada({
   const [calculosPorItem, setCalculosPorItem] = useState<Record<number, "media" | "mediana" | "menor">>({});
   const [calculosPorLote, setCalculosPorLote] = useState<Record<string, "media" | "mediana" | "menor">>({});
   const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor">("menor");
+  const [todosItens, setTodosItens] = useState<any[]>([]);
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -78,6 +79,24 @@ export function DialogPlanilhaConsolidada({
         .order("data_envio_resposta", { ascending: true });
 
       if (error) throw error;
+
+      // Buscar TODOS os itens da cotação (não das respostas)
+      const { data: todosItensData } = await supabase
+        .from("itens_cotacao")
+        .select(`
+          id,
+          numero_item,
+          descricao,
+          quantidade,
+          unidade,
+          lote_id,
+          lote:lote_id (
+            numero_lote,
+            descricao_lote
+          )
+        `)
+        .eq("cotacao_id", cotacaoId)
+        .order("numero_item");
 
       const respostasCompletas: RespostaConsolidada[] = [];
 
@@ -121,10 +140,13 @@ export function DialogPlanilhaConsolidada({
 
       setRespostas(respostasCompletas);
       
-      // Inicializar cálculos com "menor" para todos os itens
-      if (respostasCompletas.length > 0) {
+      // Armazenar TODOS os itens da cotação para usar na configuração
+      setTodosItens(todosItensData || []);
+      
+      // Inicializar cálculos com "menor" para TODOS os itens da cotação
+      if (todosItensData && todosItensData.length > 0) {
         const novosCalculos: Record<number, "media" | "mediana" | "menor"> = {};
-        respostasCompletas[0].itens.forEach(item => {
+        todosItensData.forEach(item => {
           novosCalculos[item.numero_item] = "menor";
         });
         setCalculosPorItem(novosCalculos);
@@ -132,7 +154,7 @@ export function DialogPlanilhaConsolidada({
         // Inicializar cálculos por lote se aplicável
         if (criterioJulgamento === "por_lote") {
           const lotes = new Set<string>();
-          respostasCompletas[0].itens.forEach(item => {
+          todosItensData.forEach((item: any) => {
             if (item.lote_id) lotes.add(item.lote_id);
           });
           const novosCalculosLote: Record<string, "media" | "mediana" | "menor"> = {};
@@ -154,13 +176,15 @@ export function DialogPlanilhaConsolidada({
     if (valores.length === 0) return { media: 0, mediana: 0, menor: 0 };
 
     const menor = Math.min(...valores);
-    const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+    const soma = valores.reduce((a, b) => a + b, 0);
+    const media = Math.round((soma / valores.length) * 100) / 100; // Arredondar para 2 casas
     
     const valoresOrdenados = [...valores].sort((a, b) => a - b);
     const meio = Math.floor(valoresOrdenados.length / 2);
-    const mediana = valoresOrdenados.length % 2 === 0
+    const medianaCalc = valoresOrdenados.length % 2 === 0
       ? (valoresOrdenados[meio - 1] + valoresOrdenados[meio]) / 2
       : valoresOrdenados[meio];
+    const mediana = Math.round(medianaCalc * 100) / 100; // Arredondar para 2 casas
 
     return { media, mediana, menor };
   };
@@ -213,9 +237,9 @@ export function DialogPlanilhaConsolidada({
             <tbody>
               <tr>
                 ${respostas.map(r => `
-                  <td class="text-right">R$ ${r.valor_total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  <td class="text-right">R$ ${r.valor_total.toFixed(2)}</td>
                 `).join("")}
-                <td class="text-right estimativa">R$ ${valorEstimativa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                <td class="text-right estimativa">R$ ${valorEstimativa.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
@@ -279,7 +303,7 @@ export function DialogPlanilhaConsolidada({
               const valores = itens.map(i => i.valor_unitario_ofertado);
               const stats = calcularEstatisticas(valores);
               const valorEstimativa = stats[tipoCalculoLote];
-              const totalItemEstimativa = valorEstimativa * item.quantidade;
+              const totalItemEstimativa = Math.round(valorEstimativa * item.quantidade * 100) / 100;
               totalLoteEstimativa += totalItemEstimativa;
 
               html += `
@@ -294,15 +318,20 @@ export function DialogPlanilhaConsolidada({
                 const itemResposta = resposta.itens.find(
                   i => i.numero_item === numeroItem && i.lote_id === loteId
                 );
+                const valorTotal = itemResposta 
+                  ? Math.round(itemResposta.valor_unitario_ofertado * item.quantidade * 100) / 100
+                  : 0;
                 html += `
                   <td class="text-right">
-                    ${itemResposta ? `R$ ${itemResposta.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"}
+                    ${itemResposta 
+                      ? `R$ ${itemResposta.valor_unitario_ofertado.toFixed(2)}<br/><small>(Total: R$ ${valorTotal.toFixed(2)})</small>` 
+                      : "-"}
                   </td>
                 `;
               });
 
               html += `
-                  <td class="text-right estimativa">R$ ${valorEstimativa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  <td class="text-right estimativa">R$ ${valorEstimativa.toFixed(2)}<br/><small>(Total: R$ ${totalItemEstimativa.toFixed(2)})</small></td>
                 </tr>
               `;
             });
@@ -310,7 +339,7 @@ export function DialogPlanilhaConsolidada({
           html += `
                 <tr class="total">
                   <td colspan="${4 + respostas.length}"><strong>TOTAL DO LOTE ${primeiroItem.lote_numero}</strong></td>
-                  <td class="text-right"><strong>R$ ${totalLoteEstimativa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></td>
+                  <td class="text-right"><strong>R$ ${totalLoteEstimativa.toFixed(2)}</strong></td>
                 </tr>
               </tbody>
             </table>
@@ -357,7 +386,7 @@ export function DialogPlanilhaConsolidada({
             const valores = itens.map(i => i.valor_unitario_ofertado);
             const stats = calcularEstatisticas(valores);
             const valorEstimativa = stats[tipoCalculoItem];
-            const totalItemEstimativa = valorEstimativa * item.quantidade;
+            const totalItemEstimativa = Math.round(valorEstimativa * item.quantidade * 100) / 100;
             totalGeralEstimativa += totalItemEstimativa;
 
             html += `
@@ -370,15 +399,20 @@ export function DialogPlanilhaConsolidada({
 
             respostas.forEach(resposta => {
               const itemResposta = resposta.itens.find(i => i.numero_item === numeroItem);
+              const valorTotal = itemResposta 
+                ? Math.round(itemResposta.valor_unitario_ofertado * item.quantidade * 100) / 100
+                : 0;
               html += `
                 <td class="text-right">
-                  ${itemResposta ? `R$ ${itemResposta.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"}
+                  ${itemResposta 
+                    ? `R$ ${itemResposta.valor_unitario_ofertado.toFixed(2)}<br/><small>(Total: R$ ${valorTotal.toFixed(2)})</small>` 
+                    : "-"}
                 </td>
               `;
             });
 
             html += `
-                <td class="text-right estimativa">R$ ${valorEstimativa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                <td class="text-right estimativa">R$ ${valorEstimativa.toFixed(2)}<br/><small>(Total: R$ ${totalItemEstimativa.toFixed(2)})</small></td>
               </tr>
             `;
           });
@@ -386,7 +420,7 @@ export function DialogPlanilhaConsolidada({
         html += `
               <tr class="total">
                 <td colspan="${4 + respostas.length}"><strong>VALOR TOTAL ESTIMADO</strong></td>
-                <td class="text-right"><strong>R$ ${totalGeralEstimativa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></td>
+                <td class="text-right"><strong>R$ ${totalGeralEstimativa.toFixed(2)}</strong></td>
               </tr>
             </tbody>
           </table>
@@ -421,38 +455,24 @@ export function DialogPlanilhaConsolidada({
     }
   };
 
-  // Obter lista de itens únicos para configuração de TODAS as respostas
-  const itensUnicos = respostas.length > 0 
-    ? (() => {
-        const todosItensMap = new Map<number, any>();
-        respostas.forEach(resposta => {
-          resposta.itens.forEach(item => {
-            if (!todosItensMap.has(item.numero_item)) {
-              todosItensMap.set(item.numero_item, item);
-            }
-          });
-        });
-        return Array.from(todosItensMap.values()).sort((a, b) => a.numero_item - b.numero_item);
-      })()
-    : [];
+  // Obter lista de TODOS os itens da cotação do state
+  const itensUnicos = todosItens.sort((a, b) => a.numero_item - b.numero_item);
 
-  // Obter lotes únicos de TODAS as respostas
-  const lotesUnicos = respostas.length > 0 && criterioJulgamento === "por_lote"
+  // Obter lotes únicos de TODOS os itens
+  const lotesUnicos = todosItens.length > 0 && criterioJulgamento === "por_lote"
     ? (() => {
         const lotesMap = new Map<string, any>();
-        respostas.forEach(resposta => {
-          resposta.itens
-            .filter(i => i.lote_id)
-            .forEach(i => {
-              if (!lotesMap.has(i.lote_id!)) {
-                lotesMap.set(i.lote_id!, { 
-                  id: i.lote_id!, 
-                  numero: i.lote_numero!, 
-                  descricao: i.lote_descricao! 
-                });
-              }
-            });
-        });
+        todosItens
+          .filter((i: any) => i.lote_id)
+          .forEach((i: any) => {
+            if (!lotesMap.has(i.lote_id!)) {
+              lotesMap.set(i.lote_id!, { 
+                id: i.lote_id!, 
+                numero: i.lote?.numero_lote || 0, 
+                descricao: i.lote?.descricao_lote || ""
+              });
+            }
+          });
         return Array.from(lotesMap.values()).sort((a, b) => a.numero - b.numero);
       })()
     : [];
