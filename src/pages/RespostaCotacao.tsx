@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { toast } from "sonner";
 import { z } from "zod";
+
+// Cliente Supabase anônimo para permitir envio sem autenticação
+const supabaseAnon = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+);
 
 const UFS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
@@ -131,7 +137,7 @@ const RespostaCotacao = () => {
   const loadCotacao = async () => {
     try {
       // Buscar cotação diretamente
-      const { data: cotacao, error: cotacaoError } = await supabase
+      const { data: cotacao, error: cotacaoError } = await supabaseAnon
         .from("cotacoes_precos")
         .select("*")
         .eq("id", cotacaoIdParam)
@@ -157,7 +163,7 @@ const RespostaCotacao = () => {
       setDataLimite(cotacao.data_limite_resposta);
 
       // Carregar itens da cotação
-      const { data: itensData, error: itensError } = await supabase
+      const { data: itensData, error: itensError } = await supabaseAnon
         .from("itens_cotacao")
         .select("*")
         .eq("cotacao_id", cotacao.id)
@@ -212,7 +218,7 @@ const RespostaCotacao = () => {
       let fornecedorId: string | undefined;
       
       // SEMPRE tentar buscar primeiro
-      const { data: fornecedorBuscado } = await supabase
+      const { data: fornecedorBuscado } = await supabaseAnon
         .from("fornecedores")
         .select("id")
         .eq("cnpj", cnpjLimpo)
@@ -224,7 +230,7 @@ const RespostaCotacao = () => {
         fornecedorId = fornecedorBuscado.id;
       } else {
         // Não existe, tentar criar
-        const { data: fornecedorCriado, error: erroCreate } = await supabase
+        const { data: fornecedorCriado, error: erroCreate } = await supabaseAnon
           .from("fornecedores")
           .insert({
             razao_social: dadosEmpresa.razao_social,
@@ -240,7 +246,7 @@ const RespostaCotacao = () => {
 
         if (erroCreate) {
           // Se deu erro (provavelmente duplicado por race condition), buscar novamente
-          const { data: fornecedorRetry } = await supabase
+          const { data: fornecedorRetry } = await supabaseAnon
             .from("fornecedores")
             .select("id")
             .eq("cnpj", cnpjLimpo)
@@ -266,7 +272,7 @@ const RespostaCotacao = () => {
       }, 0);
 
       // Criar resposta da cotação
-      const { data: resposta, error: respostaError } = await supabase
+      const { data: resposta, error: respostaError } = await supabaseAnon
         .from("cotacao_respostas_fornecedor")
         .insert({
           cotacao_id: cotacaoId,
@@ -286,7 +292,7 @@ const RespostaCotacao = () => {
         valor_unitario_ofertado: valoresItens[item.id],
       }));
 
-      const { error: itensError } = await supabase
+      const { error: itensError } = await supabaseAnon
         .from("respostas_itens_fornecedor")
         .insert(respostasItens);
 
