@@ -98,6 +98,13 @@ interface ItemCotacao {
   descricao: string;
   quantidade: number;
   unidade: string;
+  lote_id: string | null;
+}
+
+interface Lote {
+  id: string;
+  numero_lote: number;
+  descricao_lote: string;
 }
 
 interface RespostaItem {
@@ -113,6 +120,8 @@ const RespostaCotacao = () => {
   const [saving, setSaving] = useState(false);
   const [cotacaoId, setCotacaoId] = useState<string | null>(null);
   const [itens, setItens] = useState<ItemCotacao[]>([]);
+  const [lotes, setLotes] = useState<Lote[]>([]);
+  const [criterioJulgamento, setCriterioJulgamento] = useState<'global' | 'por_item' | 'por_lote'>('global');
   const [cotacaoTitulo, setCotacaoTitulo] = useState("");
   const [cotacaoDescricao, setCotacaoDescricao] = useState("");
   const [dataLimite, setDataLimite] = useState("");
@@ -168,6 +177,22 @@ const RespostaCotacao = () => {
       setCotacaoTitulo(cotacao.titulo_cotacao);
       setCotacaoDescricao(cotacao.descricao_cotacao || "");
       setDataLimite(cotacao.data_limite_resposta);
+      setCriterioJulgamento(cotacao.criterio_julgamento || 'global');
+
+      // Carregar lotes se for por lote
+      if (cotacao.criterio_julgamento === 'por_lote') {
+        const { data: lotesData, error: lotesError } = await supabaseAnon
+          .from("lotes_cotacao")
+          .select("*")
+          .eq("cotacao_id", cotacao.id)
+          .order("numero_lote", { ascending: true });
+
+        if (lotesError) {
+          console.error("Erro ao carregar lotes:", lotesError);
+        } else {
+          setLotes(lotesData || []);
+        }
+      }
 
       // Carregar itens da cotação
       const { data: itensData, error: itensError } = await supabaseAnon
@@ -526,61 +551,159 @@ const RespostaCotacao = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-20">Item</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="w-24">Qtd</TableHead>
-                    <TableHead className="w-24">Unid.</TableHead>
-                    <TableHead className="w-40">Valor Unitário (R$) *</TableHead>
-                    <TableHead className="w-32 text-right">Valor Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {itens.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.numero_item}</TableCell>
-                      <TableCell>{item.descricao}</TableCell>
-                      <TableCell>{item.quantidade}</TableCell>
-                      <TableCell>{item.unidade}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={valoresItens[item.id] ?? ""}
-                          onChange={(e) => {
-                            const valor = e.target.value === "" ? 0 : parseFloat(e.target.value);
-                            setValoresItens({
-                              ...valoresItens,
-                              [item.id]: valor
-                            });
-                          }}
-                          onBlur={(e) => {
-                            const valor = parseFloat(e.target.value) || 0;
-                            setValoresItens({
-                              ...valoresItens,
-                              [item.id]: parseFloat(valor.toFixed(2))
-                            });
-                          }}
-                          placeholder="0,00"
-                          required
-                        />
-                      </TableCell>
+              {criterioJulgamento === 'por_lote' && lotes.length > 0 ? (
+                // Exibição por lote
+                <div className="space-y-6">
+                  {lotes.map((lote) => {
+                    const itensDoLote = itens.filter(item => item.lote_id === lote.id);
+                    const totalLote = itensDoLote.reduce((acc, item) => {
+                      const valor = valoresItens[item.id] || 0;
+                      return acc + (valor * item.quantidade);
+                    }, 0);
+
+                    return (
+                      <div key={lote.id} className="border rounded-lg overflow-hidden">
+                        <div className="bg-primary text-primary-foreground px-4 py-3">
+                          <h3 className="font-semibold">
+                            LOTE {lote.numero_lote} - {lote.descricao_lote}
+                          </h3>
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-20">Item</TableHead>
+                              <TableHead>Descrição</TableHead>
+                              <TableHead className="w-24">Qtd</TableHead>
+                              <TableHead className="w-24">Unid.</TableHead>
+                              <TableHead className="w-40">Valor Unitário (R$) *</TableHead>
+                              <TableHead className="w-32 text-right">Valor Total</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {itensDoLote.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell>{item.numero_item}</TableCell>
+                                <TableCell>{item.descricao}</TableCell>
+                                <TableCell>{item.quantidade}</TableCell>
+                                <TableCell>{item.unidade}</TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={valoresItens[item.id] ?? ""}
+                                    onChange={(e) => {
+                                      const valor = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                                      setValoresItens({
+                                        ...valoresItens,
+                                        [item.id]: valor
+                                      });
+                                    }}
+                                    onBlur={(e) => {
+                                      const valor = parseFloat(e.target.value) || 0;
+                                      setValoresItens({
+                                        ...valoresItens,
+                                        [item.id]: parseFloat(valor.toFixed(2))
+                                      });
+                                    }}
+                                    placeholder="0,00"
+                                    required
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right font-medium">
+                                  R$ {((valoresItens[item.id] || 0) * item.quantidade).toLocaleString("pt-BR", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow className="bg-muted/50">
+                              <TableCell colSpan={5} className="text-right font-semibold">
+                                TOTAL DO LOTE {lote.numero_lote}:
+                              </TableCell>
+                              <TableCell className="text-right font-bold text-lg">
+                                R$ {totalLote.toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    );
+                  })}
+                  <div className="bg-primary text-primary-foreground px-6 py-4 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold">TOTAL GERAL:</span>
+                      <span className="text-2xl font-bold">
+                        R$ {calcularTotalGeral().toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Exibição padrão (global ou por item)
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-20">Item</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="w-24">Qtd</TableHead>
+                      <TableHead className="w-24">Unid.</TableHead>
+                      <TableHead className="w-40">Valor Unitário (R$) *</TableHead>
+                      <TableHead className="w-32 text-right">Valor Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {itens.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.numero_item}</TableCell>
+                        <TableCell>{item.descricao}</TableCell>
+                        <TableCell>{item.quantidade}</TableCell>
+                        <TableCell>{item.unidade}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={valoresItens[item.id] ?? ""}
+                            onChange={(e) => {
+                              const valor = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                              setValoresItens({
+                                ...valoresItens,
+                                [item.id]: valor
+                              });
+                            }}
+                            onBlur={(e) => {
+                              const valor = parseFloat(e.target.value) || 0;
+                              setValoresItens({
+                                ...valoresItens,
+                                [item.id]: parseFloat(valor.toFixed(2))
+                              });
+                            }}
+                            placeholder="0,00"
+                            required
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          R$ {calcularTotalItem(item).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-bold bg-muted">
+                      <TableCell colSpan={5} className="text-right">TOTAL GERAL:</TableCell>
                       <TableCell className="text-right">
-                        R$ {calcularTotalItem(item).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        R$ {calcularTotalGeral().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
-                  ))}
-                  <TableRow className="font-bold bg-muted">
-                    <TableCell colSpan={5} className="text-right">TOTAL GERAL:</TableCell>
-                    <TableCell className="text-right">
-                      R$ {calcularTotalGeral().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                  </TableBody>
+                </Table>
+              )}
 
               <div className="mt-4 grid gap-2">
                 <Label htmlFor="observacoes">Observações</Label>
