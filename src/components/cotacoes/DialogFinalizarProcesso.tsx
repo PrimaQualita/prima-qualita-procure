@@ -58,6 +58,7 @@ export function DialogFinalizarProcesso({
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState<string>("");
   const [documentosExistentes, setDocumentosExistentes] = useState<DocumentoExistente[]>([]);
+  const [itensVencedores, setItensVencedores] = useState<any[]>([]);
   const [campos, setCampos] = useState<CampoDocumento[]>([]);
   const [novoCampo, setNovoCampo] = useState<CampoDocumento>({
     nome_campo: "",
@@ -69,7 +70,7 @@ export function DialogFinalizarProcesso({
 
   useEffect(() => {
     if (open) {
-      loadFornecedoresAprovados();
+      loadFornecedoresVencedores();
       loadCamposExistentes();
     }
   }, [open, cotacaoId]);
@@ -77,23 +78,238 @@ export function DialogFinalizarProcesso({
   useEffect(() => {
     if (fornecedorSelecionado) {
       loadDocumentosFornecedor(fornecedorSelecionado);
+      loadItensVencedores(fornecedorSelecionado);
     } else {
       setDocumentosExistentes([]);
+      setItensVencedores([]);
     }
   }, [fornecedorSelecionado]);
 
-  const loadFornecedoresAprovados = async () => {
-    const { data, error } = await supabase
-      .from("fornecedores")
-      .select("id, razao_social")
-      .eq("status_aprovacao", "aprovado")
-      .eq("ativo", true)
-      .order("razao_social");
+  const loadFornecedoresVencedores = async () => {
+    try {
+      // Buscar cotação com critério de julgamento
+      const { data: cotacao, error: cotacaoError } = await supabase
+        .from("cotacoes_precos")
+        .select("criterio_julgamento")
+        .eq("id", cotacaoId)
+        .single();
 
-    if (error) {
-      console.error("Erro ao carregar fornecedores:", error);
-    } else {
-      setFornecedores(data || []);
+      if (cotacaoError) throw cotacaoError;
+
+      // Buscar respostas dos fornecedores
+      const { data: respostas, error: respostasError } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          id,
+          fornecedor_id,
+          valor_total_anual_ofertado,
+          fornecedores!inner(id, razao_social)
+        `)
+        .eq("cotacao_id", cotacaoId);
+
+      if (respostasError) throw respostasError;
+
+      // Buscar itens das respostas
+      const { data: itens, error: itensError } = await supabase
+        .from("respostas_itens_fornecedor")
+        .select(`
+          id,
+          cotacao_resposta_fornecedor_id,
+          item_cotacao_id,
+          valor_unitario_ofertado,
+          itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade)
+        `)
+        .in("cotacao_resposta_fornecedor_id", respostas?.map(r => r.id) || []);
+
+      if (itensError) throw itensError;
+
+      const criterio = cotacao?.criterio_julgamento || "global";
+      const fornecedoresVencedores = new Set<string>();
+
+      if (criterio === "global") {
+        // Menor preço global - um único vencedor
+        const menorValor = Math.min(...(respostas?.map(r => Number(r.valor_total_anual_ofertado)) || []));
+        const vencedor = respostas?.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
+        if (vencedor) fornecedoresVencedores.add(vencedor.fornecedor_id);
+      } else if (criterio === "item") {
+        // Menor preço por item - pode ter múltiplos vencedores
+        const itensPorNumero = itens?.reduce((acc, item) => {
+          const numItem = item.itens_cotacao.numero_item;
+          if (!acc[numItem]) acc[numItem] = [];
+          acc[numItem].push(item);
+          return acc;
+        }, {} as Record<number, any[]>) || {};
+
+        Object.values(itensPorNumero).forEach(itensDoNumero => {
+          const menorValor = Math.min(...itensDoNumero.map(i => Number(i.valor_unitario_ofertado)));
+          const vencedor = itensDoNumero.find(i => Number(i.valor_unitario_ofertado) === menorValor);
+          if (vencedor) {
+            const resposta = respostas?.find(r => r.id === vencedor.cotacao_resposta_fornecedor_id);
+            if (resposta) fornecedoresVencedores.add(resposta.fornecedor_id);
+          }
+        });
+      } else if (criterio === "lote") {
+        // Menor preço por lote - pode ter múltiplos vencedores
+        const itensPorLote = itens?.reduce((acc, item) => {
+          const loteId = item.itens_cotacao.lote_id;
+          if (!loteId) return acc;
+          if (!acc[loteId]) acc[loteId] = {};
+          
+          const respostaId = item.cotacao_resposta_fornecedor_id;
+          if (!acc[loteId][respostaId]) acc[loteId][respostaId] = [];
+          acc[loteId][respostaId].push(item);
+          return acc;
+        }, {} as Record<string, Record<string, any[]>>) || {};
+
+        Object.values(itensPorLote).forEach(respostasPorLote => {
+          const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itensLote]) => {
+            const total = itensLote.reduce((sum, item) => {
+              return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
+            }, 0);
+            return { respostaId, total };
+          });
+
+          const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
+          const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
+          if (vencedor) {
+            const resposta = respostas?.find(r => r.id === vencedor.respostaId);
+            if (resposta) fornecedoresVencedores.add(resposta.fornecedor_id);
+          }
+        });
+      }
+
+      // Filtrar apenas fornecedores vencedores
+      const fornecedoresFiltrados = respostas
+        ?.filter(r => fornecedoresVencedores.has(r.fornecedor_id))
+        .map(r => ({
+          id: r.fornecedor_id,
+          razao_social: r.fornecedores.razao_social
+        }))
+        .filter((f, index, self) => self.findIndex(x => x.id === f.id) === index) // Remove duplicados
+        .sort((a, b) => a.razao_social.localeCompare(b.razao_social)) || [];
+
+      setFornecedores(fornecedoresFiltrados);
+    } catch (error) {
+      console.error("Erro ao carregar fornecedores vencedores:", error);
+      toast.error("Erro ao carregar fornecedores vencedores");
+    }
+  };
+
+  const loadItensVencedores = async (fornecedorId: string) => {
+    try {
+      // Buscar cotação com critério de julgamento
+      const { data: cotacao, error: cotacaoError } = await supabase
+        .from("cotacoes_precos")
+        .select("criterio_julgamento")
+        .eq("id", cotacaoId)
+        .single();
+
+      if (cotacaoError) throw cotacaoError;
+
+      // Buscar resposta deste fornecedor
+      const { data: resposta, error: respostaError } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select("id")
+        .eq("cotacao_id", cotacaoId)
+        .eq("fornecedor_id", fornecedorId)
+        .single();
+
+      if (respostaError) throw respostaError;
+
+      // Buscar todos os itens deste fornecedor
+      const { data: itensDoFornecedor, error: itensError } = await supabase
+        .from("respostas_itens_fornecedor")
+        .select(`
+          id,
+          valor_unitario_ofertado,
+          itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade, lotes_cotacao(numero_lote, descricao_lote))
+        `)
+        .eq("cotacao_resposta_fornecedor_id", resposta.id);
+
+      if (itensError) throw itensError;
+
+      // Buscar todas as respostas para comparação
+      const { data: todasRespostas, error: todasRespostasError } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select("id, fornecedor_id")
+        .eq("cotacao_id", cotacaoId);
+
+      if (todasRespostasError) throw todasRespostasError;
+
+      const { data: todosItens, error: todosItensError } = await supabase
+        .from("respostas_itens_fornecedor")
+        .select(`
+          id,
+          cotacao_resposta_fornecedor_id,
+          item_cotacao_id,
+          valor_unitario_ofertado,
+          itens_cotacao!inner(numero_item, lote_id, quantidade)
+        `)
+        .in("cotacao_resposta_fornecedor_id", todasRespostas?.map(r => r.id) || []);
+
+      if (todosItensError) throw todosItensError;
+
+      const criterio = cotacao?.criterio_julgamento || "global";
+      const itensVencidos: any[] = [];
+
+      if (criterio === "global") {
+        // Global - todos os itens são vencedores
+        itensVencidos.push(...itensDoFornecedor.map(item => ({
+          ...item,
+          vencedor: true
+        })));
+      } else if (criterio === "item") {
+        // Por item - verificar cada item
+        itensDoFornecedor.forEach(itemFornecedor => {
+          const numeroItem = itemFornecedor.itens_cotacao.numero_item;
+          const itensComMesmoNumero = todosItens?.filter(i => i.itens_cotacao.numero_item === numeroItem) || [];
+          const menorValor = Math.min(...itensComMesmoNumero.map(i => Number(i.valor_unitario_ofertado)));
+          const ehVencedor = Number(itemFornecedor.valor_unitario_ofertado) === menorValor;
+          
+          if (ehVencedor) {
+            itensVencidos.push({
+              ...itemFornecedor,
+              vencedor: true
+            });
+          }
+        });
+      } else if (criterio === "lote") {
+        // Por lote - agrupar por lote e verificar
+        const loteIds = [...new Set(itensDoFornecedor.map(i => i.itens_cotacao.lote_id).filter(Boolean))];
+        
+        loteIds.forEach(loteId => {
+          const itensDoLote = todosItens?.filter(i => i.itens_cotacao.lote_id === loteId) || [];
+          const respostasPorLote = itensDoLote.reduce((acc, item) => {
+            const respostaId = item.cotacao_resposta_fornecedor_id;
+            if (!acc[respostaId]) acc[respostaId] = [];
+            acc[respostaId].push(item);
+            return acc;
+          }, {} as Record<string, any[]>);
+
+          const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itens]) => {
+            const total = itens.reduce((sum, item) => {
+              return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
+            }, 0);
+            return { respostaId, total };
+          });
+
+          const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
+          const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
+          
+          if (vencedor?.respostaId === resposta.id) {
+            const itensVencedoresDoLote = itensDoFornecedor.filter(i => i.itens_cotacao.lote_id === loteId);
+            itensVencidos.push(...itensVencedoresDoLote.map(item => ({
+              ...item,
+              vencedor: true
+            })));
+          }
+        });
+      }
+
+      setItensVencedores(itensVencidos.sort((a, b) => a.itens_cotacao.numero_item - b.itens_cotacao.numero_item));
+    } catch (error) {
+      console.error("Erro ao carregar itens vencedores:", error);
+      setItensVencedores([]);
     }
   };
 
@@ -302,6 +518,35 @@ export function DialogFinalizarProcesso({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Itens Vencedores */}
+          {fornecedorSelecionado && itensVencedores.length > 0 && (
+            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                🏆 Itens Vencedores do Fornecedor
+              </h3>
+              <div className="space-y-2">
+                {itensVencedores.map((item) => (
+                  <div key={item.id} className="flex items-start justify-between text-sm p-2 bg-white dark:bg-background rounded border">
+                    <div className="flex-1">
+                      <span className="font-medium">Item {item.itens_cotacao.numero_item}</span>
+                      {item.itens_cotacao.lotes_cotacao && (
+                        <span className="text-muted-foreground ml-2">
+                          • Lote {item.itens_cotacao.lotes_cotacao.numero_lote}
+                        </span>
+                      )}
+                      <p className="text-muted-foreground mt-1">{item.itens_cotacao.descricao}</p>
+                      <p className="text-sm mt-1">
+                        Quantidade: {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade} • 
+                        Valor Unitário: R$ {Number(item.valor_unitario_ofertado).toFixed(2)} • 
+                        Total: R$ {(Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade)).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Documentos Existentes do Fornecedor */}
           {fornecedorSelecionado && documentosExistentes.length > 0 && (
