@@ -57,18 +57,42 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      // Load profile
+      // PRIMEIRO: Verificar se é fornecedor
+      const { data: fornecedorData } = await supabase
+        .from("fornecedores")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (fornecedorData) {
+        // É fornecedor - redirecionar para portal
+        navigate("/portal-fornecedor");
+        return;
+      }
+
+      // SEGUNDO: Carregar profile de usuário interno
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        // Usuário não é fornecedor nem tem profile - acesso negado
+        toast({
+          title: "Acesso negado",
+          description: "Usuário não autorizado a acessar o sistema.",
+          variant: "destructive",
+        });
+        await supabase.auth.signOut();
+        navigate("/auth");
+        return;
+      }
+
       setProfile(profileData);
 
       // Check if first access
-      if (profileData?.primeiro_acesso) {
+      if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
         return;
       }
@@ -89,6 +113,8 @@ const Dashboard = () => {
         description: error.message,
         variant: "destructive",
       });
+      await supabase.auth.signOut();
+      navigate("/auth");
     } finally {
       setLoading(false);
     }
