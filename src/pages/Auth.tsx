@@ -57,7 +57,7 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.session) {
-        // Verificar se é fornecedor
+        // Verificar se é fornecedor (independente do status de aprovação)
         const { data: fornecedorData } = await supabase
           .from("fornecedores")
           .select("id, status_aprovacao")
@@ -65,10 +65,15 @@ const Auth = () => {
           .maybeSingle();
 
         if (fornecedorData) {
-          // É fornecedor - redirecionar para portal do fornecedor
+          // É fornecedor - permitir acesso ao portal mesmo se pendente
+          // Fornecedores podem participar de cotações/seleções sem aprovação
+          const statusMsg = fornecedorData.status_aprovacao === 'pendente' 
+            ? 'Seu cadastro está em análise, mas você já pode acessar o portal.'
+            : 'Bem-vindo ao Portal do Fornecedor.';
+          
           toast({
             title: "Login realizado com sucesso!",
-            description: "Bem-vindo ao Portal do Fornecedor.",
+            description: statusMsg,
           });
           navigate("/portal-fornecedor");
           return;

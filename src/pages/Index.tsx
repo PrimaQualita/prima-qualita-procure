@@ -14,7 +14,7 @@ const Index = () => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        // Verificar se é fornecedor
+        // Verificar se é fornecedor (independente do status de aprovação)
         const { data: fornecedorData } = await supabase
           .from("fornecedores")
           .select("id, status_aprovacao")
@@ -22,11 +22,25 @@ const Index = () => {
           .maybeSingle();
 
         if (fornecedorData) {
-          // É fornecedor - redirecionar para portal do fornecedor
+          // É fornecedor - redirecionar para portal (mesmo pendente pode acessar)
+          // Fornecedores pendentes podem participar de cotações e seleções
           navigate("/portal-fornecedor");
         } else {
-          // É usuário interno - redirecionar para dashboard
-          navigate("/dashboard");
+          // Verificar se é usuário interno
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("primeiro_acesso, senha_temporaria")
+            .eq("id", session.user.id)
+            .maybeSingle();
+
+          if (profileData) {
+            // É usuário interno
+            if (profileData.primeiro_acesso || profileData.senha_temporaria) {
+              navigate("/troca-senha");
+            } else {
+              navigate("/dashboard");
+            }
+          }
         }
       }
     };
