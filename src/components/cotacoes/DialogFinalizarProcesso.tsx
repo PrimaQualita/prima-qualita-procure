@@ -835,26 +835,26 @@ export function DialogFinalizarProcesso({
                   Adicionar Campo
                 </Button>
               </div>
+            </div>
 
-              {/* Botão Enviar Solicitação */}
-              {campos.length > 0 && (
-                <div className="mt-4 pt-4 border-t">
-                  <Button 
-                    type="button" 
-                    onClick={handleEnviarSolicitacao}
-                    disabled={loading || !dataLimiteDocumentos}
-                    className="w-full"
-                  >
-                    Enviar Solicitação ao Fornecedor
-                  </Button>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    O fornecedor receberá notificação e poderá enviar os documentos através do portal
-                  </p>
-                </div>
-              )}
+            {/* Botão Enviar Solicitação - aparece após adicionar pelo menos um campo */}
+            {campos.length > 0 && dataLimiteDocumentos && (
+              <div className="pt-4 border-t">
+                <Button 
+                  type="button" 
+                  onClick={handleEnviarSolicitacao}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  Enviar Solicitação ao Fornecedor
+                </Button>
+                <p className="text-sm text-muted-foreground mt-2 text-center">
+                  O fornecedor receberá notificação e poderá enviar os documentos através do portal
+                </p>
               </div>
+            )}
               
-              {/* Data Limite para Documentos */}
+            {/* Data Limite para Documentos */}
               {campos.length > 0 && (
                 <div className="grid gap-2">
                   <Label htmlFor="data_limite">Data Limite para Envio dos Documentos *</Label>
