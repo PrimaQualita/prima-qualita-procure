@@ -9,13 +9,24 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FileDown } from "lucide-react";
 import { toast } from "sonner";
+import { stripHtml } from "@/lib/htmlUtils";
 
 interface DialogRespostasCotacaoProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cotacaoId: string;
   tituloCotacao: string;
+}
+
+interface ItemResposta {
+  numero_item: number;
+  descricao: string;
+  quantidade: number;
+  unidade: string;
+  valor_unitario_ofertado: number;
 }
 
 interface RespostaFornecedor {
@@ -37,6 +48,8 @@ export function DialogRespostasCotacao({
 }: DialogRespostasCotacaoProps) {
   const [respostas, setRespostas] = useState<RespostaFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cotacaoDescricao, setCotacaoDescricao] = useState("");
+  const [processoNumero, setProcessoNumero] = useState("");
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -47,6 +60,23 @@ export function DialogRespostasCotacao({
   const loadRespostas = async () => {
     setLoading(true);
     try {
+      // Buscar cotação com processo
+      const { data: cotacao } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          descricao_cotacao,
+          processos_compras:processo_compra_id (
+            numero_processo_interno
+          )
+        `)
+        .eq("id", cotacaoId)
+        .single();
+
+      if (cotacao) {
+        setCotacaoDescricao(cotacao.descricao_cotacao || "");
+        setProcessoNumero((cotacao.processos_compras as any)?.numero_processo_interno || "");
+      }
+
       const { data, error } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -82,6 +112,125 @@ export function DialogRespostasCotacao({
       toast.error("Erro ao carregar respostas");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const gerarPDFProposta = async (resposta: RespostaFornecedor) => {
+    try {
+      // Buscar itens da resposta
+      const { data: itensData } = await supabase
+        .from("respostas_itens_fornecedor")
+        .select(`
+          valor_unitario_ofertado,
+          itens_cotacao:item_cotacao_id (
+            numero_item,
+            descricao,
+            quantidade,
+            unidade
+          )
+        `)
+        .eq("cotacao_resposta_fornecedor_id", resposta.id)
+        .order("item_cotacao_id");
+
+      const itens: ItemResposta[] = (itensData || []).map((item: any) => ({
+        numero_item: item.itens_cotacao?.numero_item || 0,
+        descricao: item.itens_cotacao?.descricao || "",
+        quantidade: item.itens_cotacao?.quantidade || 0,
+        unidade: item.itens_cotacao?.unidade || "",
+        valor_unitario_ofertado: item.valor_unitario_ofertado,
+      }));
+
+      // Gerar HTML para PDF
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            h1 { color: #0ea5e9; font-size: 24px; margin-bottom: 10px; }
+            h2 { color: #0284c7; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
+            .info { margin-bottom: 20px; }
+            .info p { margin: 5px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #0ea5e9; color: white; }
+            .text-right { text-align: right; }
+            .total { font-weight: bold; background-color: #f0f9ff; }
+            .observacoes { margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #0ea5e9; }
+          </style>
+        </head>
+        <body>
+          <h1>PROPOSTA DE COTAÇÃO DE PREÇOS</h1>
+          
+          <div class="info">
+            <p><strong>Processo:</strong> ${processoNumero}</p>
+            <p><strong>Cotação:</strong> ${tituloCotacao}</p>
+            <p><strong>Descrição:</strong> ${stripHtml(cotacaoDescricao)}</p>
+            <p><strong>Data de Envio:</strong> ${new Date(resposta.data_envio_resposta).toLocaleString("pt-BR")}</p>
+          </div>
+
+          <h2>Dados do Fornecedor</h2>
+          <div class="info">
+            <p><strong>Razão Social:</strong> ${resposta.fornecedor.razao_social}</p>
+            <p><strong>CNPJ:</strong> ${formatarCNPJ(resposta.fornecedor.cnpj)}</p>
+          </div>
+
+          <h2>Itens Cotados</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Descrição</th>
+                <th class="text-right">Quantidade</th>
+                <th>Unidade</th>
+                <th class="text-right">Valor Unitário</th>
+                <th class="text-right">Valor Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itens.map(item => `
+                <tr>
+                  <td>${item.numero_item}</td>
+                  <td>${stripHtml(item.descricao)}</td>
+                  <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
+                  <td>${item.unidade}</td>
+                  <td class="text-right">R$ ${item.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  <td class="text-right">R$ ${(item.quantidade * item.valor_unitario_ofertado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                </tr>
+              `).join("")}
+              <tr class="total">
+                <td colspan="5" class="text-right"><strong>VALOR TOTAL ANUAL</strong></td>
+                <td class="text-right"><strong>R$ ${resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          ${resposta.observacoes_fornecedor ? `
+            <div class="observacoes">
+              <h3 style="margin-top: 0;">Observações do Fornecedor:</h3>
+              <p>${stripHtml(resposta.observacoes_fornecedor)}</p>
+            </div>
+          ` : ""}
+        </body>
+        </html>
+      `;
+
+      // Criar blob e fazer download
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Proposta_${resposta.fornecedor.razao_social.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date(resposta.data_envio_resposta).toLocaleDateString("pt-BR").replace(/\//g, "-")}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("PDF da proposta gerado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast.error("Erro ao gerar PDF da proposta");
     }
   };
 
@@ -130,6 +279,7 @@ export function DialogRespostasCotacao({
                   <TableHead className="text-right">Valor Total Ofertado</TableHead>
                   <TableHead>Data Envio</TableHead>
                   <TableHead>Observações</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -156,6 +306,16 @@ export function DialogRespostasCotacao({
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
                         {resposta.observacoes_fornecedor || "-"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => gerarPDFProposta(resposta)}
+                        >
+                          <FileDown className="h-4 w-4 mr-2" />
+                          Baixar Proposta
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
