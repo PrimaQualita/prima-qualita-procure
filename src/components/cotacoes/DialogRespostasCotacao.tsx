@@ -158,6 +158,11 @@ export function DialogRespostasCotacao({
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
             th { background-color: #0ea5e9; color: white; }
+            .certificacao { margin-top: 40px; padding: 20px; background-color: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 8px; }
+            .certificacao h3 { margin-top: 0; color: #0284c7; font-size: 16px; }
+            .certificacao p { margin: 8px 0; font-size: 13px; }
+            .hash { font-family: monospace; color: #059669; word-break: break-all; font-size: 11px; }
+            .autenticidade { margin-top: 15px; font-size: 12px; font-style: italic; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 15px; }
             .text-right { text-align: right; }
             .total { font-weight: bold; background-color: #f0f9ff; }
             .observacoes { margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #0ea5e9; }
@@ -215,6 +220,28 @@ export function DialogRespostasCotacao({
               <p>${stripHtml(resposta.observacoes_fornecedor)}</p>
             </div>
           ` : ""}
+
+          <div class="certificacao">
+            <h3>🔒 CERTIFICADO DE AUTENTICIDADE DIGITAL</h3>
+            <p><strong>Protocolo de Envio:</strong> ${resposta.id.toUpperCase()}</p>
+            <p><strong>Data e Hora de Envio:</strong> ${new Date(resposta.data_envio_resposta).toLocaleString("pt-BR", { 
+              day: "2-digit", 
+              month: "2-digit", 
+              year: "numeric", 
+              hour: "2-digit", 
+              minute: "2-digit", 
+              second: "2-digit",
+              timeZone: "America/Sao_Paulo"
+            })} (Horário de Brasília)</p>
+            <p><strong>CNPJ do Fornecedor:</strong> ${formatarCNPJ(resposta.fornecedor.cnpj)}</p>
+            <p><strong>Hash de Verificação:</strong> <span class="hash">${resposta.id.replace(/-/g, "").substring(0, 32)}</span></p>
+            
+            <div class="autenticidade">
+              Este documento foi gerado eletronicamente através do sistema de cotação de preços e possui validade jurídica conforme 
+              Lei nº 14.063/2020 (Marco Legal da Assinatura Eletrônica). A autenticidade pode ser verificada através do protocolo de envio 
+              informado acima. Qualquer alteração após o envio invalidará este certificado.
+            </div>
+          </div>
         </body>
         </html>
       `;
