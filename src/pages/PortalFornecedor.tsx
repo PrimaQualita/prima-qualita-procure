@@ -210,13 +210,18 @@ export default function PortalFornecedor() {
       if (upsertError) throw upsertError;
 
       // Atualizar status do campo para "em_analise"
-      await supabase
+      const { error: updateError } = await supabase
         .from('campos_documentos_finalizacao')
         .update({ 
           status_solicitacao: 'em_analise',
           data_conclusao: new Date().toISOString()
         })
         .eq('id', campoId);
+
+      if (updateError) {
+        console.error("Erro ao atualizar status:", updateError);
+        throw updateError;
+      }
 
       toast.success("Documento enviado com sucesso!");
       await loadDocumentosPendentes(fornecedor.id);
