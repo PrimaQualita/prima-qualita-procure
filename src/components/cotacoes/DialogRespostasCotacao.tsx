@@ -10,7 +10,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileDown, Mail } from "lucide-react";
+import { FileDown, Mail, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -306,6 +306,44 @@ export function DialogRespostasCotacao({
     setEmailCorrecaoOpen(false);
   };
 
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [respostaParaExcluir, setRespostaParaExcluir] = useState<RespostaFornecedor | null>(null);
+
+  const confirmarExclusao = (resposta: RespostaFornecedor) => {
+    setRespostaParaExcluir(resposta);
+    setConfirmDeleteOpen(true);
+  };
+
+  const excluirResposta = async () => {
+    if (!respostaParaExcluir) return;
+
+    try {
+      // Excluir itens da resposta
+      const { error: itensError } = await supabase
+        .from("respostas_itens_fornecedor")
+        .delete()
+        .eq("cotacao_resposta_fornecedor_id", respostaParaExcluir.id);
+
+      if (itensError) throw itensError;
+
+      // Excluir resposta
+      const { error: respostaError } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .delete()
+        .eq("id", respostaParaExcluir.id);
+
+      if (respostaError) throw respostaError;
+
+      toast.success("Resposta excluída com sucesso!");
+      setConfirmDeleteOpen(false);
+      setRespostaParaExcluir(null);
+      loadRespostas();
+    } catch (error) {
+      console.error("Erro ao excluir resposta:", error);
+      toast.error("Erro ao excluir resposta");
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -384,6 +422,14 @@ export function DialogRespostasCotacao({
                             <Mail className="h-4 w-4 mr-2" />
                             Solicitar Correção
                           </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => confirmarExclusao(resposta)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -421,6 +467,25 @@ export function DialogRespostasCotacao({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={copiarEmailCorrecao}>
               Copiar Texto
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a resposta do fornecedor <strong>{respostaParaExcluir?.fornecedor.razao_social}</strong>?
+              <br /><br />
+              Esta ação não pode ser desfeita e todos os dados da proposta serão permanentemente removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirResposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Resposta
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

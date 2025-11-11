@@ -63,16 +63,46 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
   };
 
   const gerarTemplateLotes = () => {
-    const dados = [
-      { Item: 1, Descrição: "Exemplo de Item do Lote 1", Quantidade: 10, Unidade: "UND", Lote: 1, "Descrição do Lote": "Lote 01 - Medicamentos" },
-      { Item: 2, Descrição: "Outro Item do Lote 1", Quantidade: 5, Unidade: "CX", Lote: 1, "Descrição do Lote": "Lote 01 - Medicamentos" },
-      { Item: 3, Descrição: "Item do Lote 2", Quantidade: 20, Unidade: "KG", Lote: 2, "Descrição do Lote": "Lote 02 - Material de Limpeza" },
-      { Item: 4, Descrição: "Outro Item do Lote 2", Quantidade: 15, Unidade: "UND", Lote: 2, "Descrição do Lote": "Lote 02 - Material de Limpeza" },
-    ];
-    
-    const ws = XLSX.utils.json_to_sheet(dados);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Itens por Lote");
+    const ws = XLSX.utils.aoa_to_sheet([]);
+
+    // Lote I
+    XLSX.utils.sheet_add_aoa(ws, [["LOTE I - MEDICAMENTOS"]], { origin: "A1" });
+    XLSX.utils.sheet_add_aoa(ws, [["Item", "Descrição", "Quantidade", "Unidade"]], { origin: "A2" });
+    XLSX.utils.sheet_add_aoa(ws, [
+      [1, "Dipirona 500mg", 100, "CX"],
+      [2, "Paracetamol 750mg", 50, "CX"],
+      [3, "Ibuprofeno 600mg", 30, "CX"]
+    ], { origin: "A3" });
+
+    // Linha em branco
+    const proximaLinhaLote2 = 7;
+
+    // Lote II
+    XLSX.utils.sheet_add_aoa(ws, [["LOTE II - MATERIAL DE LIMPEZA"]], { origin: `A${proximaLinhaLote2}` });
+    XLSX.utils.sheet_add_aoa(ws, [["Item", "Descrição", "Quantidade", "Unidade"]], { origin: `A${proximaLinhaLote2 + 1}` });
+    XLSX.utils.sheet_add_aoa(ws, [
+      [1, "Desinfetante 5L", 20, "UND"],
+      [2, "Sabão Líquido 5L", 15, "UND"],
+      [3, "Álcool 70% 1L", 40, "UND"]
+    ], { origin: `A${proximaLinhaLote2 + 2}` });
+
+    // Mesclar células dos títulos dos lotes
+    if (!ws['!merges']) ws['!merges'] = [];
+    ws['!merges'].push(
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, // LOTE I
+      { s: { r: proximaLinhaLote2 - 1, c: 0 }, e: { r: proximaLinhaLote2 - 1, c: 3 } } // LOTE II
+    );
+
+    // Definir larguras das colunas
+    ws['!cols'] = [
+      { wch: 8 },  // Item
+      { wch: 40 }, // Descrição
+      { wch: 12 }, // Quantidade
+      { wch: 10 }  // Unidade
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, "Cotação por Lote");
     XLSX.writeFile(wb, "template_cotacao_por_lote.xlsx");
     toast.success("Template baixado com sucesso!");
   };
