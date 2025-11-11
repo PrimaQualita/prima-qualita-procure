@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { LogOut, FileText, Gavel, MessageSquare, User } from "lucide-react";
+import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
+import { Input } from "@/components/ui/input";
 
 export default function PortalFornecedor() {
   const navigate = useNavigate();
@@ -100,50 +101,105 @@ export default function PortalFornecedor() {
 
   const loadDocumentosPendentes = async (fornecedorId: string) => {
     try {
-      const { data: cotacoesFinalizadas, error: cotacoesError } = await supabase
-        .from("cotacoes_precos")
+      // Buscar documentos solicitados na finalização do processo
+      const { data: camposSolicitados, error: camposError } = await supabase
+        .from("campos_documentos_finalizacao")
         .select(`
           id,
-          titulo_cotacao,
-          campos_documentos_finalizacao (
-            id,
-            nome_campo,
-            descricao,
-            obrigatorio
+          nome_campo,
+          descricao,
+          obrigatorio,
+          cotacao_id,
+          status_solicitacao,
+          cotacoes_precos (
+            titulo_cotacao
           )
         `)
-        .eq("fornecedor_vencedor_id", fornecedorId)
-        .eq("processo_finalizado", true);
+        .eq("fornecedor_id", fornecedorId)
+        .in("status_solicitacao", ["enviado", "em_analise"]);
 
-      if (cotacoesError) throw cotacoesError;
+      if (camposError) throw camposError;
 
-      // Filtrar apenas cotações que têm campos de documentos pendentes
-      const cotacoesComDocumentos = (cotacoesFinalizadas || []).filter(
-        (cot: any) => cot.campos_documentos_finalizacao && cot.campos_documentos_finalizacao.length > 0
-      );
-
-      // Para cada campo, verificar se já foi enviado
-      for (const cotacao of cotacoesComDocumentos) {
-        const camposComStatus = [];
-        for (const campo of cotacao.campos_documentos_finalizacao) {
-          const { data: docExistente } = await supabase
-            .from("documentos_finalizacao_fornecedor")
-            .select("id")
-            .eq("fornecedor_id", fornecedorId)
-            .eq("campo_documento_id", campo.id)
-            .single();
-
-          camposComStatus.push({
-            ...campo,
-            enviado: !!docExistente
-          });
-        }
-        cotacao.campos_documentos_finalizacao = camposComStatus;
+      if (!camposSolicitados || camposSolicitados.length === 0) {
+        setDocumentosPendentes([]);
+        return;
       }
 
-      setDocumentosPendentes(cotacoesComDocumentos);
+      // Agrupar por cotação
+      const cotacoesMap = new Map();
+      
+      for (const campo of camposSolicitados) {
+        if (!cotacoesMap.has(campo.cotacao_id)) {
+          cotacoesMap.set(campo.cotacao_id, {
+            id: campo.cotacao_id,
+            titulo_cotacao: campo.cotacoes_precos?.titulo_cotacao || "Processo sem título",
+            campos_documentos_finalizacao: []
+          });
+        }
+
+        // Verificar se já foi enviado
+        const { data: docExistente } = await supabase
+          .from("documentos_finalizacao_fornecedor")
+          .select("id, url_arquivo, nome_arquivo")
+          .eq("fornecedor_id", fornecedorId)
+          .eq("campo_documento_id", campo.id)
+          .maybeSingle();
+
+        cotacoesMap.get(campo.cotacao_id).campos_documentos_finalizacao.push({
+          ...campo,
+          enviado: !!docExistente,
+          arquivo: docExistente || null
+        });
+      }
+
+      setDocumentosPendentes(Array.from(cotacoesMap.values()));
     } catch (error: any) {
       console.error("Erro ao carregar documentos pendentes:", error);
+    }
+  };
+
+  const handleUploadDocumento = async (campoId: string, file: File) => {
+    if (!fornecedor) return;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `fornecedor_${fornecedor.id}/${campoId}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('processo-anexos')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('processo-anexos')
+        .getPublicUrl(fileName);
+
+      const { error: insertError } = await supabase
+        .from('documentos_finalizacao_fornecedor')
+        .insert({
+          fornecedor_id: fornecedor.id,
+          campo_documento_id: campoId,
+          url_arquivo: publicUrl,
+          nome_arquivo: file.name
+        });
+
+      if (insertError) throw insertError;
+
+      // Atualizar status do campo para "em_analise"
+      await supabase
+        .from('campos_documentos_finalizacao')
+        .update({ 
+          status_solicitacao: 'em_analise',
+          data_conclusao: new Date().toISOString()
+        })
+        .eq('id', campoId);
+
+      toast.success("Documento enviado com sucesso!");
+      await loadDocumentosPendentes(fornecedor.id);
+    } catch (error: any) {
+      console.error("Erro ao fazer upload:", error);
+      toast.error("Erro ao enviar documento");
     }
   };
 
@@ -331,12 +387,12 @@ export default function PortalFornecedor() {
                 <GestaoDocumentosFornecedor fornecedorId={fornecedor.id} />
               )}
 
-              {/* Documentos Pendentes de Processos Finalizados */}
+              {/* Documentos Solicitados em Processos de Compra Direta */}
               {documentosPendentes.length > 0 && (
                 <Card className="border-orange-500/50">
                   <CardHeader>
                     <CardTitle className="text-orange-700 dark:text-orange-400">
-                      📋 Documentos Solicitados em Processos Finalizados
+                      📋 Documentos Solicitados em Processos de Compra Direta
                     </CardTitle>
                     <CardDescription>
                       Envie os documentos solicitados para conclusão dos processos
@@ -345,31 +401,66 @@ export default function PortalFornecedor() {
                   <CardContent className="space-y-6">
                     {documentosPendentes.map((cotacao: any) => (
                       <div key={cotacao.id} className="border rounded-lg p-4 bg-muted/30">
-                        <h4 className="font-semibold mb-3">{cotacao.titulo_cotacao}</h4>
+                        <div className="mb-4">
+                          <h4 className="font-semibold">{cotacao.titulo_cotacao}</h4>
+                        </div>
                         <div className="space-y-3">
                           {cotacao.campos_documentos_finalizacao.map((campo: any) => (
-                            <div key={campo.id} className="flex items-start justify-between p-3 bg-background rounded border">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium">{campo.nome_campo}</p>
-                                  {campo.obrigatorio && (
-                                    <Badge variant="destructive" className="text-xs">Obrigatório</Badge>
+                            <div key={campo.id} className="p-4 bg-background rounded-lg border">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p className="font-medium">{campo.nome_campo}</p>
+                                    {campo.obrigatorio && (
+                                      <Badge variant="destructive" className="text-xs">Obrigatório</Badge>
+                                    )}
+                                    {campo.enviado && (
+                                      <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">
+                                        ✓ Enviado
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {campo.descricao && (
+                                    <p className="text-sm text-muted-foreground mb-2">{campo.descricao}</p>
                                   )}
-                                  {campo.enviado && (
-                                    <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">
-                                      ✓ Enviado
-                                    </Badge>
+                                  {campo.arquivo && (
+                                    <div className="mt-2">
+                                      <a 
+                                        href={campo.arquivo.url_arquivo} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-blue-600 hover:underline"
+                                      >
+                                        📄 {campo.arquivo.nome_arquivo}
+                                      </a>
+                                    </div>
                                   )}
                                 </div>
-                                {campo.descricao && (
-                                  <p className="text-sm text-muted-foreground mt-1">{campo.descricao}</p>
+                                {!campo.enviado && (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="file"
+                                      accept=".pdf"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          handleUploadDocumento(campo.id, file);
+                                        }
+                                      }}
+                                      className="hidden"
+                                      id={`upload-${campo.id}`}
+                                    />
+                                    <label htmlFor={`upload-${campo.id}`}>
+                                      <Button size="sm" variant="outline" asChild>
+                                        <span className="cursor-pointer">
+                                          <Upload className="h-4 w-4 mr-2" />
+                                          Enviar PDF
+                                        </span>
+                                      </Button>
+                                    </label>
+                                  </div>
                                 )}
                               </div>
-                              {!campo.enviado && (
-                                <Button size="sm" variant="outline">
-                                  Enviar Documento
-                                </Button>
-                              )}
                             </div>
                           ))}
                         </div>
