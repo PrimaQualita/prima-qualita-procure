@@ -37,6 +37,7 @@ interface RespostaConsolidada {
     lote_id: string | null;
     lote_numero?: number;
     lote_descricao?: string;
+    marca?: string;
   }[];
   valor_total: number;
 }
@@ -56,6 +57,7 @@ export function DialogPlanilhaConsolidada({
   const [calculosPorLote, setCalculosPorLote] = useState<Record<string, "media" | "mediana" | "menor">>({});
   const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor">("menor");
   const [todosItens, setTodosItens] = useState<any[]>([]);
+  const [tipoProcesso, setTipoProcesso] = useState<string>("");
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -66,6 +68,22 @@ export function DialogPlanilhaConsolidada({
   const loadRespostas = async () => {
     setLoading(true);
     try {
+      // Buscar informações da cotação e do processo
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          processo_compra_id,
+          processos_compras!inner (
+            tipo
+          )
+        `)
+        .eq("id", cotacaoId)
+        .single();
+
+      if (cotacaoData?.processos_compras) {
+        setTipoProcesso(cotacaoData.processos_compras.tipo);
+      }
+
       const { data: respostasData, error } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -90,6 +108,7 @@ export function DialogPlanilhaConsolidada({
           descricao,
           quantidade,
           unidade,
+          marca,
           lote_id,
           lotes_cotacao (
             numero_lote,
@@ -119,6 +138,7 @@ export function DialogPlanilhaConsolidada({
               descricao,
               quantidade,
               unidade,
+              marca,
               lote_id,
               lote:lote_id (
                 numero_lote,
@@ -133,6 +153,7 @@ export function DialogPlanilhaConsolidada({
           descricao: item.item_cotacao.descricao,
           quantidade: item.item_cotacao.quantidade,
           unidade: item.item_cotacao.unidade,
+          marca: item.item_cotacao.marca,
           valor_unitario_ofertado: item.valor_unitario_ofertado,
           lote_id: item.item_cotacao.lote_id,
           lote_numero: item.item_cotacao.lote?.numero_lote,
@@ -403,6 +424,7 @@ export function DialogPlanilhaConsolidada({
                   <th class="col-descricao">Descrição</th>
                   <th class="col-qtd">Qtd</th>
                   <th class="col-unid">Unid</th>
+                  ${tipoProcesso === "material" ? '<th class="col-unid">Marca</th>' : ''}
                   ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                   <th class="text-right col-estimativa">Estimativa</th>
                 </tr>
@@ -439,6 +461,11 @@ export function DialogPlanilhaConsolidada({
                   <td class="col-unid">${item.unidade}</td>
               `;
 
+              // Adicionar coluna de marca se for tipo material
+              if (tipoProcesso === "material") {
+                html += `<td class="col-unid">${item.marca || "-"}</td>`;
+              }
+
               respostas.forEach(resposta => {
                 const itemResposta = resposta.itens.find(
                   i => i.numero_item === numeroItem && i.lote_id === loteId
@@ -463,7 +490,7 @@ export function DialogPlanilhaConsolidada({
 
           html += `
                 <tr class="total">
-                  <td colspan="${4 + respostas.length}"><strong>TOTAL DO LOTE ${primeiroItem.lote_numero}</strong></td>
+                  <td colspan="${4 + (tipoProcesso === "material" ? 1 : 0) + respostas.length}"><strong>TOTAL DO LOTE ${primeiroItem.lote_numero}</strong></td>
                   <td class="text-right"><strong>${totalLoteEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
                 </tr>
               </tbody>
@@ -521,6 +548,7 @@ export function DialogPlanilhaConsolidada({
                       <th class="col-descricao">Descrição</th>
                       <th class="col-qtd">Qtd</th>
                       <th class="col-unid">Unid</th>
+                      ${tipoProcesso === "material" ? '<th class="col-unid">Marca</th>' : ''}
                       ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                       <th class="text-right col-estimativa">Estimativa</th>
                     </tr>
@@ -559,6 +587,11 @@ export function DialogPlanilhaConsolidada({
                     <td class="col-unid">${item.unidade}</td>
                 `;
 
+                // Adicionar coluna de marca se for tipo material
+                if (tipoProcesso === "material") {
+                  html += `<td class="col-unid">${item.marca || "-"}</td>`;
+                }
+
                 respostas.forEach(resposta => {
                   const itemResposta = resposta.itens.find((i: any) => 
                     i.numero_item === item.numero_item && 
@@ -587,7 +620,7 @@ export function DialogPlanilhaConsolidada({
               if (loteInfo) {
                 html += `
                   <tr class="total">
-                    <td colspan="${4 + respostas.length}"><strong>TOTAL DO LOTE ${loteInfo.numero}</strong></td>
+                    <td colspan="${4 + (tipoProcesso === "material" ? 1 : 0) + respostas.length}"><strong>TOTAL DO LOTE ${loteInfo.numero}</strong></td>
                     <td class="text-right"><strong>${totalLoteEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
                   </tr>
                 `;
@@ -603,7 +636,7 @@ export function DialogPlanilhaConsolidada({
             <table>
               <tbody>
                 <tr class="total">
-                  <td colspan="${4 + respostas.length}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+                  <td colspan="${4 + (tipoProcesso === "material" ? 1 : 0) + respostas.length}"><strong>VALOR TOTAL ESTIMADO</strong></td>
                   <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
                 </tr>
               </tbody>
@@ -620,6 +653,7 @@ export function DialogPlanilhaConsolidada({
                   <th class="col-descricao">Descrição</th>
                   <th class="col-qtd">Qtd</th>
                   <th class="col-unid">Unid</th>
+                  ${tipoProcesso === "material" ? '<th class="col-unid">Marca</th>' : ''}
                   ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                   <th class="text-right col-estimativa">Estimativa</th>
                 </tr>
@@ -657,12 +691,17 @@ export function DialogPlanilhaConsolidada({
                 <td class="col-unid">${item.unidade}</td>
             `;
 
+            // Adicionar coluna de marca se for tipo material
+            if (tipoProcesso === "material") {
+              html += `<td class="col-unid">${item.marca || "-"}</td>`;
+            }
+
             respostas.forEach(resposta => {
               const itemResposta = resposta.itens.find((i: any) => 
                 i.numero_item === item.numero_item && 
                 (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
               );
-              const valorTotal = itemResposta
+              const valorTotal = itemResposta 
                 ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
                 : 0;
               html += `
@@ -681,13 +720,13 @@ export function DialogPlanilhaConsolidada({
           });
 
           html += `
-                <tr class="total">
-                  <td colspan="${4 + respostas.length}"><strong>VALOR TOTAL ESTIMADO</strong></td>
-                  <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
-                </tr>
-              </tbody>
-            </table>
-          `;
+            <tr class="total">
+              <td colspan="${4 + (tipoProcesso === "material" ? 1 : 0) + respostas.length}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+              <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      `;
         }
       }
 
