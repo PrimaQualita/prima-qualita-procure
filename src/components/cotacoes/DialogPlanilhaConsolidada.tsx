@@ -367,25 +367,81 @@ export function DialogPlanilhaConsolidada({
       `;
 
       if (tipoVisualizacao === "global") {
-        // Visualização global - apenas valores totais
-        const valoresGlobais = respostas.map(r => r.valor_total);
-        const stats = calcularEstatisticas(valoresGlobais);
-        const valorEstimativa = stats[calculoGlobal];
-
+        // Visualização global - exibir todos os itens com marca (se Material)
         html += `
           <table>
             <thead>
               <tr>
+                <th class="col-item">Item</th>
+                <th class="col-descricao">Descrição</th>
+                <th class="col-qtd">Qtd</th>
+                <th class="col-unid">Unid</th>
+                ${tipoProcesso === "material" ? '<th class="col-unid">Marca</th>' : ''}
                 ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
-                <th class="text-right">Estimativa (${calculoGlobal === "menor" ? "Menor Preço" : calculoGlobal === "media" ? "Média" : "Mediana"})</th>
+                <th class="text-right col-estimativa">Estimativa</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                ${respostas.map(r => `
-                  <td class="text-right">${r.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                `).join("")}
-                <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+        `;
+
+        let totalGeralEstimativa = 0;
+
+        todosItens.forEach((item: any) => {
+          const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
+          const tipoCalculoItem = calculosPorItem[chaveItem] || calculoGlobal;
+          
+          const valores: number[] = [];
+          respostas.forEach(resposta => {
+            const itemResposta = resposta.itens.find((i: any) => 
+              i.numero_item === item.numero_item
+            );
+            if (itemResposta) {
+              valores.push(Number(itemResposta.valor_unitario_ofertado));
+            }
+          });
+
+          const stats = calcularEstatisticas(valores);
+          const valorEstimativa = stats[tipoCalculoItem];
+          const totalItemEstimativa = Math.round(valorEstimativa * Number(item.quantidade) * 100) / 100;
+          totalGeralEstimativa += totalItemEstimativa;
+
+          html += `
+            <tr>
+              <td class="col-item">${item.numero_item}</td>
+              <td class="col-descricao">${stripHtml(item.descricao)}</td>
+              <td class="col-qtd">${Number(item.quantidade).toLocaleString("pt-BR")}</td>
+              <td class="col-unid">${item.unidade}</td>
+          `;
+
+          // Adicionar coluna de marca se for tipo material
+          if (tipoProcesso === "material") {
+            html += `<td class="col-unid">${item.marca || "-"}</td>`;
+          }
+
+          respostas.forEach(resposta => {
+            const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+            const valorTotal = itemResposta 
+              ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
+              : 0;
+            html += `
+              <td class="text-right">
+                ${itemResposta 
+                  ? `${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
+                  : "-"}
+              </td>
+            `;
+          });
+
+          html += `
+              <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${totalItemEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small></td>
+            </tr>
+          `;
+        });
+
+        html += `
+              <tr class="total">
+                <td colspan="${4 + (tipoProcesso === "material" ? 1 : 0) + respostas.length}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+                <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
               </tr>
             </tbody>
           </table>
