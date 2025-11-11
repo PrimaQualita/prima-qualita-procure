@@ -44,11 +44,20 @@ serve(async (req) => {
     console.log('Texto extraído do PDF (primeiros 500 caracteres):', pdfText.substring(0, 500));
     console.log('Tamanho total do texto:', pdfText.length);
     
-    // Para PDFs digitalizados com pouco texto extraível, retornar null
-    // O usuário deverá preencher manualmente a data de validade
+    // Para PDFs digitalizados com pouco texto extraível
+    // Infelizmente, OCR não é viável em Deno Edge Functions
+    // O usuário precisará preencher manualmente
     if (pdfText.trim().length < 50) {
-      console.log('⚠️ PDF digitalizado detectado - texto extraído insuficiente');
-      console.log('Retornando null - usuário deve preencher manualmente');
+      console.log('⚠️ PDF digitalizado detectado - retornando null para preenchimento manual');
+      
+      return new Response(
+        JSON.stringify({ 
+          dataValidade: null,
+          isScanned: true,
+          message: 'PDF digitalizado detectado. Por favor, insira a data de validade manualmente.'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     // Normalizar texto
@@ -165,7 +174,7 @@ serve(async (req) => {
     console.log('📅 Data de validade final extraída:', dataValidade);
     
     return new Response(
-      JSON.stringify({ dataValidade }),
+      JSON.stringify({ dataValidade, isScanned: false }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
     
@@ -173,7 +182,7 @@ serve(async (req) => {
     console.error('❌ Erro ao extrair data do PDF:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({ error: errorMessage, dataValidade: null }),
+      JSON.stringify({ error: errorMessage, dataValidade: null, isScanned: false }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

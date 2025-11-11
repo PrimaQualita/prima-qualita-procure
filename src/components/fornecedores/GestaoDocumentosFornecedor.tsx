@@ -154,10 +154,10 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
 
       if (error) {
         console.error("Erro ao extrair data:", error);
-        return null;
+        return { dataValidade: null, isScanned: false };
       }
 
-      return data.dataValidade;
+      return { dataValidade: data.dataValidade, isScanned: data.isScanned || false };
     } catch (error) {
       console.error("Erro ao processar PDF:", error);
       return null;
@@ -177,11 +177,14 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
     // Se o documento tem validade, tentar extrair automaticamente
     if (docConfig?.temValidade) {
       toast.info("Extraindo data de validade do PDF...");
-      const dataExtraida = await handleExtrairDataPDF(arquivo);
+      const resultado = await handleExtrairDataPDF(arquivo);
       
-      if (dataExtraida) {
-        setDataValidadeCertificado(dataExtraida);
+      if (resultado?.dataValidade) {
+        setDataValidadeCertificado(resultado.dataValidade);
         toast.success("Data de validade extraída automaticamente!");
+      } else if (resultado?.isScanned) {
+        toast.warning("PDF digitalizado detectado. Por favor, informe a data de validade manualmente.");
+        setDataValidadeCertificado("");
       } else {
         toast.warning("Não foi possível extrair a data automaticamente. Por favor, informe manualmente.");
         setDataValidadeCertificado("");
