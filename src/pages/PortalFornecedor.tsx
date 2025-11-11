@@ -494,47 +494,135 @@ export default function PortalFornecedor() {
           </TabsContent>
 
           <TabsContent value="cotacoes">
-            <Card>
-              <CardHeader>
-                <CardTitle>Minhas Cotações de Preços</CardTitle>
-                <CardDescription>
-                  Cotações em que você foi convidado a participar
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {cotacoes.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    Você ainda não foi convidado para nenhuma cotação.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {cotacoes.map((convite) => (
-                      <div key={convite.id} className="p-4 border rounded-lg">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="font-semibold">
-                              {convite.cotacoes_precos?.titulo_cotacao}
-                            </h3>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {convite.cotacoes_precos?.descricao_cotacao}
-                            </p>
-                            <div className="flex gap-4 mt-3 text-sm">
-                              <span>
-                                Prazo: {new Date(convite.cotacoes_precos?.data_limite_resposta).toLocaleDateString()}
-                              </span>
-                              {getStatusCotacaoBadge(convite.cotacoes_precos?.status_cotacao)}
+            <div className="space-y-6">
+              {/* Documentos Pendentes de Cotações */}
+              {documentosPendentes.length > 0 && (
+                <Card className="border-orange-500/50 bg-orange-500/10">
+                  <CardHeader>
+                    <CardTitle className="text-orange-700 dark:text-orange-400">
+                      📋 Documentos Solicitados - Finalização de Processos
+                    </CardTitle>
+                    <CardDescription className="text-orange-600 dark:text-orange-300">
+                      Você foi selecionado como vencedor! Envie os documentos solicitados para conclusão dos processos.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {documentosPendentes.map((cotacao: any) => (
+                      <div key={cotacao.id} className="border rounded-lg p-4 bg-background">
+                        <div className="mb-4">
+                          <h4 className="font-semibold text-lg">{cotacao.titulo_cotacao}</h4>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Processo de Compra Direta - Documentos Adicionais
+                          </p>
+                        </div>
+                        <div className="space-y-3">
+                          {cotacao.campos_documentos_finalizacao.map((campo: any) => (
+                            <div key={campo.id} className="p-4 bg-muted/30 rounded-lg border-2 border-dashed">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p className="font-medium text-base">{campo.nome_campo}</p>
+                                    {campo.obrigatorio && (
+                                      <Badge variant="destructive" className="text-xs">Obrigatório</Badge>
+                                    )}
+                                    {campo.enviado && (
+                                      <Badge className="bg-green-600 text-white text-xs">
+                                        ✓ Documento Enviado
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {campo.descricao && (
+                                    <p className="text-sm text-muted-foreground mb-3">{campo.descricao}</p>
+                                  )}
+                                  {campo.arquivo && (
+                                    <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                                      <a 
+                                        href={campo.arquivo.url_arquivo} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-green-700 dark:text-green-400 hover:underline flex items-center gap-2"
+                                      >
+                                        <FileText className="h-4 w-4" />
+                                        {campo.arquivo.nome_arquivo}
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                                {!campo.enviado && (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="file"
+                                      accept=".pdf"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleUploadDocumento(campo.id, file);
+                                      }}
+                                      className="hidden"
+                                      id={`upload-${campo.id}`}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={() => document.getElementById(`upload-${campo.id}`)?.click()}
+                                      className="bg-orange-600 hover:bg-orange-700"
+                                    >
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Enviar PDF
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <Button size="sm" disabled={convite.cotacoes_precos?.status_cotacao !== "em_aberto"}>
-                            Responder
-                          </Button>
+                          ))}
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Lista de Cotações */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Minhas Cotações de Preços</CardTitle>
+                  <CardDescription>
+                    Cotações em que você foi convidado a participar
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {cotacoes.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      Você ainda não foi convidado para nenhuma cotação.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {cotacoes.map((convite) => (
+                        <div key={convite.id} className="p-4 border rounded-lg">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold">
+                                {convite.cotacoes_precos?.titulo_cotacao}
+                              </h3>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {convite.cotacoes_precos?.descricao_cotacao}
+                              </p>
+                              <div className="flex gap-4 mt-3 text-sm">
+                                <span>
+                                  Prazo: {new Date(convite.cotacoes_precos?.data_limite_resposta).toLocaleDateString()}
+                                </span>
+                                {getStatusCotacaoBadge(convite.cotacoes_precos?.status_cotacao)}
+                              </div>
+                            </div>
+                            <Button size="sm" disabled={convite.cotacoes_precos?.status_cotacao !== "em_aberto"}>
+                              Responder
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="selecoes">
