@@ -75,6 +75,7 @@ const Cotacoes = () => {
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<Cotacao | null>(null);
   const [itens, setItens] = useState<ItemCotacao[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
+  const [itensSelecionados, setItensSelecionados] = useState<Set<string>>(new Set());
   const [filtro, setFiltro] = useState("");
   const [dialogItemOpen, setDialogItemOpen] = useState(false);
   const [dialogCotacaoOpen, setDialogCotacaoOpen] = useState(false);
@@ -84,6 +85,7 @@ const Cotacoes = () => {
   const [dialogRespostasOpen, setDialogRespostasOpen] = useState(false);
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
   const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
+  const [confirmDeleteSelectedOpen, setConfirmDeleteSelectedOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
@@ -298,10 +300,72 @@ const Cotacoes = () => {
       if (error) throw error;
 
       toast.success("Item excluído com sucesso");
+      await renumerarItens();
       loadItens(cotacaoSelecionada.id);
     } catch (error) {
       toast.error("Erro ao excluir item");
       console.error(error);
+    }
+  };
+
+  const handleDeleteSelectedItems = async () => {
+    if (!cotacaoSelecionada || itensSelecionados.size === 0) return;
+
+    try {
+      const idsArray = Array.from(itensSelecionados);
+
+      // Deletar respostas de fornecedores dos itens selecionados
+      const { error: respostasError } = await supabase
+        .from("respostas_itens_fornecedor")
+        .delete()
+        .in("item_cotacao_id", idsArray);
+
+      if (respostasError) throw respostasError;
+
+      // Deletar itens selecionados
+      const { error } = await supabase
+        .from("itens_cotacao")
+        .delete()
+        .in("id", idsArray);
+
+      if (error) throw error;
+
+      toast.success(`${itensSelecionados.size} ${itensSelecionados.size === 1 ? 'item excluído' : 'itens excluídos'} com sucesso`);
+      setItensSelecionados(new Set());
+      setConfirmDeleteSelectedOpen(false);
+      await renumerarItens();
+      loadItens(cotacaoSelecionada.id);
+    } catch (error) {
+      toast.error("Erro ao excluir itens selecionados");
+      console.error(error);
+    }
+  };
+
+  const renumerarItens = async () => {
+    if (!cotacaoSelecionada) return;
+
+    try {
+      // Buscar todos os itens restantes ordenados
+      const { data: itensRestantes, error: fetchError } = await supabase
+        .from("itens_cotacao")
+        .select("*")
+        .eq("cotacao_id", cotacaoSelecionada.id)
+        .order("numero_item", { ascending: true });
+
+      if (fetchError) throw fetchError;
+      if (!itensRestantes || itensRestantes.length === 0) return;
+
+      // Atualizar numeração sequencial
+      const updates = itensRestantes.map((item, index) => 
+        supabase
+          .from("itens_cotacao")
+          .update({ numero_item: index + 1 })
+          .eq("id", item.id)
+      );
+
+      await Promise.all(updates);
+    } catch (error) {
+      console.error("Erro ao renumerar itens:", error);
     }
   };
 
@@ -927,6 +991,22 @@ const Cotacoes = () => {
                           <Table>
                             <TableHeader>
                               <TableRow>
+                                <TableHead className="w-12">
+                                  <Checkbox
+                                    checked={itensDoLote.length > 0 && itensDoLote.every(item => itensSelecionados.has(item.id))}
+                                    onCheckedChange={(checked) => {
+                                      const novaSelecao = new Set(itensSelecionados);
+                                      itensDoLote.forEach(item => {
+                                        if (checked) {
+                                          novaSelecao.add(item.id);
+                                        } else {
+                                          novaSelecao.delete(item.id);
+                                        }
+                                      });
+                                      setItensSelecionados(novaSelecao);
+                                    }}
+                                  />
+                                </TableHead>
                                 <TableHead className="w-20">Item</TableHead>
                                 <TableHead>Descrição</TableHead>
                                 <TableHead className="w-24">Qtd</TableHead>
@@ -939,7 +1019,7 @@ const Cotacoes = () => {
                             <TableBody>
                               {itensDoLote.length === 0 ? (
                                 <TableRow>
-                                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                                     Nenhum item neste lote
                                   </TableCell>
                                 </TableRow>
@@ -947,6 +1027,20 @@ const Cotacoes = () => {
                                 <>
                                   {itensDoLote.map((item) => (
                                     <TableRow key={item.id}>
+                                      <TableCell>
+                                        <Checkbox
+                                          checked={itensSelecionados.has(item.id)}
+                                          onCheckedChange={(checked) => {
+                                            const novaSelecao = new Set(itensSelecionados);
+                                            if (checked) {
+                                              novaSelecao.add(item.id);
+                                            } else {
+                                              novaSelecao.delete(item.id);
+                                            }
+                                            setItensSelecionados(novaSelecao);
+                                          }}
+                                        />
+                                      </TableCell>
                                       <TableCell>{item.numero_item}</TableCell>
                                       <TableCell>{item.descricao}</TableCell>
                                       <TableCell>{item.quantidade}</TableCell>
@@ -981,6 +1075,7 @@ const Cotacoes = () => {
                                     </TableRow>
                                   ))}
                                   <TableRow className="bg-muted/50">
+                                    <TableCell></TableCell>
                                     <TableCell colSpan={5} className="text-right font-semibold">
                                       TOTAL DO LOTE {lote.numero_lote}:
                                     </TableCell>
@@ -1014,6 +1109,18 @@ const Cotacoes = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={itens.length > 0 && itens.every(item => itensSelecionados.has(item.id))}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setItensSelecionados(new Set(itens.map(item => item.id)));
+                              } else {
+                                setItensSelecionados(new Set());
+                              }
+                            }}
+                          />
+                        </TableHead>
                         <TableHead className="w-20">Item</TableHead>
                         <TableHead>Descrição</TableHead>
                         <TableHead className="w-24">Qtd</TableHead>
@@ -1026,7 +1133,7 @@ const Cotacoes = () => {
                     <TableBody>
                       {itens.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground">
+                          <TableCell colSpan={8} className="text-center text-muted-foreground">
                             Nenhum item cadastrado
                           </TableCell>
                         </TableRow>
@@ -1034,6 +1141,20 @@ const Cotacoes = () => {
                         <>
                           {itens.map((item) => (
                             <TableRow key={item.id}>
+                              <TableCell>
+                                <Checkbox
+                                  checked={itensSelecionados.has(item.id)}
+                                  onCheckedChange={(checked) => {
+                                    const novaSelecao = new Set(itensSelecionados);
+                                    if (checked) {
+                                      novaSelecao.add(item.id);
+                                    } else {
+                                      novaSelecao.delete(item.id);
+                                    }
+                                    setItensSelecionados(novaSelecao);
+                                  }}
+                                />
+                              </TableCell>
                               <TableCell>{item.numero_item}</TableCell>
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell>{item.quantidade}</TableCell>
@@ -1068,6 +1189,7 @@ const Cotacoes = () => {
                             </TableRow>
                           ))}
                           <TableRow className="font-bold bg-muted">
+                            <TableCell></TableCell>
                             <TableCell colSpan={5} className="text-right">TOTAL GERAL:</TableCell>
                             <TableCell className="text-right">
                               R$ {calcularTotal().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
@@ -1238,6 +1360,34 @@ const Cotacoes = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir Todos os Itens
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog Confirmar Exclusão de Itens Selecionados */}
+      <AlertDialog open={confirmDeleteSelectedOpen} onOpenChange={setConfirmDeleteSelectedOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Confirmar Exclusão de Itens Selecionados
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{itensSelecionados.size} {itensSelecionados.size === 1 ? 'item selecionado' : 'itens selecionados'}</strong>?
+              <br /><br />
+              Os itens restantes serão automaticamente renumerados em ordem sequencial.
+              <br /><br />
+              <span className="text-destructive font-semibold">Esta ação não pode ser desfeita!</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteSelectedItems}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir Selecionados
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
