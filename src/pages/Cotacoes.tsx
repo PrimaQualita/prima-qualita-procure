@@ -831,73 +831,188 @@ const Cotacoes = () => {
                   </div>
                 )}
 
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-20">Item</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="w-24">Qtd</TableHead>
-                      <TableHead className="w-24">Unid.</TableHead>
-                      <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
-                      <TableHead className="w-32 text-right">Vlr. Total</TableHead>
-                      <TableHead className="w-24 text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itens.length === 0 ? (
+                {criterioJulgamento === 'por_lote' && lotes.length > 0 ? (
+                  // Exibição por lote
+                  <div className="space-y-6">
+                    {lotes.map((lote) => {
+                      const itensDoLote = itens.filter(item => item.lote_id === lote.id);
+                      const totalLote = itensDoLote.reduce((acc, item) => {
+                        return acc + (item.quantidade * item.valor_unitario_estimado);
+                      }, 0);
+
+                      return (
+                        <div key={lote.id} className="border rounded-lg overflow-hidden">
+                          <div className="bg-primary text-primary-foreground px-4 py-3 flex justify-between items-center">
+                            <h3 className="font-semibold">
+                              LOTE {lote.numero_lote} - {lote.descricao_lote}
+                            </h3>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                setItemEditando(null);
+                                setDialogItemOpen(true);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Adicionar Item
+                            </Button>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-20">Item</TableHead>
+                                <TableHead>Descrição</TableHead>
+                                <TableHead className="w-24">Qtd</TableHead>
+                                <TableHead className="w-24">Unid.</TableHead>
+                                <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
+                                <TableHead className="w-32 text-right">Vlr. Total</TableHead>
+                                <TableHead className="w-24 text-right">Ações</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {itensDoLote.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                    Nenhum item neste lote
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                <>
+                                  {itensDoLote.map((item) => (
+                                    <TableRow key={item.id}>
+                                      <TableCell>{item.numero_item}</TableCell>
+                                      <TableCell>{item.descricao}</TableCell>
+                                      <TableCell>{item.quantidade}</TableCell>
+                                      <TableCell>{item.unidade}</TableCell>
+                                      <TableCell className="text-right">
+                                        R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        R$ {(item.quantidade * item.valor_unitario_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <div className="flex gap-1 justify-end">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                              setItemEditando(item);
+                                              setDialogItemOpen(true);
+                                            }}
+                                          >
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleDeleteItem(item.id)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                  <TableRow className="bg-muted/50">
+                                    <TableCell colSpan={5} className="text-right font-semibold">
+                                      TOTAL DO LOTE {lote.numero_lote}:
+                                    </TableCell>
+                                    <TableCell className="text-right font-bold text-lg">
+                                      R$ {totalLote.toLocaleString("pt-BR", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                  </TableRow>
+                                </>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      );
+                    })}
+                    <div className="bg-primary text-primary-foreground px-6 py-4 rounded-lg flex justify-between items-center">
+                      <span className="text-lg font-semibold">TOTAL GERAL:</span>
+                      <span className="text-2xl font-bold">
+                        R$ {calcularTotal().toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  // Exibição padrão (global ou por item)
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground">
-                          Nenhum item cadastrado
-                        </TableCell>
+                        <TableHead className="w-20">Item</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead className="w-24">Qtd</TableHead>
+                        <TableHead className="w-24">Unid.</TableHead>
+                        <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
+                        <TableHead className="w-32 text-right">Vlr. Total</TableHead>
+                        <TableHead className="w-24 text-right">Ações</TableHead>
                       </TableRow>
-                    ) : (
-                      <>
-                        {itens.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{item.numero_item}</TableCell>
-                            <TableCell>{item.descricao}</TableCell>
-                            <TableCell>{item.quantidade}</TableCell>
-                            <TableCell>{item.unidade}</TableCell>
-                            <TableCell className="text-right">
-                              R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              R$ {(item.quantidade * item.valor_unitario_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex gap-1 justify-end">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setItemEditando(item);
-                                    setDialogItemOpen(true);
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteItem(item.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="font-bold bg-muted">
-                          <TableCell colSpan={5} className="text-right">TOTAL GERAL:</TableCell>
-                          <TableCell className="text-right">
-                            R$ {calcularTotal().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </TableHeader>
+                    <TableBody>
+                      {itens.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground">
+                            Nenhum item cadastrado
                           </TableCell>
-                          <TableCell></TableCell>
                         </TableRow>
-                      </>
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        <>
+                          {itens.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>{item.numero_item}</TableCell>
+                              <TableCell>{item.descricao}</TableCell>
+                              <TableCell>{item.quantidade}</TableCell>
+                              <TableCell>{item.unidade}</TableCell>
+                              <TableCell className="text-right">
+                                R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                R$ {(item.quantidade * item.valor_unitario_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex gap-1 justify-end">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setItemEditando(item);
+                                      setDialogItemOpen(true);
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteItem(item.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="font-bold bg-muted">
+                            <TableCell colSpan={5} className="text-right">TOTAL GERAL:</TableCell>
+                            <TableCell className="text-right">
+                              R$ {calcularTotal().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell></TableCell>
+                          </TableRow>
+                        </>
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </div>
