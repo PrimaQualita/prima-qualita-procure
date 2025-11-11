@@ -184,80 +184,40 @@ export default function CadastroFornecedor() {
     }
 
     setLoading(true);
+    let authUserId: string | null = null; // Rastrear se criamos usuário no Auth
+    
     try {
-      // 1. Verificar se já existe usuário órfão com este e-mail ou CNPJ e limpar
-      const { data: fornecedoresExistentes } = await supabase
-        .from('fornecedores')
-        .select('user_id, cnpj, email')
-        .or(`cnpj.eq.${formData.cnpj.replace(/\D/g, '')},email.eq.${formData.email}`);
-
-      // Se existe CNPJ mas sem user_id, é registro temporário de cotação
-      const registroTemporario = fornecedoresExistentes?.find(f => !f.user_id);
-      if (registroTemporario) {
-        await supabase
-          .from('fornecedores')
-          .delete()
-          .eq('cnpj', registroTemporario.cnpj)
-          .is('user_id', null);
-      }
-
-      // 2. Tentar criar usuário no Supabase Auth
-      let authData = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.senha,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            tipo_usuario: 'fornecedor'
-          }
-        }
-      });
-
-      // Se usuário já existe no Auth mas não tem fornecedor, deletar e recriar
-      if (authData.error?.message === 'User already registered') {
-        console.log('Usuário órfão detectado, limpando...');
-        
-        // Deletar usuário órfão via edge function
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/deletar-usuario-admin`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_KEY}`
-          },
-          body: JSON.stringify({ 
-            email: formData.email // A edge function buscará pelo e-mail
-          })
-        });
-
-        if (!response.ok) {
-          console.error('Erro ao limpar usuário órfão');
-        }
-
-        // Aguardar um pouco antes de retentar
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Tentar criar novamente
-        authData = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.senha,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: {
-              tipo_usuario: 'fornecedor'
-            }
-          }
-        });
-      }
-
-      if (authData.error) throw authData.error;
-      if (!authData.data.user) throw new Error("Erro ao criar usuário");
+      console.log('=== INICIANDO CADASTRO - VALIDAÇÕES COMPLETAS ===');
       
-      const userId = authData.data.user.id;
+      // VALIDAÇÃO 1: Verificar se já existe fornecedor completo com este CNPJ
+      const cnpjLimpo = formData.cnpj.replace(/\D/g, '');
+      const { data: fornecedorCompleto } = await supabase
+        .from('fornecedores')
+        .select('id')
+        .eq('cnpj', cnpjLimpo)
+        .not('user_id', 'is', null)
+        .single();
 
-      // Montar endereço completo
+      if (fornecedorCompleto) {
+        toast.error("Já existe um fornecedor cadastrado com este CNPJ");
+        return;
+      }
+
+      // VALIDAÇÃO 2: Limpar registros temporários (de cotações anteriores)
+      console.log('=== LIMPANDO REGISTROS TEMPORÁRIOS ===');
+      await supabase
+        .from('fornecedores')
+        .delete()
+        .eq('cnpj', cnpjLimpo)
+        .is('user_id', null);
+
+      await supabase
+        .from('fornecedores')
+        .delete()
+        .eq('email', formData.email)
+        .is('user_id', null);
+
+      // VALIDAÇÃO 3: Preparar dados antes de criar no Auth
       const enderecoCompleto = [
         formData.logradouro,
         formData.numero ? `Nº ${formData.numero}` : "",
@@ -267,41 +227,95 @@ export default function CadastroFornecedor() {
         formData.cep ? `CEP: ${formData.cep}` : ""
       ].filter(Boolean).join(", ");
 
-      // 2. Criar registro de fornecedor
+      // CRIAR USUÁRIO NO AUTH (agora com cleanup automático em caso de falha)
+      console.log('=== CRIANDO USUÁRIO NO AUTH ===');
+      let authData = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.senha,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: { tipo_usuario: 'fornecedor' }
+        }
+      });
+
+      // Se usuário órfão existe, limpar e recriar
+      if (authData.error?.message === 'User already registered') {
+        console.log('=== USUÁRIO ÓRFÃO DETECTADO, LIMPANDO E RECRIANDO ===');
+        
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        
+        await fetch(`${SUPABASE_URL}/functions/v1/deletar-usuario-admin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          },
+          body: JSON.stringify({ email: formData.email })
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        authData = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.senha,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: { tipo_usuario: 'fornecedor' }
+          }
+        });
+      }
+
+      if (authData.error) throw authData.error;
+      if (!authData.data.user) throw new Error("Erro ao criar usuário");
+      
+      authUserId = authData.data.user.id;
+      console.log('=== USUÁRIO CRIADO:', authUserId, '===');
+
+      // CRIAR FORNECEDOR NO BANCO
+      console.log('=== CRIANDO REGISTRO DE FORNECEDOR ===');
       const { data: fornecedorData, error: fornecedorError } = await supabase
         .from("fornecedores")
         .insert([{
-          user_id: userId,
+          user_id: authUserId,
           razao_social: formData.razao_social,
           nome_fantasia: formData.nome_fantasia || null,
-          cnpj: formData.cnpj.replace(/\D/g, ''),
+          cnpj: cnpjLimpo,
           endereco_comercial: enderecoCompleto,
           telefone: formData.telefone,
           email: formData.email,
           status_aprovacao: 'pendente',
-          ativo: false // Só fica ativo após aprovação do gestor
+          ativo: false
         }])
         .select()
         .single();
 
-      if (fornecedorError) throw fornecedorError;
+      if (fornecedorError) {
+        console.error('ERRO AO CRIAR FORNECEDOR:', fornecedorError);
+        throw fornecedorError;
+      }
 
-      // 3. Salvar respostas de due diligence
+      // SALVAR RESPOSTAS DE DUE DILIGENCE
+      console.log('=== SALVANDO RESPOSTAS DO QUESTIONÁRIO ===');
       if (Object.keys(respostas).length > 0) {
         const respostasArray = Object.entries(respostas).map(([perguntaId, respostaTexto]) => ({
           fornecedor_id: fornecedorData.id,
           pergunta_id: perguntaId,
-          resposta_texto: respostaTexto // Já é "SIM" ou "NÃO"
+          resposta_texto: respostaTexto
         }));
 
         const { error: respostasError } = await supabase
           .from("respostas_due_diligence_fornecedor")
           .insert(respostasArray);
 
-        if (respostasError) throw respostasError;
+        if (respostasError) {
+          console.error('ERRO AO SALVAR RESPOSTAS:', respostasError);
+          throw respostasError;
+        }
       }
 
-      // 4. Upload de documentos
+      // UPLOAD DE DOCUMENTOS
+      console.log('=== FAZENDO UPLOAD DE DOCUMENTOS ===');
       for (const [key, doc] of Object.entries(documentos)) {
         if (doc.arquivo) {
           const fileName = `fornecedor_${fornecedorData.id}/${key}_${Date.now()}.pdf`;
@@ -310,7 +324,10 @@ export default function CadastroFornecedor() {
             .from("processo-anexos")
             .upload(fileName, doc.arquivo);
 
-          if (uploadError) throw uploadError;
+          if (uploadError) {
+            console.error('ERRO AO FAZER UPLOAD:', uploadError);
+            throw uploadError;
+          }
 
           const { data: { publicUrl } } = supabase.storage
             .from("processo-anexos")
@@ -327,10 +344,14 @@ export default function CadastroFornecedor() {
               em_vigor: true
             });
 
-          if (docError) throw docError;
+          if (docError) {
+            console.error('ERRO AO SALVAR DOCUMENTO:', docError);
+            throw docError;
+          }
         }
       }
 
+      console.log('=== CADASTRO CONCLUÍDO COM SUCESSO ===');
       toast.success("✅ Cadastro realizado com sucesso! Aguarde a aprovação do gestor por e-mail.", {
         duration: 6000,
       });
@@ -367,16 +388,35 @@ export default function CadastroFornecedor() {
       
       setRespostas({});
       
-      // Rolar para o topo da página
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
-      // Opcional: redirecionar após alguns segundos
       setTimeout(() => {
         navigate("/portal-fornecedor");
       }, 6000);
 
     } catch (error: any) {
-      console.error("Erro ao cadastrar fornecedor:", error);
+      console.error("=== ERRO NO CADASTRO ===", error);
+      
+      // CRÍTICO: Se criamos usuário no Auth mas algo falhou depois, DELETAR usuário órfão
+      if (authUserId) {
+        console.log('=== LIMPANDO USUÁRIO ÓRFÃO CRIADO:', authUserId, '===');
+        try {
+          const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+          const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          
+          await fetch(`${SUPABASE_URL}/functions/v1/deletar-usuario-admin`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_KEY}`
+            },
+            body: JSON.stringify({ userId: authUserId })
+          });
+          console.log('=== USUÁRIO ÓRFÃO DELETADO COM SUCESSO ===');
+        } catch (cleanupError) {
+          console.error('Erro ao limpar usuário órfão:', cleanupError);
+        }
+      }
       
       // Traduzir mensagens de erro do Supabase para português
       let mensagemErro = "Erro ao realizar cadastro";
