@@ -588,22 +588,16 @@ const RespostaCotacao = () => {
                                 <TableCell>{item.unidade}</TableCell>
                                 <TableCell>
                                   <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={valoresItens[item.id] ?? ""}
+                                    type="text"
+                                    value={valoresItens[item.id] !== undefined && valoresItens[item.id] !== 0 
+                                      ? valoresItens[item.id].toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                      : ""}
                                     onChange={(e) => {
-                                      const valor = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                                      const valorLimpo = e.target.value.replace(/\D/g, "");
+                                      const valorNumerico = valorLimpo ? parseFloat(valorLimpo) / 100 : 0;
                                       setValoresItens({
                                         ...valoresItens,
-                                        [item.id]: valor
-                                      });
-                                    }}
-                                    onBlur={(e) => {
-                                      const valor = parseFloat(e.target.value) || 0;
-                                      setValoresItens({
-                                        ...valoresItens,
-                                        [item.id]: parseFloat(valor.toFixed(2))
+                                        [item.id]: valorNumerico
                                       });
                                     }}
                                     placeholder="0,00"
@@ -668,22 +662,16 @@ const RespostaCotacao = () => {
                         <TableCell>{item.unidade}</TableCell>
                         <TableCell>
                           <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={valoresItens[item.id] ?? ""}
+                            type="text"
+                            value={valoresItens[item.id] !== undefined && valoresItens[item.id] !== 0 
+                              ? valoresItens[item.id].toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                              : ""}
                             onChange={(e) => {
-                              const valor = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                              const valorLimpo = e.target.value.replace(/\D/g, "");
+                              const valorNumerico = valorLimpo ? parseFloat(valorLimpo) / 100 : 0;
                               setValoresItens({
                                 ...valoresItens,
-                                [item.id]: valor
-                              });
-                            }}
-                            onBlur={(e) => {
-                              const valor = parseFloat(e.target.value) || 0;
-                              setValoresItens({
-                                ...valoresItens,
-                                [item.id]: parseFloat(valor.toFixed(2))
+                                [item.id]: valorNumerico
                               });
                             }}
                             placeholder="0,00"

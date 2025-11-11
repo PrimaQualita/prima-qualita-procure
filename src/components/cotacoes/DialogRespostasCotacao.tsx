@@ -135,27 +135,50 @@ export function DialogRespostasCotacao({
 
   const gerarPDFProposta = async (resposta: RespostaFornecedor) => {
     try {
+      // Buscar critério de julgamento da cotação
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select("criterio_julgamento")
+        .eq("id", cotacaoId)
+        .single();
+
+      const criterioJulgamento = cotacaoData?.criterio_julgamento || "global";
+
+      // Buscar lotes se for por lote
+      let lotes: any[] = [];
+      if (criterioJulgamento === "por_lote") {
+        const { data: lotesData } = await supabase
+          .from("lotes_cotacao")
+          .select("*")
+          .eq("cotacao_id", cotacaoId)
+          .order("numero_lote");
+        lotes = lotesData || [];
+      }
+
       // Buscar itens da resposta
       const { data: itensData } = await supabase
         .from("respostas_itens_fornecedor")
         .select(`
           valor_unitario_ofertado,
           itens_cotacao:item_cotacao_id (
+            id,
             numero_item,
             descricao,
             quantidade,
-            unidade
+            unidade,
+            lote_id
           )
         `)
         .eq("cotacao_resposta_fornecedor_id", resposta.id)
         .order("item_cotacao_id");
 
-      const itens: ItemResposta[] = (itensData || []).map((item: any) => ({
+      const itens: (ItemResposta & { lote_id?: string })[] = (itensData || []).map((item: any) => ({
         numero_item: item.itens_cotacao?.numero_item || 0,
         descricao: item.itens_cotacao?.descricao || "",
         quantidade: item.itens_cotacao?.quantidade || 0,
         unidade: item.itens_cotacao?.unidade || "",
         valor_unitario_ofertado: item.valor_unitario_ofertado,
+        lote_id: item.itens_cotacao?.lote_id,
       }));
 
       // Gerar HTML para PDF
@@ -200,34 +223,85 @@ export function DialogRespostasCotacao({
           </div>
 
           <h2>Itens Cotados</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Descrição</th>
-                <th class="text-right">Quantidade</th>
-                <th>Unidade</th>
-                <th class="text-right">Valor Unitário</th>
-                <th class="text-right">Valor Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itens.map(item => `
+          ${criterioJulgamento === "por_lote" && lotes.length > 0 ? `
+            ${lotes.map((lote: any) => {
+              const itensDoLote = itens.filter(item => item.lote_id === lote.id);
+              const totalLote = itensDoLote.reduce((acc, item) => acc + (item.quantidade * item.valor_unitario_ofertado), 0);
+              
+              return `
+                <div style="margin-top: 30px;">
+                  <h3 style="background-color: #0ea5e9; color: white; padding: 10px; margin-bottom: 0;">
+                    LOTE ${lote.numero_lote} - ${lote.descricao_lote}
+                  </h3>
+                  <table style="margin-top: 0;">
+                    <thead>
+                      <tr>
+                        <th>Item</th>
+                        <th>Descrição</th>
+                        <th class="text-right">Quantidade</th>
+                        <th>Unidade</th>
+                        <th class="text-right">Valor Unitário</th>
+                        <th class="text-right">Valor Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${itensDoLote.map(item => `
+                        <tr>
+                          <td>${item.numero_item}</td>
+                          <td>${stripHtml(item.descricao)}</td>
+                          <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
+                          <td>${item.unidade}</td>
+                          <td class="text-right">R$ ${item.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                          <td class="text-right">R$ ${(item.quantidade * item.valor_unitario_ofertado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      `).join("")}
+                      <tr class="total">
+                        <td colspan="5" class="text-right"><strong>TOTAL DO LOTE ${lote.numero_lote}</strong></td>
+                        <td class="text-right"><strong>R$ ${totalLote.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              `;
+            }).join("")}
+            <div style="margin-top: 20px; padding: 15px; background-color: #0ea5e9; color: white;">
+              <table style="width: 100%; border: none;">
                 <tr>
-                  <td>${item.numero_item}</td>
-                  <td>${stripHtml(item.descricao)}</td>
-                  <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
-                  <td>${item.unidade}</td>
-                  <td class="text-right">R$ ${item.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  <td class="text-right">R$ ${(item.quantidade * item.valor_unitario_ofertado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  <td style="border: none; text-align: right; font-size: 18px;"><strong>VALOR TOTAL GERAL</strong></td>
+                  <td style="border: none; text-align: right; font-size: 20px; width: 200px;"><strong>R$ ${resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></td>
                 </tr>
-              `).join("")}
-              <tr class="total">
-                <td colspan="5" class="text-right"><strong>VALOR TOTAL ANUAL</strong></td>
-                <td class="text-right"><strong>R$ ${resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></td>
-              </tr>
-            </tbody>
-          </table>
+              </table>
+            </div>
+          ` : `
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Descrição</th>
+                  <th class="text-right">Quantidade</th>
+                  <th>Unidade</th>
+                  <th class="text-right">Valor Unitário</th>
+                  <th class="text-right">Valor Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itens.map(item => `
+                  <tr>
+                    <td>${item.numero_item}</td>
+                    <td>${stripHtml(item.descricao)}</td>
+                    <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
+                    <td>${item.unidade}</td>
+                    <td class="text-right">R$ ${item.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td class="text-right">R$ ${(item.quantidade * item.valor_unitario_ofertado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                `).join("")}
+                <tr class="total">
+                  <td colspan="5" class="text-right"><strong>VALOR TOTAL ANUAL</strong></td>
+                  <td class="text-right"><strong>R$ ${resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          `}
 
           ${resposta.observacoes_fornecedor ? `
             <div class="observacoes">
