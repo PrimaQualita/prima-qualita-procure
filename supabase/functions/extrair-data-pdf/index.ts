@@ -211,7 +211,40 @@ serve(async (req) => {
       }
     }
     
-    // Se não encontrou padrão "válida por X dias", continuar com lógica anterior
+    // Se não encontrou padrão "válida por X dias", procurar por padrões explícitos de validade
+    if (!dataValidade) {
+      // Primeiro: Procurar padrões muito específicos de certidões brasileiras
+      const validadeExplicitaPatterns = [
+        /válida?\s+até[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
+        /valida?\s+ate[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
+        /vencimento[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
+        /data\s+de\s+vencimento[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
+        /expira\s+em[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
+      ];
+      
+      for (const pattern of validadeExplicitaPatterns) {
+        pattern.lastIndex = 0;
+        let match = pattern.exec(normalizedText);
+        if (!match) {
+          pattern.lastIndex = 0;
+          match = pattern.exec(pdfText);
+        }
+        
+        if (match) {
+          const day = parseInt(match[1]);
+          const month = parseInt(match[2]);
+          const year = parseInt(match[3]);
+          
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
+            dataValidade = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            console.log(`Data de validade EXPLÍCITA encontrada: ${dataValidade}`);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Se ainda não encontrou, continuar com palavras-chave genéricas
     if (!dataValidade) {
       // Palavras-chave que indicam validade
       const validadeKeywords = [
