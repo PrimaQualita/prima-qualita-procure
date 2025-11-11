@@ -10,7 +10,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileDown, Mail, Trash2 } from "lucide-react";
+import { FileDown, Mail, Trash2, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -25,12 +25,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { stripHtml } from "@/lib/htmlUtils";
+import { DialogPlanilhaConsolidada } from "./DialogPlanilhaConsolidada";
 
 interface DialogRespostasCotacaoProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cotacaoId: string;
   tituloCotacao: string;
+  criterioJulgamento: string;
+  requerSelecao: boolean;
 }
 
 interface ItemResposta {
@@ -58,6 +61,8 @@ export function DialogRespostasCotacao({
   onOpenChange,
   cotacaoId,
   tituloCotacao,
+  criterioJulgamento,
+  requerSelecao,
 }: DialogRespostasCotacaoProps) {
   const [respostas, setRespostas] = useState<RespostaFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +71,7 @@ export function DialogRespostasCotacao({
   const [emailCorrecaoOpen, setEmailCorrecaoOpen] = useState(false);
   const [respostaSelecionada, setRespostaSelecionada] = useState<RespostaFornecedor | null>(null);
   const [emailTexto, setEmailTexto] = useState("");
+  const [planilhaConsolidadaOpen, setPlanilhaConsolidadaOpen] = useState(false);
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -169,8 +175,7 @@ export function DialogRespostasCotacao({
             lote_id
           )
         `)
-        .eq("cotacao_resposta_fornecedor_id", resposta.id)
-        .order("item_cotacao_id");
+        .eq("cotacao_resposta_fornecedor_id", resposta.id);
 
       const itens: (ItemResposta & { lote_id?: string })[] = (itensData || []).map((item: any) => ({
         numero_item: item.itens_cotacao?.numero_item || 0,
@@ -179,7 +184,7 @@ export function DialogRespostasCotacao({
         unidade: item.itens_cotacao?.unidade || "",
         valor_unitario_ofertado: item.valor_unitario_ofertado,
         lote_id: item.itens_cotacao?.lote_id,
-      }));
+      })).sort((a, b) => a.numero_item - b.numero_item);
 
       // Gerar HTML para PDF
       const html = `
@@ -225,7 +230,7 @@ export function DialogRespostasCotacao({
           <h2>Itens Cotados</h2>
           ${criterioJulgamento === "por_lote" && lotes.length > 0 ? `
             ${lotes.map((lote: any) => {
-              const itensDoLote = itens.filter(item => item.lote_id === lote.id);
+              const itensDoLote = itens.filter(item => item.lote_id === lote.id).sort((a, b) => a.numero_item - b.numero_item);
               const totalLote = itensDoLote.reduce((acc, item) => acc + (item.quantidade * item.valor_unitario_ofertado), 0);
               
               return `
@@ -422,7 +427,19 @@ export function DialogRespostasCotacao({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Respostas Recebidas</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Respostas Recebidas</span>
+            {requerSelecao && respostas.length > 0 && (
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setPlanilhaConsolidadaOpen(true)}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Planilha Consolidada
+              </Button>
+            )}
+          </DialogTitle>
           <DialogDescription>
             Cotação: {tituloCotacao}
           </DialogDescription>

@@ -314,14 +314,50 @@ const RespostaCotacao = () => {
         throw new Error("Fornecedor não identificado");
       }
 
+      // Verificar se fornecedor já respondeu esta cotação
+      console.log("3. Verificando se já existe resposta anterior...");
+      const { data: respostaExistente } = await supabaseAnon
+        .from("cotacao_respostas_fornecedor")
+        .select("id")
+        .eq("cotacao_id", cotacaoId)
+        .eq("fornecedor_id", fornecedorId)
+        .maybeSingle();
+
+      // Se já existe, excluir resposta anterior e seus itens
+      if (respostaExistente) {
+        console.log("✓ Resposta anterior encontrada, excluindo...");
+        
+        // Excluir itens da resposta anterior
+        const { error: erroExcluirItens } = await supabaseAnon
+          .from("respostas_itens_fornecedor")
+          .delete()
+          .eq("cotacao_resposta_fornecedor_id", respostaExistente.id);
+
+        if (erroExcluirItens) {
+          console.error("Erro ao excluir itens anteriores:", erroExcluirItens);
+        }
+
+        // Excluir resposta anterior
+        const { error: erroExcluirResposta } = await supabaseAnon
+          .from("cotacao_respostas_fornecedor")
+          .delete()
+          .eq("id", respostaExistente.id);
+
+        if (erroExcluirResposta) {
+          console.error("Erro ao excluir resposta anterior:", erroExcluirResposta);
+        }
+
+        console.log("✓ Resposta anterior excluída, sobrescrevendo...");
+      }
+
       // Calcular valor total
       const valorTotal = itens.reduce((total, item) => {
         return total + (item.quantidade * (valoresItens[item.id] || 0));
       }, 0);
-      console.log("3. Valor total calculado:", valorTotal);
+      console.log("4. Valor total calculado:", valorTotal);
 
-      // Criar resposta da cotação
-      console.log("4. Criando resposta da cotação...");
+      // Criar nova resposta da cotação
+      console.log("5. Criando nova resposta da cotação...");
       const { data: resposta, error: respostaError } = await supabaseAnon
         .from("cotacao_respostas_fornecedor")
         .insert({
@@ -341,7 +377,7 @@ const RespostaCotacao = () => {
       }
 
       // Criar respostas dos itens
-      console.log("5. Criando respostas dos itens...");
+      console.log("6. Criando respostas dos itens...");
       const respostasItens = itens.map(item => ({
         cotacao_resposta_fornecedor_id: resposta.id,
         item_cotacao_id: item.id,
@@ -555,7 +591,7 @@ const RespostaCotacao = () => {
                 // Exibição por lote
                 <div className="space-y-6">
                   {lotes.map((lote) => {
-                    const itensDoLote = itens.filter(item => item.lote_id === lote.id);
+                    const itensDoLote = itens.filter(item => item.lote_id === lote.id).sort((a, b) => a.numero_item - b.numero_item);
                     const totalLote = itensDoLote.reduce((acc, item) => {
                       const valor = valoresItens[item.id] || 0;
                       return acc + (valor * item.quantidade);

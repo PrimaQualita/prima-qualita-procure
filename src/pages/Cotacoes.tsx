@@ -831,11 +831,11 @@ const Cotacoes = () => {
                   </div>
                 )}
 
-                {criterioJulgamento === 'por_lote' && lotes.length > 0 ? (
+                  {criterioJulgamento === 'por_lote' && lotes.length > 0 ? (
                   // Exibição por lote
                   <div className="space-y-6">
                     {lotes.map((lote) => {
-                      const itensDoLote = itens.filter(item => item.lote_id === lote.id);
+                      const itensDoLote = itens.filter(item => item.lote_id === lote.id).sort((a, b) => a.numero_item - b.numero_item);
                       const totalLote = itensDoLote.reduce((acc, item) => {
                         return acc + (item.quantidade * item.valor_unitario_estimado);
                       }, 0);
@@ -1124,6 +1124,8 @@ const Cotacoes = () => {
           onOpenChange={setDialogRespostasOpen}
           cotacaoId={cotacaoSelecionada.id}
           tituloCotacao={cotacaoSelecionada.titulo_cotacao}
+          criterioJulgamento={criterioJulgamento}
+          requerSelecao={processoSelecionado?.requer_selecao || false}
         />
       )}
 
