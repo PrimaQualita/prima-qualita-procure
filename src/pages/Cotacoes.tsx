@@ -790,7 +790,7 @@ const Cotacoes = () => {
                       Voltar
                     </Button>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 justify-end ml-auto">
                     <Button
                       variant="outline"
                       onClick={() => setDialogImportarOpen(true)}

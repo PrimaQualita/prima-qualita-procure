@@ -157,13 +157,10 @@ const RespostaCotacao = () => {
     try {
       console.log("🔍 Carregando cotação com ID:", cotacaoIdParam);
       
-      // Buscar cotação diretamente com join para obter tipo do processo
+      // Buscar cotação SEM JOIN (RLS pode estar bloqueando)
       const { data: cotacao, error: cotacaoError } = await supabaseAnon
         .from("cotacoes_precos")
-        .select(`
-          *,
-          processos_compras!inner(tipo)
-        `)
+        .select("*")
         .eq("id", cotacaoIdParam)
         .single();
 
@@ -171,10 +168,20 @@ const RespostaCotacao = () => {
       console.log("❌ Erro ao buscar cotação:", cotacaoError);
 
       if (cotacaoError || !cotacao) {
+        console.error("Erro detalhado:", cotacaoError);
         toast.error("Cotação não encontrada");
         setLoading(false);
         return;
       }
+
+      // Buscar tipo do processo separadamente
+      const { data: processo } = await supabaseAnon
+        .from("processos_compras")
+        .select("tipo")
+        .eq("id", cotacao.processo_compra_id)
+        .single();
+
+      console.log("📋 Tipo do processo:", processo?.tipo);
 
       // Verificar data limite
       const dataLimite = new Date(cotacao.data_limite_resposta);
@@ -189,7 +196,7 @@ const RespostaCotacao = () => {
       setCotacaoDescricao(cotacao.descricao_cotacao || "");
       setDataLimite(cotacao.data_limite_resposta);
       setCriterioJulgamento(cotacao.criterio_julgamento || 'global');
-      setTipoProcesso(cotacao.processos_compras?.tipo || "");
+      setTipoProcesso(processo?.tipo || "");
 
       // Carregar lotes se for por lote
       if (cotacao.criterio_julgamento === 'por_lote') {
