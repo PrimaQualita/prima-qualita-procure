@@ -354,6 +354,7 @@ export type Database = {
           data_finalizacao: string | null
           data_limite_resposta: string
           descricao_cotacao: string | null
+          enviado_para_selecao: boolean | null
           fornecedor_vencedor_id: string | null
           id: string
           processo_compra_id: string
@@ -369,6 +370,7 @@ export type Database = {
           data_finalizacao?: string | null
           data_limite_resposta: string
           descricao_cotacao?: string | null
+          enviado_para_selecao?: boolean | null
           fornecedor_vencedor_id?: string | null
           id?: string
           processo_compra_id: string
@@ -384,6 +386,7 @@ export type Database = {
           data_finalizacao?: string | null
           data_limite_resposta?: string
           descricao_cotacao?: string | null
+          enviado_para_selecao?: boolean | null
           fornecedor_vencedor_id?: string | null
           id?: string
           processo_compra_id?: string

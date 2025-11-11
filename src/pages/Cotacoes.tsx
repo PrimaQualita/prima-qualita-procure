@@ -878,10 +878,39 @@ const Cotacoes = () => {
                           }}
                         />
                         <label htmlFor="nao_requer_selecao" className="text-sm font-medium cursor-pointer">
-                          Não Requer Seleção (Compra Direta)
+                          Não Requer Seleção de Fornecedores (Compra Direta)
                         </label>
                       </div>
                     </div>
+
+                    {processoSelecionado?.requer_selecao && (
+                      <div className="flex justify-center pt-2">
+                        <Button 
+                          onClick={async () => {
+                            if (!cotacaoSelecionada?.id) return;
+                            
+                            const { error } = await supabase
+                              .from('cotacoes_precos')
+                              .update({ status_cotacao: 'enviado_para_selecao' })
+                              .eq('id', cotacaoSelecionada.id);
+                            
+                            if (error) {
+                              toast.error('Erro ao enviar para seleção de fornecedores');
+                              return;
+                            }
+                            
+                            toast.success('Processo enviado para Seleção de Fornecedores');
+                            if (processoSelecionado) {
+                              loadCotacoes(processoSelecionado.id);
+                            }
+                          }}
+                          size="lg"
+                          className="w-full max-w-md"
+                        >
+                          Enviar para Seleção de Fornecedores
+                        </Button>
+                      </div>
+                    )}
 
                     {naoRequerSelecao && (
                       <div className="flex justify-center pt-2">
