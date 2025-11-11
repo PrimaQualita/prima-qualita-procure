@@ -540,6 +540,18 @@ export function DialogFinalizarProcesso({
 
     setLoading(true);
     try {
+      // Buscar a ordem máxima atual na cotação para evitar conflitos
+      const { data: camposExistentes } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("ordem")
+        .eq("cotacao_id", cotacaoId)
+        .order("ordem", { ascending: false })
+        .limit(1);
+
+      const ordemInicial = camposExistentes && camposExistentes.length > 0 
+        ? camposExistentes[0].ordem + 1 
+        : 1;
+
       // Deletar campos anteriores deste fornecedor se existirem
       await supabase
         .from("campos_documentos_finalizacao")
@@ -547,14 +559,14 @@ export function DialogFinalizarProcesso({
         .eq("cotacao_id", cotacaoId)
         .eq("fornecedor_id", fornecedorSelecionado);
 
-      // Inserir novos campos com status "enviado"
-      const camposParaInserir = campos.map(campo => ({
+      // Inserir novos campos com status "enviado" e ordem sequencial
+      const camposParaInserir = campos.map((campo, index) => ({
         cotacao_id: cotacaoId,
         fornecedor_id: fornecedorSelecionado,
         nome_campo: campo.nome_campo,
         descricao: campo.descricao || `Data limite: ${new Date(dataLimiteDocumentos).toLocaleDateString('pt-BR')}`,
         obrigatorio: campo.obrigatorio,
-        ordem: campo.ordem,
+        ordem: ordemInicial + index,
         status_solicitacao: 'enviado',
         data_solicitacao: new Date().toISOString(),
       }));
