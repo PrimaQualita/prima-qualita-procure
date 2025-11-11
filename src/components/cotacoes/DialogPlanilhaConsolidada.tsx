@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DialogPlanilhaConsolidadaProps {
   open: boolean;
@@ -47,10 +48,12 @@ export function DialogPlanilhaConsolidada({
 }: DialogPlanilhaConsolidadaProps) {
   const [respostas, setRespostas] = useState<RespostaConsolidada[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tipoVisualizacao, setTipoVisualizacao] = useState<"item" | "lote">(
-    criterioJulgamento === "por_lote" ? "lote" : "item"
+  const [tipoVisualizacao, setTipoVisualizacao] = useState<"item" | "lote" | "global">(
+    criterioJulgamento === "por_lote" ? "lote" : criterioJulgamento === "global" ? "global" : "item"
   );
-  const [tipoCalculo, setTipoCalculo] = useState<"media" | "mediana" | "menor">("menor");
+  const [calculosPorItem, setCalculosPorItem] = useState<Record<number, "media" | "mediana" | "menor">>({});
+  const [calculosPorLote, setCalculosPorLote] = useState<Record<string, "media" | "mediana" | "menor">>({});
+  const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor">("menor");
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -117,6 +120,28 @@ export function DialogPlanilhaConsolidada({
       }
 
       setRespostas(respostasCompletas);
+      
+      // Inicializar cálculos com "menor" para todos os itens
+      if (respostasCompletas.length > 0) {
+        const novosCalculos: Record<number, "media" | "mediana" | "menor"> = {};
+        respostasCompletas[0].itens.forEach(item => {
+          novosCalculos[item.numero_item] = "menor";
+        });
+        setCalculosPorItem(novosCalculos);
+
+        // Inicializar cálculos por lote se aplicável
+        if (criterioJulgamento === "por_lote") {
+          const lotes = new Set<string>();
+          respostasCompletas[0].itens.forEach(item => {
+            if (item.lote_id) lotes.add(item.lote_id);
+          });
+          const novosCalculosLote: Record<string, "media" | "mediana" | "menor"> = {};
+          lotes.forEach(loteId => {
+            novosCalculosLote[loteId] = "menor";
+          });
+          setCalculosPorLote(novosCalculosLote);
+        }
+      }
     } catch (error) {
       console.error("Erro ao carregar respostas:", error);
       toast.error("Erro ao carregar respostas");
@@ -153,24 +178,50 @@ export function DialogPlanilhaConsolidada({
             h1 { color: #0ea5e9; font-size: 24px; margin-bottom: 30px; }
             h2 { color: #0284c7; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; }
             th { background-color: #0ea5e9; color: white; font-weight: bold; }
             .text-right { text-align: right; }
             .total { background-color: #f0f9ff; font-weight: bold; }
             .estimativa { background-color: #fef3c7; font-weight: bold; }
             .lote-header { background-color: #0284c7; color: white; font-size: 16px; padding: 10px; margin-top: 20px; }
             .criterio-badge { display: inline-block; padding: 5px 15px; background-color: #0ea5e9; color: white; border-radius: 5px; font-size: 14px; margin-bottom: 20px; }
+            .empresa { max-width: 150px; word-wrap: break-word; font-size: 11px; }
+            .descricao { max-width: 200px; word-wrap: break-word; }
           </style>
         </head>
         <body>
           <h1>PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO</h1>
           <div class="criterio-badge">
-            Visualização: ${tipoVisualizacao === "item" ? "Por Item" : "Por Lote"} | 
-            Cálculo: ${tipoCalculo === "media" ? "Média" : tipoCalculo === "mediana" ? "Mediana" : "Menor Preço"}
+            Visualização: ${tipoVisualizacao === "item" ? "Por Item" : tipoVisualizacao === "lote" ? "Por Lote" : "Global"}
           </div>
       `;
 
-      if (tipoVisualizacao === "lote" && criterioJulgamento === "por_lote") {
+      if (tipoVisualizacao === "global") {
+        // Visualização global - apenas valores totais
+        const valoresGlobais = respostas.map(r => r.valor_total);
+        const stats = calcularEstatisticas(valoresGlobais);
+        const valorEstimativa = stats[calculoGlobal];
+
+        html += `
+          <table>
+            <thead>
+              <tr>
+                ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
+                <th class="text-right">Estimativa (${calculoGlobal === "menor" ? "Menor Preço" : calculoGlobal === "media" ? "Média" : "Mediana"})</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                ${respostas.map(r => `
+                  <td class="text-right">R$ ${r.valor_total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                `).join("")}
+                <td class="text-right estimativa">R$ ${valorEstimativa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
+        `;
+
+      } else if (tipoVisualizacao === "lote" && criterioJulgamento === "por_lote") {
         // Agrupar itens por lote
         const lotes = new Map<string, any[]>();
         respostas.forEach(resposta => {
@@ -190,9 +241,11 @@ export function DialogPlanilhaConsolidada({
         // Gerar tabela para cada lote
         lotes.forEach((itensDoLote, loteId) => {
           const primeiroItem = itensDoLote[0];
+          const tipoCalculoLote = calculosPorLote[loteId] || "menor";
+          
           html += `
             <div class="lote-header">
-              LOTE ${primeiroItem.lote_numero} - ${primeiroItem.lote_descricao}
+              LOTE ${primeiroItem.lote_numero} - ${primeiroItem.lote_descricao} (Cálculo: ${tipoCalculoLote === "menor" ? "Menor Preço" : tipoCalculoLote === "media" ? "Média" : "Mediana"})
             </div>
             <table>
               <thead>
@@ -201,7 +254,7 @@ export function DialogPlanilhaConsolidada({
                   <th>Descrição</th>
                   <th class="text-right">Qtd</th>
                   <th>Unid</th>
-                  ${respostas.map(r => `<th class="text-right">${r.fornecedor.razao_social}</th>`).join("")}
+                  ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                   <th class="text-right">Estimativa</th>
                 </tr>
               </thead>
@@ -225,14 +278,14 @@ export function DialogPlanilhaConsolidada({
               const item = itens[0];
               const valores = itens.map(i => i.valor_unitario_ofertado);
               const stats = calcularEstatisticas(valores);
-              const valorEstimativa = stats[tipoCalculo];
+              const valorEstimativa = stats[tipoCalculoLote];
               const totalItemEstimativa = valorEstimativa * item.quantidade;
               totalLoteEstimativa += totalItemEstimativa;
 
               html += `
                 <tr>
                   <td>${numeroItem}</td>
-                  <td>${stripHtml(item.descricao)}</td>
+                  <td class="descricao">${stripHtml(item.descricao)}</td>
                   <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
                   <td>${item.unidade}</td>
               `;
@@ -287,7 +340,7 @@ export function DialogPlanilhaConsolidada({
                 <th>Descrição</th>
                 <th class="text-right">Qtd</th>
                 <th>Unid</th>
-                ${respostas.map(r => `<th class="text-right">${r.fornecedor.razao_social}</th>`).join("")}
+                ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                 <th class="text-right">Estimativa</th>
               </tr>
             </thead>
@@ -300,16 +353,17 @@ export function DialogPlanilhaConsolidada({
           .sort(([a], [b]) => a - b)
           .forEach(([numeroItem, itens]) => {
             const item = itens[0];
+            const tipoCalculoItem = calculosPorItem[numeroItem] || "menor";
             const valores = itens.map(i => i.valor_unitario_ofertado);
             const stats = calcularEstatisticas(valores);
-            const valorEstimativa = stats[tipoCalculo];
+            const valorEstimativa = stats[tipoCalculoItem];
             const totalItemEstimativa = valorEstimativa * item.quantidade;
             totalGeralEstimativa += totalItemEstimativa;
 
             html += `
               <tr>
                 <td>${numeroItem}</td>
-                <td>${stripHtml(item.descricao)}</td>
+                <td class="descricao">${stripHtml(item.descricao)}</td>
                 <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
                 <td>${item.unidade}</td>
             `;
@@ -349,10 +403,16 @@ export function DialogPlanilhaConsolidada({
       const link = document.createElement("a");
       link.href = url;
       link.download = `Planilha_Consolidada_${new Date().toLocaleDateString("pt-BR").replace(/\//g, "-")}.html`;
+      link.style.display = "none";
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      
+      setTimeout(() => {
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 100);
+      }, 100);
 
       toast.success("Planilha consolidada gerada com sucesso!");
     } catch (error) {
@@ -361,57 +421,136 @@ export function DialogPlanilhaConsolidada({
     }
   };
 
+  // Obter lista de itens únicos para configuração
+  const itensUnicos = respostas.length > 0 
+    ? Array.from(new Set(respostas[0].itens.map(i => i.numero_item)))
+        .sort((a, b) => a - b)
+        .map(num => respostas[0].itens.find(i => i.numero_item === num)!)
+    : [];
+
+  // Obter lotes únicos
+  const lotesUnicos = respostas.length > 0 && criterioJulgamento === "por_lote"
+    ? Array.from(new Map(
+        respostas[0].itens
+          .filter(i => i.lote_id)
+          .map(i => [i.lote_id!, { id: i.lote_id!, numero: i.lote_numero!, descricao: i.lote_descricao! }])
+      ).values()).sort((a, b) => a.numero - b.numero)
+    : [];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Gerar Planilha Consolidada para Seleção</DialogTitle>
           <DialogDescription>
-            Configure os parâmetros para gerar a planilha comparativa de estimativas de preços
+            Configure os parâmetros de cálculo para cada item ou lote
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {criterioJulgamento === "por_lote" && (
+        <ScrollArea className="max-h-[60vh] pr-4">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Tipo de Visualização</Label>
-              <Select value={tipoVisualizacao} onValueChange={(v: "item" | "lote") => setTipoVisualizacao(v)}>
+              <Select value={tipoVisualizacao} onValueChange={(v: "item" | "lote" | "global") => setTipoVisualizacao(v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="global">Global (Valor Total)</SelectItem>
                   <SelectItem value="item">Por Item</SelectItem>
-                  <SelectItem value="lote">Por Lote</SelectItem>
+                  {criterioJulgamento === "por_lote" && (
+                    <SelectItem value="lote">Por Lote</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          <div className="space-y-2">
-            <Label>Tipo de Cálculo para Estimativa</Label>
-            <Select value={tipoCalculo} onValueChange={(v: "media" | "mediana" | "menor") => setTipoCalculo(v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="menor">Menor Preço</SelectItem>
-                <SelectItem value="media">Média</SelectItem>
-                <SelectItem value="mediana">Mediana</SelectItem>
-              </SelectContent>
-            </Select>
+            {tipoVisualizacao === "global" && (
+              <div className="space-y-2">
+                <Label>Tipo de Cálculo Global</Label>
+                <Select value={calculoGlobal} onValueChange={(v: "media" | "mediana" | "menor") => setCalculoGlobal(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="menor">Menor Preço</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="mediana">Mediana</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {tipoVisualizacao === "lote" && criterioJulgamento === "por_lote" && (
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Configurar Cálculo por Lote</Label>
+                {lotesUnicos.map((lote) => (
+                  <div key={lote.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">Lote {lote.numero}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-1">{lote.descricao}</p>
+                    </div>
+                    <Select 
+                      value={calculosPorLote[lote.id] || "menor"} 
+                      onValueChange={(v: "media" | "mediana" | "menor") => {
+                        setCalculosPorLote(prev => ({ ...prev, [lote.id]: v }));
+                      }}
+                    >
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="menor">Menor Preço</SelectItem>
+                        <SelectItem value="media">Média</SelectItem>
+                        <SelectItem value="mediana">Mediana</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {tipoVisualizacao === "item" && (
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Configurar Cálculo por Item</Label>
+                {itensUnicos.map((item) => (
+                  <div key={item.numero_item} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">Item {item.numero_item}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-1">{stripHtml(item.descricao)}</p>
+                    </div>
+                    <Select 
+                      value={calculosPorItem[item.numero_item] || "menor"} 
+                      onValueChange={(v: "media" | "mediana" | "menor") => {
+                        setCalculosPorItem(prev => ({ ...prev, [item.numero_item]: v }));
+                      }}
+                    >
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="menor">Menor Preço</SelectItem>
+                        <SelectItem value="media">Média</SelectItem>
+                        <SelectItem value="mediana">Mediana</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="rounded-lg bg-muted p-4 mt-4">
+              <p className="text-sm text-muted-foreground">
+                <strong>Respostas encontradas:</strong> {respostas.length} fornecedor(es)
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Configure o tipo de cálculo individualmente e gere a planilha consolidada.
+              </p>
+            </div>
           </div>
+        </ScrollArea>
 
-          <div className="rounded-lg bg-muted p-4">
-            <p className="text-sm text-muted-foreground">
-              <strong>Respostas encontradas:</strong> {respostas.length} fornecedor(es)
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              A planilha irá comparar todos os valores recebidos e calcular a estimativa baseada no critério selecionado.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
