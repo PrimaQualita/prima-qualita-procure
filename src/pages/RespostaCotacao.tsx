@@ -181,10 +181,13 @@ const RespostaCotacao = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log("=== INICIANDO ENVIO DE RESPOSTA ===");
+    
     // Validar dados da empresa
     try {
       dadosEmpresaSchema.parse(dadosEmpresa);
       setErrors({});
+      console.log("✓ Dados da empresa validados");
     } catch (error) {
       if (error instanceof z.ZodError) {
         const newErrors: { [key: string]: string } = {};
@@ -194,6 +197,7 @@ const RespostaCotacao = () => {
           }
         });
         setErrors(newErrors);
+        console.error("✗ Erro na validação dos dados:", newErrors);
         toast.error("Por favor, preencha todos os campos obrigatórios corretamente");
         return;
       }
@@ -202,47 +206,66 @@ const RespostaCotacao = () => {
     // Validar se todos os itens têm valores
     const todosItensPreenchidos = itens.every(item => valoresItens[item.id] && valoresItens[item.id] > 0);
     if (!todosItensPreenchidos) {
+      console.error("✗ Nem todos os itens estão preenchidos");
       toast.error("Por favor, preencha os valores de todos os itens");
       return;
     }
+    console.log("✓ Todos os itens preenchidos");
 
     setSaving(true);
     try {
+      console.log("1. Verificando fornecedor existente...");
+      const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
+      
       // Verificar se fornecedor já existe pelo CNPJ
-      const { data: fornecedorExistente } = await supabase
+      const { data: fornecedorExistente, error: buscaError } = await supabase
         .from("fornecedores")
         .select("id")
-        .eq("cnpj", dadosEmpresa.cnpj)
+        .eq("cnpj", cnpjLimpo)
         .maybeSingle();
 
+      if (buscaError) {
+        console.error("✗ Erro ao buscar fornecedor:", buscaError);
+        throw buscaError;
+      }
+
       let fornecedorId = fornecedorExistente?.id;
+      console.log("Fornecedor existente:", fornecedorId ? "Sim - " + fornecedorId : "Não");
 
       // Se não existe, criar registro básico do fornecedor
       if (!fornecedorId) {
+        console.log("2. Criando novo fornecedor...");
         const { data: novoFornecedor, error: fornecedorError } = await supabase
           .from("fornecedores")
           .insert({
             razao_social: dadosEmpresa.razao_social,
-            cnpj: dadosEmpresa.cnpj,
-            email: "nao-cadastrado@temporario.com", // Temporário
-            telefone: "00000000000", // Temporário
+            cnpj: cnpjLimpo,
+            email: `cotacao-${cnpjLimpo}@temporario.com`,
+            telefone: "00000000000",
             endereco_comercial: `${dadosEmpresa.logradouro}, ${dadosEmpresa.numero} - ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf} - CEP: ${dadosEmpresa.cep}`,
             status_aprovacao: "pendente",
-            ativo: false, // Não ativo até completar cadastro
+            ativo: false,
           })
           .select()
           .single();
 
-        if (fornecedorError) throw fornecedorError;
+        if (fornecedorError) {
+          console.error("✗ Erro ao criar fornecedor:", fornecedorError);
+          throw fornecedorError;
+        }
         fornecedorId = novoFornecedor.id;
+        console.log("✓ Fornecedor criado:", fornecedorId);
       }
 
       // Calcular valor total
+      console.log("3. Calculando valor total...");
       const valorTotal = itens.reduce((total, item) => {
         return total + (item.quantidade * (valoresItens[item.id] || 0));
       }, 0);
+      console.log("✓ Valor total:", valorTotal);
 
       // Criar resposta da cotação
+      console.log("4. Criando resposta da cotação...");
       const { data: resposta, error: respostaError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .insert({
@@ -254,21 +277,32 @@ const RespostaCotacao = () => {
         .select()
         .single();
 
-      if (respostaError) throw respostaError;
+      if (respostaError) {
+        console.error("✗ Erro ao criar resposta:", respostaError);
+        throw respostaError;
+      }
+      console.log("✓ Resposta criada:", resposta.id);
 
       // Criar respostas dos itens
+      console.log("5. Criando respostas dos itens...");
       const respostasItens = itens.map(item => ({
         cotacao_resposta_fornecedor_id: resposta.id,
         item_cotacao_id: item.id,
         valor_unitario_ofertado: valoresItens[item.id],
       }));
+      console.log("Itens a inserir:", respostasItens.length);
 
       const { error: itensError } = await supabase
         .from("respostas_itens_fornecedor")
         .insert(respostasItens);
 
-      if (itensError) throw itensError;
+      if (itensError) {
+        console.error("✗ Erro ao criar itens:", itensError);
+        throw itensError;
+      }
+      console.log("✓ Itens criados com sucesso");
 
+      console.log("=== RESPOSTA ENVIADA COM SUCESSO ===");
       toast.success("Resposta enviada com sucesso!");
       
       setTimeout(() => {
@@ -276,8 +310,8 @@ const RespostaCotacao = () => {
       }, 2000);
       
     } catch (error) {
-      console.error("Erro ao enviar resposta:", error);
-      toast.error("Erro ao enviar resposta");
+      console.error("=== ERRO GERAL ===", error);
+      toast.error("Erro ao enviar resposta: " + (error as Error).message);
     } finally {
       setSaving(false);
     }
