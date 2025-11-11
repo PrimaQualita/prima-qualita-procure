@@ -369,6 +369,7 @@ export function DialogFinalizarProcesso({
   const loadCamposExistentes = async () => {
     if (!fornecedorSelecionado) return;
     
+    // Carregar TODOS os campos (não apenas os pendentes) para mostrar os documentos enviados
     const { data, error } = await supabase
       .from("campos_documentos_finalizacao")
       .select(`
@@ -387,6 +388,7 @@ export function DialogFinalizarProcesso({
     if (error) {
       console.error("Erro ao carregar campos:", error);
     } else {
+      console.log("📋 Campos carregados:", data);
       setCampos(data || []);
     }
   };
@@ -807,51 +809,132 @@ export function DialogFinalizarProcesso({
                 </div>
           )}
 
-          {/* Documentos Enviados pelo Fornecedor */}
-          {fornecedorSelecionado && campos.length > 0 && campos.some((c: any) => c.documentos_finalizacao_fornecedor && c.documentos_finalizacao_fornecedor.length > 0) && (
-            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
-              <h3 className="font-semibold mb-3 flex items-center gap-2 text-blue-700 dark:text-blue-400">
-                📄 Documentos Enviados pelo Fornecedor
+          {/* Documentos Enviados pelo Fornecedor - Aguardando Aprovação */}
+          {fornecedorSelecionado && campos.length > 0 && campos.some((c: any) => c.status_solicitacao === 'em_analise') && (
+            <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-950/20">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+                ⏳ Documentos Enviados - Aguardando Aprovação
               </h3>
               <div className="space-y-3">
-                {campos.map((campo: any) => {
-                  const documentosEnviados = campo.documentos_finalizacao_fornecedor || [];
-                  if (documentosEnviados.length === 0) return null;
-                  
-                  return (
-                    <div key={campo.id} className="p-3 bg-white dark:bg-background rounded border">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium">{campo.nome_campo}</p>
-                          {campo.descricao && (
-                            <p className="text-sm text-muted-foreground mt-1">{campo.descricao}</p>
-                          )}
-                          <div className="mt-2 space-y-1">
-                            {documentosEnviados.map((doc: any) => (
-                              <div key={doc.id} className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                <a
-                                  href={doc.url_arquivo}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-blue-600 hover:underline"
-                                >
-                                  {doc.nome_arquivo}
-                                </a>
-                                <span className="text-xs text-muted-foreground">
-                                  • {new Date(doc.data_upload).toLocaleDateString()}
-                                </span>
+                {campos
+                  .filter((campo: any) => campo.status_solicitacao === 'em_analise')
+                  .map((campo: any) => {
+                    const documentosEnviados = campo.documentos_finalizacao_fornecedor || [];
+                    
+                    return (
+                      <div key={campo.id} className="p-3 bg-white dark:bg-background rounded border">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <p className="font-medium">{campo.nome_campo}</p>
+                            {campo.descricao && (
+                              <p className="text-sm text-muted-foreground mt-1">{campo.descricao}</p>
+                            )}
+                            {documentosEnviados.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {documentosEnviados.map((doc: any) => (
+                                  <div key={doc.id} className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                    <a
+                                      href={doc.url_arquivo}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-sm text-blue-600 hover:underline"
+                                    >
+                                      {doc.nome_arquivo}
+                                    </a>
+                                    <span className="text-xs text-muted-foreground">
+                                      • {new Date(doc.data_upload).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={async () => {
+                                try {
+                                  const { error } = await supabase
+                                    .from('campos_documentos_finalizacao')
+                                    .update({
+                                      status_solicitacao: 'aprovado',
+                                      data_aprovacao: new Date().toISOString()
+                                    })
+                                    .eq('id', campo.id);
+                                  
+                                  if (error) throw error;
+                                  
+                                  toast.success(`Documento "${campo.nome_campo}" aprovado!`);
+                                  await loadCamposExistentes();
+                                  await loadStatusDocumentosFornecedor(fornecedorSelecionado);
+                                } catch (error) {
+                                  console.error("Erro ao aprovar documento:", error);
+                                  toast.error("Erro ao aprovar documento");
+                                }
+                              }}
+                            >
+                              ✓ Aprovar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                              onClick={async () => {
+                                try {
+                                  const { error } = await supabase
+                                    .from('campos_documentos_finalizacao')
+                                    .update({
+                                      status_solicitacao: 'rejeitado',
+                                    })
+                                    .eq('id', campo.id);
+                                  
+                                  if (error) throw error;
+                                  
+                                  toast.info(`Documento "${campo.nome_campo}" rejeitado. O fornecedor deverá enviar novamente.`);
+                                  await loadCamposExistentes();
+                                  await loadStatusDocumentosFornecedor(fornecedorSelecionado);
+                                } catch (error) {
+                                  console.error("Erro ao rejeitar documento:", error);
+                                  toast.error("Erro ao rejeitar documento");
+                                }
+                              }}
+                            >
+                              ✗ Rejeitar
+                            </Button>
                           </div>
                         </div>
-                        <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                          ✓ Enviado
-                        </Badge>
                       </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Documentos Aprovados */}
+          {fornecedorSelecionado && campos.length > 0 && campos.some((c: any) => c.status_solicitacao === 'aprovado') && (
+            <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-green-700 dark:text-green-400">
+                ✓ Documentos Aprovados
+              </h3>
+              <div className="space-y-2">
+                {campos
+                  .filter((campo: any) => campo.status_solicitacao === 'aprovado')
+                  .map((campo: any) => (
+                    <div key={campo.id} className="p-2 bg-white dark:bg-background rounded border flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{campo.nome_campo}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Aprovado em {new Date(campo.data_aprovacao).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        ✓ Aprovado
+                      </Badge>
                     </div>
-                  );
-                })}
+                  ))}
               </div>
             </div>
           )}
