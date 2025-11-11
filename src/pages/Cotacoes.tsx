@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
@@ -20,6 +20,7 @@ import { DialogRespostasCotacao } from "@/components/cotacoes/DialogRespostasCot
 import { DialogImportarItens } from "@/components/cotacoes/DialogImportarItens";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Contrato {
   id: string;
@@ -82,6 +83,7 @@ const Cotacoes = () => {
   const [dialogFinalizarOpen, setDialogFinalizarOpen] = useState(false);
   const [dialogRespostasOpen, setDialogRespostasOpen] = useState(false);
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
+  const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
@@ -289,6 +291,40 @@ const Cotacoes = () => {
       if (cotacaoSelecionada) {
         loadItens(cotacaoSelecionada.id);
       }
+    }
+  };
+
+  const handleDeleteAllItems = async () => {
+    if (!cotacaoSelecionada) return;
+
+    try {
+      // Excluir todos os itens da cotação
+      const { error: itensError } = await supabase
+        .from("itens_cotacao")
+        .delete()
+        .eq("cotacao_id", cotacaoSelecionada.id);
+
+      if (itensError) throw itensError;
+
+      // Se for por lote, excluir também todos os lotes
+      if (criterioJulgamento === 'por_lote') {
+        const { error: lotesError } = await supabase
+          .from("lotes_cotacao")
+          .delete()
+          .eq("cotacao_id", cotacaoSelecionada.id);
+
+        if (lotesError) throw lotesError;
+      }
+
+      toast.success("Todos os itens foram excluídos com sucesso!");
+      setConfirmDeleteAllOpen(false);
+      loadItens(cotacaoSelecionada.id);
+      if (criterioJulgamento === 'por_lote') {
+        loadLotes(cotacaoSelecionada.id);
+      }
+    } catch (error) {
+      console.error("Erro ao excluir itens:", error);
+      toast.error("Erro ao excluir itens");
     }
   };
 
@@ -643,6 +679,15 @@ const Cotacoes = () => {
                     >
                       Enviar para Fornecedores
                     </Button>
+                    {itens.length > 0 && (
+                      <Button 
+                        variant="destructive"
+                        onClick={() => setConfirmDeleteAllOpen(true)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir Todos os Itens
+                      </Button>
+                    )}
                     <Button onClick={() => {
                       setItemEditando(null);
                       setDialogItemOpen(true);
@@ -982,6 +1027,38 @@ const Cotacoes = () => {
           }}
         />
       )}
+
+      {/* Dialog Confirmar Exclusão de Todos os Itens */}
+      <AlertDialog open={confirmDeleteAllOpen} onOpenChange={setConfirmDeleteAllOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Confirmar Exclusão de Todos os Itens
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>TODOS os {itens.length} itens</strong> desta cotação?
+              {criterioJulgamento === 'por_lote' && lotes.length > 0 && (
+                <>
+                  <br /><br />
+                  Esta ação também excluirá <strong>todos os {lotes.length} lotes</strong> criados.
+                </>
+              )}
+              <br /><br />
+              <span className="text-destructive font-semibold">Esta ação não pode ser desfeita!</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteAllItems}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir Todos os Itens
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
