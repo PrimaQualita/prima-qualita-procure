@@ -65,7 +65,7 @@ Departamento de Compras`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Enviar Cotação para Fornecedores</DialogTitle>
           <DialogDescription>
@@ -73,9 +73,9 @@ Departamento de Compras`;
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto flex-1 pr-2">
           <div className="relative">
-            <pre className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap overflow-auto max-h-96 border">
+            <pre className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap border max-h-64 overflow-y-auto">
               {textoEmail}
             </pre>
             <Button
