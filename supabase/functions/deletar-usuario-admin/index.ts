@@ -8,7 +8,10 @@ const corsHeaders = {
 };
 
 const deleteUserSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.string().optional(),
+  email: z.string().email().optional(),
+}).refine(data => data.userId || data.email, {
+  message: "Either userId or email must be provided",
 });
 
 serve(async (req) => {
@@ -28,9 +31,32 @@ serve(async (req) => {
       }
     );
 
-    const { userId } = deleteUserSchema.parse(await req.json());
+    const body = deleteUserSchema.parse(await req.json());
+    
+    let userId = body.userId;
+
+    // Se foi passado e-mail ao invés de userId, buscar o usuário
+    if (!userId && body.email) {
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (userError) {
+        throw new Error(`Erro ao buscar usuário: ${userError.message}`);
+      }
+
+      const user = userData.users.find(u => u.email === body.email);
+      if (!user) {
+        throw new Error(`Usuário com e-mail ${body.email} não encontrado`);
+      }
+      
+      userId = user.id;
+      console.log("Usuário encontrado pelo e-mail:", body.email, "ID:", userId);
+    }
 
     console.log("Deletando usuário:", userId);
+
+    if (!userId) {
+      throw new Error("userId não encontrado");
+    }
 
     // Deletar roles
     const { error: roleError } = await supabaseAdmin

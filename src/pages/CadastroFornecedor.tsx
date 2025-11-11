@@ -228,7 +228,7 @@ export default function CadastroFornecedor() {
             'Authorization': `Bearer ${SUPABASE_KEY}`
           },
           body: JSON.stringify({ 
-            userId: formData.email // A edge function buscará pelo e-mail
+            email: formData.email // A edge function buscará pelo e-mail
           })
         });
 
