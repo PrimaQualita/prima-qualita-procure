@@ -155,6 +155,8 @@ export default function PortalFornecedor() {
             <CardContent className="pt-6">
               <p className="text-center text-yellow-700 dark:text-yellow-400">
                 ⏳ Seu cadastro está pendente de aprovação pelo gestor. Você receberá um e-mail quando for aprovado.
+                <br />
+                <strong>Enquanto isso, você pode participar de cotações e seleções de fornecedores.</strong>
               </p>
             </CardContent>
           </Card>
@@ -170,194 +172,219 @@ export default function PortalFornecedor() {
           </Card>
         )}
 
-        {fornecedor?.status_aprovacao === "aprovado" && (
-          <Tabs defaultValue="perfil" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="perfil">
-                <User className="mr-2 h-4 w-4" />
-                Meu Perfil
-              </TabsTrigger>
-              <TabsTrigger value="cotacoes">
-                <FileText className="mr-2 h-4 w-4" />
-                Cotações de Preços
-              </TabsTrigger>
-              <TabsTrigger value="selecoes">
-                <Gavel className="mr-2 h-4 w-4" />
-                Seleções
-              </TabsTrigger>
-              <TabsTrigger value="contato">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Contato
-              </TabsTrigger>
-            </TabsList>
+        <Tabs defaultValue="perfil" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="perfil">
+              <User className="mr-2 h-4 w-4" />
+              Meu Perfil
+            </TabsTrigger>
+            <TabsTrigger value="cotacoes">
+              <FileText className="mr-2 h-4 w-4" />
+              Cotações de Preços
+            </TabsTrigger>
+            <TabsTrigger value="selecoes">
+              <Gavel className="mr-2 h-4 w-4" />
+              Seleções
+            </TabsTrigger>
+            <TabsTrigger value="contato">
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Contato
+            </TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="perfil">
-              <div className="space-y-6">
-                {/* Informações do Cadastro */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Informações do Cadastro</CardTitle>
-                    <CardDescription>
-                      Dados do seu cadastro como fornecedor
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Razão Social</p>
-                        <p className="font-medium">{fornecedor?.razao_social}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">CNPJ</p>
-                        <p className="font-medium">{fornecedor?.cnpj}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">E-mail</p>
-                        <p className="font-medium">{fornecedor?.email}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Data de Aprovação</p>
-                        <p className="font-medium">
-                          {fornecedor?.data_aprovacao 
-                            ? new Date(fornecedor.data_aprovacao).toLocaleDateString()
-                            : "-"}
-                        </p>
-                      </div>
-                      {fornecedor?.data_validade_certificado && (
-                        <div>
-                           <p className="text-sm text-muted-foreground">Validade do Certificado</p>
-                           <p className="font-medium">
-                             {fornecedor.data_validade_certificado.split('T')[0].split('-').reverse().join('/')}
-                           </p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm text-muted-foreground">Status</p>
-                        <Badge variant="outline" className="bg-green-500/10 text-green-600">
-                          Aprovado
-                        </Badge>
-                      </div>
+          <TabsContent value="perfil">
+            <div className="space-y-6">
+              {/* Informações do Cadastro */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informações do Cadastro</CardTitle>
+                  <CardDescription>
+                    Dados do seu cadastro como fornecedor
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Razão Social</p>
+                      <p className="font-medium">{fornecedor?.razao_social}</p>
                     </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">CNPJ</p>
+                      <p className="font-medium">{fornecedor?.cnpj}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">E-mail</p>
+                      <p className="font-medium">{fornecedor?.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Status do Cadastro</p>
+                      <Badge 
+                        variant="outline" 
+                        className={
+                          fornecedor?.status_aprovacao === 'aprovado' 
+                            ? 'bg-green-500/10 text-green-600'
+                            : fornecedor?.status_aprovacao === 'pendente'
+                            ? 'bg-yellow-500/10 text-yellow-600'
+                            : 'bg-red-500/10 text-red-600'
+                        }
+                      >
+                        {fornecedor?.status_aprovacao === 'aprovado' ? 'Aprovado' : 
+                         fornecedor?.status_aprovacao === 'pendente' ? 'Pendente' : 'Reprovado'}
+                      </Badge>
+                    </div>
+                    {fornecedor?.status_aprovacao === 'aprovado' && (
+                      <>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Data de Aprovação</p>
+                          <p className="font-medium">
+                            {fornecedor?.data_aprovacao 
+                              ? new Date(fornecedor.data_aprovacao).toLocaleDateString()
+                              : "-"}
+                          </p>
+                        </div>
+                        {fornecedor?.data_validade_certificado && (
+                          <div>
+                             <p className="text-sm text-muted-foreground">Validade do Certificado</p>
+                             <p className="font-medium">
+                               {fornecedor.data_validade_certificado.split('T')[0].split('-').reverse().join('/')}
+                             </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Gestão de Documentos - Apenas para aprovados */}
+              {fornecedor?.status_aprovacao === 'aprovado' && (
+                <GestaoDocumentosFornecedor fornecedorId={fornecedor.id} />
+              )}
+              
+              {/* Mensagem para pendentes */}
+              {fornecedor?.status_aprovacao === 'pendente' && (
+                <Card className="border-yellow-500/50 bg-yellow-500/5">
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                      📄 A gestão de documentos estará disponível após aprovação do seu cadastro pelo gestor.
+                    </p>
                   </CardContent>
                 </Card>
+              )}
+            </div>
+          </TabsContent>
 
-                {/* Gestão de Documentos */}
-                <GestaoDocumentosFornecedor fornecedorId={fornecedor.id} />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="cotacoes">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Minhas Cotações de Preços</CardTitle>
-                  <CardDescription>
-                    Cotações em que você foi convidado a participar
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {cotacoes.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      Você ainda não foi convidado para nenhuma cotação.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {cotacoes.map((convite) => (
-                        <div key={convite.id} className="p-4 border rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h3 className="font-semibold">
-                                {convite.cotacoes_precos?.titulo_cotacao}
-                              </h3>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {convite.cotacoes_precos?.descricao_cotacao}
-                              </p>
-                              <div className="flex gap-4 mt-3 text-sm">
-                                <span>
-                                  Prazo: {new Date(convite.cotacoes_precos?.data_limite_resposta).toLocaleDateString()}
-                                </span>
-                                {getStatusCotacaoBadge(convite.cotacoes_precos?.status_cotacao)}
-                              </div>
+          <TabsContent value="cotacoes">
+            <Card>
+              <CardHeader>
+                <CardTitle>Minhas Cotações de Preços</CardTitle>
+                <CardDescription>
+                  Cotações em que você foi convidado a participar
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {cotacoes.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    Você ainda não foi convidado para nenhuma cotação.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {cotacoes.map((convite) => (
+                      <div key={convite.id} className="p-4 border rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold">
+                              {convite.cotacoes_precos?.titulo_cotacao}
+                            </h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {convite.cotacoes_precos?.descricao_cotacao}
+                            </p>
+                            <div className="flex gap-4 mt-3 text-sm">
+                              <span>
+                                Prazo: {new Date(convite.cotacoes_precos?.data_limite_resposta).toLocaleDateString()}
+                              </span>
+                              {getStatusCotacaoBadge(convite.cotacoes_precos?.status_cotacao)}
                             </div>
-                            <Button size="sm" disabled={convite.cotacoes_precos?.status_cotacao !== "em_aberto"}>
-                              Responder
-                            </Button>
                           </div>
+                          <Button size="sm" disabled={convite.cotacoes_precos?.status_cotacao !== "em_aberto"}>
+                            Responder
+                          </Button>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <TabsContent value="selecoes">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Minhas Seleções de Fornecedores</CardTitle>
-                  <CardDescription>
-                    Processos seletivos em que você foi convidado a participar
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {selecoes.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      Você ainda não foi convidado para nenhuma seleção.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {selecoes.map((convite) => (
-                        <div key={convite.id} className="p-4 border rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h3 className="font-semibold">
-                                {convite.selecoes_fornecedores?.titulo_selecao}
-                              </h3>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {convite.selecoes_fornecedores?.descricao}
-                              </p>
-                              <div className="flex gap-4 mt-3 text-sm">
-                                <span>
-                                  Data: {new Date(convite.selecoes_fornecedores?.data_sessao_disputa).toLocaleDateString()}
-                                </span>
-                                <span>
-                                  Horário: {convite.selecoes_fornecedores?.hora_sessao_disputa}
-                                </span>
-                                {getStatusSelecaoBadge(convite.selecoes_fornecedores?.status_selecao)}
-                              </div>
+          <TabsContent value="selecoes">
+            <Card>
+              <CardHeader>
+                <CardTitle>Minhas Seleções de Fornecedores</CardTitle>
+                <CardDescription>
+                  Processos seletivos em que você foi convidado a participar
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {selecoes.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    Você ainda não foi convidado para nenhuma seleção.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {selecoes.map((convite) => (
+                      <div key={convite.id} className="p-4 border rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold">
+                              {convite.selecoes_fornecedores?.titulo_selecao}
+                            </h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {convite.selecoes_fornecedores?.descricao}
+                            </p>
+                            <div className="flex gap-4 mt-3 text-sm">
+                              <span>
+                                Data: {new Date(convite.selecoes_fornecedores?.data_sessao_disputa).toLocaleDateString()}
+                              </span>
+                              <span>
+                                Horário: {convite.selecoes_fornecedores?.hora_sessao_disputa}
+                              </span>
+                              {getStatusSelecaoBadge(convite.selecoes_fornecedores?.status_selecao)}
                             </div>
-                            <Button 
-                              size="sm" 
-                              disabled={convite.selecoes_fornecedores?.status_selecao !== "em_andamento"}
-                            >
-                              Participar
-                            </Button>
                           </div>
+                          <Button 
+                            size="sm" 
+                            disabled={convite.selecoes_fornecedores?.status_selecao !== "em_andamento"}
+                          >
+                            Participar
+                          </Button>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <TabsContent value="contato">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Contato com Departamento de Compras</CardTitle>
-                  <CardDescription>
-                    Entre em contato para dúvidas ou suporte
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button onClick={() => navigate("/contatos")}>
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Abrir Página de Contato
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        )}
+          <TabsContent value="contato">
+            <Card>
+              <CardHeader>
+                <CardTitle>Contato com Departamento de Compras</CardTitle>
+                <CardDescription>
+                  Entre em contato para dúvidas ou suporte
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={() => navigate("/contatos")}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Abrir Página de Contato
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
