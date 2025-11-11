@@ -16,6 +16,7 @@ export default function PortalFornecedor() {
   const [fornecedor, setFornecedor] = useState<any>(null);
   const [cotacoes, setCotacoes] = useState<any[]>([]);
   const [selecoes, setSelecoes] = useState<any[]>([]);
+  const [documentosPendentes, setDocumentosPendentes] = useState<any[]>([]);
 
   useEffect(() => {
     checkAuth();
@@ -44,6 +45,7 @@ export default function PortalFornecedor() {
     setFornecedor(fornecedorData);
     await loadCotacoes(fornecedorData.id);
     await loadSelecoes(fornecedorData.id);
+    await loadDocumentosPendentes(fornecedorData.id);
     setLoading(false);
   };
 
@@ -93,6 +95,55 @@ export default function PortalFornecedor() {
       setSelecoes(data || []);
     } catch (error: any) {
       toast.error("Erro ao carregar seleções");
+    }
+  };
+
+  const loadDocumentosPendentes = async (fornecedorId: string) => {
+    try {
+      const { data: cotacoesFinalizadas, error: cotacoesError } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          id,
+          titulo_cotacao,
+          campos_documentos_finalizacao (
+            id,
+            nome_campo,
+            descricao,
+            obrigatorio
+          )
+        `)
+        .eq("fornecedor_vencedor_id", fornecedorId)
+        .eq("processo_finalizado", true);
+
+      if (cotacoesError) throw cotacoesError;
+
+      // Filtrar apenas cotações que têm campos de documentos pendentes
+      const cotacoesComDocumentos = (cotacoesFinalizadas || []).filter(
+        (cot: any) => cot.campos_documentos_finalizacao && cot.campos_documentos_finalizacao.length > 0
+      );
+
+      // Para cada campo, verificar se já foi enviado
+      for (const cotacao of cotacoesComDocumentos) {
+        const camposComStatus = [];
+        for (const campo of cotacao.campos_documentos_finalizacao) {
+          const { data: docExistente } = await supabase
+            .from("documentos_finalizacao_fornecedor")
+            .select("id")
+            .eq("fornecedor_id", fornecedorId)
+            .eq("campo_documento_id", campo.id)
+            .single();
+
+          camposComStatus.push({
+            ...campo,
+            enviado: !!docExistente
+          });
+        }
+        cotacao.campos_documentos_finalizacao = camposComStatus;
+      }
+
+      setDocumentosPendentes(cotacoesComDocumentos);
+    } catch (error: any) {
+      console.error("Erro ao carregar documentos pendentes:", error);
     }
   };
 
@@ -150,6 +201,25 @@ export default function PortalFornecedor() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Alerta de Documentos Pendentes */}
+        {documentosPendentes.length > 0 && (
+          <Card className="mb-6 border-orange-500/50 bg-orange-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <FileText className="h-5 w-5 text-orange-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-orange-700 dark:text-orange-400 mb-2">
+                    ⚠️ Você possui documentos pendentes de envio!
+                  </p>
+                  <p className="text-sm text-orange-600 dark:text-orange-300">
+                    Acesse a aba "Meu Perfil" para visualizar e enviar os documentos solicitados.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {fornecedor?.status_aprovacao === "pendente" && (
           <Card className="mb-6 border-yellow-500/50 bg-yellow-500/5">
             <CardContent className="pt-6">
@@ -259,6 +329,54 @@ export default function PortalFornecedor() {
               {/* Gestão de Documentos - Apenas para aprovados */}
               {fornecedor?.status_aprovacao === 'aprovado' && (
                 <GestaoDocumentosFornecedor fornecedorId={fornecedor.id} />
+              )}
+
+              {/* Documentos Pendentes de Processos Finalizados */}
+              {documentosPendentes.length > 0 && (
+                <Card className="border-orange-500/50">
+                  <CardHeader>
+                    <CardTitle className="text-orange-700 dark:text-orange-400">
+                      📋 Documentos Solicitados em Processos Finalizados
+                    </CardTitle>
+                    <CardDescription>
+                      Envie os documentos solicitados para conclusão dos processos
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {documentosPendentes.map((cotacao: any) => (
+                      <div key={cotacao.id} className="border rounded-lg p-4 bg-muted/30">
+                        <h4 className="font-semibold mb-3">{cotacao.titulo_cotacao}</h4>
+                        <div className="space-y-3">
+                          {cotacao.campos_documentos_finalizacao.map((campo: any) => (
+                            <div key={campo.id} className="flex items-start justify-between p-3 bg-background rounded border">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{campo.nome_campo}</p>
+                                  {campo.obrigatorio && (
+                                    <Badge variant="destructive" className="text-xs">Obrigatório</Badge>
+                                  )}
+                                  {campo.enviado && (
+                                    <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">
+                                      ✓ Enviado
+                                    </Badge>
+                                  )}
+                                </div>
+                                {campo.descricao && (
+                                  <p className="text-sm text-muted-foreground mt-1">{campo.descricao}</p>
+                                )}
+                              </div>
+                              {!campo.enviado && (
+                                <Button size="sm" variant="outline">
+                                  Enviar Documento
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
               )}
               
               {/* Mensagem para pendentes */}

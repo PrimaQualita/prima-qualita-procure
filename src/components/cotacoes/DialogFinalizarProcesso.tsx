@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,6 +30,14 @@ interface CampoDocumento {
 interface Fornecedor {
   id: string;
   razao_social: string;
+}
+
+interface DocumentoExistente {
+  id: string;
+  tipo_documento: string;
+  nome_arquivo: string;
+  data_validade: string | null;
+  em_vigor: boolean;
 }
 
 interface DialogFinalizarProcessoProps {
@@ -47,6 +56,7 @@ export function DialogFinalizarProcesso({
   const [loading, setLoading] = useState(false);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState<string>("");
+  const [documentosExistentes, setDocumentosExistentes] = useState<DocumentoExistente[]>([]);
   const [campos, setCampos] = useState<CampoDocumento[]>([]);
   const [novoCampo, setNovoCampo] = useState<CampoDocumento>({
     nome_campo: "",
@@ -54,6 +64,7 @@ export function DialogFinalizarProcesso({
     obrigatorio: true,
     ordem: 0,
   });
+  const [dataLimiteDocumentos, setDataLimiteDocumentos] = useState<string>("");
 
   useEffect(() => {
     if (open) {
@@ -61,6 +72,14 @@ export function DialogFinalizarProcesso({
       loadCamposExistentes();
     }
   }, [open, cotacaoId]);
+
+  useEffect(() => {
+    if (fornecedorSelecionado) {
+      loadDocumentosFornecedor(fornecedorSelecionado);
+    } else {
+      setDocumentosExistentes([]);
+    }
+  }, [fornecedorSelecionado]);
 
   const loadFornecedoresAprovados = async () => {
     const { data, error } = await supabase
@@ -91,6 +110,42 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const loadDocumentosFornecedor = async (fornecedorId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("documentos_fornecedor")
+        .select("id, tipo_documento, nome_arquivo, data_validade, em_vigor")
+        .eq("fornecedor_id", fornecedorId)
+        .eq("em_vigor", true)
+        .order("tipo_documento");
+
+      if (error) throw error;
+
+      setDocumentosExistentes(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar documentos do fornecedor:", error);
+      toast.error("Erro ao carregar documentos do fornecedor");
+    }
+  };
+
+  const getTipoDocumentoLabel = (tipo: string): string => {
+    const labels: Record<string, string> = {
+      contrato_social: "Contrato Social",
+      cartao_cnpj: "Cartão CNPJ",
+      inscricao_estadual_municipal: "Inscrição Estadual/Municipal",
+      certidao_negativa_debito_federal: "CND Federal",
+      certidao_negativa_debito_estadual: "CND Tributos Estaduais",
+      certidao_divida_ativa_estadual: "CND Dívida Ativa Estadual",
+      certidao_negativa_debito_municipal: "CND Tributos Municipais",
+      certidao_divida_ativa_municipal: "CND Dívida Ativa Municipal",
+      fgts: "CRF FGTS",
+      cndt: "CNDT",
+      certificado_gestor: "Certificado de Fornecedor",
+      relatorio_kpmg: "Relatório KPMG",
+    };
+    return labels[tipo] || tipo;
+  };
+
   const adicionarCampo = () => {
     if (!novoCampo.nome_campo.trim()) {
       toast.error("Nome do campo é obrigatório");
@@ -117,8 +172,8 @@ export function DialogFinalizarProcesso({
       return;
     }
 
-    if (campos.length === 0) {
-      toast.error("Adicione pelo menos um campo de documento");
+    if (campos.length > 0 && !dataLimiteDocumentos) {
+      toast.error("Informe a data limite para envio dos documentos");
       return;
     }
 
@@ -136,22 +191,26 @@ export function DialogFinalizarProcesso({
 
       if (cotacaoError) throw cotacaoError;
 
-      // Inserir campos de documentos
-      const camposParaInserir = campos.map(campo => ({
-        cotacao_id: cotacaoId,
-        nome_campo: campo.nome_campo,
-        descricao: campo.descricao,
-        obrigatorio: campo.obrigatorio,
-        ordem: campo.ordem,
-      }));
+      // Inserir campos de documentos apenas se houver documentos faltantes
+      if (campos.length > 0) {
+        const camposParaInserir = campos.map(campo => ({
+          cotacao_id: cotacaoId,
+          nome_campo: campo.nome_campo,
+          descricao: campo.descricao || `Data limite: ${new Date(dataLimiteDocumentos).toLocaleDateString('pt-BR')}`,
+          obrigatorio: campo.obrigatorio,
+          ordem: campo.ordem,
+        }));
 
-      const { error: camposError } = await supabase
-        .from("campos_documentos_finalizacao")
-        .insert(camposParaInserir);
+        const { error: camposError } = await supabase
+          .from("campos_documentos_finalizacao")
+          .insert(camposParaInserir);
 
-      if (camposError) throw camposError;
+        if (camposError) throw camposError;
+      }
 
-      toast.success("Processo finalizado com sucesso!");
+      toast.success(campos.length > 0 
+        ? "Processo finalizado! Fornecedor será notificado sobre documentos pendentes."
+        : "Processo finalizado com sucesso! Todos documentos já estão em ordem.");
       onSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -168,7 +227,7 @@ export function DialogFinalizarProcesso({
         <DialogHeader>
           <DialogTitle>Finalizar Processo de Cotação</DialogTitle>
           <DialogDescription>
-            Selecione o fornecedor vencedor e defina os documentos necessários para conclusão
+            Selecione o fornecedor vencedor, verifique os documentos e solicite apenas documentos faltantes
           </DialogDescription>
         </DialogHeader>
 
@@ -190,9 +249,50 @@ export function DialogFinalizarProcesso({
             </Select>
           </div>
 
+          {/* Documentos Existentes do Fornecedor */}
+          {fornecedorSelecionado && documentosExistentes.length > 0 && (
+            <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-green-700 dark:text-green-400">
+                ✓ Documentos Válidos em Cadastro
+              </h3>
+              <div className="space-y-2">
+                {documentosExistentes.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between text-sm p-2 bg-white dark:bg-background rounded">
+                    <span className="font-medium">{getTipoDocumentoLabel(doc.tipo_documento)}</span>
+                    <div className="flex items-center gap-2">
+                      {doc.data_validade && (
+                        <span className="text-muted-foreground">
+                          Validade: {doc.data_validade.split('T')[0].split('-').reverse().join('/')}
+                        </span>
+                      )}
+                      <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        Em vigor
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground mt-3">
+                ℹ️ Estes documentos já estão válidos e não precisam ser solicitados novamente.
+              </p>
+            </div>
+          )}
+
+          {/* Mensagem quando todos documentos estão OK */}
+          {fornecedorSelecionado && documentosExistentes.length > 0 && campos.length === 0 && (
+            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
+              <p className="text-sm text-blue-700 dark:text-blue-400">
+                ✅ Todos os documentos necessários estão em ordem! Você pode finalizar o processo diretamente ou adicionar campos para solicitar documentos complementares específicos.
+              </p>
+            </div>
+          )}
+
           {/* Adicionar Novo Campo */}
           <div className="border rounded-lg p-4 bg-muted/50">
-            <h3 className="font-semibold mb-4">Adicionar Campo de Documento</h3>
+            <h3 className="font-semibold mb-2">Solicitar Documentos Adicionais/Faltantes</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Adicione apenas documentos que não constam no cadastro ou que precisam ser atualizados
+            </p>
             <div className="grid gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
@@ -235,10 +335,27 @@ export function DialogFinalizarProcesso({
             </div>
           </div>
 
+          {/* Data Limite para Documentos */}
+          {campos.length > 0 && (
+            <div className="grid gap-2">
+              <Label htmlFor="data_limite">Data Limite para Envio dos Documentos *</Label>
+              <Input
+                id="data_limite"
+                type="date"
+                value={dataLimiteDocumentos}
+                onChange={(e) => setDataLimiteDocumentos(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+              />
+              <p className="text-sm text-muted-foreground">
+                O fornecedor será notificado e terá até esta data para enviar os documentos solicitados
+              </p>
+            </div>
+          )}
+
           {/* Lista de Campos Adicionados */}
           {campos.length > 0 && (
             <div>
-              <h3 className="font-semibold mb-2">Documentos Solicitados</h3>
+              <h3 className="font-semibold mb-2">Documentos que Serão Solicitados ao Fornecedor</h3>
               <Table>
                 <TableHeader>
                   <TableRow>
