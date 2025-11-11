@@ -231,6 +231,7 @@ export function DialogPlanilhaConsolidada({
               font-size: 10px;
               line-height: 1.3;
             }
+            .col-estimativa { width: 100px; }
             th.empresa {
               white-space: normal;
               line-height: 1.2;
@@ -303,7 +304,7 @@ export function DialogPlanilhaConsolidada({
                   <th class="col-qtd text-right">Qtd</th>
                   <th class="col-unid">Unid</th>
                   ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
-                  <th class="text-right">Estimativa</th>
+                  <th class="text-right col-estimativa">Estimativa</th>
                 </tr>
               </thead>
               <tbody>
@@ -371,20 +372,7 @@ export function DialogPlanilhaConsolidada({
         });
 
       } else {
-        // Visualização por item (todos os itens juntos)
-        const todosItens = new Map<number, any[]>();
-        respostas.forEach(resposta => {
-          resposta.itens.forEach(item => {
-            if (!todosItens.has(item.numero_item)) {
-              todosItens.set(item.numero_item, []);
-            }
-            todosItens.get(item.numero_item)!.push({
-              ...item,
-              fornecedor: resposta.fornecedor.razao_social,
-            });
-          });
-        });
-
+        // Visualização por item - usar TODOS os itens da cotação (state todosItens)
         html += `
           <table>
             <thead>
@@ -394,7 +382,7 @@ export function DialogPlanilhaConsolidada({
                 <th class="col-qtd text-right">Qtd</th>
                 <th class="col-unid">Unid</th>
                 ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
-                <th class="text-right">Estimativa</th>
+                <th class="text-right col-estimativa">Estimativa</th>
               </tr>
             </thead>
             <tbody>
@@ -402,45 +390,52 @@ export function DialogPlanilhaConsolidada({
 
         let totalGeralEstimativa = 0;
 
-        Array.from(todosItens.entries())
-          .sort(([a], [b]) => a - b)
-          .forEach(([numeroItem, itens]) => {
-            const item = itens[0];
-            const chaveItem = `${item.lote_id || 'sem-lote'}_${item.item_cotacao?.id || item.id}`;
-            const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
-            const valores = itens.map(i => i.valor_unitario_ofertado);
-            const stats = calcularEstatisticas(valores);
-            const valorEstimativa = stats[tipoCalculoItem];
-            const totalItemEstimativa = Math.round(valorEstimativa * item.quantidade * 100) / 100;
-            totalGeralEstimativa += totalItemEstimativa;
+        // Usar todosItens do state em vez de criar novo Map
+        todosItens.forEach((item: any) => {
+          const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
+          const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
+          
+          // Buscar valores dos fornecedores para este item
+          const valores: number[] = [];
+          respostas.forEach(resposta => {
+            const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+            if (itemResposta) {
+              valores.push(Number(itemResposta.valor_unitario_ofertado));
+            }
+          });
 
+          const stats = calcularEstatisticas(valores);
+          const valorEstimativa = stats[tipoCalculoItem];
+          const totalItemEstimativa = Math.round(valorEstimativa * Number(item.quantidade) * 100) / 100;
+          totalGeralEstimativa += totalItemEstimativa;
+
+          html += `
+            <tr>
+              <td class="col-item">${item.numero_item}</td>
+              <td class="col-descricao">${stripHtml(item.descricao)}</td>
+              <td class="col-qtd text-right">${Number(item.quantidade).toLocaleString("pt-BR")}</td>
+              <td class="col-unid">${item.unidade}</td>
+          `;
+
+          respostas.forEach(resposta => {
+            const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+            const valorTotal = itemResposta 
+              ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
+              : 0;
             html += `
-              <tr>
-                <td class="col-item">${numeroItem}</td>
-                <td class="col-descricao">${stripHtml(item.descricao)}</td>
-                <td class="col-qtd text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
-                <td class="col-unid">${item.unidade}</td>
-            `;
-
-            respostas.forEach(resposta => {
-              const itemResposta = resposta.itens.find(i => i.numero_item === numeroItem);
-              const valorTotal = itemResposta 
-                ? Math.round(itemResposta.valor_unitario_ofertado * item.quantidade * 100) / 100
-                : 0;
-              html += `
-                <td class="text-right">
-                  ${itemResposta 
-                    ? `R$ ${itemResposta.valor_unitario_ofertado.toFixed(2)}<br/><small>(Total: R$ ${valorTotal.toFixed(2)})</small>` 
-                    : "-"}
-                </td>
-              `;
-            });
-
-            html += `
-                <td class="text-right estimativa">R$ ${valorEstimativa.toFixed(2)}<br/><small>(Total: R$ ${totalItemEstimativa.toFixed(2)})</small></td>
-              </tr>
+              <td class="text-right">
+                ${itemResposta 
+                  ? `R$ ${Number(itemResposta.valor_unitario_ofertado).toFixed(2)}<br/><small>(Total: R$ ${valorTotal.toFixed(2)})</small>` 
+                  : "-"}
+              </td>
             `;
           });
+
+          html += `
+              <td class="text-right estimativa">R$ ${valorEstimativa.toFixed(2)}<br/><small>(Total: R$ ${totalItemEstimativa.toFixed(2)})</small></td>
+            </tr>
+          `;
+        });
 
         html += `
               <tr class="total">
