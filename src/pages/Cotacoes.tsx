@@ -281,6 +281,32 @@ const Cotacoes = () => {
                 </div>
               </CardHeader>
               <CardContent>
+                <div className="mb-4 p-4 border rounded-lg bg-muted/50">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="requer_selecao"
+                      checked={cotacaoSelecionada.processos_compras ? true : false}
+                      onChange={async (e) => {
+                        const { error } = await supabase
+                          .from("processos_compras")
+                          .update({ requer_selecao: e.target.checked })
+                          .eq("id", cotacaoSelecionada.processo_compra_id);
+                        
+                        if (error) {
+                          toast.error("Erro ao atualizar seleção de fornecedores");
+                        } else {
+                          toast.success(e.target.checked ? "Processo marcado para seleção de fornecedores" : "Processo desmarcado de seleção de fornecedores");
+                          loadCotacoes();
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    <label htmlFor="requer_selecao" className="text-sm font-medium cursor-pointer">
+                      Requer Seleção de Fornecedores (Valor total superior a R$ 20.000,00)
+                    </label>
+                  </div>
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>

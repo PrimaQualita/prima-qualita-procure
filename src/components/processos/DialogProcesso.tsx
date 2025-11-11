@@ -33,7 +33,6 @@ interface Processo {
   data_encerramento_prevista?: string;
   observacoes?: string;
   requer_cotacao?: boolean;
-  requer_selecao?: boolean;
 }
 
 interface DialogProcessoProps {
@@ -59,7 +58,6 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     data_encerramento_prevista: "",
     observacoes: "",
     requer_cotacao: true,
-    requer_selecao: false,
   });
   const [loading, setLoading] = useState(false);
 
@@ -78,7 +76,6 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         data_encerramento_prevista: processo.data_encerramento_prevista || "",
         observacoes: processo.observacoes || "",
         requer_cotacao: processo.requer_cotacao ?? true,
-        requer_selecao: processo.requer_selecao ?? false,
       });
     } else {
       setFormData({
@@ -94,7 +91,6 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         data_encerramento_prevista: "",
         observacoes: "",
         requer_cotacao: true,
-        requer_selecao: false,
       });
     }
   }, [processo, contratoId, open]);
@@ -238,27 +234,15 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="requer_cotacao"
-                  checked={formData.requer_cotacao || false}
-                  onChange={(e) => setFormData({ ...formData, requer_cotacao: e.target.checked })}
-                  className="h-4 w-4 rounded border-input"
-                />
-                <Label htmlFor="requer_cotacao" className="cursor-pointer">Requer Cotação de Preços</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="requer_selecao"
-                  checked={formData.requer_selecao || false}
-                  onChange={(e) => setFormData({ ...formData, requer_selecao: e.target.checked })}
-                  className="h-4 w-4 rounded border-input"
-                />
-                <Label htmlFor="requer_selecao" className="cursor-pointer">Requer Seleção de Fornecedores</Label>
-              </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="requer_cotacao"
+                checked={formData.requer_cotacao || false}
+                onChange={(e) => setFormData({ ...formData, requer_cotacao: e.target.checked })}
+                className="h-4 w-4 rounded border-input"
+              />
+              <Label htmlFor="requer_cotacao" className="cursor-pointer">Requer Cotação de Preços</Label>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="observacoes">Observações</Label>
