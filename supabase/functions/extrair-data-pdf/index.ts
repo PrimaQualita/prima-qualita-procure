@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.2';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { pdfToPng } from "npm:pdf-to-png-converter@3.5.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,8 @@ serve(async (req) => {
     const { pdfBase64, tipoDocumento } = await req.json();
     
     console.log('Recebido PDF para processamento, tipo:', tipoDocumento);
+    
+    let dataValidade: string | null = null;  // Declarar aqui no início
     
     // Decode base64 to binary
     const binaryString = atob(pdfBase64);
@@ -53,7 +56,21 @@ serve(async (req) => {
           throw new Error('LOVABLE_API_KEY não configurada');
         }
         
-        // Usar o PDF base64 diretamente como imagem
+        // Converter PDF para PNG primeiro
+        console.log('Convertendo PDF para PNG...');
+        const pngPages = await pdfToPng(bytes.buffer as ArrayBuffer, {
+          pagesToProcess: [1], // Apenas primeira página
+        });
+        
+        if (!pngPages || pngPages.length === 0) {
+          throw new Error('Falha ao converter PDF para PNG');
+        }
+        
+        // Converter buffer para base64
+        const pngBuffer = pngPages[0].content;
+        const pngBase64 = btoa(String.fromCharCode(...new Uint8Array(pngBuffer)));
+        console.log('PNG gerado, tamanho:', pngBase64.length, 'caracteres');
+        
         const prompt = `Você é um especialista em extrair informações de certidões brasileiras.
 
 Analise esta imagem de certidão e extraia:
@@ -83,7 +100,7 @@ Se não encontrar, retorne:
                   { 
                     type: 'image_url',
                     image_url: {
-                      url: `data:application/pdf;base64,${pdfBase64}`
+                      url: `data:image/png;base64,${pngBase64}`
                     }
                   }
                 ]
@@ -108,9 +125,16 @@ Se não encontrar, retorne:
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (parsed.dataValidade) {
-            pdfText = `VALIDADE EXTRAÍDA POR OCR: ${parsed.dataValidade} (método: ${parsed.metodo})`;
+            // Usar a data extraída pela AI diretamente
+            dataValidade = parsed.dataValidade;
             console.log('✅ OCR concluído via Lovable AI Vision');
-            console.log('Data extraída:', parsed.dataValidade);
+            console.log('Data extraída:', parsed.dataValidade, '- Método:', parsed.metodo);
+            
+            // Retornar imediatamente pois AI já extraiu a data
+            return new Response(
+              JSON.stringify({ dataValidade }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
           } else {
             console.warn('AI não conseguiu extrair data:', parsed.erro);
           }
@@ -121,7 +145,6 @@ Se não encontrar, retorne:
       }
     }
     
-    let dataValidade: string | null = null;
     
     // Normalizar texto para melhorar extração de PDFs digitalizados/escaneados
     // Remove espaços extras entre dígitos que podem vir de OCR
