@@ -218,9 +218,9 @@ export function DialogPlanilhaConsolidada({
             .estimativa { background-color: #fef3c7; font-weight: bold; }
             .lote-header { background-color: #0284c7; color: white; font-size: 16px; padding: 10px; margin-top: 20px; }
             .criterio-badge { display: inline-block; padding: 5px 15px; background-color: #0ea5e9; color: white; border-radius: 5px; font-size: 14px; margin-bottom: 20px; }
-            .col-item { width: 40px; }
-            .col-qtd { width: 50px; }
-            .col-unid { width: 70px; }
+            .col-item { width: 40px; text-align: center; }
+            .col-qtd { width: 50px; text-align: center; }
+            .col-unid { width: 70px; text-align: center; }
             .col-descricao { width: 300px; word-wrap: break-word; }
             .empresa { 
               width: 150px;
@@ -262,9 +262,9 @@ export function DialogPlanilhaConsolidada({
             <tbody>
               <tr>
                 ${respostas.map(r => `
-                  <td class="text-right">R$ ${r.valor_total.toFixed(2)}</td>
+                  <td class="text-right">${r.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                 `).join("")}
-                <td class="text-right estimativa">R$ ${valorEstimativa.toFixed(2)}</td>
+                <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
               </tr>
             </tbody>
           </table>
@@ -301,7 +301,7 @@ export function DialogPlanilhaConsolidada({
                 <tr>
                   <th class="col-item">Item</th>
                   <th class="col-descricao">Descrição</th>
-                  <th class="col-qtd text-right">Qtd</th>
+                  <th class="col-qtd">Qtd</th>
                   <th class="col-unid">Unid</th>
                   ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                   <th class="text-right col-estimativa">Estimativa</th>
@@ -335,7 +335,7 @@ export function DialogPlanilhaConsolidada({
                 <tr>
                   <td class="col-item">${numeroItem}</td>
                   <td class="col-descricao">${stripHtml(item.descricao)}</td>
-                  <td class="col-qtd text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
+                  <td class="col-qtd">${item.quantidade.toLocaleString("pt-BR")}</td>
                   <td class="col-unid">${item.unidade}</td>
               `;
 
@@ -349,14 +349,14 @@ export function DialogPlanilhaConsolidada({
                 html += `
                   <td class="text-right">
                     ${itemResposta 
-                      ? `R$ ${itemResposta.valor_unitario_ofertado.toFixed(2)}<br/><small>(Total: R$ ${valorTotal.toFixed(2)})</small>` 
+                      ? `${itemResposta.valor_unitario_ofertado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
                       : "-"}
                   </td>
                 `;
               });
 
               html += `
-                  <td class="text-right estimativa">R$ ${valorEstimativa.toFixed(2)}<br/><small>(Total: R$ ${totalItemEstimativa.toFixed(2)})</small></td>
+                  <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${totalItemEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small></td>
                 </tr>
               `;
             });
@@ -364,7 +364,7 @@ export function DialogPlanilhaConsolidada({
           html += `
                 <tr class="total">
                   <td colspan="${4 + respostas.length}"><strong>TOTAL DO LOTE ${primeiroItem.lote_numero}</strong></td>
-                  <td class="text-right"><strong>R$ ${totalLoteEstimativa.toFixed(2)}</strong></td>
+                  <td class="text-right"><strong>${totalLoteEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
                 </tr>
               </tbody>
             </table>
@@ -372,79 +372,210 @@ export function DialogPlanilhaConsolidada({
         });
 
       } else {
-        // Visualização por item - usar TODOS os itens da cotação (state todosItens)
-        html += `
-          <table>
-            <thead>
-              <tr>
-                <th class="col-item">Item</th>
-                <th class="col-descricao">Descrição</th>
-                <th class="col-qtd text-right">Qtd</th>
-                <th class="col-unid">Unid</th>
-                ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
-                <th class="text-right col-estimativa">Estimativa</th>
-              </tr>
-            </thead>
-            <tbody>
-        `;
-
-        let totalGeralEstimativa = 0;
-
-        // Usar todosItens do state em vez de criar novo Map
-        todosItens.forEach((item: any) => {
-          const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
-          const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
+        // Visualização por item - verificar se deve agrupar por lote
+        if (criterioJulgamento === "por_lote") {
+          // Agrupar itens por lote
+          const itensPorLote: Record<string, any[]> = {};
+          const lotesInfo: Record<string, { numero: number; descricao: string }> = {};
           
-          // Buscar valores dos fornecedores para este item
-          const valores: number[] = [];
-          respostas.forEach(resposta => {
-            const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
-            if (itemResposta) {
-              valores.push(Number(itemResposta.valor_unitario_ofertado));
+          todosItens.forEach((item: any) => {
+            const loteKey = item.lote_id || 'sem-lote';
+            if (!itensPorLote[loteKey]) {
+              itensPorLote[loteKey] = [];
+            }
+            itensPorLote[loteKey].push(item);
+            
+            if (item.lote_id) {
+              lotesInfo[loteKey] = {
+                numero: item.numero_lote || 0,
+                descricao: item.descricao_lote || ''
+              };
             }
           });
 
-          const stats = calcularEstatisticas(valores);
-          const valorEstimativa = stats[tipoCalculoItem];
-          const totalItemEstimativa = Math.round(valorEstimativa * Number(item.quantidade) * 100) / 100;
-          totalGeralEstimativa += totalItemEstimativa;
+          let totalGeralEstimativa = 0;
+
+          // Processar cada lote
+          Object.keys(itensPorLote)
+            .sort((a, b) => {
+              const numA = lotesInfo[a]?.numero || 0;
+              const numB = lotesInfo[b]?.numero || 0;
+              return numA - numB;
+            })
+            .forEach((loteKey) => {
+              const itensDoLote = itensPorLote[loteKey];
+              const loteInfo = lotesInfo[loteKey];
+
+              if (loteInfo) {
+                html += `
+                  <div class="lote-header">
+                    LOTE ${loteInfo.numero} - ${loteInfo.descricao}
+                  </div>`;
+              }
+
+              html += `
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="col-item">Item</th>
+                      <th class="col-descricao">Descrição</th>
+                      <th class="col-qtd">Qtd</th>
+                      <th class="col-unid">Unid</th>
+                      ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
+                      <th class="text-right col-estimativa">Estimativa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+              `;
+
+              let totalLoteEstimativa = 0;
+
+              itensDoLote.forEach((item: any) => {
+                const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
+                const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
+                
+                const valores: number[] = [];
+                respostas.forEach(resposta => {
+                  const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+                  if (itemResposta) {
+                    valores.push(Number(itemResposta.valor_unitario_ofertado));
+                  }
+                });
+
+                const stats = calcularEstatisticas(valores);
+                const valorEstimativa = stats[tipoCalculoItem];
+                const totalItemEstimativa = Math.round(valorEstimativa * Number(item.quantidade) * 100) / 100;
+                totalLoteEstimativa += totalItemEstimativa;
+
+                html += `
+                  <tr>
+                    <td class="col-item">${item.numero_item}</td>
+                    <td class="col-descricao">${stripHtml(item.descricao)}</td>
+                    <td class="col-qtd">${Number(item.quantidade).toLocaleString("pt-BR")}</td>
+                    <td class="col-unid">${item.unidade}</td>
+                `;
+
+                respostas.forEach(resposta => {
+                  const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+                  const valorTotal = itemResposta 
+                    ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
+                    : 0;
+                  html += `
+                    <td class="text-right">
+                      ${itemResposta 
+                        ? `${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
+                        : "-"}
+                    </td>
+                  `;
+                });
+
+                html += `
+                    <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${totalItemEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small></td>
+                  </tr>
+                `;
+              });
+
+              totalGeralEstimativa += totalLoteEstimativa;
+
+              if (loteInfo) {
+                html += `
+                  <tr class="total">
+                    <td colspan="${4 + respostas.length}"><strong>TOTAL DO LOTE ${loteInfo.numero}</strong></td>
+                    <td class="text-right"><strong>${totalLoteEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+                  </tr>
+                `;
+              }
+
+              html += `
+                  </tbody>
+                </table>
+              `;
+            });
 
           html += `
-            <tr>
-              <td class="col-item">${item.numero_item}</td>
-              <td class="col-descricao">${stripHtml(item.descricao)}</td>
-              <td class="col-qtd text-right">${Number(item.quantidade).toLocaleString("pt-BR")}</td>
-              <td class="col-unid">${item.unidade}</td>
+            <table>
+              <tbody>
+                <tr class="total">
+                  <td colspan="${4 + respostas.length}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+                  <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+                </tr>
+              </tbody>
+            </table>
           `;
 
-          respostas.forEach(resposta => {
-            const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
-            const valorTotal = itemResposta 
-              ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
-              : 0;
+        } else {
+          // Visualização por item sem agrupamento por lote
+          html += `
+            <table>
+              <thead>
+                <tr>
+                  <th class="col-item">Item</th>
+                  <th class="col-descricao">Descrição</th>
+                  <th class="col-qtd">Qtd</th>
+                  <th class="col-unid">Unid</th>
+                  ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
+                  <th class="text-right col-estimativa">Estimativa</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          let totalGeralEstimativa = 0;
+
+          todosItens.forEach((item: any) => {
+            const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
+            const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
+            
+            const valores: number[] = [];
+            respostas.forEach(resposta => {
+              const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+              if (itemResposta) {
+                valores.push(Number(itemResposta.valor_unitario_ofertado));
+              }
+            });
+
+            const stats = calcularEstatisticas(valores);
+            const valorEstimativa = stats[tipoCalculoItem];
+            const totalItemEstimativa = Math.round(valorEstimativa * Number(item.quantidade) * 100) / 100;
+            totalGeralEstimativa += totalItemEstimativa;
+
             html += `
-              <td class="text-right">
-                ${itemResposta 
-                  ? `R$ ${Number(itemResposta.valor_unitario_ofertado).toFixed(2)}<br/><small>(Total: R$ ${valorTotal.toFixed(2)})</small>` 
-                  : "-"}
-              </td>
+              <tr>
+                <td class="col-item">${item.numero_item}</td>
+                <td class="col-descricao">${stripHtml(item.descricao)}</td>
+                <td class="col-qtd">${Number(item.quantidade).toLocaleString("pt-BR")}</td>
+                <td class="col-unid">${item.unidade}</td>
+            `;
+
+            respostas.forEach(resposta => {
+              const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+              const valorTotal = itemResposta 
+                ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
+                : 0;
+              html += `
+                <td class="text-right">
+                  ${itemResposta 
+                    ? `${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
+                    : "-"}
+                </td>
+              `;
+            });
+
+            html += `
+                <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${totalItemEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small></td>
+              </tr>
             `;
           });
 
           html += `
-              <td class="text-right estimativa">R$ ${valorEstimativa.toFixed(2)}<br/><small>(Total: R$ ${totalItemEstimativa.toFixed(2)})</small></td>
-            </tr>
+                <tr class="total">
+                  <td colspan="${4 + respostas.length}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+                  <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+                </tr>
+              </tbody>
+            </table>
           `;
-        });
-
-        html += `
-              <tr class="total">
-                <td colspan="${4 + respostas.length}"><strong>VALOR TOTAL ESTIMADO</strong></td>
-                <td class="text-right"><strong>R$ ${totalGeralEstimativa.toFixed(2)}</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        `;
+        }
       }
 
       html += `
