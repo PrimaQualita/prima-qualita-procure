@@ -259,6 +259,11 @@ export function DialogFinalizarProcesso({
 
       if (itensError) throw itensError;
 
+      if (!itensDoFornecedor || itensDoFornecedor.length === 0) {
+        setItensVencedores([]);
+        return;
+      }
+
       // Buscar todas as respostas para comparação
       const { data: todasRespostas, error: todasRespostasError } = await supabase
         .from("cotacao_respostas_fornecedor")
@@ -289,50 +294,61 @@ export function DialogFinalizarProcesso({
           ...item,
           vencedor: true
         })));
-      } else if (criterio === "item") {
-        // Por item - verificar cada item
+      } else if (criterio === "item" || criterio === "por_item") {
+        // Por item - verificar cada item individualmente
         itensDoFornecedor.forEach(itemFornecedor => {
           const numeroItem = itemFornecedor.itens_cotacao.numero_item;
           const itensComMesmoNumero = todosItens?.filter(i => i.itens_cotacao.numero_item === numeroItem) || [];
-          const menorValor = Math.min(...itensComMesmoNumero.map(i => Number(i.valor_unitario_ofertado)));
-          const ehVencedor = Number(itemFornecedor.valor_unitario_ofertado) === menorValor;
           
-          if (ehVencedor) {
-            itensVencidos.push({
-              ...itemFornecedor,
-              vencedor: true
-            });
+          if (itensComMesmoNumero.length > 0) {
+            const menorValor = Math.min(...itensComMesmoNumero.map(i => Number(i.valor_unitario_ofertado)));
+            const ehVencedor = Number(itemFornecedor.valor_unitario_ofertado) === menorValor;
+            
+            if (ehVencedor) {
+              itensVencidos.push({
+                ...itemFornecedor,
+                vencedor: true
+              });
+            }
           }
         });
-      } else if (criterio === "lote") {
+      } else if (criterio === "lote" || criterio === "por_lote") {
         // Por lote - agrupar por lote e verificar
         const loteIds = [...new Set(itensDoFornecedor.map(i => i.itens_cotacao.lote_id).filter(Boolean))];
         
         loteIds.forEach(loteId => {
           const itensDoLote = todosItens?.filter(i => i.itens_cotacao.lote_id === loteId) || [];
-          const respostasPorLote = itensDoLote.reduce((acc, item) => {
-            const respostaId = item.cotacao_resposta_fornecedor_id;
-            if (!acc[respostaId]) acc[respostaId] = [];
-            acc[respostaId].push(item);
-            return acc;
-          }, {} as Record<string, any[]>);
-
-          const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itens]) => {
-            const total = itens.reduce((sum, item) => {
-              return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
-            }, 0);
-            return { respostaId, total };
-          });
-
-          const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
-          const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
           
-          if (vencedor?.respostaId === resposta.id) {
-            const itensVencedoresDoLote = itensDoFornecedor.filter(i => i.itens_cotacao.lote_id === loteId);
-            itensVencidos.push(...itensVencedoresDoLote.map(item => ({
-              ...item,
-              vencedor: true
-            })));
+          if (itensDoLote.length > 0) {
+            const respostasPorLote: Record<string, any[]> = {};
+            
+            itensDoLote.forEach(item => {
+              const respostaId = item.cotacao_resposta_fornecedor_id;
+              if (!respostasPorLote[respostaId]) {
+                respostasPorLote[respostaId] = [];
+              }
+              respostasPorLote[respostaId].push(item);
+            });
+
+            const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itens]) => {
+              const total = itens.reduce((sum, item) => {
+                return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
+              }, 0);
+              return { respostaId, total };
+            });
+
+            if (totaisPorResposta.length > 0) {
+              const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
+              const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
+              
+              if (vencedor?.respostaId === resposta.id) {
+                const itensVencedoresDoLote = itensDoFornecedor.filter(i => i.itens_cotacao.lote_id === loteId);
+                itensVencidos.push(...itensVencedoresDoLote.map(item => ({
+                  ...item,
+                  vencedor: true
+                })));
+              }
+            }
           }
         });
       }
@@ -340,6 +356,7 @@ export function DialogFinalizarProcesso({
       setItensVencedores(itensVencidos.sort((a, b) => a.itens_cotacao.numero_item - b.itens_cotacao.numero_item));
     } catch (error) {
       console.error("Erro ao carregar itens vencedores:", error);
+      toast.error("Erro ao carregar itens vencedores");
       setItensVencedores([]);
     }
   };
