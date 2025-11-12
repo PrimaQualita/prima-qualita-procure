@@ -17,16 +17,6 @@ export default function VerificarAutorizacao() {
   const [autorizacao, setAutorizacao] = useState<any>(null);
   const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | null>(null);
 
-  // Verificar automaticamente quando há protocolo na URL
-  useEffect(() => {
-    const protocoloUrl = searchParams.get("protocolo");
-    if (protocoloUrl && protocoloUrl.trim()) {
-      setProtocolo(protocoloUrl);
-      // Chama diretamente com o protocolo da URL, sem depender do estado
-      verificarAutorizacao(protocoloUrl.trim());
-    }
-  }, []);
-
   const verificarAutorizacao = async (protocoloParam?: string) => {
     const protocoloParaBuscar = protocoloParam || protocolo;
     
