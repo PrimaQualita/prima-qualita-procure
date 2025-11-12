@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import TrocaSenha from "./pages/TrocaSenha";
 import Dashboard from "./pages/Dashboard";
+import Perfil from "./pages/Perfil";
 import ProcessosCompras from "./pages/ProcessosCompras";
 import Cotacoes from "./pages/Cotacoes";
 import Selecoes from "./pages/Selecoes";
@@ -52,6 +53,7 @@ const App = () => (
           {/* Rotas com sidebar */}
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/perfil" element={<Perfil />} />
             <Route path="/processos-compras" element={<ProcessosCompras />} />
             <Route path="/cotacoes" element={<Cotacoes />} />
             <Route path="/selecoes" element={<Selecoes />} />

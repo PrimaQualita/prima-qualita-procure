@@ -159,18 +159,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b bg-card/50 backdrop-blur">
-        <div className="container mx-auto px-2 sm:px-4 py-4">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-8 sm:h-10" />
-            <div>
-              <h1 className="text-lg sm:text-xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">Visão Geral dos Processos</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Gráfico 1 */}

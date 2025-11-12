@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { LogOut } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 
@@ -128,7 +126,7 @@ export function DashboardLayout() {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar isGestor={isGestor} />
+        <AppSidebar isGestor={isGestor} profile={profile} />
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b bg-card flex items-center px-4 gap-4">
             <SidebarTrigger />
@@ -138,17 +136,6 @@ export function DashboardLayout() {
                 <h1 className="text-base sm:text-lg font-bold text-foreground">Sistema de Compras</h1>
                 <p className="text-xs text-muted-foreground">Prima Qualitá Saúde</p>
               </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-foreground">{profile?.nome_completo}</p>
-                <p className="text-xs text-muted-foreground">
-                  {isGestor ? "Gestor" : "Colaborador"}
-                </p>
-              </div>
-              <Button variant="outline" size="icon" onClick={handleLogout} title="Sair">
-                <LogOut className="h-4 w-4" />
-              </Button>
             </div>
           </header>
           <main className="flex-1">

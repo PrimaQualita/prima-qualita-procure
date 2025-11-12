@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   FileText,
   DollarSign,
@@ -11,10 +11,13 @@ import {
   ClipboardList,
   FileCheck,
   FolderKanban,
+  LogOut,
+  UserCircle,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -24,14 +27,27 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { NavLink } from "@/components/NavLink";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface AppSidebarProps {
   isGestor: boolean;
+  profile: any;
 }
 
-export function AppSidebar({ isGestor }: AppSidebarProps) {
+export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
   const { open } = useSidebar();
-  const location = useLocation();
+  const navigate = useNavigate();
 
   const menuItems = [
     {
@@ -94,6 +110,25 @@ export function AppSidebar({ isGestor }: AppSidebarProps) {
     });
   }
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logout realizado com sucesso!");
+      navigate("/auth");
+    } catch (error: any) {
+      toast.error("Erro ao fazer logout: " + error.message);
+    }
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const parts = name.split(" ");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
@@ -120,7 +155,49 @@ export function AppSidebar({ isGestor }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton className="h-auto py-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {getInitials(profile?.nome_completo || "")}
+                    </AvatarFallback>
+                  </Avatar>
+                  {open && (
+                    <div className="flex flex-col items-start overflow-hidden">
+                      <span className="text-sm font-medium truncate w-full">
+                        {profile?.nome_completo || "Usuário"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {isGestor ? "Gestor" : "Colaborador"}
+                      </span>
+                    </div>
+                  )}
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/perfil")}>
+                  <UserCircle className="mr-2 h-4 w-4" />
+                  <span>Perfil</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sair</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }
+
 
