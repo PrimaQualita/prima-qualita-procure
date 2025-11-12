@@ -33,6 +33,7 @@ interface Processo {
   data_encerramento_prevista?: string;
   observacoes?: string;
   requer_cotacao?: boolean;
+  criterio_julgamento?: string;
 }
 
 interface DialogProcessoProps {
@@ -58,6 +59,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     data_encerramento_prevista: "",
     observacoes: "",
     requer_cotacao: true,
+    criterio_julgamento: "global",
   });
   const [loading, setLoading] = useState(false);
 
@@ -76,6 +78,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         data_encerramento_prevista: processo.data_encerramento_prevista || "",
         observacoes: processo.observacoes || "",
         requer_cotacao: processo.requer_cotacao ?? true,
+        criterio_julgamento: processo.criterio_julgamento || "global",
       });
     } else {
       setFormData({
@@ -91,6 +94,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         data_encerramento_prevista: "",
         observacoes: "",
         requer_cotacao: true,
+        criterio_julgamento: "global",
       });
     }
   }, [processo, contratoId, open]);
@@ -243,6 +247,22 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
                 className="h-4 w-4 rounded border-input"
               />
               <Label htmlFor="requer_cotacao" className="cursor-pointer">Requer Cotação de Preços</Label>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="criterio_julgamento">Critério de Julgamento *</Label>
+              <Select
+                value={formData.criterio_julgamento}
+                onValueChange={(value) => setFormData({ ...formData, criterio_julgamento: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">Menor Preço Global</SelectItem>
+                  <SelectItem value="por_item">Menor Preço por Item</SelectItem>
+                  <SelectItem value="por_lote">Menor Preço por Lote</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="observacoes">Observações</Label>

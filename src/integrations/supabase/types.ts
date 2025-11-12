@@ -830,6 +830,7 @@ export type Database = {
           centro_custo: string | null
           contrato_gestao_id: string
           created_at: string | null
+          criterio_julgamento: string
           data_abertura: string | null
           data_encerramento_prevista: string | null
           data_encerramento_real: string | null
@@ -850,6 +851,7 @@ export type Database = {
           centro_custo?: string | null
           contrato_gestao_id: string
           created_at?: string | null
+          criterio_julgamento?: string
           data_abertura?: string | null
           data_encerramento_prevista?: string | null
           data_encerramento_real?: string | null
@@ -872,6 +874,7 @@ export type Database = {
           centro_custo?: string | null
           contrato_gestao_id?: string
           created_at?: string | null
+          criterio_julgamento?: string
           data_abertura?: string | null
           data_encerramento_prevista?: string | null
           data_encerramento_real?: string | null

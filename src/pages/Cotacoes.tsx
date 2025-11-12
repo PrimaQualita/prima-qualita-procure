@@ -38,6 +38,7 @@ interface Processo {
   requer_cotacao: boolean;
   requer_selecao: boolean;
   tipo: string;
+  criterio_julgamento?: string;
 }
 
 interface Cotacao {
@@ -179,9 +180,11 @@ const Cotacoes = () => {
       toast.error("Erro ao carregar cotações");
     } else {
       console.log("Cotações carregadas:", data);
+      // Usa o critério do processo se a cotação não tiver um
+      const processo = processos.find(p => p.id === processoId);
       setCotacoes((data || []).map(c => ({
         ...c,
-        criterio_julgamento: (c.criterio_julgamento || 'global') as 'por_item' | 'global' | 'por_lote'
+        criterio_julgamento: (c.criterio_julgamento || processo?.criterio_julgamento || 'global') as 'por_item' | 'global' | 'por_lote'
       })));
     }
   };
@@ -222,6 +225,7 @@ const Cotacoes = () => {
 
     setSavingCotacao(true);
     try {
+      // Usa o critério de julgamento do processo
       const { error } = await supabase
         .from("cotacoes_precos")
         .insert({
@@ -229,6 +233,7 @@ const Cotacoes = () => {
           titulo_cotacao: novaCotacao.titulo_cotacao,
           descricao_cotacao: novaCotacao.descricao_cotacao,
           data_limite_resposta: novaCotacao.data_limite_resposta,
+          criterio_julgamento: processoSelecionado.criterio_julgamento || 'global',
         });
 
       if (error) throw error;
