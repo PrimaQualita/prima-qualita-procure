@@ -93,7 +93,7 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.setFontSize(12);
   const textoLimpo = extractTextFromHTML(objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
-  doc.text(linhasAssunto, pageWidth / 2, 82, { align: 'center' });
+  doc.text(linhasAssunto, 20, 82, { align: 'justify', maxWidth: 170 });
   
   // Texto principal
   doc.setFontSize(11);
@@ -102,7 +102,7 @@ export const gerarAutorizacaoCompraDireta = async (
   const texto1 = 'Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, ratifico a realização da presente despesa, e a contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES, conforme requisição, aferição da economicidade e justificativas anexas, nos termos do Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, em favor da(s) empresa(s):';
   
   const linhas1 = doc.splitTextToSize(texto1, 170);
-  doc.text(linhas1, 20, yPos);
+  doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhas1.length * 6 + 10;
   
   // Tabela de fornecedores vencedores
@@ -159,14 +159,15 @@ export const gerarAutorizacaoCompraDireta = async (
   
   // Encaminhamento
   const texto2 = 'Encaminha-se ao Departamento Financeiro, para as providências cabíveis.';
-  doc.text(texto2, 20, yPos);
+  const linhas2 = doc.splitTextToSize(texto2, 170);
+  doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += 20;
   
   // Certificação Digital
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 45, 'FD');
+  doc.rect(20, yPos, 170, 55, 'FD');
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
@@ -181,10 +182,14 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.text(`Responsavel: ${usuarioNome}`, 25, yPos + 30);
   doc.text(`CPF: ${usuarioCpf}`, 25, yPos + 37);
   
+  // Hash de verificação (primeiros 32 caracteres do protocolo sem hífens)
+  const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
   doc.setFontSize(8);
+  doc.text(`Hash: ${hash}`, 25, yPos + 44);
+  
   doc.setFont('helvetica', 'italic');
   const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
-  doc.text(textoValidade, 25, yPos + 42);
+  doc.text(textoValidade, 25, yPos + 50);
   
   // Rodapé
   yPos = 270;
@@ -192,10 +197,8 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.setFont('helvetica', 'normal');
   doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yPos, { align: 'center' });
   doc.text('www.primaqualitasaude.org', pageWidth / 2, yPos + 5, { align: 'center' });
-  doc.text('Rua Dr. Francisco de Souza, n° 728, Centro', pageWidth / 2, yPos + 10, { align: 'center' });
-  doc.text('Rio Bonito, RJ - CEP 28800-000', pageWidth / 2, yPos + 15, { align: 'center' });
-  doc.text('Telefone: 21 2042-4250', pageWidth / 2, yPos + 20, { align: 'center' });
-  doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yPos + 25, { align: 'center' });
+  doc.text('Travessa do Ouvidor, 21, Sala 203, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yPos + 10, { align: 'center' });
+  doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yPos + 15, { align: 'center' });
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');
@@ -293,7 +296,7 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFontSize(12);
   const textoLimpo = extractTextFromHTML(objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
-  doc.text(linhasAssunto, pageWidth / 2, 82, { align: 'center' });
+  doc.text(linhasAssunto, 20, 82, { align: 'justify', maxWidth: 170 });
   
   // Texto principal
   doc.setFontSize(11);
@@ -302,19 +305,20 @@ export const gerarAutorizacaoSelecao = async (
   const texto1 = 'Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, autorizo a presente contratação por SELEÇÃO DE FORNECEDORES, conforme requisição e termo de referência anexos, nos termos do art.4° do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição.';
   
   const linhas1 = doc.splitTextToSize(texto1, 170);
-  doc.text(linhas1, 20, yPos);
+  doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhas1.length * 6 + 10;
   
   // Encaminhamento
   const texto2 = 'Encaminha-se ao Departamento de Compras, para as providências cabíveis.';
-  doc.text(texto2, 20, yPos);
+  const linhas2 = doc.splitTextToSize(texto2, 170);
+  doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += 20;
   
   // Certificação Digital
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 45, 'FD');
+  doc.rect(20, yPos, 170, 55, 'FD');
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
@@ -329,10 +333,14 @@ export const gerarAutorizacaoSelecao = async (
   doc.text(`Responsavel: ${usuarioNome}`, 25, yPos + 30);
   doc.text(`CPF: ${usuarioCpf}`, 25, yPos + 37);
   
+  // Hash de verificação (primeiros 32 caracteres do protocolo sem hífens)
+  const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
   doc.setFontSize(8);
+  doc.text(`Hash: ${hash}`, 25, yPos + 44);
+  
   doc.setFont('helvetica', 'italic');
   const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
-  doc.text(textoValidade, 25, yPos + 42);
+  doc.text(textoValidade, 25, yPos + 50);
   
   // Rodapé
   yPos = 270;
@@ -340,10 +348,8 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFont('helvetica', 'normal');
   doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yPos, { align: 'center' });
   doc.text('www.primaqualitasaude.org', pageWidth / 2, yPos + 5, { align: 'center' });
-  doc.text('Rua Dr. Francisco de Souza, n° 728, Centro', pageWidth / 2, yPos + 10, { align: 'center' });
-  doc.text('Rio Bonito, RJ - CEP 28800-000', pageWidth / 2, yPos + 15, { align: 'center' });
-  doc.text('Telefone: 21 2042-4250', pageWidth / 2, yPos + 20, { align: 'center' });
-  doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yPos + 25, { align: 'center' });
+  doc.text('Travessa do Ouvidor, 21, Sala 203, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yPos + 10, { align: 'center' });
+  doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yPos + 15, { align: 'center' });
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');
