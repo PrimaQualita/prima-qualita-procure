@@ -1087,8 +1087,9 @@ export function DialogFinalizarProcesso({
                 <p className="text-muted-foreground">Nenhum fornecedor vencedor encontrado</p>
               </div>
             ) : (
-              fornecedoresData.map((fornData) => (
-                <Card key={fornData.fornecedor.id} className="border-2">
+              fornecedoresData.map((fornData, index) => (
+                <div key={fornData.fornecedor.id}>
+                  <Card className="border-2" style={{ opacity: fornData.rejeitado ? 0.6 : 1 }}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -1347,8 +1348,9 @@ export function DialogFinalizarProcesso({
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
               ))
             )}
           </div>
