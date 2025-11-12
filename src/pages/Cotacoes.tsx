@@ -106,6 +106,7 @@ const Cotacoes = () => {
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState('');
   const [autorizacaoSelecaoId, setAutorizacaoSelecaoId] = useState('');
   const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState('');
+  const [emailsSalvos, setEmailsSalvos] = useState<Array<{id: string; nome_arquivo: string; url_arquivo: string}>>([]);
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
@@ -134,6 +135,7 @@ const Cotacoes = () => {
       loadItens(cotacaoSelecionada.id);
       loadLotes(cotacaoSelecionada.id);
       loadAutorizacoes(cotacaoSelecionada.id);
+      loadEmailsAnexados(cotacaoSelecionada.id);
       setCriterioJulgamento(cotacaoSelecionada.criterio_julgamento);
     }
   }, [cotacaoSelecionada]);
@@ -270,6 +272,89 @@ const Cotacoes = () => {
     }
 
     toast.success("Autorização deletada com sucesso");
+  };
+
+  const loadEmailsAnexados = async (cotacaoId: string) => {
+    const { data, error } = await supabase
+      .from("emails_cotacao_anexados")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_upload", { ascending: true });
+
+    if (error) {
+      console.error("Erro ao carregar e-mails:", error);
+      return;
+    }
+
+    setEmailsSalvos(data || []);
+  };
+
+  const salvarEmailsAnexados = async (files: File[]) => {
+    if (!cotacaoSelecionada) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      for (const file of files) {
+        // Upload para storage
+        const fileName = `emails/${cotacaoSelecionada.id}/${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('processo-anexos')
+          .upload(fileName, file, {
+            contentType: file.type,
+            upsert: false
+          });
+
+        if (uploadError) throw uploadError;
+
+        // Obter URL assinada
+        const { data: urlData, error: signError } = await supabase.storage
+          .from('processo-anexos')
+          .createSignedUrl(fileName, 31536000); // 1 ano
+
+        if (signError) throw signError;
+
+        // Salvar no banco
+        const { error: saveError } = await supabase
+          .from("emails_cotacao_anexados")
+          .insert({
+            cotacao_id: cotacaoSelecionada.id,
+            url_arquivo: urlData.signedUrl,
+            nome_arquivo: file.name,
+            tamanho_arquivo: file.size,
+            tipo_arquivo: file.type,
+            usuario_upload_id: session.user.id
+          });
+
+        if (saveError) throw saveError;
+      }
+
+      await loadEmailsAnexados(cotacaoSelecionada.id);
+      setEmailsFornecedoresAnexados([]);
+      toast.success("E-mails salvos com sucesso");
+    } catch (error) {
+      console.error("Erro ao salvar e-mails:", error);
+      toast.error("Erro ao salvar e-mails");
+    }
+  };
+
+  const deletarEmailAnexado = async (emailId: string) => {
+    const { error } = await supabase
+      .from("emails_cotacao_anexados")
+      .delete()
+      .eq("id", emailId);
+
+    if (error) {
+      toast.error("Erro ao deletar e-mail");
+      console.error(error);
+      return;
+    }
+
+    if (cotacaoSelecionada) {
+      await loadEmailsAnexados(cotacaoSelecionada.id);
+    }
+    toast.success("E-mail deletado com sucesso");
   };
 
   const loadItens = async (cotacaoId: string) => {
