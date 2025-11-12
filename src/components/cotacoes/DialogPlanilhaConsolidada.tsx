@@ -50,9 +50,8 @@ export function DialogPlanilhaConsolidada({
 }: DialogPlanilhaConsolidadaProps) {
   const [respostas, setRespostas] = useState<RespostaConsolidada[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tipoVisualizacao, setTipoVisualizacao] = useState<"item" | "lote" | "global">(
-    criterioJulgamento === "por_lote" ? "lote" : criterioJulgamento === "global" ? "global" : "item"
-  );
+  // Usa automaticamente o critério de julgamento da cotação
+  const tipoVisualizacao = criterioJulgamento === "por_lote" ? "lote" : criterioJulgamento === "global" ? "global" : "item";
   const [calculosPorItem, setCalculosPorItem] = useState<Record<string, "media" | "mediana" | "menor">>({});
   const [calculosPorLote, setCalculosPorLote] = useState<Record<string, "media" | "mediana" | "menor">>({});
   const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor">("menor");
@@ -970,21 +969,7 @@ export function DialogPlanilhaConsolidada({
 
         <ScrollArea className="max-h-[60vh] pr-4">
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Tipo de Visualização</Label>
-              <Select value={tipoVisualizacao} onValueChange={(v: "item" | "lote" | "global") => setTipoVisualizacao(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="global">Global (Valor Total)</SelectItem>
-                  <SelectItem value="item">Por Item</SelectItem>
-                  {criterioJulgamento === "por_lote" && (
-                    <SelectItem value="lote">Por Lote</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Campo "Tipo de Visualização" removido - usa automaticamente o critério de julgamento */}
 
             {tipoVisualizacao === "global" && (
               <div className="space-y-2">
