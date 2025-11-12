@@ -115,13 +115,13 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   const texto1 = 'O Pedido de Cotação foi divulgado no site da Prima Qualitá Saúde (www.primaqualitasaude.org), foi encaminhado e-mails conforme comprovantes.';
   const linhas1 = doc.splitTextToSize(texto1, 170);
   doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas1.length * 4.5 + 6;
+  yPos += linhas1.length * 3.5 + 5;
   
   // Parágrafo 2
   const texto2 = 'Assim, as propostas das empresas proponentes foram analisadas, sendo verificado que a(s) empresa(s) apresentou(aram) menor(res) valor(res), conforme tabela abaixo:';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas2.length * 4.5 + 5;
+  yPos += linhas2.length * 3.5 + 5;
   
   // Tabela de fornecedores vencedores (igual à autorização)
   if (dados.fornecedoresVencedores && dados.fornecedoresVencedores.length > 0) {
@@ -204,18 +204,59 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   const texto3 = 'A(s) empresa(s) encaminhou(aram) os documentos de habilitação que foram analisados, concluindo-se que ambas estavam habilitadas.';
   const linhas3 = doc.splitTextToSize(texto3, 170);
   doc.text(linhas3, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas3.length * 4.5 + 6;
+  yPos += linhas3.length * 3.5 + 5;
   
   // Parágrafo 4
   const texto4 = 'Tendo em vista que o valor cotado está abaixo do estipulado no Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, verifica-se possibilidade de contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES.';
   const linhas4 = doc.splitTextToSize(texto4, 170);
   doc.text(linhas4, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas4.length * 4.5 + 6;
+  yPos += linhas4.length * 3.5 + 5;
   
   // Parágrafo 5
   const texto5 = 'Sendo assim, encaminha-se ao Responsável Legal para autorização do procedimento.';
   const linhas5 = doc.splitTextToSize(texto5, 170);
   doc.text(linhas5, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhas5.length * 3.5 + 10;
+  
+  // Certificação Digital
+  if (yPos > pageHeight - 80) {
+    doc.addPage();
+    await adicionarLogoERodape();
+    yPos = 40;
+  }
+  
+  doc.setFillColor(245, 245, 245);
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.5);
+  doc.rect(20, yPos, 170, 45, 'FD');
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 51, 102);
+  doc.text('CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO', pageWidth / 2, yPos + 6, { align: 'center' });
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  
+  const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
+  
+  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 13);
+  doc.text(`Data/Hora de Geração: ${dataHora}`, 25, yPos + 19);
+  doc.text(`Responsável pela Geração: ${dados.usuarioNome} - CPF: ${dados.usuarioCpf}`, 25, yPos + 25);
+  doc.text(`Hash de Verificação: ${hash}`, 25, yPos + 31);
+  
+  doc.setTextColor(0, 0, 255);
+  doc.textWithLink(
+    'Verificar autenticidade em: https://lovable.dev/projects/5041f488-c259-431f-8356-94dcbd78de18/verificar-autorizacao',
+    25,
+    yPos + 38,
+    { url: `https://lovable.dev/projects/5041f488-c259-431f-8356-94dcbd78de18/verificar-autorizacao?protocolo=${protocolo}` }
+  );
+  
+  doc.setFontSize(7);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', 25, yPos + 43);
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');
