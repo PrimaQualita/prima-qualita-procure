@@ -81,9 +81,8 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
     doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape, { align: 'center' });
-    doc.text('Rua Dr. Francisco de Souza, nº 728, Centro', pageWidth / 2, yRodape + 5, { align: 'center' });
-    doc.text('Rio Bonito, RJ - CEP 28800-000', pageWidth / 2, yRodape + 10, { align: 'center' });
-    doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 15, { align: 'center' });
+    doc.text('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yRodape + 5, { align: 'center' });
+    doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 10, { align: 'center' });
   };
   
   // Adicionar logo e rodapé
@@ -116,13 +115,13 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   const texto1 = 'O Pedido de Cotação foi divulgado no site da Prima Qualitá Saúde (www.primaqualitasaude.org), foi encaminhado e-mails conforme comprovantes.';
   const linhas1 = doc.splitTextToSize(texto1, 170);
   doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas1.length * 6 + 8;
+  yPos += linhas1.length * 4.5 + 6;
   
   // Parágrafo 2
   const texto2 = 'Assim, as propostas das empresas proponentes foram analisadas, sendo verificado que a(s) empresa(s) apresentou(aram) menor(res) valor(res), conforme tabela abaixo:';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas2.length * 6 + 5;
+  yPos += linhas2.length * 4.5 + 5;
   
   // Tabela de fornecedores vencedores (igual à autorização)
   if (dados.fornecedoresVencedores && dados.fornecedoresVencedores.length > 0) {
@@ -205,13 +204,13 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   const texto3 = 'A(s) empresa(s) encaminhou(aram) os documentos de habilitação que foram analisados, concluindo-se que ambas estavam habilitadas.';
   const linhas3 = doc.splitTextToSize(texto3, 170);
   doc.text(linhas3, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas3.length * 6 + 8;
+  yPos += linhas3.length * 4.5 + 6;
   
   // Parágrafo 4
   const texto4 = 'Tendo em vista que o valor cotado está abaixo do estipulado no Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, verifica-se possibilidade de contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES.';
   const linhas4 = doc.splitTextToSize(texto4, 170);
   doc.text(linhas4, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas4.length * 6 + 8;
+  yPos += linhas4.length * 4.5 + 6;
   
   // Parágrafo 5
   const texto5 = 'Sendo assim, encaminha-se ao Responsável Legal para autorização do procedimento.';
