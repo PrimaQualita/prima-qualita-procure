@@ -93,6 +93,8 @@ const Cotacoes = () => {
   const [savingCotacao, setSavingCotacao] = useState(false);
   const [criterioJulgamento, setCriterioJulgamento] = useState<'por_item' | 'global' | 'por_lote'>('global');
   const [naoRequerSelecao, setNaoRequerSelecao] = useState(false);
+  const [autorizacaoAnexada, setAutorizacaoAnexada] = useState<File | null>(null);
+  const [uploadingAutorizacao, setUploadingAutorizacao] = useState(false);
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
@@ -926,14 +928,54 @@ const Cotacoes = () => {
                     )}
 
                     {naoRequerSelecao && (
-                      <div className="flex justify-center pt-2">
+                      <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4 pt-2">
+                        <div className="flex-1">
+                          <Label htmlFor="autorizacao-upload">
+                            Autorização *
+                          </Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              id="autorizacao-upload"
+                              type="file"
+                              accept=".pdf,.doc,.docx"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setAutorizacaoAnexada(file);
+                                  toast.success("Documento de autorização anexado");
+                                }
+                              }}
+                              disabled={uploadingAutorizacao}
+                              className="flex-1"
+                            />
+                            {autorizacaoAnexada && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setAutorizacaoAnexada(null);
+                                  const input = document.getElementById('autorizacao-upload') as HTMLInputElement;
+                                  if (input) input.value = '';
+                                  toast.info("Documento de autorização removido");
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          {autorizacaoAnexada && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {autorizacaoAnexada.name}
+                            </p>
+                          )}
+                        </div>
                         <Button 
                           onClick={() => setDialogFinalizarOpen(true)}
-                          disabled={itens.length === 0}
+                          disabled={itens.length === 0 || !autorizacaoAnexada}
                           size="lg"
-                          className="w-full max-w-md"
+                          className="md:w-auto w-full"
                         >
-                          Finalizar Processo e Definir Documentos
+                          Verificar Documentação
                         </Button>
                       </div>
                     )}
