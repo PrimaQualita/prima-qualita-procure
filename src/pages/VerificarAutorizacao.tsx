@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,6 +16,18 @@ export default function VerificarAutorizacao() {
   const [loading, setLoading] = useState(false);
   const [autorizacao, setAutorizacao] = useState<any>(null);
   const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | null>(null);
+
+  // Verificar automaticamente quando há protocolo na URL
+  useEffect(() => {
+    const protocoloUrl = searchParams.get("protocolo");
+    if (protocoloUrl && protocoloUrl.trim()) {
+      setProtocolo(protocoloUrl);
+      // Delay mínimo para garantir que o estado foi atualizado
+      setTimeout(() => {
+        verificarAutorizacao();
+      }, 100);
+    }
+  }, [searchParams]);
 
   const verificarAutorizacao = async () => {
     if (!protocolo.trim()) {
