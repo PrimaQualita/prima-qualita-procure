@@ -1062,20 +1062,19 @@ export function DialogFinalizarProcesso({
                         const usuarioNome = usuario?.nome_completo || '';
                         const usuarioCpf = usuario?.cpf || '';
                         
-                        // Buscar processo
-                        const { data: cotacao } = await (supabase as any)
+                        // Buscar cotação para pegar processo_compra_id
+                        const { data: cotacao } = await supabase
                           .from("cotacoes_precos")
-                          .select(`
-                            processo_compras!inner(
-                              numero_processo_interno,
-                              objeto_resumido,
-                              criterio_julgamento
-                            )
-                          `)
+                          .select("processo_compra_id")
                           .eq("id", cotacaoId)
                           .single();
                         
-                        const processoSelecionado = cotacao?.processo_compras;
+                        // Buscar processo
+                        const { data: processoSelecionado } = await supabase
+                          .from("processos_compras")
+                          .select("numero_processo_interno, objeto_resumido, criterio_julgamento")
+                          .eq("id", cotacao?.processo_compra_id)
+                          .single();
                         
                         // Buscar respostas e itens
                         const { data: respostas } = await supabase
