@@ -432,7 +432,21 @@ export function DialogFinalizarProcesso({
       const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
       const ordemAtual = fornecedorData ? fornecedorData.campos.length : 0;
 
-      const { data, error } = await supabase
+      // Verificar se já existe documento com mesmo nome para este fornecedor nesta cotação
+      const { data: existente } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("id")
+        .eq("cotacao_id", cotacaoId)
+        .eq("fornecedor_id", fornecedorId)
+        .eq("nome_campo", campoFornecedor.nome.trim())
+        .maybeSingle();
+
+      if (existente) {
+        toast.error("Este documento já foi solicitado para este fornecedor");
+        return;
+      }
+
+      const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .insert({
           cotacao_id: cotacaoId,
@@ -443,17 +457,11 @@ export function DialogFinalizarProcesso({
           ordem: ordemAtual,
           status_solicitacao: "pendente",
           data_solicitacao: new Date().toISOString()
-        })
-        .select()
-        .single();
+        });
 
       if (error) {
         console.error("Erro detalhado ao adicionar documento:", error);
-        if (error.code === '23505') {
-          toast.error("Este documento já foi solicitado para este fornecedor");
-        } else {
-          toast.error(`Erro ao adicionar documento: ${error.message || 'Erro desconhecido'}`);
-        }
+        toast.error(`Erro ao adicionar documento: ${error.message || 'Erro desconhecido'}`);
         return;
       }
 
