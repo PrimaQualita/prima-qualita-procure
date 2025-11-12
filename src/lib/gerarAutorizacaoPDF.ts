@@ -135,33 +135,30 @@ export const gerarAutorizacaoCompraDireta = async (
       <div class="assunto">Assunto: ${objetoProcesso}</div>
       
       <div class="content">
-        <p>Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, autorizo a presente contratação por COMPRA DIRETA, conforme requisição e termo de referência anexos, nos termos do art.4° do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição.</p>
+        <p>Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, ratifico a realização da presente despesa, e a contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES, conforme requisição, aferição da economicidade e justificativas anexas, nos termos do Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, em favor da(s) empresa(s):</p>
         
         ${fornecedorVencedor ? `
         <div style="margin: 30px 0;">
-          <h3 style="text-align: center; margin-bottom: 20px; color: #003366;">Fornecedor Vencedor</h3>
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <thead>
               <tr style="background-color: #003366; color: white;">
-                <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Razão Social</th>
-                <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">CNPJ</th>
-                <th style="border: 1px solid #ccc; padding: 10px; text-align: center;">Itens Vencedores</th>
-                <th style="border: 1px solid #ccc; padding: 10px; text-align: right;">Valor Total</th>
+                <th style="border: 1px solid #333; padding: 10px; text-align: left;">Empresa</th>
+                <th style="border: 1px solid #333; padding: 10px; text-align: center;">Itens Vencedores</th>
+                <th style="border: 1px solid #333; padding: 10px; text-align: right;">Valor Total</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style="border: 1px solid #ccc; padding: 10px;">${fornecedorVencedor.razaoSocial}</td>
-                <td style="border: 1px solid #ccc; padding: 10px;">${fornecedorVencedor.cnpj}</td>
-                <td style="border: 1px solid #ccc; padding: 10px; text-align: center;">${fornecedorVencedor.itensVencedores.map(i => `#${i.numero}`).join(', ')}</td>
-                <td style="border: 1px solid #ccc; padding: 10px; text-align: right;">R$ ${fornecedorVencedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td style="border: 1px solid #333; padding: 10px;">${fornecedorVencedor.razaoSocial}<br/><small>CNPJ: ${fornecedorVencedor.cnpj}</small></td>
+                <td style="border: 1px solid #333; padding: 10px; text-align: center;">${fornecedorVencedor.itensVencedores.map(i => i.numero).join(', ')}</td>
+                <td style="border: 1px solid #333; padding: 10px; text-align: right;">R$ ${fornecedorVencedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
           </table>
         </div>
         ` : ''}
         
-        <p>Encaminha-se ao Departamento de Compras, para as providências cabíveis.</p>
+        <p style="margin-top: 30px;">Encaminha-se ao Departamento Financeiro, para as providências cabíveis.</p>
       </div>
       
       <div class="certificacao">
@@ -197,11 +194,19 @@ export const gerarAutorizacaoCompraDireta = async (
   document.body.appendChild(element);
 
   try {
+    // Aguardar mais tempo para garantir renderização completa
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     const opt = {
-      margin: 0,
+      margin: [10, 10, 10, 10],
       filename: `autorizacao-compra-direta-${numeroProcesso}.pdf`,
       image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { scale: 2 },
+      html2canvas: { 
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        letterRendering: true
+      },
       jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
     };
 
@@ -391,11 +396,19 @@ export const gerarAutorizacaoSelecao = async (
   document.body.appendChild(element);
 
   try {
+    // Aguardar mais tempo para garantir renderização completa
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     const opt = {
-      margin: 0,
+      margin: [10, 10, 10, 10],
       filename: `autorizacao-selecao-fornecedores-${numeroProcesso}.pdf`,
       image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { scale: 2 },
+      html2canvas: { 
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        letterRendering: true
+      },
       jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
     };
 
