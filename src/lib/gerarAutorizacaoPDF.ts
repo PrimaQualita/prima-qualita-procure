@@ -171,10 +171,10 @@ export const gerarAutorizacaoCompraDireta = async (
       doc.rect(110, yPos, 30, alturaLinha); // Itens Vencidos
       doc.rect(140, yPos, 50, alturaLinha); // Valor Total
       
-      // Empresa - centralizada horizontalmente e verticalmente
+      // Empresa - justificada horizontalmente e centralizada verticalmente
       const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 4;
       razaoSocialSplit.forEach((linha: string, index: number) => {
-        doc.text(linha, 45, yPos + offsetVerticalEmpresa + (index * 4), { align: 'center' });
+        doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 46 });
       });
       
       // CNPJ - formatado e centralizado verticalmente
@@ -187,9 +187,9 @@ export const gerarAutorizacaoCompraDireta = async (
       const offsetVerticalItens = (alturaLinha - 4) / 2 + 4;
       doc.text(itensText, 125, yPos + offsetVerticalItens, { align: 'center' });
       
-      // Valor Total - centralizado verticalmente
+      // Valor Total - alinhado à direita e centralizado verticalmente
       const offsetVerticalValor = (alturaLinha - 4) / 2 + 4;
-      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 142, yPos + offsetVerticalValor);
+      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + offsetVerticalValor, { align: 'right' });
       
       totalGeral += fornecedor.valorTotal;
       yPos += alturaLinha;
@@ -204,7 +204,7 @@ export const gerarAutorizacaoCompraDireta = async (
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text('TOTAL GERAL', 22, yPos + 5);
-    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 142, yPos + 5);
+    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + 5, { align: 'right' });
     yPos += 16; // Aumentado para afastar do próximo texto
     
     console.log('[PDF] Tabela gerada com sucesso. Total geral:', totalGeral);
@@ -213,6 +213,7 @@ export const gerarAutorizacaoCompraDireta = async (
   }
   
   // Encaminhamento
+  doc.setFont('helvetica', 'normal');
   const texto2 = 'Encaminha-se ao Departamento Financeiro, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
@@ -233,19 +234,19 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
   doc.text(`Protocolo: ${protocolo}`, 25, yPos + 12);
-  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 17);
-  doc.text(`Responsável: ${usuarioNome} | CPF: ${usuarioCpf}`, 25, yPos + 22);
+  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 18);
+  doc.text(`Responsável: ${usuarioNome} | CPF: ${usuarioCpf}`, 25, yPos + 24);
   
   // Hash e link de verificação
   const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
-  doc.text(`Hash: ${hash}`, 25, yPos + 27);
+  doc.text(`Hash: ${hash}`, 25, yPos + 30);
   
   // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
   const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
   const linkCompleto = `${linkBase}/verificar-autorizacao?protocolo=${protocolo}`;
   const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
-  doc.text(linkQuebrado, 25, yPos + 32);
+  doc.text(linkQuebrado, 25, yPos + 35);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
@@ -376,6 +377,7 @@ export const gerarAutorizacaoSelecao = async (
   yPos += linhas1.length * 6 + 10;
   
   // Encaminhamento
+  doc.setFont('helvetica', 'normal');
   const texto2 = 'Encaminha-se ao Departamento de Compras, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
@@ -396,19 +398,19 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
   doc.text(`Protocolo: ${protocolo}`, 25, yPos + 12);
-  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 17);
-  doc.text(`Responsável: ${usuarioNome} | CPF: ${usuarioCpf}`, 25, yPos + 22);
+  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 18);
+  doc.text(`Responsável: ${usuarioNome} | CPF: ${usuarioCpf}`, 25, yPos + 24);
   
   // Hash e link de verificação
   const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
-  doc.text(`Hash: ${hash}`, 25, yPos + 27);
+  doc.text(`Hash: ${hash}`, 25, yPos + 30);
   
   // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
   const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
   const linkCompleto = `${linkBase}/verificar-autorizacao?protocolo=${protocolo}`;
   const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
-  doc.text(linkQuebrado, 25, yPos + 32);
+  doc.text(linkQuebrado, 25, yPos + 35);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
