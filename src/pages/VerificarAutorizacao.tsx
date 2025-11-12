@@ -217,7 +217,7 @@ export default function VerificarAutorizacao() {
               Buscar Documento
             </CardTitle>
             <CardDescription>
-              Digite o protocolo completo (ex: AUT-CD-180-2025-... ou REL-FINAL-195-2025-...)
+              Digite o protocolo completo do documento
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -226,7 +226,7 @@ export default function VerificarAutorizacao() {
               <div className="flex gap-2">
                 <Input
                   id="protocolo"
-                  placeholder="AUT-CD-180-2025-... ou REL-FINAL-195-2025-..."
+                  placeholder="Digite o protocolo do documento"
                   value={protocolo}
                   onChange={(e) => setProtocolo(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && verificarAutorizacao()}
