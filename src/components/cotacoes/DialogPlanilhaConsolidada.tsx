@@ -132,13 +132,13 @@ export function DialogPlanilhaConsolidada({
           .from("respostas_itens_fornecedor")
           .select(`
             valor_unitario_ofertado,
+            marca,
             item_cotacao:item_cotacao_id (
               id,
               numero_item,
               descricao,
               quantidade,
               unidade,
-              marca,
               lote_id,
               lote:lote_id (
                 numero_lote,
@@ -153,7 +153,7 @@ export function DialogPlanilhaConsolidada({
           descricao: item.item_cotacao.descricao,
           quantidade: item.item_cotacao.quantidade,
           unidade: item.item_cotacao.unidade,
-          marca: item.item_cotacao.marca,
+          marca: item.marca,
           valor_unitario_ofertado: item.valor_unitario_ofertado,
           lote_id: item.item_cotacao.lote_id,
           lote_numero: item.item_cotacao.lote?.numero_lote,
@@ -265,8 +265,8 @@ export function DialogPlanilhaConsolidada({
             h1 { color: #0ea5e9; font-size: 24px; margin-bottom: 30px; text-align: center; }
             h2 { color: #0284c7; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; vertical-align: top; }
-            th { background-color: #0ea5e9; color: white; font-weight: bold; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; vertical-align: middle; }
+            th { background-color: #0ea5e9; color: white; font-weight: bold; text-align: center; vertical-align: middle; }
             .text-right { text-align: right; }
             .total { background-color: #f0f9ff; font-weight: bold; }
             .estimativa { background-color: #fef3c7; font-weight: bold; }

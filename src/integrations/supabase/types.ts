@@ -992,6 +992,7 @@ export type Database = {
           created_at: string | null
           id: string
           item_cotacao_id: string
+          marca: string | null
           observacao: string | null
           valor_unitario_ofertado: number
         }
@@ -1000,6 +1001,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           item_cotacao_id: string
+          marca?: string | null
           observacao?: string | null
           valor_unitario_ofertado: number
         }
@@ -1008,6 +1010,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           item_cotacao_id?: string
+          marca?: string | null
           observacao?: string | null
           valor_unitario_ofertado?: number
         }

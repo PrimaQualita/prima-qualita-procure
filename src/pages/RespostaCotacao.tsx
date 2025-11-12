@@ -453,20 +453,8 @@ const RespostaCotacao = () => {
         throw respostaError;
       }
 
-      // Atualizar marcas nos itens (se for Material)
-      if (tipoProcesso === "material") {
-        console.log("6a. Atualizando marcas nos itens...");
-        const updateMarcasPromises = itens
-          .filter(item => marcasItens[item.id] && valoresItens[item.id] && valoresItens[item.id] > 0)
-          .map(item => 
-            supabaseAnon
-              .from("itens_cotacao")
-              .update({ marca: marcasItens[item.id] })
-              .eq("id", item.id)
-          );
-        
-        await Promise.all(updateMarcasPromises);
-      }
+      // Atualizar marcas nos itens (se for Material) - REMOVIDO
+      // As marcas agora são salvas em respostas_itens_fornecedor
 
       // Criar respostas dos itens (apenas itens que foram cotados)
       console.log("6. Criando respostas dos itens...");
@@ -476,6 +464,7 @@ const RespostaCotacao = () => {
           cotacao_resposta_fornecedor_id: resposta.id,
           item_cotacao_id: item.id,
           valor_unitario_ofertado: valoresItens[item.id],
+          marca: tipoProcesso === "material" ? (marcasItens[item.id] || null) : null,
         }));
       console.log("Itens a inserir:", respostasItens);
 
