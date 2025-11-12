@@ -585,6 +585,37 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const enviarDocumentosParaFornecedor = async (fornecedorId: string) => {
+    try {
+      const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
+      if (!fornecedorData || fornecedorData.campos.length === 0) {
+        toast.error("Nenhum documento foi adicionado para enviar");
+        return;
+      }
+
+      // Atualizar status dos documentos pendentes para "enviado"
+      const documentosPendentes = fornecedorData.campos.filter(c => c.status_solicitacao === "pendente");
+      
+      if (documentosPendentes.length === 0) {
+        toast.info("Todos os documentos já foram enviados");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({ status_solicitacao: "enviado" })
+        .in("id", documentosPendentes.map(d => d.id!));
+
+      if (error) throw error;
+
+      toast.success(`Documentos enviados para ${fornecedorData.fornecedor.razao_social}`);
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao enviar documentos:", error);
+      toast.error("Erro ao enviar documentos para fornecedor");
+    }
+  };
+
   const deletarAutorizacao = async (autorizacaoId: string) => {
     if (!confirm("Tem certeza que deseja deletar esta autorização? Será necessário gerar uma nova.")) {
       return;
@@ -759,11 +790,233 @@ export function DialogFinalizarProcesso({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
-...
+          <DialogTitle>Verificar Documentação - Compra Direta</DialogTitle>
+          <DialogDescription>
+            Revise os documentos de cada fornecedor vencedor e solicite documentos adicionais se necessário
+          </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="flex-1 px-6">
-...
+          <div className="space-y-6 py-4">
+            {loading ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Carregando fornecedores...</p>
+              </div>
+            ) : fornecedoresData.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Nenhum fornecedor vencedor encontrado</p>
+              </div>
+            ) : (
+              fornecedoresData.map((fornData) => (
+                <Card key={fornData.fornecedor.id} className="border-2">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-xl">{fornData.fornecedor.razao_social}</CardTitle>
+                        <CardDescription>
+                          {fornData.itensVencedores.length > 0 && (
+                            <span className="text-sm">
+                              Itens vencedores: {fornData.itensVencedores.map(i => i.itens_cotacao.numero_item).join(", ")}
+                            </span>
+                          )}
+                        </CardDescription>
+                      </div>
+                      {fornData.todosDocumentosAprovados && (
+                        <Badge className="bg-green-600">
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Documentos Aprovados
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-6">
+                    {/* Documentos Válidos em Cadastro */}
+                    <div>
+                      <h4 className="font-semibold text-lg mb-3">📄 Documentos Válidos em Cadastro</h4>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Tipo de Documento</TableHead>
+                            <TableHead>Validade</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {fornData.documentosExistentes.map((doc) => {
+                            const hoje = new Date();
+                            const validade = doc.data_validade ? new Date(doc.data_validade) : null;
+                            const isValido = validade ? validade > hoje : false;
+
+                            return (
+                              <TableRow key={doc.id}>
+                                <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
+                                <TableCell>
+                                  {doc.data_validade ? new Date(doc.data_validade).toLocaleDateString('pt-BR') : 'N/A'}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={isValido ? "default" : "destructive"}>
+                                    {isValido ? "✓ Em vigor" : "✗ Vencido"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => window.open(doc.url_arquivo, '_blank')}
+                                  >
+                                    <ExternalLink className="h-4 w-4 mr-1" />
+                                    Visualizar
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Documentos Solicitados */}
+                    {fornData.campos.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-lg mb-3">📋 Documentos Solicitados</h4>
+                        <div className="space-y-3">
+                          {fornData.campos.map((campo) => (
+                            <Card key={campo.id} className="p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h5 className="font-semibold">{campo.nome_campo}</h5>
+                                    {campo.obrigatorio && (
+                                      <Badge variant="outline" className="text-xs">Obrigatório</Badge>
+                                    )}
+                                    <Badge variant={
+                                      campo.status_solicitacao === "aprovado" ? "default" :
+                                      campo.status_solicitacao === "em_analise" ? "secondary" :
+                                      campo.status_solicitacao === "rejeitado" ? "destructive" :
+                                      "outline"
+                                    }>
+                                      {campo.status_solicitacao === "aprovado" ? "✓ Aprovado" :
+                                       campo.status_solicitacao === "em_analise" ? "⏳ Em análise" :
+                                       campo.status_solicitacao === "rejeitado" ? "✗ Rejeitado" :
+                                       "⚠️ Pendente"}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mb-2">{campo.descricao}</p>
+                                  
+                                  {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 && (
+                                    <div className="mt-2">
+                                      {campo.documentos_finalizacao_fornecedor.map((doc) => (
+                                        <div key={doc.id} className="flex items-center gap-2 text-sm">
+                                          <FileText className="h-4 w-4" />
+                                          <a href={doc.url_arquivo} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                            {doc.nome_arquivo}
+                                          </a>
+                                          <span className="text-muted-foreground text-xs">
+                                            ({new Date(doc.data_upload).toLocaleDateString('pt-BR')})
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {campo.status_solicitacao === "em_analise" && (
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => aprovarDocumento(campo.id!)}
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                      Aprovar
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => rejeitarDocumento(campo.id!)}
+                                    >
+                                      <AlertCircle className="h-4 w-4 mr-1" />
+                                      Rejeitar
+                                    </Button>
+                                  </div>
+                                )}
+                                
+                                {campo.status_solicitacao === "aprovado" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => reverterAprovacaoDocumento(campo.id!)}
+                                  >
+                                    Reverter Aprovação
+                                  </Button>
+                                )}
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                        
+                        {fornData.campos.filter(c => c.status_solicitacao === "em_analise").length > 0 && (
+                          <Button
+                            onClick={() => aprovarTodosDocumentosFornecedor(fornData.fornecedor.id)}
+                            className="mt-4"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Aprovar Documentos do Fornecedor
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Solicitar Documentos Adicionais/Faltantes */}
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold text-lg mb-3">➕ Solicitar Documentos Adicionais/Faltantes</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Nome do Documento</Label>
+                          <Input
+                            value={novoCampo.nome}
+                            onChange={(e) => setNovoCampo({ ...novoCampo, nome: e.target.value })}
+                            placeholder="Ex: Certidão de Regularidade"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Descrição</Label>
+                          <Textarea
+                            value={novoCampo.descricao}
+                            onChange={(e) => setNovoCampo({ ...novoCampo, descricao: e.target.value })}
+                            placeholder="Descrição do documento solicitado"
+                            rows={1}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 mt-3">
+                        <Button
+                          onClick={() => adicionarCampoDocumento(fornData.fornecedor.id)}
+                          disabled={!novoCampo.nome.trim() || !novoCampo.descricao.trim()}
+                          size="sm"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Documento
+                        </Button>
+                        
+                        {fornData.campos.length > 0 && (
+                          <Button
+                            onClick={() => enviarDocumentosParaFornecedor(fornData.fornecedor.id)}
+                            variant="default"
+                            size="sm"
+                          >
+                            Enviar para Fornecedor
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </ScrollArea>
 
         <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
