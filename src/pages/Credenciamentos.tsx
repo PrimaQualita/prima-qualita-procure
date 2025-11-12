@@ -4,7 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, FileText, ChevronRight } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import primaLogo from "@/assets/prima-qualita-logo.png";
+import { ArrowLeft, FileText, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface ContratoGestao {
@@ -82,100 +85,107 @@ export default function Credenciamentos() {
   );
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => navigate("/dashboard")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+    <div className="min-h-screen bg-background">
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-10 sm:h-12" />
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Credenciamento</h1>
-              <p className="text-muted-foreground">
-                Gerenciamento de processos de credenciamento (PJs médicas)
-              </p>
+              <h1 className="text-lg sm:text-xl font-bold">Gestão de Contratos e Processos</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">Credenciamento</p>
             </div>
           </div>
+          <Button variant="outline" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar
+          </Button>
         </div>
+      </div>
 
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {loading ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">Carregando...</p>
           </div>
-        ) : (
+        ) : !contratoSelecionado ? (
           <Card>
             <CardHeader>
-              <CardTitle>Contratos de Gestão</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-base sm:text-lg">Contratos de Gestão</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
                 Selecione um contrato para visualizar os processos que requerem credenciamento
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <input
-                type="text"
-                placeholder="Buscar contrato..."
-                value={filtro}
-                onChange={(e) => setFiltro(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg bg-background text-foreground"
-              />
-              
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="text-left px-4 py-3 font-medium">Nome do Contrato</th>
-                      <th className="text-left px-4 py-3 font-medium">Ente Federativo</th>
-                      <th className="text-left px-4 py-3 font-medium">Status</th>
-                      <th className="text-right px-4 py-3 font-medium">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {contratosFiltrados.map((contrato) => (
-                      <tr key={contrato.id} className="hover:bg-muted/50 transition-colors">
-                        <td className="px-4 py-3">{contrato.nome_contrato}</td>
-                        <td className="px-4 py-3">{contrato.ente_federativo}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant={contrato.status === "ativo" ? "default" : "secondary"}>
-                            {contrato.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setContratoSelecionado(contrato);
-                              loadProcessos(contrato.id);
-                            }}
-                          >
-                            Ver Processos
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {contratosFiltrados.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhum contrato encontrado
-                  </div>
-                )}
+            <CardContent className="p-0 sm:p-6">
+              <div className="px-4 sm:px-0 mb-4">
+                <Input
+                  placeholder="Buscar contrato..."
+                  value={filtro}
+                  onChange={(e) => setFiltro(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[150px]">Nome do Contrato</TableHead>
+                      <TableHead className="min-w-[120px]">Ente Federativo</TableHead>
+                      <TableHead className="min-w-[80px]">Status</TableHead>
+                      <TableHead className="text-right min-w-[100px]">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contratosFiltrados.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground text-xs sm:text-sm">
+                          Nenhum contrato encontrado
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      contratosFiltrados.map((contrato) => (
+                        <TableRow key={contrato.id}>
+                          <TableCell className="font-medium text-xs sm:text-sm">{contrato.nome_contrato}</TableCell>
+                          <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
+                          <TableCell>
+                            <Badge variant={contrato.status === "ativo" ? "default" : "secondary"} className="text-xs">
+                              {contrato.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setContratoSelecionado(contrato);
+                                loadProcessos(contrato.id);
+                              }}
+                              className="text-xs"
+                            >
+                              <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Ver Processos</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {contratoSelecionado && (
+        ) : (
           <Card>
             <CardHeader>
-              <CardTitle>{contratoSelecionado.nome_contrato}</CardTitle>
-              <CardDescription>{contratoSelecionado.ente_federativo}</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base sm:text-lg">{contratoSelecionado.nome_contrato}</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">{contratoSelecionado.ente_federativo}</CardDescription>
+                </div>
+                <Button variant="outline" onClick={() => setContratoSelecionado(null)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {processos[contratoSelecionado.id]?.length > 0 ? (
@@ -189,16 +199,17 @@ export default function Credenciamentos() {
                         <div className="flex items-center gap-3">
                           <FileText className="h-5 w-5 text-primary" />
                           <div>
-                            <p className="font-medium">
+                            <p className="font-medium text-xs sm:text-sm">
                               Processo {processo.numero_processo_interno}/{processo.ano_referencia}
                             </p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-xs sm:text-sm text-muted-foreground">
                               {processo.objeto_resumido}
                             </p>
                           </div>
                         </div>
                       </div>
                       <Button
+                        size="sm"
                         onClick={() => {
                           toast.info("Funcionalidade em desenvolvimento");
                         }}
@@ -209,7 +220,7 @@ export default function Credenciamentos() {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground py-8">
+                <p className="text-center text-muted-foreground py-8 text-xs sm:text-sm">
                   Nenhum processo de credenciamento neste contrato
                 </p>
               )}
