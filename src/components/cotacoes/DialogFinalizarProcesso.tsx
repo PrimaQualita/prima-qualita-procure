@@ -938,9 +938,41 @@ export function DialogFinalizarProcesso({
                           Aprovado em {new Date(campo.data_aprovacao).toLocaleDateString()}
                         </p>
                       </div>
-                      <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                        ✓ Aprovado
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                          onClick={async () => {
+                            if (!confirm(`Tem certeza que deseja reverter a aprovação do documento "${campo.nome_campo}"? O fornecedor precisará enviá-lo novamente.`)) {
+                              return;
+                            }
+                            try {
+                              const { error } = await supabase
+                                .from('campos_documentos_finalizacao')
+                                .update({
+                                  status_solicitacao: 'rejeitado',
+                                  data_aprovacao: null
+                                })
+                                .eq('id', campo.id);
+                              
+                              if (error) throw error;
+                              
+                              toast.info(`Aprovação do documento "${campo.nome_campo}" revertida. Fornecedor deverá enviar novamente.`);
+                              await loadCamposExistentes();
+                              await loadStatusDocumentosFornecedor(fornecedorSelecionado);
+                            } catch (error) {
+                              console.error("Erro ao reverter aprovação:", error);
+                              toast.error("Erro ao reverter aprovação");
+                            }
+                          }}
+                        >
+                          Reverter Aprovação
+                        </Button>
+                        <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          ✓ Aprovado
+                        </Badge>
+                      </div>
                     </div>
                   ))}
               </div>
@@ -950,12 +982,14 @@ export function DialogFinalizarProcesso({
             </div>
           )}
 
-          {/* Adicionar Novo Campo */}
-          {fornecedorSelecionado && statusDocumentosFornecedor !== "enviado" && statusDocumentosFornecedor !== "concluido" && !documentosAprovados[fornecedorSelecionado] && (
+          {/* Adicionar Novo Campo - Disponível sempre que houver fornecedor selecionado */}
+          {fornecedorSelecionado && (
             <div className="border rounded-lg p-4 bg-muted/50">
               <h3 className="font-semibold mb-2">Solicitar Documentos Adicionais/Faltantes</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Adicione apenas documentos que não constam no cadastro ou que precisam ser atualizados
+                {documentosAprovados[fornecedorSelecionado] 
+                  ? "Mesmo com documentos aprovados, você pode solicitar documentos complementares caso necessário"
+                  : "Adicione apenas documentos que não constam no cadastro ou que precisam ser atualizados"}
               </p>
               <div className="grid gap-4">
               <div className="grid grid-cols-2 gap-4">
