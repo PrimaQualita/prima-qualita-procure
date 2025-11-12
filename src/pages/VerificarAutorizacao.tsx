@@ -22,15 +22,15 @@ export default function VerificarAutorizacao() {
     const protocoloUrl = searchParams.get("protocolo");
     if (protocoloUrl && protocoloUrl.trim()) {
       setProtocolo(protocoloUrl);
-      // Delay mínimo para garantir que o estado foi atualizado
-      setTimeout(() => {
-        verificarAutorizacao();
-      }, 100);
+      // Chama diretamente com o protocolo da URL, sem depender do estado
+      verificarAutorizacao(protocoloUrl.trim());
     }
-  }, [searchParams]);
+  }, []);
 
-  const verificarAutorizacao = async () => {
-    if (!protocolo.trim()) {
+  const verificarAutorizacao = async (protocoloParam?: string) => {
+    const protocoloParaBuscar = protocoloParam || protocolo;
+    
+    if (!protocoloParaBuscar.trim()) {
       toast({
         title: "Protocolo obrigatório",
         description: "Digite o protocolo do documento para verificar",
@@ -40,13 +40,13 @@ export default function VerificarAutorizacao() {
     }
 
     setLoading(true);
-    console.log('🔍 Buscando protocolo:', protocolo.trim());
+    console.log('🔍 Buscando protocolo:', protocoloParaBuscar.trim());
     try {
       // Tentar buscar como autorização primeiro
       const { data: autData, error: autError } = await supabase
         .from('autorizacoes_processo' as any)
         .select('*')
-        .eq('protocolo', protocolo.trim())
+        .eq('protocolo', protocoloParaBuscar.trim())
         .maybeSingle();
 
       console.log('📄 Busca em autorizacoes_processo:', { autData, autError });
@@ -93,7 +93,7 @@ export default function VerificarAutorizacao() {
       const { data: relData, error: relError } = await supabase
         .from('relatorios_finais' as any)
         .select('*')
-        .eq('protocolo', protocolo.trim())
+        .eq('protocolo', protocoloParaBuscar.trim())
         .maybeSingle();
 
       console.log('📋 Busca em relatorios_finais:', { relData, relError });
@@ -217,7 +217,7 @@ export default function VerificarAutorizacao() {
                   onKeyPress={(e) => e.key === 'Enter' && verificarAutorizacao()}
                 />
                 <Button 
-                  onClick={verificarAutorizacao} 
+                  onClick={() => verificarAutorizacao()} 
                   disabled={loading}
                   className="whitespace-nowrap"
                 >
