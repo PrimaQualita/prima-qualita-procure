@@ -1310,11 +1310,13 @@ const Cotacoes = () => {
                                     }
                                     
                                     console.log('Respostas encontradas:', respostas);
+                                    console.log('Critério de julgamento:', processoSelecionado.criterio_julgamento);
                                     
                                     // Identificar vencedores por critério
                                     const fornecedoresVencedores: any[] = [];
                                     
                                     if (processoSelecionado.criterio_julgamento === 'global') {
+                                      console.log('[DEBUG] Critério: Global');
                                       // Calcular total de cada fornecedor
                                       const totais = respostas?.map(r => ({
                                         fornecedor: r,
@@ -1336,11 +1338,16 @@ const Cotacoes = () => {
                                           valorTotal: vencedor.total
                                         });
                                       }
-                                    } else if (processoSelecionado.criterio_julgamento === 'item') {
+                                    } else if (processoSelecionado.criterio_julgamento === 'por_item') {
+                                      console.log('[DEBUG] Critério: Por Item');
                                       // Agrupar por fornecedor
                                       const fornecedoresMap = new Map();
                                       
-                                      respostas?.forEach(r => {
+                                      console.log('[DEBUG] Processando respostas para agrupar por fornecedor...');
+                                      respostas?.forEach((r, idx) => {
+                                        console.log(`[DEBUG] Resposta ${idx}:`, r);
+                                        console.log(`[DEBUG] Fornecedor ${idx}:`, r.fornecedores);
+                                        console.log(`[DEBUG] Itens ${idx}:`, r.respostas_itens);
                                         r.respostas_itens?.forEach((item: any) => {
                                           const chave = r.fornecedores.cnpj;
                                           if (!fornecedoresMap.has(chave)) {
@@ -1359,12 +1366,18 @@ const Cotacoes = () => {
                                         });
                                       });
                                       
+                                      console.log('[DEBUG] Fornecedores agrupados:', Array.from(fornecedoresMap.entries()));
+                                      
                                       // Identificar menor preço por item
                                       const itensVencedores = new Map();
+                                      console.log('[DEBUG] Identificando menores preços por item...');
                                       fornecedoresMap.forEach(fornec => {
+                                        console.log('[DEBUG] Fornecedor:', fornec.razaoSocial, 'Itens:', fornec.itens);
                                         fornec.itens.forEach((item: any) => {
                                           const menorAtual = itensVencedores.get(item.itemId);
+                                          console.log(`[DEBUG] Item ${item.numero}: atual=${menorAtual?.valorUnitario}, novo=${item.valorUnitario}`);
                                           if (!menorAtual || item.valorUnitario < menorAtual.valorUnitario) {
+                                            console.log(`[DEBUG] Item ${item.numero}: ${fornec.razaoSocial} é o novo vencedor`);
                                             itensVencedores.set(item.itemId, {
                                               ...item,
                                               fornecedor: fornec
@@ -1373,8 +1386,11 @@ const Cotacoes = () => {
                                         });
                                       });
                                       
+                                      console.log('[DEBUG] Itens vencedores:', Array.from(itensVencedores.entries()));
+                                      
                                       // Agrupar itens vencedores por fornecedor
                                       const vencedoresPorFornecedor = new Map();
+                                      console.log('[DEBUG] Agrupando vencedores por fornecedor...');
                                       itensVencedores.forEach(item => {
                                         const cnpj = item.fornecedor.cnpj;
                                         if (!vencedoresPorFornecedor.has(cnpj)) {
@@ -1394,6 +1410,7 @@ const Cotacoes = () => {
                                         fornecVenc.valorTotal += valorItem;
                                       });
                                       
+                                      console.log('[DEBUG] Vencedores por fornecedor:', Array.from(vencedoresPorFornecedor.entries()));
                                       fornecedoresVencedores.push(...Array.from(vencedoresPorFornecedor.values()));
                                     }
                                     
