@@ -510,10 +510,48 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Processos por Contratos de Gestão / Mês</CardTitle>
               <CardDescription>Gráfico de barras</CardDescription>
-              <div className="flex gap-2 mt-2 items-center">
+              <div className="flex gap-2 mt-2">
                 <Button onClick={() => exportarPDF('grafico-velas-1', 'Processos por Contratos de Gestão / Mês', dadosComplementar1(), 'bar')} size="sm" variant="outline">
                   <Download className="w-4 h-4 mr-2" /> PDF
                 </Button>
+              </div>
+              <div className="flex flex-col gap-4 mt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Select value={anoSelecionado} onValueChange={setAnoSelecionado}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {anosDisponiveis.map(ano => (
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={mesSelecionado} onValueChange={setMesSelecionado}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Meses</SelectItem>
+                      {meses.map(mes => (
+                        <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Select value={contratoGrafico1} onValueChange={setContratoGrafico1}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os contratos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Contratos</SelectItem>
+                    {contratos.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent id="grafico-velas-1">
@@ -540,10 +578,65 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Modalidades de Contratações Mensais/Anuais</CardTitle>
               <CardDescription>Gráfico de barras</CardDescription>
-              <div className="flex gap-2 mt-2 items-center">
+              <div className="flex gap-2 mt-2">
                 <Button onClick={() => exportarPDF('grafico-velas-2', 'Modalidades de Contratações Mensais/Anuais', dadosComplementar2(), 'bar')} size="sm" variant="outline">
                   <Download className="w-4 h-4 mr-2" /> PDF
                 </Button>
+              </div>
+              <div className="flex flex-col gap-4 mt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Select value={anoGrafico2} onValueChange={setAnoGrafico2}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {anosDisponiveis.map(ano => (
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={mesGrafico2} onValueChange={setMesGrafico2}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Meses</SelectItem>
+                      {meses.map(mes => (
+                        <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Select value={tipoProcessoSelecionado} onValueChange={setTipoProcessoSelecionado}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os tipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Tipos</SelectItem>
+                    <SelectItem value="compras_diretas">Compras Diretas</SelectItem>
+                    <SelectItem value="selecao">Seleção de Fornecedores</SelectItem>
+                    <SelectItem value="credenciamentos">Credenciamentos</SelectItem>
+                    <SelectItem value="contratacoes_especificas">Contratações Específicas</SelectItem>
+                    <SelectItem value="contratos">Contratos</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {tipoProcessoSelecionado === "contratos" && (
+                  <Select value={origemContratoSelecionada} onValueChange={setOrigemContratoSelecionada}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Todas as origens" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todas as Origens</SelectItem>
+                      <SelectItem value="cotacoes">Cotações de Preços</SelectItem>
+                      <SelectItem value="selecao">Seleção de Fornecedores</SelectItem>
+                      <SelectItem value="credenciamentos">Credenciamentos</SelectItem>
+                      <SelectItem value="contratacoes_especificas">Contratações Específicas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </CardHeader>
             <CardContent id="grafico-velas-2">
@@ -573,10 +666,48 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Processos por Contratos de Gestão / Mês</CardTitle>
               <CardDescription>Tendência mensal</CardDescription>
-              <div className="flex gap-2 mt-2 items-center">
+              <div className="flex gap-2 mt-2">
                 <Button onClick={() => exportarPDF('grafico-ecg-1', 'Processos por Contratos de Gestão / Mês', dadosComplementar1(), 'line')} size="sm" variant="outline">
                   <Download className="w-4 h-4 mr-2" /> PDF
                 </Button>
+              </div>
+              <div className="flex flex-col gap-4 mt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Select value={anoSelecionado} onValueChange={setAnoSelecionado}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {anosDisponiveis.map(ano => (
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={mesSelecionado} onValueChange={setMesSelecionado}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Meses</SelectItem>
+                      {meses.map(mes => (
+                        <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Select value={contratoGrafico1} onValueChange={setContratoGrafico1}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os contratos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Contratos</SelectItem>
+                    {contratos.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent id="grafico-ecg-1">
@@ -610,10 +741,65 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Modalidades de Contratações Mensais/Anuais</CardTitle>
               <CardDescription>Tendência mensal</CardDescription>
-              <div className="flex gap-2 mt-2 items-center">
+              <div className="flex gap-2 mt-2">
                 <Button onClick={() => exportarPDF('grafico-ecg-2', 'Modalidades de Contratações Mensais/Anuais', dadosComplementar2(), 'line')} size="sm" variant="outline">
                   <Download className="w-4 h-4 mr-2" /> PDF
                 </Button>
+              </div>
+              <div className="flex flex-col gap-4 mt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Select value={anoGrafico2} onValueChange={setAnoGrafico2}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {anosDisponiveis.map(ano => (
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={mesGrafico2} onValueChange={setMesGrafico2}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Meses</SelectItem>
+                      {meses.map(mes => (
+                        <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Select value={tipoProcessoSelecionado} onValueChange={setTipoProcessoSelecionado}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os tipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Tipos</SelectItem>
+                    <SelectItem value="compras_diretas">Compras Diretas</SelectItem>
+                    <SelectItem value="selecao">Seleção de Fornecedores</SelectItem>
+                    <SelectItem value="credenciamentos">Credenciamentos</SelectItem>
+                    <SelectItem value="contratacoes_especificas">Contratações Específicas</SelectItem>
+                    <SelectItem value="contratos">Contratos</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {tipoProcessoSelecionado === "contratos" && (
+                  <Select value={origemContratoSelecionada} onValueChange={setOrigemContratoSelecionada}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Todas as origens" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todas as Origens</SelectItem>
+                      <SelectItem value="cotacoes">Cotações de Preços</SelectItem>
+                      <SelectItem value="selecao">Seleção de Fornecedores</SelectItem>
+                      <SelectItem value="credenciamentos">Credenciamentos</SelectItem>
+                      <SelectItem value="contratacoes_especificas">Contratações Específicas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </CardHeader>
             <CardContent id="grafico-ecg-2">
