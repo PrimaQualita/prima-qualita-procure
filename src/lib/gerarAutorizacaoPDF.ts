@@ -8,11 +8,19 @@ interface AutorizacaoResult {
 }
 
 // Função para gerar PDF de autorização com certificação digital
+interface FornecedorVencedor {
+  razaoSocial: string;
+  cnpj: string;
+  itensVencedores: Array<{ numero: number; valor: number }>;
+  valorTotal: number;
+}
+
 export const gerarAutorizacaoCompraDireta = async (
   numeroProcesso: string,
   objetoProcesso: string,
   usuarioNome: string,
-  usuarioCpf: string
+  usuarioCpf: string,
+  fornecedorVencedor?: FornecedorVencedor
 ): Promise<AutorizacaoResult> => {
   const agora = new Date();
   const dataHora = agora.toLocaleString('pt-BR', { 
@@ -104,6 +112,30 @@ export const gerarAutorizacaoCompraDireta = async (
       <div class="content">
         <p>Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, autorizo a presente contratação por COMPRA DIRETA, conforme requisição e termo de referência anexos, nos termos do art.4° do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição.</p>
         
+        ${fornecedorVencedor ? `
+        <div style="margin: 30px 0;">
+          <h3 style="text-align: center; margin-bottom: 20px; color: #003366;">Fornecedor Vencedor</h3>
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <thead>
+              <tr style="background-color: #003366; color: white;">
+                <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Razão Social</th>
+                <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">CNPJ</th>
+                <th style="border: 1px solid #ccc; padding: 10px; text-align: center;">Itens Vencedores</th>
+                <th style="border: 1px solid #ccc; padding: 10px; text-align: right;">Valor Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="border: 1px solid #ccc; padding: 10px;">${fornecedorVencedor.razaoSocial}</td>
+                <td style="border: 1px solid #ccc; padding: 10px;">${fornecedorVencedor.cnpj}</td>
+                <td style="border: 1px solid #ccc; padding: 10px; text-align: center;">${fornecedorVencedor.itensVencedores.map(i => `#${i.numero}`).join(', ')}</td>
+                <td style="border: 1px solid #ccc; padding: 10px; text-align: right;">R$ ${fornecedorVencedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+        
         <p>Encaminha-se ao Departamento de Compras, para as providências cabíveis.</p>
       </div>
       
@@ -161,13 +193,15 @@ export const gerarAutorizacaoCompraDireta = async (
 
     if (error) throw error;
 
-    // Obter URL pública
-    const { data: urlData } = supabase.storage
+    // Obter URL assinada (signed URL) com validade de 1 ano
+    const { data: urlData, error: signError } = await supabase.storage
       .from('processo-anexos')
-      .getPublicUrl(fileName);
+      .createSignedUrl(fileName, 31536000); // 1 ano em segundos
+
+    if (signError) throw signError;
 
     return {
-      url: urlData.publicUrl,
+      url: urlData.signedUrl,
       fileName: `autorizacao-compra-direta-${numeroProcesso}.pdf`
     };
   } finally {
@@ -328,13 +362,15 @@ export const gerarAutorizacaoSelecao = async (
 
     if (error) throw error;
 
-    // Obter URL pública
-    const { data: urlData } = supabase.storage
+    // Obter URL assinada (signed URL) com validade de 1 ano
+    const { data: urlData, error: signError } = await supabase.storage
       .from('processo-anexos')
-      .getPublicUrl(fileName);
+      .createSignedUrl(fileName, 31536000); // 1 ano em segundos
+
+    if (signError) throw signError;
 
     return {
-      url: urlData.publicUrl,
+      url: urlData.signedUrl,
       fileName: `autorizacao-selecao-fornecedores-${numeroProcesso}.pdf`
     };
   } finally {

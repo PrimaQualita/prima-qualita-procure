@@ -97,7 +97,7 @@ const Cotacoes = () => {
   const [naoRequerSelecao, setNaoRequerSelecao] = useState(false);
   const [autorizacaoAnexada, setAutorizacaoAnexada] = useState<File | null>(null);
   const [autorizacaoSelecaoAnexada, setAutorizacaoSelecaoAnexada] = useState<File | null>(null);
-  const [emailsFornecedoresAnexado, setEmailsFornecedoresAnexado] = useState<File | null>(null);
+  const [emailsFornecedoresAnexados, setEmailsFornecedoresAnexados] = useState<File[]>([]);
   const [uploadingAutorizacao, setUploadingAutorizacao] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [usuarioNome, setUsuarioNome] = useState('');
@@ -142,14 +142,16 @@ const Cotacoes = () => {
       return;
     }
     
-    // Verificar se é responsável legal
+    // Verificar se é responsável legal e buscar dados do usuário
     const { data: profile } = await supabase
       .from("profiles")
-      .select("responsavel_legal")
+      .select("responsavel_legal, nome_completo, cpf")
       .eq("id", session.user.id)
       .single();
     
     setIsResponsavelLegal(profile?.responsavel_legal || false);
+    setUsuarioNome(profile?.nome_completo || '');
+    setUsuarioCpf(profile?.cpf || '');
     setLoading(false);
   };
 
@@ -990,14 +992,29 @@ const Cotacoes = () => {
                                 Gerar Autorização
                               </Button>
                               {autorizacaoSelecaoUrl && (
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => window.open(autorizacaoSelecaoUrl, '_blank')}
-                                  className="w-full"
-                                >
-                                  <FileText className="mr-2 h-4 w-4" />
-                                  Baixar Autorização
-                                </Button>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="secondary"
+                                    onClick={() => window.open(autorizacaoSelecaoUrl, '_blank')}
+                                    className="flex-1"
+                                  >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Visualizar
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = autorizacaoSelecaoUrl;
+                                      link.download = `autorizacao-selecao-${processoSelecionado?.numero_processo_interno}.pdf`;
+                                      link.click();
+                                    }}
+                                    className="flex-1"
+                                  >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Baixar
+                                  </Button>
+                                </div>
                               )}
                             </div>
                           ) : (
@@ -1059,7 +1076,7 @@ const Cotacoes = () => {
                               loadCotacoes(processoSelecionado.id);
                             }
                           }}
-                          disabled={itens.length === 0 || (!isResponsavelLegal && !autorizacaoSelecaoAnexada)}
+                          disabled={itens.length === 0 || (!autorizacaoSelecaoUrl && !autorizacaoSelecaoAnexada)}
                           size="lg"
                           className="md:w-auto w-full"
                         >
@@ -1100,14 +1117,29 @@ const Cotacoes = () => {
                                 Gerar Autorização
                               </Button>
                               {autorizacaoDiretaUrl && (
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
-                                  className="w-full"
-                                >
-                                  <FileText className="mr-2 h-4 w-4" />
-                                  Baixar Autorização
-                                </Button>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="secondary"
+                                    onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
+                                    className="flex-1"
+                                  >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Visualizar
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = autorizacaoDiretaUrl;
+                                      link.download = `autorizacao-compra-direta-${processoSelecionado?.numero_processo_interno}.pdf`;
+                                      link.click();
+                                    }}
+                                    className="flex-1"
+                                  >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Baixar
+                                  </Button>
+                                </div>
                               )}
                             </div>
                           ) : (
@@ -1152,7 +1184,7 @@ const Cotacoes = () => {
                         </div>
                         <Button 
                           onClick={() => setDialogFinalizarOpen(true)}
-                          disabled={itens.length === 0 || (!isResponsavelLegal && !autorizacaoAnexada)}
+                          disabled={itens.length === 0 || (!autorizacaoDiretaUrl && !autorizacaoAnexada)}
                           size="lg"
                           className="md:w-auto w-full"
                         >
