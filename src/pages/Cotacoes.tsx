@@ -851,28 +851,21 @@ const Cotacoes = () => {
               <CardContent>
                 <div className="mb-6 space-y-4 p-4 border rounded-lg bg-muted/50">
                   <div className="grid gap-4">
+                    {/* Critério de Julgamento - somente leitura, vindo do processo */}
                     <div className="grid gap-2">
-                      <Label htmlFor="criterio_julgamento">Critério de Julgamento</Label>
-                      <Select
-                        value={criterioJulgamento}
-                        onValueChange={(value: 'por_item' | 'global' | 'por_lote') => 
-                          handleUpdateCriterioJulgamento(value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="global">Menor Preço Global</SelectItem>
-                          <SelectItem value="por_item">Menor Preço por Item</SelectItem>
-                          <SelectItem value="por_lote">Menor Preço por Lote</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        {criterioJulgamento === 'global' && 'Vencedor será o fornecedor com menor valor total geral'}
-                        {criterioJulgamento === 'por_item' && 'Vencedor será escolhido item por item (menor preço em cada item)'}
-                        {criterioJulgamento === 'por_lote' && 'Vencedor será escolhido lote por lote (menor preço em cada lote)'}
-                      </p>
+                      <Label>Critério de Julgamento (definido no processo)</Label>
+                      <div className="p-3 bg-muted rounded-md">
+                        <p className="font-medium">
+                          {criterioJulgamento === 'global' && '📊 Menor Preço Global'}
+                          {criterioJulgamento === 'por_item' && '📋 Menor Preço por Item'}
+                          {criterioJulgamento === 'por_lote' && '📦 Menor Preço por Lote'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {criterioJulgamento === 'global' && 'Vencedor será o fornecedor com menor valor total geral'}
+                          {criterioJulgamento === 'por_item' && 'Vencedor será escolhido item por item (menor preço em cada item)'}
+                          {criterioJulgamento === 'por_lote' && 'Vencedor será escolhido lote por lote (menor preço em cada lote)'}
+                        </p>
+                      </div>
                     </div>
                     
                     {/* Campo para anexar cópia dos e-mails enviados aos fornecedores */}

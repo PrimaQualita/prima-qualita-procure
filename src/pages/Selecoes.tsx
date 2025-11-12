@@ -24,6 +24,7 @@ interface Processo {
   objeto_resumido: string;
   valor_estimado_anual: number;
   requer_selecao: boolean;
+  criterio_julgamento?: string;
 }
 
 interface Selecao {
@@ -34,6 +35,7 @@ interface Selecao {
   data_sessao_disputa: string;
   hora_sessao_disputa: string;
   valor_estimado_anual: number;
+  criterios_julgamento?: string;
 }
 
 const Selecoes = () => {
