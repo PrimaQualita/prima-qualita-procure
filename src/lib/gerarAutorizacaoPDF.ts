@@ -198,7 +198,7 @@ export const gerarAutorizacaoCompraDireta = async (
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     const opt = {
-      margin: [10, 10, 10, 10],
+      margin: [10, 10, 10, 10] as [number, number, number, number],
       filename: `autorizacao-compra-direta-${numeroProcesso}.pdf`,
       image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { 
@@ -400,7 +400,7 @@ export const gerarAutorizacaoSelecao = async (
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     const opt = {
-      margin: [10, 10, 10, 10],
+      margin: [10, 10, 10, 10] as [number, number, number, number],
       filename: `autorizacao-selecao-fornecedores-${numeroProcesso}.pdf`,
       image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { 
