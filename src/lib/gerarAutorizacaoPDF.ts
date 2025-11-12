@@ -244,13 +244,13 @@ export const gerarAutorizacaoCompraDireta = async (
   // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
   const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
-  const linkCompleto = `${linkBase}/verificar-autorizacao?protocolo=${protocolo}`;
+  const linkCompleto = `${linkBase}/verificar-autorizacao`;
   const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
   doc.text(linkQuebrado, 25, yPos + 35);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
-  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yPos + 37);
+  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yPos + 39);
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');
@@ -408,13 +408,13 @@ export const gerarAutorizacaoSelecao = async (
   // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
   const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
-  const linkCompleto = `${linkBase}/verificar-autorizacao?protocolo=${protocolo}`;
+  const linkCompleto = `${linkBase}/verificar-autorizacao`;
   const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
   doc.text(linkQuebrado, 25, yPos + 35);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
-  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yPos + 37);
+  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yPos + 39);
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');
