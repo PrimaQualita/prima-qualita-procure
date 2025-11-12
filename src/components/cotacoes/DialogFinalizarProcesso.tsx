@@ -85,12 +85,8 @@ export function DialogFinalizarProcesso({
   const [loading, setLoading] = useState(false);
   const [fornecedoresData, setFornecedoresData] = useState<FornecedorData[]>([]);
   const [fornecedorExpandido, setFornecedorExpandido] = useState<string | null>(null);
-  const [novoCampo, setNovoCampo] = useState<{nome: string; descricao: string; obrigatorio: boolean}>({
-    nome: "",
-    descricao: "",
-    obrigatorio: true
-  });
-  const [dataLimiteDocumentos, setDataLimiteDocumentos] = useState<string>("");
+  const [novosCampos, setNovosCampos] = useState<Record<string, {nome: string; descricao: string; obrigatorio: boolean}>>({});
+  const [datasLimiteDocumentos, setDatasLimiteDocumentos] = useState<Record<string, string>>({});
   const [documentosAprovados, setDocumentosAprovados] = useState<Record<string, boolean>>({});
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState<string>("");
   const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState<string>("");
@@ -419,12 +415,15 @@ export function DialogFinalizarProcesso({
   };
 
   const adicionarCampoDocumento = async (fornecedorId: string) => {
-    if (!novoCampo.nome || !novoCampo.descricao) {
+    const campoFornecedor = novosCampos[fornecedorId] || { nome: "", descricao: "", obrigatorio: true };
+    const dataLimite = datasLimiteDocumentos[fornecedorId] || "";
+
+    if (!campoFornecedor.nome || !campoFornecedor.descricao) {
       toast.error("Preencha nome e descrição do documento");
       return;
     }
 
-    if (!dataLimiteDocumentos) {
+    if (!dataLimite) {
       toast.error("Defina a data limite para envio");
       return;
     }
@@ -438,9 +437,9 @@ export function DialogFinalizarProcesso({
         .insert({
           cotacao_id: cotacaoId,
           fornecedor_id: fornecedorId,
-          nome_campo: novoCampo.nome.trim(),
-          descricao: novoCampo.descricao.trim(),
-          obrigatorio: novoCampo.obrigatorio,
+          nome_campo: campoFornecedor.nome.trim(),
+          descricao: campoFornecedor.descricao.trim(),
+          obrigatorio: campoFornecedor.obrigatorio,
           ordem: ordemAtual,
           status_solicitacao: "pendente",
           data_solicitacao: new Date().toISOString()
@@ -459,8 +458,17 @@ export function DialogFinalizarProcesso({
       }
 
       toast.success("Documento adicionado à lista");
-      setNovoCampo({ nome: "", descricao: "", obrigatorio: true });
-      setDataLimiteDocumentos("");
+      
+      // Limpar apenas os campos deste fornecedor
+      setNovosCampos(prev => ({
+        ...prev,
+        [fornecedorId]: { nome: "", descricao: "", obrigatorio: true }
+      }));
+      setDatasLimiteDocumentos(prev => ({
+        ...prev,
+        [fornecedorId]: ""
+      }));
+      
       await loadAllFornecedores();
     } catch (error: any) {
       console.error("Erro ao adicionar documento:", error);
@@ -976,16 +984,28 @@ export function DialogFinalizarProcesso({
                         <div className="space-y-2">
                           <Label>Nome do Documento</Label>
                           <Input
-                            value={novoCampo.nome}
-                            onChange={(e) => setNovoCampo({ ...novoCampo, nome: e.target.value })}
+                            value={novosCampos[fornData.fornecedor.id]?.nome || ""}
+                            onChange={(e) => setNovosCampos(prev => ({
+                              ...prev,
+                              [fornData.fornecedor.id]: {
+                                ...(prev[fornData.fornecedor.id] || { nome: "", descricao: "", obrigatorio: true }),
+                                nome: e.target.value
+                              }
+                            }))}
                             placeholder="Ex: Certidão de Regularidade"
                           />
                         </div>
                         <div className="space-y-2">
                           <Label>Descrição</Label>
                           <Textarea
-                            value={novoCampo.descricao}
-                            onChange={(e) => setNovoCampo({ ...novoCampo, descricao: e.target.value })}
+                            value={novosCampos[fornData.fornecedor.id]?.descricao || ""}
+                            onChange={(e) => setNovosCampos(prev => ({
+                              ...prev,
+                              [fornData.fornecedor.id]: {
+                                ...(prev[fornData.fornecedor.id] || { nome: "", descricao: "", obrigatorio: true }),
+                                descricao: e.target.value
+                              }
+                            }))}
                             placeholder="Descrição do documento solicitado"
                             rows={1}
                           />
@@ -994,15 +1014,22 @@ export function DialogFinalizarProcesso({
                           <Label>Data Limite para Envio</Label>
                           <Input
                             type="date"
-                            value={dataLimiteDocumentos}
-                            onChange={(e) => setDataLimiteDocumentos(e.target.value)}
+                            value={datasLimiteDocumentos[fornData.fornecedor.id] || ""}
+                            onChange={(e) => setDatasLimiteDocumentos(prev => ({
+                              ...prev,
+                              [fornData.fornecedor.id]: e.target.value
+                            }))}
                           />
                         </div>
                       </div>
                       <div className="flex items-center gap-4 mt-3">
                         <Button
                           onClick={() => adicionarCampoDocumento(fornData.fornecedor.id)}
-                          disabled={!novoCampo.nome.trim() || !novoCampo.descricao.trim()}
+                          disabled={
+                            !novosCampos[fornData.fornecedor.id]?.nome?.trim() || 
+                            !novosCampos[fornData.fornecedor.id]?.descricao?.trim() ||
+                            !datasLimiteDocumentos[fornData.fornecedor.id]
+                          }
                           size="sm"
                         >
                           <Plus className="h-4 w-4 mr-2" />
