@@ -769,15 +769,25 @@ export function DialogFinalizarProcesso({
 
       if (!processo) throw new Error("Processo não encontrado");
 
-      // Buscar respostas e itens
-      const { data: respostas } = await supabase
+      // Buscar TODAS respostas (incluindo rejeitadas) para as observações
+      const { data: todasRespostas } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
           id,
           fornecedor_id,
+          rejeitado,
+          motivo_rejeicao,
           fornecedores!inner(razao_social, cnpj)
         `)
         .eq("cotacao_id", cotacaoId);
+
+      // Filtrar fornecedores rejeitados
+      const fornecedoresRejeitados = (todasRespostas || [])
+        .filter(r => r.rejeitado)
+        .map(r => ({
+          razaoSocial: r.fornecedores.razao_social,
+          motivoRejeicao: r.motivo_rejeicao || "Não especificado"
+        }));
 
       const { data: itensRespostas } = await supabase
         .from("respostas_itens_fornecedor")
@@ -787,10 +797,11 @@ export function DialogFinalizarProcesso({
           valor_unitario_ofertado,
           itens_cotacao!inner(numero_item, quantidade, descricao)
         `)
-        .in("cotacao_resposta_fornecedor_id", respostas?.map(r => r.id) || []);
+        .in("cotacao_resposta_fornecedor_id", todasRespostas?.map(r => r.id) || []);
 
-      const fornecedoresVencedores = fornecedoresData.map(fData => {
-        const resposta = respostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
+      // Apenas fornecedores não rejeitados para a tabela
+      const fornecedoresVencedores = fornecedoresData.filter(f => !f.rejeitado).map(fData => {
+        const resposta = todasRespostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
         const itensVencedores = fData.itensVencedores;
         
         let valorTotal = 0;
@@ -825,7 +836,8 @@ export function DialogFinalizarProcesso({
         objetoProcesso: processo.objeto_resumido,
         usuarioNome: usuario?.nome_completo || "",
         usuarioCpf: usuario?.cpf || "",
-        fornecedoresVencedores
+        fornecedoresVencedores,
+        fornecedoresRejeitados
       });
 
       // Salvar referência no banco

@@ -12,8 +12,13 @@ interface RelatorioFinalResult {
 interface FornecedorVencedor {
   razaoSocial: string;
   cnpj: string;
-  itensVencedores: Array<{ numero: number; valor: number }>;
+  itensVencedores: Array<{ numero: number; valor: number; descricao?: string }>;
   valorTotal: number;
+}
+
+interface FornecedorRejeitado {
+  razaoSocial: string;
+  motivoRejeicao: string;
 }
 
 interface DadosRelatorioFinal {
@@ -22,6 +27,7 @@ interface DadosRelatorioFinal {
   usuarioNome: string;
   usuarioCpf: string;
   fornecedoresVencedores: FornecedorVencedor[];
+  fornecedoresRejeitados?: FornecedorRejeitado[];
 }
 
 // Função para extrair texto simples de HTML
@@ -205,6 +211,26 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   const linhas3 = doc.splitTextToSize(texto3, 170);
   doc.text(linhas3, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhas3.length * 3.5 + 5;
+  
+  // Observações sobre fornecedores rejeitados
+  if (dados.fornecedoresRejeitados && dados.fornecedoresRejeitados.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(139, 0, 0); // Vermelho escuro
+    doc.text('OBSERVAÇÕES - FORNECEDORES INABILITADOS/REJEITADOS:', 20, yPos);
+    yPos += 7;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    
+    dados.fornecedoresRejeitados.forEach((fornRej) => {
+      const textoRejeicao = `A Empresa ${fornRej.razaoSocial} foi Inabilitada/Rejeitada por conta: ${fornRej.motivoRejeicao}`;
+      const linhasRejeicao = doc.splitTextToSize(textoRejeicao, 170);
+      doc.text(linhasRejeicao, 20, yPos, { align: 'justify', maxWidth: 170 });
+      yPos += linhasRejeicao.length * 3.5 + 4;
+    });
+    
+    yPos += 3; // Espaço extra após observações
+  }
   
   // Parágrafo 4
   const texto4 = 'Tendo em vista que o valor cotado está abaixo do estipulado no Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, verifica-se possibilidade de contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES.';
