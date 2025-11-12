@@ -165,8 +165,8 @@ export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
           />
           {open && (
             <div className="mt-3 text-center">
-              <h2 className="text-sm font-semibold text-foreground">Sistema de Compras</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Prima Qualitá Saúde</p>
+              <h2 className="text-sm font-semibold text-sidebar-foreground">Sistema de Compras</h2>
+              <p className="text-xs text-sidebar-foreground/70 mt-0.5">Prima Qualitá Saúde</p>
             </div>
           )}
         </div>
@@ -211,10 +211,10 @@ export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
                   </Avatar>
                   {open && (
                     <div className="flex flex-col items-start overflow-hidden flex-1 ml-2">
-                      <span className="text-sm font-semibold truncate w-full">
+                      <span className="text-sm font-semibold truncate w-full text-sidebar-foreground">
                         {profile?.nome_completo || "Usuário"}
                       </span>
-                      <span className="text-xs text-muted-foreground font-medium">
+                      <span className="text-xs text-sidebar-foreground/70 font-medium">
                         {isGestor ? "Gestor" : "Colaborador"}
                       </span>
                     </div>
