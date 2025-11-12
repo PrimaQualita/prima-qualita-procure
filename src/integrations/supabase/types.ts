@@ -925,8 +925,10 @@ export type Database = {
         Row: {
           ano_referencia: number
           centro_custo: string | null
+          contratacao_especifica: boolean | null
           contrato_gestao_id: string
           created_at: string | null
+          credenciamento: boolean | null
           criterio_julgamento: string
           data_abertura: string | null
           data_encerramento_prevista: string | null
@@ -946,8 +948,10 @@ export type Database = {
         Insert: {
           ano_referencia: number
           centro_custo?: string | null
+          contratacao_especifica?: boolean | null
           contrato_gestao_id: string
           created_at?: string | null
+          credenciamento?: boolean | null
           criterio_julgamento?: string
           data_abertura?: string | null
           data_encerramento_prevista?: string | null
@@ -969,8 +973,10 @@ export type Database = {
         Update: {
           ano_referencia?: number
           centro_custo?: string | null
+          contratacao_especifica?: boolean | null
           contrato_gestao_id?: string
           created_at?: string | null
+          credenciamento?: boolean | null
           criterio_julgamento?: string
           data_abertura?: string | null
           data_encerramento_prevista?: string | null

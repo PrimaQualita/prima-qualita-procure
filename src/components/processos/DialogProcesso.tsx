@@ -34,6 +34,8 @@ interface Processo {
   observacoes?: string;
   requer_cotacao?: boolean;
   criterio_julgamento?: string;
+  credenciamento?: boolean;
+  contratacao_especifica?: boolean;
 }
 
 interface DialogProcessoProps {
@@ -60,6 +62,8 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     observacoes: "",
     requer_cotacao: true,
     criterio_julgamento: "global",
+    credenciamento: false,
+    contratacao_especifica: false,
   });
   const [loading, setLoading] = useState(false);
 
@@ -79,6 +83,8 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         observacoes: processo.observacoes || "",
         requer_cotacao: processo.requer_cotacao ?? true,
         criterio_julgamento: processo.criterio_julgamento || "global",
+        credenciamento: processo.credenciamento ?? false,
+        contratacao_especifica: processo.contratacao_especifica ?? false,
       });
     } else {
       setFormData({
@@ -95,6 +101,8 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         observacoes: "",
         requer_cotacao: true,
         criterio_julgamento: "global",
+        credenciamento: false,
+        contratacao_especifica: false,
       });
     }
   }, [processo, contratoId, open]);
@@ -238,15 +246,37 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="requer_cotacao"
-                checked={formData.requer_cotacao || false}
-                onChange={(e) => setFormData({ ...formData, requer_cotacao: e.target.checked })}
-                className="h-4 w-4 rounded border-input"
-              />
-              <Label htmlFor="requer_cotacao" className="cursor-pointer">Requer Cotação de Preços</Label>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="requer_cotacao"
+                  checked={formData.requer_cotacao || false}
+                  onChange={(e) => setFormData({ ...formData, requer_cotacao: e.target.checked })}
+                  className="h-4 w-4 rounded border-input"
+                />
+                <Label htmlFor="requer_cotacao" className="cursor-pointer">Requer Cotação de Preços</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="credenciamento"
+                  checked={formData.credenciamento || false}
+                  onChange={(e) => setFormData({ ...formData, credenciamento: e.target.checked })}
+                  className="h-4 w-4 rounded border-input"
+                />
+                <Label htmlFor="credenciamento" className="cursor-pointer">Credenciamento</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="contratacao_especifica"
+                  checked={formData.contratacao_especifica || false}
+                  onChange={(e) => setFormData({ ...formData, contratacao_especifica: e.target.checked })}
+                  className="h-4 w-4 rounded border-input"
+                />
+                <Label htmlFor="contratacao_especifica" className="cursor-pointer">Contratação Específica</Label>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="criterio_julgamento">Critério de Julgamento *</Label>
