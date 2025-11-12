@@ -1112,7 +1112,7 @@ const Cotacoes = () => {
                       </div>
                     </div>
 
-                    {processoSelecionado?.requer_selecao && (
+                    {processoSelecionado?.requer_selecao === true && (
                       <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4 pt-2">
                         <div className="flex-1">
                           <Label htmlFor="autorizacao-selecao-upload">
