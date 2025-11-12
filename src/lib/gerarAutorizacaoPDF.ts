@@ -191,7 +191,16 @@ export const gerarAutorizacaoCompraDireta = async (
   const texto2 = 'Encaminha-se ao Departamento Financeiro, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += 20;
+  yPos += 15;
+  
+  // Verificar se há espaço suficiente para certificação (60mm) + rodapé (25mm)
+  const espacoNecessario = 85; // 60mm certificação + 25mm margem rodapé
+  const espacoDisponivel = 270 - yPos; // 270 é onde começa o rodapé
+  
+  if (espacoDisponivel < espacoNecessario) {
+    doc.addPage();
+    yPos = 20; // Começar no topo da nova página
+  }
   
   // Certificação Digital
   doc.setFillColor(240, 249, 255);
@@ -217,18 +226,19 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.setFontSize(8);
   doc.text(`Hash: ${hash}`, 25, yPos + 44);
   
-  // Link de verificação
+  // Link de verificação - usando mesmo padrão da planilha consolidada
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 51, 102);
-  const linkVerificacao = `Verifique em: www.primaqualitasaude.org/verificar/${hash}`;
-  doc.text(linkVerificacao, 25, yPos + 48);
+  const linkVerificacao = `${typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org'}/verificar-proposta?protocolo=${protocolo}`;
+  const linkTexto = doc.splitTextToSize(`Verifique em: ${linkVerificacao}`, 165);
+  doc.text(linkTexto, 25, yPos + 48);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
   const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
-  doc.text(textoValidade, 25, yPos + 53);
+  doc.text(textoValidade, 25, yPos + 55);
   
-  // Rodapé
+  // Rodapé - sempre na mesma posição
   yPos = 270;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
@@ -349,7 +359,16 @@ export const gerarAutorizacaoSelecao = async (
   const texto2 = 'Encaminha-se ao Departamento de Compras, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += 20;
+  yPos += 15;
+  
+  // Verificar se há espaço suficiente para certificação (60mm) + rodapé (25mm)
+  const espacoNecessario = 85;
+  const espacoDisponivel = 270 - yPos;
+  
+  if (espacoDisponivel < espacoNecessario) {
+    doc.addPage();
+    yPos = 20;
+  }
   
   // Certificação Digital
   doc.setFillColor(240, 249, 255);
@@ -375,18 +394,19 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFontSize(8);
   doc.text(`Hash: ${hash}`, 25, yPos + 44);
   
-  // Link de verificação
+  // Link de verificação - usando mesmo padrão da planilha consolidada
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 51, 102);
-  const linkVerificacao = `Verifique em: www.primaqualitasaude.org/verificar/${hash}`;
-  doc.text(linkVerificacao, 25, yPos + 48);
+  const linkVerificacao = `${typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org'}/verificar-proposta?protocolo=${protocolo}`;
+  const linkTexto = doc.splitTextToSize(`Verifique em: ${linkVerificacao}`, 165);
+  doc.text(linkTexto, 25, yPos + 48);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
   const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
-  doc.text(textoValidade, 25, yPos + 53);
+  doc.text(textoValidade, 25, yPos + 55);
   
-  // Rodapé
+  // Rodapé - sempre na mesma posição
   yPos = 270;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
