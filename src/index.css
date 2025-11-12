@@ -150,3 +150,128 @@ All colors MUST be HSL.
 .dark .rich-text-editor .ql-picker-item {
   color: hsl(var(--foreground));
 }
+
+/* ==============================================
+   RESPONSIVIDADE GLOBAL
+   ============================================== */
+
+@layer utilities {
+  /* Scroll horizontal para tabelas */
+  .table-responsive {
+    @apply overflow-x-auto -mx-2 sm:mx-0 w-full;
+  }
+  
+  /* Larguras mínimas para colunas de tabela */
+  .table-col-min {
+    @apply min-w-[100px];
+  }
+  
+  .table-col-sm {
+    @apply min-w-[120px];
+  }
+  
+  .table-col-md {
+    @apply min-w-[150px];
+  }
+  
+  .table-col-lg {
+    @apply min-w-[200px];
+  }
+  
+  /* Container com padding responsivo */
+  .container-responsive {
+    @apply px-2 sm:px-4 md:px-6 lg:px-8;
+  }
+  
+  /* Espaçamentos responsivos */
+  .spacing-responsive {
+    @apply space-y-2 sm:space-y-4 md:space-y-6;
+  }
+  
+  /* Gaps responsivos */
+  .gap-responsive {
+    @apply gap-2 sm:gap-3 md:gap-4;
+  }
+  
+  /* Textos responsivos */
+  .text-responsive-xs {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl md:text-3xl;
+  }
+  
+  /* Card com padding responsivo */
+  .card-responsive {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  
+  /* Flex responsivo - coluna em mobile, row em desktop */
+  .flex-responsive {
+    @apply flex flex-col sm:flex-row;
+  }
+  
+  /* Grid responsivo */
+  .grid-responsive-2 {
+    @apply grid grid-cols-1 sm:grid-cols-2;
+  }
+  
+  .grid-responsive-3 {
+    @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3;
+  }
+  
+  .grid-responsive-4 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
+  }
+  
+  /* Botões responsivos */
+  .btn-responsive {
+    @apply text-xs sm:text-sm px-2 sm:px-3 md:px-4 py-1.5 sm:py-2;
+  }
+  
+  /* Ícones responsivos */
+  .icon-responsive {
+    @apply h-4 w-4 sm:h-5 sm:w-5;
+  }
+  
+  .icon-responsive-sm {
+    @apply h-3 w-3 sm:h-4 sm:w-4;
+  }
+  
+  /* Esconder em mobile */
+  .hide-mobile {
+    @apply hidden sm:inline sm:block;
+  }
+  
+  /* Mostrar apenas em mobile */
+  .show-mobile {
+    @apply sm:hidden;
+  }
+  
+  /* Dialogs/Modals responsivos */
+  .dialog-responsive {
+    @apply max-w-[95vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl;
+  }
+  
+  /* Evitar quebra de layout em telas pequenas */
+  .no-overflow {
+    @apply overflow-hidden;
+  }
+  
+  .max-full-width {
+    @apply max-w-full;
+  }
+}

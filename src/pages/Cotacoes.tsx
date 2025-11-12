@@ -562,12 +562,12 @@ const Cotacoes = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-12" />
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-10 sm:h-12" />
             <div>
-              <h1 className="text-xl font-bold">Gestão de Contratos e Processos</h1>
-              <p className="text-sm text-muted-foreground">Cotação de Preços</p>
+              <h1 className="text-lg sm:text-xl font-bold">Gestão de Contratos e Processos</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">Cotação de Preços</p>
             </div>
           </div>
           <Button variant="outline" onClick={() => navigate("/dashboard")}>
@@ -577,65 +577,69 @@ const Cotacoes = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {/* Lista de Contratos */}
         {!contratoSelecionado && (
           <Card>
             <CardHeader>
-              <CardTitle>Contratos de Gestão</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-base sm:text-lg">Contratos de Gestão</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
                 Selecione um contrato para visualizar os processos que requerem cotação
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="mb-4">
+            <CardContent className="p-0 sm:p-6">
+              <div className="px-4 sm:px-0 mb-4">
                 <Input
                   placeholder="Buscar contrato..."
                   value={filtro}
                   onChange={(e) => setFiltro(e.target.value)}
+                  className="text-sm"
                 />
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome do Contrato</TableHead>
-                    <TableHead>Ente Federativo</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {contratosFiltrados.length === 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
-                        Nenhum contrato encontrado
-                      </TableCell>
+                      <TableHead className="min-w-[150px]">Nome do Contrato</TableHead>
+                      <TableHead className="min-w-[120px]">Ente Federativo</TableHead>
+                      <TableHead className="min-w-[80px]">Status</TableHead>
+                      <TableHead className="text-right min-w-[100px]">Ações</TableHead>
                     </TableRow>
-                  ) : (
-                    contratosFiltrados.map((contrato) => (
-                      <TableRow key={contrato.id}>
-                        <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
-                        <TableCell>{contrato.ente_federativo}</TableCell>
-                        <TableCell>
-                          <Badge variant={contrato.status === "ativo" ? "default" : "secondary"}>
-                            {contrato.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setContratoSelecionado(contrato)}
-                          >
-                            <ChevronRight className="h-4 w-4 mr-2" />
-                            Ver Processos
-                          </Button>
+                  </TableHeader>
+                  <TableBody>
+                    {contratosFiltrados.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground text-xs sm:text-sm">
+                          Nenhum contrato encontrado
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      contratosFiltrados.map((contrato) => (
+                        <TableRow key={contrato.id}>
+                          <TableCell className="font-medium text-xs sm:text-sm">{contrato.nome_contrato}</TableCell>
+                          <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
+                          <TableCell>
+                            <Badge variant={contrato.status === "ativo" ? "default" : "secondary"} className="text-xs">
+                              {contrato.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setContratoSelecionado(contrato)}
+                              className="text-xs"
+                            >
+                              <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Ver Processos</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         )}
