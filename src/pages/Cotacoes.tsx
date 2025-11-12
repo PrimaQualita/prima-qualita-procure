@@ -1290,11 +1290,112 @@ const Cotacoes = () => {
                                 onClick={async () => {
                                   if (!processoSelecionado || !cotacaoSelecionada) return;
                                   try {
+                                    // Buscar fornecedores vencedores
+                                    const { data: respostas } = await supabase
+                                      .from('cotacao_respostas_fornecedor')
+                                      .select(`
+                                        *,
+                                        fornecedores (razao_social, cnpj),
+                                        respostas_itens:respostas_itens_fornecedor (
+                                          item_cotacao_id,
+                                          valor_unitario,
+                                          itens_cotacao (numero, quantidade)
+                                        )
+                                      `)
+                                      .eq('cotacao_id', cotacaoSelecionada.id);
+                                    
+                                    // Identificar vencedores por critério
+                                    const fornecedoresVencedores: any[] = [];
+                                    
+                                    if (processoSelecionado.criterio_julgamento === 'global') {
+                                      // Calcular total de cada fornecedor
+                                      const totais = respostas?.map(r => ({
+                                        fornecedor: r,
+                                        total: r.respostas_itens?.reduce((sum: number, item: any) => 
+                                          sum + (item.valor_unitario * item.itens_cotacao.quantidade), 0) || 0
+                                      })) || [];
+                                      
+                                      const menorTotal = Math.min(...totais.map(t => t.total));
+                                      const vencedor = totais.find(t => t.total === menorTotal);
+                                      
+                                      if (vencedor) {
+                                        fornecedoresVencedores.push({
+                                          razaoSocial: vencedor.fornecedor.fornecedores.razao_social,
+                                          cnpj: vencedor.fornecedor.fornecedores.cnpj,
+                                          itensVencedores: vencedor.fornecedor.respostas_itens?.map((item: any) => ({
+                                            numero: item.itens_cotacao.numero,
+                                            valor: item.valor_unitario * item.itens_cotacao.quantidade
+                                          })) || [],
+                                          valorTotal: vencedor.total
+                                        });
+                                      }
+                                    } else if (processoSelecionado.criterio_julgamento === 'item') {
+                                      // Agrupar por fornecedor
+                                      const fornecedoresMap = new Map();
+                                      
+                                      respostas?.forEach(r => {
+                                        r.respostas_itens?.forEach((item: any) => {
+                                          const chave = r.fornecedores.cnpj;
+                                          if (!fornecedoresMap.has(chave)) {
+                                            fornecedoresMap.set(chave, {
+                                              razaoSocial: r.fornecedores.razao_social,
+                                              cnpj: r.fornecedores.cnpj,
+                                              itens: []
+                                            });
+                                          }
+                                          fornecedoresMap.get(chave).itens.push({
+                                            numero: item.itens_cotacao.numero,
+                                            itemId: item.item_cotacao_id,
+                                            valorUnitario: item.valor_unitario,
+                                            quantidade: item.itens_cotacao.quantidade
+                                          });
+                                        });
+                                      });
+                                      
+                                      // Identificar menor preço por item
+                                      const itensVencedores = new Map();
+                                      fornecedoresMap.forEach(fornec => {
+                                        fornec.itens.forEach((item: any) => {
+                                          const menorAtual = itensVencedores.get(item.itemId);
+                                          if (!menorAtual || item.valorUnitario < menorAtual.valorUnitario) {
+                                            itensVencedores.set(item.itemId, {
+                                              ...item,
+                                              fornecedor: fornec
+                                            });
+                                          }
+                                        });
+                                      });
+                                      
+                                      // Agrupar itens vencedores por fornecedor
+                                      const vencedoresPorFornecedor = new Map();
+                                      itensVencedores.forEach(item => {
+                                        const cnpj = item.fornecedor.cnpj;
+                                        if (!vencedoresPorFornecedor.has(cnpj)) {
+                                          vencedoresPorFornecedor.set(cnpj, {
+                                            razaoSocial: item.fornecedor.razaoSocial,
+                                            cnpj: item.fornecedor.cnpj,
+                                            itensVencedores: [],
+                                            valorTotal: 0
+                                          });
+                                        }
+                                        const fornecVenc = vencedoresPorFornecedor.get(cnpj);
+                                        const valorItem = item.valorUnitario * item.quantidade;
+                                        fornecVenc.itensVencedores.push({
+                                          numero: item.numero,
+                                          valor: valorItem
+                                        });
+                                        fornecVenc.valorTotal += valorItem;
+                                      });
+                                      
+                                      fornecedoresVencedores.push(...Array.from(vencedoresPorFornecedor.values()));
+                                    }
+                                    
                                     const result = await gerarAutorizacaoCompraDireta(
                                       processoSelecionado.numero_processo_interno,
                                       processoSelecionado.objeto_resumido,
                                       usuarioNome,
-                                      usuarioCpf
+                                      usuarioCpf,
+                                      fornecedoresVencedores
                                     );
                                     setAutorizacaoDiretaUrl(result.url);
                                     
