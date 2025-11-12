@@ -131,13 +131,18 @@ export const gerarAutorizacaoCompraDireta = async (
     
     // Cabeçalho da tabela
     doc.setFillColor(0, 51, 102);
-    doc.rect(20, yPos, 170, 8, 'F');
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(20, yPos, 50, 8, 'FD'); // Empresa - Fill + Draw (borda)
+    doc.rect(70, yPos, 40, 8, 'FD'); // CNPJ
+    doc.rect(110, yPos, 30, 8, 'FD'); // Itens Vencidos
+    doc.rect(140, yPos, 50, 8, 'FD'); // Valor Total
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('Empresa', 45, yPos + 5, { align: 'center' }); // Centralizado na célula
-    doc.text('CNPJ', 90, yPos + 5, { align: 'center' }); // Centralizado na célula
-    doc.text('Itens Vencidos', 125, yPos + 5, { align: 'center' }); // Centralizado na célula
-    doc.text('Valor Total', 165, yPos + 5, { align: 'center' }); // Centralizado na célula
+    doc.text('Empresa', 45, yPos + 5, { align: 'center' });
+    doc.text('CNPJ', 90, yPos + 5, { align: 'center' });
+    doc.text('Itens Vencidos', 125, yPos + 5, { align: 'center' });
+    doc.text('Valor Total', 165, yPos + 5, { align: 'center' });
     yPos += 8;
     
     // Conteúdo da tabela - uma linha por fornecedor
@@ -190,13 +195,14 @@ export const gerarAutorizacaoCompraDireta = async (
       yPos += alturaLinha;
     });
     
-    // Linha de Total Geral - com bordas
+    // Linha de Total Geral - mesclada até terceira coluna
     doc.setFillColor(240, 240, 240);
-    doc.rect(20, yPos, 50, 8, 'FD'); // FD = Fill + Draw (preenche e desenha borda)
-    doc.rect(70, yPos, 40, 8, 'FD');
-    doc.rect(110, yPos, 30, 8, 'FD');
-    doc.rect(140, yPos, 50, 8, 'FD');
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(20, yPos, 120, 8, 'FD'); // Mesclada: Empresa + CNPJ + Itens Vencidos
+    doc.rect(140, yPos, 50, 8, 'FD'); // Valor Total
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
     doc.text('TOTAL GERAL', 22, yPos + 5);
     doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 142, yPos + 5);
     yPos += 16; // Aumentado para afastar do próximo texto
@@ -237,7 +243,7 @@ export const gerarAutorizacaoCompraDireta = async (
   // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
   const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
-  const linkCompleto = `${linkBase}/verificar-proposta?protocolo=${protocolo}`;
+  const linkCompleto = `${linkBase}/verificar-autorizacao?protocolo=${protocolo}`;
   const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
   doc.text(linkQuebrado, 25, yPos + 32);
   
@@ -400,7 +406,7 @@ export const gerarAutorizacaoSelecao = async (
   // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
   const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
-  const linkCompleto = `${linkBase}/verificar-proposta?protocolo=${protocolo}`;
+  const linkCompleto = `${linkBase}/verificar-autorizacao?protocolo=${protocolo}`;
   const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
   doc.text(linkQuebrado, 25, yPos + 32);
   

@@ -21,6 +21,7 @@ import LimpezaUsuarioOrfao from "./pages/LimpezaUsuarioOrfao";
 import PortalFornecedor from "./pages/PortalFornecedor";
 import RespostaCotacao from "./pages/RespostaCotacao";
 import VerificarProposta from "./pages/VerificarProposta";
+import VerificarAutorizacao from "./pages/VerificarAutorizacao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
           <Route path="/portal-fornecedor" element={<PortalFornecedor />} />
           <Route path="/resposta-cotacao" element={<RespostaCotacao />} />
           <Route path="/verificar-proposta" element={<VerificarProposta />} />
+          <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
