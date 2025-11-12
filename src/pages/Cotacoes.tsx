@@ -104,6 +104,8 @@ const Cotacoes = () => {
   const [usuarioCpf, setUsuarioCpf] = useState('');
   const [autorizacaoSelecaoUrl, setAutorizacaoSelecaoUrl] = useState('');
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState('');
+  const [autorizacaoSelecaoId, setAutorizacaoSelecaoId] = useState('');
+  const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState('');
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
@@ -131,6 +133,7 @@ const Cotacoes = () => {
     if (cotacaoSelecionada) {
       loadItens(cotacaoSelecionada.id);
       loadLotes(cotacaoSelecionada.id);
+      loadAutorizacoes(cotacaoSelecionada.id);
       setCriterioJulgamento(cotacaoSelecionada.criterio_julgamento);
     }
   }, [cotacaoSelecionada]);
@@ -220,6 +223,53 @@ const Cotacoes = () => {
     } else {
       setLotes(data || []);
     }
+  };
+
+  const loadAutorizacoes = async (cotacaoId: string) => {
+    const { data, error } = await supabase
+      .from("autorizacoes_processo")
+      .select("*")
+      .eq("cotacao_id", cotacaoId);
+
+    if (error) {
+      console.error("Erro ao carregar autorizações:", error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      data.forEach(autorizacao => {
+        if (autorizacao.tipo_autorizacao === 'compra_direta') {
+          setAutorizacaoDiretaUrl(autorizacao.url_arquivo);
+          setAutorizacaoDiretaId(autorizacao.id);
+        } else if (autorizacao.tipo_autorizacao === 'selecao_fornecedores') {
+          setAutorizacaoSelecaoUrl(autorizacao.url_arquivo);
+          setAutorizacaoSelecaoId(autorizacao.id);
+        }
+      });
+    }
+  };
+
+  const deletarAutorizacao = async (autorizacaoId: string, tipo: 'compra_direta' | 'selecao_fornecedores') => {
+    const { error } = await supabase
+      .from("autorizacoes_processo")
+      .delete()
+      .eq("id", autorizacaoId);
+
+    if (error) {
+      toast.error("Erro ao deletar autorização");
+      console.error(error);
+      return;
+    }
+
+    if (tipo === 'compra_direta') {
+      setAutorizacaoDiretaUrl('');
+      setAutorizacaoDiretaId('');
+    } else {
+      setAutorizacaoSelecaoUrl('');
+      setAutorizacaoSelecaoId('');
+    }
+
+    toast.success("Autorização deletada com sucesso");
   };
 
   const loadItens = async (cotacaoId: string) => {
@@ -986,7 +1036,7 @@ const Cotacoes = () => {
                             <div className="space-y-2 mt-1">
                               <Button
                                 onClick={async () => {
-                                  if (!processoSelecionado) return;
+                                  if (!processoSelecionado || !cotacaoSelecionada) return;
                                   try {
                                     const result = await gerarAutorizacaoSelecao(
                                       processoSelecionado.numero_processo_interno,
@@ -995,6 +1045,25 @@ const Cotacoes = () => {
                                       usuarioCpf
                                     );
                                     setAutorizacaoSelecaoUrl(result.url);
+                                    
+                                    // Salvar autorização no banco
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    const { data: autorizacao, error: saveError } = await supabase
+                                      .from("autorizacoes_processo")
+                                      .insert({
+                                        cotacao_id: cotacaoSelecionada.id,
+                                        tipo_autorizacao: 'selecao_fornecedores',
+                                        url_arquivo: result.url,
+                                        nome_arquivo: result.fileName,
+                                        protocolo: result.protocolo,
+                                        usuario_gerador_id: session?.user.id
+                                      })
+                                      .select()
+                                      .single();
+                                    
+                                    if (saveError) throw saveError;
+                                    setAutorizacaoSelecaoId(autorizacao.id);
+                                    
                                     toast.success("Autorização gerada e salva com sucesso");
                                   } catch (error) {
                                     console.error("Erro ao gerar autorização:", error);
@@ -1008,28 +1077,40 @@ const Cotacoes = () => {
                                 Gerar Autorização
                               </Button>
                               {autorizacaoSelecaoUrl && (
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="secondary"
-                                    onClick={() => window.open(autorizacaoSelecaoUrl, '_blank')}
-                                    className="flex-1"
-                                  >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Visualizar
-                                  </Button>
-                                  <Button
-                                    variant="secondary"
-                                    onClick={() => {
-                                      const link = document.createElement('a');
-                                      link.href = autorizacaoSelecaoUrl;
-                                      link.download = `autorizacao-selecao-${processoSelecionado?.numero_processo_interno}.pdf`;
-                                      link.click();
-                                    }}
-                                    className="flex-1"
-                                  >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Baixar
-                                  </Button>
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="secondary"
+                                      onClick={() => window.open(autorizacaoSelecaoUrl, '_blank')}
+                                      className="flex-1"
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Visualizar
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      onClick={() => {
+                                        const link = document.createElement('a');
+                                        link.href = autorizacaoSelecaoUrl;
+                                        link.download = `autorizacao-selecao-${processoSelecionado?.numero_processo_interno}.pdf`;
+                                        link.click();
+                                      }}
+                                      className="flex-1"
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Baixar
+                                    </Button>
+                                  </div>
+                                  {isResponsavelLegal && autorizacaoSelecaoId && (
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => deletarAutorizacao(autorizacaoSelecaoId, 'selecao_fornecedores')}
+                                      size="sm"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Deletar Autorização
+                                    </Button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1111,7 +1192,7 @@ const Cotacoes = () => {
                             <div className="space-y-2 mt-1">
                               <Button
                                 onClick={async () => {
-                                  if (!processoSelecionado) return;
+                                  if (!processoSelecionado || !cotacaoSelecionada) return;
                                   try {
                                     const result = await gerarAutorizacaoCompraDireta(
                                       processoSelecionado.numero_processo_interno,
@@ -1120,6 +1201,25 @@ const Cotacoes = () => {
                                       usuarioCpf
                                     );
                                     setAutorizacaoDiretaUrl(result.url);
+                                    
+                                    // Salvar autorização no banco
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    const { data: autorizacao, error: saveError } = await supabase
+                                      .from("autorizacoes_processo")
+                                      .insert({
+                                        cotacao_id: cotacaoSelecionada.id,
+                                        tipo_autorizacao: 'compra_direta',
+                                        url_arquivo: result.url,
+                                        nome_arquivo: result.fileName,
+                                        protocolo: result.protocolo,
+                                        usuario_gerador_id: session?.user.id
+                                      })
+                                      .select()
+                                      .single();
+                                    
+                                    if (saveError) throw saveError;
+                                    setAutorizacaoDiretaId(autorizacao.id);
+                                    
                                     toast.success("Autorização gerada e salva com sucesso");
                                   } catch (error) {
                                     console.error("Erro ao gerar autorização:", error);
@@ -1133,28 +1233,40 @@ const Cotacoes = () => {
                                 Gerar Autorização
                               </Button>
                               {autorizacaoDiretaUrl && (
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="secondary"
-                                    onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
-                                    className="flex-1"
-                                  >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Visualizar
-                                  </Button>
-                                  <Button
-                                    variant="secondary"
-                                    onClick={() => {
-                                      const link = document.createElement('a');
-                                      link.href = autorizacaoDiretaUrl;
-                                      link.download = `autorizacao-compra-direta-${processoSelecionado?.numero_processo_interno}.pdf`;
-                                      link.click();
-                                    }}
-                                    className="flex-1"
-                                  >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Baixar
-                                  </Button>
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="secondary"
+                                      onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
+                                      className="flex-1"
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Visualizar
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      onClick={() => {
+                                        const link = document.createElement('a');
+                                        link.href = autorizacaoDiretaUrl;
+                                        link.download = `autorizacao-compra-direta-${processoSelecionado?.numero_processo_interno}.pdf`;
+                                        link.click();
+                                      }}
+                                      className="flex-1"
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Baixar
+                                    </Button>
+                                  </div>
+                                  {isResponsavelLegal && autorizacaoDiretaId && (
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => deletarAutorizacao(autorizacaoDiretaId, 'compra_direta')}
+                                      size="sm"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Deletar Autorização
+                                    </Button>
+                                  )}
                                 </div>
                               )}
                             </div>
