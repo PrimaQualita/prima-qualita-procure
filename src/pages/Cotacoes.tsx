@@ -94,6 +94,7 @@ const Cotacoes = () => {
   const [criterioJulgamento, setCriterioJulgamento] = useState<'por_item' | 'global' | 'por_lote'>('global');
   const [naoRequerSelecao, setNaoRequerSelecao] = useState(false);
   const [autorizacaoAnexada, setAutorizacaoAnexada] = useState<File | null>(null);
+  const [autorizacaoSelecaoAnexada, setAutorizacaoSelecaoAnexada] = useState<File | null>(null);
   const [uploadingAutorizacao, setUploadingAutorizacao] = useState(false);
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
@@ -899,7 +900,47 @@ const Cotacoes = () => {
                     </div>
 
                     {processoSelecionado?.requer_selecao && (
-                      <div className="flex justify-center pt-2">
+                      <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4 pt-2">
+                        <div className="flex-1">
+                          <Label htmlFor="autorizacao-selecao-upload">
+                            Autorização *
+                          </Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              id="autorizacao-selecao-upload"
+                              type="file"
+                              accept=".pdf,.doc,.docx"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setAutorizacaoSelecaoAnexada(file);
+                                  toast.success("Documento de autorização anexado");
+                                }
+                              }}
+                              disabled={uploadingAutorizacao}
+                              className="flex-1"
+                            />
+                            {autorizacaoSelecaoAnexada && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setAutorizacaoSelecaoAnexada(null);
+                                  const input = document.getElementById('autorizacao-selecao-upload') as HTMLInputElement;
+                                  if (input) input.value = '';
+                                  toast.info("Documento de autorização removido");
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          {autorizacaoSelecaoAnexada && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {autorizacaoSelecaoAnexada.name}
+                            </p>
+                          )}
+                        </div>
                         <Button 
                           onClick={async () => {
                             if (!cotacaoSelecionada?.id) return;
@@ -919,8 +960,9 @@ const Cotacoes = () => {
                               loadCotacoes(processoSelecionado.id);
                             }
                           }}
+                          disabled={itens.length === 0 || !autorizacaoSelecaoAnexada}
                           size="lg"
-                          className="w-full max-w-md"
+                          className="md:w-auto w-full"
                         >
                           Enviar para Seleção de Fornecedores
                         </Button>
