@@ -216,15 +216,9 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   const texto5 = 'Sendo assim, encaminha-se ao Responsável Legal para autorização do procedimento.';
   const linhas5 = doc.splitTextToSize(texto5, 170);
   doc.text(linhas5, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas5.length * 3.5 + 10;
+  yPos += linhas5.length * 3.5 + 4; // Espaçamento de 1,15 (aproximadamente 4mm)
   
-  // Certificação Digital
-  if (yPos > pageHeight - 80) {
-    doc.addPage();
-    await adicionarLogoERodape();
-    yPos = 40;
-  }
-  
+  // Certificação Digital (sempre na primeira página)
   doc.setFillColor(245, 245, 245);
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.5);
@@ -247,11 +241,12 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   doc.text(`Hash de Verificação: ${hash}`, 25, yPos + 31);
   
   doc.setTextColor(0, 0, 255);
+  const urlVerificacao = window.location.origin + '/verificar-autorizacao';
   doc.textWithLink(
-    'Verificar autenticidade em: https://lovable.dev/projects/5041f488-c259-431f-8356-94dcbd78de18/verificar-autorizacao',
+    `Verificar autenticidade em: ${urlVerificacao}`,
     25,
     yPos + 38,
-    { url: `https://lovable.dev/projects/5041f488-c259-431f-8356-94dcbd78de18/verificar-autorizacao?protocolo=${protocolo}` }
+    { url: `${urlVerificacao}?protocolo=${protocolo}` }
   );
   
   doc.setFontSize(7);
