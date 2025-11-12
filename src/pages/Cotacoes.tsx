@@ -1298,7 +1298,7 @@ const Cotacoes = () => {
                                         fornecedores (razao_social, cnpj),
                                         respostas_itens:respostas_itens_fornecedor (
                                           item_cotacao_id,
-                                          valor_unitario,
+                                          valor_unitario_ofertado,
                                           itens_cotacao (numero_item, quantidade)
                                         )
                                       `)
@@ -1319,7 +1319,7 @@ const Cotacoes = () => {
                                       const totais = respostas?.map(r => ({
                                         fornecedor: r,
                                         total: r.respostas_itens?.reduce((sum: number, item: any) => 
-                                          sum + (item.valor_unitario * item.itens_cotacao.quantidade), 0) || 0
+                                          sum + (item.valor_unitario_ofertado * item.itens_cotacao.quantidade), 0) || 0
                                       })) || [];
                                       
                                       const menorTotal = Math.min(...totais.map(t => t.total));
@@ -1331,7 +1331,7 @@ const Cotacoes = () => {
                                           cnpj: vencedor.fornecedor.fornecedores.cnpj,
                                           itensVencedores: vencedor.fornecedor.respostas_itens?.map((item: any) => ({
                                             numero: item.itens_cotacao.numero_item,
-                                            valor: item.valor_unitario * item.itens_cotacao.quantidade
+                                            valor: item.valor_unitario_ofertado * item.itens_cotacao.quantidade
                                           })) || [],
                                           valorTotal: vencedor.total
                                         });
@@ -1353,7 +1353,7 @@ const Cotacoes = () => {
                                           fornecedoresMap.get(chave).itens.push({
                                             numero: item.itens_cotacao.numero_item,
                                             itemId: item.item_cotacao_id,
-                                            valorUnitario: item.valor_unitario,
+                                            valorUnitario: item.valor_unitario_ofertado,
                                             quantidade: item.itens_cotacao.quantidade
                                           });
                                         });
