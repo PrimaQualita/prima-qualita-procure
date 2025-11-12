@@ -271,7 +271,7 @@ export function DialogRespostasCotacao({
                         </tr>
                       `).join("")}
                       <tr class="total">
-                        <td colspan="5" class="text-right"><strong>TOTAL DO LOTE ${lote.numero_lote}</strong></td>
+                        <td colspan="${tipoProcesso === 'material' ? '6' : '5'}" class="text-right"><strong>TOTAL DO LOTE ${lote.numero_lote}</strong></td>
                         <td class="text-right"><strong>R$ ${totalLote.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></td>
                       </tr>
                     </tbody>
@@ -313,7 +313,7 @@ export function DialogRespostasCotacao({
                   </tr>
                 `).join("")}
                 <tr class="total">
-                  <td colspan="5" class="text-right"><strong>VALOR TOTAL ANUAL</strong></td>
+                  <td colspan="${tipoProcesso === 'material' ? '6' : '5'}" class="text-right"><strong>VALOR TOTAL ANUAL</strong></td>
                   <td class="text-right"><strong>R$ ${resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></td>
                 </tr>
               </tbody>
