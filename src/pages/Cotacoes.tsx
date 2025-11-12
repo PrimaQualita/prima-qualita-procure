@@ -228,7 +228,7 @@ const Cotacoes = () => {
   };
 
   const loadAutorizacoes = async (cotacaoId: string) => {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("autorizacoes_processo")
       .select("*")
       .eq("cotacao_id", cotacaoId);
@@ -239,7 +239,7 @@ const Cotacoes = () => {
     }
 
     if (data && data.length > 0) {
-      data.forEach(autorizacao => {
+      data.forEach((autorizacao: any) => {
         if (autorizacao.tipo_autorizacao === 'compra_direta') {
           setAutorizacaoDiretaUrl(autorizacao.url_arquivo);
           setAutorizacaoDiretaId(autorizacao.id);
@@ -252,7 +252,7 @@ const Cotacoes = () => {
   };
 
   const deletarAutorizacao = async (autorizacaoId: string, tipo: 'compra_direta' | 'selecao_fornecedores') => {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("autorizacoes_processo")
       .delete()
       .eq("id", autorizacaoId);
@@ -275,7 +275,7 @@ const Cotacoes = () => {
   };
 
   const loadEmailsAnexados = async (cotacaoId: string) => {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("emails_cotacao_anexados")
       .select("*")
       .eq("cotacao_id", cotacaoId)
@@ -316,7 +316,7 @@ const Cotacoes = () => {
         if (signError) throw signError;
 
         // Salvar no banco
-        const { error: saveError } = await supabase
+        const { error: saveError } = await (supabase as any)
           .from("emails_cotacao_anexados")
           .insert({
             cotacao_id: cotacaoSelecionada.id,
@@ -340,7 +340,7 @@ const Cotacoes = () => {
   };
 
   const deletarEmailAnexado = async (emailId: string) => {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("emails_cotacao_anexados")
       .delete()
       .eq("id", emailId);
@@ -1130,7 +1130,7 @@ const Cotacoes = () => {
                                     
                                     // Salvar autorização no banco
                                     const { data: { session } } = await supabase.auth.getSession();
-                                    const { data: autorizacao, error: saveError } = await supabase
+                                    const { data: autorizacao, error: saveError } = await (supabase as any)
                                       .from("autorizacoes_processo")
                                       .insert({
                                         cotacao_id: cotacaoSelecionada.id,
@@ -1300,7 +1300,7 @@ const Cotacoes = () => {
                                     
                                     // Salvar autorização no banco
                                     const { data: { session } } = await supabase.auth.getSession();
-                                    const { data: autorizacao, error: saveError } = await supabase
+                                    const { data: autorizacao, error: saveError } = await (supabase as any)
                                       .from("autorizacoes_processo")
                                       .insert({
                                         cotacao_id: cotacaoSelecionada.id,
