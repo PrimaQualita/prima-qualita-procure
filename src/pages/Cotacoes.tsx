@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet, AlertCircle, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import DOMPurify from "dompurify";
+import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/gerarAutorizacaoPDF";
 
 interface Contrato {
   id: string;
@@ -98,6 +99,7 @@ const Cotacoes = () => {
   const [autorizacaoSelecaoAnexada, setAutorizacaoSelecaoAnexada] = useState<File | null>(null);
   const [emailsFornecedoresAnexado, setEmailsFornecedoresAnexado] = useState<File | null>(null);
   const [uploadingAutorizacao, setUploadingAutorizacao] = useState(false);
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
@@ -133,7 +135,17 @@ const Cotacoes = () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       navigate("/auth");
+      return;
     }
+    
+    // Verificar se é responsável legal
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("responsavel_legal")
+      .eq("id", session.user.id)
+      .single();
+    
+    setIsResponsavelLegal(profile?.responsavel_legal || false);
     setLoading(false);
   };
 
@@ -948,43 +960,68 @@ const Cotacoes = () => {
                           <Label htmlFor="autorizacao-selecao-upload">
                             Autorização *
                           </Label>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Input
-                              id="autorizacao-selecao-upload"
-                              type="file"
-                              accept=".pdf,.doc,.docx"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  setAutorizacaoSelecaoAnexada(file);
-                                  toast.success("Documento de autorização anexado");
+                          {isResponsavelLegal ? (
+                            <Button
+                              onClick={async () => {
+                                if (!processoSelecionado) return;
+                                try {
+                                  await gerarAutorizacaoSelecao(
+                                    processoSelecionado.numero_processo_interno,
+                                    processoSelecionado.objeto_resumido
+                                  );
+                                  toast.success("Autorização gerada! Use a janela de impressão para salvar como PDF.");
+                                } catch (error) {
+                                  console.error("Erro ao gerar autorização:", error);
+                                  toast.error("Erro ao gerar autorização");
                                 }
                               }}
-                              disabled={uploadingAutorizacao}
-                              className="flex-1"
-                            />
-                            {autorizacaoSelecaoAnexada && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setAutorizacaoSelecaoAnexada(null);
-                                  const input = document.getElementById('autorizacao-selecao-upload') as HTMLInputElement;
-                                  if (input) input.value = '';
-                                  toast.info("Documento de autorização removido");
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                          {autorizacaoSelecaoAnexada && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {autorizacaoSelecaoAnexada.name}
-                            </p>
+                              variant="outline"
+                              className="w-full mt-1"
+                            >
+                              <FileText className="mr-2 h-4 w-4" />
+                              Gerar Autorização
+                            </Button>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Input
+                                  id="autorizacao-selecao-upload"
+                                  type="file"
+                                  accept=".pdf,.doc,.docx"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setAutorizacaoSelecaoAnexada(file);
+                                      toast.success("Documento de autorização anexado");
+                                    }
+                                  }}
+                                  disabled={uploadingAutorizacao}
+                                  className="flex-1"
+                                />
+                                {autorizacaoSelecaoAnexada && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setAutorizacaoSelecaoAnexada(null);
+                                      const input = document.getElementById('autorizacao-selecao-upload') as HTMLInputElement;
+                                      if (input) input.value = '';
+                                      toast.info("Documento de autorização removido");
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                              {autorizacaoSelecaoAnexada && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {autorizacaoSelecaoAnexada.name}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
-                        <Button 
+                        <Button
                           onClick={async () => {
                             if (!cotacaoSelecionada?.id) return;
                             
@@ -1003,7 +1040,7 @@ const Cotacoes = () => {
                               loadCotacoes(processoSelecionado.id);
                             }
                           }}
-                          disabled={itens.length === 0 || !autorizacaoSelecaoAnexada}
+                          disabled={itens.length === 0 || (!isResponsavelLegal && !autorizacaoSelecaoAnexada)}
                           size="lg"
                           className="md:w-auto w-full"
                         >
@@ -1018,45 +1055,70 @@ const Cotacoes = () => {
                           <Label htmlFor="autorizacao-upload">
                             Autorização *
                           </Label>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Input
-                              id="autorizacao-upload"
-                              type="file"
-                              accept=".pdf,.doc,.docx"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  setAutorizacaoAnexada(file);
-                                  toast.success("Documento de autorização anexado");
+                          {isResponsavelLegal ? (
+                            <Button
+                              onClick={async () => {
+                                if (!processoSelecionado) return;
+                                try {
+                                  await gerarAutorizacaoCompraDireta(
+                                    processoSelecionado.numero_processo_interno,
+                                    processoSelecionado.objeto_resumido
+                                  );
+                                  toast.success("Autorização gerada! Use a janela de impressão para salvar como PDF.");
+                                } catch (error) {
+                                  console.error("Erro ao gerar autorização:", error);
+                                  toast.error("Erro ao gerar autorização");
                                 }
                               }}
-                              disabled={uploadingAutorizacao}
-                              className="flex-1"
-                            />
-                            {autorizacaoAnexada && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setAutorizacaoAnexada(null);
-                                  const input = document.getElementById('autorizacao-upload') as HTMLInputElement;
-                                  if (input) input.value = '';
-                                  toast.info("Documento de autorização removido");
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                          {autorizacaoAnexada && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {autorizacaoAnexada.name}
-                            </p>
+                              variant="outline"
+                              className="w-full mt-1"
+                            >
+                              <FileText className="mr-2 h-4 w-4" />
+                              Gerar Autorização
+                            </Button>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Input
+                                  id="autorizacao-upload"
+                                  type="file"
+                                  accept=".pdf,.doc,.docx"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setAutorizacaoAnexada(file);
+                                      toast.success("Documento de autorização anexado");
+                                    }
+                                  }}
+                                  disabled={uploadingAutorizacao}
+                                  className="flex-1"
+                                />
+                                {autorizacaoAnexada && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setAutorizacaoAnexada(null);
+                                      const input = document.getElementById('autorizacao-upload') as HTMLInputElement;
+                                      if (input) input.value = '';
+                                      toast.info("Documento de autorização removido");
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                              {autorizacaoAnexada && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {autorizacaoAnexada.name}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                         <Button 
                           onClick={() => setDialogFinalizarOpen(true)}
-                          disabled={itens.length === 0 || !autorizacaoAnexada}
+                          disabled={itens.length === 0 || (!isResponsavelLegal && !autorizacaoAnexada)}
                           size="lg"
                           className="md:w-auto w-full"
                         >

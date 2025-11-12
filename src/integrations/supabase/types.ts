@@ -914,6 +914,7 @@ export type Database = {
           id: string
           nome_completo: string
           primeiro_acesso: boolean | null
+          responsavel_legal: boolean | null
           senha_temporaria: boolean | null
           updated_at: string | null
         }
@@ -928,6 +929,7 @@ export type Database = {
           id: string
           nome_completo: string
           primeiro_acesso?: boolean | null
+          responsavel_legal?: boolean | null
           senha_temporaria?: boolean | null
           updated_at?: string | null
         }
@@ -942,6 +944,7 @@ export type Database = {
           id?: string
           nome_completo?: string
           primeiro_acesso?: boolean | null
+          responsavel_legal?: boolean | null
           senha_temporaria?: boolean | null
           updated_at?: string | null
         }

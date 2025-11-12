@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validarCPF, mascaraCPF } from "@/lib/validators";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface DialogUsuarioProps {
   open: boolean;
@@ -29,6 +30,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
   const [cpf, setCpf] = useState("");
   const [dataNascimento, setDataNascimento] = useState("");
   const [role, setRole] = useState<"gestor" | "colaborador">("colaborador");
+  const [responsavelLegal, setResponsavelLegal] = useState(false);
 
   const resetForm = () => {
     setNomeCompleto("");
@@ -36,6 +38,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
     setCpf("");
     setDataNascimento("");
     setRole("colaborador");
+    setResponsavelLegal(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,6 +100,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
             cpf,
             dataNascimento,
             role,
+            responsavelLegal,
           },
         }
       );
@@ -204,6 +208,19 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
                   </Label>
                 </div>
               </RadioGroup>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="responsavel-legal"
+                checked={responsavelLegal}
+                onChange={(e) => setResponsavelLegal(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="responsavel-legal" className="font-normal cursor-pointer">
+                Responsável Legal
+              </Label>
             </div>
           </div>
 
