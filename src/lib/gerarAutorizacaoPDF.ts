@@ -57,49 +57,65 @@ export const gerarAutorizacaoCompraDireta = async (
   });
   
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   
-  // Carregar logo
-  const base64Logo = await new Promise<string>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } else {
-        reject(new Error('Erro ao criar canvas'));
-      }
-    };
-    img.onerror = () => reject(new Error('Erro ao carregar logo'));
-    img.src = logoHorizontal;
-  });
+  // Função para adicionar logo e rodapé em todas as páginas
+  const adicionarLogoERodape = async (paginaAtual: number) => {
+    // Logo
+    const base64Logo = await new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Erro ao criar canvas'));
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar logo'));
+      img.src = logoHorizontal;
+    });
+    
+    doc.addImage(base64Logo, 'PNG', (pageWidth - 80) / 2, 10, 80, 20);
+    
+    // Rodapé
+    const yRodape = pageHeight - 20;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yRodape, { align: 'center' });
+    doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape + 5, { align: 'center' });
+    doc.text('Travessa do Ouvidor, 21, Sala 203, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yRodape + 10, { align: 'center' });
+    doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 15, { align: 'center' });
+  };
   
-  // Logo
-  doc.addImage(base64Logo, 'PNG', (pageWidth - 80) / 2, 20, 80, 20);
+  // Adicionar logo e rodapé na primeira página
+  await adicionarLogoERodape(1);
   
   // Título
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('AUTORIZAÇÃO', pageWidth / 2, 55, { align: 'center' });
+  doc.text('AUTORIZAÇÃO', pageWidth / 2, 45, { align: 'center' });
   
   // Processo
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 70, { align: 'center' });
+  doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 60, { align: 'center' });
   
   // Assunto - extrair texto limpo do HTML
   doc.setFontSize(12);
   const textoLimpo = extractTextFromHTML(objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
-  doc.text(linhasAssunto, 20, 82, { align: 'justify', maxWidth: 170 });
+  doc.text(linhasAssunto, 20, 72, { align: 'justify', maxWidth: 170 });
   
   // Texto principal
   doc.setFontSize(11);
-  let yPos = 100;
+  let yPos = 90;
   
   const texto1 = 'Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, ratifico a realização da presente despesa, e a contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES, conforme requisição, aferição da economicidade e justificativas anexas, nos termos do Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, em favor da(s) empresa(s):';
   
@@ -191,61 +207,37 @@ export const gerarAutorizacaoCompraDireta = async (
   const texto2 = 'Encaminha-se ao Departamento Financeiro, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += 15;
+  yPos += 10;
   
-  // Verificar se há espaço suficiente para certificação (60mm) + rodapé (25mm)
-  const espacoNecessario = 85; // 60mm certificação + 25mm margem rodapé
-  const espacoDisponivel = 270 - yPos; // 270 é onde começa o rodapé
-  
-  if (espacoDisponivel < espacoNecessario) {
-    doc.addPage();
-    yPos = 20; // Começar no topo da nova página
-  }
-  
-  // Certificação Digital
+  // Certificação Digital - versão compacta
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 60, 'FD');
-  
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 51, 102);
-  doc.text('CERTIFICACAO DIGITAL', 25, yPos + 8);
+  doc.rect(20, yPos, 170, 40, 'FD'); // Reduzido de 60 para 40
   
   doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 51, 102);
+  doc.text('CERTIFICAÇÃO DIGITAL', 25, yPos + 6);
+  
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
-  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 16);
-  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 23);
-  doc.text(`Responsavel: ${usuarioNome}`, 25, yPos + 30);
-  doc.text(`CPF: ${usuarioCpf}`, 25, yPos + 37);
+  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 12);
+  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 17);
+  doc.text(`Responsável: ${usuarioNome} | CPF: ${usuarioCpf}`, 25, yPos + 22);
   
-  // Hash de verificação (primeiros 32 caracteres do protocolo sem hífens)
+  // Hash e link de verificação
   const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
-  doc.setFontSize(8);
-  doc.text(`Hash: ${hash}`, 25, yPos + 44);
+  doc.text(`Hash: ${hash}`, 25, yPos + 27);
   
-  // Link de verificação - usando mesmo padrão da planilha consolidada
-  doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 51, 102);
-  const linkVerificacao = `${typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org'}/verificar-proposta?protocolo=${protocolo}`;
-  const linkTexto = doc.splitTextToSize(`Verifique em: ${linkVerificacao}`, 165);
-  doc.text(linkTexto, 25, yPos + 48);
+  const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
+  doc.text(`Verificar em: ${linkBase}/verificar-proposta?protocolo=${protocolo}`, 25, yPos + 32);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
-  const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
-  doc.text(textoValidade, 25, yPos + 55);
-  
-  // Rodapé - sempre na mesma posição
-  yPos = 270;
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yPos, { align: 'center' });
-  doc.text('www.primaqualitasaude.org', pageWidth / 2, yPos + 5, { align: 'center' });
-  doc.text('Travessa do Ouvidor, 21, Sala 203, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yPos + 10, { align: 'center' });
-  doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yPos + 15, { align: 'center' });
+  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yPos + 37);
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');
@@ -305,49 +297,65 @@ export const gerarAutorizacaoSelecao = async (
   });
   
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   
-  // Carregar logo
-  const base64Logo = await new Promise<string>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } else {
-        reject(new Error('Erro ao criar canvas'));
-      }
-    };
-    img.onerror = () => reject(new Error('Erro ao carregar logo'));
-    img.src = logoHorizontal;
-  });
+  // Função para adicionar logo e rodapé em todas as páginas
+  const adicionarLogoERodape = async (paginaAtual: number) => {
+    // Logo
+    const base64Logo = await new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Erro ao criar canvas'));
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar logo'));
+      img.src = logoHorizontal;
+    });
+    
+    doc.addImage(base64Logo, 'PNG', (pageWidth - 80) / 2, 10, 80, 20);
+    
+    // Rodapé
+    const yRodape = pageHeight - 20;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yRodape, { align: 'center' });
+    doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape + 5, { align: 'center' });
+    doc.text('Travessa do Ouvidor, 21, Sala 203, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yRodape + 10, { align: 'center' });
+    doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 15, { align: 'center' });
+  };
   
-  // Logo
-  doc.addImage(base64Logo, 'PNG', (pageWidth - 80) / 2, 20, 80, 20);
+  // Adicionar logo e rodapé na primeira página
+  await adicionarLogoERodape(1);
   
   // Título
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('AUTORIZAÇÃO', pageWidth / 2, 55, { align: 'center' });
+  doc.text('AUTORIZAÇÃO', pageWidth / 2, 45, { align: 'center' });
   
   // Processo
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 70, { align: 'center' });
+  doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 60, { align: 'center' });
   
   // Assunto - extrair texto limpo do HTML
   doc.setFontSize(12);
   const textoLimpo = extractTextFromHTML(objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
-  doc.text(linhasAssunto, 20, 82, { align: 'justify', maxWidth: 170 });
+  doc.text(linhasAssunto, 20, 72, { align: 'justify', maxWidth: 170 });
   
   // Texto principal
   doc.setFontSize(11);
-  let yPos = 100;
+  let yPos = 90;
   
   const texto1 = 'Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, autorizo a presente contratação por SELEÇÃO DE FORNECEDORES, conforme requisição e termo de referência anexos, nos termos do art.4° do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição.';
   
@@ -359,61 +367,37 @@ export const gerarAutorizacaoSelecao = async (
   const texto2 = 'Encaminha-se ao Departamento de Compras, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += 15;
+  yPos += 10;
   
-  // Verificar se há espaço suficiente para certificação (60mm) + rodapé (25mm)
-  const espacoNecessario = 85;
-  const espacoDisponivel = 270 - yPos;
-  
-  if (espacoDisponivel < espacoNecessario) {
-    doc.addPage();
-    yPos = 20;
-  }
-  
-  // Certificação Digital
+  // Certificação Digital - versão compacta
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 60, 'FD');
-  
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 51, 102);
-  doc.text('CERTIFICACAO DIGITAL', 25, yPos + 8);
+  doc.rect(20, yPos, 170, 40, 'FD'); // Reduzido de 60 para 40
   
   doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 51, 102);
+  doc.text('CERTIFICAÇÃO DIGITAL', 25, yPos + 6);
+  
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
-  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 16);
-  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 23);
-  doc.text(`Responsavel: ${usuarioNome}`, 25, yPos + 30);
-  doc.text(`CPF: ${usuarioCpf}`, 25, yPos + 37);
+  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 12);
+  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 17);
+  doc.text(`Responsável: ${usuarioNome} | CPF: ${usuarioCpf}`, 25, yPos + 22);
   
-  // Hash de verificação (primeiros 32 caracteres do protocolo sem hífens)
+  // Hash e link de verificação
   const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
-  doc.setFontSize(8);
-  doc.text(`Hash: ${hash}`, 25, yPos + 44);
+  doc.text(`Hash: ${hash}`, 25, yPos + 27);
   
-  // Link de verificação - usando mesmo padrão da planilha consolidada
-  doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 51, 102);
-  const linkVerificacao = `${typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org'}/verificar-proposta?protocolo=${protocolo}`;
-  const linkTexto = doc.splitTextToSize(`Verifique em: ${linkVerificacao}`, 165);
-  doc.text(linkTexto, 25, yPos + 48);
+  const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
+  doc.text(`Verificar em: ${linkBase}/verificar-proposta?protocolo=${protocolo}`, 25, yPos + 32);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
-  const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
-  doc.text(textoValidade, 25, yPos + 55);
-  
-  // Rodapé - sempre na mesma posição
-  yPos = 270;
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yPos, { align: 'center' });
-  doc.text('www.primaqualitasaude.org', pageWidth / 2, yPos + 5, { align: 'center' });
-  doc.text('Travessa do Ouvidor, 21, Sala 203, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yPos + 10, { align: 'center' });
-  doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yPos + 15, { align: 'center' });
+  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yPos + 37);
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');

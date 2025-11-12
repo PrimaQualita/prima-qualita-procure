@@ -56,46 +56,74 @@ const VerificarProposta = () => {
 
   const verificarProposta = async () => {
     try {
-      const { data, error } = await supabaseAnon
-        .from("cotacao_respostas_fornecedor")
-        .select(`
-          id,
-          valor_total_anual_ofertado,
-          data_envio_resposta,
-          fornecedores:fornecedor_id (
-            razao_social,
-            cnpj
-          ),
-          cotacoes_precos:cotacao_id (
-            titulo_cotacao,
-            processos_compras:processo_compra_id (
-              numero_processo_interno
-            )
-          )
-        `)
-        .eq("id", protocolo)
-        .maybeSingle();
+      // Verificar se protocolo parece ser uma autorização (começa com AUT-)
+      if (protocolo && protocolo.startsWith('AUT-')) {
+        // Buscar na tabela de autorizações
+        const { data, error } = await supabaseAnon
+          .from("autorizacoes_processo")
+          .select(`
+            protocolo,
+            data_geracao,
+            nome_arquivo,
+            tipo_autorizacao,
+            usuario_gerador_id,
+            cotacao_id
+          `)
+          .eq("protocolo", protocolo)
+          .maybeSingle();
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (!data) {
-        setErro("Proposta não encontrada com este protocolo");
+        if (!data) {
+          setErro("Autorização não encontrada com este protocolo");
+        } else {
+          toast.success("Autorização verificada com sucesso!");
+          // Para autorizações, redirecionar ou mostrar informações
+          setErro(`Protocolo válido: ${data.protocolo} - Tipo: ${data.tipo_autorizacao}`);
+        }
       } else {
-        setResposta({
-          id: data.id,
-          valor_total_anual_ofertado: data.valor_total_anual_ofertado,
-          data_envio_resposta: data.data_envio_resposta,
-          fornecedor: {
-            razao_social: (data.fornecedores as any)?.razao_social || "N/A",
-            cnpj: (data.fornecedores as any)?.cnpj || "N/A",
-          },
-          cotacao: {
-            titulo_cotacao: (data.cotacoes_precos as any)?.titulo_cotacao || "N/A",
-            processo: {
-              numero_processo_interno: (data.cotacoes_precos as any)?.processos_compras?.numero_processo_interno || "N/A",
+        // Buscar na tabela de respostas de cotação (propostas)
+        const { data, error } = await supabaseAnon
+          .from("cotacao_respostas_fornecedor")
+          .select(`
+            id,
+            valor_total_anual_ofertado,
+            data_envio_resposta,
+            fornecedores:fornecedor_id (
+              razao_social,
+              cnpj
+            ),
+            cotacoes_precos:cotacao_id (
+              titulo_cotacao,
+              processos_compras:processo_compra_id (
+                numero_processo_interno
+              )
+            )
+          `)
+          .eq("id", protocolo)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (!data) {
+          setErro("Proposta não encontrada com este protocolo");
+        } else {
+          setResposta({
+            id: data.id,
+            valor_total_anual_ofertado: data.valor_total_anual_ofertado,
+            data_envio_resposta: data.data_envio_resposta,
+            fornecedor: {
+              razao_social: (data.fornecedores as any)?.razao_social || "N/A",
+              cnpj: (data.fornecedores as any)?.cnpj || "N/A",
             },
-          },
-        });
+            cotacao: {
+              titulo_cotacao: (data.cotacoes_precos as any)?.titulo_cotacao || "N/A",
+              processo: {
+                numero_processo_interno: (data.cotacoes_precos as any)?.processos_compras?.numero_processo_interno || "N/A",
+              },
+            },
+          });
+        }
       }
     } catch (error: any) {
       console.error("Erro ao verificar proposta:", error);
