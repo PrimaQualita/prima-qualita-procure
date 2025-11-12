@@ -1,4 +1,4 @@
-import html2pdf from 'html2pdf.js';
+import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
 import logoHorizontal from '@/assets/prima-qualita-logo-horizontal.png';
 
@@ -33,43 +33,67 @@ export const gerarAutorizacaoCompraDireta = async (
   });
   const protocolo = `AUT-CD-${numeroProcesso}-${Date.now()}`;
   
+  // Criar PDF com jsPDF
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+  
   console.log('[PDF] Carregando logo...');
-  // Carregar e converter imagem para base64
+  // Carregar logo
   const base64Logo = await new Promise<string>((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    
     img.onload = () => {
-      console.log('[PDF] Logo carregada, convertendo para base64...');
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          const dataUrl = canvas.toDataURL('image/png');
-          console.log('[PDF] Logo convertida para base64, tamanho:', dataUrl.length);
-          resolve(dataUrl);
-        } else {
-          reject(new Error('Erro ao criar contexto do canvas'));
-        }
-      } catch (error) {
-        console.error('[PDF] Erro ao converter logo:', error);
-        reject(error);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar canvas'));
       }
     };
-    
-    img.onerror = (error) => {
-      console.error('[PDF] Erro ao carregar logo:', error);
-      reject(new Error('Erro ao carregar imagem'));
-    };
-    
+    img.onerror = () => reject(new Error('Erro ao carregar logo'));
     img.src = logoHorizontal;
   });
   
-  console.log('[PDF] Aguardando renderização...');
-  await new Promise(resolve => setTimeout(resolve, 800));
+  console.log('[PDF] Montando documento...');
+  
+  // Adicionar logo centralizada
+  const imgWidth = 80;
+  const imgHeight = 20;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  doc.addImage(base64Logo, 'PNG', (pageWidth - imgWidth) / 2, 20, imgWidth, imgHeight);
+  
+  // Título
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('AUTORIZAÇÃO', pageWidth / 2, 55, { align: 'center' });
+  
+  // Processo
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 70, { align: 'center' });
+  
+  // Assunto
+  doc.setFontSize(12);
+  doc.text(`Assunto: ${objetoProcesso}`, pageWidth / 2, 82, { align: 'center' });
+  
+  // Texto principal
+  doc.setFontSize(11);
+  const textoLargura = 170;
+  const margemEsq = 20;
+  let yPos = 100;
+  
+  const texto1 = 'Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, ratifico a realização da presente despesa, e a contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES, conforme requisição, aferição da economicidade e justificativas anexas, nos termos do Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, em favor da(s) empresa(s):';
+  
+  const linhas1 = doc.splitTextToSize(texto1, textoLargura);
+  doc.text(linhas1, margemEsq, yPos);
+  yPos += linhas1.length * 6;
   
   const htmlContent = `
     <!DOCTYPE html>
