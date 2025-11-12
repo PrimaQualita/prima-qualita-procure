@@ -249,11 +249,11 @@ export function DialogRespostasCotacao({
                   <table style="margin-top: 0;">
                     <thead>
                       <tr>
-                        <th>Item</th>
+                        <th style="text-align: center;">Item</th>
                         <th>Descrição</th>
-                        <th class="text-right">Quantidade</th>
-                        <th>Unidade</th>
-                        ${tipoProcesso === "material" ? '<th>Marca</th>' : ''}
+                        <th style="text-align: center;">Quantidade</th>
+                        <th style="text-align: center;">Unidade</th>
+                        ${tipoProcesso === "material" ? '<th style="text-align: center;">Marca</th>' : ''}
                         <th class="text-right">Valor Unitário</th>
                         <th class="text-right">Valor Total</th>
                       </tr>
@@ -261,11 +261,11 @@ export function DialogRespostasCotacao({
                     <tbody>
                       ${itensDoLote.map(item => `
                         <tr>
-                          <td>${item.numero_item}</td>
+                          <td style="text-align: center;">${item.numero_item}</td>
                           <td>${stripHtml(item.descricao)}</td>
-                          <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
-                          <td>${item.unidade}</td>
-                          ${tipoProcesso === "material" ? `<td>${item.marca || '-'}</td>` : ''}
+                          <td style="text-align: center;">${item.quantidade.toLocaleString("pt-BR")}</td>
+                          <td style="text-align: center;">${item.unidade}</td>
+                          ${tipoProcesso === "material" ? `<td style="text-align: center;">${item.marca || '-'}</td>` : ''}
                           <td class="text-right">R$ ${item.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                           <td class="text-right">R$ ${(item.quantidade * item.valor_unitario_ofertado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                         </tr>
@@ -291,11 +291,11 @@ export function DialogRespostasCotacao({
             <table>
               <thead>
                 <tr>
-                  <th>Item</th>
+                  <th style="text-align: center;">Item</th>
                   <th>Descrição</th>
-                  <th class="text-right">Quantidade</th>
-                  <th>Unidade</th>
-                  ${tipoProcesso === "material" ? '<th>Marca</th>' : ''}
+                  <th style="text-align: center;">Quantidade</th>
+                  <th style="text-align: center;">Unidade</th>
+                  ${tipoProcesso === "material" ? '<th style="text-align: center;">Marca</th>' : ''}
                   <th class="text-right">Valor Unitário</th>
                   <th class="text-right">Valor Total</th>
                 </tr>
@@ -303,11 +303,11 @@ export function DialogRespostasCotacao({
               <tbody>
                 ${itens.map(item => `
                   <tr>
-                    <td>${item.numero_item}</td>
+                    <td style="text-align: center;">${item.numero_item}</td>
                     <td>${stripHtml(item.descricao)}</td>
-                    <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
-                    <td>${item.unidade}</td>
-                    ${tipoProcesso === "material" ? `<td>${item.marca || '-'}</td>` : ''}
+                    <td style="text-align: center;">${item.quantidade.toLocaleString("pt-BR")}</td>
+                    <td style="text-align: center;">${item.unidade}</td>
+                    ${tipoProcesso === "material" ? `<td style="text-align: center;">${item.marca || '-'}</td>` : ''}
                     <td class="text-right">R$ ${item.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                     <td class="text-right">R$ ${(item.quantidade * item.valor_unitario_ofertado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                   </tr>
