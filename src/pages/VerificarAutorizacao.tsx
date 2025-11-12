@@ -15,12 +15,13 @@ export default function VerificarAutorizacao() {
   const [protocolo, setProtocolo] = useState(searchParams.get("protocolo") || "");
   const [loading, setLoading] = useState(false);
   const [autorizacao, setAutorizacao] = useState<any>(null);
+  const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | null>(null);
 
   const verificarAutorizacao = async () => {
     if (!protocolo.trim()) {
       toast({
         title: "Protocolo obrigatório",
-        description: "Digite o protocolo da autorização para verificar",
+        description: "Digite o protocolo do documento para verificar",
         variant: "destructive"
       });
       return;
@@ -28,60 +29,109 @@ export default function VerificarAutorizacao() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Tentar buscar como autorização primeiro
+      const { data: autData, error: autError } = await supabase
         .from('autorizacoes_processo' as any)
         .select('*')
         .eq('protocolo', protocolo.trim())
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
-        toast({
-          title: "Autorização não encontrada",
-          description: "Não foi possível localizar uma autorização com este protocolo",
-          variant: "destructive"
+      if (autData && !autError) {
+        // Encontrou autorização
+        const { data: cotacao } = await supabase
+          .from('cotacoes_precos')
+          .select('titulo_cotacao, processo_compra_id')
+          .eq('id', (autData as any).cotacao_id)
+          .single();
+
+        let processo = null;
+        if (cotacao?.processo_compra_id) {
+          const { data: processoData } = await supabase
+            .from('processos_compras')
+            .select('numero_processo_interno, objeto_resumido')
+            .eq('id', cotacao.processo_compra_id)
+            .single();
+          processo = processoData;
+        }
+
+        const { data: usuario } = await supabase
+          .from('profiles')
+          .select('nome_completo, cpf')
+          .eq('id', (autData as any).usuario_gerador_id)
+          .single();
+
+        setAutorizacao({
+          ...(autData as any),
+          cotacao: cotacao ? { ...cotacao, processo } : null,
+          usuario
         });
-        setAutorizacao(null);
+        setTipoDocumento('autorizacao');
+
+        toast({
+          title: "Autorização verificada",
+          description: "Documento autêntico encontrado no sistema",
+        });
         return;
       }
 
-      // Buscar dados adicionais
-      const { data: cotacao } = await supabase
-        .from('cotacoes_precos')
-        .select('titulo_cotacao, processo_compra_id')
-        .eq('id', (data as any).cotacao_id)
-        .single();
+      // Se não encontrou autorização, tentar buscar como relatório final
+      const { data: relData, error: relError } = await supabase
+        .from('relatorios_finais' as any)
+        .select('*')
+        .eq('protocolo', protocolo.trim())
+        .maybeSingle();
 
-      let processo = null;
-      if (cotacao?.processo_compra_id) {
-        const { data: processoData } = await supabase
-          .from('processos_compras')
-          .select('numero_processo_interno, objeto_resumido')
-          .eq('id', cotacao.processo_compra_id)
+      if (relData && !relError) {
+        // Encontrou relatório final
+        const { data: cotacao } = await supabase
+          .from('cotacoes_precos')
+          .select('titulo_cotacao, processo_compra_id')
+          .eq('id', (relData as any).cotacao_id)
           .single();
-        processo = processoData;
+
+        let processo = null;
+        if (cotacao?.processo_compra_id) {
+          const { data: processoData } = await supabase
+            .from('processos_compras')
+            .select('numero_processo_interno, objeto_resumido')
+            .eq('id', cotacao.processo_compra_id)
+            .single();
+          processo = processoData;
+        }
+
+        const { data: usuario } = await supabase
+          .from('profiles')
+          .select('nome_completo, cpf')
+          .eq('id', (relData as any).usuario_gerador_id)
+          .single();
+
+        setAutorizacao({
+          ...(relData as any),
+          cotacao: cotacao ? { ...cotacao, processo } : null,
+          usuario
+        });
+        setTipoDocumento('relatorio');
+
+        toast({
+          title: "Relatório Final verificado",
+          description: "Documento autêntico encontrado no sistema",
+        });
+        return;
       }
 
-      const { data: usuario } = await supabase
-        .from('profiles')
-        .select('nome_completo, cpf')
-        .eq('id', (data as any).usuario_gerador_id)
-        .single();
-
-      setAutorizacao({
-        ...(data as any),
-        cotacao: cotacao ? { ...cotacao, processo } : null,
-        usuario
-      });
-
+      // Não encontrou nem autorização nem relatório
       toast({
-        title: "Autorização verificada",
-        description: "Documento autêntico encontrado no sistema",
+        title: "Documento não encontrado",
+        description: "Não foi possível localizar um documento com este protocolo",
+        variant: "destructive"
       });
+      setAutorizacao(null);
+      setTipoDocumento(null);
     } catch (error) {
-      console.error('Erro ao verificar autorização:', error);
+      console.error('Erro ao verificar documento:', error);
       toast({
         title: "Erro ao verificar",
-        description: "Ocorreu um erro ao buscar a autorização",
+        description: "Ocorreu um erro ao buscar o documento",
         variant: "destructive"
       });
     } finally {
@@ -122,9 +172,9 @@ export default function VerificarAutorizacao() {
               <FileText className="w-16 h-16 text-primary" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-foreground">Verificação de Autorização</h1>
+          <h1 className="text-4xl font-bold text-foreground">Verificação de Documentos</h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Insira o protocolo da autorização para verificar sua autenticidade
+            Insira o protocolo de autorizações ou relatórios finais para verificar sua autenticidade
           </p>
         </div>
 
@@ -132,10 +182,10 @@ export default function VerificarAutorizacao() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="w-5 h-5" />
-              Buscar Autorização
+              Buscar Documento
             </CardTitle>
             <CardDescription>
-              Digite o protocolo completo da autorização (ex: AUT-CD-180-2025-1234567890)
+              Digite o protocolo completo (ex: AUT-CD-180-2025-... ou REL-FINAL-195-2025-...)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -144,7 +194,7 @@ export default function VerificarAutorizacao() {
               <div className="flex gap-2">
                 <Input
                   id="protocolo"
-                  placeholder="AUT-CD-180-2025-1234567890"
+                  placeholder="AUT-CD-180-2025-... ou REL-FINAL-195-2025-..."
                   value={protocolo}
                   onChange={(e) => setProtocolo(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && verificarAutorizacao()}
@@ -168,7 +218,9 @@ export default function VerificarAutorizacao() {
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="w-8 h-8 text-green-600" />
                   <div>
-                    <CardTitle className="text-green-600">Autorização Autêntica</CardTitle>
+                    <CardTitle className="text-green-600">
+                      {tipoDocumento === 'relatorio' ? 'Relatório Final Autêntico' : 'Autorização Autêntica'}
+                    </CardTitle>
                     <CardDescription>Documento verificado e válido</CardDescription>
                   </div>
                 </div>
@@ -185,9 +237,10 @@ export default function VerificarAutorizacao() {
                   <p className="font-mono font-semibold">{autorizacao.protocolo}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Tipo de Autorização</p>
+                  <p className="text-sm text-muted-foreground">Tipo de Documento</p>
                   <p className="font-semibold capitalize">
-                    {autorizacao.tipo_autorizacao === 'compra_direta' ? 'Compra Direta' : 'Seleção de Fornecedores'}
+                    {tipoDocumento === 'relatorio' ? 'Relatório Final' : 
+                     autorizacao.tipo_autorizacao === 'compra_direta' ? 'Autorização - Compra Direta' : 'Autorização - Seleção de Fornecedores'}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -246,9 +299,9 @@ export default function VerificarAutorizacao() {
               <div className="flex items-center gap-3">
                 <XCircle className="w-8 h-8 text-destructive" />
                 <div>
-                  <CardTitle className="text-destructive">Autorização Não Encontrada</CardTitle>
+                  <CardTitle className="text-destructive">Documento Não Encontrado</CardTitle>
                   <CardDescription>
-                    Não foi possível localizar uma autorização com o protocolo informado
+                    Não foi possível localizar um documento com o protocolo informado
                   </CardDescription>
                 </div>
               </div>
