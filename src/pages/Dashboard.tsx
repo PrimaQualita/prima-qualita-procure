@@ -1,141 +1,153 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Session } from "@supabase/supabase-js";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import {
-  FileText,
-  DollarSign,
-  Users,
-  Building2,
-  UserCog,
-  MessageSquare,
-  LogOut,
-  LayoutDashboard,
-} from "lucide-react";
 
 const Dashboard = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [isGestor, setIsGestor] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [contratos, setContratos] = useState<any[]>([]);
+  const [processos, setProcessos] = useState<any[]>([]);
+  
+  // Filtros Gráfico 1
+  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear().toString());
+  const [contratoGrafico1, setContratoGrafico1] = useState<string>("todos");
+  
+  // Filtros Gráfico 2
+  const [tipoProcessoSelecionado, setTipoProcessoSelecionado] = useState<string>("todos");
+  const [origemContratoSelecionada, setOrigemContratoSelecionada] = useState<string>("todos");
+
+  const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--destructive))', 'hsl(var(--muted))', 'hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
+    loadData();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      loadUserProfile();
-    } else if (user === null && !loading) {
-      // Only navigate if explicitly null and not loading
-      navigate("/auth");
-    }
-  }, [user, loading]);
-
-  const loadUserProfile = async () => {
-    if (!user) return;
-
+  const loadData = async () => {
     try {
-      // PRIMEIRO: Verificar se é fornecedor
-      const { data: fornecedorData } = await supabase
-        .from("fornecedores")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (fornecedorData) {
-        // É fornecedor - redirecionar para portal
-        navigate("/portal-fornecedor");
-        return;
-      }
-
-      // SEGUNDO: Carregar profile de usuário interno
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
+      const { data: contratosData, error: contratosError } = await supabase
+        .from("contratos_gestao")
         .select("*")
-        .eq("id", user.id)
-        .single();
+        .order("nome_contrato");
 
-      if (profileError) {
-        // Usuário não é fornecedor nem tem profile - acesso negado
-        toast({
-          title: "Acesso negado",
-          description: "Usuário não autorizado a acessar o sistema.",
-          variant: "destructive",
-        });
-        await supabase.auth.signOut();
-        navigate("/auth");
-        return;
-      }
+      if (contratosError) throw contratosError;
 
-      setProfile(profileData);
+      const { data: processosData, error: processosError } = await supabase
+        .from("processos_compras")
+        .select("*, contratos_gestao(nome_contrato), cotacoes_precos(enviado_para_selecao)");
 
-      // Check if first access
-      if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
-        navigate("/troca-senha");
-        return;
-      }
+      if (processosError) throw processosError;
 
-      // Check if user is gestor
-      const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "gestor")
-        .maybeSingle();
-
-      if (roleError && roleError.code !== "PGRST116") throw roleError;
-      setIsGestor(!!roleData);
+      setContratos(contratosData || []);
+      setProcessos(processosData || []);
     } catch (error: any) {
       toast({
-        title: "Erro ao carregar perfil",
+        title: "Erro ao carregar dados",
         description: error.message,
         variant: "destructive",
       });
-      await supabase.auth.signOut();
-      navigate("/auth");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      toast({
-        title: "Logout realizado",
-        description: "Até logo!",
+  // Dados Gráfico 1
+  const dadosGrafico1 = () => {
+    const processosFiltrados = processos.filter(p => p.ano_referencia.toString() === anoSelecionado);
+
+    if (contratoGrafico1 === "todos") {
+      // Agrupar por contrato
+      const porContrato: Record<string, number> = {};
+      processosFiltrados.forEach(p => {
+        const nomeContrato = p.contratos_gestao?.nome_contrato || "Sem Contrato";
+        porContrato[nomeContrato] = (porContrato[nomeContrato] || 0) + 1;
       });
-      navigate("/auth");
-    } catch (error: any) {
-      toast({
-        title: "Erro ao fazer logout",
-        description: error.message,
-        variant: "destructive",
-      });
+      return Object.entries(porContrato).map(([name, value]) => ({ name, value }));
+    } else {
+      // Agrupar por mês
+      const porMes: Record<string, number> = {};
+      const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+      
+      processosFiltrados
+        .filter(p => p.contrato_gestao_id === contratoGrafico1)
+        .forEach(p => {
+          if (p.data_abertura) {
+            const mes = new Date(p.data_abertura).getMonth();
+            const nomeMes = meses[mes];
+            porMes[nomeMes] = (porMes[nomeMes] || 0) + 1;
+          }
+        });
+      
+      return meses.map(mes => ({ name: mes, value: porMes[mes] || 0 })).filter(d => d.value > 0);
     }
   };
+
+  // Dados Gráfico 2
+  const dadosGrafico2 = () => {
+    let processosFiltrados = [...processos];
+
+    if (tipoProcessoSelecionado === "compras_diretas") {
+      processosFiltrados = processosFiltrados.filter(p => !p.requer_selecao && !p.credenciamento && !p.contratacao_especifica);
+    } else if (tipoProcessoSelecionado === "selecao") {
+      processosFiltrados = processosFiltrados.filter(p => p.requer_selecao);
+    } else if (tipoProcessoSelecionado === "credenciamentos") {
+      processosFiltrados = processosFiltrados.filter(p => p.credenciamento);
+    } else if (tipoProcessoSelecionado === "contratacoes_especificas") {
+      processosFiltrados = processosFiltrados.filter(p => p.contratacao_especifica);
+    } else if (tipoProcessoSelecionado === "contratos") {
+      // Filtrar processos que foram enviados para contratação
+      processosFiltrados = processosFiltrados.filter(p => {
+        const temCotacao = p.cotacoes_precos && p.cotacoes_precos.length > 0;
+        const enviadoContratacao = temCotacao && p.cotacoes_precos.some((c: any) => c.enviado_para_selecao !== null);
+        return enviadoContratacao;
+      });
+
+      if (origemContratoSelecionada !== "todos") {
+        if (origemContratoSelecionada === "cotacoes") {
+          processosFiltrados = processosFiltrados.filter(p => p.requer_cotacao && !p.requer_selecao);
+        } else if (origemContratoSelecionada === "selecao") {
+          processosFiltrados = processosFiltrados.filter(p => p.requer_selecao);
+        } else if (origemContratoSelecionada === "credenciamentos") {
+          processosFiltrados = processosFiltrados.filter(p => p.credenciamento);
+        } else if (origemContratoSelecionada === "contratacoes_especificas") {
+          processosFiltrados = processosFiltrados.filter(p => p.contratacao_especifica);
+        }
+      }
+    }
+
+    // Agrupar por tipo
+    const tipos: Record<string, number> = {
+      "Compras Diretas": 0,
+      "Seleção de Fornecedores": 0,
+      "Credenciamentos": 0,
+      "Contratações Específicas": 0,
+      "Contratos": 0
+    };
+
+    processosFiltrados.forEach(p => {
+      const temCotacao = p.cotacoes_precos && p.cotacoes_precos.length > 0;
+      const enviadoContratacao = temCotacao && p.cotacoes_precos.some((c: any) => c.enviado_para_selecao !== null);
+      
+      if (enviadoContratacao) {
+        tipos["Contratos"]++;
+      } else if (p.credenciamento) {
+        tipos["Credenciamentos"]++;
+      } else if (p.contratacao_especifica) {
+        tipos["Contratações Específicas"]++;
+      } else if (p.requer_selecao) {
+        tipos["Seleção de Fornecedores"]++;
+      } else {
+        tipos["Compras Diretas"]++;
+      }
+    });
+
+    return Object.entries(tipos).map(([name, value]) => ({ name, value })).filter(d => d.value > 0);
+  };
+
+  const anosDisponiveis = Array.from(new Set(processos.map(p => p.ano_referencia))).sort((a, b) => b - a);
 
   if (loading) {
     return (
@@ -145,137 +157,135 @@ const Dashboard = () => {
     );
   }
 
-  const menuItems = [
-    {
-      title: "Processos de Compras",
-      description: "Gerencie todos os processos de compras por contrato e ano",
-      icon: FileText,
-      href: "/processos-compras",
-      color: "from-primary to-primary/70",
-    },
-    {
-      title: "Cotação de Preços",
-      description: "Envie cotações e gerencie respostas de fornecedores",
-      icon: DollarSign,
-      href: "/cotacoes",
-      color: "from-secondary to-secondary/70",
-    },
-    {
-      title: "Seleção de Fornecedores",
-      description: "Conduza processos de seleção e dispute de preços",
-      icon: Users,
-      href: "/selecoes",
-      color: "from-accent to-accent/70",
-    },
-    {
-      title: "Credenciamento",
-      description: "Credenciamento de PJs médicas",
-      icon: FileText,
-      href: "/credenciamentos",
-      color: "from-primary/70 to-accent/70",
-    },
-    {
-      title: "Contratações Específicas",
-      description: "Gerenciamento de contratações específicas",
-      icon: FileText,
-      href: "/contratacoes-especificas",
-      color: "from-secondary/70 to-primary/70",
-    },
-    {
-      title: "Contratos",
-      description: "Processos enviados para contratação",
-      icon: FileText,
-      href: "/contratos",
-      color: "from-accent/70 to-secondary/70",
-    },
-    {
-      title: "Cadastro de Usuários",
-      description: "Gerencie gestores e colaboradores do sistema",
-      icon: UserCog,
-      href: "/usuarios",
-      color: "from-primary/80 to-secondary/80",
-    },
-    {
-      title: "Cadastro de Fornecedores",
-      description: "Visualize e gerencie cadastros de fornecedores",
-      icon: Building2,
-      href: "/fornecedores",
-      color: "from-secondary/80 to-primary/80",
-    },
-    {
-      title: "Contato",
-      description: "Canal de comunicação com fornecedores",
-      icon: MessageSquare,
-      href: "/contatos",
-      color: "from-accent/80 to-primary/60",
-    },
-  ];
-
-  if (isGestor) {
-    menuItems.push({
-      title: "Log de Auditoria",
-      description: "Visualize todas as ações realizadas no sistema",
-      icon: LayoutDashboard,
-      href: "/auditoria",
-      color: "from-destructive/70 to-destructive/50",
-    });
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-12" />
+    <div className="min-h-screen bg-background">
+      <div className="border-b bg-card/50 backdrop-blur">
+        <div className="container mx-auto px-2 sm:px-4 py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-8 sm:h-10" />
             <div>
-              <h1 className="text-xl font-bold text-foreground">Sistema de Compras</h1>
-              <p className="text-sm text-muted-foreground">Prima Qualitá Saúde</p>
+              <h1 className="text-lg sm:text-xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">Visão Geral dos Processos</p>
             </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium text-foreground">{profile?.nome_completo}</p>
-              <p className="text-xs text-muted-foreground">
-                {isGestor ? "Gestor" : "Colaborador"}
-              </p>
-            </div>
-            <Button variant="outline" size="icon" onClick={handleLogout} title="Sair">
-              <LogOut className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
-            Bem-vindo ao Sistema de Compras
-          </h2>
-          <p className="text-muted-foreground">
-            Selecione uma opção abaixo para começar a gerenciar seus processos
-          </p>
-        </div>
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Gráfico 1 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Processos por Contrato / Mês</CardTitle>
+              <CardDescription>Visualize a distribuição de processos</CardDescription>
+              <div className="flex flex-col sm:flex-row gap-4 mt-4">
+                <Select value={anoSelecionado} onValueChange={setAnoSelecionado}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Selecione o ano" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {anosDisponiveis.map(ano => (
+                      <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map((item) => (
-            <Card
-              key={item.href}
-              className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-2 hover:border-primary/50"
-              onClick={() => navigate(item.href)}
-            >
-              <CardHeader>
-                <div
-                  className={`w-12 h-12 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
-                >
-                  <item.icon className="h-6 w-6 text-white" />
-                </div>
-                <CardTitle className="text-xl group-hover:text-primary transition-colors">
-                  {item.title}
-                </CardTitle>
-                <CardDescription>{item.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
+                <Select value={contratoGrafico1} onValueChange={setContratoGrafico1}>
+                  <SelectTrigger className="w-full sm:w-[250px]">
+                    <SelectValue placeholder="Todos os contratos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Contratos</SelectItem>
+                    {contratos.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={dadosGrafico1()}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="hsl(var(--primary))"
+                    dataKey="value"
+                  >
+                    {dadosGrafico1().map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Gráfico 2 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Processos por Tipo</CardTitle>
+              <CardDescription>Distribua por modalidade de contratação</CardDescription>
+              <div className="flex flex-col gap-4 mt-4">
+                <Select value={tipoProcessoSelecionado} onValueChange={setTipoProcessoSelecionado}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os tipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Tipos</SelectItem>
+                    <SelectItem value="compras_diretas">Compras Diretas</SelectItem>
+                    <SelectItem value="selecao">Seleção de Fornecedores</SelectItem>
+                    <SelectItem value="credenciamentos">Credenciamentos</SelectItem>
+                    <SelectItem value="contratacoes_especificas">Contratações Específicas</SelectItem>
+                    <SelectItem value="contratos">Contratos</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {tipoProcessoSelecionado === "contratos" && (
+                  <Select value={origemContratoSelecionada} onValueChange={setOrigemContratoSelecionada}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Todas as origens" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todas as Origens</SelectItem>
+                      <SelectItem value="cotacoes">Cotações de Preços</SelectItem>
+                      <SelectItem value="selecao">Seleção de Fornecedores</SelectItem>
+                      <SelectItem value="credenciamentos">Credenciamentos</SelectItem>
+                      <SelectItem value="contratacoes_especificas">Contratações Específicas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={dadosGrafico2()}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="hsl(var(--secondary))"
+                    dataKey="value"
+                  >
+                    {dadosGrafico2().map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

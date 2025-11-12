@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { DashboardLayout } from "./components/DashboardLayout";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import TrocaSenha from "./pages/TrocaSenha";
@@ -39,26 +40,30 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/troca-senha" element={<TrocaSenha />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/processos-compras" element={<ProcessosCompras />} />
-          <Route path="/cotacoes" element={<Cotacoes />} />
-          <Route path="/selecoes" element={<Selecoes />} />
-          <Route path="/usuarios" element={<Usuarios />} />
-          <Route path="/fornecedores" element={<Fornecedores />} />
           <Route path="/cadastro-fornecedor" element={<CadastroFornecedor />} />
           <Route path="/aprovacao-fornecedores" element={<AprovacaoFornecedores />} />
           <Route path="/perguntas-due-diligence" element={<PerguntasDueDiligence />} />
-          <Route path="/contatos" element={<Contatos />} />
-          <Route path="/auditoria" element={<Auditoria />} />
           <Route path="/limpeza-usuario-orfao" element={<LimpezaUsuarioOrfao />} />
           <Route path="/portal-fornecedor" element={<PortalFornecedor />} />
           <Route path="/resposta-cotacao" element={<RespostaCotacao />} />
           <Route path="/verificar-proposta" element={<VerificarProposta />} />
           <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
-          <Route path="/credenciamentos" element={<Credenciamentos />} />
-          <Route path="/contratacoes-especificas" element={<ContratacoesEspecificas />} />
-          <Route path="/contratos" element={<Contratos />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          
+          {/* Rotas com sidebar */}
+          <Route element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/processos-compras" element={<ProcessosCompras />} />
+            <Route path="/cotacoes" element={<Cotacoes />} />
+            <Route path="/selecoes" element={<Selecoes />} />
+            <Route path="/usuarios" element={<Usuarios />} />
+            <Route path="/fornecedores" element={<Fornecedores />} />
+            <Route path="/contatos" element={<Contatos />} />
+            <Route path="/auditoria" element={<Auditoria />} />
+            <Route path="/credenciamentos" element={<Credenciamentos />} />
+            <Route path="/contratacoes-especificas" element={<ContratacoesEspecificas />} />
+            <Route path="/contratos" element={<Contratos />} />
+          </Route>
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
