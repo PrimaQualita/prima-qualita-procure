@@ -671,6 +671,146 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Gráficos de Velas - Mesma lógica dos Pizzas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Processos por Contratos de Gestão / Mês</CardTitle>
+              <CardDescription>Gráfico de barras</CardDescription>
+              <div className="flex gap-2 mt-2 items-center">
+                <Button onClick={() => exportarPDF('grafico-velas-1', 'Processos por Contratos de Gestão / Mês', dadosComplementar1(), 'bar')} size="sm" variant="outline">
+                  <Download className="w-4 h-4 mr-2" /> PDF
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent id="grafico-velas-1">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={dadosComplementar1()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" stroke="hsl(var(--foreground))" />
+                  <YAxis stroke="hsl(var(--foreground))" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }} 
+                  />
+                  <Legend />
+                  <Bar dataKey="processos" fill="hsl(var(--primary))" name="Processos" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Modalidades de Contratações Mensais/Anuais</CardTitle>
+              <CardDescription>Gráfico de barras</CardDescription>
+              <div className="flex gap-2 mt-2 items-center">
+                <Button onClick={() => exportarPDF('grafico-velas-2', 'Modalidades de Contratações Mensais/Anuais', dadosComplementar2(), 'bar')} size="sm" variant="outline">
+                  <Download className="w-4 h-4 mr-2" /> PDF
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent id="grafico-velas-2">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={dadosComplementar2()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" stroke="hsl(var(--foreground))" />
+                  <YAxis stroke="hsl(var(--foreground))" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="processos" fill="hsl(var(--secondary))" name="Processos" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Gráficos ECG (Linha) - Mesma lógica dos Pizzas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Processos por Contratos de Gestão / Mês</CardTitle>
+              <CardDescription>Tendência mensal</CardDescription>
+              <div className="flex gap-2 mt-2 items-center">
+                <Button onClick={() => exportarPDF('grafico-ecg-1', 'Processos por Contratos de Gestão / Mês', dadosComplementar1(), 'line')} size="sm" variant="outline">
+                  <Download className="w-4 h-4 mr-2" /> PDF
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent id="grafico-ecg-1">
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={dadosComplementar1()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" stroke="hsl(var(--foreground))" />
+                  <YAxis stroke="hsl(var(--foreground))" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }} 
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="processos" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={3}
+                    dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                    name="Processos"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Modalidades de Contratações Mensais/Anuais</CardTitle>
+              <CardDescription>Tendência mensal</CardDescription>
+              <div className="flex gap-2 mt-2 items-center">
+                <Button onClick={() => exportarPDF('grafico-ecg-2', 'Modalidades de Contratações Mensais/Anuais', dadosComplementar2(), 'line')} size="sm" variant="outline">
+                  <Download className="w-4 h-4 mr-2" /> PDF
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent id="grafico-ecg-2">
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={dadosComplementar2()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" stroke="hsl(var(--foreground))" />
+                  <YAxis stroke="hsl(var(--foreground))" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="processos" 
+                    stroke="hsl(var(--secondary))" 
+                    strokeWidth={3}
+                    dot={{ fill: 'hsl(var(--secondary))', r: 4 }}
+                    name="Processos"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
