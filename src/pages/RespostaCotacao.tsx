@@ -116,6 +116,7 @@ const RespostaCotacao = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const cotacaoIdParam = searchParams.get("cotacao");
+  const respostaIdParam = searchParams.get("resposta"); // ID da resposta existente para correção
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -126,6 +127,7 @@ const RespostaCotacao = () => {
   const [cotacaoTitulo, setCotacaoTitulo] = useState("");
   const [cotacaoDescricao, setCotacaoDescricao] = useState("");
   const [dataLimite, setDataLimite] = useState("");
+  const [modoCorrecao, setModoCorrecao] = useState(false);
   
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
@@ -236,11 +238,91 @@ const RespostaCotacao = () => {
         setItens(itensData);
       }
 
+      // Se há ID de resposta, carregar dados da resposta existente para correção
+      if (respostaIdParam) {
+        await loadRespostaExistente(respostaIdParam, itensData);
+      }
+
       setLoading(false);
     } catch (error) {
       console.error("Erro ao carregar cotação:", error);
       toast.error("Erro ao carregar cotação");
       setLoading(false);
+    }
+  };
+
+  const loadRespostaExistente = async (respostaId: string, itensBase: ItemCotacao[]) => {
+    try {
+      console.log("📝 Carregando resposta existente para correção:", respostaId);
+      
+      // Buscar resposta do fornecedor
+      const { data: respostaData } = await supabaseAnon
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          observacoes_fornecedor,
+          fornecedor:fornecedor_id (
+            razao_social,
+            cnpj,
+            endereco_comercial
+          )
+        `)
+        .eq("id", respostaId)
+        .single();
+
+      if (!respostaData) {
+        console.warn("Resposta não encontrada");
+        return;
+      }
+
+      // Buscar itens da resposta
+      const { data: itensRespostaData } = await supabaseAnon
+        .from("respostas_itens_fornecedor")
+        .select(`
+          item_cotacao_id,
+          valor_unitario_ofertado,
+          marca
+        `)
+        .eq("cotacao_resposta_fornecedor_id", respostaId);
+
+      console.log("✅ Dados da resposta carregados:", respostaData);
+      console.log("✅ Itens da resposta:", itensRespostaData);
+
+      setModoCorrecao(true);
+
+      // Preencher dados da empresa
+      const fornecedor = respostaData.fornecedor as any;
+      const enderecoCompleto = fornecedor.endereco_comercial || "";
+      
+      setDadosEmpresa({
+        razao_social: fornecedor.razao_social || "",
+        cnpj: fornecedor.cnpj || "",
+        logradouro: enderecoCompleto.split(",")[0]?.trim() || "",
+        numero: "",
+        bairro: "",
+        municipio: "",
+        uf: "",
+        cep: "",
+      });
+
+      // Preencher valores e marcas dos itens
+      const novosValores: RespostaItem = {};
+      const novasMarcas: { [key: string]: string } = {};
+      
+      (itensRespostaData || []).forEach((itemResposta: any) => {
+        novosValores[itemResposta.item_cotacao_id] = itemResposta.valor_unitario_ofertado;
+        if (itemResposta.marca) {
+          novasMarcas[itemResposta.item_cotacao_id] = itemResposta.marca;
+        }
+      });
+
+      setValoresItens(novosValores);
+      setMarcasItens(novasMarcas);
+      setObservacoes(respostaData.observacoes_fornecedor || "");
+
+      toast.success("Dados da proposta anterior carregados. Revise e corrija conforme necessário.");
+    } catch (error) {
+      console.error("Erro ao carregar resposta existente:", error);
+      toast.error("Não foi possível carregar os dados da proposta anterior");
     }
   };
 

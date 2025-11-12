@@ -394,7 +394,8 @@ export function DialogRespostasCotacao({
 
   const solicitarCorrecao = (resposta: RespostaFornecedor) => {
     setRespostaSelecionada(resposta);
-    const linkCorrecao = `${window.location.origin}/resposta-cotacao?cotacao=${cotacaoId}`;
+    // Link inclui o ID da resposta para carregar os dados preenchidos
+    const linkCorrecao = `${window.location.origin}/resposta-cotacao?cotacao=${cotacaoId}&resposta=${resposta.id}`;
     const textoEmail = `Prezado(a) fornecedor(a) ${resposta.fornecedor.razao_social},\n\nIdentificamos a necessidade de correção em sua proposta referente à cotação "${tituloCotacao}" do processo ${processoNumero}.\n\nPor favor, acesse o link abaixo para revisar e reenviar sua proposta:\n\n${linkCorrecao}\n\nData limite para resposta: [INFORMAR DATA]\n\nAtenciosamente,\nEquipe de Compras`;
     setEmailTexto(textoEmail);
     setEmailCorrecaoOpen(true);
