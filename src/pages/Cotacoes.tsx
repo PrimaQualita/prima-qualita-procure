@@ -1026,6 +1026,35 @@ const Cotacoes = () => {
                       <Label htmlFor="emails-fornecedores-upload" className="text-base font-semibold mb-2 block">
                         Cópia dos E-mails Enviados aos Fornecedores
                       </Label>
+                      
+                      {/* E-mails já salvos */}
+                      {emailsSalvos.length > 0 && (
+                        <div className="mb-4 space-y-2">
+                          <p className="text-sm font-medium">E-mails Salvos:</p>
+                          {emailsSalvos.map((email) => (
+                            <div key={email.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                              <span className="text-sm">📎 {email.nome_arquivo}</span>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => window.open(email.url_arquivo, '_blank')}
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deletarEmailAnexado(email.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
                       <div className="flex items-center gap-2">
                         <Input
                           id="emails-fornecedores-upload"
@@ -1036,7 +1065,7 @@ const Cotacoes = () => {
                               const files = Array.from(e.target.files || []);
                               if (files.length > 0) {
                                 setEmailsFornecedoresAnexados(prev => [...prev, ...files]);
-                                toast.success(`${files.length} arquivo(s) anexado(s) com sucesso`);
+                                toast.success(`${files.length} arquivo(s) selecionado(s)`);
                               }
                             }}
                             className="flex-1"
@@ -1049,7 +1078,7 @@ const Cotacoes = () => {
                                 setEmailsFornecedoresAnexados([]);
                                 const input = document.getElementById('emails-fornecedores-upload') as HTMLInputElement;
                                 if (input) input.value = '';
-                                toast.info("Todos os e-mails removidos");
+                                toast.info("Seleção limpa");
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1057,24 +1086,34 @@ const Cotacoes = () => {
                           )}
                         </div>
                         {emailsFornecedoresAnexados.length > 0 && (
-                          <div className="flex flex-col gap-1 mt-2">
-                            {emailsFornecedoresAnexados.map((file, index) => (
-                              <div key={index} className="flex items-center justify-between text-sm text-muted-foreground">
-                                <span>📎 {file.name}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEmailsFornecedoresAnexados(prev => prev.filter((_, i) => i !== index));
-                                    toast.info("Arquivo removido");
-                                  }}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
+                          <>
+                            <div className="flex flex-col gap-1 mt-2">
+                              {emailsFornecedoresAnexados.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between text-sm text-muted-foreground">
+                                  <span>📎 {file.name}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEmailsFornecedoresAnexados(prev => prev.filter((_, i) => i !== index));
+                                      toast.info("Arquivo removido");
+                                    }}
+                                    className="h-6 w-6 p-0"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                            <Button
+                              onClick={() => salvarEmailsAnexados(emailsFornecedoresAnexados)}
+                              className="mt-2"
+                              size="sm"
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              Salvar E-mails
+                            </Button>
+                          </>
                         )}
                       <p className="text-xs text-muted-foreground mt-1">
                         Anexe a cópia dos e-mails enviados aos fornecedores (PDF, EML, MSG ou ZIP)
