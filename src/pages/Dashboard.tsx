@@ -16,16 +16,36 @@ const Dashboard = () => {
   const [contratos, setContratos] = useState<any[]>([]);
   const [processos, setProcessos] = useState<any[]>([]);
   
-  // Filtros Gráfico 1
+  // Filtros Gráfico 1 - Pizza
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear().toString());
   const [mesSelecionado, setMesSelecionado] = useState<string>("todos");
   const [contratoGrafico1, setContratoGrafico1] = useState<string>("todos");
   
-  // Filtros Gráfico 2
+  // Filtros Gráfico 2 - Pizza
   const [anoGrafico2, setAnoGrafico2] = useState(new Date().getFullYear().toString());
   const [mesGrafico2, setMesGrafico2] = useState<string>("todos");
   const [tipoProcessoSelecionado, setTipoProcessoSelecionado] = useState<string>("todos");
   const [origemContratoSelecionada, setOrigemContratoSelecionada] = useState<string>("todos");
+
+  // Filtros Gráfico 3 - Velas (Processos)
+  const [anoVelas1, setAnoVelas1] = useState(new Date().getFullYear().toString());
+  const [mesVelas1, setMesVelas1] = useState<string>("todos");
+  const [contratoVelas1, setContratoVelas1] = useState<string>("todos");
+
+  // Filtros Gráfico 4 - Velas (Contratos)
+  const [anoVelas2, setAnoVelas2] = useState(new Date().getFullYear().toString());
+  const [mesVelas2, setMesVelas2] = useState<string>("todos");
+  const [contratoVelas2, setContratoVelas2] = useState<string>("todos");
+
+  // Filtros Gráfico 5 - Linha (Processos)
+  const [anoLinha1, setAnoLinha1] = useState(new Date().getFullYear().toString());
+  const [mesLinha1, setMesLinha1] = useState<string>("todos");
+  const [contratoLinha1, setContratoLinha1] = useState<string>("todos");
+
+  // Filtros Gráfico 6 - Linha (Contratos)
+  const [anoLinha2, setAnoLinha2] = useState(new Date().getFullYear().toString());
+  const [mesLinha2, setMesLinha2] = useState<string>("todos");
+  const [contratoLinha2, setContratoLinha2] = useState<string>("todos");
 
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--destructive))', 'hsl(var(--muted))', 'hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -177,29 +197,177 @@ const Dashboard = () => {
     return Object.entries(tipos).map(([name, value]) => ({ name, value })).filter(d => d.value > 0);
   };
 
-  // Dados para gráficos de linha e velas
-  const dadosTemporais = () => {
-    const dadosPorMes: Record<string, { mes: string, processos: number, valor: number }> = {};
-    
-    processos
-      .filter(p => p.ano_referencia.toString() === anoSelecionado)
-      .forEach(p => {
-        if (p.data_abertura) {
-          const mes = new Date(p.data_abertura).getMonth();
-          const nomeMes = meses[mes];
-          if (!dadosPorMes[nomeMes]) {
-            dadosPorMes[nomeMes] = { mes: nomeMes, processos: 0, valor: 0 };
-          }
-          dadosPorMes[nomeMes].processos++;
-          dadosPorMes[nomeMes].valor += Number(p.valor_estimado_anual || 0);
-        }
-      });
+  // Dados para gráficos de velas (Processos por mês)
+  const dadosVelas1 = () => {
+    let processosFiltrados = processos.filter(p => p.ano_referencia.toString() === anoVelas1);
 
-    return meses.map(mes => dadosPorMes[mes] || { mes, processos: 0, valor: 0 });
+    if (mesVelas1 !== "todos") {
+      const mesIndex = meses.indexOf(mesVelas1);
+      processosFiltrados = processosFiltrados.filter(p => {
+        if (p.data_abertura) {
+          return new Date(p.data_abertura).getMonth() === mesIndex;
+        }
+        return false;
+      });
+    }
+
+    if (contratoVelas1 !== "todos") {
+      processosFiltrados = processosFiltrados.filter(p => p.contrato_gestao_id === contratoVelas1);
+    }
+
+    const dadosPorMes: Record<string, number> = {};
+    processosFiltrados.forEach(p => {
+      if (p.data_abertura) {
+        const mes = new Date(p.data_abertura).getMonth();
+        const nomeMes = meses[mes];
+        dadosPorMes[nomeMes] = (dadosPorMes[nomeMes] || 0) + 1;
+      }
+    });
+
+    return meses.map(mes => ({ mes, processos: dadosPorMes[mes] || 0 }));
   };
 
-  const exportarPDF = (tipo: string) => {
+  // Dados para gráficos de velas (Contratos finalizados por mês)
+  const dadosVelas2 = () => {
+    let processosFiltrados = processos.filter(p => 
+      p.ano_referencia.toString() === anoVelas2 && 
+      p.status_processo === 'contratado'
+    );
+
+    if (mesVelas2 !== "todos") {
+      const mesIndex = meses.indexOf(mesVelas2);
+      processosFiltrados = processosFiltrados.filter(p => {
+        if (p.data_abertura) {
+          return new Date(p.data_abertura).getMonth() === mesIndex;
+        }
+        return false;
+      });
+    }
+
+    if (contratoVelas2 !== "todos") {
+      processosFiltrados = processosFiltrados.filter(p => p.contrato_gestao_id === contratoVelas2);
+    }
+
+    const dadosPorMes: Record<string, number> = {};
+    processosFiltrados.forEach(p => {
+      if (p.data_abertura) {
+        const mes = new Date(p.data_abertura).getMonth();
+        const nomeMes = meses[mes];
+        dadosPorMes[nomeMes] = (dadosPorMes[nomeMes] || 0) + 1;
+      }
+    });
+
+    return meses.map(mes => ({ mes, contratos: dadosPorMes[mes] || 0 }));
+  };
+
+  // Dados para gráficos de linha (Processos)
+  const dadosLinha1 = () => {
+    let processosFiltrados = processos.filter(p => p.ano_referencia.toString() === anoLinha1);
+
+    if (mesLinha1 !== "todos") {
+      const mesIndex = meses.indexOf(mesLinha1);
+      processosFiltrados = processosFiltrados.filter(p => {
+        if (p.data_abertura) {
+          return new Date(p.data_abertura).getMonth() === mesIndex;
+        }
+        return false;
+      });
+    }
+
+    if (contratoLinha1 !== "todos") {
+      processosFiltrados = processosFiltrados.filter(p => p.contrato_gestao_id === contratoLinha1);
+    }
+
+    const dadosPorMes: Record<string, number> = {};
+    processosFiltrados.forEach(p => {
+      if (p.data_abertura) {
+        const mes = new Date(p.data_abertura).getMonth();
+        const nomeMes = meses[mes];
+        dadosPorMes[nomeMes] = (dadosPorMes[nomeMes] || 0) + 1;
+      }
+    });
+
+    return meses.map(mes => ({ mes, processos: dadosPorMes[mes] || 0 }));
+  };
+
+  // Dados para gráficos de linha (Contratos)
+  const dadosLinha2 = () => {
+    let processosFiltrados = processos.filter(p => 
+      p.ano_referencia.toString() === anoLinha2 && 
+      p.status_processo === 'contratado'
+    );
+
+    if (mesLinha2 !== "todos") {
+      const mesIndex = meses.indexOf(mesLinha2);
+      processosFiltrados = processosFiltrados.filter(p => {
+        if (p.data_abertura) {
+          return new Date(p.data_abertura).getMonth() === mesIndex;
+        }
+        return false;
+      });
+    }
+
+    if (contratoLinha2 !== "todos") {
+      processosFiltrados = processosFiltrados.filter(p => p.contrato_gestao_id === contratoLinha2);
+    }
+
+    const dadosPorMes: Record<string, number> = {};
+    processosFiltrados.forEach(p => {
+      if (p.data_abertura) {
+        const mes = new Date(p.data_abertura).getMonth();
+        const nomeMes = meses[mes];
+        dadosPorMes[nomeMes] = (dadosPorMes[nomeMes] || 0) + 1;
+      }
+    });
+
+    return meses.map(mes => ({ mes, contratos: dadosPorMes[mes] || 0 }));
+  };
+
+  const exportarPDF = (tipo: string, dados: any[]) => {
     const element = document.createElement('div');
+    let conteudoTabela = '';
+    
+    if (tipo.includes('pizza')) {
+      conteudoTabela = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background-color: #f3f4f6;">
+              <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Item</th>
+              <th style="border: 1px solid #d1d5db; padding: 12px; text-align: right;">Quantidade</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dados.map(d => `
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 8px;">${d.name}</td>
+                <td style="border: 1px solid #d1d5db; padding: 8px; text-align: right;">${d.value}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else {
+      const chave = tipo.includes('processos') ? 'processos' : 'contratos';
+      conteudoTabela = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background-color: #f3f4f6;">
+              <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Mês</th>
+              <th style="border: 1px solid #d1d5db; padding: 12px; text-align: right;">${chave === 'processos' ? 'Processos' : 'Contratos'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dados.map(d => `
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 8px;">${d.mes}</td>
+                <td style="border: 1px solid #d1d5db; padding: 8px; text-align: right;">${d[chave]}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
     element.innerHTML = `
       <div style="padding: 40px; font-family: Arial, sans-serif;">
         <div style="text-align: center; margin-bottom: 30px;">
@@ -207,11 +375,7 @@ const Dashboard = () => {
           <h1 style="color: #333; margin: 0;">Relatório Dashboard - ${tipo}</h1>
           <p style="color: #666;">Gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>
-        <div style="margin-top: 30px;">
-          <h2>Dados do Período</h2>
-          <p><strong>Ano:</strong> ${anoSelecionado}</p>
-          <p><strong>Total de Processos:</strong> ${processos.filter(p => p.ano_referencia.toString() === anoSelecionado).length}</p>
-        </div>
+        ${conteudoTabela}
       </div>
     `;
 
@@ -223,14 +387,23 @@ const Dashboard = () => {
     }).from(element).save();
   };
 
-  const exportarXLS = (tipo: string) => {
-    const dados = dadosTemporais();
-    const ws = XLSX.utils.json_to_sheet(dados.map(d => ({
-      'Mês': d.mes,
-      'Processos': d.processos,
-      'Valor Total': d.valor.toFixed(2)
-    })));
+  const exportarXLS = (tipo: string, dados: any[]) => {
+    let dadosFormatados;
     
+    if (tipo.includes('pizza')) {
+      dadosFormatados = dados.map(d => ({
+        'Item': d.name,
+        'Quantidade': d.value
+      }));
+    } else {
+      const chave = tipo.includes('processos') ? 'processos' : 'contratos';
+      dadosFormatados = dados.map(d => ({
+        'Mês': d.mes,
+        [chave === 'processos' ? 'Processos' : 'Contratos']: d[chave]
+      }));
+    }
+    
+    const ws = XLSX.utils.json_to_sheet(dadosFormatados);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Dashboard");
     XLSX.writeFile(wb, `relatorio-dashboard-${tipo}-${new Date().getTime()}.xlsx`);
@@ -255,6 +428,14 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Processos por Contratos de Gestão / Mês</CardTitle>
               <CardDescription>Visualize a distribuição de processos</CardDescription>
+              <div className="flex gap-2 mt-2">
+                <Button onClick={() => exportarPDF('pizza-1', dadosGrafico1())} size="sm" variant="outline">
+                  <Download className="w-4 h-4 mr-2" /> PDF
+                </Button>
+                <Button onClick={() => exportarXLS('pizza-1', dadosGrafico1())} size="sm" variant="outline">
+                  <FileSpreadsheet className="w-4 h-4 mr-2" /> XLS
+                </Button>
+              </div>
               <div className="flex flex-col gap-4 mt-4">
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Select value={anoSelecionado} onValueChange={setAnoSelecionado}>
@@ -323,6 +504,14 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Processos por Tipo</CardTitle>
               <CardDescription>Distribua por modalidade de contratação</CardDescription>
+              <div className="flex gap-2 mt-2">
+                <Button onClick={() => exportarPDF('pizza-2', dadosGrafico2())} size="sm" variant="outline">
+                  <Download className="w-4 h-4 mr-2" /> PDF
+                </Button>
+                <Button onClick={() => exportarXLS('pizza-2', dadosGrafico2())} size="sm" variant="outline">
+                  <FileSpreadsheet className="w-4 h-4 mr-2" /> XLS
+                </Button>
+              </div>
               <div className="flex flex-col gap-4 mt-4">
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Select value={anoGrafico2} onValueChange={setAnoGrafico2}>
@@ -408,20 +597,58 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Evolução Mensal de Processos</CardTitle>
-              <CardDescription>Análise temporal de abertura de processos</CardDescription>
+              <CardTitle>Procedimentos de Contratação Mensal</CardTitle>
+              <CardDescription>Número de processos abertos por mês</CardDescription>
               <div className="flex gap-2 mt-2">
-                <Button onClick={() => exportarPDF('velas-1')} size="sm" variant="outline">
+                <Button onClick={() => exportarPDF('velas-processos', dadosVelas1())} size="sm" variant="outline">
                   <Download className="w-4 h-4 mr-2" /> PDF
                 </Button>
-                <Button onClick={() => exportarXLS('velas-1')} size="sm" variant="outline">
+                <Button onClick={() => exportarXLS('velas-processos', dadosVelas1())} size="sm" variant="outline">
                   <FileSpreadsheet className="w-4 h-4 mr-2" /> XLS
                 </Button>
+              </div>
+              <div className="flex flex-col gap-4 mt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Select value={anoVelas1} onValueChange={setAnoVelas1}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {anosDisponiveis.map(ano => (
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={mesVelas1} onValueChange={setMesVelas1}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Meses</SelectItem>
+                      {meses.map(mes => (
+                        <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Select value={contratoVelas1} onValueChange={setContratoVelas1}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os contratos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Contratos</SelectItem>
+                    {contratos.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dadosTemporais()}>
+                <BarChart data={dadosVelas1()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="mes" stroke="hsl(var(--foreground))" />
                   <YAxis stroke="hsl(var(--foreground))" />
@@ -441,20 +668,58 @@ const Dashboard = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>Valores Estimados Mensais</CardTitle>
-              <CardDescription>Distribuição de valores ao longo do ano</CardDescription>
+              <CardTitle>Contratos Finalizados Mensais</CardTitle>
+              <CardDescription>Número de contratos fechados por mês</CardDescription>
               <div className="flex gap-2 mt-2">
-                <Button onClick={() => exportarPDF('velas-2')} size="sm" variant="outline">
+                <Button onClick={() => exportarPDF('velas-contratos', dadosVelas2())} size="sm" variant="outline">
                   <Download className="w-4 h-4 mr-2" /> PDF
                 </Button>
-                <Button onClick={() => exportarXLS('velas-2')} size="sm" variant="outline">
+                <Button onClick={() => exportarXLS('velas-contratos', dadosVelas2())} size="sm" variant="outline">
                   <FileSpreadsheet className="w-4 h-4 mr-2" /> XLS
                 </Button>
+              </div>
+              <div className="flex flex-col gap-4 mt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Select value={anoVelas2} onValueChange={setAnoVelas2}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {anosDisponiveis.map(ano => (
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={mesVelas2} onValueChange={setMesVelas2}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Meses</SelectItem>
+                      {meses.map(mes => (
+                        <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Select value={contratoVelas2} onValueChange={setContratoVelas2}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os contratos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Contratos</SelectItem>
+                    {contratos.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dadosTemporais()}>
+                <BarChart data={dadosVelas2()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="mes" stroke="hsl(var(--foreground))" />
                   <YAxis stroke="hsl(var(--foreground))" />
@@ -467,7 +732,7 @@ const Dashboard = () => {
                     formatter={(value: any) => `R$ ${Number(value).toFixed(2)}`}
                   />
                   <Legend />
-                  <Bar dataKey="valor" fill="hsl(var(--secondary))" name="Valor Total (R$)" />
+                  <Bar dataKey="contratos" fill="hsl(var(--secondary))" name="Contratos" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -481,17 +746,55 @@ const Dashboard = () => {
               <CardTitle>Tendência de Processos</CardTitle>
               <CardDescription>Curva de abertura mensal de processos</CardDescription>
               <div className="flex gap-2 mt-2">
-                <Button onClick={() => exportarPDF('linha-1')} size="sm" variant="outline">
+                <Button onClick={() => exportarPDF('linha-processos', dadosLinha1())} size="sm" variant="outline">
                   <Download className="w-4 h-4 mr-2" /> PDF
                 </Button>
-                <Button onClick={() => exportarXLS('linha-1')} size="sm" variant="outline">
+                <Button onClick={() => exportarXLS('linha-processos', dadosLinha1())} size="sm" variant="outline">
                   <FileSpreadsheet className="w-4 h-4 mr-2" /> XLS
                 </Button>
+              </div>
+              <div className="flex flex-col gap-4 mt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Select value={anoLinha1} onValueChange={setAnoLinha1}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {anosDisponiveis.map(ano => (
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={mesLinha1} onValueChange={setMesLinha1}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Meses</SelectItem>
+                      {meses.map(mes => (
+                        <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Select value={contratoLinha1} onValueChange={setContratoLinha1}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os contratos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Contratos</SelectItem>
+                    {contratos.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={dadosTemporais()}>
+                <LineChart data={dadosLinha1()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="mes" stroke="hsl(var(--foreground))" />
                   <YAxis stroke="hsl(var(--foreground))" />
@@ -518,20 +821,58 @@ const Dashboard = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>Evolução de Valores</CardTitle>
-              <CardDescription>Tendência de valores estimados mensais</CardDescription>
+              <CardTitle>Evolução de Contratos</CardTitle>
+              <CardDescription>Tendência de contratos finalizados mensais</CardDescription>
               <div className="flex gap-2 mt-2">
-                <Button onClick={() => exportarPDF('linha-2')} size="sm" variant="outline">
+                <Button onClick={() => exportarPDF('linha-contratos', dadosLinha2())} size="sm" variant="outline">
                   <Download className="w-4 h-4 mr-2" /> PDF
                 </Button>
-                <Button onClick={() => exportarXLS('linha-2')} size="sm" variant="outline">
+                <Button onClick={() => exportarXLS('linha-contratos', dadosLinha2())} size="sm" variant="outline">
                   <FileSpreadsheet className="w-4 h-4 mr-2" /> XLS
                 </Button>
+              </div>
+              <div className="flex flex-col gap-4 mt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Select value={anoLinha2} onValueChange={setAnoLinha2}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {anosDisponiveis.map(ano => (
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={mesLinha2} onValueChange={setMesLinha2}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Meses</SelectItem>
+                      {meses.map(mes => (
+                        <SelectItem key={mes} value={mes}>{mes}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Select value={contratoLinha2} onValueChange={setContratoLinha2}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os contratos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Contratos</SelectItem>
+                    {contratos.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={dadosTemporais()}>
+                <LineChart data={dadosLinha2()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="mes" stroke="hsl(var(--foreground))" />
                   <YAxis stroke="hsl(var(--foreground))" />
@@ -546,11 +887,11 @@ const Dashboard = () => {
                   <Legend />
                   <Line 
                     type="monotone" 
-                    dataKey="valor" 
+                    dataKey="contratos" 
                     stroke="hsl(var(--secondary))" 
                     strokeWidth={3}
                     dot={{ fill: 'hsl(var(--secondary))', r: 4 }}
-                    name="Valor Total (R$)"
+                    name="Contratos"
                   />
                 </LineChart>
               </ResponsiveContainer>
