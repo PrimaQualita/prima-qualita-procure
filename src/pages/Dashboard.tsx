@@ -580,13 +580,8 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Processos por Contratos de Gestão / Mês</CardTitle>
               <CardDescription>Gráfico de barras</CardDescription>
-              <div className="flex gap-2 mt-2">
-                <Button onClick={() => exportarPDF('grafico-velas-1', 'Processos por Contratos de Gestão / Mês', dadosComplementar1(), 'bar')} size="sm" variant="outline">
-                  <Download className="w-4 h-4 mr-2" /> PDF
-                </Button>
-              </div>
               <div className="flex flex-col gap-4 mt-4">
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
                   <Select value={anoSelecionado} onValueChange={setAnoSelecionado}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Ano" />
@@ -609,6 +604,10 @@ const Dashboard = () => {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  <Button onClick={() => exportarPDF('grafico-velas-1', 'Processos por Contratos de Gestão / Mês', dadosComplementar1(), 'bar')} size="sm" variant="outline" className="w-full sm:w-auto">
+                    <Download className="w-4 h-4 mr-2" /> PDF
+                  </Button>
                 </div>
 
                 <Select value={contratoGrafico1} onValueChange={setContratoGrafico1}>
@@ -648,13 +647,8 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Modalidades de Contratações Mensais/Anuais</CardTitle>
               <CardDescription>Gráfico de barras</CardDescription>
-              <div className="flex gap-2 mt-2">
-                <Button onClick={() => exportarPDF('grafico-velas-2', 'Modalidades de Contratações Mensais/Anuais', dadosComplementar2(), 'bar')} size="sm" variant="outline">
-                  <Download className="w-4 h-4 mr-2" /> PDF
-                </Button>
-              </div>
               <div className="flex flex-col gap-4 mt-4">
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
                   <Select value={anoGrafico2} onValueChange={setAnoGrafico2}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Ano" />
@@ -677,6 +671,10 @@ const Dashboard = () => {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  <Button onClick={() => exportarPDF('grafico-velas-2', 'Modalidades de Contratações Mensais/Anuais', dadosComplementar2(), 'bar')} size="sm" variant="outline" className="w-full sm:w-auto">
+                    <Download className="w-4 h-4 mr-2" /> PDF
+                  </Button>
                 </div>
 
                 <Select value={tipoProcessoSelecionado} onValueChange={setTipoProcessoSelecionado}>
@@ -736,13 +734,8 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Processos por Contratos de Gestão / Mês</CardTitle>
               <CardDescription>Tendência mensal</CardDescription>
-              <div className="flex gap-2 mt-2">
-                <Button onClick={() => exportarPDF('grafico-ecg-1', 'Processos por Contratos de Gestão / Mês', dadosComplementar1(), 'line')} size="sm" variant="outline">
-                  <Download className="w-4 h-4 mr-2" /> PDF
-                </Button>
-              </div>
               <div className="flex flex-col gap-4 mt-4">
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
                   <Select value={anoSelecionado} onValueChange={setAnoSelecionado}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Ano" />
@@ -765,6 +758,10 @@ const Dashboard = () => {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  <Button onClick={() => exportarPDF('grafico-ecg-1', 'Processos por Contratos de Gestão / Mês', dadosComplementar1(), 'line')} size="sm" variant="outline" className="w-full sm:w-auto">
+                    <Download className="w-4 h-4 mr-2" /> PDF
+                  </Button>
                 </div>
 
                 <Select value={contratoGrafico1} onValueChange={setContratoGrafico1}>
@@ -811,13 +808,8 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Modalidades de Contratações Mensais/Anuais</CardTitle>
               <CardDescription>Tendência mensal</CardDescription>
-              <div className="flex gap-2 mt-2">
-                <Button onClick={() => exportarPDF('grafico-ecg-2', 'Modalidades de Contratações Mensais/Anuais', dadosComplementar2(), 'line')} size="sm" variant="outline">
-                  <Download className="w-4 h-4 mr-2" /> PDF
-                </Button>
-              </div>
               <div className="flex flex-col gap-4 mt-4">
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
                   <Select value={anoGrafico2} onValueChange={setAnoGrafico2}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Ano" />
@@ -840,6 +832,10 @@ const Dashboard = () => {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  <Button onClick={() => exportarPDF('grafico-ecg-2', 'Modalidades de Contratações Mensais/Anuais', dadosComplementar2(), 'line')} size="sm" variant="outline" className="w-full sm:w-auto">
+                    <Download className="w-4 h-4 mr-2" /> PDF
+                  </Button>
                 </div>
 
                 <Select value={tipoProcessoSelecionado} onValueChange={setTipoProcessoSelecionado}>
