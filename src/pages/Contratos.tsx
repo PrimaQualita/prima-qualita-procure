@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileText, CheckCircle } from "lucide-react";
+import { ArrowLeft, FileText, CheckCircle, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface ContratoGestao {
@@ -28,8 +28,10 @@ interface ProcessoCompra {
 export default function Contratos() {
   const navigate = useNavigate();
   const [contratos, setContratos] = useState<ContratoGestao[]>([]);
+  const [contratoSelecionado, setContratoSelecionado] = useState<ContratoGestao | null>(null);
   const [processos, setProcessos] = useState<Record<string, ProcessoCompra[]>>({});
   const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState("");
 
   useEffect(() => {
     loadData();
@@ -81,6 +83,11 @@ export default function Contratos() {
     return "Compra Direta";
   };
 
+  const contratosFiltrados = contratos.filter((contrato) =>
+    contrato.nome_contrato.toLowerCase().includes(filtro.toLowerCase()) ||
+    contrato.ente_federativo.toLowerCase().includes(filtro.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -107,69 +114,117 @@ export default function Contratos() {
             <p className="text-muted-foreground">Carregando...</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {contratos.map((contrato) => (
-              <Card key={contrato.id}>
-                <CardHeader>
-                  <CardTitle className="text-xl">{contrato.nome_contrato}</CardTitle>
-                  <CardDescription>{contrato.ente_federativo}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {processos[contrato.id]?.length > 0 ? (
-                    <div className="space-y-3">
-                      {processos[contrato.id].map((processo) => (
-                        <div
-                          key={processo.id}
-                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3">
-                              <CheckCircle className="h-5 w-5 text-green-600" />
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium">
-                                    Processo {processo.numero_processo_interno}/{processo.ano_referencia}
-                                  </p>
-                                  <Badge variant="outline">
-                                    {getTipoProcesso(processo)}
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {processo.objeto_resumido}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Contratos de Gestão</CardTitle>
+              <CardDescription>
+                Selecione um contrato para visualizar os processos enviados para contratação
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <input
+                type="text"
+                placeholder="Buscar contrato..."
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg bg-background text-foreground"
+              />
+              
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-medium">Nome do Contrato</th>
+                      <th className="text-left px-4 py-3 font-medium">Ente Federativo</th>
+                      <th className="text-left px-4 py-3 font-medium">Status</th>
+                      <th className="text-right px-4 py-3 font-medium">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {contratosFiltrados.map((contrato) => (
+                      <tr key={contrato.id} className="hover:bg-muted/50 transition-colors">
+                        <td className="px-4 py-3">{contrato.nome_contrato}</td>
+                        <td className="px-4 py-3">{contrato.ente_federativo}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant="default">ativo</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
                           <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
-                              // TODO: Navegar para página de visualização do contrato
-                              toast.info("Funcionalidade em desenvolvimento");
+                              setContratoSelecionado(contrato);
                             }}
                           >
-                            Visualizar
+                            Ver Processos
+                            <ChevronRight className="h-4 w-4 ml-1" />
                           </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground py-8">
-                      Nenhum processo enviado para contratação neste contrato
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                
+                {contratosFiltrados.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Nenhum contrato encontrado
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-            {contratos.length === 0 && (
-              <Card>
-                <CardContent className="py-12">
-                  <p className="text-center text-muted-foreground">
-                    Nenhum contrato de gestão cadastrado
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+        {contratoSelecionado && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{contratoSelecionado.nome_contrato}</CardTitle>
+              <CardDescription>{contratoSelecionado.ente_federativo}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {processos[contratoSelecionado.id]?.length > 0 ? (
+                <div className="space-y-3">
+                  {processos[contratoSelecionado.id].map((processo) => (
+                    <div
+                      key={processo.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">
+                                Processo {processo.numero_processo_interno}/{processo.ano_referencia}
+                              </p>
+                              <Badge variant="outline">
+                                {getTipoProcesso(processo)}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {processo.objeto_resumido}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          // TODO: Navegar para página de visualização do contrato
+                          toast.info("Funcionalidade em desenvolvimento");
+                        }}
+                      >
+                        Visualizar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  Nenhum processo enviado para contratação neste contrato
+                </p>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
