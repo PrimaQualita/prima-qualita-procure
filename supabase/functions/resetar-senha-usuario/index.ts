@@ -7,6 +7,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Simple in-memory rate limiter
+const rateLimiter = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(identifier: string, maxRequests: number = 5, windowMs: number = 60000): boolean {
+  const now = Date.now();
+  const record = rateLimiter.get(identifier);
+  
+  if (!record || now > record.resetTime) {
+    rateLimiter.set(identifier, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  
+  if (record.count >= maxRequests) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
 const resetPasswordSchema = z.object({
   userId: z.string().uuid(),
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -22,6 +42,18 @@ function generateSecurePassword(): string {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Rate limiting check
+  const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  if (!checkRateLimit(clientIp, 5, 60000)) {
+    return new Response(
+      JSON.stringify({ error: "Muitas requisições. Tente novamente em 1 minuto." }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 429,
+      }
+    );
   }
 
   try {
