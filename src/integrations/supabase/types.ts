@@ -1330,6 +1330,7 @@ export type Database = {
         | "contratado"
         | "concluido"
         | "cancelado"
+        | "contratacao"
       status_selecao: "planejada" | "em_disputa" | "encerrada" | "cancelada"
       tipo_processo: "material" | "servico" | "mao_obra_exclusiva" | "outros"
       user_profile: "gestor" | "colaborador" | "fornecedor"
@@ -1472,6 +1473,7 @@ export const Constants = {
         "contratado",
         "concluido",
         "cancelado",
+        "contratacao",
       ],
       status_selecao: ["planejada", "em_disputa", "encerrada", "cancelada"],
       tipo_processo: ["material", "servico", "mao_obra_exclusiva", "outros"],

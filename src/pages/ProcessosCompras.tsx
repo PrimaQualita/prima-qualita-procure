@@ -50,10 +50,15 @@ interface Processo {
   tipo: "material" | "servico" | "mao_obra_exclusiva" | "outros";
   centro_custo?: string;
   valor_estimado_anual: number;
-  status_processo: "planejado" | "em_cotacao" | "cotacao_concluida" | "em_selecao" | "contratado" | "concluido" | "cancelado";
+  status_processo: "planejado" | "em_cotacao" | "cotacao_concluida" | "em_selecao" | "contratado" | "concluido" | "cancelado" | "contratacao";
   data_abertura?: string;
   data_encerramento_prevista?: string;
   observacoes?: string;
+  requer_cotacao?: boolean;
+  requer_selecao?: boolean;
+  criterio_julgamento?: string;
+  credenciamento?: boolean;
+  contratacao_especifica?: boolean;
 }
 
 const ProcessosCompras = () => {

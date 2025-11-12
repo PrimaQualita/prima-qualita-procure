@@ -168,6 +168,27 @@ const Dashboard = () => {
       color: "from-accent to-accent/70",
     },
     {
+      title: "Credenciamento",
+      description: "Credenciamento de PJs médicas",
+      icon: FileText,
+      href: "/credenciamentos",
+      color: "from-primary/70 to-accent/70",
+    },
+    {
+      title: "Contratações Específicas",
+      description: "Gerenciamento de contratações específicas",
+      icon: FileText,
+      href: "/contratacoes-especificas",
+      color: "from-secondary/70 to-primary/70",
+    },
+    {
+      title: "Contratos",
+      description: "Processos enviados para contratação",
+      icon: FileText,
+      href: "/contratos",
+      color: "from-accent/70 to-secondary/70",
+    },
+    {
       title: "Cadastro de Usuários",
       description: "Gerencie gestores e colaboradores do sistema",
       icon: UserCog,
