@@ -166,8 +166,11 @@ export const gerarAutorizacaoCompraDireta = async (
       doc.rect(110, yPos, 30, alturaLinha); // Itens Vencidos
       doc.rect(140, yPos, 50, alturaLinha); // Valor Total
       
-      // Empresa - com padding vertical melhorado
-      doc.text(razaoSocialSplit, 22, yPos + 4);
+      // Empresa - centralizada horizontalmente e verticalmente
+      const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 4;
+      razaoSocialSplit.forEach((linha: string, index: number) => {
+        doc.text(linha, 45, yPos + offsetVerticalEmpresa + (index * 4), { align: 'center' });
+      });
       
       // CNPJ - formatado e centralizado verticalmente
       const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
@@ -213,7 +216,7 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 40, 'FD'); // Reduzido de 60 para 40
+  doc.rect(20, yPos, 170, 40, 'FD');
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
@@ -231,9 +234,12 @@ export const gerarAutorizacaoCompraDireta = async (
   const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
   doc.text(`Hash: ${hash}`, 25, yPos + 27);
   
+  // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
   const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
-  doc.text(`Verificar em: ${linkBase}/verificar-proposta?protocolo=${protocolo}`, 25, yPos + 32);
+  const linkCompleto = `${linkBase}/verificar-proposta?protocolo=${protocolo}`;
+  const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
+  doc.text(linkQuebrado, 25, yPos + 32);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
@@ -373,7 +379,7 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 40, 'FD'); // Reduzido de 60 para 40
+  doc.rect(20, yPos, 170, 40, 'FD');
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
@@ -391,9 +397,12 @@ export const gerarAutorizacaoSelecao = async (
   const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
   doc.text(`Hash: ${hash}`, 25, yPos + 27);
   
+  // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
   const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
-  doc.text(`Verificar em: ${linkBase}/verificar-proposta?protocolo=${protocolo}`, 25, yPos + 32);
+  const linkCompleto = `${linkBase}/verificar-proposta?protocolo=${protocolo}`;
+  const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
+  doc.text(linkQuebrado, 25, yPos + 32);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
