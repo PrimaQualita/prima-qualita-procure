@@ -105,7 +105,7 @@ export const gerarAutorizacaoCompraDireta = async (
   
   const linhas1 = doc.splitTextToSize(texto1, 170);
   doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas1.length * 6 + 10;
+  yPos += linhas1.length * 6 + 4; // Reduzido de 10 para 4
   
   // Tabela de fornecedores vencedores
   console.log('[PDF] Verificando fornecedores vencedores para tabela:', fornecedoresVencedores);
@@ -120,7 +120,7 @@ export const gerarAutorizacaoCompraDireta = async (
     doc.setFont('helvetica', 'bold');
     doc.text('Empresa', 22, yPos + 5);
     doc.text('CNPJ', 70, yPos + 5);
-    doc.text('Itens Vencidos', 110, yPos + 5);
+    doc.text('Itens Vencidos', 120, yPos + 5, { align: 'center' }); // Centralizado
     doc.text('Valor Total', 155, yPos + 5);
     yPos += 8;
     
@@ -130,23 +130,42 @@ export const gerarAutorizacaoCompraDireta = async (
     
     let totalGeral = 0;
     
+    // Função para formatar CNPJ
+    const formatarCNPJ = (cnpj: string) => {
+      const apenasNumeros = cnpj.replace(/\D/g, '');
+      if (apenasNumeros.length === 14) {
+        return apenasNumeros.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+      }
+      return cnpj;
+    };
+    
     fornecedoresVencedores.forEach((fornecedor) => {
-      const alturaLinha = 10;
-      doc.rect(20, yPos, 170, alturaLinha);
-      
-      // Empresa
+      // Calcular altura necessária baseada no texto da razão social
       const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 45);
+      const alturaLinha = Math.max(10, razaoSocialSplit.length * 4 + 4);
+      
+      // Desenhar bordas das células
+      doc.rect(20, yPos, 50, alturaLinha); // Empresa
+      doc.rect(70, yPos, 40, alturaLinha); // CNPJ
+      doc.rect(110, yPos, 30, alturaLinha); // Itens Vencidos
+      doc.rect(140, yPos, 50, alturaLinha); // Valor Total
+      
+      // Empresa - com padding vertical melhorado
       doc.text(razaoSocialSplit, 22, yPos + 4);
       
-      // CNPJ
-      doc.text(fornecedor.cnpj, 70, yPos + 6);
+      // CNPJ - formatado e centralizado verticalmente
+      const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
+      const offsetVerticalCNPJ = (alturaLinha - 4) / 2 + 4;
+      doc.text(cnpjFormatado, 72, yPos + offsetVerticalCNPJ);
       
-      // Itens Vencidos
+      // Itens Vencidos - centralizado horizontal e verticalmente
       const itensText = fornecedor.itensVencedores.map(i => i.numero).join(', ');
-      doc.text(itensText, 110, yPos + 6);
+      const offsetVerticalItens = (alturaLinha - 4) / 2 + 4;
+      doc.text(itensText, 125, yPos + offsetVerticalItens, { align: 'center' });
       
-      // Valor Total
-      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 155, yPos + 6);
+      // Valor Total - centralizado verticalmente
+      const offsetVerticalValor = (alturaLinha - 4) / 2 + 4;
+      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 142, yPos + offsetVerticalValor);
       
       totalGeral += fornecedor.valorTotal;
       yPos += alturaLinha;
@@ -154,11 +173,14 @@ export const gerarAutorizacaoCompraDireta = async (
     
     // Linha de Total Geral
     doc.setFillColor(240, 240, 240);
-    doc.rect(20, yPos, 170, 8, 'F');
+    doc.rect(20, yPos, 50, 8, 'F');
+    doc.rect(70, yPos, 40, 8, 'F');
+    doc.rect(110, yPos, 30, 8, 'F');
+    doc.rect(140, yPos, 50, 8, 'F');
     doc.setFont('helvetica', 'bold');
     doc.text('TOTAL GERAL', 22, yPos + 5);
-    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 155, yPos + 5);
-    yPos += 15;
+    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 142, yPos + 5);
+    yPos += 12; // Reduzido de 15 para 12
     
     console.log('[PDF] Tabela gerada com sucesso. Total geral:', totalGeral);
   } else {
