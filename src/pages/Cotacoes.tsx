@@ -1082,10 +1082,12 @@ const Cotacoes = () => {
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="requer_selecao"
-                          checked={processoSelecionado?.requer_selecao || false}
+                          checked={processoSelecionado?.requer_selecao === true}
                           onCheckedChange={(checked) => {
-                            handleUpdateRequerSelecao(checked as boolean);
-                            if (checked) setNaoRequerSelecao(false);
+                            if (checked) {
+                              handleUpdateRequerSelecao(true);
+                              setNaoRequerSelecao(false);
+                            }
                           }}
                         />
                         <label htmlFor="requer_selecao" className="text-sm font-medium cursor-pointer">
@@ -1096,10 +1098,12 @@ const Cotacoes = () => {
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="nao_requer_selecao"
-                          checked={naoRequerSelecao}
+                          checked={processoSelecionado?.requer_selecao === false}
                           onCheckedChange={(checked) => {
-                            setNaoRequerSelecao(checked as boolean);
-                            if (checked) handleUpdateRequerSelecao(false);
+                            if (checked) {
+                              handleUpdateRequerSelecao(false);
+                              setNaoRequerSelecao(true);
+                            }
                           }}
                         />
                         <label htmlFor="nao_requer_selecao" className="text-sm font-medium cursor-pointer">
