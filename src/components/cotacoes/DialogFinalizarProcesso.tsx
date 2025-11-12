@@ -1038,235 +1038,6 @@ export function DialogFinalizarProcesso({
             </div>
           )}
 
-          {/* Gerar Autorização - Aparece após aprovação de documentos */}
-          {fornecedorSelecionado && documentosAprovados[fornecedorSelecionado] && (
-            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
-              <h3 className="font-semibold mb-3 flex items-center gap-2 text-blue-700 dark:text-blue-400">
-                📄 Autorização de Compra Direta
-              </h3>
-              {isResponsavelLegal ? (
-                <div className="space-y-3">
-                  <Button
-                    onClick={async () => {
-                      try {
-                        setLoading(true);
-                        
-                        // Buscar dados do usuário
-                        const { data: { session } } = await supabase.auth.getSession();
-                        const { data: usuario } = await supabase
-                          .from("profiles")
-                          .select("nome_completo, cpf")
-                          .eq("id", session?.user.id)
-                          .single();
-                        
-                        const usuarioNome = usuario?.nome_completo || '';
-                        const usuarioCpf = usuario?.cpf || '';
-                        
-                        // Buscar cotação para pegar processo_compra_id
-                        const { data: cotacao } = await supabase
-                          .from("cotacoes_precos")
-                          .select("processo_compra_id")
-                          .eq("id", cotacaoId)
-                          .single();
-                        
-                        // Buscar processo
-                        const { data: processoSelecionado } = await supabase
-                          .from("processos_compras")
-                          .select("numero_processo_interno, objeto_resumido, criterio_julgamento")
-                          .eq("id", cotacao?.processo_compra_id)
-                          .single();
-                        
-                        // Buscar respostas e itens
-                        const { data: respostas } = await supabase
-                          .from("cotacao_respostas_fornecedor")
-                          .select(`
-                            id,
-                            fornecedor_id,
-                            fornecedores!inner(razao_social, cnpj),
-                            respostas_itens:respostas_itens_fornecedor!inner(
-                              item_cotacao_id,
-                              valor_unitario_ofertado,
-                              itens_cotacao (numero_item, quantidade)
-                            )
-                          `)
-                          .eq('cotacao_id', cotacaoId);
-                        
-                        // Identificar vencedores
-                        const fornecedoresVencedores: any[] = [];
-                        
-                        if (processoSelecionado.criterio_julgamento === 'global') {
-                          const totais = respostas?.map(r => ({
-                            fornecedor: r,
-                            total: r.respostas_itens?.reduce((sum: number, item: any) => 
-                              sum + (item.valor_unitario_ofertado * item.itens_cotacao.quantidade), 0) || 0
-                          })) || [];
-                          
-                          const menorTotal = Math.min(...totais.map(t => t.total));
-                          const vencedor = totais.find(t => t.total === menorTotal);
-                          
-                          if (vencedor) {
-                            fornecedoresVencedores.push({
-                              razaoSocial: vencedor.fornecedor.fornecedores.razao_social,
-                              cnpj: vencedor.fornecedor.fornecedores.cnpj,
-                              itensVencedores: vencedor.fornecedor.respostas_itens?.map((item: any) => ({
-                                numero: item.itens_cotacao.numero_item,
-                                valor: item.valor_unitario_ofertado * item.itens_cotacao.quantidade
-                              })) || [],
-                              valorTotal: vencedor.total
-                            });
-                          }
-                        } else if (processoSelecionado.criterio_julgamento === 'por_item') {
-                          const fornecedoresMap = new Map();
-                          
-                          respostas?.forEach(r => {
-                            r.respostas_itens?.forEach((item: any) => {
-                              const chave = r.fornecedores.cnpj;
-                              if (!fornecedoresMap.has(chave)) {
-                                fornecedoresMap.set(chave, {
-                                  razaoSocial: r.fornecedores.razao_social,
-                                  cnpj: r.fornecedores.cnpj,
-                                  itens: []
-                                });
-                              }
-                              fornecedoresMap.get(chave).itens.push({
-                                numero: item.itens_cotacao.numero_item,
-                                itemId: item.item_cotacao_id,
-                                valorUnitario: item.valor_unitario_ofertado,
-                                quantidade: item.itens_cotacao.quantidade
-                              });
-                            });
-                          });
-                          
-                          const itensVencedores = new Map();
-                          fornecedoresMap.forEach(fornec => {
-                            fornec.itens.forEach((item: any) => {
-                              const menorAtual = itensVencedores.get(item.itemId);
-                              if (!menorAtual || item.valorUnitario < menorAtual.valorUnitario) {
-                                itensVencedores.set(item.itemId, {
-                                  ...item,
-                                  fornecedor: fornec
-                                });
-                              }
-                            });
-                          });
-                          
-                          const vencedoresPorFornecedor = new Map();
-                          itensVencedores.forEach(item => {
-                            const cnpj = item.fornecedor.cnpj;
-                            if (!vencedoresPorFornecedor.has(cnpj)) {
-                              vencedoresPorFornecedor.set(cnpj, {
-                                razaoSocial: item.fornecedor.razaoSocial,
-                                cnpj: item.fornecedor.cnpj,
-                                itensVencedores: [],
-                                valorTotal: 0
-                              });
-                            }
-                            const fornecVenc = vencedoresPorFornecedor.get(cnpj);
-                            const valorItem = item.valorUnitario * item.quantidade;
-                            fornecVenc.itensVencedores.push({
-                              numero: item.numero,
-                              valor: valorItem
-                            });
-                            fornecVenc.valorTotal += valorItem;
-                          });
-                          
-                          fornecedoresVencedores.push(...Array.from(vencedoresPorFornecedor.values()));
-                        }
-                        
-                        if (fornecedoresVencedores.length === 0) {
-                          toast.error('Nenhum fornecedor vencedor identificado');
-                          return;
-                        }
-                        
-                        const result = await gerarAutorizacaoCompraDireta(
-                          processoSelecionado.numero_processo_interno,
-                          processoSelecionado.objeto_resumido,
-                          usuarioNome,
-                          usuarioCpf,
-                          fornecedoresVencedores
-                        );
-                        setAutorizacaoDiretaUrl(result.url);
-                        
-                        const { data: autorizacao, error: saveError } = await (supabase as any)
-                          .from("autorizacoes_processo")
-                          .insert({
-                            cotacao_id: cotacaoId,
-                            tipo_autorizacao: 'compra_direta',
-                            url_arquivo: result.url,
-                            nome_arquivo: result.fileName,
-                            protocolo: result.protocolo,
-                            usuario_gerador_id: session?.user.id
-                          })
-                          .select()
-                          .single();
-                        
-                        if (saveError) throw saveError;
-                        setAutorizacaoDiretaId(autorizacao.id);
-                        
-                        toast.success("Autorização gerada com sucesso");
-                      } catch (error) {
-                        console.error("Erro ao gerar autorização:", error);
-                        toast.error("Erro ao gerar autorização");
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    variant="outline"
-                    className="w-full"
-                    disabled={loading}
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    Gerar Autorização
-                  </Button>
-                  {autorizacaoDiretaUrl && (
-                    <div className="flex flex-col gap-2">
-                      <div className="flex gap-2">
-                        <Button
-                          variant="secondary"
-                          onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
-                          className="flex-1"
-                        >
-                          <FileText className="mr-2 h-4 w-4" />
-                          Visualizar
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={async () => {
-                            const response = await fetch(autorizacaoDiretaUrl);
-                            const blob = await response.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = `autorizacao-compra-direta.pdf`;
-                            link.click();
-                            window.URL.revokeObjectURL(url);
-                          }}
-                          className="flex-1"
-                        >
-                          <FileText className="mr-2 h-4 w-4" />
-                          Baixar
-                        </Button>
-                      </div>
-                      {isResponsavelLegal && autorizacaoDiretaId && (
-                        <Button
-                          variant="destructive"
-                          onClick={() => deletarAutorizacao(autorizacaoDiretaId)}
-                          size="sm"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Deletar Autorização
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Apenas responsáveis legais podem gerar autorizações. Solicite a um responsável legal.
-                </p>
-              )}
-            </div>
-          )}
 
             </div>
           )}
@@ -1440,20 +1211,22 @@ export function DialogFinalizarProcesso({
             </div>
           )}
           
-          {/* Botão Finalizar Processo - só habilitado quando todos aprovados */}
+          {/* Botão Finalizar Processo - só habilitado quando todos aprovados E autorização gerada */}
           <Button 
             onClick={handleFinalizar} 
-            disabled={loading || !fornecedores.every(f => documentosAprovados[f.id] === true)}
+            disabled={loading || !fornecedores.every(f => documentosAprovados[f.id] === true) || !autorizacaoDiretaUrl}
             className="bg-green-600 hover:bg-green-700"
           >
             {loading ? "Finalizando..." : "Finalizar Processo"}
           </Button>
           
-          {!fornecedores.every(f => documentosAprovados[f.id] === true) && (
+          {(!fornecedores.every(f => documentosAprovados[f.id] === true) || !autorizacaoDiretaUrl) && (
             <p className="text-sm text-muted-foreground w-full text-center">
-              {fornecedores.length > 1 
-                ? "Dê OK para todos os fornecedores vencedores para finalizar o processo" 
-                : "Dê OK para o fornecedor vencedor para finalizar o processo"}
+              {!fornecedores.every(f => documentosAprovados[f.id] === true)
+                ? (fornecedores.length > 1 
+                  ? "Dê OK para todos os fornecedores vencedores para finalizar o processo" 
+                  : "Dê OK para o fornecedor vencedor para finalizar o processo")
+                : "Gere a autorização de compra direta para finalizar o processo"}
             </p>
           )}
         </DialogFooter>
