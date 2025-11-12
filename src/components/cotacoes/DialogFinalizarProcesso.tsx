@@ -459,10 +459,10 @@ export function DialogFinalizarProcesso({
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user.id) return;
 
-    const { data } = await (supabase as any)
-      .from("usuarios")
+    const { data } = await supabase
+      .from("profiles")
       .select("responsavel_legal")
-      .eq("user_id", session.user.id)
+      .eq("id", session.user.id)
       .single();
 
     setIsResponsavelLegal(data?.responsavel_legal || false);
@@ -1053,10 +1053,10 @@ export function DialogFinalizarProcesso({
                         
                         // Buscar dados do usuário
                         const { data: { session } } = await supabase.auth.getSession();
-                        const { data: usuario } = await (supabase as any)
-                          .from("usuarios")
+                        const { data: usuario } = await supabase
+                          .from("profiles")
                           .select("nome_completo, cpf")
-                          .eq("user_id", session?.user.id)
+                          .eq("id", session?.user.id)
                           .single();
                         
                         const usuarioNome = usuario?.nome_completo || '';
