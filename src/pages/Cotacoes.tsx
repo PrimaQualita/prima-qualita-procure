@@ -1291,7 +1291,7 @@ const Cotacoes = () => {
                                   if (!processoSelecionado || !cotacaoSelecionada) return;
                                   try {
                                     // Buscar fornecedores vencedores
-                                    const { data: respostas } = await supabase
+                                    const { data: respostas, error: respostasError } = await supabase
                                       .from('cotacao_respostas_fornecedor')
                                       .select(`
                                         *,
@@ -1299,10 +1299,17 @@ const Cotacoes = () => {
                                         respostas_itens:respostas_itens_fornecedor (
                                           item_cotacao_id,
                                           valor_unitario,
-                                          itens_cotacao (numero, quantidade)
+                                          itens_cotacao (numero_item, quantidade)
                                         )
                                       `)
                                       .eq('cotacao_id', cotacaoSelecionada.id);
+                                    
+                                    if (respostasError) {
+                                      console.error('Erro ao buscar respostas:', respostasError);
+                                      throw respostasError;
+                                    }
+                                    
+                                    console.log('Respostas encontradas:', respostas);
                                     
                                     // Identificar vencedores por critério
                                     const fornecedoresVencedores: any[] = [];
@@ -1323,7 +1330,7 @@ const Cotacoes = () => {
                                           razaoSocial: vencedor.fornecedor.fornecedores.razao_social,
                                           cnpj: vencedor.fornecedor.fornecedores.cnpj,
                                           itensVencedores: vencedor.fornecedor.respostas_itens?.map((item: any) => ({
-                                            numero: item.itens_cotacao.numero,
+                                            numero: item.itens_cotacao.numero_item,
                                             valor: item.valor_unitario * item.itens_cotacao.quantidade
                                           })) || [],
                                           valorTotal: vencedor.total
@@ -1344,7 +1351,7 @@ const Cotacoes = () => {
                                             });
                                           }
                                           fornecedoresMap.get(chave).itens.push({
-                                            numero: item.itens_cotacao.numero,
+                                            numero: item.itens_cotacao.numero_item,
                                             itemId: item.item_cotacao_id,
                                             valorUnitario: item.valor_unitario,
                                             quantidade: item.itens_cotacao.quantidade

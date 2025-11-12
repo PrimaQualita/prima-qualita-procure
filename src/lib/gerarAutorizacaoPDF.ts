@@ -167,7 +167,7 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 55, 'FD');
+  doc.rect(20, yPos, 170, 60, 'FD');
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
@@ -187,9 +187,16 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.setFontSize(8);
   doc.text(`Hash: ${hash}`, 25, yPos + 44);
   
+  // Link de verificação
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 51, 102);
+  const linkVerificacao = `Verifique em: www.primaqualitasaude.org/verificar/${hash}`;
+  doc.text(linkVerificacao, 25, yPos + 48);
+  
   doc.setFont('helvetica', 'italic');
+  doc.setTextColor(0, 0, 0);
   const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
-  doc.text(textoValidade, 25, yPos + 50);
+  doc.text(textoValidade, 25, yPos + 53);
   
   // Rodapé
   yPos = 270;
@@ -318,7 +325,7 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 55, 'FD');
+  doc.rect(20, yPos, 170, 60, 'FD');
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
@@ -338,9 +345,16 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFontSize(8);
   doc.text(`Hash: ${hash}`, 25, yPos + 44);
   
+  // Link de verificação
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 51, 102);
+  const linkVerificacao = `Verifique em: www.primaqualitasaude.org/verificar/${hash}`;
+  doc.text(linkVerificacao, 25, yPos + 48);
+  
   doc.setFont('helvetica', 'italic');
+  doc.setTextColor(0, 0, 0);
   const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
-  doc.text(textoValidade, 25, yPos + 50);
+  doc.text(textoValidade, 25, yPos + 53);
   
   // Rodapé
   yPos = 270;
