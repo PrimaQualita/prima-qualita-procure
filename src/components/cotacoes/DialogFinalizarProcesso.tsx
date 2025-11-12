@@ -12,13 +12,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ExternalLink, FileText } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarAutorizacaoCompraDireta } from "@/lib/gerarAutorizacaoPDF";
+
+interface FornecedorVencedor {
+  razaoSocial: string;
+  cnpj: string;
+  itensVencedores: Array<{ numero: number; valor: number }>;
+  valorTotal: number;
+}
 
 interface CampoDocumento {
   id?: string;
@@ -26,6 +33,18 @@ interface CampoDocumento {
   descricao: string;
   obrigatorio: boolean;
   ordem: number;
+  status_solicitacao?: string;
+  data_solicitacao?: string;
+  data_conclusao?: string;
+  data_aprovacao?: string;
+  documentos_finalizacao_fornecedor?: DocumentoFinalizacao[];
+}
+
+interface DocumentoFinalizacao {
+  id: string;
+  nome_arquivo: string;
+  url_arquivo: string;
+  data_upload: string;
 }
 
 interface Fornecedor {
@@ -42,6 +61,14 @@ interface DocumentoExistente {
   em_vigor: boolean;
 }
 
+interface FornecedorData {
+  fornecedor: Fornecedor;
+  documentosExistentes: DocumentoExistente[];
+  itensVencedores: any[];
+  campos: CampoDocumento[];
+  todosDocumentosAprovados: boolean;
+}
+
 interface DialogFinalizarProcessoProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -56,50 +83,31 @@ export function DialogFinalizarProcesso({
   onSuccess,
 }: DialogFinalizarProcessoProps) {
   const [loading, setLoading] = useState(false);
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [fornecedorSelecionado, setFornecedorSelecionado] = useState<string>("");
-  const [documentosExistentes, setDocumentosExistentes] = useState<DocumentoExistente[]>([]);
-  const [itensVencedores, setItensVencedores] = useState<any[]>([]);
-  const [campos, setCampos] = useState<CampoDocumento[]>([]);
-  const [novoCampo, setNovoCampo] = useState<CampoDocumento>({
-    nome_campo: "",
+  const [fornecedoresData, setFornecedoresData] = useState<FornecedorData[]>([]);
+  const [fornecedorExpandido, setFornecedorExpandido] = useState<string | null>(null);
+  const [novoCampo, setNovoCampo] = useState<{nome: string; descricao: string; obrigatorio: boolean}>({
+    nome: "",
     descricao: "",
-    obrigatorio: true,
-    ordem: 0,
+    obrigatorio: true
   });
   const [dataLimiteDocumentos, setDataLimiteDocumentos] = useState<string>("");
   const [documentosAprovados, setDocumentosAprovados] = useState<Record<string, boolean>>({});
-  const [statusDocumentosFornecedor, setStatusDocumentosFornecedor] = useState<string>("pendente");
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState<string>("");
   const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState<string>("");
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
 
   useEffect(() => {
     if (open) {
-      console.log("📂 Dialog aberto, carregando fornecedores vencedores e aprovações");
-      loadFornecedoresVencedores();
+      console.log("📂 Dialog aberto, carregando todos os fornecedores vencedores");
+      loadAllFornecedores();
       loadDocumentosAprovados();
       loadAutorizacoes();
       checkResponsavelLegal();
     }
   }, [open, cotacaoId]);
 
-  useEffect(() => {
-    if (fornecedorSelecionado) {
-      console.log("🔄 Fornecedor selecionado mudou:", fornecedorSelecionado);
-      loadDocumentosFornecedor(fornecedorSelecionado);
-      loadItensVencedores(fornecedorSelecionado);
-      loadCamposExistentes(); // CRÍTICO: Carrega os documentos solicitados/enviados
-      loadStatusDocumentosFornecedor(fornecedorSelecionado);
-    } else {
-      setDocumentosExistentes([]);
-      setItensVencedores([]);
-      setCampos([]); // Limpa os campos quando nenhum fornecedor está selecionado
-      setStatusDocumentosFornecedor("pendente");
-    }
-  }, [fornecedorSelecionado]);
-
-  const loadFornecedoresVencedores = async () => {
+  const loadAllFornecedores = async () => {
+    setLoading(true);
     try {
       // Buscar cotação com critério de julgamento
       const { data: cotacao, error: cotacaoError } = await supabase
@@ -124,7 +132,8 @@ export function DialogFinalizarProcesso({
       if (respostasError) throw respostasError;
 
       if (!respostas || respostas.length === 0) {
-        setFornecedores([]);
+        setFornecedoresData([]);
+        setLoading(false);
         return;
       }
 
@@ -143,244 +152,191 @@ export function DialogFinalizarProcesso({
       if (itensError) throw itensError;
 
       const criterio = cotacao?.criterio_julgamento || "global";
-      const fornecedoresVencedores = new Set<string>();
+      const fornecedoresVencedores = await identificarVencedores(criterio, respostas, itens || []);
 
-      if (criterio === "global") {
-        // Menor preço global - um único vencedor
-        if (respostas.length > 0) {
-          const menorValor = Math.min(...respostas.map(r => Number(r.valor_total_anual_ofertado)));
-          const vencedor = respostas.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
-          if (vencedor) fornecedoresVencedores.add(vencedor.fornecedor_id);
-        }
-      } else if (criterio === "item" || criterio === "por_item") {
-        // Menor preço por item - pode ter múltiplos vencedores
-        if (itens && itens.length > 0) {
-          const itensPorNumero: Record<number, any[]> = {};
-          
-          itens.forEach(item => {
-            const numItem = item.itens_cotacao.numero_item;
-            if (!itensPorNumero[numItem]) {
-              itensPorNumero[numItem] = [];
-            }
-            itensPorNumero[numItem].push(item);
-          });
+      // Carregar dados de cada fornecedor vencedor
+      const fornecedoresComDados = await Promise.all(
+        fornecedoresVencedores.map(async (forn) => {
+          const [docs, itensVenc, campos] = await Promise.all([
+            loadDocumentosFornecedor(forn.id),
+            loadItensVencedores(forn.id, criterio, respostas, itens || []),
+            loadCamposFornecedor(forn.id)
+          ]);
 
-          Object.values(itensPorNumero).forEach(itensDoNumero => {
-            if (itensDoNumero.length > 0) {
-              const menorValor = Math.min(...itensDoNumero.map(i => Number(i.valor_unitario_ofertado)));
-              const vencedor = itensDoNumero.find(i => Number(i.valor_unitario_ofertado) === menorValor);
-              if (vencedor) {
-                const resposta = respostas.find(r => r.id === vencedor.cotacao_resposta_fornecedor_id);
-                if (resposta) {
-                  fornecedoresVencedores.add(resposta.fornecedor_id);
-                }
-              }
-            }
-          });
-        }
-      } else if (criterio === "lote" || criterio === "por_lote") {
-        // Menor preço por lote - pode ter múltiplos vencedores
-        if (itens && itens.length > 0) {
-          const itensPorLote: Record<string, Record<string, any[]>> = {};
-          
-          itens.forEach(item => {
-            const loteId = item.itens_cotacao.lote_id;
-            if (!loteId) return;
-            
-            if (!itensPorLote[loteId]) {
-              itensPorLote[loteId] = {};
-            }
-            
-            const respostaId = item.cotacao_resposta_fornecedor_id;
-            if (!itensPorLote[loteId][respostaId]) {
-              itensPorLote[loteId][respostaId] = [];
-            }
-            itensPorLote[loteId][respostaId].push(item);
-          });
+          const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
 
-          Object.values(itensPorLote).forEach(respostasPorLote => {
-            const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itensLote]) => {
-              const total = itensLote.reduce((sum, item) => {
-                return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
-              }, 0);
-              return { respostaId, total };
-            });
-
-            if (totaisPorResposta.length > 0) {
-              const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
-              const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
-              if (vencedor) {
-                const resposta = respostas.find(r => r.id === vencedor.respostaId);
-                if (resposta) {
-                  fornecedoresVencedores.add(resposta.fornecedor_id);
-                }
-              }
-            }
-          });
-        }
-      }
-
-      // Filtrar apenas fornecedores vencedores e remover duplicados
-      const fornecedoresFiltrados = Array.from(fornecedoresVencedores)
-        .map(fornecedorId => {
-          const resposta = respostas.find(r => r.fornecedor_id === fornecedorId);
-          return resposta ? {
-            id: fornecedorId,
-            razao_social: resposta.fornecedores.razao_social
-          } : null;
+          return {
+            fornecedor: forn,
+            documentosExistentes: docs,
+            itensVencedores: itensVenc,
+            campos: campos,
+            todosDocumentosAprovados: todosAprovados
+          };
         })
-        .filter((f): f is Fornecedor => f !== null)
-        .sort((a, b) => a.razao_social.localeCompare(b.razao_social));
+      );
 
-      setFornecedores(fornecedoresFiltrados);
+      setFornecedoresData(fornecedoresComDados);
     } catch (error) {
-      console.error("Erro ao carregar fornecedores vencedores:", error);
+      console.error("Erro ao carregar fornecedores:", error);
       toast.error("Erro ao carregar fornecedores vencedores");
-      setFornecedores([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadItensVencedores = async (fornecedorId: string) => {
-    try {
-      // Buscar cotação com critério de julgamento
-      const { data: cotacao, error: cotacaoError } = await supabase
-        .from("cotacoes_precos")
-        .select("criterio_julgamento")
-        .eq("id", cotacaoId)
-        .single();
+  const identificarVencedores = async (criterio: string, respostas: any[], itens: any[]): Promise<Fornecedor[]> => {
+    const fornecedoresVencedores = new Set<string>();
 
-      if (cotacaoError) throw cotacaoError;
-
-      // Buscar resposta deste fornecedor
-      const { data: resposta, error: respostaError } = await supabase
-        .from("cotacao_respostas_fornecedor")
-        .select("id")
-        .eq("cotacao_id", cotacaoId)
-        .eq("fornecedor_id", fornecedorId)
-        .single();
-
-      if (respostaError) throw respostaError;
-
-      // Buscar todos os itens deste fornecedor
-      const { data: itensDoFornecedor, error: itensError } = await supabase
-        .from("respostas_itens_fornecedor")
-        .select(`
-          id,
-          valor_unitario_ofertado,
-          itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade, lotes_cotacao(numero_lote, descricao_lote))
-        `)
-        .eq("cotacao_resposta_fornecedor_id", resposta.id);
-
-      if (itensError) throw itensError;
-
-      if (!itensDoFornecedor || itensDoFornecedor.length === 0) {
-        setItensVencedores([]);
-        return;
+    if (criterio === "global") {
+      if (respostas.length > 0) {
+        const menorValor = Math.min(...respostas.map(r => Number(r.valor_total_anual_ofertado)));
+        const vencedor = respostas.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
+        if (vencedor) fornecedoresVencedores.add(vencedor.fornecedor_id);
       }
-
-      // Buscar todas as respostas para comparação
-      const { data: todasRespostas, error: todasRespostasError } = await supabase
-        .from("cotacao_respostas_fornecedor")
-        .select("id, fornecedor_id")
-        .eq("cotacao_id", cotacaoId);
-
-      if (todasRespostasError) throw todasRespostasError;
-
-      const { data: todosItens, error: todosItensError } = await supabase
-        .from("respostas_itens_fornecedor")
-        .select(`
-          id,
-          cotacao_resposta_fornecedor_id,
-          item_cotacao_id,
-          valor_unitario_ofertado,
-          itens_cotacao!inner(numero_item, lote_id, quantidade)
-        `)
-        .in("cotacao_resposta_fornecedor_id", todasRespostas?.map(r => r.id) || []);
-
-      if (todosItensError) throw todosItensError;
-
-      const criterio = cotacao?.criterio_julgamento || "global";
-      const itensVencidos: any[] = [];
-
-      if (criterio === "global") {
-        // Global - todos os itens são vencedores
-        itensVencidos.push(...itensDoFornecedor.map(item => ({
-          ...item,
-          vencedor: true
-        })));
-      } else if (criterio === "item" || criterio === "por_item") {
-        // Por item - verificar cada item individualmente
-        itensDoFornecedor.forEach(itemFornecedor => {
-          const numeroItem = itemFornecedor.itens_cotacao.numero_item;
-          const itensComMesmoNumero = todosItens?.filter(i => i.itens_cotacao.numero_item === numeroItem) || [];
-          
-          if (itensComMesmoNumero.length > 0) {
-            const menorValor = Math.min(...itensComMesmoNumero.map(i => Number(i.valor_unitario_ofertado)));
-            const ehVencedor = Number(itemFornecedor.valor_unitario_ofertado) === menorValor;
-            
-            if (ehVencedor) {
-              itensVencidos.push({
-                ...itemFornecedor,
-                vencedor: true
-              });
-            }
-          }
+    } else if (criterio === "item" || criterio === "por_item") {
+      if (itens.length > 0) {
+        const itensPorNumero: Record<number, any[]> = {};
+        itens.forEach(item => {
+          const numItem = item.itens_cotacao.numero_item;
+          if (!itensPorNumero[numItem]) itensPorNumero[numItem] = [];
+          itensPorNumero[numItem].push(item);
         });
-      } else if (criterio === "lote" || criterio === "por_lote") {
-        // Por lote - agrupar por lote e verificar
-        const loteIds = [...new Set(itensDoFornecedor.map(i => i.itens_cotacao.lote_id).filter(Boolean))];
-        
-        loteIds.forEach(loteId => {
-          const itensDoLote = todosItens?.filter(i => i.itens_cotacao.lote_id === loteId) || [];
-          
-          if (itensDoLote.length > 0) {
-            const respostasPorLote: Record<string, any[]> = {};
-            
-            itensDoLote.forEach(item => {
-              const respostaId = item.cotacao_resposta_fornecedor_id;
-              if (!respostasPorLote[respostaId]) {
-                respostasPorLote[respostaId] = [];
-              }
-              respostasPorLote[respostaId].push(item);
-            });
 
-            const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itens]) => {
-              const total = itens.reduce((sum, item) => {
-                return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
-              }, 0);
-              return { respostaId, total };
-            });
-
-            if (totaisPorResposta.length > 0) {
-              const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
-              const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
-              
-              if (vencedor?.respostaId === resposta.id) {
-                const itensVencedoresDoLote = itensDoFornecedor.filter(i => i.itens_cotacao.lote_id === loteId);
-                itensVencidos.push(...itensVencedoresDoLote.map(item => ({
-                  ...item,
-                  vencedor: true
-                })));
-              }
+        Object.values(itensPorNumero).forEach(itensDoNumero => {
+          if (itensDoNumero.length > 0) {
+            const menorValor = Math.min(...itensDoNumero.map(i => Number(i.valor_unitario_ofertado)));
+            const vencedor = itensDoNumero.find(i => Number(i.valor_unitario_ofertado) === menorValor);
+            if (vencedor) {
+              const resposta = respostas.find(r => r.id === vencedor.cotacao_resposta_fornecedor_id);
+              if (resposta) fornecedoresVencedores.add(resposta.fornecedor_id);
             }
           }
         });
       }
+    } else if (criterio === "lote" || criterio === "por_lote") {
+      if (itens.length > 0) {
+        const itensPorLote: Record<string, Record<string, any[]>> = {};
+        itens.forEach(item => {
+          const loteId = item.itens_cotacao.lote_id;
+          if (!loteId) return;
+          if (!itensPorLote[loteId]) itensPorLote[loteId] = {};
+          const respostaId = item.cotacao_resposta_fornecedor_id;
+          if (!itensPorLote[loteId][respostaId]) itensPorLote[loteId][respostaId] = [];
+          itensPorLote[loteId][respostaId].push(item);
+        });
 
-      setItensVencedores(itensVencidos.sort((a, b) => a.itens_cotacao.numero_item - b.itens_cotacao.numero_item));
-    } catch (error) {
-      console.error("Erro ao carregar itens vencedores:", error);
-      toast.error("Erro ao carregar itens vencedores");
-      setItensVencedores([]);
+        Object.values(itensPorLote).forEach(respostasPorLote => {
+          const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itensLote]) => {
+            const total = itensLote.reduce((sum, item) => {
+              return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
+            }, 0);
+            return { respostaId, total };
+          });
+
+          if (totaisPorResposta.length > 0) {
+            const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
+            const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
+            if (vencedor) {
+              const resposta = respostas.find(r => r.id === vencedor.respostaId);
+              if (resposta) fornecedoresVencedores.add(resposta.fornecedor_id);
+            }
+          }
+        });
+      }
     }
+
+    return Array.from(fornecedoresVencedores)
+      .map(fornecedorId => {
+        const resposta = respostas.find(r => r.fornecedor_id === fornecedorId);
+        return resposta ? {
+          id: fornecedorId,
+          razao_social: resposta.fornecedores.razao_social
+        } : null;
+      })
+      .filter((f): f is Fornecedor => f !== null)
+      .sort((a, b) => a.razao_social.localeCompare(b.razao_social));
   };
 
-  const loadCamposExistentes = async () => {
-    if (!fornecedorSelecionado) return;
-    
-    console.log("🔍 Carregando campos para fornecedor:", fornecedorSelecionado);
-    
-    // Carregar TODOS os campos (não apenas os pendentes) para mostrar os documentos enviados
+  const loadDocumentosFornecedor = async (fornecedorId: string): Promise<DocumentoExistente[]> => {
+    const tiposDocumentos = [
+      "Contrato Social",
+      "CNPJ",
+      "Inscrição Municipal ou Estadual",
+      "CND Federal",
+      "CND Tributos Estaduais",
+      "CND Dívida Ativa Estadual",
+      "CND Tributos Municipais",
+      "CND Dívida Ativa Municipal",
+      "CRF FGTS",
+      "CNDT",
+      "Certificado de Fornecedor"
+    ];
+
+    const { data, error } = await supabase
+      .from("documentos_fornecedor")
+      .select("*")
+      .eq("fornecedor_id", fornecedorId)
+      .in("tipo_documento", tiposDocumentos)
+      .order("tipo_documento");
+
+    if (error) {
+      console.error("Erro ao carregar documentos:", error);
+      return [];
+    }
+
+    const documentosOrdenados = tiposDocumentos
+      .map(tipo => data?.find(doc => doc.tipo_documento === tipo))
+      .filter((doc): doc is any => doc !== undefined);
+
+    return documentosOrdenados as DocumentoExistente[];
+  };
+
+  const loadItensVencedores = async (fornecedorId: string, criterio: string, respostas: any[], todosItens: any[]): Promise<any[]> => {
+    const resposta = respostas.find(r => r.fornecedor_id === fornecedorId);
+    if (!resposta) return [];
+
+    const itensDoFornecedor = todosItens.filter(i => i.cotacao_resposta_fornecedor_id === resposta.id);
+    const itensVencidos: any[] = [];
+
+    if (criterio === "global") {
+      itensVencidos.push(...itensDoFornecedor);
+    } else if (criterio === "item" || criterio === "por_item") {
+      itensDoFornecedor.forEach(itemFornecedor => {
+        const numeroItem = itemFornecedor.itens_cotacao.numero_item;
+        const itensComMesmoNumero = todosItens.filter(i => i.itens_cotacao.numero_item === numeroItem);
+        const menorValor = Math.min(...itensComMesmoNumero.map(i => Number(i.valor_unitario_ofertado)));
+        if (Number(itemFornecedor.valor_unitario_ofertado) === menorValor) {
+          itensVencidos.push(itemFornecedor);
+        }
+      });
+    } else if (criterio === "lote" || criterio === "por_lote") {
+      const loteIds = [...new Set(itensDoFornecedor.map(i => i.itens_cotacao.lote_id).filter(Boolean))];
+      loteIds.forEach(loteId => {
+        const itensDoLote = todosItens.filter(i => i.itens_cotacao.lote_id === loteId);
+        const respostasPorLote: Record<string, any[]> = {};
+        itensDoLote.forEach(item => {
+          const respostaId = item.cotacao_resposta_fornecedor_id;
+          if (!respostasPorLote[respostaId]) respostasPorLote[respostaId] = [];
+          respostasPorLote[respostaId].push(item);
+        });
+
+        const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itens]) => {
+          const total = itens.reduce((sum, item) => sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade)), 0);
+          return { respostaId, total };
+        });
+
+        const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
+        const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
+        if (vencedor?.respostaId === resposta.id) {
+          itensVencidos.push(...itensDoFornecedor.filter(i => i.itens_cotacao.lote_id === loteId));
+        }
+      });
+    }
+
+    return itensVencidos.sort((a, b) => a.itens_cotacao.numero_item - b.itens_cotacao.numero_item);
+  };
+
+  const loadCamposFornecedor = async (fornecedorId: string): Promise<CampoDocumento[]> => {
     const { data, error } = await supabase
       .from("campos_documentos_finalizacao")
       .select(`
@@ -393,18 +349,28 @@ export function DialogFinalizarProcesso({
         )
       `)
       .eq("cotacao_id", cotacaoId)
-      .eq("fornecedor_id", fornecedorSelecionado)
+      .eq("fornecedor_id", fornecedorId)
       .order("ordem");
 
     if (error) {
-      console.error("❌ Erro ao carregar campos:", error);
-      toast.error("Erro ao carregar documentos do fornecedor");
-    } else {
-      console.log("✅ Campos carregados:", data);
-      console.log("📊 Total de campos:", data?.length);
-      console.log("📄 Campos com documentos:", data?.filter((c: any) => c.documentos_finalizacao_fornecedor?.length > 0).length);
-      setCampos(data || []);
+      console.error("Erro ao carregar campos:", error);
+      return [];
     }
+
+    return data || [];
+  };
+
+  const verificarTodosDocumentosAprovados = (fornecedorId: string, docs: DocumentoExistente[], campos: CampoDocumento[]): boolean => {
+    // Verificar documentos em cadastro
+    const temDocumentoVencido = docs.some(doc => !doc.em_vigor);
+    if (temDocumentoVencido) return false;
+
+    // Verificar campos solicitados
+    const temCamposPendentes = campos.some(campo => 
+      campo.status_solicitacao !== "aprovado"
+    );
+
+    return !temCamposPendentes;
   };
 
   const loadDocumentosAprovados = async () => {
@@ -418,22 +384,6 @@ export function DialogFinalizarProcesso({
       console.error("Erro ao carregar aprovações:", error);
     } else {
       setDocumentosAprovados((data?.documentos_aprovados as Record<string, boolean>) || {});
-    }
-  };
-
-  const loadStatusDocumentosFornecedor = async (fornecedorId: string) => {
-    const { data, error } = await supabase
-      .from("campos_documentos_finalizacao")
-      .select("status_solicitacao")
-      .eq("cotacao_id", cotacaoId)
-      .eq("fornecedor_id", fornecedorId)
-      .limit(1)
-      .single();
-
-    if (error && error.code !== 'PGRST116') { // Ignora erro de "não encontrado"
-      console.error("Erro ao carregar status:", error);
-    } else {
-      setStatusDocumentosFornecedor(data?.status_solicitacao || "pendente");
     }
   };
 
@@ -468,6 +418,162 @@ export function DialogFinalizarProcesso({
     setIsResponsavelLegal(data?.responsavel_legal || false);
   };
 
+  const adicionarCampoDocumento = async (fornecedorId: string) => {
+    if (!novoCampo.nome || !novoCampo.descricao) {
+      toast.error("Preencha nome e descrição do documento");
+      return;
+    }
+
+    if (!dataLimiteDocumentos) {
+      toast.error("Defina a data limite para envio");
+      return;
+    }
+
+    try {
+      const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
+      const ordemAtual = fornecedorData ? fornecedorData.campos.length : 0;
+
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .insert({
+          cotacao_id: cotacaoId,
+          fornecedor_id: fornecedorId,
+          nome_campo: novoCampo.nome,
+          descricao: novoCampo.descricao,
+          obrigatorio: novoCampo.obrigatorio,
+          ordem: ordemAtual,
+          status_solicitacao: "pendente",
+          data_solicitacao: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      toast.success("Documento adicionado à lista");
+      setNovoCampo({ nome: "", descricao: "", obrigatorio: true });
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao adicionar documento:", error);
+      toast.error("Erro ao adicionar documento");
+    }
+  };
+
+  const enviarSolicitacaoDocumentos = async (fornecedorId: string) => {
+    try {
+      const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
+      if (!fornecedorData) return;
+
+      const camposPendentes = fornecedorData.campos.filter(c => c.status_solicitacao === "pendente");
+
+      if (camposPendentes.length === 0) {
+        toast.error("Nenhum documento pendente para enviar");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({ status_solicitacao: "enviado" })
+        .in("id", camposPendentes.map(c => c.id!));
+
+      if (error) throw error;
+
+      toast.success("Solicitação enviada ao fornecedor");
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao enviar solicitação:", error);
+      toast.error("Erro ao enviar solicitação");
+    }
+  };
+
+  const aprovarDocumento = async (campoId: string) => {
+    try {
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({
+          status_solicitacao: "aprovado",
+          data_aprovacao: new Date().toISOString()
+        })
+        .eq("id", campoId);
+
+      if (error) throw error;
+
+      toast.success("Documento aprovado");
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao aprovar documento:", error);
+      toast.error("Erro ao aprovar documento");
+    }
+  };
+
+  const rejeitarDocumento = async (campoId: string) => {
+    try {
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({
+          status_solicitacao: "rejeitado",
+          data_aprovacao: null
+        })
+        .eq("id", campoId);
+
+      if (error) throw error;
+
+      toast.success("Documento rejeitado");
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao rejeitar documento:", error);
+      toast.error("Erro ao rejeitar documento");
+    }
+  };
+
+  const aprovarTodosDocumentosFornecedor = async (fornecedorId: string) => {
+    try {
+      const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
+      if (!fornecedorData) return;
+
+      const camposEmAnalise = fornecedorData.campos.filter(c => c.status_solicitacao === "em_analise");
+
+      if (camposEmAnalise.length === 0) {
+        toast.error("Nenhum documento em análise para aprovar");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({
+          status_solicitacao: "aprovado",
+          data_aprovacao: new Date().toISOString()
+        })
+        .in("id", camposEmAnalise.map(c => c.id!));
+
+      if (error) throw error;
+
+      toast.success(`Todos os documentos de ${fornecedorData.fornecedor.razao_social} foram aprovados`);
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao aprovar documentos:", error);
+      toast.error("Erro ao aprovar documentos");
+    }
+  };
+
+  const reverterAprovacaoDocumento = async (campoId: string) => {
+    try {
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({
+          status_solicitacao: "rejeitado",
+          data_aprovacao: null
+        })
+        .eq("id", campoId);
+
+      if (error) throw error;
+
+      toast.success("Aprovação revertida");
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao reverter aprovação:", error);
+      toast.error("Erro ao reverter aprovação");
+    }
+  };
+
   const deletarAutorizacao = async (autorizacaoId: string) => {
     if (!confirm("Tem certeza que deseja deletar esta autorização? Será necessário gerar uma nova.")) {
       return;
@@ -483,252 +589,149 @@ export function DialogFinalizarProcesso({
 
       setAutorizacaoDiretaUrl("");
       setAutorizacaoDiretaId("");
-      toast.success("Autorização deletada com sucesso");
+      toast.success("Autorização deletada");
     } catch (error) {
       console.error("Erro ao deletar autorização:", error);
       toast.error("Erro ao deletar autorização");
     }
   };
 
-  const loadDocumentosFornecedor = async (fornecedorId: string) => {
+  const gerarAutorizacao = async () => {
     try {
-      const { data, error } = await supabase
-        .from("documentos_fornecedor")
-        .select("id, tipo_documento, nome_arquivo, url_arquivo, data_validade, em_vigor")
-        .eq("fornecedor_id", fornecedorId)
-        .eq("em_vigor", true);
+      setLoading(true);
 
-      if (error) throw error;
-
-      // Definir ordem correta dos documentos - usando os nomes EXATOS do banco
-      const ordemDocumentos = [
-        "contrato_social",
-        "cartao_cnpj",
-        "inscricao_estadual_municipal",
-        "cnd_federal",
-        "cnd_tributos_estaduais",
-        "cnd_divida_ativa_estadual",
-        "cnd_tributos_municipais",
-        "cnd_divida_ativa_municipal",
-        "crf_fgts",
-        "fgts",
-        "cndt",
-        "certificado_gestor"
-      ];
-
-      // Filtrar relatorio_kpmg e ordenar documentos
-      const documentosFiltrados = (data || [])
-        .filter(doc => doc.tipo_documento !== "relatorio_kpmg")
-        .sort((a, b) => {
-          const indexA = ordemDocumentos.indexOf(a.tipo_documento);
-          const indexB = ordemDocumentos.indexOf(b.tipo_documento);
-          // Se não encontrar o tipo na ordem, coloca no final
-          if (indexA === -1) return 1;
-          if (indexB === -1) return -1;
-          return indexA - indexB;
-        });
-
-      setDocumentosExistentes(documentosFiltrados);
-    } catch (error) {
-      console.error("Erro ao carregar documentos do fornecedor:", error);
-      toast.error("Erro ao carregar documentos do fornecedor");
-    }
-  };
-
-  const getTipoDocumentoLabel = (tipo: string): string => {
-    const labels: Record<string, string> = {
-      contrato_social: "Contrato Social",
-      cartao_cnpj: "Cartão CNPJ",
-      inscricao_estadual_municipal: "Inscrição Estadual/Municipal",
-      cnd_federal: "CND Federal",
-      cnd_tributos_estaduais: "CND Tributos Estaduais",
-      cnd_divida_ativa_estadual: "CND Dívida Ativa Estadual",
-      cnd_tributos_municipais: "CND Tributos Municipais",
-      cnd_divida_ativa_municipal: "CND Dívida Ativa Municipal",
-      crf_fgts: "CRF FGTS",
-      fgts: "CRF FGTS",
-      cndt: "CNDT",
-      certificado_gestor: "Certificado de Fornecedor",
-    };
-    return labels[tipo] || tipo;
-  };
-
-  const handleVisualizarDocumento = async (doc: DocumentoExistente) => {
-    try {
-      const pathMatch = doc.url_arquivo.match(/processo-anexos\/(.+)$/);
-      if (!pathMatch) {
-        toast.error("URL do documento inválida");
-        return;
-      }
-      const filePath = pathMatch[1];
-      const { data, error } = await supabase.storage
-        .from('processo-anexos')
-        .createSignedUrl(filePath, 60);
-      if (error) throw error;
-      if (!data?.signedUrl) throw new Error("Não foi possível gerar URL de acesso");
-      
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const fullUrl = data.signedUrl.startsWith('http') 
-        ? data.signedUrl 
-        : `${supabaseUrl}/storage/v1${data.signedUrl}`;
-      
-      window.open(fullUrl, '_blank');
-    } catch (error) {
-      console.error("Erro ao abrir documento:", error);
-      toast.error("Erro ao visualizar documento");
-    }
-  };
-
-  const adicionarCampo = () => {
-    if (!novoCampo.nome_campo.trim()) {
-      toast.error("Nome do campo é obrigatório");
-      return;
-    }
-
-    const novaOrdem = campos.length > 0 ? Math.max(...campos.map(c => c.ordem)) + 1 : 1;
-    setCampos([...campos, { ...novoCampo, ordem: novaOrdem }]);
-    setNovoCampo({
-      nome_campo: "",
-      descricao: "",
-      obrigatorio: true,
-      ordem: 0,
-    });
-  };
-
-  const removerCampo = (ordem: number) => {
-    setCampos(campos.filter(c => c.ordem !== ordem));
-  };
-
-  const handleEnviarSolicitacao = async () => {
-    if (!fornecedorSelecionado) {
-      toast.error("Selecione o fornecedor vencedor");
-      return;
-    }
-
-    if (campos.length === 0) {
-      toast.error("Adicione pelo menos um documento para solicitar");
-      return;
-    }
-
-    if (!dataLimiteDocumentos) {
-      toast.error("Informe a data limite para envio dos documentos");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Buscar a ordem máxima atual na cotação para evitar conflitos
-      const { data: camposExistentes } = await supabase
-        .from("campos_documentos_finalizacao")
-        .select("ordem")
-        .eq("cotacao_id", cotacaoId)
-        .order("ordem", { ascending: false })
-        .limit(1);
-
-      const ordemInicial = camposExistentes && camposExistentes.length > 0 
-        ? camposExistentes[0].ordem + 1 
-        : 1;
-
-      // Deletar campos anteriores deste fornecedor se existirem
-      await supabase
-        .from("campos_documentos_finalizacao")
-        .delete()
-        .eq("cotacao_id", cotacaoId)
-        .eq("fornecedor_id", fornecedorSelecionado);
-
-      // Inserir novos campos com status "enviado" e ordem sequencial
-      const camposParaInserir = campos.map((campo, index) => ({
-        cotacao_id: cotacaoId,
-        fornecedor_id: fornecedorSelecionado,
-        nome_campo: campo.nome_campo,
-        descricao: campo.descricao || `Data limite: ${new Date(dataLimiteDocumentos).toLocaleDateString('pt-BR')}`,
-        obrigatorio: campo.obrigatorio,
-        ordem: ordemInicial + index,
-        status_solicitacao: 'enviado',
-        data_solicitacao: new Date().toISOString(),
-      }));
-
-      const { error } = await supabase
-        .from("campos_documentos_finalizacao")
-        .insert(camposParaInserir);
-
-      if (error) throw error;
-
-      toast.success("Solicitação enviada ao fornecedor com sucesso!");
-      setCampos([]);
-      setDataLimiteDocumentos("");
-      await loadStatusDocumentosFornecedor(fornecedorSelecionado);
-    } catch (error) {
-      console.error("Erro ao enviar solicitação:", error);
-      toast.error("Erro ao enviar solicitação");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAprovarDocumentos = async () => {
-    if (!fornecedorSelecionado) {
-      toast.error("Selecione o fornecedor");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Atualizar status dos documentos para "aprovado"
-      await supabase
-        .from("campos_documentos_finalizacao")
-        .update({
-          status_solicitacao: 'aprovado',
-          data_aprovacao: new Date().toISOString(),
-        })
-        .eq("cotacao_id", cotacaoId)
-        .eq("fornecedor_id", fornecedorSelecionado);
-
-      // Atualizar registro de aprovação na cotação
-      const novosAprovados = {
-        ...documentosAprovados,
-        [fornecedorSelecionado]: true
-      };
-
-      await supabase
+      // Buscar dados do processo
+      const { data: cotacao, error: cotacaoError } = await supabase
         .from("cotacoes_precos")
-        .update({ documentos_aprovados: novosAprovados })
-        .eq("id", cotacaoId);
-
-      setDocumentosAprovados(novosAprovados);
-      toast.success("Documentos do fornecedor aprovados com sucesso!");
-      await loadStatusDocumentosFornecedor(fornecedorSelecionado);
-    } catch (error) {
-      console.error("Erro ao aprovar documentos:", error);
-      toast.error("Erro ao aprovar documentos");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFinalizar = async () => {
-    // Verificar se todos os fornecedores vencedores tiveram documentos aprovados
-    const todosAprovados = fornecedores.every(f => documentosAprovados[f.id] === true);
-    
-    if (!todosAprovados) {
-      toast.error("É necessário aprovar os documentos de todos os fornecedores vencedores antes de finalizar o processo");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Atualizar cotação como finalizada
-      const { error: cotacaoError } = await supabase
-        .from("cotacoes_precos")
-        .update({
-          processo_finalizado: true,
-          data_finalizacao: new Date().toISOString(),
-        })
-        .eq("id", cotacaoId);
+        .select("processo_compra_id")
+        .eq("id", cotacaoId)
+        .single();
 
       if (cotacaoError) throw cotacaoError;
 
-      toast.success("Processo finalizado com sucesso! Todos os fornecedores tiveram seus documentos aprovados.");
+      const { data: processo, error: processoError } = await supabase
+        .from("processos_compras")
+        .select("numero_processo_interno, objeto_resumido, criterio_julgamento")
+        .eq("id", cotacao.processo_compra_id)
+        .single();
+
+      if (processoError) throw processoError;
+
+      // Buscar usuário
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data: usuario } = await supabase
+        .from("profiles")
+        .select("nome_completo, cpf")
+        .eq("id", session!.user.id)
+        .single();
+
+      // Buscar respostas e identificar fornecedores vencedores com valores
+      const { data: respostas } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          id,
+          fornecedor_id,
+          fornecedores!inner(razao_social, cnpj)
+        `)
+        .eq("cotacao_id", cotacaoId);
+
+      const { data: itensRespostas } = await supabase
+        .from("respostas_itens_fornecedor")
+        .select(`
+          id,
+          cotacao_resposta_fornecedor_id,
+          valor_unitario_ofertado,
+          itens_cotacao!inner(numero_item, quantidade)
+        `)
+        .in("cotacao_resposta_fornecedor_id", respostas?.map(r => r.id) || []);
+
+      const fornecedoresVencedores = fornecedoresData.map(fData => {
+        const resposta = respostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
+        const itensVencedores = fData.itensVencedores;
+        const itensNumeros = itensVencedores.map(i => i.itens_cotacao.numero_item).sort((a, b) => a - b);
+        
+        let valorTotal = 0;
+        const itensVencedoresComValor: Array<{ numero: number; valor: number }> = [];
+        
+        itensVencedores.forEach(item => {
+          const itemResposta = itensRespostas?.find(
+            ir => ir.cotacao_resposta_fornecedor_id === resposta?.id && 
+                  ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item
+          );
+          if (itemResposta) {
+            const valorItem = Number(itemResposta.valor_unitario_ofertado) * Number(itemResposta.itens_cotacao.quantidade);
+            valorTotal += valorItem;
+            itensVencedoresComValor.push({
+              numero: item.itens_cotacao.numero_item,
+              valor: valorItem
+            });
+          }
+        });
+
+        return {
+          razaoSocial: fData.fornecedor.razao_social,
+          cnpj: resposta?.fornecedores.cnpj || "",
+          itensVencedores: itensVencedoresComValor,
+          valorTotal: valorTotal
+        };
+      });
+
+      const resultadoAutorizacao = await gerarAutorizacaoCompraDireta(
+        processo.numero_processo_interno,
+        processo.objeto_resumido,
+        usuario?.nome_completo || "",
+        usuario?.cpf || "",
+        fornecedoresVencedores
+      );
+
+      // Salvar no banco
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      const { error: insertError } = await (supabase as any)
+        .from("autorizacoes_processo")
+        .insert({
+          cotacao_id: cotacaoId,
+          protocolo: resultadoAutorizacao.protocolo,
+          tipo_autorizacao: "compra_direta",
+          nome_arquivo: resultadoAutorizacao.fileName,
+          url_arquivo: resultadoAutorizacao.url,
+          usuario_gerador_id: currentSession!.user.id,
+          data_geracao: new Date().toISOString()
+        });
+
+      if (insertError) throw insertError;
+
+      setAutorizacaoDiretaUrl(resultadoAutorizacao.url);
+      toast.success("Autorização gerada com sucesso!");
+      await loadAutorizacoes();
+    } catch (error) {
+      console.error("Erro ao gerar autorização:", error);
+      toast.error("Erro ao gerar autorização");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finalizarProcesso = async () => {
+    if (!autorizacaoDiretaUrl) {
+      toast.error("É necessário gerar a autorização antes de enviar para contratação");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { error } = await supabase
+        .from("cotacoes_precos")
+        .update({
+          processo_finalizado: true,
+          data_finalizacao: new Date().toISOString()
+        })
+        .eq("id", cotacaoId);
+
+      if (error) throw error;
+
+      toast.success("Processo enviado para contratação!");
       onSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -739,496 +742,350 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const todosDocumentosAprovados = fornecedoresData.every(f => f.todosDocumentosAprovados);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[95vw] w-[1400px] max-h-[90vh] p-0">
+        <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>Finalizar Processo de Cotação</DialogTitle>
           <DialogDescription>
-            Selecione o fornecedor vencedor, verifique os documentos e solicite apenas documentos faltantes
+            Verifique os documentos de cada fornecedor vencedor e solicite documentos faltantes se necessário
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Seleção de Fornecedor */}
-          <div className="grid gap-2">
-            <Label htmlFor="fornecedor">Fornecedor Vencedor *</Label>
-            <Select value={fornecedorSelecionado} onValueChange={setFornecedorSelecionado}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o fornecedor vencedor" />
-              </SelectTrigger>
-              <SelectContent>
-                {fornecedores.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>
-                    {f.razao_social}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <ScrollArea className="max-h-[calc(90vh-200px)] px-6">
+          <div className="space-y-6 pb-4">
+            {/* Status Geral */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Status da Documentação</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {fornecedoresData.length === 0 ? (
+                  <p className="text-muted-foreground">Nenhum fornecedor vencedor identificado</p>
+                ) : (
+                  <div className="space-y-2">
+                    {fornecedoresData.map(fData => (
+                      <div key={fData.fornecedor.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          {fData.todosDocumentosAprovados ? (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-orange-500" />
+                          )}
+                          <span className="font-medium">{fData.fornecedor.razao_social}</span>
+                        </div>
+                        <Badge variant={fData.todosDocumentosAprovados ? "default" : "secondary"}>
+                          {fData.todosDocumentosAprovados ? "Aprovado" : "Pendente"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Itens Vencedores */}
-          {fornecedorSelecionado && itensVencedores.length > 0 && (
-            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
-              <h3 className="font-semibold mb-3 flex items-center gap-2 text-blue-700 dark:text-blue-400">
-                🏆 Itens Vencedores do Fornecedor
-              </h3>
-              <div className="space-y-2">
-                {itensVencedores.map((item) => (
-                  <div key={item.id} className="flex items-start justify-between text-sm p-2 bg-white dark:bg-background rounded border">
-                    <div className="flex-1">
-                      <span className="font-medium">Item {item.itens_cotacao.numero_item}</span>
-                      {item.itens_cotacao.lotes_cotacao && (
-                        <span className="text-muted-foreground ml-2">
-                          • Lote {item.itens_cotacao.lotes_cotacao.numero_lote}
-                        </span>
-                      )}
-                      <p className="text-muted-foreground mt-1">{item.itens_cotacao.descricao}</p>
-                      <p className="text-sm mt-1">
-                        Quantidade: {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade} • 
-                        Valor Unitário: R$ {Number(item.valor_unitario_ofertado).toFixed(2)} • 
-                        Total: R$ {(Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade)).toFixed(2)}
-                      </p>
+            {/* Cards de Fornecedores */}
+            {fornecedoresData.map((fData) => (
+              <Card key={fData.fornecedor.id} className="border-2">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle>{fData.fornecedor.razao_social}</CardTitle>
+                      <CardDescription className="mt-2">
+                        {fData.todosDocumentosAprovados ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            <span>Documentação completa e aprovada</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-orange-600">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>Documentação pendente de aprovação</span>
+                          </div>
+                        )}
+                      </CardDescription>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Documentos Existentes do Fornecedor */}
-          {fornecedorSelecionado && documentosExistentes.length > 0 && (
-            <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20">
-              <h3 className="font-semibold mb-3 flex items-center gap-2 text-green-700 dark:text-green-400">
-                ✓ Documentos Válidos em Cadastro
-              </h3>
-              <div className="space-y-2">
-                {documentosExistentes.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between text-sm p-2 bg-white dark:bg-background rounded border">
-                    <div className="flex-1">
-                      <span className="font-medium">{getTipoDocumentoLabel(doc.tipo_documento)}</span>
-                      {doc.data_validade && (
-                        <span className="text-muted-foreground ml-2">
-                          • Validade: {doc.data_validade.split('T')[0].split('-').reverse().join('/')}
-                        </span>
-                      )}
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Itens Vencedores */}
+                  {fData.itensVencedores.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        🏆 Itens Vencedores do Fornecedor
+                      </h4>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item</TableHead>
+                            <TableHead>Descrição</TableHead>
+                            <TableHead>Qtd</TableHead>
+                            <TableHead>Unidade</TableHead>
+                            <TableHead className="text-right">Valor Unit.</TableHead>
+                            <TableHead className="text-right">Valor Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {fData.itensVencedores.map((item: any) => (
+                            <TableRow key={item.id}>
+                              <TableCell>{item.itens_cotacao.numero_item}</TableCell>
+                              <TableCell>{item.itens_cotacao.descricao}</TableCell>
+                              <TableCell>{item.itens_cotacao.quantidade}</TableCell>
+                              <TableCell>{item.itens_cotacao.unidade}</TableCell>
+                              <TableCell className="text-right">
+                                R$ {Number(item.valor_unitario_ofertado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                R$ {(Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                        Em vigor
-                      </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleVisualizarDocumento(doc)}
-                      >
-                        <ExternalLink className="h-4 w-4 mr-1" />
-                        Ver
-                      </Button>
+                  )}
+
+                  {/* Documentos Válidos em Cadastro */}
+                  <div>
+                    <h4 className="font-semibold mb-3">📄 Documentos Válidos em Cadastro</h4>
+                    <div className="space-y-2">
+                      {fData.documentosExistentes.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-4 w-4 text-primary" />
+                            <div>
+                              <p className="font-medium">{doc.tipo_documento}</p>
+                              {doc.data_validade && (
+                                <p className="text-sm text-muted-foreground">
+                                  Validade: {new Date(doc.data_validade).toLocaleDateString('pt-BR')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={doc.em_vigor ? "default" : "destructive"}>
+                              {doc.em_vigor ? "Válido" : "Vencido"}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => window.open(doc.url_arquivo, '_blank')}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-              <p className="text-sm text-muted-foreground mt-3">
-                ℹ️ Clique em "Ver" para conferir visualmente cada documento antes de finalizar o processo.
-              </p>
-            </div>
-          )}
 
-          {/* Mensagem quando todos documentos estão OK */}
-          {fornecedorSelecionado && documentosExistentes.length > 0 && campos.length === 0 && (
-            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
-              <p className="text-sm text-blue-700 dark:text-blue-400">
-                ✅ Todos os documentos necessários estão em ordem! Você pode finalizar o processo diretamente ou adicionar campos para solicitar documentos complementares específicos.
-              </p>
-            </div>
-          )}
-
-          {/* Status dos Documentos do Fornecedor */}
-          {fornecedorSelecionado && (
-            <div className="border rounded-lg p-4 bg-muted/50">
-              <h3 className="font-semibold mb-2">Status dos Documentos</h3>
-              {documentosAprovados[fornecedorSelecionado] ? (
-                <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                  <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30">
-                    ✓ Documentos Aprovados
-                  </Badge>
-                </div>
-              ) : statusDocumentosFornecedor === "concluido" ? (
-                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
-                  <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/30">
-                    ⏳ Aguardando Aprovação
-                  </Badge>
-                  <p className="text-sm">Fornecedor enviou os documentos solicitados</p>
-                </div>
-              ) : statusDocumentosFornecedor === "enviado" ? (
-                <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
-                  <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900/30">
-                    📤 Solicitação Enviada
-                  </Badge>
-                  <p className="text-sm">Aguardando fornecedor enviar documentos</p>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Badge variant="outline">
-                    ⚪ Nenhuma Solicitação
-                  </Badge>
-                </div>
-          )}
-
-          {/* Documentos Enviados pelo Fornecedor - Aguardando Aprovação */}
-          {fornecedorSelecionado && campos.length > 0 && campos.some((c: any) => c.status_solicitacao === 'em_analise') && (
-            <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-950/20">
-              <h3 className="font-semibold mb-3 flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
-                ⏳ Documentos Enviados - Aguardando Aprovação
-              </h3>
-              <div className="space-y-3">
-                {campos
-                  .filter((campo: any) => campo.status_solicitacao === 'em_analise')
-                  .map((campo: any) => {
-                    const documentosEnviados = campo.documentos_finalizacao_fornecedor || [];
-                    
-                    return (
-                      <div key={campo.id} className="p-3 bg-white dark:bg-background rounded border">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <p className="font-medium">{campo.nome_campo}</p>
-                            {campo.descricao && (
-                              <p className="text-sm text-muted-foreground mt-1">{campo.descricao}</p>
-                            )}
-                            {documentosEnviados.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                {documentosEnviados.map((doc: any) => (
-                                  <div key={doc.id} className="flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-muted-foreground" />
-                                    <a
-                                      href={doc.url_arquivo}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm text-blue-600 hover:underline"
-                                    >
-                                      {doc.nome_arquivo}
-                                    </a>
-                                    <span className="text-xs text-muted-foreground">
-                                      • {new Date(doc.data_upload).toLocaleDateString()}
-                                    </span>
+                  {/* Documentos Solicitados */}
+                  {fData.campos.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold mb-3">📋 Documentos Solicitados</h4>
+                      <div className="space-y-2">
+                        {fData.campos.map((campo) => (
+                          <div key={campo.id} className="p-3 border rounded-lg">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="font-medium">{campo.nome_campo}</p>
+                                <p className="text-sm text-muted-foreground">{campo.descricao}</p>
+                              </div>
+                              <Badge variant={
+                                campo.status_solicitacao === "aprovado" ? "default" :
+                                campo.status_solicitacao === "em_analise" ? "secondary" :
+                                campo.status_solicitacao === "rejeitado" ? "destructive" :
+                                "outline"
+                              }>
+                                {campo.status_solicitacao === "aprovado" ? "Aprovado" :
+                                 campo.status_solicitacao === "em_analise" ? "Em Análise" :
+                                 campo.status_solicitacao === "rejeitado" ? "Rejeitado" :
+                                 "Pendente"}
+                              </Badge>
+                            </div>
+                            
+                            {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 && (
+                              <div className="mt-2 space-y-2">
+                                {campo.documentos_finalizacao_fornecedor.map((doc) => (
+                                  <div key={doc.id} className="flex items-center justify-between p-2 bg-secondary/20 rounded">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="h-4 w-4" />
+                                      <span className="text-sm">{doc.nome_arquivo}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => window.open(doc.url_arquivo, '_blank')}
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+                                      {campo.status_solicitacao === "em_analise" && (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            variant="default"
+                                            onClick={() => aprovarDocumento(campo.id!)}
+                                          >
+                                            Aprovar
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => rejeitarDocumento(campo.id!)}
+                                          >
+                                            Rejeitar
+                                          </Button>
+                                        </>
+                                      )}
+                                      {campo.status_solicitacao === "aprovado" && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => reverterAprovacaoDocumento(campo.id!)}
+                                        >
+                                          Reverter Aprovação
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
                             )}
                           </div>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                              onClick={async () => {
-                                try {
-                                  const { error } = await supabase
-                                    .from('campos_documentos_finalizacao')
-                                    .update({
-                                      status_solicitacao: 'aprovado',
-                                      data_aprovacao: new Date().toISOString()
-                                    })
-                                    .eq('id', campo.id);
-                                  
-                                  if (error) throw error;
-                                  
-                                  toast.success(`Documento "${campo.nome_campo}" aprovado!`);
-                                  await loadCamposExistentes();
-                                  await loadStatusDocumentosFornecedor(fornecedorSelecionado);
-                                } catch (error) {
-                                  console.error("Erro ao aprovar documento:", error);
-                                  toast.error("Erro ao aprovar documento");
-                                }
-                              }}
-                            >
-                              ✓ Aprovar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="bg-red-600 hover:bg-red-700 text-white"
-                              onClick={async () => {
-                                try {
-                                  const { error } = await supabase
-                                    .from('campos_documentos_finalizacao')
-                                    .update({
-                                      status_solicitacao: 'rejeitado',
-                                    })
-                                    .eq('id', campo.id);
-                                  
-                                  if (error) throw error;
-                                  
-                                  toast.info(`Documento "${campo.nome_campo}" rejeitado. O fornecedor deverá enviar novamente.`);
-                                  await loadCamposExistentes();
-                                  await loadStatusDocumentosFornecedor(fornecedorSelecionado);
-                                } catch (error) {
-                                  console.error("Erro ao rejeitar documento:", error);
-                                  toast.error("Erro ao rejeitar documento");
-                                }
-                              }}
-                            >
-                              ✗ Rejeitar
-                            </Button>
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
-
-          {/* Documentos Aprovados */}
-          {fornecedorSelecionado && campos.length > 0 && campos.some((c: any) => c.status_solicitacao === 'aprovado') && (
-            <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20">
-              <h3 className="font-semibold mb-3 flex items-center gap-2 text-green-700 dark:text-green-400">
-                ✓ Documentos Aprovados
-              </h3>
-              <div className="space-y-2">
-                {campos
-                  .filter((campo: any) => campo.status_solicitacao === 'aprovado')
-                  .map((campo: any) => (
-                    <div key={campo.id} className="p-2 bg-white dark:bg-background rounded border flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">{campo.nome_campo}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Aprovado em {new Date(campo.data_aprovacao).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
+                      
+                      {fData.campos.some(c => c.status_solicitacao === "em_analise") && (
                         <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-red-600 hover:bg-red-700 text-white"
-                          onClick={async () => {
-                            if (!confirm(`Tem certeza que deseja reverter a aprovação do documento "${campo.nome_campo}"? O fornecedor precisará enviá-lo novamente.`)) {
-                              return;
-                            }
-                            try {
-                              const { error } = await supabase
-                                .from('campos_documentos_finalizacao')
-                                .update({
-                                  status_solicitacao: 'rejeitado',
-                                  data_aprovacao: null
-                                })
-                                .eq('id', campo.id);
-                              
-                              if (error) throw error;
-                              
-                              toast.info(`Aprovação do documento "${campo.nome_campo}" revertida. Fornecedor deverá enviar novamente.`);
-                              await loadCamposExistentes();
-                              await loadStatusDocumentosFornecedor(fornecedorSelecionado);
-                            } catch (error) {
-                              console.error("Erro ao reverter aprovação:", error);
-                              toast.error("Erro ao reverter aprovação");
-                            }
-                          }}
+                          onClick={() => aprovarTodosDocumentosFornecedor(fData.fornecedor.id)}
+                          className="w-full mt-3"
                         >
-                          Reverter Aprovação
+                          Aprovar Todos os Documentos deste Fornecedor
                         </Button>
-                        <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                          ✓ Aprovado
-                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Solicitar Documentos Adicionais */}
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3">➕ Solicitar Documentos Adicionais/Faltantes</h4>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <Label>Nome do Documento</Label>
+                        <Input
+                          value={novoCampo.nome}
+                          onChange={(e) => setNovoCampo({...novoCampo, nome: e.target.value})}
+                          placeholder="Ex: Certidão Específica"
+                        />
+                      </div>
+                      <div>
+                        <Label>Data Limite para Envio</Label>
+                        <Input
+                          type="date"
+                          value={dataLimiteDocumentos}
+                          onChange={(e) => setDataLimiteDocumentos(e.target.value)}
+                        />
                       </div>
                     </div>
-                  ))}
-              </div>
-            </div>
-          )}
+                    <div className="mb-3">
+                      <Label>Descrição</Label>
+                      <Textarea
+                        value={novoCampo.descricao}
+                        onChange={(e) => setNovoCampo({...novoCampo, descricao: e.target.value})}
+                        placeholder="Descreva o documento solicitado"
+                        rows={2}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => adicionarCampoDocumento(fData.fornecedor.id)}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Adicionar à Lista
+                      </Button>
+                      <Button
+                        onClick={() => enviarSolicitacaoDocumentos(fData.fornecedor.id)}
+                        className="flex-1"
+                      >
+                        Enviar para Fornecedor
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </ScrollArea>
 
-
-            </div>
-          )}
-
-          {/* Adicionar Novo Campo - Disponível sempre que houver fornecedor selecionado */}
-          {fornecedorSelecionado && (
-            <div className="border rounded-lg p-4 bg-muted/50">
-              <h3 className="font-semibold mb-2">Solicitar Documentos Adicionais/Faltantes</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {documentosAprovados[fornecedorSelecionado] 
-                  ? "Mesmo com documentos aprovados, você pode solicitar documentos complementares caso necessário"
-                  : "Adicione apenas documentos que não constam no cadastro ou que precisam ser atualizados"}
-              </p>
-              <div className="grid gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="nome_campo">Nome do Documento *</Label>
-                  <Input
-                    id="nome_campo"
-                    value={novoCampo.nome_campo}
-                    onChange={(e) => setNovoCampo({ ...novoCampo, nome_campo: e.target.value })}
-                    placeholder="Ex: Certidão Negativa Atualizada, Planilha de Custos..."
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="descricao">Descrição/Observações</Label>
-                  <Input
-                    id="descricao"
-                    value={novoCampo.descricao}
-                    onChange={(e) => setNovoCampo({ ...novoCampo, descricao: e.target.value })}
-                    placeholder="Informações adicionais sobre o documento"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="obrigatorio"
-                    checked={novoCampo.obrigatorio}
-                    onCheckedChange={(checked) => 
-                      setNovoCampo({ ...novoCampo, obrigatorio: checked as boolean })
-                    }
-                  />
-                  <label htmlFor="obrigatorio" className="text-sm font-medium cursor-pointer">
-                    Documento obrigatório
-                  </label>
-                </div>
-                <Button type="button" onClick={adicionarCampo}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Campo
-                </Button>
-              </div>
-            </div>
-
-            {/* Botão Enviar Solicitação - aparece após adicionar pelo menos um campo */}
-            {campos.length > 0 && dataLimiteDocumentos && (
-              <div className="pt-4 border-t">
-                <Button 
-                  type="button" 
-                  onClick={handleEnviarSolicitacao}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  Enviar Solicitação ao Fornecedor
-                </Button>
-                <p className="text-sm text-muted-foreground mt-2 text-center">
-                  O fornecedor receberá notificação e poderá enviar os documentos através do portal
-                </p>
+        <DialogFooter className="px-6 pb-6 pt-4 border-t">
+          <div className="flex flex-col w-full gap-3">
+            {/* Autorização */}
+            {isResponsavelLegal && (
+              <div className="flex items-center gap-3">
+                {!autorizacaoDiretaUrl ? (
+                  <Button
+                    onClick={gerarAutorizacao}
+                    disabled={loading || !todosDocumentosAprovados}
+                    className="flex-1"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Gerar Autorização
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Visualizar Autorização
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = autorizacaoDiretaUrl;
+                        link.download = 'autorizacao-compra-direta.pdf';
+                        link.click();
+                      }}
+                      variant="outline"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Baixar
+                    </Button>
+                    {isResponsavelLegal && (
+                      <Button
+                        onClick={() => deletarAutorizacao(autorizacaoDiretaId)}
+                        variant="destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Deletar
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
             )}
-              
-            {/* Data Limite para Documentos */}
-              {campos.length > 0 && (
-                <div className="grid gap-2">
-                  <Label htmlFor="data_limite">Data Limite para Envio dos Documentos *</Label>
-                  <Input
-                    id="data_limite"
-                    type="date"
-                    value={dataLimiteDocumentos}
-                    onChange={(e) => setDataLimiteDocumentos(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    O fornecedor será notificado e terá até esta data para enviar os documentos solicitados
-                  </p>
-                </div>
-              )}
 
-              {/* Lista de Campos Adicionados */}
-              {campos.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-2">Documentos que Serão Solicitados ao Fornecedor</h3>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>Nome do Documento</TableHead>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead className="w-32">Obrigatório</TableHead>
-                        <TableHead className="w-20 text-right">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {campos.map((campo, index) => (
-                        <TableRow key={campo.ordem}>
-                          <TableCell>{index + 1}</TableCell>
-                          <TableCell className="font-medium">{campo.nome_campo}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {campo.descricao || "-"}
-                          </TableCell>
-                          <TableCell>
-                            {campo.obrigatorio ? (
-                              <span className="text-destructive font-medium">Sim</span>
-                            ) : (
-                              <span className="text-muted-foreground">Não</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removerCampo(campo.ordem)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+            {/* Botões de Ação */}
+            <div className="flex gap-3">
+              <Button onClick={() => onOpenChange(false)} variant="outline" className="flex-1">
+                Cancelar
+              </Button>
+              <Button
+                onClick={finalizarProcesso}
+                disabled={loading || !autorizacaoDiretaUrl}
+                className="flex-1"
+              >
+                Enviar para Contratação
+              </Button>
             </div>
-          )}
-        </div>
-
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          
-          {/* Botão OK por Fornecedor - aparece quando há documentos aprovados mas ainda não deu OK geral */}
-          {fornecedorSelecionado && 
-           campos.some((c: any) => c.status_solicitacao === 'aprovado') && 
-           !documentosAprovados[fornecedorSelecionado] && (
-            <Button 
-              onClick={handleAprovarDocumentos} 
-              disabled={loading || campos.some((c: any) => c.status_solicitacao === 'em_analise')}
-              variant="default"
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {loading ? "Processando..." : "✓ OK por Fornecedor"}
-            </Button>
-          )}
-          
-          {/* Mensagem quando há documentos pendentes de aprovação individual */}
-          {fornecedorSelecionado && 
-           campos.some((c: any) => c.status_solicitacao === 'em_analise') && 
-           !documentosAprovados[fornecedorSelecionado] && (
-            <p className="text-sm text-amber-600 dark:text-amber-400 w-full text-center font-medium">
-              ⚠️ Aprove ou rejeite todos os documentos individualmente antes de dar OK por fornecedor
-            </p>
-          )}
-          
-          {/* Indicador de fornecedor aprovado */}
-          {fornecedorSelecionado && documentosAprovados[fornecedorSelecionado] && (
-            <div className="w-full p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-              <p className="text-sm text-green-700 dark:text-green-400 text-center font-medium">
-                ✓ Documentos deste fornecedor aprovados
-              </p>
-            </div>
-          )}
-          
-          {/* Botão Finalizar Processo - só habilitado quando todos aprovados E autorização gerada */}
-          <Button 
-            onClick={handleFinalizar} 
-            disabled={loading || !fornecedores.every(f => documentosAprovados[f.id] === true) || !autorizacaoDiretaUrl}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            {loading ? "Finalizando..." : "Finalizar Processo"}
-          </Button>
-          
-          {(!fornecedores.every(f => documentosAprovados[f.id] === true) || !autorizacaoDiretaUrl) && (
-            <p className="text-sm text-muted-foreground w-full text-center">
-              {!fornecedores.every(f => documentosAprovados[f.id] === true)
-                ? (fornecedores.length > 1 
-                  ? "Dê OK para todos os fornecedores vencedores para finalizar o processo" 
-                  : "Dê OK para o fornecedor vencedor para finalizar o processo")
-                : "Gere a autorização de compra direta para finalizar o processo"}
-            </p>
-          )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
