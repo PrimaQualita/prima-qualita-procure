@@ -123,6 +123,50 @@ export type Database = {
         }
         Relationships: []
       }
+      autorizacoes_processo: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          data_geracao: string
+          id: string
+          nome_arquivo: string
+          protocolo: string
+          tipo_autorizacao: string
+          url_arquivo: string
+          usuario_gerador_id: string
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          data_geracao?: string
+          id?: string
+          nome_arquivo: string
+          protocolo: string
+          tipo_autorizacao: string
+          url_arquivo: string
+          usuario_gerador_id: string
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          data_geracao?: string
+          id?: string
+          nome_arquivo?: string
+          protocolo?: string
+          tipo_autorizacao?: string
+          url_arquivo?: string
+          usuario_gerador_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autorizacoes_processo_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campos_documentos_finalizacao: {
         Row: {
           cotacao_id: string

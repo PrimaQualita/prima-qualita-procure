@@ -5,6 +5,8 @@ import logoHorizontal from '@/assets/prima-qualita-logo-horizontal.png';
 interface AutorizacaoResult {
   url: string;
   fileName: string;
+  protocolo: string;
+  storagePath: string;
 }
 
 // Função para gerar PDF de autorização com certificação digital
@@ -28,6 +30,15 @@ export const gerarAutorizacaoCompraDireta = async (
     timeStyle: 'medium' 
   });
   const protocolo = `AUT-CD-${numeroProcesso}-${Date.now()}`;
+  
+  // Converter imagem para base64 para incluir no HTML
+  const response = await fetch(logoHorizontal);
+  const blob = await response.blob();
+  const base64Logo = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
   
   const htmlContent = `
     <!DOCTYPE html>
@@ -100,7 +111,7 @@ export const gerarAutorizacaoCompraDireta = async (
     </head>
     <body>
       <div class="header">
-        <img src="${logoHorizontal}" alt="Prima Qualitá Saúde" />
+        <img src="${base64Logo}" alt="Prima Qualitá Saúde" />
       </div>
       
       <div class="title">AUTORIZAÇÃO</div>
@@ -202,7 +213,9 @@ export const gerarAutorizacaoCompraDireta = async (
 
     return {
       url: urlData.signedUrl,
-      fileName: `autorizacao-compra-direta-${numeroProcesso}.pdf`
+      fileName: `autorizacao-compra-direta-${numeroProcesso}.pdf`,
+      protocolo,
+      storagePath: fileName
     };
   } finally {
     document.body.removeChild(element);
@@ -221,6 +234,15 @@ export const gerarAutorizacaoSelecao = async (
     timeStyle: 'medium' 
   });
   const protocolo = `AUT-SF-${numeroProcesso}-${Date.now()}`;
+  
+  // Converter imagem para base64 para incluir no HTML
+  const response = await fetch(logoHorizontal);
+  const blob = await response.blob();
+  const base64Logo = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
   
   const htmlContent = `
     <!DOCTYPE html>
@@ -293,7 +315,7 @@ export const gerarAutorizacaoSelecao = async (
     </head>
     <body>
       <div class="header">
-        <img src="${logoHorizontal}" alt="Prima Qualitá Saúde" />
+        <img src="${base64Logo}" alt="Prima Qualitá Saúde" />
       </div>
       
       <div class="title">AUTORIZAÇÃO</div>
@@ -371,7 +393,9 @@ export const gerarAutorizacaoSelecao = async (
 
     return {
       url: urlData.signedUrl,
-      fileName: `autorizacao-selecao-fornecedores-${numeroProcesso}.pdf`
+      fileName: `autorizacao-selecao-fornecedores-${numeroProcesso}.pdf`,
+      protocolo,
+      storagePath: fileName
     };
   } finally {
     document.body.removeChild(element);
