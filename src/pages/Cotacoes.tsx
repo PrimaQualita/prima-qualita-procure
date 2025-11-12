@@ -104,6 +104,8 @@ const Cotacoes = () => {
   const [usuarioCpf, setUsuarioCpf] = useState('');
   const [autorizacaoSelecaoUrl, setAutorizacaoSelecaoUrl] = useState('');
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState('');
+  const [autorizacaoSelecaoId, setAutorizacaoSelecaoId] = useState('');
+  const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState('');
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
@@ -131,6 +133,7 @@ const Cotacoes = () => {
     if (cotacaoSelecionada) {
       loadItens(cotacaoSelecionada.id);
       loadLotes(cotacaoSelecionada.id);
+      loadAutorizacoes(cotacaoSelecionada.id);
       setCriterioJulgamento(cotacaoSelecionada.criterio_julgamento);
     }
   }, [cotacaoSelecionada]);
@@ -220,6 +223,53 @@ const Cotacoes = () => {
     } else {
       setLotes(data || []);
     }
+  };
+
+  const loadAutorizacoes = async (cotacaoId: string) => {
+    const { data, error } = await supabase
+      .from("autorizacoes_processo")
+      .select("*")
+      .eq("cotacao_id", cotacaoId);
+
+    if (error) {
+      console.error("Erro ao carregar autorizações:", error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      data.forEach(autorizacao => {
+        if (autorizacao.tipo_autorizacao === 'compra_direta') {
+          setAutorizacaoDiretaUrl(autorizacao.url_arquivo);
+          setAutorizacaoDiretaId(autorizacao.id);
+        } else if (autorizacao.tipo_autorizacao === 'selecao_fornecedores') {
+          setAutorizacaoSelecaoUrl(autorizacao.url_arquivo);
+          setAutorizacaoSelecaoId(autorizacao.id);
+        }
+      });
+    }
+  };
+
+  const deletarAutorizacao = async (autorizacaoId: string, tipo: 'compra_direta' | 'selecao_fornecedores') => {
+    const { error } = await supabase
+      .from("autorizacoes_processo")
+      .delete()
+      .eq("id", autorizacaoId);
+
+    if (error) {
+      toast.error("Erro ao deletar autorização");
+      console.error(error);
+      return;
+    }
+
+    if (tipo === 'compra_direta') {
+      setAutorizacaoDiretaUrl('');
+      setAutorizacaoDiretaId('');
+    } else {
+      setAutorizacaoSelecaoUrl('');
+      setAutorizacaoSelecaoId('');
+    }
+
+    toast.success("Autorização deletada com sucesso");
   };
 
   const loadItens = async (cotacaoId: string) => {
@@ -986,7 +1036,7 @@ const Cotacoes = () => {
                             <div className="space-y-2 mt-1">
                               <Button
                                 onClick={async () => {
-                                  if (!processoSelecionado) return;
+                                  if (!processoSelecionado || !cotacaoSelecionada) return;
                                   try {
                                     const result = await gerarAutorizacaoSelecao(
                                       processoSelecionado.numero_processo_interno,
@@ -995,6 +1045,25 @@ const Cotacoes = () => {
                                       usuarioCpf
                                     );
                                     setAutorizacaoSelecaoUrl(result.url);
+                                    
+                                    // Salvar autorização no banco
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    const { data: autorizacao, error: saveError } = await supabase
+                                      .from("autorizacoes_processo")
+                                      .insert({
+                                        cotacao_id: cotacaoSelecionada.id,
+                                        tipo_autorizacao: 'selecao_fornecedores',
+                                        url_arquivo: result.url,
+                                        nome_arquivo: result.fileName,
+                                        protocolo: result.protocolo,
+                                        usuario_gerador_id: session?.user.id
+                                      })
+                                      .select()
+                                      .single();
+                                    
+                                    if (saveError) throw saveError;
+                                    setAutorizacaoSelecaoId(autorizacao.id);
+                                    
                                     toast.success("Autorização gerada e salva com sucesso");
                                   } catch (error) {
                                     console.error("Erro ao gerar autorização:", error);
@@ -1111,7 +1180,7 @@ const Cotacoes = () => {
                             <div className="space-y-2 mt-1">
                               <Button
                                 onClick={async () => {
-                                  if (!processoSelecionado) return;
+                                  if (!processoSelecionado || !cotacaoSelecionada) return;
                                   try {
                                     const result = await gerarAutorizacaoCompraDireta(
                                       processoSelecionado.numero_processo_interno,
@@ -1120,6 +1189,25 @@ const Cotacoes = () => {
                                       usuarioCpf
                                     );
                                     setAutorizacaoDiretaUrl(result.url);
+                                    
+                                    // Salvar autorização no banco
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    const { data: autorizacao, error: saveError } = await supabase
+                                      .from("autorizacoes_processo")
+                                      .insert({
+                                        cotacao_id: cotacaoSelecionada.id,
+                                        tipo_autorizacao: 'compra_direta',
+                                        url_arquivo: result.url,
+                                        nome_arquivo: result.fileName,
+                                        protocolo: result.protocolo,
+                                        usuario_gerador_id: session?.user.id
+                                      })
+                                      .select()
+                                      .single();
+                                    
+                                    if (saveError) throw saveError;
+                                    setAutorizacaoDiretaId(autorizacao.id);
+                                    
                                     toast.success("Autorização gerada e salva com sucesso");
                                   } catch (error) {
                                     console.error("Erro ao gerar autorização:", error);
