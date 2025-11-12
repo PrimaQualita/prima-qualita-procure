@@ -370,19 +370,36 @@ export function DialogPlanilhaConsolidada({
         // Visualização global - exibir todos os itens com marca por fornecedor (se Material)
         html += `
           <table>
-            <thead>
+            <thead>`;
+        
+        if (tipoProcesso === "material") {
+          // Cabeçalho de duas linhas para Material
+          html += `
+              <tr>
+                <th class="col-item" rowspan="2">Item</th>
+                <th class="col-descricao" rowspan="2">Descrição</th>
+                <th class="col-qtd" rowspan="2">Qtd</th>
+                <th class="col-unid" rowspan="2">Unid</th>
+                ${respostas.map(r => `<th class="text-right empresa" colspan="2">${r.fornecedor.razao_social}</th>`).join("")}
+                <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+              </tr>
+              <tr>
+                ${respostas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+              </tr>`;
+        } else {
+          // Cabeçalho de uma linha para outros tipos
+          html += `
               <tr>
                 <th class="col-item">Item</th>
                 <th class="col-descricao">Descrição</th>
                 <th class="col-qtd">Qtd</th>
                 <th class="col-unid">Unid</th>
-                ${respostas.map(r => 
-                  tipoProcesso === "material" 
-                    ? `<th class="col-unid">Marca<br/>${r.fornecedor.razao_social}</th><th class="text-right empresa">Valor<br/>${r.fornecedor.razao_social}</th>`
-                    : `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`
-                ).join("")}
+                ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                 <th class="text-right col-estimativa">Estimativa</th>
-              </tr>
+              </tr>`;
+        }
+        
+        html += `
             </thead>
             <tbody>
         `;
@@ -487,19 +504,36 @@ export function DialogPlanilhaConsolidada({
               LOTE ${primeiroItem.lote_numero} - ${primeiroItem.lote_descricao} (Cálculo: ${tipoCalculoLote === "menor" ? "Menor Preço" : tipoCalculoLote === "media" ? "Média" : "Mediana"})
             </div>
             <table>
-              <thead>
+              <thead>`;
+            
+            if (tipoProcesso === "material") {
+              // Cabeçalho de duas linhas para Material
+              html += `
+                <tr>
+                  <th class="col-item" rowspan="2">Item</th>
+                  <th class="col-descricao" rowspan="2">Descrição</th>
+                  <th class="col-qtd" rowspan="2">Qtd</th>
+                  <th class="col-unid" rowspan="2">Unid</th>
+                  ${respostas.map(r => `<th class="text-right empresa" colspan="2">${r.fornecedor.razao_social}</th>`).join("")}
+                  <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+                </tr>
+                <tr>
+                  ${respostas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+                </tr>`;
+            } else {
+              // Cabeçalho de uma linha para outros tipos
+              html += `
                 <tr>
                   <th class="col-item">Item</th>
                   <th class="col-descricao">Descrição</th>
                   <th class="col-qtd">Qtd</th>
                   <th class="col-unid">Unid</th>
-                  ${respostas.map(r => 
-                    tipoProcesso === "material" 
-                      ? `<th class="col-unid">Marca<br/>${r.fornecedor.razao_social}</th><th class="text-right empresa">Valor<br/>${r.fornecedor.razao_social}</th>`
-                      : `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`
-                  ).join("")}
+                  ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
                   <th class="text-right col-estimativa">Estimativa</th>
-                </tr>
+                </tr>`;
+            }
+            
+            html += `
               </thead>
               <tbody>
           `;
@@ -623,19 +657,36 @@ export function DialogPlanilhaConsolidada({
 
               html += `
                 <table>
-                  <thead>
-                    <tr>
-                      <th class="col-item">Item</th>
-                      <th class="col-descricao">Descrição</th>
-                      <th class="col-qtd">Qtd</th>
-                      <th class="col-unid">Unid</th>
-                      ${respostas.map(r => 
-                        tipoProcesso === "material" 
-                          ? `<th class="col-unid">Marca<br/>${r.fornecedor.razao_social}</th><th class="text-right empresa">Valor<br/>${r.fornecedor.razao_social}</th>`
-                          : `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`
-                      ).join("")}
-                      <th class="text-right col-estimativa">Estimativa</th>
-                    </tr>
+                  <thead>`;
+              
+              if (tipoProcesso === "material") {
+                // Cabeçalho de duas linhas para Material
+                html += `
+                  <tr>
+                    <th class="col-item" rowspan="2">Item</th>
+                    <th class="col-descricao" rowspan="2">Descrição</th>
+                    <th class="col-qtd" rowspan="2">Qtd</th>
+                    <th class="col-unid" rowspan="2">Unid</th>
+                    ${respostas.map(r => `<th class="text-right empresa" colspan="2">${r.fornecedor.razao_social}</th>`).join("")}
+                    <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+                  </tr>
+                  <tr>
+                    ${respostas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+                  </tr>`;
+              } else {
+                // Cabeçalho de uma linha para outros tipos
+                html += `
+                  <tr>
+                    <th class="col-item">Item</th>
+                    <th class="col-descricao">Descrição</th>
+                    <th class="col-qtd">Qtd</th>
+                    <th class="col-unid">Unid</th>
+                    ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
+                    <th class="text-right col-estimativa">Estimativa</th>
+                  </tr>`;
+              }
+              
+              html += `
                   </thead>
                   <tbody>
               `;
@@ -740,19 +791,36 @@ export function DialogPlanilhaConsolidada({
           // Visualização por item sem agrupamento por lote
           html += `
             <table>
-              <thead>
-                <tr>
-                  <th class="col-item">Item</th>
-                  <th class="col-descricao">Descrição</th>
-                  <th class="col-qtd">Qtd</th>
-                  <th class="col-unid">Unid</th>
-                  ${respostas.map(r => 
-                    tipoProcesso === "material" 
-                      ? `<th class="col-unid">Marca<br/>${r.fornecedor.razao_social}</th><th class="text-right empresa">Valor<br/>${r.fornecedor.razao_social}</th>`
-                      : `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`
-                  ).join("")}
-                  <th class="text-right col-estimativa">Estimativa</th>
-                </tr>
+              <thead>`;
+          
+          if (tipoProcesso === "material") {
+            // Cabeçalho de duas linhas para Material
+            html += `
+              <tr>
+                <th class="col-item" rowspan="2">Item</th>
+                <th class="col-descricao" rowspan="2">Descrição</th>
+                <th class="col-qtd" rowspan="2">Qtd</th>
+                <th class="col-unid" rowspan="2">Unid</th>
+                ${respostas.map(r => `<th class="text-right empresa" colspan="2">${r.fornecedor.razao_social}</th>`).join("")}
+                <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+              </tr>
+              <tr>
+                ${respostas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+              </tr>`;
+          } else {
+            // Cabeçalho de uma linha para outros tipos
+            html += `
+              <tr>
+                <th class="col-item">Item</th>
+                <th class="col-descricao">Descrição</th>
+                <th class="col-qtd">Qtd</th>
+                <th class="col-unid">Unid</th>
+                ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
+                <th class="text-right col-estimativa">Estimativa</th>
+              </tr>`;
+          }
+          
+          html += `
               </thead>
               <tbody>
           `;
