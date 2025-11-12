@@ -894,37 +894,53 @@ const Cotacoes = () => {
                       <div className="flex items-center gap-2">
                         <Input
                           id="emails-fornecedores-upload"
-                          type="file"
-                          accept=".pdf,.eml,.msg,.zip"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setEmailsFornecedoresAnexado(file);
-                              toast.success("Cópia dos e-mails anexada com sucesso");
-                            }
-                          }}
-                          className="flex-1"
-                        />
-                        {emailsFornecedoresAnexado && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEmailsFornecedoresAnexado(null);
-                              const input = document.getElementById('emails-fornecedores-upload') as HTMLInputElement;
-                              if (input) input.value = '';
-                              toast.info("Cópia dos e-mails removida");
+                            type="file"
+                            accept=".pdf,.eml,.msg,.zip"
+                            multiple
+                            onChange={async (e) => {
+                              const files = Array.from(e.target.files || []);
+                              if (files.length > 0) {
+                                setEmailsFornecedoresAnexados(prev => [...prev, ...files]);
+                                toast.success(`${files.length} arquivo(s) anexado(s) com sucesso`);
+                              }
                             }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            className="flex-1"
+                          />
+                          {emailsFornecedoresAnexados.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEmailsFornecedoresAnexados([]);
+                                const input = document.getElementById('emails-fornecedores-upload') as HTMLInputElement;
+                                if (input) input.value = '';
+                                toast.info("Todos os e-mails removidos");
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        {emailsFornecedoresAnexados.length > 0 && (
+                          <div className="flex flex-col gap-1 mt-2">
+                            {emailsFornecedoresAnexados.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between text-sm text-muted-foreground">
+                                <span>📎 {file.name}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEmailsFornecedoresAnexados(prev => prev.filter((_, i) => i !== index));
+                                    toast.info("Arquivo removido");
+                                  }}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
                         )}
-                      </div>
-                      {emailsFornecedoresAnexado && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          📎 {emailsFornecedoresAnexado.name}
-                        </p>
-                      )}
                       <p className="text-xs text-muted-foreground mt-1">
                         Anexe a cópia dos e-mails enviados aos fornecedores (PDF, EML, MSG ou ZIP)
                       </p>
