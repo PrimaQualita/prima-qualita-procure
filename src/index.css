@@ -103,8 +103,30 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 
+  /* Padronização global de espaçamento de títulos e subtítulos */
   h1, h2, h3, h4, h5, h6 {
-    line-height: 1.5;
+    line-height: 1.25;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* CardTitle */
+  [class*="CardTitle"] {
+    @apply leading-tight mb-1;
+  }
+  
+  /* CardDescription */
+  [class*="CardDescription"] {
+    @apply leading-tight mt-1;
+  }
+  
+  /* DialogTitle */
+  [class*="DialogTitle"] {
+    @apply leading-tight mb-1;
+  }
+  
+  /* DialogDescription */
+  [class*="DialogDescription"] {
+    @apply leading-tight mt-1;
   }
 }
 
