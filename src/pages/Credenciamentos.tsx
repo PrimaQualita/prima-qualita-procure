@@ -94,8 +94,8 @@ export default function Credenciamentos() {
         ) : !contratoSelecionado ? (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base sm:text-lg">Contratos de Gestão</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">
+              <CardTitle>Credenciamentos</CardTitle>
+              <CardDescription>
                 Selecione um contrato para visualizar os processos que requerem credenciamento
               </CardDescription>
             </CardHeader>
@@ -162,8 +162,8 @@ export default function Credenciamentos() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base sm:text-lg">{contratoSelecionado.nome_contrato}</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">{contratoSelecionado.ente_federativo}</CardDescription>
+                  <CardTitle>{contratoSelecionado.nome_contrato}</CardTitle>
+                  <CardDescription>{contratoSelecionado.ente_federativo}</CardDescription>
                 </div>
                 <Button variant="outline" onClick={() => setContratoSelecionado(null)}>
                   <ArrowLeft className="h-4 w-4 mr-2" />

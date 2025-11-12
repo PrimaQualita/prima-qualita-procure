@@ -729,8 +729,8 @@ const Cotacoes = () => {
         {!contratoSelecionado && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base sm:text-lg">Contratos de Gestão</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">
+              <CardTitle>Cotações de Preços</CardTitle>
+              <CardDescription>
                 Selecione um contrato para visualizar os processos que requerem cotação
               </CardDescription>
             </CardHeader>
