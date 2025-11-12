@@ -350,7 +350,7 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Importar Itens via Planilha Excel</DialogTitle>
           <DialogDescription>
@@ -358,7 +358,7 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 py-4">
+        <div className="grid gap-6 py-4 overflow-y-auto flex-1">
           <div className="grid gap-2">
             <Label>Critério de Julgamento *</Label>
             <Select value={criterio} onValueChange={(v) => setCriterio(v as typeof criterio)}>
