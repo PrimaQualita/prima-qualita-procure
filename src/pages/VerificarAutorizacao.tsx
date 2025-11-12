@@ -30,19 +30,33 @@ export default function VerificarAutorizacao() {
     }
 
     setLoading(true);
-    console.log('🔍 Buscando protocolo:', protocoloParaBuscar.trim());
+    setAutorizacao(null);
+    setTipoDocumento(null);
+    
+    const protocoloLimpo = protocoloParaBuscar.trim();
+    console.log('🔍 [VERIFICAÇÃO] Iniciando busca');
+    console.log('📋 [VERIFICAÇÃO] Protocolo original:', protocoloParaBuscar);
+    console.log('✨ [VERIFICAÇÃO] Protocolo limpo:', protocoloLimpo);
+    console.log('📏 [VERIFICAÇÃO] Tamanho:', protocoloLimpo.length);
+    
     try {
       // Tentar buscar como autorização primeiro
+      console.log('🔎 [VERIFICAÇÃO] Buscando em autorizacoes_processo...');
       const { data: autData, error: autError } = await supabase
         .from('autorizacoes_processo' as any)
         .select('*')
-        .eq('protocolo', protocoloParaBuscar.trim())
+        .eq('protocolo', protocoloLimpo)
         .maybeSingle();
 
-      console.log('📄 Busca em autorizacoes_processo:', { autData, autError });
+      console.log('📄 [VERIFICAÇÃO] Resultado autorizacoes_processo:', { 
+        encontrado: !!autData, 
+        erro: autError?.message,
+        dados: autData 
+      });
 
       if (autData && !autError) {
         // Encontrou autorização
+        console.log('✅ [VERIFICAÇÃO] Autorização encontrada!');
         const { data: cotacao } = await supabase
           .from('cotacoes_precos')
           .select('titulo_cotacao, processo_compra_id')
@@ -80,16 +94,22 @@ export default function VerificarAutorizacao() {
       }
 
       // Se não encontrou autorização, tentar buscar como relatório final
+      console.log('🔎 [VERIFICAÇÃO] Buscando em relatorios_finais...');
       const { data: relData, error: relError } = await supabase
         .from('relatorios_finais' as any)
         .select('*')
-        .eq('protocolo', protocoloParaBuscar.trim())
+        .eq('protocolo', protocoloLimpo)
         .maybeSingle();
 
-      console.log('📋 Busca em relatorios_finais:', { relData, relError });
+      console.log('📋 [VERIFICAÇÃO] Resultado relatorios_finais:', { 
+        encontrado: !!relData, 
+        erro: relError?.message,
+        dados: relData 
+      });
 
       if (relData && !relError) {
         // Encontrou relatório final
+        console.log('✅ [VERIFICAÇÃO] Relatório Final encontrado!');
         const { data: cotacao } = await supabase
           .from('cotacoes_precos')
           .select('titulo_cotacao, processo_compra_id')
@@ -127,15 +147,18 @@ export default function VerificarAutorizacao() {
       }
 
       // Não encontrou nem autorização nem relatório
+      console.error('❌ [VERIFICAÇÃO] Documento não encontrado em nenhuma tabela');
+      console.error('🔍 [VERIFICAÇÃO] Protocolo buscado:', protocoloLimpo);
+      
       toast({
         title: "Documento não encontrado",
-        description: "Não foi possível localizar um documento com este protocolo",
+        description: "Não foi possível localizar um documento com este protocolo. Verifique se o protocolo está correto.",
         variant: "destructive"
       });
       setAutorizacao(null);
       setTipoDocumento(null);
     } catch (error) {
-      console.error('Erro ao verificar documento:', error);
+      console.error('💥 [VERIFICAÇÃO] Erro ao verificar documento:', error);
       toast({
         title: "Erro ao verificar",
         description: "Ocorreu um erro ao buscar o documento",
