@@ -1282,7 +1282,7 @@ const Cotacoes = () => {
                       </div>
                     )}
 
-                    {naoRequerSelecao && (
+                    {processoSelecionado?.requer_selecao === false && (
                       <div className="flex justify-end pt-2">
                         <Button 
                           onClick={() => setDialogFinalizarOpen(true)}

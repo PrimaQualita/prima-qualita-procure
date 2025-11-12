@@ -28,6 +28,7 @@ export default function VerificarAutorizacao() {
     }
 
     setLoading(true);
+    console.log('🔍 Buscando protocolo:', protocolo.trim());
     try {
       // Tentar buscar como autorização primeiro
       const { data: autData, error: autError } = await supabase
@@ -35,6 +36,8 @@ export default function VerificarAutorizacao() {
         .select('*')
         .eq('protocolo', protocolo.trim())
         .maybeSingle();
+
+      console.log('📄 Busca em autorizacoes_processo:', { autData, autError });
 
       if (autData && !autError) {
         // Encontrou autorização
@@ -80,6 +83,8 @@ export default function VerificarAutorizacao() {
         .select('*')
         .eq('protocolo', protocolo.trim())
         .maybeSingle();
+
+      console.log('📋 Busca em relatorios_finais:', { relData, relError });
 
       if (relData && !relError) {
         // Encontrou relatório final
