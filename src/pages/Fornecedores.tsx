@@ -538,22 +538,6 @@ export default function Fornecedores() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-12" />
-            <div>
-              <h1 className="text-xl font-bold">Cadastro de Fornecedores</h1>
-              <p className="text-sm text-muted-foreground">Gerencie perguntas, fornecedores e avaliações</p>
-            </div>
-          </div>
-          <Button variant="outline" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
-          </Button>
-        </div>
-      </div>
-
       <div className="container mx-auto px-4 py-8 space-y-6">
         {/* Perguntas Ativas */}
         <Card>
