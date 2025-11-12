@@ -9,21 +9,27 @@ interface RelatorioFinalResult {
   storagePath: string;
 }
 
+interface FornecedorVencedor {
+  razaoSocial: string;
+  cnpj: string;
+  itensVencedores: Array<{ numero: number; valor: number }>;
+  valorTotal: number;
+}
+
 interface DadosRelatorioFinal {
   numeroProcesso: string;
   objetoProcesso: string;
   usuarioNome: string;
   usuarioCpf: string;
-  valorTotalEstimado: number;
-  fornecedoresVencedores: Array<{
-    razaoSocial: string;
-    cnpj: string;
-    valorTotal: number;
-    itensVencedores: Array<{ numero: number; descricao: string; valor: number }>;
-  }>;
-  dataAbertura: string;
-  criterioJulgamento: string;
+  fornecedoresVencedores: FornecedorVencedor[];
 }
+
+// Função para extrair texto simples de HTML
+const extractTextFromHTML = (html: string): string => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+};
 
 export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<RelatorioFinalResult> => {
   console.log('[PDF] Iniciando geração - Relatório Final');
@@ -45,7 +51,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
-  // Função para adicionar logo e rodapé em todas as páginas
+  // Função para adicionar logo e rodapé
   const adicionarLogoERodape = async () => {
     // Logo
     const base64Logo = await new Promise<string>((resolve, reject) => {
@@ -74,9 +80,9 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yRodape, { align: 'center' });
-    doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape + 5, { align: 'center' });
-    doc.text('Travessa do Ouvidor, 21, Sala 203, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yRodape + 10, { align: 'center' });
+    doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape, { align: 'center' });
+    doc.text('Rua Dr. Francisco de Souza, nº 728, Centro', pageWidth / 2, yRodape + 5, { align: 'center' });
+    doc.text('Rio Bonito, RJ - CEP 28800-000', pageWidth / 2, yRodape + 10, { align: 'center' });
     doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 15, { align: 'center' });
   };
   
@@ -86,114 +92,131 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   // Título
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('RELATÓRIO FINAL DE PROCESSO', pageWidth / 2, 45, { align: 'center' });
+  doc.text('RELATÓRIO FINAL', pageWidth / 2, 45, { align: 'center' });
+  
+  doc.setFontSize(14);
+  doc.text('COTAÇÃO DE PREÇOS', pageWidth / 2, 52, { align: 'center' });
   
   // Processo
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  let yPos = 60;
-  doc.text(`Processo nº: ${dados.numeroProcesso}`, 20, yPos);
-  yPos += 8;
-  
-  // Data de Abertura
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Data de Abertura: ${new Date(dados.dataAbertura).toLocaleDateString('pt-BR')}`, 20, yPos);
-  yPos += 8;
-  
-  // Objeto
-  doc.setFont('helvetica', 'bold');
-  doc.text('Objeto:', 20, yPos);
-  yPos += 6;
-  doc.setFont('helvetica', 'normal');
-  const linhasObjeto = doc.splitTextToSize(dados.objetoProcesso.replace(/<[^>]*>/g, ''), 170);
-  doc.text(linhasObjeto, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasObjeto.length * 5 + 10;
-  
-  // Critério de Julgamento
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Critério de Julgamento: `, 20, yPos);
-  doc.setFont('helvetica', 'normal');
-  doc.text(dados.criterioJulgamento, 70, yPos);
+  let yPos = 65;
+  doc.text(`PROCESSO ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 10;
   
-  // Valor Total Estimado
+  // Assunto
   doc.setFont('helvetica', 'bold');
-  doc.text('Valor Total Estimado: ', 20, yPos);
+  const textoLimpo = extractTextFromHTML(dados.objetoProcesso);
+  const linhasAssunto = doc.splitTextToSize(`ASSUNTO: ${textoLimpo}`, 170);
+  doc.text(linhasAssunto, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhasAssunto.length * 6 + 10;
+  
+  // Parágrafo 1
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text(`R$ ${dados.valorTotalEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 70, yPos);
-  yPos += 15;
+  const texto1 = 'O Pedido de Cotação foi divulgado no site da Prima Qualitá Saúde (www.primaqualitasaude.org), foi encaminhado e-mails conforme comprovantes.';
+  const linhas1 = doc.splitTextToSize(texto1, 170);
+  doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhas1.length * 6 + 8;
   
-  // Fornecedores Vencedores
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('FORNECEDORES VENCEDORES', pageWidth / 2, yPos, { align: 'center' });
-  yPos += 10;
+  // Parágrafo 2
+  const texto2 = 'Assim, as propostas das empresas proponentes foram analisadas, sendo verificado que a(s) empresa(s) apresentou(aram) menor(res) valor(res), conforme tabela abaixo:';
+  const linhas2 = doc.splitTextToSize(texto2, 170);
+  doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhas2.length * 6 + 5;
   
-  doc.setFontSize(10);
-  dados.fornecedoresVencedores.forEach((fornecedor, index) => {
-    // Verificar se precisa de nova página
-    if (yPos > pageHeight - 60) {
-      doc.addPage();
-      yPos = 40;
-    }
+  // Tabela de fornecedores vencedores (igual à autorização)
+  if (dados.fornecedoresVencedores && dados.fornecedoresVencedores.length > 0) {
+    doc.setFontSize(10);
     
+    // Cabeçalho da tabela
+    doc.setFillColor(0, 51, 102);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(20, yPos, 50, 8, 'FD');
+    doc.rect(70, yPos, 40, 8, 'FD');
+    doc.rect(110, yPos, 30, 8, 'FD');
+    doc.rect(140, yPos, 50, 8, 'FD');
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${index + 1}. ${fornecedor.razaoSocial}`, 20, yPos);
-    yPos += 6;
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text(`CNPJ: ${fornecedor.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}`, 25, yPos);
-    yPos += 6;
-    
-    doc.text(`Valor Total: R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, yPos);
-    yPos += 6;
-    
-    if (fornecedor.itensVencedores.length > 0) {
-      doc.text('Itens Vencidos:', 25, yPos);
-      yPos += 5;
-      fornecedor.itensVencedores.forEach((item) => {
-        doc.text(`  • Item ${item.numero}: ${item.descricao} - R$ ${item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 30, yPos);
-        yPos += 5;
-      });
-    }
+    doc.text('Empresa', 45, yPos + 5, { align: 'center' });
+    doc.text('CNPJ', 90, yPos + 5, { align: 'center' });
+    doc.text('Itens Vencidos', 125, yPos + 5, { align: 'center' });
+    doc.text('Valor Total', 165, yPos + 5, { align: 'center' });
     yPos += 8;
-  });
-  
-  // Certificação Digital
-  if (yPos > pageHeight - 60) {
-    doc.addPage();
-    yPos = 40;
+    
+    // Conteúdo da tabela
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    
+    let totalGeral = 0;
+    
+    const formatarCNPJ = (cnpj: string) => {
+      const apenasNumeros = cnpj.replace(/\D/g, '');
+      if (apenasNumeros.length === 14) {
+        return apenasNumeros.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+      }
+      return cnpj;
+    };
+    
+    dados.fornecedoresVencedores.forEach((fornecedor) => {
+      const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 45);
+      const alturaLinha = Math.max(10, razaoSocialSplit.length * 4 + 4);
+      
+      doc.rect(20, yPos, 50, alturaLinha);
+      doc.rect(70, yPos, 40, alturaLinha);
+      doc.rect(110, yPos, 30, alturaLinha);
+      doc.rect(140, yPos, 50, alturaLinha);
+      
+      const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 4;
+      razaoSocialSplit.forEach((linha: string, index: number) => {
+        doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 46 });
+      });
+      
+      const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
+      const offsetVerticalCNPJ = (alturaLinha - 4) / 2 + 4;
+      doc.text(cnpjFormatado, 72, yPos + offsetVerticalCNPJ);
+      
+      const itensText = fornecedor.itensVencedores.map(i => i.numero).join(', ');
+      const offsetVerticalItens = (alturaLinha - 4) / 2 + 4;
+      doc.text(itensText, 125, yPos + offsetVerticalItens, { align: 'center' });
+      
+      const offsetVerticalValor = (alturaLinha - 4) / 2 + 4;
+      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + offsetVerticalValor, { align: 'right' });
+      
+      totalGeral += fornecedor.valorTotal;
+      yPos += alturaLinha;
+    });
+    
+    // Linha de Total Geral
+    doc.setFillColor(240, 240, 240);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(20, yPos, 120, 8, 'FD');
+    doc.rect(140, yPos, 50, 8, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('TOTAL GERAL', 22, yPos + 5);
+    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + 5, { align: 'right' });
+    yPos += 16;
   }
   
-  doc.setFillColor(240, 249, 255);
-  doc.setDrawColor(0, 51, 102);
-  doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 40, 'FD');
-  
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 51, 102);
-  doc.text('CERTIFICAÇÃO DIGITAL', 25, yPos + 6);
-  
-  doc.setFontSize(8);
+  // Parágrafo 3
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
-  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 12);
-  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 18);
-  doc.text(`Responsável: ${dados.usuarioNome} | CPF: ${dados.usuarioCpf}`, 25, yPos + 24);
+  const texto3 = 'A(s) empresa(s) encaminhou(aram) os documentos de habilitação que foram analisados, concluindo-se que ambas estavam habilitadas.';
+  const linhas3 = doc.splitTextToSize(texto3, 170);
+  doc.text(linhas3, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhas3.length * 6 + 8;
   
-  const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
-  doc.text(`Hash: ${hash}`, 25, yPos + 30);
+  // Parágrafo 4
+  const texto4 = 'Tendo em vista que o valor cotado está abaixo do estipulado no Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, verifica-se possibilidade de contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES.';
+  const linhas4 = doc.splitTextToSize(texto4, 170);
+  doc.text(linhas4, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhas4.length * 6 + 8;
   
-  doc.setTextColor(0, 51, 102);
-  const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
-  const linkCompleto = `${linkBase}/verificar-autorizacao?protocolo=${protocolo}`;
-  const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
-  doc.text(linkQuebrado, 25, yPos + 35);
-  
-  doc.setFont('helvetica', 'italic');
-  doc.setTextColor(0, 0, 0);
-  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yPos + 39);
+  // Parágrafo 5
+  const texto5 = 'Sendo assim, encaminha-se ao Responsável Legal para autorização do procedimento.';
+  const linhas5 = doc.splitTextToSize(texto5, 170);
+  doc.text(linhas5, 20, yPos, { align: 'justify', maxWidth: 170 });
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');

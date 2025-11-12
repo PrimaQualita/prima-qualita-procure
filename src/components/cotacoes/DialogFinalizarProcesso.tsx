@@ -756,10 +756,7 @@ export function DialogFinalizarProcesso({
         objetoProcesso: processo.objeto_resumido,
         usuarioNome: usuario?.nome_completo || "",
         usuarioCpf: usuario?.cpf || "",
-        valorTotalEstimado: Number(processo.valor_estimado_anual),
-        fornecedoresVencedores,
-        dataAbertura: processo.data_abertura,
-        criterioJulgamento: processo.criterio_julgamento
+        fornecedoresVencedores
       });
 
       // Salvar referência no banco
