@@ -134,10 +134,10 @@ export const gerarAutorizacaoCompraDireta = async (
     doc.rect(20, yPos, 170, 8, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('Empresa', 22, yPos + 5);
-    doc.text('CNPJ', 70, yPos + 5);
-    doc.text('Itens Vencidos', 120, yPos + 5, { align: 'center' }); // Centralizado
-    doc.text('Valor Total', 155, yPos + 5);
+    doc.text('Empresa', 45, yPos + 5, { align: 'center' }); // Centralizado na célula
+    doc.text('CNPJ', 90, yPos + 5, { align: 'center' }); // Centralizado na célula
+    doc.text('Itens Vencidos', 125, yPos + 5, { align: 'center' }); // Centralizado na célula
+    doc.text('Valor Total', 165, yPos + 5, { align: 'center' }); // Centralizado na célula
     yPos += 8;
     
     // Conteúdo da tabela - uma linha por fornecedor

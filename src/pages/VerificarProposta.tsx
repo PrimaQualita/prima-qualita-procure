@@ -66,7 +66,6 @@ const VerificarProposta = () => {
             data_geracao,
             nome_arquivo,
             tipo_autorizacao,
-            usuario_gerador_id,
             cotacao_id
           `)
           .eq("protocolo", protocolo)
@@ -77,9 +76,22 @@ const VerificarProposta = () => {
         if (!data) {
           setErro("Autorização não encontrada com este protocolo");
         } else {
-          toast.success("Autorização verificada com sucesso!");
-          // Para autorizações, redirecionar ou mostrar informações
-          setErro(`Protocolo válido: ${data.protocolo} - Tipo: ${data.tipo_autorizacao}`);
+          // Autorização encontrada - mostrar sucesso
+          setResposta({
+            id: data.protocolo,
+            valor_total_anual_ofertado: 0,
+            data_envio_resposta: data.data_geracao,
+            fornecedor: {
+              razao_social: "Documento de Autorização",
+              cnpj: "N/A",
+            },
+            cotacao: {
+              titulo_cotacao: data.tipo_autorizacao === 'compra_direta' ? 'Autorização de Compra Direta' : 'Autorização de Seleção de Fornecedores',
+              processo: {
+                numero_processo_interno: data.protocolo,
+              },
+            },
+          });
         }
       } else {
         // Buscar na tabela de respostas de cotação (propostas)
@@ -244,29 +256,33 @@ const VerificarProposta = () => {
                   </div>
 
                   <div className="flex justify-between items-start py-2 border-b">
-                    <span className="text-sm font-medium text-muted-foreground">Cotação:</span>
+                    <span className="text-sm font-medium text-muted-foreground">Processo/Tipo:</span>
                     <span className="text-sm font-medium">{resposta.cotacao.titulo_cotacao}</span>
                   </div>
 
-                  <div className="flex justify-between items-start py-2 border-b">
-                    <span className="text-sm font-medium text-muted-foreground">Fornecedor:</span>
-                    <span className="text-sm font-medium">{resposta.fornecedor.razao_social}</span>
-                  </div>
+                  {resposta.fornecedor.razao_social !== "Documento de Autorização" && (
+                    <>
+                      <div className="flex justify-between items-start py-2 border-b">
+                        <span className="text-sm font-medium text-muted-foreground">Fornecedor:</span>
+                        <span className="text-sm font-medium">{resposta.fornecedor.razao_social}</span>
+                      </div>
 
-                  <div className="flex justify-between items-start py-2 border-b">
-                    <span className="text-sm font-medium text-muted-foreground">CNPJ:</span>
-                    <span className="text-sm font-medium">{formatarCNPJ(resposta.fornecedor.cnpj)}</span>
-                  </div>
+                      <div className="flex justify-between items-start py-2 border-b">
+                        <span className="text-sm font-medium text-muted-foreground">CNPJ:</span>
+                        <span className="text-sm font-medium">{formatarCNPJ(resposta.fornecedor.cnpj)}</span>
+                      </div>
 
-                  <div className="flex justify-between items-start py-2">
-                    <span className="text-sm font-medium text-muted-foreground">Valor Total:</span>
-                    <span className="text-lg font-bold text-primary">
-                      R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
-                    </span>
-                  </div>
+                      <div className="flex justify-between items-start py-2">
+                        <span className="text-sm font-medium text-muted-foreground">Valor Total:</span>
+                        <span className="text-lg font-bold text-primary">
+                          R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
