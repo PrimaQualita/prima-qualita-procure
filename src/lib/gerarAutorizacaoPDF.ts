@@ -1,15 +1,26 @@
-// Função para gerar PDF de autorização usando apenas HTML/CSS e window.print()
+import html2pdf from 'html2pdf.js';
+import { supabase } from '@/integrations/supabase/client';
+import logoHorizontal from '@/assets/prima-qualita-logo-horizontal.png';
+
+interface AutorizacaoResult {
+  url: string;
+  fileName: string;
+}
+
+// Função para gerar PDF de autorização com certificação digital
 export const gerarAutorizacaoCompraDireta = async (
   numeroProcesso: string,
-  objetoProcesso: string
-): Promise<void> => {
-  // Criar um iframe invisível para impressão
-  const printWindow = window.open('', '', 'height=842,width=595');
+  objetoProcesso: string,
+  usuarioNome: string,
+  usuarioCpf: string
+): Promise<AutorizacaoResult> => {
+  const agora = new Date();
+  const dataHora = agora.toLocaleString('pt-BR', { 
+    dateStyle: 'long', 
+    timeStyle: 'medium' 
+  });
+  const protocolo = `AUT-CD-${numeroProcesso}-${Date.now()}`;
   
-  if (!printWindow) {
-    throw new Error('Não foi possível abrir janela de impressão');
-  }
-
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -32,9 +43,9 @@ export const gerarAutorizacaoCompraDireta = async (
           text-align: center;
           margin-bottom: 30px;
         }
-        .header h1 {
-          font-size: 16pt;
-          margin: 10px 0;
+        .header img {
+          max-width: 300px;
+          height: auto;
         }
         .title {
           text-align: center;
@@ -56,8 +67,22 @@ export const gerarAutorizacaoCompraDireta = async (
           text-align: justify;
           margin: 30px 0;
         }
-        .footer {
+        .certificacao {
           margin-top: 50px;
+          padding: 20px;
+          border: 2px solid #003366;
+          background-color: #f0f9ff;
+        }
+        .certificacao h3 {
+          margin-top: 0;
+          color: #003366;
+        }
+        .certificacao p {
+          margin: 5px 0;
+          font-size: 10pt;
+        }
+        .footer {
+          margin-top: 30px;
           text-align: center;
           font-size: 10pt;
           border-top: 1px solid #ccc;
@@ -67,7 +92,7 @@ export const gerarAutorizacaoCompraDireta = async (
     </head>
     <body>
       <div class="header">
-        <h1>PRIMA QUALITA SAUDE</h1>
+        <img src="${logoHorizontal}" alt="Prima Qualitá Saúde" />
       </div>
       
       <div class="title">AUTORIZAÇÃO</div>
@@ -82,6 +107,19 @@ export const gerarAutorizacaoCompraDireta = async (
         <p>Encaminha-se ao Departamento de Compras, para as providências cabíveis.</p>
       </div>
       
+      <div class="certificacao">
+        <h3>🔐 CERTIFICAÇÃO DIGITAL</h3>
+        <p><strong>Protocolo:</strong> ${protocolo}</p>
+        <p><strong>Data/Hora de Geração:</strong> ${dataHora}</p>
+        <p><strong>Responsável Legal:</strong> ${usuarioNome}</p>
+        <p><strong>CPF:</strong> ${usuarioCpf}</p>
+        <p><strong>Tipo:</strong> Autorização para Compra Direta</p>
+        <p style="margin-top: 15px; font-size: 9pt; font-style: italic;">
+          Este documento foi gerado eletronicamente e possui validade legal conforme Lei 14.063/2020.
+          A autenticidade pode ser verificada através do protocolo acima.
+        </p>
+      </div>
+      
       <div class="footer">
         <p>PRIMA QUALITA SAUDE</p>
         <p>www.primaqualitasaude.org</p>
@@ -94,26 +132,62 @@ export const gerarAutorizacaoCompraDireta = async (
     </html>
   `;
 
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
-  
-  // Aguardar um pouco para garantir que o conteúdo foi carregado
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  printWindow.print();
-  printWindow.close();
+  // Criar elemento temporário para gerar PDF
+  const element = document.createElement('div');
+  element.innerHTML = htmlContent;
+  element.style.position = 'absolute';
+  element.style.left = '-9999px';
+  document.body.appendChild(element);
+
+  try {
+    const opt = {
+      margin: 0,
+      filename: `autorizacao-compra-direta-${numeroProcesso}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+    };
+
+    const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+    
+    // Upload para Supabase Storage
+    const fileName = `autorizacoes/compra-direta-${numeroProcesso}-${Date.now()}.pdf`;
+    const { data, error } = await supabase.storage
+      .from('processo-anexos')
+      .upload(fileName, pdfBlob, {
+        contentType: 'application/pdf',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    // Obter URL pública
+    const { data: urlData } = supabase.storage
+      .from('processo-anexos')
+      .getPublicUrl(fileName);
+
+    return {
+      url: urlData.publicUrl,
+      fileName: `autorizacao-compra-direta-${numeroProcesso}.pdf`
+    };
+  } finally {
+    document.body.removeChild(element);
+  }
 };
 
 export const gerarAutorizacaoSelecao = async (
   numeroProcesso: string,
-  objetoProcesso: string
-): Promise<void> => {
-  const printWindow = window.open('', '', 'height=842,width=595');
+  objetoProcesso: string,
+  usuarioNome: string,
+  usuarioCpf: string
+): Promise<AutorizacaoResult> => {
+  const agora = new Date();
+  const dataHora = agora.toLocaleString('pt-BR', { 
+    dateStyle: 'long', 
+    timeStyle: 'medium' 
+  });
+  const protocolo = `AUT-SF-${numeroProcesso}-${Date.now()}`;
   
-  if (!printWindow) {
-    throw new Error('Não foi possível abrir janela de impressão');
-  }
-
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -136,9 +210,9 @@ export const gerarAutorizacaoSelecao = async (
           text-align: center;
           margin-bottom: 30px;
         }
-        .header h1 {
-          font-size: 16pt;
-          margin: 10px 0;
+        .header img {
+          max-width: 300px;
+          height: auto;
         }
         .title {
           text-align: center;
@@ -160,8 +234,22 @@ export const gerarAutorizacaoSelecao = async (
           text-align: justify;
           margin: 30px 0;
         }
-        .footer {
+        .certificacao {
           margin-top: 50px;
+          padding: 20px;
+          border: 2px solid #003366;
+          background-color: #f0f9ff;
+        }
+        .certificacao h3 {
+          margin-top: 0;
+          color: #003366;
+        }
+        .certificacao p {
+          margin: 5px 0;
+          font-size: 10pt;
+        }
+        .footer {
+          margin-top: 30px;
           text-align: center;
           font-size: 10pt;
           border-top: 1px solid #ccc;
@@ -171,7 +259,7 @@ export const gerarAutorizacaoSelecao = async (
     </head>
     <body>
       <div class="header">
-        <h1>PRIMA QUALITA SAUDE</h1>
+        <img src="${logoHorizontal}" alt="Prima Qualitá Saúde" />
       </div>
       
       <div class="title">AUTORIZAÇÃO</div>
@@ -186,6 +274,19 @@ export const gerarAutorizacaoSelecao = async (
         <p>Encaminha-se ao Departamento de Compras, para as providências cabíveis.</p>
       </div>
       
+      <div class="certificacao">
+        <h3>🔐 CERTIFICAÇÃO DIGITAL</h3>
+        <p><strong>Protocolo:</strong> ${protocolo}</p>
+        <p><strong>Data/Hora de Geração:</strong> ${dataHora}</p>
+        <p><strong>Responsável Legal:</strong> ${usuarioNome}</p>
+        <p><strong>CPF:</strong> ${usuarioCpf}</p>
+        <p><strong>Tipo:</strong> Autorização para Seleção de Fornecedores</p>
+        <p style="margin-top: 15px; font-size: 9pt; font-style: italic;">
+          Este documento foi gerado eletronicamente e possui validade legal conforme Lei 14.063/2020.
+          A autenticidade pode ser verificada através do protocolo acima.
+        </p>
+      </div>
+      
       <div class="footer">
         <p>PRIMA QUALITA SAUDE</p>
         <p>www.primaqualitasaude.org</p>
@@ -198,11 +299,45 @@ export const gerarAutorizacaoSelecao = async (
     </html>
   `;
 
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
-  
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  printWindow.print();
-  printWindow.close();
+  // Criar elemento temporário para gerar PDF
+  const element = document.createElement('div');
+  element.innerHTML = htmlContent;
+  element.style.position = 'absolute';
+  element.style.left = '-9999px';
+  document.body.appendChild(element);
+
+  try {
+    const opt = {
+      margin: 0,
+      filename: `autorizacao-selecao-fornecedores-${numeroProcesso}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+    };
+
+    const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+    
+    // Upload para Supabase Storage
+    const fileName = `autorizacoes/selecao-fornecedores-${numeroProcesso}-${Date.now()}.pdf`;
+    const { data, error } = await supabase.storage
+      .from('processo-anexos')
+      .upload(fileName, pdfBlob, {
+        contentType: 'application/pdf',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    // Obter URL pública
+    const { data: urlData } = supabase.storage
+      .from('processo-anexos')
+      .getPublicUrl(fileName);
+
+    return {
+      url: urlData.publicUrl,
+      fileName: `autorizacao-selecao-fornecedores-${numeroProcesso}.pdf`
+    };
+  } finally {
+    document.body.removeChild(element);
+  }
 };

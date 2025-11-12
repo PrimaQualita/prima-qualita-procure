@@ -100,6 +100,10 @@ const Cotacoes = () => {
   const [emailsFornecedoresAnexado, setEmailsFornecedoresAnexado] = useState<File | null>(null);
   const [uploadingAutorizacao, setUploadingAutorizacao] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
+  const [usuarioNome, setUsuarioNome] = useState('');
+  const [usuarioCpf, setUsuarioCpf] = useState('');
+  const [autorizacaoSelecaoUrl, setAutorizacaoSelecaoUrl] = useState('');
+  const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState('');
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
@@ -961,26 +965,41 @@ const Cotacoes = () => {
                             Autorização *
                           </Label>
                           {isResponsavelLegal ? (
-                            <Button
-                              onClick={async () => {
-                                if (!processoSelecionado) return;
-                                try {
-                                  await gerarAutorizacaoSelecao(
-                                    processoSelecionado.numero_processo_interno,
-                                    processoSelecionado.objeto_resumido
-                                  );
-                                  toast.success("Autorização gerada! Use a janela de impressão para salvar como PDF.");
-                                } catch (error) {
-                                  console.error("Erro ao gerar autorização:", error);
-                                  toast.error("Erro ao gerar autorização");
-                                }
-                              }}
-                              variant="outline"
-                              className="w-full mt-1"
-                            >
-                              <FileText className="mr-2 h-4 w-4" />
-                              Gerar Autorização
-                            </Button>
+                            <div className="space-y-2 mt-1">
+                              <Button
+                                onClick={async () => {
+                                  if (!processoSelecionado) return;
+                                  try {
+                                    const result = await gerarAutorizacaoSelecao(
+                                      processoSelecionado.numero_processo_interno,
+                                      processoSelecionado.objeto_resumido,
+                                      usuarioNome,
+                                      usuarioCpf
+                                    );
+                                    setAutorizacaoSelecaoUrl(result.url);
+                                    toast.success("Autorização gerada e salva com sucesso");
+                                  } catch (error) {
+                                    console.error("Erro ao gerar autorização:", error);
+                                    toast.error("Erro ao gerar autorização");
+                                  }
+                                }}
+                                variant="outline"
+                                className="w-full"
+                              >
+                                <FileText className="mr-2 h-4 w-4" />
+                                Gerar Autorização
+                              </Button>
+                              {autorizacaoSelecaoUrl && (
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => window.open(autorizacaoSelecaoUrl, '_blank')}
+                                  className="w-full"
+                                >
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  Baixar Autorização
+                                </Button>
+                              )}
+                            </div>
                           ) : (
                             <>
                               <div className="flex items-center gap-2 mt-1">
@@ -1056,26 +1075,41 @@ const Cotacoes = () => {
                             Autorização *
                           </Label>
                           {isResponsavelLegal ? (
-                            <Button
-                              onClick={async () => {
-                                if (!processoSelecionado) return;
-                                try {
-                                  await gerarAutorizacaoCompraDireta(
-                                    processoSelecionado.numero_processo_interno,
-                                    processoSelecionado.objeto_resumido
-                                  );
-                                  toast.success("Autorização gerada! Use a janela de impressão para salvar como PDF.");
-                                } catch (error) {
-                                  console.error("Erro ao gerar autorização:", error);
-                                  toast.error("Erro ao gerar autorização");
-                                }
-                              }}
-                              variant="outline"
-                              className="w-full mt-1"
-                            >
-                              <FileText className="mr-2 h-4 w-4" />
-                              Gerar Autorização
-                            </Button>
+                            <div className="space-y-2 mt-1">
+                              <Button
+                                onClick={async () => {
+                                  if (!processoSelecionado) return;
+                                  try {
+                                    const result = await gerarAutorizacaoCompraDireta(
+                                      processoSelecionado.numero_processo_interno,
+                                      processoSelecionado.objeto_resumido,
+                                      usuarioNome,
+                                      usuarioCpf
+                                    );
+                                    setAutorizacaoDiretaUrl(result.url);
+                                    toast.success("Autorização gerada e salva com sucesso");
+                                  } catch (error) {
+                                    console.error("Erro ao gerar autorização:", error);
+                                    toast.error("Erro ao gerar autorização");
+                                  }
+                                }}
+                                variant="outline"
+                                className="w-full"
+                              >
+                                <FileText className="mr-2 h-4 w-4" />
+                                Gerar Autorização
+                              </Button>
+                              {autorizacaoDiretaUrl && (
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
+                                  className="w-full"
+                                >
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  Baixar Autorização
+                                </Button>
+                              )}
+                            </div>
                           ) : (
                             <>
                               <div className="flex items-center gap-2 mt-1">
