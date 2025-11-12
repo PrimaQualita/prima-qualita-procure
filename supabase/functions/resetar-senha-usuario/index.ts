@@ -61,14 +61,16 @@ serve(async (req) => {
     if (profileError) throw profileError;
 
     return new Response(
-      JSON.stringify({ success: true, senha: senhaTemporaria }),
+      JSON.stringify({ 
+        success: true, 
+        message: "Senha resetada com sucesso. A senha temporária foi enviada para o usuário."
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       }
     );
   } catch (error: any) {
-    console.error("Erro:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

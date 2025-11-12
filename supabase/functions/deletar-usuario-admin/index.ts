@@ -49,10 +49,7 @@ serve(async (req) => {
       }
       
       userId = user.id;
-      console.log("Usuário encontrado pelo e-mail:", body.email, "ID:", userId);
     }
-
-    console.log("Deletando usuário:", userId);
 
     if (!userId) {
       throw new Error("userId não encontrado");
@@ -64,10 +61,7 @@ serve(async (req) => {
       .delete()
       .eq("user_id", userId);
 
-    if (roleError) {
-      console.error("Erro ao deletar roles:", roleError);
-      throw roleError;
-    }
+    if (roleError) throw roleError;
 
     // Deletar profile
     const { error: profileError } = await supabaseAdmin
@@ -75,20 +69,12 @@ serve(async (req) => {
       .delete()
       .eq("id", userId);
 
-    if (profileError) {
-      console.error("Erro ao deletar profile:", profileError);
-      throw profileError;
-    }
+    if (profileError) throw profileError;
 
     // Deletar usuário do auth
     const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
-    if (authError) {
-      console.error("Erro ao deletar usuário do auth:", authError);
-      throw authError;
-    }
-
-    console.log("Usuário deletado com sucesso:", userId);
+    if (authError) throw authError;
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -98,7 +84,6 @@ serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error("Erro:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

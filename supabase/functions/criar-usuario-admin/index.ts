@@ -38,10 +38,7 @@ serve(async (req) => {
     // Verificar se o usuário já existe
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     
-    if (listError) {
-      console.error("Erro ao listar usuários:", listError);
-      throw listError;
-    }
+    if (listError) throw listError;
 
     const userExists = existingUsers.users.find(u => u.email === email);
 
@@ -49,8 +46,6 @@ serve(async (req) => {
 
     if (userExists) {
       // Usuário já existe no auth, apenas atualizar senha e garantir que está confirmado
-      console.log("Usuário já existe no auth, atualizando...", userExists.id);
-      
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userExists.id, {
         password,
         email_confirm: true,
@@ -60,8 +55,6 @@ serve(async (req) => {
       userId = userExists.id;
     } else {
       // Criar novo usuário
-      console.log("Criando novo usuário...");
-      
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
@@ -87,7 +80,6 @@ serve(async (req) => {
 
     if (!existingProfile) {
       // Criar profile
-      console.log("Criando profile...");
       const { error: profileError } = await supabaseAdmin.from("profiles").insert([
         {
           id: userId,
@@ -101,13 +93,9 @@ serve(async (req) => {
         },
       ]);
 
-      if (profileError) {
-        console.error("Erro ao criar profile:", profileError);
-        throw profileError;
-      }
+      if (profileError) throw profileError;
     } else {
       // Atualizar profile existente
-      console.log("Atualizando profile existente...");
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
         .update({
@@ -120,10 +108,7 @@ serve(async (req) => {
         })
         .eq("id", userId);
 
-      if (profileError) {
-        console.error("Erro ao atualizar profile:", profileError);
-        throw profileError;
-      }
+      if (profileError) throw profileError;
     }
 
     // Verificar se role já existe
@@ -135,7 +120,6 @@ serve(async (req) => {
 
     if (!existingRole) {
       // Criar role
-      console.log("Criando role...");
       const { error: roleError } = await supabaseAdmin.from("user_roles").insert([
         {
           user_id: userId,
@@ -143,22 +127,15 @@ serve(async (req) => {
         },
       ]);
 
-      if (roleError) {
-        console.error("Erro ao criar role:", roleError);
-        throw roleError;
-      }
+      if (roleError) throw roleError;
     } else {
       // Atualizar role existente
-      console.log("Atualizando role existente...");
       const { error: deleteError } = await supabaseAdmin
         .from("user_roles")
         .delete()
         .eq("user_id", userId);
 
-      if (deleteError) {
-        console.error("Erro ao deletar role antiga:", deleteError);
-        throw deleteError;
-      }
+      if (deleteError) throw deleteError;
 
       const { error: roleError } = await supabaseAdmin.from("user_roles").insert([
         {
@@ -167,13 +144,8 @@ serve(async (req) => {
         },
       ]);
 
-      if (roleError) {
-        console.error("Erro ao criar nova role:", roleError);
-        throw roleError;
-      }
+      if (roleError) throw roleError;
     }
-
-    console.log("Usuário criado/atualizado com sucesso:", userId);
 
     return new Response(
       JSON.stringify({ success: true, userId }),
@@ -183,7 +155,6 @@ serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error("Erro:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
