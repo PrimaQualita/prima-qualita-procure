@@ -16,6 +16,7 @@ export default function VerificarAutorizacao() {
   const [loading, setLoading] = useState(false);
   const [autorizacao, setAutorizacao] = useState<any>(null);
   const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | null>(null);
+  const [buscaRealizada, setBuscaRealizada] = useState(false);
 
   const verificarAutorizacao = async (protocoloParam?: string) => {
     const protocoloParaBuscar = protocoloParam || protocolo;
@@ -30,6 +31,7 @@ export default function VerificarAutorizacao() {
     }
 
     setLoading(true);
+    setBuscaRealizada(true);
     setAutorizacao(null);
     setTipoDocumento(null);
     
@@ -323,7 +325,7 @@ export default function VerificarAutorizacao() {
           </Card>
         )}
 
-        {!loading && protocolo && !autorizacao && (
+        {buscaRealizada && !loading && protocolo && !autorizacao && (
           <Card className="border-2 border-destructive">
             <CardHeader className="bg-destructive/5">
               <div className="flex items-center gap-3">
