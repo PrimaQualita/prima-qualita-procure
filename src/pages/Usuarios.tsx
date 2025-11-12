@@ -25,7 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Shield, User, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Shield, User, RotateCcw, Trash2, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogUsuario } from "@/components/usuarios/DialogUsuario";
 
@@ -49,6 +49,7 @@ const Usuarios = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isGestor, setIsGestor] = useState(false);
   const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<string | null>(null);
+  const [usuarioParaEditar, setUsuarioParaEditar] = useState<Usuario | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -317,6 +318,14 @@ const Usuarios = () => {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => setUsuarioParaEditar(usuario)}
+                            title="Editar usuário"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleResetSenha(usuario.id, usuario.data_nascimento)}
                             title="Resetar senha para data de nascimento"
                           >
@@ -342,9 +351,16 @@ const Usuarios = () => {
         </Card>
 
         <DialogUsuario
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onSuccess={loadUsuarios}
+          open={dialogOpen || !!usuarioParaEditar}
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) setUsuarioParaEditar(null);
+          }}
+          onSuccess={() => {
+            loadUsuarios();
+            setUsuarioParaEditar(null);
+          }}
+          usuarioEdit={usuarioParaEditar}
         />
 
         <AlertDialog open={!!usuarioParaExcluir} onOpenChange={() => setUsuarioParaExcluir(null)}>

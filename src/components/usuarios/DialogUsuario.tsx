@@ -16,13 +16,25 @@ import { validarCPF, mascaraCPF } from "@/lib/validators";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 
+interface Usuario {
+  id: string;
+  nome_completo: string;
+  email: string;
+  cpf: string;
+  data_nascimento?: string;
+  ativo: boolean;
+  role?: string;
+  responsavel_legal?: boolean;
+}
+
 interface DialogUsuarioProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  usuarioEdit?: Usuario | null;
 }
 
-export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioProps) {
+export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: DialogUsuarioProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [nomeCompleto, setNomeCompleto] = useState("");
@@ -31,6 +43,20 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
   const [dataNascimento, setDataNascimento] = useState("");
   const [role, setRole] = useState<"gestor" | "colaborador">("colaborador");
   const [responsavelLegal, setResponsavelLegal] = useState(false);
+
+  // Carregar dados do usuário quando for edição
+  useEffect(() => {
+    if (usuarioEdit) {
+      setNomeCompleto(usuarioEdit.nome_completo);
+      setEmail(usuarioEdit.email);
+      setCpf(mascaraCPF(usuarioEdit.cpf));
+      setDataNascimento(usuarioEdit.data_nascimento || "");
+      setRole((usuarioEdit.role as "gestor" | "colaborador") || "colaborador");
+      setResponsavelLegal(usuarioEdit.responsavel_legal || false);
+    } else {
+      resetForm();
+    }
+  }, [usuarioEdit, open]);
 
   const resetForm = () => {
     setNomeCompleto("");
@@ -65,65 +91,108 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
     setLoading(true);
 
     try {
-      // Verificar se CPF ou email já existem
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("email, cpf")
-        .or(`email.eq.${email},cpf.eq.${cpf}`)
-        .maybeSingle();
+      if (usuarioEdit) {
+        // Modo edição - atualizar usuário existente
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({
+            nome_completo: nomeCompleto,
+            cpf: cpf.replace(/\D/g, ""),
+            data_nascimento: dataNascimento,
+            responsavel_legal: responsavelLegal,
+          })
+          .eq("id", usuarioEdit.id);
 
-      if (existingProfile) {
-        toast({
-          title: "Usuário já cadastrado",
-          description: `Já existe um cadastro com este ${
-            existingProfile.email === email ? "e-mail" : "CPF"
-          }.`,
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
+        if (profileError) throw profileError;
 
-      // Gerar senha temporária a partir da data de nascimento (formato: ddmmaaaa)
-      // Data vem como YYYY-MM-DD, converter para DDMMYYYY
-      const [ano, mes, dia] = dataNascimento.split("-");
-      const senhaTemporaria = `${dia}${mes}${ano}`;
+        // Atualizar role se necessário
+        const { data: currentRole } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", usuarioEdit.id)
+          .maybeSingle();
 
-      // Chamar edge function para criar usuário via Admin API
-      const { data: functionData, error: functionError } = await supabase.functions.invoke(
-        "criar-usuario-admin",
-        {
-          body: {
-            email,
-            password: senhaTemporaria,
-            nomeCompleto,
-            cpf,
-            dataNascimento,
-            role,
-            responsavelLegal,
-          },
+        if (currentRole?.role !== role) {
+          // Deletar role atual
+          await supabase
+            .from("user_roles")
+            .delete()
+            .eq("user_id", usuarioEdit.id);
+
+          // Inserir nova role
+          await supabase
+            .from("user_roles")
+            .insert({
+              user_id: usuarioEdit.id,
+              role: role,
+            });
         }
-      );
 
-      if (functionError) throw functionError;
+        toast({
+          title: "Usuário atualizado com sucesso!",
+          description: `${nomeCompleto} foi atualizado.`,
+        });
+      } else {
+        // Modo criação - criar novo usuário
+        // Verificar se CPF ou email já existem
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("email, cpf")
+          .or(`email.eq.${email},cpf.eq.${cpf}`)
+          .maybeSingle();
 
-      if (functionData?.error) {
-        throw new Error(functionData.error);
+        if (existingProfile) {
+          toast({
+            title: "Usuário já cadastrado",
+            description: `Já existe um cadastro com este ${
+              existingProfile.email === email ? "e-mail" : "CPF"
+            }.`,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Gerar senha temporária a partir da data de nascimento (formato: ddmmaaaa)
+        const [ano, mes, dia] = dataNascimento.split("-");
+        const senhaTemporaria = `${dia}${mes}${ano}`;
+
+        // Chamar edge function para criar usuário via Admin API
+        const { data: functionData, error: functionError } = await supabase.functions.invoke(
+          "criar-usuario-admin",
+          {
+            body: {
+              email,
+              password: senhaTemporaria,
+              nomeCompleto,
+              cpf,
+              dataNascimento,
+              role,
+              responsavelLegal,
+            },
+          }
+        );
+
+        if (functionError) throw functionError;
+
+        if (functionData?.error) {
+          throw new Error(functionData.error);
+        }
+
+        toast({
+          title: "Usuário criado com sucesso!",
+          description: `${nomeCompleto} foi cadastrado como ${role}. A senha temporária é a data de nascimento (${senhaTemporaria}).`,
+        });
       }
-
-      toast({
-        title: "Usuário criado com sucesso!",
-        description: `${nomeCompleto} foi cadastrado como ${role}. A senha temporária é a data de nascimento (${senhaTemporaria}).`,
-      });
 
       resetForm();
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Erro ao criar usuário:", error);
+      console.error("Erro ao salvar usuário:", error);
       toast({
-        title: "Erro ao criar usuário",
-        description: error.message || "Ocorreu um erro ao cadastrar o usuário.",
+        title: usuarioEdit ? "Erro ao atualizar usuário" : "Erro ao criar usuário",
+        description: error.message || "Ocorreu um erro ao salvar o usuário.",
         variant: "destructive",
       });
     } finally {
@@ -135,9 +204,12 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Novo Usuário</DialogTitle>
+          <DialogTitle>{usuarioEdit ? "Editar Usuário" : "Novo Usuário"}</DialogTitle>
           <DialogDescription>
-            Cadastre um novo gestor ou colaborador no sistema. A senha temporária será a data de nascimento.
+            {usuarioEdit 
+              ? "Edite as informações do usuário no sistema."
+              : "Cadastre um novo gestor ou colaborador no sistema. A senha temporária será a data de nascimento."
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -163,7 +235,13 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="usuario@email.com"
                 required
+                disabled={!!usuarioEdit}
               />
+              {usuarioEdit && (
+                <p className="text-xs text-muted-foreground">
+                  O e-mail não pode ser alterado após criação
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -229,7 +307,10 @@ export function DialogUsuario({ open, onOpenChange, onSuccess }: DialogUsuarioPr
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Cadastrando..." : "Cadastrar Usuário"}
+              {loading 
+                ? (usuarioEdit ? "Salvando..." : "Cadastrando...") 
+                : (usuarioEdit ? "Salvar Alterações" : "Cadastrar Usuário")
+              }
             </Button>
           </DialogFooter>
         </form>
