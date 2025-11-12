@@ -95,6 +95,7 @@ const Cotacoes = () => {
   const [naoRequerSelecao, setNaoRequerSelecao] = useState(false);
   const [autorizacaoAnexada, setAutorizacaoAnexada] = useState<File | null>(null);
   const [autorizacaoSelecaoAnexada, setAutorizacaoSelecaoAnexada] = useState<File | null>(null);
+  const [emailsFornecedoresAnexado, setEmailsFornecedoresAnexado] = useState<File | null>(null);
   const [uploadingAutorizacao, setUploadingAutorizacao] = useState(false);
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
@@ -869,6 +870,50 @@ const Cotacoes = () => {
                       </p>
                     </div>
                     
+                    {/* Campo para anexar cópia dos e-mails enviados aos fornecedores */}
+                    <div className="mb-4 p-4 bg-background border rounded-lg">
+                      <Label htmlFor="emails-fornecedores-upload" className="text-base font-semibold mb-2 block">
+                        Cópia dos E-mails Enviados aos Fornecedores
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="emails-fornecedores-upload"
+                          type="file"
+                          accept=".pdf,.eml,.msg,.zip"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setEmailsFornecedoresAnexado(file);
+                              toast.success("Cópia dos e-mails anexada com sucesso");
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        {emailsFornecedoresAnexado && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEmailsFornecedoresAnexado(null);
+                              const input = document.getElementById('emails-fornecedores-upload') as HTMLInputElement;
+                              if (input) input.value = '';
+                              toast.info("Cópia dos e-mails removida");
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      {emailsFornecedoresAnexado && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          📎 {emailsFornecedoresAnexado.name}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Anexe a cópia dos e-mails enviados aos fornecedores (PDF, EML, MSG ou ZIP)
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center space-x-2">
                         <Checkbox
