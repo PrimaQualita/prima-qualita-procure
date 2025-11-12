@@ -141,14 +141,20 @@ export function DialogRespostasCotacao({
 
   const gerarPDFProposta = async (resposta: RespostaFornecedor) => {
     try {
-      // Buscar critério de julgamento da cotação
+      // Buscar critério de julgamento e processo da cotação
       const { data: cotacaoData } = await supabase
         .from("cotacoes_precos")
-        .select("criterio_julgamento")
+        .select(`
+          criterio_julgamento,
+          processo_compra:processo_compra_id (
+            tipo
+          )
+        `)
         .eq("id", cotacaoId)
         .single();
 
       const criterioJulgamento = cotacaoData?.criterio_julgamento || "global";
+      const tipoProcesso = (cotacaoData?.processo_compra as any)?.tipo || "";
 
       // Buscar lotes se for por lote
       let lotes: any[] = [];
@@ -166,6 +172,7 @@ export function DialogRespostasCotacao({
         .from("respostas_itens_fornecedor")
         .select(`
           valor_unitario_ofertado,
+          marca,
           itens_cotacao:item_cotacao_id (
             id,
             numero_item,
@@ -177,12 +184,13 @@ export function DialogRespostasCotacao({
         `)
         .eq("cotacao_resposta_fornecedor_id", resposta.id);
 
-      const itens: (ItemResposta & { lote_id?: string })[] = (itensData || []).map((item: any) => ({
+      const itens: (ItemResposta & { lote_id?: string; marca?: string })[] = (itensData || []).map((item: any) => ({
         numero_item: item.itens_cotacao?.numero_item || 0,
         descricao: item.itens_cotacao?.descricao || "",
         quantidade: item.itens_cotacao?.quantidade || 0,
         unidade: item.itens_cotacao?.unidade || "",
         valor_unitario_ofertado: item.valor_unitario_ofertado,
+        marca: item.marca,
         lote_id: item.itens_cotacao?.lote_id,
       })).sort((a, b) => a.numero_item - b.numero_item);
 
@@ -245,6 +253,7 @@ export function DialogRespostasCotacao({
                         <th>Descrição</th>
                         <th class="text-right">Quantidade</th>
                         <th>Unidade</th>
+                        ${tipoProcesso === "material" ? '<th>Marca</th>' : ''}
                         <th class="text-right">Valor Unitário</th>
                         <th class="text-right">Valor Total</th>
                       </tr>
@@ -256,6 +265,7 @@ export function DialogRespostasCotacao({
                           <td>${stripHtml(item.descricao)}</td>
                           <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
                           <td>${item.unidade}</td>
+                          ${tipoProcesso === "material" ? `<td>${item.marca || '-'}</td>` : ''}
                           <td class="text-right">R$ ${item.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                           <td class="text-right">R$ ${(item.quantidade * item.valor_unitario_ofertado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                         </tr>
@@ -285,6 +295,7 @@ export function DialogRespostasCotacao({
                   <th>Descrição</th>
                   <th class="text-right">Quantidade</th>
                   <th>Unidade</th>
+                  ${tipoProcesso === "material" ? '<th>Marca</th>' : ''}
                   <th class="text-right">Valor Unitário</th>
                   <th class="text-right">Valor Total</th>
                 </tr>
@@ -296,6 +307,7 @@ export function DialogRespostasCotacao({
                     <td>${stripHtml(item.descricao)}</td>
                     <td class="text-right">${item.quantidade.toLocaleString("pt-BR")}</td>
                     <td>${item.unidade}</td>
+                    ${tipoProcesso === "material" ? `<td>${item.marca || '-'}</td>` : ''}
                     <td class="text-right">R$ ${item.valor_unitario_ofertado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                     <td class="text-right">R$ ${(item.quantidade * item.valor_unitario_ofertado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                   </tr>

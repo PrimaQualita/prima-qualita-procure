@@ -148,6 +148,9 @@ export function DialogPlanilhaConsolidada({
           `)
           .eq("cotacao_resposta_fornecedor_id", resposta.id);
 
+        console.log(`📦 Itens do fornecedor ${resposta.fornecedor.razao_social}:`, itensData);
+        console.log(`🏷️ Marcas encontradas:`, itensData?.map((i: any) => ({ item: i.item_cotacao.numero_item, marca: i.marca })));
+
         const itensFormatados = (itensData || []).map((item: any) => ({
           numero_item: item.item_cotacao.numero_item,
           descricao: item.item_cotacao.descricao,
@@ -159,6 +162,8 @@ export function DialogPlanilhaConsolidada({
           lote_numero: item.item_cotacao.lote?.numero_lote,
           lote_descricao: item.item_cotacao.lote?.descricao_lote,
         })).sort((a, b) => a.numero_item - b.numero_item);
+
+        console.log(`✅ Itens formatados para ${resposta.fornecedor.razao_social}:`, itensFormatados);
 
         respostasCompletas.push({
           fornecedor: resposta.fornecedor as any,
