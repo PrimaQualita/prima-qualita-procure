@@ -429,9 +429,6 @@ export function DialogFinalizarProcesso({
     }
 
     try {
-      const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
-      const ordemAtual = fornecedorData ? fornecedorData.campos.length : 0;
-
       // Verificar se já existe documento com mesmo nome para este fornecedor nesta cotação
       const { data: existente } = await supabase
         .from("campos_documentos_finalizacao")
@@ -446,15 +443,26 @@ export function DialogFinalizarProcesso({
         return;
       }
 
+      // Buscar a maior ordem existente para esta cotação para garantir unicidade
+      const { data: maxOrdemData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("ordem")
+        .eq("cotacao_id", cotacaoId)
+        .order("ordem", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const proximaOrdem = maxOrdemData ? maxOrdemData.ordem + 1 : 0;
+
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .insert({
           cotacao_id: cotacaoId,
           fornecedor_id: fornecedorId,
           nome_campo: campoFornecedor.nome.trim(),
-          descricao: campoFornecedor.descricao.trim(),
-          obrigatorio: campoFornecedor.obrigatorio,
-          ordem: ordemAtual,
+          descricao: campoFornecedor.descricao?.trim(),
+          obrigatorio: true,
+          ordem: proximaOrdem,
           status_solicitacao: "pendente",
           data_solicitacao: new Date().toISOString()
         });
