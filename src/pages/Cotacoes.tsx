@@ -1233,28 +1233,40 @@ const Cotacoes = () => {
                                 Gerar Autorização
                               </Button>
                               {autorizacaoDiretaUrl && (
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="secondary"
-                                    onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
-                                    className="flex-1"
-                                  >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Visualizar
-                                  </Button>
-                                  <Button
-                                    variant="secondary"
-                                    onClick={() => {
-                                      const link = document.createElement('a');
-                                      link.href = autorizacaoDiretaUrl;
-                                      link.download = `autorizacao-compra-direta-${processoSelecionado?.numero_processo_interno}.pdf`;
-                                      link.click();
-                                    }}
-                                    className="flex-1"
-                                  >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Baixar
-                                  </Button>
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="secondary"
+                                      onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
+                                      className="flex-1"
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Visualizar
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      onClick={() => {
+                                        const link = document.createElement('a');
+                                        link.href = autorizacaoDiretaUrl;
+                                        link.download = `autorizacao-compra-direta-${processoSelecionado?.numero_processo_interno}.pdf`;
+                                        link.click();
+                                      }}
+                                      className="flex-1"
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Baixar
+                                    </Button>
+                                  </div>
+                                  {isResponsavelLegal && autorizacaoDiretaId && (
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => deletarAutorizacao(autorizacaoDiretaId, 'compra_direta')}
+                                      size="sm"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Deletar Autorização
+                                    </Button>
+                                  )}
                                 </div>
                               )}
                             </div>
