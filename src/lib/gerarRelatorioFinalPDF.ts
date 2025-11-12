@@ -242,16 +242,22 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   
   doc.setTextColor(0, 0, 255);
   const urlVerificacao = window.location.origin + '/verificar-autorizacao';
-  doc.textWithLink(
-    `Verificar autenticidade em: ${urlVerificacao}`,
-    25,
-    yPos + 38,
-    { url: `${urlVerificacao}?protocolo=${protocolo}` }
-  );
+  const linkTexto = `Verificar autenticidade em: ${urlVerificacao}`;
+  const linkQuebrado = doc.splitTextToSize(linkTexto, 160);
+  
+  linkQuebrado.forEach((linha: string, index: number) => {
+    doc.textWithLink(
+      linha,
+      25,
+      yPos + 38 + (index * 4),
+      { url: `${urlVerificacao}?protocolo=${protocolo}` }
+    );
+  });
   
   doc.setFontSize(7);
   doc.setTextColor(100, 100, 100);
-  doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', 25, yPos + 43);
+  const linhasCertificacao = linkQuebrado.length;
+  doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', 25, yPos + 43 + (linhasCertificacao > 1 ? (linhasCertificacao - 1) * 4 : 0));
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');
