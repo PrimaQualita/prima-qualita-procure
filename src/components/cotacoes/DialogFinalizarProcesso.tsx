@@ -762,15 +762,14 @@ export function DialogFinalizarProcesso({
         criterioJulgamento: processo.criterio_julgamento
       });
 
-      // Salvar referência no banco (opcional - pode criar tabela relatorios_finais ou usar autorizacoes_processo)
+      // Salvar referência no banco
       const { data: { session: currentSession } } = await supabase.auth.getSession();
 
-      const { error: insertError } = await (supabase as any)
-        .from("autorizacoes_processo")
+      const { error: insertError } = await supabase
+        .from("relatorios_finais")
         .insert({
           cotacao_id: cotacaoId,
           protocolo: resultado.protocolo,
-          tipo_autorizacao: "relatorio_final",
           nome_arquivo: resultado.fileName,
           url_arquivo: resultado.url,
           usuario_gerador_id: currentSession!.user.id,
