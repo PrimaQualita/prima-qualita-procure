@@ -115,6 +115,8 @@ export function DialogFinalizarProcesso({
   const loadAllFornecedores = async () => {
     setLoading(true);
     try {
+      console.log("🔄 Iniciando carregamento de fornecedores para cotação:", cotacaoId);
+      
       // Buscar cotação com critério de julgamento
       const { data: cotacao, error: cotacaoError } = await supabase
         .from("cotacoes_precos")
@@ -124,7 +126,9 @@ export function DialogFinalizarProcesso({
 
       if (cotacaoError) throw cotacaoError;
 
-      // Buscar respostas dos fornecedores
+      console.log("📊 Critério de julgamento:", cotacao?.criterio_julgamento);
+
+      // Buscar respostas dos fornecedores (incluindo rejeitados para análise)
       const { data: respostas, error: respostasError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -138,6 +142,9 @@ export function DialogFinalizarProcesso({
         .eq("cotacao_id", cotacaoId);
 
       if (respostasError) throw respostasError;
+
+      console.log(`📝 Total de respostas encontradas: ${respostas?.length || 0}`);
+      console.log(`❌ Respostas rejeitadas: ${respostas?.filter(r => r.rejeitado).length || 0}`);
 
       if (!respostas || respostas.length === 0) {
         setFornecedoresData([]);
@@ -159,8 +166,15 @@ export function DialogFinalizarProcesso({
 
       if (itensError) throw itensError;
 
+      console.log(`📦 Total de itens de respostas: ${itens?.length || 0}`);
+
       const criterio = cotacao?.criterio_julgamento || "global";
       const fornecedoresVencedores = await identificarVencedores(criterio, respostas, itens || []);
+
+      console.log(`🏆 Fornecedores vencedores identificados: ${fornecedoresVencedores.length}`);
+      fornecedoresVencedores.forEach(f => {
+        console.log(`  - ${f.razao_social}`);
+      });
 
       // Carregar dados de cada fornecedor vencedor
       const fornecedoresComDados = await Promise.all(
@@ -171,6 +185,12 @@ export function DialogFinalizarProcesso({
             loadItensVencedores(forn.id, criterio, respostas, itens || []),
             loadCamposFornecedor(forn.id)
           ]);
+
+          console.log(`📋 Fornecedor ${forn.razao_social}:`, {
+            rejeitado: resposta?.rejeitado || false,
+            itensVencedores: itensVenc.length,
+            numeros: itensVenc.map(i => i.itens_cotacao?.numero_item)
+          });
 
           const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
 
@@ -188,8 +208,9 @@ export function DialogFinalizarProcesso({
       );
 
       setFornecedoresData(fornecedoresComDados);
+      console.log("✅ Carregamento de fornecedores concluído");
     } catch (error) {
-      console.error("Erro ao carregar fornecedores:", error);
+      console.error("❌ Erro ao carregar fornecedores:", error);
       toast.error("Erro ao carregar fornecedores vencedores");
     } finally {
       setLoading(false);
@@ -327,22 +348,40 @@ export function DialogFinalizarProcesso({
     const itensDoFornecedor = todosItens.filter(i => i.cotacao_resposta_fornecedor_id === resposta.id);
     const itensVencidos: any[] = [];
 
+    // Filtrar apenas respostas não rejeitadas para comparação
+    const respostasNaoRejeitadas = respostas.filter(r => !r.rejeitado);
+    const itensNaoRejeitados = todosItens.filter(item => {
+      const resp = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
+      return resp && !resp.rejeitado;
+    });
+
     if (criterio === "global") {
-      itensVencidos.push(...itensDoFornecedor);
+      // No global, se este fornecedor tem menor valor total, todos os itens são vencedores
+      const menorValor = Math.min(...respostasNaoRejeitadas.map(r => Number(r.valor_total_anual_ofertado)));
+      if (Number(resposta.valor_total_anual_ofertado) === menorValor) {
+        itensVencidos.push(...itensDoFornecedor);
+      }
     } else if (criterio === "item" || criterio === "por_item") {
+      // Por item, verificar item a item quem tem menor valor
       itensDoFornecedor.forEach(itemFornecedor => {
         const numeroItem = itemFornecedor.itens_cotacao.numero_item;
-        const itensComMesmoNumero = todosItens.filter(i => i.itens_cotacao.numero_item === numeroItem);
-        const menorValor = Math.min(...itensComMesmoNumero.map(i => Number(i.valor_unitario_ofertado)));
-        if (Number(itemFornecedor.valor_unitario_ofertado) === menorValor) {
-          itensVencidos.push(itemFornecedor);
+        const itensComMesmoNumero = itensNaoRejeitados.filter(i => i.itens_cotacao.numero_item === numeroItem);
+        
+        if (itensComMesmoNumero.length > 0) {
+          const menorValor = Math.min(...itensComMesmoNumero.map(i => Number(i.valor_unitario_ofertado)));
+          if (Number(itemFornecedor.valor_unitario_ofertado) === menorValor) {
+            itensVencidos.push(itemFornecedor);
+          }
         }
       });
     } else if (criterio === "lote" || criterio === "por_lote") {
+      // Por lote, verificar lote a lote quem tem menor valor total do lote
       const loteIds = [...new Set(itensDoFornecedor.map(i => i.itens_cotacao.lote_id).filter(Boolean))];
+      
       loteIds.forEach(loteId => {
-        const itensDoLote = todosItens.filter(i => i.itens_cotacao.lote_id === loteId);
+        const itensDoLote = itensNaoRejeitados.filter(i => i.itens_cotacao.lote_id === loteId);
         const respostasPorLote: Record<string, any[]> = {};
+        
         itensDoLote.forEach(item => {
           const respostaId = item.cotacao_resposta_fornecedor_id;
           if (!respostasPorLote[respostaId]) respostasPorLote[respostaId] = [];
@@ -1103,9 +1142,12 @@ export function DialogFinalizarProcesso({
                           )}
                         </div>
                         <CardDescription>
-                          {fornData.itensVencedores.length > 0 && (
-                            <span className="text-sm">
-                              Itens vencedores: {fornData.itensVencedores.map(i => i.itens_cotacao.numero_item).join(", ")}
+                          {fornData.itensVencedores && fornData.itensVencedores.length > 0 && (
+                            <span className="text-sm font-medium">
+                              Itens vencedores: {fornData.itensVencedores
+                                .map(i => i.itens_cotacao?.numero_item || i.numero_item || 'N/A')
+                                .filter(Boolean)
+                                .join(", ")}
                             </span>
                           )}
                           {fornData.rejeitado && fornData.motivoRejeicao && (
