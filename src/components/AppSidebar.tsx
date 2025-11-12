@@ -157,12 +157,18 @@ export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b">
-        <div className={`flex items-center justify-center ${open ? 'p-4' : 'p-2'}`}>
+        <div className={`flex flex-col items-center ${open ? 'p-4' : 'p-2'}`}>
           <img 
             src={primaLogo} 
             alt="Prima Qualitá" 
             className={`${open ? 'h-12' : 'h-8'} w-auto object-contain transition-all`}
           />
+          {open && (
+            <div className="mt-3 text-center">
+              <h2 className="text-sm font-semibold text-foreground">Sistema de Compras</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Prima Qualitá Saúde</p>
+            </div>
+          )}
         </div>
       </SidebarHeader>
 

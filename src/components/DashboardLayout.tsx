@@ -1,14 +1,32 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Outlet } from "react-router-dom";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
-import primaLogo from "@/assets/prima-qualita-logo.png";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 
+const getPageTitle = (pathname: string) => {
+  const routes: Record<string, string> = {
+    "/dashboard": "Dashboard",
+    "/processos-compras": "Processos de Compras",
+    "/cotacoes": "Cotação de Preços",
+    "/selecoes": "Seleção de Fornecedores",
+    "/credenciamentos": "Credenciamento",
+    "/contratacoes-especificas": "Contratações Específicas",
+    "/contratos": "Contratos",
+    "/usuarios": "Cadastro de Usuários",
+    "/fornecedores": "Cadastro de Fornecedores",
+    "/contatos": "Contato",
+    "/auditoria": "Log de Auditoria",
+    "/perfil": "Meu Perfil",
+  };
+  return routes[pathname] || "Sistema de Compras";
+};
+
 export function DashboardLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -128,15 +146,9 @@ export function DashboardLayout() {
       <div className="min-h-screen flex w-full">
         <AppSidebar isGestor={isGestor} profile={profile} />
         <div className="flex-1 flex flex-col">
-          <header className="h-16 border-b bg-card flex items-center px-4 gap-4">
+          <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
             <SidebarTrigger />
-            <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => navigate("/")}>
-              <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-10" />
-              <div>
-                <h1 className="text-base sm:text-lg font-bold text-foreground">Sistema de Compras</h1>
-                <p className="text-xs text-muted-foreground">Prima Qualitá Saúde</p>
-              </div>
-            </div>
+            <h1 className="text-2xl font-bold text-foreground">{getPageTitle(location.pathname)}</h1>
           </header>
           <main className="flex-1">
             <Outlet />
