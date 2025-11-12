@@ -105,7 +105,7 @@ export const gerarAutorizacaoCompraDireta = async (
   
   const linhas1 = doc.splitTextToSize(texto1, 170);
   doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas1.length * 6 + 4; // Reduzido de 10 para 4
+  yPos += linhas1.length * 6 + 2; // Reduzido para aproximar da tabela
   
   // Tabela de fornecedores vencedores
   console.log('[PDF] Verificando fornecedores vencedores para tabela:', fornecedoresVencedores);
@@ -171,16 +171,16 @@ export const gerarAutorizacaoCompraDireta = async (
       yPos += alturaLinha;
     });
     
-    // Linha de Total Geral
+    // Linha de Total Geral - com bordas
     doc.setFillColor(240, 240, 240);
-    doc.rect(20, yPos, 50, 8, 'F');
-    doc.rect(70, yPos, 40, 8, 'F');
-    doc.rect(110, yPos, 30, 8, 'F');
-    doc.rect(140, yPos, 50, 8, 'F');
+    doc.rect(20, yPos, 50, 8, 'FD'); // FD = Fill + Draw (preenche e desenha borda)
+    doc.rect(70, yPos, 40, 8, 'FD');
+    doc.rect(110, yPos, 30, 8, 'FD');
+    doc.rect(140, yPos, 50, 8, 'FD');
     doc.setFont('helvetica', 'bold');
     doc.text('TOTAL GERAL', 22, yPos + 5);
     doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 142, yPos + 5);
-    yPos += 12; // Reduzido de 15 para 12
+    yPos += 16; // Aumentado para afastar do próximo texto
     
     console.log('[PDF] Tabela gerada com sucesso. Total geral:', totalGeral);
   } else {
