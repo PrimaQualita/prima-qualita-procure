@@ -1255,7 +1255,7 @@ export function DialogFinalizarProcesso({
                     Gerar Relatório Final
                   </Button>
                 ) : (
-                  <div className="flex items-center gap-3 flex-1">
+                  <>
                     <Button
                       onClick={() => window.open(relatorioFinalUrl, '_blank')}
                       variant="outline"
@@ -1284,7 +1284,7 @@ export function DialogFinalizarProcesso({
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </div>
+                  </>
                 )}
               </div>
             )}
@@ -1323,15 +1323,14 @@ export function DialogFinalizarProcesso({
                       <Download className="h-4 w-4 mr-2" />
                       Baixar
                     </Button>
-                    {isResponsavelLegal && (
-                      <Button
-                        onClick={() => deletarAutorizacao(autorizacaoDiretaId)}
-                        variant="destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Deletar
-                      </Button>
-                    )}
+                    <Button
+                      onClick={() => deletarAutorizacao(autorizacaoDiretaId)}
+                      variant="destructive"
+                      size="icon"
+                      title="Excluir Autorização"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </>
                 )}
               </div>
