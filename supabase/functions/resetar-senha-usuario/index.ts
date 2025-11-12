@@ -32,11 +32,10 @@ const resetPasswordSchema = z.object({
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
-function generateSecurePassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-  const array = new Uint8Array(12);
-  crypto.getRandomValues(array);
-  return Array.from(array, byte => chars[byte % chars.length]).join('');
+function formatDateToDDMMAAAA(dateString: string): string {
+  // dateString está no formato YYYY-MM-DD
+  const [year, month, day] = dateString.split('-');
+  return `${day}${month}${year}`;
 }
 
 serve(async (req) => {
@@ -69,10 +68,14 @@ serve(async (req) => {
     );
 
     const body = resetPasswordSchema.parse(await req.json());
-    const { userId } = body;
+    const { userId, dataNascimento } = body;
 
-    // Gerar senha temporária segura e aleatória
-    const senhaTemporaria = generateSecurePassword();
+    // Converter data de nascimento para formato DDMMAAAA (senha temporária)
+    const senhaTemporaria = formatDateToDDMMAAAA(dataNascimento);
+
+    console.log('Resetando senha do usuário:', userId);
+    console.log('Data de nascimento recebida:', dataNascimento);
+    console.log('Senha temporária gerada (DDMMAAAA):', senhaTemporaria);
 
     // Resetar senha usando admin API
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -92,10 +95,12 @@ serve(async (req) => {
 
     if (profileError) throw profileError;
 
+    console.log('Senha resetada com sucesso para o usuário:', userId);
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Senha resetada com sucesso. A senha temporária foi enviada para o usuário."
+        message: "Senha resetada com sucesso. A senha temporária é a data de nascimento (DDMMAAAA)."
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

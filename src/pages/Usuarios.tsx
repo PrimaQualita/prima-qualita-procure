@@ -179,7 +179,7 @@ const Usuarios = () => {
 
       toast({
         title: "Senha resetada com sucesso!",
-        description: `A nova senha temporária é: ${data.senha}. O usuário deverá trocá-la no próximo login.`,
+        description: "A senha do usuário foi redefinida para a data de nascimento (DDMMAAAA). O usuário deverá trocá-la no próximo login.",
       });
 
       loadUsuarios();
