@@ -31,14 +31,28 @@ export const gerarAutorizacaoCompraDireta = async (
   });
   const protocolo = `AUT-CD-${numeroProcesso}-${Date.now()}`;
   
-  // Converter imagem para base64 para incluir no HTML
-  const response = await fetch(logoHorizontal);
-  const blob = await response.blob();
-  const base64Logo = await new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(blob);
+  // Carregar e converter imagem para base64 com espera adequada
+  const base64Logo = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar contexto do canvas'));
+      }
+    };
+    img.onerror = () => reject(new Error('Erro ao carregar imagem'));
+    img.src = logoHorizontal;
   });
+  
+  // Aguardar um momento para garantir que tudo está carregado
+  await new Promise(resolve => setTimeout(resolve, 500));
   
   const htmlContent = `
     <!DOCTYPE html>
@@ -235,14 +249,28 @@ export const gerarAutorizacaoSelecao = async (
   });
   const protocolo = `AUT-SF-${numeroProcesso}-${Date.now()}`;
   
-  // Converter imagem para base64 para incluir no HTML
-  const response = await fetch(logoHorizontal);
-  const blob = await response.blob();
-  const base64Logo = await new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(blob);
+  // Carregar e converter imagem para base64 com espera adequada
+  const base64Logo = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar contexto do canvas'));
+      }
+    };
+    img.onerror = () => reject(new Error('Erro ao carregar imagem'));
+    img.src = logoHorizontal;
   });
+  
+  // Aguardar um momento para garantir que tudo está carregado
+  await new Promise(resolve => setTimeout(resolve, 500));
   
   const htmlContent = `
     <!DOCTYPE html>
