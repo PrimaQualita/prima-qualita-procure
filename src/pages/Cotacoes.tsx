@@ -925,7 +925,7 @@ const Cotacoes = () => {
                           }}
                         />
                         <label htmlFor="requer_selecao" className="text-sm font-medium cursor-pointer">
-                          Requer Seleção de Fornecedores (Superior a R$ 20.000,00)
+                          Requer Seleção de Fornecedores (Acima R$ 20.000,00)
                         </label>
                       </div>
                       
