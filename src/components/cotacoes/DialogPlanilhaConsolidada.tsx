@@ -40,6 +40,8 @@ interface RespostaConsolidada {
     marca?: string;
   }[];
   valor_total: number;
+  rejeitado?: boolean;
+  motivo_rejeicao?: string;
 }
 
 export function DialogPlanilhaConsolidada({
@@ -88,6 +90,8 @@ export function DialogPlanilhaConsolidada({
         .select(`
           id,
           valor_total_anual_ofertado,
+          rejeitado,
+          motivo_rejeicao,
           fornecedor:fornecedor_id (
             razao_social,
             cnpj
@@ -168,6 +172,8 @@ export function DialogPlanilhaConsolidada({
           fornecedor: resposta.fornecedor as any,
           itens: itensFormatados,
           valor_total: resposta.valor_total_anual_ofertado,
+          rejeitado: resposta.rejeitado || false,
+          motivo_rejeicao: resposta.motivo_rejeicao || undefined,
         });
       }
 
@@ -905,6 +911,28 @@ export function DialogPlanilhaConsolidada({
         </table>
       `;
         }
+      }
+
+      // Adicionar observações sobre fornecedores rejeitados
+      const fornecedoresRejeitados = respostas.filter(r => r.rejeitado);
+      if (fornecedoresRejeitados.length > 0) {
+        html += `
+          <div style="margin-top: 30px; padding: 15px; background-color: #fef2f2; border: 1px solid #ef4444; border-radius: 8px;">
+            <h3 style="color: #dc2626; font-size: 16px; margin-bottom: 15px; font-weight: bold;">⚠️ OBSERVAÇÕES - FORNECEDORES INABILITADOS/REJEITADOS</h3>
+        `;
+        
+        fornecedoresRejeitados.forEach(fornecedor => {
+          html += `
+            <div style="margin-bottom: 12px; padding: 10px; background-color: white; border-left: 4px solid #dc2626;">
+              <p style="margin: 0 0 5px 0;"><strong>Empresa:</strong> ${fornecedor.fornecedor.razao_social}</p>
+              <p style="margin: 0; color: #7f1d1d;"><strong>Motivo da Inabilitação:</strong> ${fornecedor.motivo_rejeicao || "Não especificado"}</p>
+            </div>
+          `;
+        });
+        
+        html += `
+          </div>
+        `;
       }
 
       html += `

@@ -372,27 +372,36 @@ export type Database = {
           cotacao_id: string
           created_at: string | null
           data_envio_resposta: string | null
+          data_rejeicao: string | null
           fornecedor_id: string
           id: string
+          motivo_rejeicao: string | null
           observacoes_fornecedor: string | null
+          rejeitado: boolean | null
           valor_total_anual_ofertado: number
         }
         Insert: {
           cotacao_id: string
           created_at?: string | null
           data_envio_resposta?: string | null
+          data_rejeicao?: string | null
           fornecedor_id: string
           id?: string
+          motivo_rejeicao?: string | null
           observacoes_fornecedor?: string | null
+          rejeitado?: boolean | null
           valor_total_anual_ofertado: number
         }
         Update: {
           cotacao_id?: string
           created_at?: string | null
           data_envio_resposta?: string | null
+          data_rejeicao?: string | null
           fornecedor_id?: string
           id?: string
+          motivo_rejeicao?: string | null
           observacoes_fornecedor?: string | null
+          rejeitado?: boolean | null
           valor_total_anual_ofertado?: number
         }
         Relationships: [

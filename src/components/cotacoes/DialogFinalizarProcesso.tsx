@@ -68,6 +68,9 @@ interface FornecedorData {
   itensVencedores: any[];
   campos: CampoDocumento[];
   todosDocumentosAprovados: boolean;
+  rejeitado: boolean;
+  motivoRejeicao: string | null;
+  respostaId: string;
 }
 
 interface DialogFinalizarProcessoProps {
@@ -94,6 +97,9 @@ export function DialogFinalizarProcesso({
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [relatorioFinalUrl, setRelatorioFinalUrl] = useState<string>("");
   const [relatorioFinalId, setRelatorioFinalId] = useState<string>("");
+  const [motivoRejeicaoFornecedor, setMotivoRejeicaoFornecedor] = useState<Record<string, string>>({});
+  const [dialogRejeicaoOpen, setDialogRejeicaoOpen] = useState(false);
+  const [fornecedorParaRejeitar, setFornecedorParaRejeitar] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -125,6 +131,8 @@ export function DialogFinalizarProcesso({
           id,
           fornecedor_id,
           valor_total_anual_ofertado,
+          rejeitado,
+          motivo_rejeicao,
           fornecedores!inner(id, razao_social)
         `)
         .eq("cotacao_id", cotacaoId);
@@ -157,6 +165,7 @@ export function DialogFinalizarProcesso({
       // Carregar dados de cada fornecedor vencedor
       const fornecedoresComDados = await Promise.all(
         fornecedoresVencedores.map(async (forn) => {
+          const resposta = respostas.find(r => r.fornecedor_id === forn.id);
           const [docs, itensVenc, campos] = await Promise.all([
             loadDocumentosFornecedor(forn.id),
             loadItensVencedores(forn.id, criterio, respostas, itens || []),
@@ -170,7 +179,10 @@ export function DialogFinalizarProcesso({
             documentosExistentes: docs,
             itensVencedores: itensVenc,
             campos: campos,
-            todosDocumentosAprovados: todosAprovados
+            todosDocumentosAprovados: todosAprovados,
+            rejeitado: resposta?.rejeitado || false,
+            motivoRejeicao: resposta?.motivo_rejeicao || null,
+            respostaId: resposta?.id || ""
           };
         })
       );
@@ -186,20 +198,34 @@ export function DialogFinalizarProcesso({
 
   const identificarVencedores = async (criterio: string, respostas: any[], itens: any[]): Promise<Fornecedor[]> => {
     const fornecedoresVencedores = new Set<string>();
+    const fornecedoresRejeitados = new Set<string>();
+
+    // Identificar fornecedores rejeitados
+    respostas.forEach(r => {
+      if (r.rejeitado) {
+        fornecedoresRejeitados.add(r.fornecedor_id);
+      }
+    });
+
+    // Filtrar respostas não rejeitadas
+    const respostasNaoRejeitadas = respostas.filter(r => !r.rejeitado);
 
     if (criterio === "global") {
-      if (respostas.length > 0) {
-        const menorValor = Math.min(...respostas.map(r => Number(r.valor_total_anual_ofertado)));
-        const vencedor = respostas.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
+      if (respostasNaoRejeitadas.length > 0) {
+        const menorValor = Math.min(...respostasNaoRejeitadas.map(r => Number(r.valor_total_anual_ofertado)));
+        const vencedor = respostasNaoRejeitadas.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
         if (vencedor) fornecedoresVencedores.add(vencedor.fornecedor_id);
       }
     } else if (criterio === "item" || criterio === "por_item") {
       if (itens.length > 0) {
         const itensPorNumero: Record<number, any[]> = {};
         itens.forEach(item => {
-          const numItem = item.itens_cotacao.numero_item;
-          if (!itensPorNumero[numItem]) itensPorNumero[numItem] = [];
-          itensPorNumero[numItem].push(item);
+          const resposta = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
+          if (!resposta?.rejeitado) {
+            const numItem = item.itens_cotacao.numero_item;
+            if (!itensPorNumero[numItem]) itensPorNumero[numItem] = [];
+            itensPorNumero[numItem].push(item);
+          }
         });
 
         Object.values(itensPorNumero).forEach(itensDoNumero => {
@@ -208,7 +234,7 @@ export function DialogFinalizarProcesso({
             const vencedor = itensDoNumero.find(i => Number(i.valor_unitario_ofertado) === menorValor);
             if (vencedor) {
               const resposta = respostas.find(r => r.id === vencedor.cotacao_resposta_fornecedor_id);
-              if (resposta) fornecedoresVencedores.add(resposta.fornecedor_id);
+              if (resposta && !resposta.rejeitado) fornecedoresVencedores.add(resposta.fornecedor_id);
             }
           }
         });
@@ -217,12 +243,15 @@ export function DialogFinalizarProcesso({
       if (itens.length > 0) {
         const itensPorLote: Record<string, Record<string, any[]>> = {};
         itens.forEach(item => {
-          const loteId = item.itens_cotacao.lote_id;
-          if (!loteId) return;
-          if (!itensPorLote[loteId]) itensPorLote[loteId] = {};
-          const respostaId = item.cotacao_resposta_fornecedor_id;
-          if (!itensPorLote[loteId][respostaId]) itensPorLote[loteId][respostaId] = [];
-          itensPorLote[loteId][respostaId].push(item);
+          const resposta = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
+          if (!resposta?.rejeitado) {
+            const loteId = item.itens_cotacao.lote_id;
+            if (!loteId) return;
+            if (!itensPorLote[loteId]) itensPorLote[loteId] = {};
+            const respostaId = item.cotacao_resposta_fornecedor_id;
+            if (!itensPorLote[loteId][respostaId]) itensPorLote[loteId][respostaId] = [];
+            itensPorLote[loteId][respostaId].push(item);
+          }
         });
 
         Object.values(itensPorLote).forEach(respostasPorLote => {
@@ -238,7 +267,7 @@ export function DialogFinalizarProcesso({
             const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
             if (vencedor) {
               const resposta = respostas.find(r => r.id === vencedor.respostaId);
-              if (resposta) fornecedoresVencedores.add(resposta.fornecedor_id);
+              if (resposta && !resposta.rejeitado) fornecedoresVencedores.add(resposta.fornecedor_id);
             }
           }
         });
@@ -881,7 +910,10 @@ export function DialogFinalizarProcesso({
         `)
         .in("cotacao_resposta_fornecedor_id", respostas?.map(r => r.id) || []);
 
-      const fornecedoresVencedores = fornecedoresData.map(fData => {
+      // Filtrar apenas fornecedores não rejeitados
+      const fornecedoresNaoRejeitados = fornecedoresData.filter(f => !f.rejeitado);
+      
+      const fornecedoresVencedores = fornecedoresNaoRejeitados.map(fData => {
         const resposta = respostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
         const itensVencedores = fData.itensVencedores;
         const itensNumeros = itensVencedores.map(i => i.itens_cotacao.numero_item).sort((a, b) => a - b);
@@ -948,6 +980,48 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const rejeitarFornecedor = async () => {
+    if (!fornecedorParaRejeitar) return;
+    
+    const fornData = fornecedoresData.find(f => f.fornecedor.id === fornecedorParaRejeitar);
+    if (!fornData) return;
+
+    const motivo = motivoRejeicaoFornecedor[fornecedorParaRejeitar];
+    if (!motivo || motivo.trim() === "") {
+      toast.error("Informe o motivo da rejeição");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Marcar fornecedor como rejeitado
+      const { error } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .update({
+          rejeitado: true,
+          motivo_rejeicao: motivo.trim(),
+          data_rejeicao: new Date().toISOString()
+        })
+        .eq("id", fornData.respostaId);
+
+      if (error) throw error;
+
+      toast.success(`Fornecedor ${fornData.fornecedor.razao_social} rejeitado`);
+      setDialogRejeicaoOpen(false);
+      setFornecedorParaRejeitar(null);
+      setMotivoRejeicaoFornecedor(prev => ({ ...prev, [fornecedorParaRejeitar]: "" }));
+      
+      // Recarregar fornecedores para atualizar a lista com próximo colocado
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao rejeitar fornecedor:", error);
+      toast.error("Erro ao rejeitar fornecedor");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const finalizarProcesso = async () => {
     if (!autorizacaoDiretaUrl) {
       toast.error("É necessário gerar a autorização antes de enviar para contratação");
@@ -1005,22 +1079,50 @@ export function DialogFinalizarProcesso({
                 <Card key={fornData.fornecedor.id} className="border-2">
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-xl">{fornData.fornecedor.razao_social}</CardTitle>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <CardTitle className="text-xl">{fornData.fornecedor.razao_social}</CardTitle>
+                          {fornData.rejeitado && (
+                            <Badge variant="destructive" className="gap-1">
+                              <AlertCircle className="h-3 w-3" />
+                              Rejeitado
+                            </Badge>
+                          )}
+                        </div>
                         <CardDescription>
                           {fornData.itensVencedores.length > 0 && (
                             <span className="text-sm">
                               Itens vencedores: {fornData.itensVencedores.map(i => i.itens_cotacao.numero_item).join(", ")}
                             </span>
                           )}
+                          {fornData.rejeitado && fornData.motivoRejeicao && (
+                            <div className="mt-2 p-2 bg-destructive/10 rounded text-sm">
+                              <strong>Motivo da rejeição:</strong> {fornData.motivoRejeicao}
+                            </div>
+                          )}
                         </CardDescription>
                       </div>
-                      {fornData.todosDocumentosAprovados && (
-                        <Badge className="bg-green-600">
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Documentos Aprovados
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {!fornData.rejeitado && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              setFornecedorParaRejeitar(fornData.fornecedor.id);
+                              setDialogRejeicaoOpen(true);
+                            }}
+                          >
+                            <AlertCircle className="h-4 w-4 mr-1" />
+                            Rejeitar Fornecedor
+                          </Button>
+                        )}
+                        {fornData.todosDocumentosAprovados && !fornData.rejeitado && (
+                          <Badge className="bg-green-600">
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Documentos Aprovados
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   
@@ -1351,6 +1453,54 @@ export function DialogFinalizarProcesso({
             </div>
           </div>
         </DialogFooter>
+
+        {/* Dialog de Rejeição de Fornecedor */}
+        <Dialog open={dialogRejeicaoOpen} onOpenChange={setDialogRejeicaoOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rejeitar Fornecedor</DialogTitle>
+              <DialogDescription>
+                Informe o motivo da rejeição do fornecedor. Os itens serão redistribuídos automaticamente para o próximo colocado.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="motivo-rejeicao">Motivo da Rejeição *</Label>
+                <Textarea
+                  id="motivo-rejeicao"
+                  placeholder="Ex: Documentação incompleta, fornecedor desistiu da proposta, etc."
+                  value={fornecedorParaRejeitar ? (motivoRejeicaoFornecedor[fornecedorParaRejeitar] || "") : ""}
+                  onChange={(e) => {
+                    if (fornecedorParaRejeitar) {
+                      setMotivoRejeicaoFornecedor(prev => ({
+                        ...prev,
+                        [fornecedorParaRejeitar]: e.target.value
+                      }));
+                    }
+                  }}
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setDialogRejeicaoOpen(false);
+                setFornecedorParaRejeitar(null);
+              }}>
+                Cancelar
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={rejeitarFornecedor}
+                disabled={!fornecedorParaRejeitar || !motivoRejeicaoFornecedor[fornecedorParaRejeitar]?.trim()}
+              >
+                Confirmar Rejeição
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );
