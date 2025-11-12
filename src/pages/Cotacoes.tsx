@@ -21,6 +21,7 @@ import { DialogImportarItens } from "@/components/cotacoes/DialogImportarItens";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import DOMPurify from "dompurify";
 
 interface Contrato {
   id: string;
@@ -682,7 +683,7 @@ const Cotacoes = () => {
                     processos.map((processo) => (
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
-                        <TableCell dangerouslySetInnerHTML={{ __html: processo.objeto_resumido }} />
+                        <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
                         <TableCell className="text-right">
                           R$ {processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </TableCell>

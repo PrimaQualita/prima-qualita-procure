@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import DOMPurify from "dompurify";
 
 interface Contrato {
   id: string;
@@ -243,7 +244,7 @@ const Selecoes = () => {
                     processos.map((processo) => (
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
-                        <TableCell dangerouslySetInnerHTML={{ __html: processo.objeto_resumido }} />
+                        <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
                         <TableCell className="text-right">
                           R$ {processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </TableCell>
