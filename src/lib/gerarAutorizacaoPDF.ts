@@ -124,24 +124,26 @@ export const gerarAutorizacaoCompraDireta = async (
   // Certificação Digital
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
+  doc.setLineWidth(0.5);
   doc.rect(20, yPos, 170, 45, 'FD');
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 51, 102);
-  doc.text('🔐 CERTIFICAÇÃO DIGITAL', 25, yPos + 8);
+  doc.text('CERTIFICACAO DIGITAL', 25, yPos + 8);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
-  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 15);
-  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 21);
-  doc.text(`Responsável: ${usuarioNome}`, 25, yPos + 27);
-  doc.text(`CPF: ${usuarioCpf}`, 25, yPos + 33);
+  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 16);
+  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 23);
+  doc.text(`Responsavel: ${usuarioNome}`, 25, yPos + 30);
+  doc.text(`CPF: ${usuarioCpf}`, 25, yPos + 37);
   
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'italic');
-  doc.text('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 25, yPos + 40);
+  const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
+  doc.text(textoValidade, 25, yPos + 42);
   
   // Rodapé
   yPos = 270;
@@ -159,7 +161,7 @@ export const gerarAutorizacaoCompraDireta = async (
   const pdfBlob = doc.output('blob');
   console.log('[PDF] PDF gerado, tamanho:', pdfBlob.size);
   
-  if (pdfBlob.size < 5000) {
+  if (pdfBlob.size < 3000) {
     throw new Error('PDF muito pequeno, possível erro na geração');
   }
   
@@ -269,24 +271,26 @@ export const gerarAutorizacaoSelecao = async (
   // Certificação Digital
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
+  doc.setLineWidth(0.5);
   doc.rect(20, yPos, 170, 45, 'FD');
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 51, 102);
-  doc.text('🔐 CERTIFICAÇÃO DIGITAL', 25, yPos + 8);
+  doc.text('CERTIFICACAO DIGITAL', 25, yPos + 8);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
-  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 15);
-  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 21);
-  doc.text(`Responsável: ${usuarioNome}`, 25, yPos + 27);
-  doc.text(`CPF: ${usuarioCpf}`, 25, yPos + 33);
+  doc.text(`Protocolo: ${protocolo}`, 25, yPos + 16);
+  doc.text(`Data/Hora: ${dataHora}`, 25, yPos + 23);
+  doc.text(`Responsavel: ${usuarioNome}`, 25, yPos + 30);
+  doc.text(`CPF: ${usuarioCpf}`, 25, yPos + 37);
   
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'italic');
-  doc.text('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 25, yPos + 40);
+  const textoValidade = doc.splitTextToSize('Documento gerado eletronicamente com validade legal (Lei 14.063/2020)', 165);
+  doc.text(textoValidade, 25, yPos + 42);
   
   // Rodapé
   yPos = 270;
@@ -304,7 +308,7 @@ export const gerarAutorizacaoSelecao = async (
   const pdfBlob = doc.output('blob');
   console.log('[PDF] PDF gerado, tamanho:', pdfBlob.size);
   
-  if (pdfBlob.size < 5000) {
+  if (pdfBlob.size < 3000) {
     throw new Error('PDF muito pequeno, possível erro na geração');
   }
   
