@@ -1064,57 +1064,15 @@ const Cotacoes = () => {
                             onChange={async (e) => {
                               const files = Array.from(e.target.files || []);
                               if (files.length > 0) {
-                                setEmailsFornecedoresAnexados(prev => [...prev, ...files]);
-                                toast.success(`${files.length} arquivo(s) selecionado(s)`);
+                                // Salvar automaticamente no banco
+                                await salvarEmailsAnexados(files);
+                                // Limpar o input
+                                e.target.value = '';
                               }
                             }}
                             className="flex-1"
                           />
-                          {emailsFornecedoresAnexados.length > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEmailsFornecedoresAnexados([]);
-                                const input = document.getElementById('emails-fornecedores-upload') as HTMLInputElement;
-                                if (input) input.value = '';
-                                toast.info("Seleção limpa");
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
                         </div>
-                        {emailsFornecedoresAnexados.length > 0 && (
-                          <>
-                            <div className="flex flex-col gap-1 mt-2">
-                              {emailsFornecedoresAnexados.map((file, index) => (
-                                <div key={index} className="flex items-center justify-between text-sm text-muted-foreground">
-                                  <span>📎 {file.name}</span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setEmailsFornecedoresAnexados(prev => prev.filter((_, i) => i !== index));
-                                      toast.info("Arquivo removido");
-                                    }}
-                                    className="h-6 w-6 p-0"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                            <Button
-                              onClick={() => salvarEmailsAnexados(emailsFornecedoresAnexados)}
-                              className="mt-2"
-                              size="sm"
-                            >
-                              <Upload className="mr-2 h-4 w-4" />
-                              Salvar E-mails
-                            </Button>
-                          </>
-                        )}
                       <p className="text-xs text-muted-foreground mt-1">
                         Anexe a cópia dos e-mails enviados aos fornecedores (PDF, EML, MSG ou ZIP)
                       </p>
@@ -1205,7 +1163,13 @@ const Cotacoes = () => {
                                   <div className="flex gap-2">
                                     <Button
                                       variant="secondary"
-                                      onClick={() => window.open(autorizacaoSelecaoUrl, '_blank')}
+                                      onClick={async () => {
+                                        try {
+                                          window.open(autorizacaoSelecaoUrl, '_blank');
+                                        } catch (error) {
+                                          toast.error("Erro ao visualizar: Verifique se há bloqueadores de anúncios ativos no navegador");
+                                        }
+                                      }}
                                       className="flex-1"
                                     >
                                       <FileText className="mr-2 h-4 w-4" />
@@ -1213,11 +1177,19 @@ const Cotacoes = () => {
                                     </Button>
                                     <Button
                                       variant="secondary"
-                                      onClick={() => {
-                                        const link = document.createElement('a');
-                                        link.href = autorizacaoSelecaoUrl;
-                                        link.download = `autorizacao-selecao-${processoSelecionado?.numero_processo_interno}.pdf`;
-                                        link.click();
+                                      onClick={async () => {
+                                        try {
+                                          const response = await fetch(autorizacaoSelecaoUrl);
+                                          const blob = await response.blob();
+                                          const url = window.URL.createObjectURL(blob);
+                                          const link = document.createElement('a');
+                                          link.href = url;
+                                          link.download = `autorizacao-selecao-${processoSelecionado?.numero_processo_interno}.pdf`;
+                                          link.click();
+                                          window.URL.revokeObjectURL(url);
+                                        } catch (error) {
+                                          toast.error("Erro ao baixar: Verifique se há bloqueadores de anúncios ativos no navegador");
+                                        }
                                       }}
                                       className="flex-1"
                                     >
@@ -1361,7 +1333,13 @@ const Cotacoes = () => {
                                   <div className="flex gap-2">
                                     <Button
                                       variant="secondary"
-                                      onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
+                                      onClick={async () => {
+                                        try {
+                                          window.open(autorizacaoDiretaUrl, '_blank');
+                                        } catch (error) {
+                                          toast.error("Erro ao visualizar: Verifique se há bloqueadores de anúncios ativos no navegador");
+                                        }
+                                      }}
                                       className="flex-1"
                                     >
                                       <FileText className="mr-2 h-4 w-4" />
@@ -1369,11 +1347,19 @@ const Cotacoes = () => {
                                     </Button>
                                     <Button
                                       variant="secondary"
-                                      onClick={() => {
-                                        const link = document.createElement('a');
-                                        link.href = autorizacaoDiretaUrl;
-                                        link.download = `autorizacao-compra-direta-${processoSelecionado?.numero_processo_interno}.pdf`;
-                                        link.click();
+                                      onClick={async () => {
+                                        try {
+                                          const response = await fetch(autorizacaoDiretaUrl);
+                                          const blob = await response.blob();
+                                          const url = window.URL.createObjectURL(blob);
+                                          const link = document.createElement('a');
+                                          link.href = url;
+                                          link.download = `autorizacao-compra-direta-${processoSelecionado?.numero_processo_interno}.pdf`;
+                                          link.click();
+                                          window.URL.revokeObjectURL(url);
+                                        } catch (error) {
+                                          toast.error("Erro ao baixar: Verifique se há bloqueadores de anúncios ativos no navegador");
+                                        }
                                       }}
                                       className="flex-1"
                                     >
