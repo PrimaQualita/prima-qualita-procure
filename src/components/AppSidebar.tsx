@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText,
@@ -13,6 +14,7 @@ import {
   FolderKanban,
   LogOut,
   UserCircle,
+  Camera,
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,13 +23,14 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { NavLink } from "@/components/NavLink";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -39,6 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
 
 interface AppSidebarProps {
   isGestor: boolean;
@@ -48,6 +52,27 @@ interface AppSidebarProps {
 export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
   const { open } = useSidebar();
   const navigate = useNavigate();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (profile?.avatar_url) {
+      loadAvatar(profile.avatar_url);
+    }
+  }, [profile?.avatar_url]);
+
+  const loadAvatar = async (path: string) => {
+    try {
+      const { data } = await supabase.storage
+        .from('avatars')
+        .getPublicUrl(path);
+      
+      if (data) {
+        setAvatarUrl(data.publicUrl);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar avatar:', error);
+    }
+  };
 
   const menuItems = [
     {
@@ -131,6 +156,16 @@ export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="icon">
+      <SidebarHeader className="border-b">
+        <div className={`flex items-center justify-center ${open ? 'p-4' : 'p-2'}`}>
+          <img 
+            src={primaLogo} 
+            alt="Prima Qualitá" 
+            className={`${open ? 'h-12' : 'h-8'} w-auto object-contain transition-all`}
+          />
+        </div>
+      </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
@@ -156,23 +191,24 @@ export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="border-t">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton className="h-auto py-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
+                <SidebarMenuButton className="h-auto py-3 hover:bg-muted/50">
+                  <Avatar className="h-10 w-10 border-2 border-primary/20">
+                    {avatarUrl && <AvatarImage src={avatarUrl} alt={profile?.nome_completo} />}
+                    <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                       {getInitials(profile?.nome_completo || "")}
                     </AvatarFallback>
                   </Avatar>
                   {open && (
-                    <div className="flex flex-col items-start overflow-hidden">
-                      <span className="text-sm font-medium truncate w-full">
+                    <div className="flex flex-col items-start overflow-hidden flex-1 ml-2">
+                      <span className="text-sm font-semibold truncate w-full">
                         {profile?.nome_completo || "Usuário"}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground font-medium">
                         {isGestor ? "Gestor" : "Colaborador"}
                       </span>
                     </div>

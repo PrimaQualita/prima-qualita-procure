@@ -1008,6 +1008,7 @@ export type Database = {
       profiles: {
         Row: {
           ativo: boolean | null
+          avatar_url: string | null
           cpf: string
           created_at: string | null
           data_criacao: string | null
@@ -1023,6 +1024,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean | null
+          avatar_url?: string | null
           cpf: string
           created_at?: string | null
           data_criacao?: string | null
@@ -1038,6 +1040,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean | null
+          avatar_url?: string | null
           cpf?: string
           created_at?: string | null
           data_criacao?: string | null

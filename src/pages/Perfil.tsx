@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { User, Mail, Lock, Calendar } from "lucide-react";
+import { User, Mail, Lock, Calendar, Camera } from "lucide-react";
 import primaLogo from "@/assets/prima-qualita-logo.png";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Perfil = () => {
   const navigate = useNavigate();
@@ -18,6 +19,9 @@ const Perfil = () => {
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadProfile();
@@ -39,6 +43,10 @@ const Perfil = () => {
 
       if (error) throw error;
       setProfile(data);
+
+      if (data?.avatar_url) {
+        loadAvatar(data.avatar_url);
+      }
     } catch (error: any) {
       toast({
         title: "Erro ao carregar perfil",
@@ -48,6 +56,74 @@ const Perfil = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadAvatar = async (path: string) => {
+    try {
+      const { data } = await supabase.storage
+        .from('avatars')
+        .getPublicUrl(path);
+      
+      if (data) {
+        setAvatarUrl(data.publicUrl);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar avatar:', error);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      if (!event.target.files || event.target.files.length === 0) {
+        return;
+      }
+
+      setUploadingAvatar(true);
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profile.id}-${Math.random()}.${fileExt}`;
+      const filePath = `${profile.id}/${fileName}`;
+
+      // Upload da imagem
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Atualizar o perfil com o novo avatar
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: filePath })
+        .eq('id', profile.id);
+
+      if (updateError) throw updateError;
+
+      setProfile({ ...profile, avatar_url: filePath });
+      loadAvatar(filePath);
+
+      toast({
+        title: "Foto atualizada",
+        description: "Sua foto de perfil foi atualizada com sucesso.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao fazer upload",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const parts = name.split(" ");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
   };
 
   const handleSaveProfile = async () => {
@@ -148,6 +224,40 @@ const Perfil = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-4xl">
         <div className="grid gap-6">
+          {/* Foto de Perfil */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="h-5 w-5" />
+                Foto de Perfil
+              </CardTitle>
+              <CardDescription>Adicione ou altere sua foto de perfil</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-4">
+              <Avatar className="h-32 w-32 border-4 border-primary/20">
+                {avatarUrl && <AvatarImage src={avatarUrl} alt={profile?.nome_completo} />}
+                <AvatarFallback className="bg-primary text-primary-foreground text-3xl font-semibold">
+                  {getInitials(profile?.nome_completo || "")}
+                </AvatarFallback>
+              </Avatar>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+              <Button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                variant="outline"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                {uploadingAvatar ? "Enviando..." : "Alterar Foto"}
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Informações Pessoais */}
           <Card>
             <CardHeader>
