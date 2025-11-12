@@ -39,6 +39,8 @@ export const gerarAutorizacaoCompraDireta = async (
   fornecedoresVencedores?: FornecedorVencedor[]
 ): Promise<AutorizacaoResult> => {
   console.log('[PDF] Iniciando geração - Compra Direta');
+  console.log('[PDF] Fornecedores vencedores recebidos:', fornecedoresVencedores);
+  console.log('[PDF] Quantidade de fornecedores:', fornecedoresVencedores?.length || 0);
   
   const agora = new Date();
   const dataHora = agora.toLocaleString('pt-BR', { 
@@ -106,7 +108,9 @@ export const gerarAutorizacaoCompraDireta = async (
   yPos += linhas1.length * 6 + 10;
   
   // Tabela de fornecedores vencedores
+  console.log('[PDF] Verificando fornecedores vencedores para tabela:', fornecedoresVencedores);
   if (fornecedoresVencedores && fornecedoresVencedores.length > 0) {
+    console.log('[PDF] Gerando tabela com', fornecedoresVencedores.length, 'fornecedores');
     doc.setFontSize(10);
     
     // Cabeçalho da tabela
@@ -155,6 +159,10 @@ export const gerarAutorizacaoCompraDireta = async (
     doc.text('TOTAL GERAL', 22, yPos + 5);
     doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 155, yPos + 5);
     yPos += 15;
+    
+    console.log('[PDF] Tabela gerada com sucesso. Total geral:', totalGeral);
+  } else {
+    console.log('[PDF] AVISO: Nenhum fornecedor vencedor para gerar tabela!');
   }
   
   // Encaminhamento

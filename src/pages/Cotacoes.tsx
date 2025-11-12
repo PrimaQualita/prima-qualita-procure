@@ -1397,6 +1397,14 @@ const Cotacoes = () => {
                                       fornecedoresVencedores.push(...Array.from(vencedoresPorFornecedor.values()));
                                     }
                                     
+                                    console.log('Fornecedores vencedores identificados:', fornecedoresVencedores);
+                                    console.log('Total de fornecedores vencedores:', fornecedoresVencedores.length);
+                                    
+                                    if (fornecedoresVencedores.length === 0) {
+                                      toast.error('Nenhum fornecedor vencedor identificado. Verifique se há propostas enviadas.');
+                                      return;
+                                    }
+                                    
                                     const result = await gerarAutorizacaoCompraDireta(
                                       processoSelecionado.numero_processo_interno,
                                       processoSelecionado.objeto_resumido,
