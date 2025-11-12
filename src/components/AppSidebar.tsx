@@ -57,8 +57,10 @@ export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
   useEffect(() => {
     if (profile?.avatar_url) {
       loadAvatar(profile.avatar_url);
+    } else {
+      setAvatarUrl(null);
     }
-  }, [profile?.avatar_url]);
+  }, [profile?.avatar_url, profile?.id]);
 
   const loadAvatar = async (path: string) => {
     try {

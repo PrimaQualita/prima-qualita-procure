@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import primaLogo from "@/assets/prima-qualita-logo.png";
@@ -248,61 +249,82 @@ const Dashboard = () => {
     return meses.map(mes => ({ name: mes, value: dadosPorMes[mes] || 0, mes, processos: dadosPorMes[mes] || 0 }));
   };
 
-  const exportarPDF = async (graficoId: string, titulo: string, dados: any[], tipoGrafico: 'pie' | 'bar' | 'line') => {
+  const exportarPDF = async (
+    graficoId: string, 
+    titulo: string, 
+    dados: any[], 
+    tipoGrafico: 'pie' | 'bar' | 'line',
+    incluirRelacionados: boolean = false,
+    graficosRelacionados?: { id: string; titulo: string; dados: any[]; tipo: 'pie' | 'bar' | 'line' }[]
+  ) => {
     const graficoElement = document.getElementById(graficoId);
     if (!graficoElement) return;
 
-    const canvas = await html2pdf().set({
-      margin: 0,
-      filename: 'temp.pdf',
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).from(graficoElement).outputImg();
-
     const element = document.createElement('div');
-    
-    let conteudoTabela = '';
-    if (dados[0]?.name !== undefined && dados[0]?.value !== undefined) {
-      conteudoTabela = `
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-          <thead>
-            <tr style="background-color: #f3f4f6;">
-              <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Item</th>
-              <th style="border: 1px solid #d1d5db; padding: 12px; text-align: right;">Quantidade</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${dados.filter(d => d.value > 0).map(d => `
-              <tr>
-                <td style="border: 1px solid #d1d5db; padding: 8px;">${d.name || d.mes}</td>
-                <td style="border: 1px solid #d1d5db; padding: 8px; text-align: right;">${d.value || d.processos || 0}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    } else {
-      conteudoTabela = `
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-          <thead>
-            <tr style="background-color: #f3f4f6;">
-              <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Mês</th>
-              <th style="border: 1px solid #d1d5db; padding: 12px; text-align: right;">Processos</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${dados.filter(d => d.processos > 0).map(d => `
-              <tr>
-                <td style="border: 1px solid #d1d5db; padding: 8px;">${d.mes}</td>
-                <td style="border: 1px solid #d1d5db; padding: 8px; text-align: right;">${d.processos}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    }
+    let conteudoCompleto = '';
 
-    element.innerHTML = `
+    // Função para gerar canvas de um gráfico
+    const gerarCanvasGrafico = async (id: string) => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const canvas = await html2pdf().set({
+        margin: 0,
+        filename: 'temp.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(el).outputImg();
+      return canvas;
+    };
+
+    // Função para gerar tabela
+    const gerarTabela = (dadosTabela: any[]) => {
+      if (dadosTabela[0]?.name !== undefined && dadosTabela[0]?.value !== undefined) {
+        return `
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead>
+              <tr style="background-color: #f3f4f6;">
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Item</th>
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: right;">Quantidade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dadosTabela.filter(d => d.value > 0).map(d => `
+                <tr>
+                  <td style="border: 1px solid #d1d5db; padding: 8px;">${d.name || d.mes}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 8px; text-align: right;">${d.value || d.processos || 0}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else {
+        return `
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead>
+              <tr style="background-color: #f3f4f6;">
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left;">Mês</th>
+                <th style="border: 1px solid #d1d5db; padding: 12px; text-align: right;">Processos</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dadosTabela.filter(d => d.processos > 0).map(d => `
+                <tr>
+                  <td style="border: 1px solid #d1d5db; padding: 8px;">${d.mes}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 8px; text-align: right;">${d.processos}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+    };
+
+    // Gerar canvas do gráfico principal
+    const canvasPrincipal = await gerarCanvasGrafico(graficoId);
+    if (!canvasPrincipal) return;
+
+    // Cabeçalho do relatório
+    conteudoCompleto = `
       <div style="padding: 40px; font-family: Arial, sans-serif;">
         <div style="text-align: center; margin-bottom: 30px;">
           <img src="${primaLogo}" style="width: 200px; margin-bottom: 20px;" />
@@ -311,11 +333,31 @@ const Dashboard = () => {
           <p style="color: #666;">Gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>
         <div style="text-align: center; margin: 30px 0;">
-          <img src="${canvas.src}" style="max-width: 100%; height: auto;" />
+          <img src="${canvasPrincipal.src}" style="max-width: 100%; height: auto;" />
         </div>
-        ${conteudoTabela}
-      </div>
+        ${gerarTabela(dados)}
     `;
+
+    // Se incluir gráficos relacionados
+    if (incluirRelacionados && graficosRelacionados) {
+      for (const grafico of graficosRelacionados) {
+        const canvas = await gerarCanvasGrafico(grafico.id);
+        if (canvas) {
+          conteudoCompleto += `
+            <div style="page-break-before: always; padding-top: 40px;">
+              <h2 style="color: #666; margin: 20px 0; text-align: center;">${grafico.titulo}</h2>
+              <div style="text-align: center; margin: 30px 0;">
+                <img src="${canvas.src}" style="max-width: 100%; height: auto;" />
+              </div>
+              ${gerarTabela(grafico.dados)}
+            </div>
+          `;
+        }
+      }
+    }
+
+    conteudoCompleto += '</div>';
+    element.innerHTML = conteudoCompleto;
 
     html2pdf().set({
       margin: 10,
@@ -369,9 +411,24 @@ const Dashboard = () => {
                     </SelectContent>
                   </Select>
 
-                  <Button onClick={() => exportarPDF('grafico-pizza-1', 'Processos por Contratos de Gestão / Mês', dadosGrafico1(), 'pie')} size="sm" variant="outline" className="w-full sm:w-auto">
-                    <Download className="w-4 h-4 mr-2" /> PDF
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="w-full sm:w-auto">
+                        <Download className="w-4 h-4 mr-2" /> PDF
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => exportarPDF('grafico-pizza-1', 'Processos por Contratos de Gestão / Mês', dadosGrafico1(), 'pie', false)}>
+                        Apenas este gráfico
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => exportarPDF('grafico-pizza-1', 'Processos por Contratos de Gestão / Mês', dadosGrafico1(), 'pie', true, [
+                        { id: 'grafico-velas-1', titulo: 'Gráfico de Barras', dados: dadosComplementar1(), tipo: 'bar' },
+                        { id: 'grafico-ecg-1', titulo: 'Tendência Mensal (ECG)', dados: dadosComplementar1(), tipo: 'line' }
+                      ])}>
+                        Incluir gráficos relacionados
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 <Select value={contratoGrafico1} onValueChange={setContratoGrafico1}>
@@ -441,9 +498,24 @@ const Dashboard = () => {
                     </SelectContent>
                   </Select>
 
-                  <Button onClick={() => exportarPDF('grafico-pizza-2', 'Modalidades de Contratações Mensais/Anuais', dadosGrafico2(), 'pie')} size="sm" variant="outline" className="w-full sm:w-auto">
-                    <Download className="w-4 h-4 mr-2" /> PDF
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="w-full sm:w-auto">
+                        <Download className="w-4 h-4 mr-2" /> PDF
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => exportarPDF('grafico-pizza-2', 'Modalidades de Contratações Mensais/Anuais', dadosGrafico2(), 'pie', false)}>
+                        Apenas este gráfico
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => exportarPDF('grafico-pizza-2', 'Modalidades de Contratações Mensais/Anuais', dadosGrafico2(), 'pie', true, [
+                        { id: 'grafico-velas-2', titulo: 'Gráfico de Barras', dados: dadosComplementar2(), tipo: 'bar' },
+                        { id: 'grafico-ecg-2', titulo: 'Tendência Mensal (ECG)', dados: dadosComplementar2(), tipo: 'line' }
+                      ])}>
+                        Incluir gráficos relacionados
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 <Select value={tipoProcessoSelecionado} onValueChange={setTipoProcessoSelecionado}>
