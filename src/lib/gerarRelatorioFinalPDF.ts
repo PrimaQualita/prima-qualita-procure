@@ -107,7 +107,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   const textoLimpo = extractTextFromHTML(dados.objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`ASSUNTO: ${textoLimpo}`, 170);
   doc.text(linhasAssunto, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasAssunto.length * 6 + 10;
+  yPos += linhasAssunto.length * 3.5 + 5;
   
   // Parágrafo 1
   doc.setFontSize(11);

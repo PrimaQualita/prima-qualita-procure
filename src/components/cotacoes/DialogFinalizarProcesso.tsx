@@ -101,6 +101,7 @@ export function DialogFinalizarProcesso({
       loadAllFornecedores();
       loadDocumentosAprovados();
       loadAutorizacoes();
+      loadRelatorioFinal();
       checkResponsavelLegal();
     }
   }, [open, cotacaoId]);
@@ -401,6 +402,23 @@ export function DialogFinalizarProcesso({
     } else if (data) {
       setAutorizacaoDiretaUrl(data.url_arquivo);
       setAutorizacaoDiretaId(data.id);
+    }
+  };
+
+  const loadRelatorioFinal = async () => {
+    const { data, error } = await supabase
+      .from("relatorios_finais")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_geracao", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error("Erro ao carregar relatório final:", error);
+    } else if (data) {
+      setRelatorioFinalUrl(data.url_arquivo);
+      setRelatorioFinalId(data.id);
     }
   };
 
@@ -784,7 +802,7 @@ export function DialogFinalizarProcesso({
       // Salvar referência no banco
       const { data: { session: currentSession } } = await supabase.auth.getSession();
 
-      const { error: insertError } = await supabase
+      const { data: insertData, error: insertError } = await supabase
         .from("relatorios_finais")
         .insert({
           cotacao_id: cotacaoId,
@@ -793,11 +811,14 @@ export function DialogFinalizarProcesso({
           url_arquivo: resultado.url,
           usuario_gerador_id: currentSession!.user.id,
           data_geracao: new Date().toISOString()
-        });
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
 
       setRelatorioFinalUrl(resultado.url);
+      setRelatorioFinalId(insertData.id);
       toast.success("Relatório Final gerado com sucesso!");
     } catch (error) {
       console.error("Erro ao gerar relatório:", error);
@@ -1255,15 +1276,14 @@ export function DialogFinalizarProcesso({
                       <Download className="h-4 w-4 mr-2" />
                       Baixar
                     </Button>
-                    {isResponsavelLegal && relatorioFinalId && (
-                      <Button
-                        onClick={() => deletarRelatorioFinal(relatorioFinalId)}
-                        variant="destructive"
-                        size="icon"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Button
+                      onClick={() => deletarRelatorioFinal(relatorioFinalId)}
+                      variant="destructive"
+                      size="icon"
+                      title="Excluir Relatório Final"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 )}
               </div>
