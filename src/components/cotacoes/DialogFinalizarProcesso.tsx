@@ -665,6 +665,28 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const deletarRelatorioFinal = async (relatorioId: string) => {
+    if (!confirm("Tem certeza que deseja deletar este relatório final? Será necessário gerar um novo.")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("relatorios_finais")
+        .delete()
+        .eq("id", relatorioId);
+
+      if (error) throw error;
+
+      setRelatorioFinalUrl("");
+      setRelatorioFinalId("");
+      toast.success("Relatório final deletado");
+    } catch (error) {
+      console.error("Erro ao deletar relatório final:", error);
+      toast.error("Erro ao deletar relatório final");
+    }
+  };
+
   const gerarRelatorio = async () => {
     try {
       setLoading(true);
@@ -1233,6 +1255,15 @@ export function DialogFinalizarProcesso({
                       <Download className="h-4 w-4 mr-2" />
                       Baixar
                     </Button>
+                    {isResponsavelLegal && relatorioFinalId && (
+                      <Button
+                        onClick={() => deletarRelatorioFinal(relatorioFinalId)}
+                        variant="destructive"
+                        size="icon"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
