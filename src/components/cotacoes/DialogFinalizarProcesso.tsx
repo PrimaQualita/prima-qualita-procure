@@ -972,7 +972,7 @@ export function DialogFinalizarProcesso({
                     {/* Solicitar Documentos Adicionais/Faltantes */}
                     <div className="border-t pt-4">
                       <h4 className="font-semibold text-lg mb-3">➕ Solicitar Documentos Adicionais/Faltantes</h4>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label>Nome do Documento</Label>
                           <Input
@@ -988,6 +988,14 @@ export function DialogFinalizarProcesso({
                             onChange={(e) => setNovoCampo({ ...novoCampo, descricao: e.target.value })}
                             placeholder="Descrição do documento solicitado"
                             rows={1}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Data Limite para Envio</Label>
+                          <Input
+                            type="date"
+                            value={dataLimiteDocumentos}
+                            onChange={(e) => setDataLimiteDocumentos(e.target.value)}
                           />
                         </div>
                       </div>
