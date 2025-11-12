@@ -222,7 +222,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   doc.setFillColor(245, 245, 245);
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 45, 'FD');
+  doc.rect(20, yPos, 170, 50, 'FD');
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
