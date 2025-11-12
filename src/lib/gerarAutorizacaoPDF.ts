@@ -24,6 +24,8 @@ export const gerarAutorizacaoCompraDireta = async (
   usuarioCpf: string,
   fornecedorVencedor?: FornecedorVencedor
 ): Promise<AutorizacaoResult> => {
+  console.log('[PDF] Iniciando geração de autorização de compra direta');
+  
   const agora = new Date();
   const dataHora = agora.toLocaleString('pt-BR', { 
     dateStyle: 'long', 
@@ -31,28 +33,43 @@ export const gerarAutorizacaoCompraDireta = async (
   });
   const protocolo = `AUT-CD-${numeroProcesso}-${Date.now()}`;
   
-  // Carregar e converter imagem para base64 com espera adequada
+  console.log('[PDF] Carregando logo...');
+  // Carregar e converter imagem para base64
   const base64Logo = await new Promise<string>((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
+    
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } else {
-        reject(new Error('Erro ao criar contexto do canvas'));
+      console.log('[PDF] Logo carregada, convertendo para base64...');
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const dataUrl = canvas.toDataURL('image/png');
+          console.log('[PDF] Logo convertida para base64, tamanho:', dataUrl.length);
+          resolve(dataUrl);
+        } else {
+          reject(new Error('Erro ao criar contexto do canvas'));
+        }
+      } catch (error) {
+        console.error('[PDF] Erro ao converter logo:', error);
+        reject(error);
       }
     };
-    img.onerror = () => reject(new Error('Erro ao carregar imagem'));
+    
+    img.onerror = (error) => {
+      console.error('[PDF] Erro ao carregar logo:', error);
+      reject(new Error('Erro ao carregar imagem'));
+    };
+    
     img.src = logoHorizontal;
   });
   
-  // Aguardar um momento para garantir que tudo está carregado
-  await new Promise(resolve => setTimeout(resolve, 500));
+  console.log('[PDF] Aguardando renderização...');
+  await new Promise(resolve => setTimeout(resolve, 800));
   
   const htmlContent = `
     <!DOCTYPE html>
@@ -187,32 +204,44 @@ export const gerarAutorizacaoCompraDireta = async (
   `;
 
   // Criar elemento temporário para gerar PDF
+  console.log('[PDF] Criando elemento HTML...');
   const element = document.createElement('div');
   element.innerHTML = htmlContent;
   element.style.position = 'absolute';
   element.style.left = '-9999px';
+  element.style.width = '210mm';
+  element.style.backgroundColor = 'white';
   document.body.appendChild(element);
 
   try {
-    // Aguardar mais tempo para garantir renderização completa
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('[PDF] Aguardando renderização completa...');
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
+    console.log('[PDF] Gerando PDF...');
     const opt = {
       margin: [10, 10, 10, 10] as [number, number, number, number],
       filename: `autorizacao-compra-direta-${numeroProcesso}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.95 },
       html2canvas: { 
         scale: 2,
         useCORS: true,
-        logging: false,
-        letterRendering: true
+        logging: true,
+        letterRendering: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
       },
       jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
     };
 
     const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+    console.log('[PDF] PDF gerado, tamanho:', pdfBlob.size, 'bytes');
+    
+    if (pdfBlob.size < 1000) {
+      throw new Error('PDF gerado está muito pequeno, provavelmente vazio');
+    }
     
     // Upload para Supabase Storage
+    console.log('[PDF] Fazendo upload para Storage...');
     const fileName = `autorizacoes/compra-direta-${numeroProcesso}-${Date.now()}.pdf`;
     const { data, error } = await supabase.storage
       .from('processo-anexos')
@@ -221,21 +250,32 @@ export const gerarAutorizacaoCompraDireta = async (
         upsert: false
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[PDF] Erro no upload:', error);
+      throw error;
+    }
 
+    console.log('[PDF] Upload concluído, criando URL assinada...');
     // Obter URL assinada (signed URL) com validade de 1 ano
     const { data: urlData, error: signError } = await supabase.storage
       .from('processo-anexos')
       .createSignedUrl(fileName, 31536000); // 1 ano em segundos
 
-    if (signError) throw signError;
+    if (signError) {
+      console.error('[PDF] Erro ao criar URL assinada:', signError);
+      throw signError;
+    }
 
+    console.log('[PDF] Autorização gerada com sucesso!');
     return {
       url: urlData.signedUrl,
       fileName: `autorizacao-compra-direta-${numeroProcesso}.pdf`,
       protocolo,
       storagePath: fileName
     };
+  } catch (error) {
+    console.error('[PDF] Erro ao gerar autorização:', error);
+    throw error;
   } finally {
     document.body.removeChild(element);
   }
@@ -247,6 +287,8 @@ export const gerarAutorizacaoSelecao = async (
   usuarioNome: string,
   usuarioCpf: string
 ): Promise<AutorizacaoResult> => {
+  console.log('[PDF] Iniciando geração de autorização de seleção de fornecedores');
+  
   const agora = new Date();
   const dataHora = agora.toLocaleString('pt-BR', { 
     dateStyle: 'long', 
@@ -254,28 +296,43 @@ export const gerarAutorizacaoSelecao = async (
   });
   const protocolo = `AUT-SF-${numeroProcesso}-${Date.now()}`;
   
-  // Carregar e converter imagem para base64 com espera adequada
+  console.log('[PDF] Carregando logo...');
+  // Carregar e converter imagem para base64
   const base64Logo = await new Promise<string>((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
+    
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } else {
-        reject(new Error('Erro ao criar contexto do canvas'));
+      console.log('[PDF] Logo carregada, convertendo para base64...');
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const dataUrl = canvas.toDataURL('image/png');
+          console.log('[PDF] Logo convertida para base64, tamanho:', dataUrl.length);
+          resolve(dataUrl);
+        } else {
+          reject(new Error('Erro ao criar contexto do canvas'));
+        }
+      } catch (error) {
+        console.error('[PDF] Erro ao converter logo:', error);
+        reject(error);
       }
     };
-    img.onerror = () => reject(new Error('Erro ao carregar imagem'));
+    
+    img.onerror = (error) => {
+      console.error('[PDF] Erro ao carregar logo:', error);
+      reject(new Error('Erro ao carregar imagem'));
+    };
+    
     img.src = logoHorizontal;
   });
   
-  // Aguardar um momento para garantir que tudo está carregado
-  await new Promise(resolve => setTimeout(resolve, 500));
+  console.log('[PDF] Aguardando renderização...');
+  await new Promise(resolve => setTimeout(resolve, 800));
   
   const htmlContent = `
     <!DOCTYPE html>
@@ -389,32 +446,44 @@ export const gerarAutorizacaoSelecao = async (
   `;
 
   // Criar elemento temporário para gerar PDF
+  console.log('[PDF] Criando elemento HTML...');
   const element = document.createElement('div');
   element.innerHTML = htmlContent;
   element.style.position = 'absolute';
   element.style.left = '-9999px';
+  element.style.width = '210mm';
+  element.style.backgroundColor = 'white';
   document.body.appendChild(element);
 
   try {
-    // Aguardar mais tempo para garantir renderização completa
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('[PDF] Aguardando renderização completa...');
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
+    console.log('[PDF] Gerando PDF...');
     const opt = {
       margin: [10, 10, 10, 10] as [number, number, number, number],
       filename: `autorizacao-selecao-fornecedores-${numeroProcesso}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.95 },
       html2canvas: { 
         scale: 2,
         useCORS: true,
-        logging: false,
-        letterRendering: true
+        logging: true,
+        letterRendering: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
       },
       jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
     };
 
     const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+    console.log('[PDF] PDF gerado, tamanho:', pdfBlob.size, 'bytes');
+    
+    if (pdfBlob.size < 1000) {
+      throw new Error('PDF gerado está muito pequeno, provavelmente vazio');
+    }
     
     // Upload para Supabase Storage
+    console.log('[PDF] Fazendo upload para Storage...');
     const fileName = `autorizacoes/selecao-fornecedores-${numeroProcesso}-${Date.now()}.pdf`;
     const { data, error } = await supabase.storage
       .from('processo-anexos')
@@ -423,21 +492,32 @@ export const gerarAutorizacaoSelecao = async (
         upsert: false
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[PDF] Erro no upload:', error);
+      throw error;
+    }
 
+    console.log('[PDF] Upload concluído, criando URL assinada...');
     // Obter URL assinada (signed URL) com validade de 1 ano
     const { data: urlData, error: signError } = await supabase.storage
       .from('processo-anexos')
       .createSignedUrl(fileName, 31536000); // 1 ano em segundos
 
-    if (signError) throw signError;
+    if (signError) {
+      console.error('[PDF] Erro ao criar URL assinada:', signError);
+      throw signError;
+    }
 
+    console.log('[PDF] Autorização gerada com sucesso!');
     return {
       url: urlData.signedUrl,
       fileName: `autorizacao-selecao-fornecedores-${numeroProcesso}.pdf`,
       protocolo,
       storagePath: fileName
     };
+  } catch (error) {
+    console.error('[PDF] Erro ao gerar autorização:', error);
+    throw error;
   } finally {
     document.body.removeChild(element);
   }
