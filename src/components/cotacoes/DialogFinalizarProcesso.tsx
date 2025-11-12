@@ -433,27 +433,38 @@ export function DialogFinalizarProcesso({
       const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
       const ordemAtual = fornecedorData ? fornecedorData.campos.length : 0;
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("campos_documentos_finalizacao")
         .insert({
           cotacao_id: cotacaoId,
           fornecedor_id: fornecedorId,
-          nome_campo: novoCampo.nome,
-          descricao: novoCampo.descricao,
+          nome_campo: novoCampo.nome.trim(),
+          descricao: novoCampo.descricao.trim(),
           obrigatorio: novoCampo.obrigatorio,
           ordem: ordemAtual,
           status_solicitacao: "pendente",
           data_solicitacao: new Date().toISOString()
-        });
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro detalhado ao adicionar documento:", error);
+        if (error.code === '23505') {
+          toast.error("Este documento já foi solicitado para este fornecedor");
+        } else {
+          toast.error(`Erro ao adicionar documento: ${error.message || 'Erro desconhecido'}`);
+        }
+        return;
+      }
 
       toast.success("Documento adicionado à lista");
       setNovoCampo({ nome: "", descricao: "", obrigatorio: true });
+      setDataLimiteDocumentos("");
       await loadAllFornecedores();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao adicionar documento:", error);
-      toast.error("Erro ao adicionar documento");
+      toast.error(`Erro ao adicionar documento: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
