@@ -2,6 +2,13 @@ import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
 import logoHorizontal from '@/assets/prima-qualita-logo-horizontal.png';
 
+// Função para extrair texto simples de HTML
+const extractTextFromHTML = (html: string): string => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+};
+
 interface AutorizacaoResult {
   url: string;
   fileName: string;
@@ -16,12 +23,20 @@ interface FornecedorVencedor {
   valorTotal: number;
 }
 
+interface DadosAutorizacao {
+  numeroProcesso: string;
+  objetoProcesso: string;
+  usuarioNome: string;
+  usuarioCpf: string;
+  fornecedoresVencedores?: FornecedorVencedor[];
+}
+
 export const gerarAutorizacaoCompraDireta = async (
   numeroProcesso: string,
   objetoProcesso: string,
   usuarioNome: string,
   usuarioCpf: string,
-  fornecedorVencedor?: FornecedorVencedor
+  fornecedoresVencedores?: FornecedorVencedor[]
 ): Promise<AutorizacaoResult> => {
   console.log('[PDF] Iniciando geração - Compra Direta');
   
@@ -74,9 +89,10 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.setFont('helvetica', 'normal');
   doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 70, { align: 'center' });
   
-  // Assunto
+  // Assunto - extrair texto limpo do HTML
   doc.setFontSize(12);
-  const linhasAssunto = doc.splitTextToSize(`Assunto: ${objetoProcesso}`, 170);
+  const textoLimpo = extractTextFromHTML(objetoProcesso);
+  const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
   doc.text(linhasAssunto, pageWidth / 2, 82, { align: 'center' });
   
   // Texto principal
@@ -89,8 +105,8 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.text(linhas1, 20, yPos);
   yPos += linhas1.length * 6 + 10;
   
-  // Tabela de fornecedor
-  if (fornecedorVencedor) {
+  // Tabela de fornecedores vencedores
+  if (fornecedoresVencedores && fornecedoresVencedores.length > 0) {
     doc.setFontSize(10);
     
     // Cabeçalho da tabela
@@ -99,21 +115,46 @@ export const gerarAutorizacaoCompraDireta = async (
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.text('Empresa', 22, yPos + 5);
-    doc.text('Itens Vencedores', 90, yPos + 5);
-    doc.text('Valor Total', 145, yPos + 5);
+    doc.text('CNPJ', 70, yPos + 5);
+    doc.text('Itens Vencidos', 110, yPos + 5);
+    doc.text('Valor Total', 155, yPos + 5);
     yPos += 8;
     
-    // Conteúdo da tabela
+    // Conteúdo da tabela - uma linha por fornecedor
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
-    doc.rect(20, yPos, 170, 12);
-    doc.text(fornecedorVencedor.razaoSocial, 22, yPos + 4);
-    doc.setFontSize(9);
-    doc.text(`CNPJ: ${fornecedorVencedor.cnpj}`, 22, yPos + 8);
-    doc.setFontSize(10);
-    doc.text(fornecedorVencedor.itensVencedores.map(i => i.numero).join(', '), 90, yPos + 6);
-    doc.text(`R$ ${fornecedorVencedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 145, yPos + 6);
-    yPos += 20;
+    
+    let totalGeral = 0;
+    
+    fornecedoresVencedores.forEach((fornecedor) => {
+      const alturaLinha = 10;
+      doc.rect(20, yPos, 170, alturaLinha);
+      
+      // Empresa
+      const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 45);
+      doc.text(razaoSocialSplit, 22, yPos + 4);
+      
+      // CNPJ
+      doc.text(fornecedor.cnpj, 70, yPos + 6);
+      
+      // Itens Vencidos
+      const itensText = fornecedor.itensVencedores.map(i => i.numero).join(', ');
+      doc.text(itensText, 110, yPos + 6);
+      
+      // Valor Total
+      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 155, yPos + 6);
+      
+      totalGeral += fornecedor.valorTotal;
+      yPos += alturaLinha;
+    });
+    
+    // Linha de Total Geral
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, yPos, 170, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL GERAL', 22, yPos + 5);
+    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 155, yPos + 5);
+    yPos += 15;
   }
   
   // Encaminhamento
@@ -248,9 +289,10 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFont('helvetica', 'normal');
   doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 70, { align: 'center' });
   
-  // Assunto
+  // Assunto - extrair texto limpo do HTML
   doc.setFontSize(12);
-  const linhasAssunto = doc.splitTextToSize(`Assunto: ${objetoProcesso}`, 170);
+  const textoLimpo = extractTextFromHTML(objetoProcesso);
+  const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
   doc.text(linhasAssunto, pageWidth / 2, 82, { align: 'center' });
   
   // Texto principal
