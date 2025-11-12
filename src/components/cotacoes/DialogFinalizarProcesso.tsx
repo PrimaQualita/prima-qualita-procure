@@ -19,6 +19,7 @@ import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Downloa
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarAutorizacaoCompraDireta } from "@/lib/gerarAutorizacaoPDF";
+import { gerarRelatorioFinal } from "@/lib/gerarRelatorioFinalPDF";
 
 interface FornecedorVencedor {
   razaoSocial: string;
@@ -91,6 +92,8 @@ export function DialogFinalizarProcesso({
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState<string>("");
   const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState<string>("");
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
+  const [relatorioFinalUrl, setRelatorioFinalUrl] = useState<string>("");
+  const [relatorioFinalId, setRelatorioFinalId] = useState<string>("");
 
   useEffect(() => {
     if (open) {
@@ -662,36 +665,164 @@ export function DialogFinalizarProcesso({
     }
   };
 
-  const gerarAutorizacao = async () => {
+  const gerarRelatorio = async () => {
     try {
       setLoading(true);
-
-      // Buscar dados do processo
-      const { data: cotacao, error: cotacaoError } = await supabase
+      
+      // Buscar processo_compra_id da cotação
+      const { data: cotacaoData } = await supabase
         .from("cotacoes_precos")
         .select("processo_compra_id")
         .eq("id", cotacaoId)
         .single();
-
-      if (cotacaoError) throw cotacaoError;
-
-      const { data: processo, error: processoError } = await supabase
-        .from("processos_compras")
-        .select("numero_processo_interno, objeto_resumido, criterio_julgamento")
-        .eq("id", cotacao.processo_compra_id)
-        .single();
-
-      if (processoError) throw processoError;
-
-      // Buscar usuário
-      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!cotacaoData) throw new Error("Cotação não encontrada");
+      const processoId = cotacaoData.processo_compra_id;
+      
+      const { data: { user } } = await supabase.auth.getUser();
       const { data: usuario } = await supabase
         .from("profiles")
         .select("nome_completo, cpf")
-        .eq("id", session!.user.id)
+        .eq("id", user!.id)
         .single();
 
-      // Buscar respostas e identificar fornecedores vencedores com valores
+      const { data: processo } = await supabase
+        .from("processos_compras")
+        .select(`
+          numero_processo_interno,
+          objeto_resumido,
+          valor_estimado_anual,
+          data_abertura,
+          criterio_julgamento
+        `)
+        .eq("id", processoId)
+        .single();
+
+      if (!processo) throw new Error("Processo não encontrado");
+
+      // Buscar respostas e itens
+      const { data: respostas } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          id,
+          fornecedor_id,
+          fornecedores!inner(razao_social, cnpj)
+        `)
+        .eq("cotacao_id", cotacaoId);
+
+      const { data: itensRespostas } = await supabase
+        .from("respostas_itens_fornecedor")
+        .select(`
+          id,
+          cotacao_resposta_fornecedor_id,
+          valor_unitario_ofertado,
+          itens_cotacao!inner(numero_item, quantidade, descricao)
+        `)
+        .in("cotacao_resposta_fornecedor_id", respostas?.map(r => r.id) || []);
+
+      const fornecedoresVencedores = fornecedoresData.map(fData => {
+        const resposta = respostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
+        const itensVencedores = fData.itensVencedores;
+        
+        let valorTotal = 0;
+        const itensVencedoresDetalhados: Array<{ numero: number; descricao: string; valor: number }> = [];
+        
+        itensVencedores.forEach(item => {
+          const itemResposta = itensRespostas?.find(
+            ir => ir.cotacao_resposta_fornecedor_id === resposta?.id && 
+                  ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item
+          );
+          if (itemResposta) {
+            const valorItem = Number(itemResposta.valor_unitario_ofertado) * Number(itemResposta.itens_cotacao.quantidade);
+            valorTotal += valorItem;
+            itensVencedoresDetalhados.push({
+              numero: item.itens_cotacao.numero_item,
+              descricao: itemResposta.itens_cotacao.descricao,
+              valor: valorItem
+            });
+          }
+        });
+
+        return {
+          razaoSocial: fData.fornecedor.razao_social,
+          cnpj: resposta?.fornecedores.cnpj || "",
+          valorTotal: valorTotal,
+          itensVencedores: itensVencedoresDetalhados
+        };
+      });
+
+      const resultado = await gerarRelatorioFinal({
+        numeroProcesso: processo.numero_processo_interno,
+        objetoProcesso: processo.objeto_resumido,
+        usuarioNome: usuario?.nome_completo || "",
+        usuarioCpf: usuario?.cpf || "",
+        valorTotalEstimado: Number(processo.valor_estimado_anual),
+        fornecedoresVencedores,
+        dataAbertura: processo.data_abertura,
+        criterioJulgamento: processo.criterio_julgamento
+      });
+
+      // Salvar referência no banco (opcional - pode criar tabela relatorios_finais ou usar autorizacoes_processo)
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      const { error: insertError } = await (supabase as any)
+        .from("autorizacoes_processo")
+        .insert({
+          cotacao_id: cotacaoId,
+          protocolo: resultado.protocolo,
+          tipo_autorizacao: "relatorio_final",
+          nome_arquivo: resultado.fileName,
+          url_arquivo: resultado.url,
+          usuario_gerador_id: currentSession!.user.id,
+          data_geracao: new Date().toISOString()
+        });
+
+      if (insertError) throw insertError;
+
+      setRelatorioFinalUrl(resultado.url);
+      toast.success("Relatório Final gerado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao gerar relatório:", error);
+      toast.error("Erro ao gerar relatório");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const gerarAutorizacao = async () => {
+    if (!relatorioFinalUrl) {
+      toast.error("É necessário gerar o Relatório Final antes da autorização");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Buscar processo_compra_id da cotação
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select("processo_compra_id")
+        .eq("id", cotacaoId)
+        .single();
+      
+      if (!cotacaoData) throw new Error("Cotação não encontrada");
+      const processoId = cotacaoData.processo_compra_id;
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: usuario } = await supabase
+        .from("profiles")
+        .select("nome_completo, cpf")
+        .eq("id", user!.id)
+        .single();
+
+      const { data: processo } = await supabase
+        .from("processos_compras")
+        .select("numero_processo_interno, objeto_resumido")
+        .eq("id", processoId)
+        .single();
+
+      if (!processo) throw new Error("Processo não encontrado");
+
       const { data: respostas } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -1072,13 +1203,52 @@ export function DialogFinalizarProcesso({
 
         <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
           <div className="flex flex-col w-full gap-3">
+            {/* Relatório Final */}
+            {isResponsavelLegal && (
+              <div className="flex items-center gap-3">
+                {!relatorioFinalUrl ? (
+                  <Button
+                    onClick={gerarRelatorio}
+                    disabled={loading || !todosDocumentosAprovados}
+                    className="flex-1"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Gerar Relatório Final
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      onClick={() => window.open(relatorioFinalUrl, '_blank')}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Visualizar Relatório Final
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = relatorioFinalUrl;
+                        link.download = 'relatorio-final.pdf';
+                        link.click();
+                      }}
+                      variant="outline"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Baixar
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+            
             {/* Autorização */}
             {isResponsavelLegal && (
               <div className="flex items-center gap-3">
                 {!autorizacaoDiretaUrl ? (
                   <Button
                     onClick={gerarAutorizacao}
-                    disabled={loading || !todosDocumentosAprovados}
+                    disabled={loading || !todosDocumentosAprovados || !relatorioFinalUrl}
                     className="flex-1"
                   >
                     <FileText className="h-4 w-4 mr-2" />
