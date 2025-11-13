@@ -604,26 +604,67 @@ export function DialogRespostasCotacao({
               </Button>
 
               {planilhaGerada && (
-                <div className="space-y-2">
+                <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
+                  <p className="text-sm font-medium">Planilha Consolidada Gerada</p>
+                  <p className="text-xs text-muted-foreground">{planilhaGerada.nome_arquivo}</p>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={async () => {
-                      const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(planilhaGerada.url_arquivo, 3600);
+                      let filePath = planilhaGerada.url_arquivo;
+                      if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
+                        filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
+                      }
+                      const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(filePath, 3600);
                       if (data) window.open(data.signedUrl, "_blank");
                     }}>
                       <Eye className="mr-2 h-4 w-4" />
                       Visualizar
                     </Button>
                     <Button variant="outline" size="sm" onClick={async () => {
-                      const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(planilhaGerada.url_arquivo, 3600);
+                      let filePath = planilhaGerada.url_arquivo;
+                      if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
+                        filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
+                      }
+                      const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(filePath, 3600);
                       if (data) {
                         const link = document.createElement("a");
                         link.href = data.signedUrl;
                         link.download = planilhaGerada.nome_arquivo;
                         link.click();
+                        toast.success("Download iniciado!");
                       }
                     }}>
                       <Download className="mr-2 h-4 w-4" />
                       Baixar
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={async () => {
+                      try {
+                        let filePath = planilhaGerada.url_arquivo;
+                        if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
+                          filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
+                        }
+
+                        const { error: storageError } = await supabase.storage
+                          .from("processo-anexos")
+                          .remove([filePath]);
+
+                        if (storageError) throw storageError;
+
+                        const { error: dbError } = await supabase
+                          .from("planilhas_consolidadas")
+                          .delete()
+                          .eq("id", planilhaGerada.id);
+
+                        if (dbError) throw dbError;
+
+                        setPlanilhaGerada(null);
+                        toast.success("Planilha excluída com sucesso");
+                      } catch (error: any) {
+                        console.error("Erro ao excluir planilha:", error);
+                        toast.error("Erro ao excluir planilha");
+                      }
+                    }}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Excluir
                     </Button>
                   </div>
                   <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="w-full">
@@ -692,6 +733,7 @@ export function DialogRespostasCotacao({
         onOpenChange={setPlanilhaConsolidadaOpen}
         cotacaoId={cotacaoId}
         criterioJulgamento={criterioJulgamento}
+        onPlanilhaGerada={loadPlanilhaGerada}
       />
     </Dialog>
   );

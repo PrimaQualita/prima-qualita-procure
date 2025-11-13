@@ -21,6 +21,7 @@ interface DialogPlanilhaConsolidadaProps {
   onOpenChange: (open: boolean) => void;
   cotacaoId: string;
   criterioJulgamento: string;
+  onPlanilhaGerada?: () => void;
 }
 
 interface RespostaConsolidada {
@@ -49,6 +50,7 @@ export function DialogPlanilhaConsolidada({
   onOpenChange,
   cotacaoId,
   criterioJulgamento,
+  onPlanilhaGerada,
 }: DialogPlanilhaConsolidadaProps) {
   const [respostas, setRespostas] = useState<RespostaConsolidada[]>([]);
   const [loading, setLoading] = useState(true);
@@ -918,23 +920,44 @@ export function DialogPlanilhaConsolidada({
         </html>
       `;
 
+      // Salvar no storage em vez de fazer download direto
       const blob = new Blob([html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `Planilha_Consolidada_${new Date().toLocaleDateString("pt-BR").replace(/\//g, "-")}.html`;
-      link.style.display = "none";
-      document.body.appendChild(link);
+      const nomeArquivo = `planilha_consolidada_${cotacaoId}_${Date.now()}.html`;
+      const filePath = `${cotacaoId}/${nomeArquivo}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("processo-anexos")
+        .upload(filePath, blob, {
+          contentType: "text/html",
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Registrar no banco de dados
+      const { data: { user } } = await supabase.auth.getUser();
       
-      setTimeout(() => {
-        link.click();
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }, 100);
-      }, 100);
+      const { error: dbError } = await supabase
+        .from("planilhas_consolidadas")
+        .insert({
+          cotacao_id: cotacaoId,
+          nome_arquivo: nomeArquivo,
+          url_arquivo: filePath,
+          usuario_gerador_id: user?.id,
+          data_geracao: new Date().toISOString()
+        });
+
+      if (dbError) throw dbError;
 
       toast.success("Planilha consolidada gerada com sucesso!");
+      
+      // Chamar callback se fornecido
+      if (onPlanilhaGerada) {
+        onPlanilhaGerada();
+      }
+      
+      // Fechar diálogo
+      onOpenChange(false);
     } catch (error) {
       console.error("Erro ao gerar planilha:", error);
       toast.error("Erro ao gerar planilha consolidada");
