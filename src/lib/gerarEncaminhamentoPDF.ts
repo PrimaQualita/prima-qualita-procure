@@ -154,20 +154,22 @@ export const gerarEncaminhamentoPDF = async (
     .from('processo-anexos')
     .upload(storagePath, pdfBlob, {
       contentType: 'application/pdf',
+      cacheControl: '3600',
       upsert: false
     });
   
   if (uploadError) {
     console.error('Erro ao fazer upload do encaminhamento:', uploadError);
-    throw new Error('Erro ao salvar encaminhamento no storage');
+    throw uploadError;
   }
   
-  const { data: { publicUrl } } = supabase.storage
+  // Obter URL público
+  const { data: urlData } = supabase.storage
     .from('processo-anexos')
     .getPublicUrl(storagePath);
   
   return {
-    url: publicUrl,
+    url: urlData.publicUrl,
     fileName,
     protocolo,
     storagePath
