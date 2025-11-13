@@ -13,14 +13,21 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+interface ContratoCompliance {
+  id: string;
+  nome: string;
+  processos: ProcessoCompliance[];
+}
+
 interface ProcessoCompliance {
   id: string;
   numero_processo_interno: string;
   objeto_resumido: string;
-  data_envio_compliance: string;
   cotacoes: {
     id: string;
     titulo_cotacao: string;
+    data_envio_compliance: string;
+    respondido_compliance: boolean;
     planilhas_consolidadas: {
       id: string;
       nome_arquivo: string;
@@ -31,7 +38,7 @@ interface ProcessoCompliance {
 }
 
 export default function Compliance() {
-  const [processos, setProcessos] = useState<ProcessoCompliance[]>([]);
+  const [processos, setProcessos] = useState<ContratoCompliance[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,34 +53,53 @@ export default function Compliance() {
           id,
           numero_processo_interno,
           objeto_resumido,
+          contrato_gestao_id,
           cotacoes_precos!inner (
             id,
             titulo_cotacao,
             data_envio_compliance,
             enviado_compliance,
+            respondido_compliance,
             planilhas_consolidadas (
               id,
               nome_arquivo,
               url_arquivo,
               data_geracao
             )
+          ),
+          contratos_gestao (
+            id,
+            nome_contrato
           )
         `)
-        .eq("cotacoes_precos.enviado_compliance", true)
-        .order("cotacoes_precos.data_envio_compliance", { ascending: false });
+        .eq("cotacoes_precos.enviado_compliance", true);
 
       if (error) throw error;
 
-      // Transformar dados para estrutura desejada
-      const processosFormatados = data?.map((processo: any) => ({
-        id: processo.id,
-        numero_processo_interno: processo.numero_processo_interno,
-        objeto_resumido: processo.objeto_resumido,
-        data_envio_compliance: processo.cotacoes_precos[0]?.data_envio_compliance,
-        cotacoes: processo.cotacoes_precos || [],
-      })) || [];
+      // Agrupar processos por contrato de gestão
+      const processosPorContrato = data?.reduce((acc: any, processo: any) => {
+        const contratoId = processo.contrato_gestao_id;
+        const contratoNome = processo.contratos_gestao?.nome_contrato || "Sem Contrato";
+        
+        if (!acc[contratoId]) {
+          acc[contratoId] = {
+            id: contratoId,
+            nome: contratoNome,
+            processos: []
+          };
+        }
+        
+        acc[contratoId].processos.push({
+          id: processo.id,
+          numero_processo_interno: processo.numero_processo_interno,
+          objeto_resumido: processo.objeto_resumido,
+          cotacoes: processo.cotacoes_precos || [],
+        });
+        
+        return acc;
+      }, {}) || {};
 
-      setProcessos(processosFormatados);
+      setProcessos(Object.values(processosPorContrato));
     } catch (error: any) {
       console.error("Erro ao carregar processos:", error);
       toast.error("Erro ao carregar processos de compliance");
@@ -144,23 +170,24 @@ export default function Compliance() {
 
   return (
     <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-6 w-6" />
-              Compliance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="py-8 text-center text-muted-foreground">
-                Carregando processos...
-              </div>
-            ) : processos.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
-                Nenhum processo enviado ao compliance ainda
-              </div>
-            ) : (
+      {loading ? (
+        <div className="py-8 text-center text-muted-foreground">
+          Carregando processos...
+        </div>
+      ) : processos.length === 0 ? (
+        <div className="py-8 text-center text-muted-foreground">
+          Nenhum processo enviado ao compliance ainda
+        </div>
+      ) : (
+        processos.map((contrato: any) => (
+          <Card key={contrato.id}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSpreadsheet className="h-6 w-6" />
+                {contrato.nome}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -168,14 +195,15 @@ export default function Compliance() {
                     <TableHead>Objeto</TableHead>
                     <TableHead>Cotação</TableHead>
                     <TableHead>Data Envio</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Planilha Consolidada</TableHead>
                     <TableHead className="text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {processos.map((processo) =>
-                    processo.cotacoes.map((cotacao) =>
-                      cotacao.planilhas_consolidadas.map((planilha) => (
+                  {contrato.processos.map((processo: any) =>
+                    processo.cotacoes.map((cotacao: any) =>
+                      cotacao.planilhas_consolidadas.map((planilha: any) => (
                         <TableRow key={planilha.id}>
                           <TableCell className="font-medium">
                             {processo.numero_processo_interno}
@@ -185,9 +213,20 @@ export default function Compliance() {
                           </TableCell>
                           <TableCell>{cotacao.titulo_cotacao}</TableCell>
                           <TableCell>
-                            {processo.data_envio_compliance
-                              ? formatarData(processo.data_envio_compliance)
+                            {cotacao.data_envio_compliance
+                              ? formatarData(cotacao.data_envio_compliance)
                               : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {cotacao.respondido_compliance ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Respondido
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Pendente
+                              </span>
+                            )}
                           </TableCell>
                           <TableCell>{planilha.nome_arquivo}</TableCell>
                           <TableCell>
@@ -216,9 +255,10 @@ export default function Compliance() {
                   )}
                 </TableBody>
               </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
   );
 }
