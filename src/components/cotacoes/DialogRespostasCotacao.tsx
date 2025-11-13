@@ -55,6 +55,12 @@ interface RespostaFornecedor {
     cnpj: string;
     endereco_comercial: string;
   };
+  anexos?: Array<{
+    id: string;
+    nome_arquivo: string;
+    url_arquivo: string;
+    tipo_anexo: string;
+  }>;
 }
 
 export function DialogRespostasCotacao({
@@ -656,6 +662,7 @@ export function DialogRespostasCotacao({
                   <TableHead className="text-right">Valor Total Ofertado</TableHead>
                   <TableHead>Data Envio</TableHead>
                   <TableHead>Observações</TableHead>
+                  <TableHead>Proposta PDF</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -683,6 +690,34 @@ export function DialogRespostasCotacao({
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
                         {resposta.observacoes_fornecedor || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {resposta.anexos && resposta.anexos.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {resposta.anexos.map((anexo) => (
+                              <div key={anexo.id} className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm truncate max-w-[150px]" title={anexo.nome_arquivo}>
+                                  {anexo.nome_arquivo}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const { data } = supabase.storage
+                                      .from('cotacao-anexos')
+                                      .getPublicUrl(anexo.url_arquivo);
+                                    window.open(data.publicUrl, '_blank');
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex gap-2 justify-center">
