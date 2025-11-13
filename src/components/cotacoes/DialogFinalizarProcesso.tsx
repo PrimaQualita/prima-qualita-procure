@@ -1401,39 +1401,40 @@ export function DialogFinalizarProcesso({
         <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
           <div className="flex flex-col w-full gap-3">
             {/* Relatório Final */}
-            {isResponsavelLegal && (
-              <div className="flex items-center gap-3">
-                {!relatorioFinalUrl ? (
+            <div className="flex items-center gap-3">
+              {!relatorioFinalUrl ? (
+                <Button
+                  onClick={gerarRelatorio}
+                  disabled={loading || !todosDocumentosAprovados || !isResponsavelLegal}
+                  className="flex-1"
+                  title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar relatórios" : ""}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Gerar Relatório Final
+                </Button>
+              ) : (
+                <>
                   <Button
-                    onClick={gerarRelatorio}
-                    disabled={loading || !todosDocumentosAprovados}
+                    onClick={() => window.open(relatorioFinalUrl, '_blank')}
+                    variant="outline"
                     className="flex-1"
                   >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Gerar Relatório Final
+                    <Eye className="h-4 w-4 mr-2" />
+                    Visualizar Relatório Final
                   </Button>
-                ) : (
-                  <>
-                    <Button
-                      onClick={() => window.open(relatorioFinalUrl, '_blank')}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Visualizar Relatório Final
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = relatorioFinalUrl;
-                        link.download = 'relatorio-final.pdf';
-                        link.click();
-                      }}
-                      variant="outline"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Baixar
-                    </Button>
+                  <Button
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = relatorioFinalUrl;
+                      link.download = 'relatorio-final.pdf';
+                      link.click();
+                    }}
+                    variant="outline"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar
+                  </Button>
+                  {isResponsavelLegal && (
                     <Button
                       onClick={() => deletarRelatorioFinal(relatorioFinalId)}
                       variant="destructive"
@@ -1442,45 +1443,46 @@ export function DialogFinalizarProcesso({
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </>
-                )}
-              </div>
-            )}
+                  )}
+                </>
+              )}
+            </div>
             
             {/* Autorização */}
-            {isResponsavelLegal && (
-              <div className="flex items-center gap-3">
-                {!autorizacaoDiretaUrl ? (
+            <div className="flex items-center gap-3">
+              {!autorizacaoDiretaUrl ? (
+                <Button
+                  onClick={gerarAutorizacao}
+                  disabled={loading || !todosDocumentosAprovados || !relatorioFinalUrl || !isResponsavelLegal}
+                  className="flex-1"
+                  title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : !relatorioFinalUrl ? "Gere o Relatório Final primeiro" : ""}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Gerar Autorização
+                </Button>
+              ) : (
+                <>
                   <Button
-                    onClick={gerarAutorizacao}
-                    disabled={loading || !todosDocumentosAprovados || !relatorioFinalUrl}
+                    onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
+                    variant="outline"
                     className="flex-1"
                   >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Gerar Autorização
+                    <Eye className="h-4 w-4 mr-2" />
+                    Visualizar Autorização
                   </Button>
-                ) : (
-                  <>
-                    <Button
-                      onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Visualizar Autorização
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = autorizacaoDiretaUrl;
-                        link.download = 'autorizacao-compra-direta.pdf';
-                        link.click();
-                      }}
-                      variant="outline"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Baixar
-                    </Button>
+                  <Button
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = autorizacaoDiretaUrl;
+                      link.download = 'autorizacao-compra-direta.pdf';
+                      link.click();
+                    }}
+                    variant="outline"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar
+                  </Button>
+                  {isResponsavelLegal && (
                     <Button
                       onClick={() => deletarAutorizacao(autorizacaoDiretaId)}
                       variant="destructive"
@@ -1489,10 +1491,10 @@ export function DialogFinalizarProcesso({
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </>
-                )}
-              </div>
-            )}
+                  )}
+                </>
+              )}
+            </div>
 
             {/* Botões de Ação */}
             <div className="flex gap-3">
