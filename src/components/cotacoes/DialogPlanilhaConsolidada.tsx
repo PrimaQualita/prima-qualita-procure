@@ -272,23 +272,34 @@ export function DialogPlanilhaConsolidada({
           <meta charset="UTF-8">
           <title>Planilha Consolidada - Estimativa de Preços</title>
           <style>
-            @page { margin: 40px 40px 80px 40px; }
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px 40px 100px 40px; position: relative; }
-            .header-logo { text-align: center; margin-bottom: 20px; }
-            .header-logo img { max-width: 200px; height: auto; display: block; margin: 0 auto; }
-            h1 { color: #0ea5e9; font-size: 24px; margin-bottom: 30px; text-align: center; }
-            .footer { 
-              position: fixed; 
-              bottom: 0; 
-              left: 0; 
-              right: 0; 
+            body { font-family: Arial, sans-serif; margin: 20px; padding-bottom: 60px; }
+            .page-header { 
+              text-align: center; 
+              margin-bottom: 20px;
+              page-break-after: avoid;
+            }
+            .page-header img { 
+              max-width: 200px; 
+              height: auto; 
+              display: block; 
+              margin: 0 auto 10px auto;
+            }
+            h1 { 
+              color: #0ea5e9; 
+              font-size: 24px; 
+              margin-bottom: 30px; 
+              text-align: center;
+              page-break-after: avoid;
+            }
+            .page-footer { 
+              margin-top: 40px;
+              padding-top: 10px;
+              border-top: 1px solid #e2e8f0;
               text-align: center; 
               font-size: 9px; 
               color: #64748b; 
-              padding: 5px 20px; 
-              background-color: white; 
-              border-top: 1px solid #e2e8f0;
-              line-height: 1.2;
+              line-height: 1.3;
+              page-break-inside: avoid;
             }
             h2 { color: #0284c7; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
@@ -367,14 +378,12 @@ export function DialogPlanilhaConsolidada({
           </style>
         </head>
         <body>
-          ${logoBase64 ? `<div class="header-logo"><img src="${logoBase64}" alt="Prima Qualitá Saúde" /></div>` : ''}
+          <div class="page-header">
+            ${logoBase64 ? `<img src="${logoBase64}" alt="Prima Qualitá Saúde" />` : ''}
+          </div>
           <h1>PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO</h1>
           <div class="criterio-badge">
             Critério de Julgamento: ${tipoVisualizacao === "item" ? "Menor Valor por Item" : tipoVisualizacao === "lote" ? "Menor Valor por Lote" : "Menor Valor Global"}
-          </div>
-          <div class="footer">
-            <div>Prima Qualitá Saúde</div>
-            <div>Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040</div>
           </div>
       `;
 
@@ -944,6 +953,11 @@ export function DialogPlanilhaConsolidada({
               <span class="info-label">Verificar autenticidade em:</span> <a href="${linkVerificacao}" class="link-verificacao">${linkVerificacao}</a>
             </div>
           </div>
+          
+          <div class="page-footer">
+            <div><strong>Prima Qualitá Saúde</strong></div>
+            <div>Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040</div>
+          </div>
         </body>
         </html>
       `;
@@ -953,12 +967,26 @@ export function DialogPlanilhaConsolidada({
       element.innerHTML = html;
 
       const opt = {
-        margin: [10, 10, 20, 10],
+        margin: [15, 10, 20, 10],
         filename: `planilha_consolidada_${cotacaoId}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true, 
+          letterRendering: true,
+          logging: false
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'landscape',
+          compress: true
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css', 'legacy'],
+          before: '.page-header',
+          after: '.page-footer'
+        }
       };
 
       // @ts-ignore
