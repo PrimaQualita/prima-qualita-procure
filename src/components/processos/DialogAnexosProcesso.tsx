@@ -119,10 +119,18 @@ export function DialogAnexosProcesso({
 
   const handleDownload = async (anexo: AnexoProcesso) => {
     try {
+      // Extrai o caminho relativo (pode ser URL completa antiga ou caminho relativo novo)
+      let filePath = anexo.url_arquivo;
+      
+      // Se for URL completa antiga, extrair apenas o caminho relativo
+      if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
+        filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
+      }
+
       // Gera URL assinada temporária para bucket privado
       const { data, error } = await supabase.storage
         .from("processo-anexos")
-        .createSignedUrl(anexo.url_arquivo, 3600); // URL válida por 1 hora
+        .createSignedUrl(filePath, 3600); // URL válida por 1 hora
 
       if (error) throw error;
       if (!data?.signedUrl) throw new Error("Erro ao gerar URL de download");
@@ -144,10 +152,18 @@ export function DialogAnexosProcesso({
     if (!confirm("Deseja realmente excluir este anexo?")) return;
 
     try {
-      // Delete from storage (url_arquivo já é o caminho relativo)
+      // Extrai o caminho relativo (pode ser URL completa antiga ou caminho relativo novo)
+      let filePath = anexo.url_arquivo;
+      
+      // Se for URL completa antiga, extrair apenas o caminho relativo
+      if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
+        filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
+      }
+
+      // Delete from storage
       await supabase.storage
         .from("processo-anexos")
-        .remove([anexo.url_arquivo]);
+        .remove([filePath]);
 
       // Delete from database
       const { error } = await supabase
