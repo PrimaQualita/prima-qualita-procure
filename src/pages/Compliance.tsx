@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, Eye, Download } from "lucide-react";
+import { FileSpreadsheet, Eye, Download, ChevronRight, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import {
   Table,
@@ -11,51 +11,51 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
-interface ContratoCompliance {
+interface ContratoGestao {
   id: string;
-  nome: string;
-  processos: ProcessoCompliance[];
+  nome_contrato: string;
+  ente_federativo: string;
 }
 
 interface ProcessoCompliance {
   id: string;
   numero_processo_interno: string;
   objeto_resumido: string;
-  cotacoes: {
-    id: string;
-    titulo_cotacao: string;
-    data_envio_compliance: string;
-    respondido_compliance: boolean;
-    planilhas_consolidadas: {
-      id: string;
-      nome_arquivo: string;
-      url_arquivo: string;
-      data_geracao: string;
-    }[];
-  }[];
+  cotacao_id: string;
+  titulo_cotacao: string;
+  data_envio_compliance: string;
+  respondido_compliance: boolean;
+  planilha_id: string;
+  planilha_nome: string;
+  planilha_url: string;
 }
 
 export default function Compliance() {
-  const [processos, setProcessos] = useState<ContratoCompliance[]>([]);
+  const [contratos, setContratos] = useState<ContratoGestao[]>([]);
+  const [contratoSelecionado, setContratoSelecionado] = useState<ContratoGestao | null>(null);
+  const [processos, setProcessos] = useState<Record<string, ProcessoCompliance[]>>({});
   const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState("");
 
   useEffect(() => {
-    loadProcessos();
+    loadData();
   }, []);
 
-  const loadProcessos = async () => {
+  const loadData = async () => {
     try {
-      // Primeiro, buscar TODOS os contratos de gestão
+      // Buscar todos os contratos
       const { data: contratosData, error: contratosError } = await supabase
         .from("contratos_gestao")
-        .select("id, nome_contrato")
+        .select("*")
         .order("nome_contrato");
 
       if (contratosError) throw contratosError;
 
-      // Depois, buscar processos que foram enviados ao compliance
+      // Buscar processos enviados ao compliance
       const { data: processosData, error: processosError } = await supabase
         .from("processos_compras")
         .select(`
@@ -67,13 +67,11 @@ export default function Compliance() {
             id,
             titulo_cotacao,
             data_envio_compliance,
-            enviado_compliance,
             respondido_compliance,
             planilhas_consolidadas (
               id,
               nome_arquivo,
-              url_arquivo,
-              data_geracao
+              url_arquivo
             )
           )
         `)
@@ -81,21 +79,36 @@ export default function Compliance() {
 
       if (processosError) throw processosError;
 
-      // Montar estrutura: todos os contratos com seus processos (se houver)
-      const contratosList = contratosData.map(contrato => ({
-        id: contrato.id,
-        nome: contrato.nome_contrato,
-        processos: processosData
-          ?.filter((p: any) => p.contrato_gestao_id === contrato.id)
-          .map((processo: any) => ({
-            id: processo.id,
-            numero_processo_interno: processo.numero_processo_interno,
-            objeto_resumido: processo.objeto_resumido,
-            cotacoes: processo.cotacoes_precos || [],
-          })) || []
-      }));
+      // Agrupar processos por contrato
+      const processosAgrupados: Record<string, ProcessoCompliance[]> = {};
+      
+      processosData?.forEach((processo: any) => {
+        const contratoId = processo.contrato_gestao_id;
+        
+        processo.cotacoes_precos?.forEach((cotacao: any) => {
+          cotacao.planilhas_consolidadas?.forEach((planilha: any) => {
+            if (!processosAgrupados[contratoId]) {
+              processosAgrupados[contratoId] = [];
+            }
+            
+            processosAgrupados[contratoId].push({
+              id: processo.id,
+              numero_processo_interno: processo.numero_processo_interno,
+              objeto_resumido: processo.objeto_resumido,
+              cotacao_id: cotacao.id,
+              titulo_cotacao: cotacao.titulo_cotacao,
+              data_envio_compliance: cotacao.data_envio_compliance,
+              respondido_compliance: cotacao.respondido_compliance,
+              planilha_id: planilha.id,
+              planilha_nome: planilha.nome_arquivo,
+              planilha_url: planilha.url_arquivo,
+            });
+          });
+        });
+      });
 
-      setProcessos(contratosList);
+      setContratos(contratosData || []);
+      setProcessos(processosAgrupados);
     } catch (error: any) {
       console.error("Erro ao carregar processos:", error);
       toast.error("Erro ao carregar processos de compliance");
@@ -104,10 +117,9 @@ export default function Compliance() {
     }
   };
 
-  const handleVisualizarPlanilha = async (planilha: any) => {
+  const handleVisualizarPlanilha = async (processo: ProcessoCompliance) => {
     try {
-      // Extrai o caminho relativo
-      let filePath = planilha.url_arquivo;
+      let filePath = processo.planilha_url;
       if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
         filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
       }
@@ -126,9 +138,9 @@ export default function Compliance() {
     }
   };
 
-  const handleBaixarPlanilha = async (planilha: any) => {
+  const handleBaixarPlanilha = async (processo: ProcessoCompliance) => {
     try {
-      let filePath = planilha.url_arquivo;
+      let filePath = processo.planilha_url;
       if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
         filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
       }
@@ -142,7 +154,7 @@ export default function Compliance() {
 
       const link = document.createElement("a");
       link.href = data.signedUrl;
-      link.download = planilha.nome_arquivo;
+      link.download = processo.planilha_nome;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -164,31 +176,108 @@ export default function Compliance() {
     });
   };
 
+  const contratosFiltrados = contratos.filter((contrato) =>
+    contrato.nome_contrato.toLowerCase().includes(filtro.toLowerCase()) ||
+    contrato.ente_federativo.toLowerCase().includes(filtro.toLowerCase())
+  );
+
   return (
-    <div className="p-6 space-y-6">
-      {loading ? (
-        <div className="py-8 text-center text-muted-foreground">
-          Carregando processos...
-        </div>
-      ) : processos.length === 0 ? (
-        <div className="py-8 text-center text-muted-foreground">
-          Nenhum contrato de gestão cadastrado
-        </div>
-      ) : (
-        processos.map((contrato: any) => (
-          <Card key={contrato.id}>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Carregando...</p>
+          </div>
+        ) : !contratoSelecionado ? (
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSpreadsheet className="h-6 w-6" />
-                {contrato.nome}
-              </CardTitle>
+              <CardTitle>Compliance</CardTitle>
+              <CardDescription>
+                Gerencie processos enviados ao compliance
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {contrato.processos.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  Nenhum processo enviado ao compliance neste contrato
+              <Input
+                placeholder="Buscar por nome ou ente federativo..."
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+                className="mb-4"
+              />
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome do Contrato</TableHead>
+                    <TableHead>Ente Federativo</TableHead>
+                    <TableHead>Processos Pendentes</TableHead>
+                    <TableHead>Processos Respondidos</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contratosFiltrados.map((contrato) => {
+                    const processosContrato = processos[contrato.id] || [];
+                    const pendentes = processosContrato.filter(p => !p.respondido_compliance).length;
+                    const respondidos = processosContrato.filter(p => p.respondido_compliance).length;
+                    
+                    return (
+                      <TableRow key={contrato.id}>
+                        <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
+                        <TableCell>{contrato.ente_federativo}</TableCell>
+                        <TableCell>
+                          {pendentes > 0 ? (
+                            <Badge variant="destructive">{pendentes}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {respondidos > 0 ? (
+                            <Badge variant="default">{respondidos}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setContratoSelecionado(contrato)}
+                          >
+                            Ver Processos
+                            <ChevronRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              {contratosFiltrados.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">
+                  Nenhum contrato encontrado
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setContratoSelecionado(null)}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div>
+                  <CardTitle>{contratoSelecionado.nome_contrato}</CardTitle>
+                  <CardDescription>{contratoSelecionado.ente_federativo}</CardDescription>
                 </div>
-              ) : (
+              </div>
+            </CardHeader>
+            <CardContent>
+              {processos[contratoSelecionado.id]?.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -197,70 +286,66 @@ export default function Compliance() {
                       <TableHead>Cotação</TableHead>
                       <TableHead>Data Envio</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Planilha Consolidada</TableHead>
+                      <TableHead>Planilha</TableHead>
                       <TableHead className="text-center">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {contrato.processos.map((processo: any) =>
-                      processo.cotacoes.map((cotacao: any) =>
-                        cotacao.planilhas_consolidadas.map((planilha: any) => (
-                          <TableRow key={planilha.id}>
-                            <TableCell className="font-medium">
-                              {processo.numero_processo_interno}
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate">
-                              {processo.objeto_resumido}
-                            </TableCell>
-                            <TableCell>{cotacao.titulo_cotacao}</TableCell>
-                            <TableCell>
-                              {cotacao.data_envio_compliance
-                                ? formatarData(cotacao.data_envio_compliance)
-                                : "-"}
-                            </TableCell>
-                            <TableCell>
-                              {cotacao.respondido_compliance ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  Respondido
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                  Pendente
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell>{planilha.nome_arquivo}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-2 justify-center">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleVisualizarPlanilha(planilha)}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Visualizar
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleBaixarPlanilha(planilha)}
-                                >
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Baixar
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )
-                    )}
+                    {processos[contratoSelecionado.id].map((processo) => (
+                      <TableRow key={`${processo.id}-${processo.planilha_id}`}>
+                        <TableCell className="font-medium">
+                          {processo.numero_processo_interno}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {processo.objeto_resumido}
+                        </TableCell>
+                        <TableCell>{processo.titulo_cotacao}</TableCell>
+                        <TableCell>
+                          {formatarData(processo.data_envio_compliance)}
+                        </TableCell>
+                        <TableCell>
+                          {processo.respondido_compliance ? (
+                            <Badge variant="default">Respondido</Badge>
+                          ) : (
+                            <Badge variant="destructive">Pendente</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {processo.planilha_nome}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleVisualizarPlanilha(processo)}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Visualizar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleBaixarPlanilha(processo)}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Baixar
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  Nenhum processo enviado ao compliance neste contrato
+                </p>
               )}
             </CardContent>
           </Card>
-        ))
-      )}
+        )}
+      </div>
     </div>
   );
 }
