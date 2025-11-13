@@ -309,7 +309,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
             )}
 
             {/* Recurso já enviado - aguardando análise */}
-            {rejeicao.status_recurso === 'recurso_enviado' && !desejaDeclinar[rejeicao.id] && (
+            {rejeicao.status_recurso === 'recurso_enviado' && (
               <div className="space-y-3">
                 <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-4 border border-blue-200 dark:border-blue-800">
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
@@ -326,18 +326,29 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
                     size="sm"
                     onClick={async () => {
                       try {
-                        const { data: recurso } = await supabase
+                        const { data: recurso, error: recursoError } = await supabase
                           .from('recursos_fornecedor')
                           .select('url_arquivo, nome_arquivo')
                           .eq('rejeicao_id', rejeicao.id)
                           .single();
+                        
+                        if (recursoError) {
+                          console.error('Erro ao buscar recurso:', recursoError);
+                          toast.error('Recurso não encontrado');
+                          return;
+                        }
                         
                         if (recurso) {
                           const { data, error } = await supabase.storage
                             .from('processo-anexos')
                             .createSignedUrl(recurso.url_arquivo, 3600);
                           
-                          if (error) throw error;
+                          if (error) {
+                            console.error('Erro ao gerar URL:', error);
+                            toast.error('Erro ao visualizar recurso');
+                            return;
+                          }
+                          
                           if (data?.signedUrl) {
                             window.open(data.signedUrl, '_blank');
                           }
@@ -357,18 +368,29 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
                     size="sm"
                     onClick={async () => {
                       try {
-                        const { data: recurso } = await supabase
+                        const { data: recurso, error: recursoError } = await supabase
                           .from('recursos_fornecedor')
                           .select('url_arquivo, nome_arquivo')
                           .eq('rejeicao_id', rejeicao.id)
                           .single();
+                        
+                        if (recursoError) {
+                          console.error('Erro ao buscar recurso:', recursoError);
+                          toast.error('Recurso não encontrado');
+                          return;
+                        }
                         
                         if (recurso) {
                           const { data, error } = await supabase.storage
                             .from('processo-anexos')
                             .download(recurso.url_arquivo);
                           
-                          if (error) throw error;
+                          if (error) {
+                            console.error('Erro ao baixar:', error);
+                            toast.error('Erro ao baixar recurso');
+                            return;
+                          }
+                          
                           if (data) {
                             const url = URL.createObjectURL(data);
                             const a = document.createElement('a');
