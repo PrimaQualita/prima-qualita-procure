@@ -26,9 +26,16 @@ export async function gerarPropostaFornecedorPDF(
     // Buscar itens da resposta
     const { data: itens, error: itensError } = await supabase
       .from('respostas_itens_fornecedor')
-      .select('*')
-      .eq('cotacao_resposta_fornecedor_id', respostaId)
-      .order('numero_item');
+      .select(`
+        valor_unitario_ofertado,
+        itens_cotacao:item_cotacao_id (
+          numero_item,
+          descricao,
+          quantidade,
+          unidade
+        )
+      `)
+      .eq('cotacao_resposta_fornecedor_id', respostaId);
 
     if (itensError) throw itensError;
 
@@ -84,7 +91,17 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFont('helvetica', 'normal');
     let subtotal = 0;
 
-    for (const item of (itens as ItemProposta[] || [])) {
+    const itensOrdenados = (itens as any[] || [])
+      .map((item: any) => ({
+        numero_item: item.itens_cotacao?.numero_item || 0,
+        descricao: item.itens_cotacao?.descricao || "",
+        quantidade: item.itens_cotacao?.quantidade || 0,
+        unidade: item.itens_cotacao?.unidade || "",
+        valor_unitario_ofertado: item.valor_unitario_ofertado || 0
+      }))
+      .sort((a, b) => a.numero_item - b.numero_item);
+
+    for (const item of itensOrdenados) {
       if (y > 270) {
         doc.addPage();
         y = 20;
