@@ -270,93 +270,67 @@ export function DialogPlanilhaConsolidada({
         <html>
         <head>
           <meta charset="UTF-8">
-          <title>Planilha Consolidada - Estimativa de Preços</title>
+          <title>Planilha Consolidada</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; padding-bottom: 60px; }
-            .page-header { 
-              text-align: center; 
-              margin-bottom: 20px;
-              page-break-after: avoid;
-            }
-            .page-header img { 
-              max-width: 200px; 
-              height: auto; 
-              display: block; 
-              margin: 0 auto 10px auto;
-            }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; padding: 15px; }
+            .logo-container { text-align: center; margin-bottom: 15px; }
+            .logo-container img { max-width: 180px; height: auto; }
             h1 { 
               color: #0ea5e9; 
-              font-size: 24px; 
-              margin-bottom: 30px; 
+              font-size: 20px; 
+              margin-bottom: 15px; 
               text-align: center;
-              page-break-after: avoid;
+              font-weight: bold;
             }
-            .page-footer { 
-              margin-top: 40px;
-              padding-top: 10px;
-              border-top: 1px solid #e2e8f0;
-              text-align: center; 
-              font-size: 9px; 
-              color: #64748b; 
-              line-height: 1.3;
-              page-break-inside: avoid;
+            .criterio-badge { 
+              display: inline-block;
+              padding: 6px 16px; 
+              background-color: #0ea5e9; 
+              color: white; 
+              border-radius: 4px; 
+              font-size: 13px; 
+              margin-bottom: 15px;
             }
-            h2 { color: #0284c7; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; vertical-align: middle; }
-            th { background-color: #0ea5e9; color: white; font-weight: bold; text-align: center; vertical-align: middle; }
+            h2 { color: #0284c7; font-size: 16px; margin-top: 20px; margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
+            th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; vertical-align: middle; }
+            th { background-color: #0ea5e9; color: white; font-weight: bold; text-align: center; font-size: 10px; }
             .text-right { text-align: right; }
             .total { background-color: #f0f9ff; font-weight: bold; }
             .estimativa { background-color: #fef3c7; font-weight: bold; }
-            .lote-header { background-color: #0284c7; color: white; font-size: 16px; padding: 10px; margin-top: 20px; }
-            .criterio-badge { 
-              display: inline-flex; 
-              align-items: center; 
-              justify-content: center; 
-              padding: 8px 20px; 
-              background-color: #0ea5e9; 
-              color: white; 
-              border-radius: 5px; 
-              font-size: 14px; 
-              margin: 0 0 20px 0;
-              line-height: 1.5;
-            }
-            .col-item { width: 40px; text-align: center; }
-            .col-qtd { width: 50px; text-align: center; }
-            .col-unid { width: 70px; text-align: center; }
-            .col-descricao { width: 300px; word-wrap: break-word; }
+            .lote-header { background-color: #0284c7; color: white; font-size: 14px; padding: 8px; margin-top: 15px; }
+            .col-item { width: 35px; text-align: center; }
+            .col-qtd { width: 45px; text-align: center; }
+            .col-unid { width: 60px; text-align: center; }
+            .col-descricao { width: 250px; word-wrap: break-word; }
             .empresa { 
-              width: 150px;
+              width: 130px;
               word-wrap: break-word; 
               word-break: break-word;
-              overflow-wrap: break-word;
-              hyphens: auto;
-              font-size: 10px;
-              line-height: 1.3;
-            }
-            .col-estimativa { width: 100px; }
-            th.empresa {
-              white-space: normal;
+              font-size: 9px;
               line-height: 1.2;
             }
+            .col-estimativa { width: 90px; }
+            th.empresa { white-space: normal; line-height: 1.1; }
             .certificacao-digital {
-              margin-top: 30px;
-              padding: 15px;
+              margin-top: 25px;
+              padding: 12px;
               border: 1px solid #0ea5e9;
-              border-radius: 5px;
+              border-radius: 4px;
               background-color: #f0f9ff;
+              font-size: 8px;
               page-break-inside: avoid;
-              font-size: 9px;
             }
             .certificacao-digital h3 {
               color: #0284c7;
-              font-size: 11px;
-              margin-bottom: 10px;
+              font-size: 10px;
+              margin-bottom: 8px;
               font-weight: bold;
             }
             .certificacao-digital .info-item {
-              margin: 5px 0;
-              font-size: 9px;
+              margin: 4px 0;
+              font-size: 8px;
             }
             .certificacao-digital .info-label {
               font-weight: bold;
@@ -365,22 +339,29 @@ export function DialogPlanilhaConsolidada({
             .certificacao-digital .hash {
               font-family: 'Courier New', monospace;
               background-color: #e0f2fe;
-              padding: 2px 4px;
-              border-radius: 3px;
+              padding: 2px 3px;
+              border-radius: 2px;
               word-break: break-all;
-              font-size: 8px;
+              font-size: 7px;
             }
             .certificacao-digital .link-verificacao {
               color: #0284c7;
               text-decoration: underline;
-              font-size: 9px;
+              font-size: 8px;
+            }
+            .rodape {
+              margin-top: 20px;
+              padding-top: 8px;
+              border-top: 1px solid #e2e8f0;
+              text-align: center;
+              font-size: 8px;
+              color: #64748b;
+              line-height: 1.2;
             }
           </style>
         </head>
         <body>
-          <div class="page-header">
-            ${logoBase64 ? `<img src="${logoBase64}" alt="Prima Qualitá Saúde" />` : ''}
-          </div>
+          ${logoBase64 ? `<div class="logo-container"><img src="${logoBase64}" alt="Prima Qualitá Saúde" /></div>` : ''}
           <h1>PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO</h1>
           <div class="criterio-badge">
             Critério de Julgamento: ${tipoVisualizacao === "item" ? "Menor Valor por Item" : tipoVisualizacao === "lote" ? "Menor Valor por Lote" : "Menor Valor Global"}
@@ -954,7 +935,7 @@ export function DialogPlanilhaConsolidada({
             </div>
           </div>
           
-          <div class="page-footer">
+          <div class="rodape">
             <div><strong>Prima Qualitá Saúde</strong></div>
             <div>Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040</div>
           </div>
@@ -967,14 +948,16 @@ export function DialogPlanilhaConsolidada({
       element.innerHTML = html;
 
       const opt = {
-        margin: [15, 10, 20, 10],
+        margin: [5, 5, 5, 5],
         filename: `planilha_consolidada_${cotacaoId}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { 
           scale: 2, 
           useCORS: true, 
           letterRendering: true,
-          logging: false
+          logging: false,
+          scrollY: 0,
+          scrollX: 0
         },
         jsPDF: { 
           unit: 'mm', 
@@ -983,9 +966,7 @@ export function DialogPlanilhaConsolidada({
           compress: true
         },
         pagebreak: { 
-          mode: ['avoid-all', 'css', 'legacy'],
-          before: '.page-header',
-          after: '.page-footer'
+          mode: ['avoid-all', 'css', 'legacy']
         }
       };
 
