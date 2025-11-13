@@ -1556,7 +1556,21 @@ export function DialogFinalizarProcesso({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(recurso.url_arquivo, '_blank')}
+                        onClick={async () => {
+                          try {
+                            const { data, error } = await supabase.storage
+                              .from('processo-anexos')
+                              .createSignedUrl(recurso.url_arquivo, 3600); // 1 hora de validade
+                            
+                            if (error) throw error;
+                            if (data?.signedUrl) {
+                              window.open(data.signedUrl, '_blank');
+                            }
+                          } catch (error) {
+                            console.error('Erro ao gerar URL:', error);
+                            toast.error('Erro ao visualizar recurso');
+                          }
+                        }}
                       >
                         <FileText className="h-4 w-4 mr-2" />
                         Visualizar Recurso: {recurso.nome_arquivo}

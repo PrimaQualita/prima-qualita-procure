@@ -112,9 +112,8 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('processo-anexos')
-        .getPublicUrl(filePath);
+      // Usar caminho do storage ao invés de URL pública
+      const storageUrl = filePath;
 
       // Salvar recurso no banco
       const { error: insertError } = await supabase
@@ -122,7 +121,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
         .insert({
           rejeicao_id: rejeicaoId,
           fornecedor_id: fornecedorId,
-          url_arquivo: publicUrl,
+          url_arquivo: storageUrl,
           nome_arquivo: arquivo.name,
           mensagem_fornecedor: mensagemRecurso[rejeicaoId] || null
         });
