@@ -266,6 +266,15 @@ export function DialogFinalizarProcesso({
         console.log(`  - ${f.razao_social}`);
       });
 
+      // Buscar rejeições revertidas
+      const { data: rejeicoesRevertidas } = await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .select('fornecedor_id')
+        .eq('cotacao_id', cotacaoId)
+        .eq('revertido', true);
+
+      const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
+
       // Carregar dados de cada fornecedor vencedor
       const fornecedoresComDados = await Promise.all(
         fornecedoresVencedores.map(async (forn) => {
@@ -276,8 +285,14 @@ export function DialogFinalizarProcesso({
             loadCamposFornecedor(forn.id)
           ]);
 
+          // Se foi revertido, NÃO está mais rejeitado
+          const foiRevertido = fornecedoresRevertidos.has(forn.id);
+          const estaRejeitado = resposta?.rejeitado && !foiRevertido;
+
           console.log(`📋 Fornecedor ${forn.razao_social}:`, {
-            rejeitado: resposta?.rejeitado || false,
+            rejeitadoDB: resposta?.rejeitado || false,
+            foiRevertido,
+            estaRejeitado,
             itensVencedores: itensVenc.length,
             numeros: itensVenc.map(i => i.itens_cotacao?.numero_item)
           });
@@ -290,8 +305,8 @@ export function DialogFinalizarProcesso({
             itensVencedores: itensVenc,
             campos: campos,
             todosDocumentosAprovados: todosAprovados,
-            rejeitado: resposta?.rejeitado || false,
-            motivoRejeicao: resposta?.motivo_rejeicao || null,
+            rejeitado: estaRejeitado,
+            motivoRejeicao: estaRejeitado ? (resposta?.motivo_rejeicao || null) : null,
             respostaId: resposta?.id || ""
           };
         })
