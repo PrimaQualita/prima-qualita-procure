@@ -47,6 +47,12 @@ export const gerarProcessoCompletoPDF = async (
         console.log(`📄 Mesclando ${anexos.length} documentos iniciais do processo...`);
         for (const anexo of anexos) {
           try {
+            // Verificar se é PDF
+            if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+              console.log(`  ⚠️ Pulando arquivo não-PDF: ${anexo.nome_arquivo}`);
+              continue;
+            }
+            
             console.log(`  Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
             
             // Extrair o path do arquivo da URL completa
@@ -190,14 +196,10 @@ export const gerarProcessoCompletoPDF = async (
       try {
         console.log(`  Buscando: ${planilha.nome_arquivo}`);
         
-        // Extrair o path do arquivo da URL completa
-        const urlObj = new URL(planilha.url_arquivo);
-        const storagePath = urlObj.pathname.replace('/storage/v1/object/public/documents/', '');
-        
-        // Buscar URL assinada para bucket público (mas usar método correto)
+        // Usar storage_path diretamente
         const { data: signedUrlData, error: signedError } = await supabase.storage
           .from('documents')
-          .createSignedUrl(storagePath, 60);
+          .createSignedUrl(planilha.storage_path, 60);
         
         if (signedError || !signedUrlData) {
           console.error(`  ✗ Erro ao gerar URL assinada para planilha: ${signedError?.message}`);
