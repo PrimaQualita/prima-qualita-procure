@@ -26,6 +26,7 @@ interface Rejeicao {
 export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) {
   const [rejeicoes, setRejeicoes] = useState<Rejeicao[]>([]);
   const [desejaRecorrer, setDesejaRecorrer] = useState<{ [key: string]: boolean }>({});
+  const [desejaDeclinar, setDesejaDeclinar] = useState<{ [key: string]: boolean }>({});
   const [mensagemRecurso, setMensagemRecurso] = useState<{ [key: string]: string }>({});
   const [arquivoRecurso, setArquivoRecurso] = useState<{ [key: string]: File | null }>({});
   const [enviandoRecurso, setEnviandoRecurso] = useState<{ [key: string]: boolean }>({});
@@ -241,6 +242,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
               Rejeitado em: {new Date(rejeicao.data_rejeicao).toLocaleString('pt-BR')}
             </p>
 
+            {/* Opção de enviar recurso - só aparece se ainda não enviou */}
             {rejeicao.status_recurso === 'sem_recurso' && !desejaRecorrer[rejeicao.id] && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Deseja entrar com recurso?</p>
@@ -258,6 +260,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
               </div>
             )}
 
+            {/* Formulário de envio de recurso */}
             {desejaRecorrer[rejeicao.id] && rejeicao.status_recurso === 'sem_recurso' && (
               <div className="space-y-4 border-t pt-4">
                 <div>
@@ -299,6 +302,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
               </div>
             )}
 
+            {/* Recurso já enviado - aguardando análise */}
             {rejeicao.status_recurso === 'recurso_enviado' && (
               <div className="space-y-3">
                 <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-4 border border-blue-200 dark:border-blue-800">
@@ -306,40 +310,156 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
                     ✓ Recurso enviado com sucesso
                   </p>
                   <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                    Aguardando análise do gestor
+                    Aguardando resposta do Departamento de Compras
                   </p>
                 </div>
                 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      const { data: recurso } = await supabase
-                        .from('recursos_fornecedor')
-                        .select('url_arquivo, nome_arquivo')
-                        .eq('rejeicao_id', rejeicao.id)
-                        .single();
-                      
-                      if (recurso) {
-                        const { data, error } = await supabase.storage
-                          .from('processo-anexos')
-                          .createSignedUrl(recurso.url_arquivo, 3600);
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const { data: recurso } = await supabase
+                          .from('recursos_fornecedor')
+                          .select('url_arquivo, nome_arquivo')
+                          .eq('rejeicao_id', rejeicao.id)
+                          .single();
                         
-                        if (error) throw error;
-                        if (data?.signedUrl) {
-                          window.open(data.signedUrl, '_blank');
+                        if (recurso) {
+                          const { data, error } = await supabase.storage
+                            .from('processo-anexos')
+                            .createSignedUrl(recurso.url_arquivo, 3600);
+                          
+                          if (error) throw error;
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, '_blank');
+                          }
                         }
+                      } catch (error) {
+                        console.error('Erro ao visualizar recurso:', error);
+                        toast.error('Erro ao visualizar recurso');
                       }
-                    } catch (error) {
-                      console.error('Erro ao visualizar recurso:', error);
-                      toast.error('Erro ao visualizar recurso');
-                    }
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Visualizar Recurso Enviado
-                </Button>
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Visualizar Recurso
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const { data: recurso } = await supabase
+                          .from('recursos_fornecedor')
+                          .select('url_arquivo, nome_arquivo')
+                          .eq('rejeicao_id', rejeicao.id)
+                          .single();
+                        
+                        if (recurso) {
+                          const { data, error } = await supabase.storage
+                            .from('processo-anexos')
+                            .download(recurso.url_arquivo);
+                          
+                          if (error) throw error;
+                          if (data) {
+                            const url = URL.createObjectURL(data);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = recurso.nome_arquivo;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Erro ao baixar recurso:', error);
+                        toast.error('Erro ao baixar recurso');
+                      }
+                    }}
+                  >
+                    Baixar Documento
+                  </Button>
+                  
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: true }))}
+                  >
+                    Declinar Recurso
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Formulário para declinar recurso */}
+            {desejaDeclinar[rejeicao.id] && rejeicao.status_recurso === 'recurso_enviado' && (
+              <div className="space-y-4 border-t pt-4 mt-4">
+                <p className="text-sm font-medium text-destructive">
+                  Você está declinando do recurso protocolado
+                </p>
+                <div>
+                  <Label>Anexar Documento de Declínio (Obrigatório)</Label>
+                  <div className="mt-2">
+                    <DropzoneRecurso rejeicaoId={rejeicao.id} />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="destructive"
+                    onClick={async () => {
+                      const arquivo = arquivoRecurso[rejeicao.id];
+                      if (!arquivo) {
+                        toast.error('Anexe o documento de declínio');
+                        return;
+                      }
+                      
+                      setEnviandoRecurso(prev => ({ ...prev, [rejeicao.id]: true }));
+                      
+                      try {
+                        // Upload do documento de declínio
+                        const fileExt = arquivo.name.split('.').pop();
+                        const fileName = `declinio_recurso_${rejeicao.id}_${Date.now()}.${fileExt}`;
+                        const filePath = `recursos/${fileName}`;
+                        
+                        const { error: uploadError } = await supabase.storage
+                          .from('processo-anexos')
+                          .upload(filePath, arquivo);
+                        
+                        if (uploadError) throw uploadError;
+                        
+                        // Atualizar status para declinado
+                        const { error: updateError } = await supabase
+                          .from('fornecedores_rejeitados_cotacao')
+                          .update({ status_recurso: 'recurso_declinado' })
+                          .eq('id', rejeicao.id);
+                        
+                        if (updateError) throw updateError;
+                        
+                        toast.success('Recurso declinado com sucesso');
+                        loadRejeicoes();
+                        setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: false }));
+                        setArquivoRecurso(prev => ({ ...prev, [rejeicao.id]: null }));
+                      } catch (error) {
+                        console.error('Erro ao declinar recurso:', error);
+                        toast.error('Erro ao declinar recurso');
+                      } finally {
+                        setEnviandoRecurso(prev => ({ ...prev, [rejeicao.id]: false }));
+                      }
+                    }}
+                    disabled={enviandoRecurso[rejeicao.id]}
+                  >
+                    {enviandoRecurso[rejeicao.id] ? 'Processando...' : 'Confirmar Declínio'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: false }))}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
               </div>
             )}
 
