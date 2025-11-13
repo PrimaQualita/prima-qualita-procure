@@ -29,19 +29,7 @@ export default function VerificarPlanilha() {
       // @ts-ignore - Temporary ignore until types are updated
       const { data, error } = await supabase
         .from("planilhas_consolidadas")
-        .select(`
-          *,
-          cotacoes_precos!inner(
-            titulo_cotacao,
-            processos_compras!inner(
-              numero_processo_interno,
-              objeto_resumido,
-              contratos_gestao!inner(
-                nome_contrato
-              )
-            )
-          )
-        `)
+        .select("*")
         .eq("protocolo", protocolo.trim())
         .maybeSingle();
 
@@ -159,26 +147,9 @@ export default function VerificarPlanilha() {
                   </p>
                 </div>
 
-                {/* Gerador removido temporariamente até tipos serem atualizados */}
-
                 <div>
-                  <p className="text-sm font-semibold text-gray-600">Contrato de Gestão</p>
-                  <p className="text-sm">
-                    {resultado.dados.cotacoes_precos?.processos_compras?.contratos_gestao?.nome_contrato}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-gray-600">Processo de Compras</p>
-                  <p className="text-sm">
-                    {resultado.dados.cotacoes_precos?.processos_compras?.numero_processo_interno} -{" "}
-                    {resultado.dados.cotacoes_precos?.processos_compras?.objeto_resumido}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-gray-600">Cotação</p>
-                  <p className="text-sm">{resultado.dados.cotacoes_precos?.titulo_cotacao}</p>
+                  <p className="text-sm font-semibold text-gray-600">ID da Cotação</p>
+                  <p className="text-sm font-mono">{resultado.dados.cotacao_id}</p>
                 </div>
 
                 <div>
