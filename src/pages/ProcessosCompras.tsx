@@ -414,7 +414,7 @@ const ProcessosCompras = () => {
                     <Plus className="mr-2 h-4 w-4" />
                     Novo Processo
                   </Button>
-                  <Button variant="secondary" onClick={() => setContratoSelecionado(null)}>
+                  <Button variant="outline" onClick={() => setContratoSelecionado(null)}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Voltar
                   </Button>
