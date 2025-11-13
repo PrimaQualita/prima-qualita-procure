@@ -144,29 +144,13 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
       toast.success('Recurso enviado com sucesso!');
       
-      console.log('🔄 ANTES. Status atual:', rejeicoes.find(r => r.id === rejeicaoId)?.status_recurso);
-      
-      // Atualizar estado local PRIMEIRO para forçar re-render
-      setRejeicoes(prev => {
-        const updated = prev.map(r => {
-          if (r.id === rejeicaoId) {
-            console.log('✅ Atualizando de:', r.status_recurso, 'para: recurso_enviado');
-            return { ...r, status_recurso: 'recurso_enviado' };
-          }
-          return r;
-        });
-        console.log('✅ DEPOIS. Novo status:', updated.find(r => r.id === rejeicaoId)?.status_recurso);
-        return updated;
-      });
-      
-      // Limpar estados de formulário
-      setDesejaRecorrer(prev => {
-        const newState = { ...prev, [rejeicaoId]: false };
-        console.log('🧹 Estado desejaRecorrer atualizado:', newState);
-        return newState;
-      });
+      // Limpar estados PRIMEIRO
+      setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
       setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
       setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: null }));
+      
+      // Recarregar dados do banco
+      await loadRejeicoes();
     } catch (error) {
       console.error('Erro ao enviar recurso:', error);
       toast.error('Erro ao enviar recurso');
@@ -210,10 +194,6 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
   };
 
   if (rejeicoes.length === 0) return null;
-
-  rejeicoes.forEach(r => {
-    console.log(`🎨 RENDER - ID: ${r.id.substring(0,8)}, Status: "${r.status_recurso}", DesejaRecorrer: ${desejaRecorrer[r.id]}`);
-  });
 
   return (
     <div className="space-y-4">
@@ -307,14 +287,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
             )}
 
             {/* Recurso já enviado - aguardando análise */}
-            {(() => {
-              const shouldShow = rejeicao.status_recurso === 'recurso_enviado';
-              console.log(`🔍 CONDIÇÃO BOTÕES - ID: ${rejeicao.id.substring(0,8)}, Status: "${rejeicao.status_recurso}", ShouldShow: ${shouldShow}`);
-              if (shouldShow) {
-                console.log('✅ RENDERIZANDO SEÇÃO DE BOTÕES!');
-              }
-              return shouldShow;
-            })() && (
+            {rejeicao.status_recurso === 'recurso_enviado' && (
               <div className="space-y-3">
                 <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-4 border border-blue-200 dark:border-blue-800">
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
@@ -325,7 +298,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
                   </p>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
