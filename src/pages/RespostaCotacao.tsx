@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Upload, Download } from "lucide-react";
-import { gerarPropostaHTML } from "@/lib/gerarPropostaHTML";
+import { Upload } from "lucide-react";
+import { gerarPropostaPDF } from "@/lib/gerarPropostaPDF";
 
 // Cliente Supabase sem autenticação persistente - usa sessionStorage isolado
 const supabaseAnon = createClient(
@@ -145,9 +145,6 @@ const RespostaCotacao = () => {
   const [observacoes, setObservacoes] = useState("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   
-  const [gerandoHTML, setGerandoHTML] = useState(false);
-  const [htmlGerado, setHtmlGerado] = useState<string | null>(null);
-  const [arquivoProposta, setArquivoProposta] = useState<File | null>(null);
 
   useEffect(() => {
     if (cotacaoIdParam) {
@@ -219,10 +216,9 @@ const RespostaCotacao = () => {
     }
   };
 
-  const handleGerarHTML = async () => {
+  const handleSubmit = async () => {
+    setSubmitting(true);
     try {
-      setGerandoHTML(true);
-
       // Validar dados da empresa
       try {
         dadosEmpresaSchema.parse(dadosEmpresa);
@@ -234,7 +230,7 @@ const RespostaCotacao = () => {
         });
         setErrors(fieldErrors);
         toast.error("Por favor, preencha todos os campos corretamente");
-        setGerandoHTML(false);
+        setSubmitting(false);
         return;
       }
 
@@ -246,7 +242,7 @@ const RespostaCotacao = () => {
 
       if (itensIncompletos.length > 0) {
         toast.error("Por favor, preencha os valores unitários de todos os itens");
-        setGerandoHTML(false);
+        setSubmitting(false);
         return;
       }
 
@@ -255,8 +251,8 @@ const RespostaCotacao = () => {
       // Preparar endereço completo
       const enderecoCompleto = `${dadosEmpresa.logradouro}, Nº ${dadosEmpresa.numero}, ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}, CEP: ${dadosEmpresa.cep}`;
 
-      // Preparar itens para o HTML
-      const itensParaHTML = itensCotacao.map(item => ({
+      // Preparar itens para o PDF
+      const itensParaPDF = itensCotacao.map(item => ({
         numero_item: item.numero_item,
         descricao: item.descricao,
         quantidade: item.quantidade,
@@ -265,8 +261,9 @@ const RespostaCotacao = () => {
         valor_unitario_ofertado: respostas[item.id]?.valor_unitario_ofertado || 0
       }));
 
-      // Gerar HTML certificado
-      const htmlContent = await gerarPropostaHTML(
+      // Gerar PDF certificado
+      toast.info("Gerando proposta certificada...");
+      const pdfBlob = await gerarPropostaPDF(
         {
           numero: processoCompra?.numero_processo || 'N/A',
           objeto: processoCompra?.objeto || 'N/A'
@@ -276,44 +273,161 @@ const RespostaCotacao = () => {
           cnpj: dadosEmpresa.cnpj,
           endereco_comercial: enderecoCompleto,
         },
-        itensParaHTML,
+        itensParaPDF,
         valorTotal,
         observacoes
       );
 
-      setHtmlGerado(htmlContent);
-      setDadosEmpresa(prev => ({ ...prev, endereco_comercial: enderecoCompleto }));
-      toast.success("Proposta certificada gerada! Faça o download e depois envie o arquivo.");
-    } catch (error) {
-      console.error('Erro ao gerar HTML:', error);
-      toast.error('Erro ao gerar proposta certificada');
+      const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
+      
+      let fornecedorId: string | undefined;
+      
+      // Buscar ou criar fornecedor
+      const { data: fornecedorBuscado } = await supabaseAnon
+        .from("fornecedores")
+        .select("id")
+        .eq("cnpj", cnpjLimpo)
+        .limit(1)
+        .maybeSingle();
+
+      if (fornecedorBuscado) {
+        fornecedorId = fornecedorBuscado.id;
+      } else {
+        const dadosFornecedor = {
+          razao_social: dadosEmpresa.razao_social,
+          cnpj: cnpjLimpo,
+          email: `cotacao-${cnpjLimpo}@temporario.com`,
+          telefone: "00000000000",
+          endereco_comercial: enderecoCompleto,
+          status_aprovacao: "pendente",
+          ativo: false,
+        };
+        
+        const { data: fornecedorCriado, error: erroCreate } = await supabaseAnon
+          .from("fornecedores")
+          .insert(dadosFornecedor)
+          .select("id")
+          .single();
+
+        if (erroCreate) {
+          const { data: fornecedorRetry } = await supabaseAnon
+            .from("fornecedores")
+            .select("id")
+            .eq("cnpj", cnpjLimpo)
+            .single();
+          
+          if (fornecedorRetry) {
+            fornecedorId = fornecedorRetry.id;
+          } else {
+            toast.error("Erro ao criar fornecedor: " + erroCreate.message);
+            throw erroCreate;
+          }
+        } else {
+          fornecedorId = fornecedorCriado.id;
+        }
+      }
+
+      if (!fornecedorId) {
+        throw new Error("Fornecedor não identificado");
+      }
+
+      // Verificar se fornecedor já respondeu esta cotação
+      const { data: respostaExistente } = await supabaseAnon
+        .from("cotacao_respostas_fornecedor")
+        .select("id")
+        .eq("cotacao_id", cotacao.id)
+        .eq("fornecedor_id", fornecedorId)
+        .maybeSingle();
+
+      // Se já existe, excluir resposta anterior
+      if (respostaExistente) {
+        await supabaseAnon
+          .from("respostas_itens_fornecedor")
+          .delete()
+          .eq("cotacao_resposta_fornecedor_id", respostaExistente.id);
+
+        await supabaseAnon
+          .from("cotacao_respostas_fornecedor")
+          .delete()
+          .eq("id", respostaExistente.id);
+      }
+
+      // Criar nova resposta
+      const { data: respostaCriada, error: erroResposta } = await supabaseAnon
+        .from("cotacao_respostas_fornecedor")
+        .insert({
+          cotacao_id: cotacao.id,
+          fornecedor_id: fornecedorId,
+          observacoes_fornecedor: observacoes || null,
+          valor_total_anual_ofertado: valorTotal,
+          data_envio_resposta: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (erroResposta || !respostaCriada) {
+        toast.error("Erro ao criar resposta");
+        throw erroResposta;
+      }
+
+      // Upload do PDF para storage
+      toast.info("Fazendo upload da proposta...");
+      const nomeEmpresa = dadosEmpresa.razao_social.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+      const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+      const nomeArquivo = `Proposta_${nomeEmpresa}_${dataAtual}.pdf`;
+      const caminhoArquivo = `propostas/${fornecedorId}/${Date.now()}_${nomeArquivo}`;
+
+      const { data: uploadData, error: uploadError } = await supabaseAnon.storage
+        .from('processo-anexos')
+        .upload(caminhoArquivo, pdfBlob, {
+          contentType: 'application/pdf',
+        });
+
+      if (uploadError) {
+        toast.error("Erro ao fazer upload do arquivo");
+        throw uploadError;
+      }
+
+      // Salvar anexo no banco
+      await supabaseAnon
+        .from('anexos_cotacao_fornecedor')
+        .insert({
+          cotacao_resposta_fornecedor_id: respostaCriada.id,
+          tipo_anexo: 'Proposta Certificada',
+          url_arquivo: uploadData.path,
+          nome_arquivo: nomeArquivo,
+        });
+
+      // Inserir itens da resposta
+      const respostasItens = itensCotacao.map(item => ({
+        cotacao_resposta_fornecedor_id: respostaCriada.id,
+        item_cotacao_id: item.id,
+        valor_unitario_ofertado: respostas[item.id]?.valor_unitario_ofertado || 0,
+        marca_ofertada: respostas[item.id]?.marca_ofertada || null,
+      }));
+
+      const { error: itensError } = await supabaseAnon
+        .from("respostas_itens_fornecedor")
+        .insert(respostasItens);
+
+      if (itensError) {
+        toast.error("Erro ao criar itens: " + itensError.message);
+        throw itensError;
+      }
+
+      toast.success("Resposta enviada com sucesso!");
+      
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 2000);
+      
+    } catch (error: any) {
+      console.error("Erro ao enviar resposta:", error);
+      toast.error("Erro: " + (error?.message || "Erro desconhecido"));
     } finally {
-      setGerandoHTML(false);
+      setSubmitting(false);
     }
   };
-
-  const handleDownloadHTML = () => {
-    if (!htmlGerado) return;
-
-    const blob = new Blob([htmlGerado], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const nomeEmpresa = dadosEmpresa.razao_social.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
-    const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-    a.download = `Proposta_${nomeEmpresa}_${dataAtual}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success("Arquivo baixado! Agora faça o upload deste arquivo.");
-  };
-
-  const handleSubmit = async () => {
-    if (!arquivoProposta) {
-      toast.error("Por favor, faça o upload do arquivo HTML certificado");
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -732,87 +846,26 @@ const RespostaCotacao = () => {
           </CardContent>
         </Card>
 
-        {/* Gerar e Enviar Proposta */}
+        {/* Enviar Proposta */}
         <Card>
           <CardHeader>
-            <CardTitle>Gerar e Enviar Proposta Certificada</CardTitle>
+            <CardTitle>Enviar Proposta Certificada</CardTitle>
             <CardDescription>
-              Primeiro gere a proposta certificada, depois faça o download, e por fim envie o arquivo HTML gerado
+              Ao clicar em enviar, sua proposta será gerada automaticamente em PDF certificado e enviada
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button
-              onClick={handleGerarHTML}
-              disabled={gerandoHTML || htmlGerado !== null}
-              className="w-full"
-            >
-              {gerandoHTML ? "Gerando Proposta Certificada..." : htmlGerado ? "Proposta Gerada ✓" : "Gerar Proposta Certificada"}
-            </Button>
-
-            {htmlGerado && (
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h3 className="font-semibold mb-3 text-blue-900">Download e Upload da Proposta</h3>
-                
-                <div className="mb-4">
-                  <Button
-                    onClick={handleDownloadHTML}
-                    variant="outline"
-                    className="w-full flex items-center justify-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Baixar Proposta Certificada (HTML)
-                  </Button>
-                  <p className="text-xs text-blue-600 mt-2 text-center">
-                    Primeiro faça o download do arquivo certificado
-                  </p>
-                </div>
-
-                <div className="border-t border-blue-200 pt-4">
-                  <p className="text-sm text-blue-700 mb-3">
-                    Agora faça o upload do arquivo HTML que você baixou:
-                  </p>
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="file"
-                        accept=".html,.htm"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setArquivoProposta(file);
-                            toast.success(`Arquivo ${file.name} selecionado`);
-                          }
-                        }}
-                        className="flex-1"
-                      />
-                      {arquivoProposta && (
-                        <span className="text-sm text-green-600 flex items-center gap-1">
-                          <Upload className="h-4 w-4" />
-                          {arquivoProposta.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <Button 
               onClick={handleSubmit}
-              disabled={submitting || !htmlGerado || !arquivoProposta}
+              disabled={submitting}
               className="w-full"
             >
-              {submitting ? "Enviando..." : "Enviar Resposta"}
+              {submitting ? "Enviando Proposta..." : "Enviar Proposta"}
             </Button>
             
-            {!htmlGerado && (
+            {submitting && (
               <p className="text-xs text-muted-foreground text-center mt-2">
-                Primeiro gere a proposta certificada para poder enviar
-              </p>
-            )}
-            {htmlGerado && !arquivoProposta && (
-              <p className="text-xs text-amber-600 text-center mt-2">
-                Faça o upload do arquivo HTML certificado para continuar
+                Gerando PDF certificado e enviando...
               </p>
             )}
           </CardContent>
