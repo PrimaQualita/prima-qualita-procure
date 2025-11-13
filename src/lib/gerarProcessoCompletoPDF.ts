@@ -10,153 +10,233 @@ export const gerarProcessoCompletoPDF = async (
   cotacaoId: string,
   numeroProcesso: string
 ): Promise<ProcessoCompletoResult> => {
+  console.log(`Iniciando geração do processo completo para cotação ${cotacaoId}...`);
+  
   // Criar PDF final que irá conter todos os documentos mesclados
   const pdfFinal = await PDFDocument.create();
 
   try {
     // 1. Buscar anexos do processo (CAPA, REQUISIÇÃO, AUTORIZAÇÃO, TERMO DE REFERÊNCIA)
-    const { data: cotacao } = await supabase
+    const { data: cotacao, error: cotacaoError } = await supabase
       .from("cotacoes_precos")
       .select("processo_compra_id")
       .eq("id", cotacaoId)
       .single();
 
-    if (cotacao) {
-      const { data: anexos } = await supabase
+    if (cotacaoError) {
+      console.error("Erro ao buscar cotação:", cotacaoError);
+      throw cotacaoError;
+    }
+
+    console.log(`Cotação encontrada. Processo ID: ${cotacao?.processo_compra_id}`);
+
+    if (cotacao?.processo_compra_id) {
+      const { data: anexos, error: anexosError } = await supabase
         .from("anexos_processo_compra")
         .select("*")
         .eq("processo_compra_id", cotacao.processo_compra_id)
         .order("data_upload", { ascending: true });
 
+      if (anexosError) {
+        console.error("Erro ao buscar anexos:", anexosError);
+      }
+
+      console.log(`Anexos do processo encontrados: ${anexos?.length || 0}`);
+
       if (anexos && anexos.length > 0) {
-        console.log(`Mesclando ${anexos.length} documentos iniciais...`);
+        console.log(`📄 Mesclando ${anexos.length} documentos iniciais do processo...`);
         for (const anexo of anexos) {
           try {
+            console.log(`  Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
             const response = await fetch(anexo.url_arquivo);
             if (response.ok) {
               const arrayBuffer = await response.arrayBuffer();
               const pdfDoc = await PDFDocument.load(arrayBuffer);
               const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
               copiedPages.forEach((page) => pdfFinal.addPage(page));
-              console.log(`✓ Mesclado: ${anexo.nome_arquivo}`);
+              console.log(`  ✓ Mesclado: ${anexo.tipo_anexo} (${copiedPages.length} páginas)`);
+            } else {
+              console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${anexo.nome_arquivo}`);
             }
           } catch (error) {
-            console.error(`Erro ao mesclar ${anexo.nome_arquivo}:`, error);
+            console.error(`  ✗ Erro ao mesclar ${anexo.nome_arquivo}:`, error);
           }
         }
+      } else {
+        console.log("⚠️ Nenhum anexo do processo encontrado");
       }
     }
 
     // 2. Buscar e-mails enviados aos fornecedores
-    const { data: emails } = await supabase
+    const { data: emails, error: emailsError } = await supabase
       .from("emails_cotacao_anexados")
       .select("*")
       .eq("cotacao_id", cotacaoId)
       .order("data_upload", { ascending: true });
 
+    if (emailsError) {
+      console.error("Erro ao buscar emails:", emailsError);
+    }
+
+    console.log(`E-mails encontrados: ${emails?.length || 0}`);
+
     if (emails && emails.length > 0) {
-      console.log(`Mesclando ${emails.length} e-mails enviados...`);
+      console.log(`📧 Mesclando ${emails.length} e-mails enviados aos fornecedores...`);
       for (const email of emails) {
         try {
+          console.log(`  Buscando: ${email.nome_arquivo}`);
           const response = await fetch(email.url_arquivo);
           if (response.ok) {
             const arrayBuffer = await response.arrayBuffer();
             const pdfDoc = await PDFDocument.load(arrayBuffer);
             const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
             copiedPages.forEach((page) => pdfFinal.addPage(page));
-            console.log(`✓ Mesclado: ${email.nome_arquivo}`);
+            console.log(`  ✓ Mesclado: ${email.nome_arquivo} (${copiedPages.length} páginas)`);
+          } else {
+            console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${email.nome_arquivo}`);
           }
         } catch (error) {
-          console.error(`Erro ao mesclar ${email.nome_arquivo}:`, error);
+          console.error(`  ✗ Erro ao mesclar ${email.nome_arquivo}:`, error);
         }
       }
+    } else {
+      console.log("⚠️ Nenhum e-mail encontrado");
     }
 
     // 3. Buscar propostas dos fornecedores com seus anexos
-    const { data: respostas } = await supabase
+    const { data: respostas, error: respostasError } = await supabase
       .from("cotacao_respostas_fornecedor")
       .select("id, fornecedores(razao_social)")
       .eq("cotacao_id", cotacaoId)
       .order("data_envio_resposta", { ascending: true });
 
+    if (respostasError) {
+      console.error("Erro ao buscar respostas:", respostasError);
+    }
+
+    console.log(`Respostas de fornecedores encontradas: ${respostas?.length || 0}`);
+
     if (respostas && respostas.length > 0) {
+      console.log(`📦 Mesclando propostas de ${respostas.length} fornecedores...`);
       for (const resposta of respostas) {
-        const { data: anexosFornecedor } = await supabase
+        const { data: anexosFornecedor, error: anexosFornError } = await supabase
           .from("anexos_cotacao_fornecedor")
           .select("*")
           .eq("cotacao_resposta_fornecedor_id", resposta.id);
 
+        if (anexosFornError) {
+          console.error(`  Erro ao buscar anexos do fornecedor:`, anexosFornError);
+        }
+
+        const razaoSocial = (resposta.fornecedores as any)?.razao_social || 'Fornecedor';
+        console.log(`  Fornecedor: ${razaoSocial} - ${anexosFornecedor?.length || 0} documentos`);
+
         if (anexosFornecedor && anexosFornecedor.length > 0) {
-          console.log(`Mesclando ${anexosFornecedor.length} documentos do fornecedor ${(resposta.fornecedores as any)?.razao_social}...`);
           for (const anexo of anexosFornecedor) {
             try {
+              console.log(`    Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
               const response = await fetch(anexo.url_arquivo);
               if (response.ok) {
                 const arrayBuffer = await response.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(arrayBuffer);
                 const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
                 copiedPages.forEach((page) => pdfFinal.addPage(page));
-                console.log(`✓ Mesclado: ${anexo.nome_arquivo}`);
+                console.log(`    ✓ Mesclado: ${anexo.tipo_anexo} (${copiedPages.length} páginas)`);
+              } else {
+                console.error(`    ✗ Erro HTTP ${response.status} ao buscar ${anexo.nome_arquivo}`);
               }
             } catch (error) {
-              console.error(`Erro ao mesclar ${anexo.nome_arquivo}:`, error);
+              console.error(`    ✗ Erro ao mesclar ${anexo.nome_arquivo}:`, error);
             }
           }
         }
       }
+    } else {
+      console.log("⚠️ Nenhuma proposta de fornecedor encontrada");
     }
 
     // 4. Buscar planilha consolidada
-    const { data: planilha } = await supabase
+    const { data: planilha, error: planilhaError } = await supabase
       .from("planilhas_consolidadas")
       .select("*")
       .eq("cotacao_id", cotacaoId)
       .order("data_geracao", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    if (planilhaError) {
+      console.error("Erro ao buscar planilha:", planilhaError);
+    }
+
+    console.log(`Planilha consolidada: ${planilha ? planilha.nome_arquivo : 'não encontrada'}`);
 
     if (planilha) {
-      console.log("Mesclando planilha consolidada...");
+      console.log("📊 Mesclando planilha consolidada...");
       try {
+        console.log(`  Buscando: ${planilha.nome_arquivo}`);
         const response = await fetch(planilha.url_arquivo);
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           const pdfDoc = await PDFDocument.load(arrayBuffer);
           const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
           copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`✓ Mesclado: ${planilha.nome_arquivo}`);
+          console.log(`  ✓ Mesclado: ${planilha.nome_arquivo} (${copiedPages.length} páginas)`);
+        } else {
+          console.error(`  ✗ Erro HTTP ${response.status} ao buscar planilha`);
         }
       } catch (error) {
-        console.error(`Erro ao mesclar planilha consolidada:`, error);
+        console.error(`  ✗ Erro ao mesclar planilha consolidada:`, error);
       }
+    } else {
+      console.log("⚠️ Planilha consolidada não encontrada");
     }
 
     // 5. Buscar encaminhamento ao compliance
-    const { data: encaminhamento } = await supabase
+    const { data: encaminhamento, error: encaminhamentoError } = await supabase
       .from("encaminhamentos_processo")
       .select("*")
       .eq("cotacao_id", cotacaoId)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    if (encaminhamentoError) {
+      console.error("Erro ao buscar encaminhamento:", encaminhamentoError);
+    }
+
+    console.log(`Encaminhamento: ${encaminhamento ? encaminhamento.protocolo : 'não encontrado'}`);
 
     if (encaminhamento) {
-      console.log("Mesclando documento de encaminhamento...");
+      console.log("📋 Mesclando documento de encaminhamento ao compliance...");
       try {
-        const response = await fetch(encaminhamento.documento_url);
+        console.log(`  Buscando: ${encaminhamento.protocolo}`);
+        const response = await fetch(encaminhamento.url);
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           const pdfDoc = await PDFDocument.load(arrayBuffer);
           const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
           copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`✓ Mesclado: ${encaminhamento.documento_nome}`);
+          console.log(`  ✓ Mesclado: Encaminhamento ${encaminhamento.protocolo} (${copiedPages.length} páginas)`);
+        } else {
+          console.error(`  ✗ Erro HTTP ${response.status} ao buscar encaminhamento`);
         }
       } catch (error) {
-        console.error(`Erro ao mesclar documento de encaminhamento:`, error);
+        console.error(`  ✗ Erro ao mesclar documento de encaminhamento:`, error);
       }
+    } else {
+      console.log("⚠️ Encaminhamento ao compliance não encontrado");
+    }
+
+    // Verificar se há páginas no PDF final
+    const totalPaginas = pdfFinal.getPageCount();
+    console.log(`\n📑 Total de páginas mescladas: ${totalPaginas}`);
+
+    if (totalPaginas === 0) {
+      throw new Error("Nenhum documento foi encontrado para mesclar. Verifique se há documentos anexados ao processo.");
     }
 
     // Salvar PDF mesclado
+    console.log("\n💾 Salvando PDF mesclado...");
     const pdfBytes = await pdfFinal.save();
     const blob = new Blob([pdfBytes], { type: "application/pdf" });
     
@@ -172,7 +252,7 @@ export const gerarProcessoCompletoPDF = async (
       });
 
     if (uploadError) {
-      console.error("Erro ao fazer upload:", uploadError);
+      console.error("❌ Erro ao fazer upload:", uploadError);
       throw new Error("Erro ao salvar processo completo");
     }
 
@@ -181,13 +261,15 @@ export const gerarProcessoCompletoPDF = async (
       .getPublicUrl(storagePath);
 
     console.log("✅ Processo completo gerado com sucesso!");
+    console.log(`   Arquivo: ${filename}`);
+    console.log(`   Páginas: ${totalPaginas}`);
     
     return {
       url: urlData.publicUrl,
       filename,
     };
   } catch (error) {
-    console.error("Erro ao gerar processo completo:", error);
+    console.error("❌ Erro ao gerar processo completo:", error);
     throw error;
   }
 };
