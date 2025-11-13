@@ -175,6 +175,18 @@ export function DialogRespostasCotacao({
         return;
       }
 
+      // Deletar encaminhamento anterior se existir
+      if (encaminhamento) {
+        await supabase.storage
+          .from('processo-anexos')
+          .remove([encaminhamento.storagePath]);
+        
+        await supabase
+          .from('encaminhamentos_processo')
+          .delete()
+          .eq('id', encaminhamento.id);
+      }
+
       const resultado = await gerarEncaminhamentoPDF(
         processoNumero,
         processoObjeto,
