@@ -159,22 +159,33 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
       if (insertError) throw insertError;
 
-      // Atualizar status da rejeição
-      const { error: updateError } = await supabase
+      // Atualizar status da rejeição IMEDIATAMENTE
+      console.log('🔄 Atualizando status da rejeição:', rejeicaoId);
+      const { data: updateData, error: updateError } = await supabase
         .from('fornecedores_rejeitados_cotacao')
         .update({ status_recurso: 'recurso_enviado' })
-        .eq('id', rejeicaoId);
+        .eq('id', rejeicaoId)
+        .select();
 
-      if (updateError) throw updateError;
+      console.log('Resultado update status:', { updateData, updateError });
 
+      if (updateError) {
+        console.error('❌ ERRO CRÍTICO ao atualizar status:', updateError);
+        throw updateError;
+      }
+
+      console.log('✅ Status atualizado com sucesso!');
       toast.success('Recurso enviado com sucesso!');
       
-      // Limpar estado ANTES de recarregar
+      // Limpar estado
       setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
       setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
       setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: null }));
       
-      // Recarregar rejeições IMEDIATAMENTE
+      // Esperar 500ms antes de recarregar para garantir que o update foi processado
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Recarregar rejeições
       await loadRejeicoes();
     } catch (error) {
       console.error('Erro ao enviar recurso:', error);
