@@ -168,12 +168,14 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
       if (updateError) throw updateError;
 
       toast.success('Recurso enviado com sucesso!');
-      loadRejeicoes();
       
-      // Limpar estado
+      // Limpar estado ANTES de recarregar
       setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
       setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
       setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: null }));
+      
+      // Recarregar rejeições IMEDIATAMENTE
+      await loadRejeicoes();
     } catch (error) {
       console.error('Erro ao enviar recurso:', error);
       toast.error('Erro ao enviar recurso');
