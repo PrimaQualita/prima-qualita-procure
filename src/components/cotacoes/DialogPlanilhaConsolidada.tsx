@@ -349,18 +349,6 @@ export function DialogPlanilhaConsolidada({
               text-decoration: underline;
               font-size: 8px;
             }
-            .rodape {
-              margin-top: 30px;
-              padding-top: 10px;
-              border-top: 2px solid #0ea5e9;
-              text-align: center;
-              font-size: 9px;
-              color: #475569;
-              line-height: 1.4;
-            }
-            .rodape strong {
-              color: #0f172a;
-            }
           </style>
         </head>
         <body>
@@ -936,11 +924,6 @@ export function DialogPlanilhaConsolidada({
             <div class="info-item">
               <span class="info-label">Verificar autenticidade em:</span> <a href="${linkVerificacao}" class="link-verificacao">${linkVerificacao}</a>
             </div>
-          </div>
-          
-          <div class="rodape">
-            <div><strong>Prima Qualitá Saúde</strong></div>
-            <div>Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040</div>
           </div>
         </body>
         </html>
