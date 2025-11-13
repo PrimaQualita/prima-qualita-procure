@@ -114,6 +114,7 @@ interface RespostaItem {
   [key: string]: {
     valor_unitario_ofertado: number;
     marca_ofertada: string;
+    valor_display?: string;
   };
 }
 
@@ -650,20 +651,25 @@ const RespostaCotacao = () => {
                         inputMode="decimal"
                         placeholder="0,00"
                         value={
-                          respostas[item.id]?.valor_unitario_ofertado
+                          respostas[item.id]?.valor_display !== undefined
+                            ? respostas[item.id].valor_display
+                            : respostas[item.id]?.valor_unitario_ofertado
                             ? respostas[item.id].valor_unitario_ofertado
                                 .toFixed(2)
                                 .replace('.', ',')
                             : ""
                         }
                         onChange={(e) => {
-                          const valor = e.target.value.replace(',', '.');
-                          const numero = parseFloat(valor) || 0;
+                          const input = e.target.value;
+                          // Permite apenas números, vírgula e um ponto decimal
+                          const valorLimpo = input.replace(/[^\d,]/g, '');
+                          
                           setRespostas({
                             ...respostas,
                             [item.id]: {
                               ...respostas[item.id],
-                              valor_unitario_ofertado: numero,
+                              valor_display: valorLimpo,
+                              valor_unitario_ofertado: parseFloat(valorLimpo.replace(',', '.')) || 0,
                             },
                           });
                         }}
