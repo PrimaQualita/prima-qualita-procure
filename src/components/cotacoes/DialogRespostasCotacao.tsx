@@ -235,9 +235,8 @@ export function DialogRespostasCotacao({
 
       console.log('Encaminhamento excluído com sucesso');
       
-      // Limpar estado local e recarregar
+      // Limpar estado local sem recarregar
       setEncaminhamento(null);
-      await loadEncaminhamento();
       toast.success("Encaminhamento excluído com sucesso");
     } catch (error) {
       console.error('Erro ao excluir encaminhamento:', error);
