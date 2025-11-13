@@ -155,7 +155,7 @@ export async function gerarPropostaFornecedorPDF(
 
     // Upload para o storage
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('cotacao-anexos')
+      .from('processo-anexos')
       .upload(nomeArquivo, pdfBlob, {
         contentType: 'application/pdf',
         cacheControl: '3600',
@@ -163,10 +163,10 @@ export async function gerarPropostaFornecedorPDF(
 
     if (uploadError) throw uploadError;
 
-    // Obter URL pública
-    const { data: { publicUrl } } = supabase.storage
-      .from('cotacao-anexos')
-      .getPublicUrl(uploadData.path);
+    // Obter URL pública (bucket é privado, então precisamos de signed URL)
+    const { data: signedUrlData } = await supabase.storage
+      .from('processo-anexos')
+      .createSignedUrl(uploadData.path, 31536000); // 1 ano
 
     return {
       url: uploadData.path,

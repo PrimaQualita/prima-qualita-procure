@@ -739,11 +739,13 @@ export function DialogRespostasCotacao({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => {
-                                    const { data } = supabase.storage
-                                      .from('cotacao-anexos')
-                                      .getPublicUrl(anexo.url_arquivo);
-                                    window.open(data.publicUrl, '_blank');
+                                  onClick={async () => {
+                                    const { data } = await supabase.storage
+                                      .from('processo-anexos')
+                                      .createSignedUrl(anexo.url_arquivo, 3600);
+                                    if (data?.signedUrl) {
+                                      window.open(data.signedUrl, '_blank');
+                                    }
                                   }}
                                   title="Visualizar PDF"
                                 >
