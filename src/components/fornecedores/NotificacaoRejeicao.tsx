@@ -310,6 +310,8 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
                           .from('recursos_fornecedor')
                           .select('url_arquivo, nome_arquivo')
                           .eq('rejeicao_id', rejeicao.id)
+                          .order('created_at', { ascending: false })
+                          .limit(1)
                           .single();
                         
                         if (recursoError) {
@@ -352,6 +354,8 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
                           .from('recursos_fornecedor')
                           .select('url_arquivo, nome_arquivo')
                           .eq('rejeicao_id', rejeicao.id)
+                          .order('created_at', { ascending: false })
+                          .limit(1)
                           .single();
                         
                         if (recursoError) {
