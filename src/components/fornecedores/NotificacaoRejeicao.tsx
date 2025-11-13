@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { AlertCircle, Upload } from "lucide-react";
+import { AlertCircle, Upload, FileText } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 
 interface Rejeicao {
@@ -300,9 +300,47 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
             )}
 
             {rejeicao.status_recurso === 'recurso_enviado' && (
-              <Badge variant="outline" className="w-fit">
-                Recurso enviado - Aguardando análise
-              </Badge>
+              <div className="space-y-3">
+                <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-4 border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    ✓ Recurso enviado com sucesso
+                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                    Aguardando análise do gestor
+                  </p>
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const { data: recurso } = await supabase
+                        .from('recursos_fornecedor')
+                        .select('url_arquivo, nome_arquivo')
+                        .eq('rejeicao_id', rejeicao.id)
+                        .single();
+                      
+                      if (recurso) {
+                        const { data, error } = await supabase.storage
+                          .from('processo-anexos')
+                          .createSignedUrl(recurso.url_arquivo, 3600);
+                        
+                        if (error) throw error;
+                        if (data?.signedUrl) {
+                          window.open(data.signedUrl, '_blank');
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Erro ao visualizar recurso:', error);
+                      toast.error('Erro ao visualizar recurso');
+                    }
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Visualizar Recurso Enviado
+                </Button>
+              </div>
             )}
 
             {rejeicao.status_recurso === 'recurso_deferido' && (
