@@ -375,13 +375,16 @@ export function DialogPlanilhaConsolidada({
                 <th class="col-descricao" rowspan="2">Descrição</th>
                 <th class="col-qtd" rowspan="2">Qtd</th>
                 <th class="col-unid" rowspan="2">Unid</th>
-                ${respostas.map(r => `
+                ${respostas.map(r => {
+                  const cnpjFormatado = r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '';
+                  return `
                   <th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 4px;">
                     <div>${r.fornecedor.razao_social}</div>
-                    <div style="font-weight: normal; margin-top: 2px;">CNPJ: ${r.fornecedor.cnpj}</div>
-                    <div style="font-weight: normal; margin-top: 2px;">${r.fornecedor.email}</div>
+                    <div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${cnpjFormatado}</div>
+                    <div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${r.fornecedor.email || ''}</div>
                   </th>
-                `).join("")}
+                `;
+                }).join("")}
                 <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
               </tr>
               <tr>
@@ -521,13 +524,16 @@ export function DialogPlanilhaConsolidada({
                   <th class="col-descricao" rowspan="2">Descrição</th>
                   <th class="col-qtd" rowspan="2">Qtd</th>
                   <th class="col-unid" rowspan="2">Unid</th>
-                  ${respostas.map(r => `
+                  ${respostas.map(r => {
+                    const cnpjFormatado = r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '';
+                    return `
                     <th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 4px;">
                       <div>${r.fornecedor.razao_social}</div>
-                      <div style="font-weight: normal; margin-top: 2px;">CNPJ: ${r.fornecedor.cnpj}</div>
-                      <div style="font-weight: normal; margin-top: 2px;">${r.fornecedor.email}</div>
+                      <div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${cnpjFormatado}</div>
+                      <div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${r.fornecedor.email || ''}</div>
                     </th>
-                  `).join("")}
+                  `;
+                  }).join("")}
                   <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
                 </tr>
                 <tr>
@@ -686,7 +692,10 @@ export function DialogPlanilhaConsolidada({
                     <th class="col-descricao" rowspan="2">Descrição</th>
                     <th class="col-qtd" rowspan="2">Qtd</th>
                     <th class="col-unid" rowspan="2">Unid</th>
-                    ${respostas.map(r => `<th class="text-right empresa" colspan="2">${r.fornecedor.razao_social}</th>`).join("")}
+                    ${respostas.map(r => {
+                      const cnpjFormatado = r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '';
+                      return `<th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 4px;"><div>${r.fornecedor.razao_social}</div><div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${cnpjFormatado}</div><div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${r.fornecedor.email || ''}</div></th>`;
+                    }).join("")}
                     <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
                   </tr>
                   <tr>
@@ -700,7 +709,10 @@ export function DialogPlanilhaConsolidada({
                     <th class="col-descricao">Descrição</th>
                     <th class="col-qtd">Qtd</th>
                     <th class="col-unid">Unid</th>
-                    ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
+                    ${respostas.map(r => {
+                      const cnpjFormatado = r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '';
+                      return `<th class="text-right empresa" style="font-size: 10px; padding: 4px;"><div>${r.fornecedor.razao_social}</div><div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${cnpjFormatado}</div><div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${r.fornecedor.email || ''}</div></th>`;
+                    }).join("")}
                     <th class="text-right col-estimativa">Estimativa</th>
                   </tr>`;
               }
@@ -820,7 +832,10 @@ export function DialogPlanilhaConsolidada({
                 <th class="col-descricao" rowspan="2">Descrição</th>
                 <th class="col-qtd" rowspan="2">Qtd</th>
                 <th class="col-unid" rowspan="2">Unid</th>
-                ${respostas.map(r => `<th class="text-right empresa" colspan="2">${r.fornecedor.razao_social}</th>`).join("")}
+                ${respostas.map(r => {
+                  const cnpjFormatado = r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '';
+                  return `<th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 4px;"><div>${r.fornecedor.razao_social}</div><div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${cnpjFormatado}</div><div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${r.fornecedor.email || ''}</div></th>`;
+                }).join("")}
                 <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
               </tr>
               <tr>
@@ -834,7 +849,10 @@ export function DialogPlanilhaConsolidada({
                 <th class="col-descricao">Descrição</th>
                 <th class="col-qtd">Qtd</th>
                 <th class="col-unid">Unid</th>
-                ${respostas.map(r => `<th class="text-right empresa">${r.fornecedor.razao_social}</th>`).join("")}
+                ${respostas.map(r => {
+                  const cnpjFormatado = r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '';
+                  return `<th class="text-right empresa" style="font-size: 10px; padding: 4px;"><div>${r.fornecedor.razao_social}</div><div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${cnpjFormatado}</div><div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${r.fornecedor.email || ''}</div></th>`;
+                }).join("")}
                 <th class="text-right col-estimativa">Estimativa</th>
               </tr>`;
           }
