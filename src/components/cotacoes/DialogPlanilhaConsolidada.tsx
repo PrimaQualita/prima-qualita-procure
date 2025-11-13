@@ -944,29 +944,51 @@ export function DialogPlanilhaConsolidada({
       const linkVerificacao = `${window.location.origin}/verificar-documento?protocolo=${protocoloDocumento}`;
       
       html += `
-          <div class="certificacao-digital">
-            <h3>🔒 CERTIFICAÇÃO DIGITAL DO DOCUMENTO</h3>
-            <div class="info-item">
-              <span class="info-label">Protocolo:</span> ${protocoloDocumento}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Data/Hora:</span> ${dataHoraGeracao.toLocaleString('pt-BR', { 
-                timeZone: 'America/Sao_Paulo',
-                day: '2-digit',
-                month: '2-digit', 
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Gerado por:</span> ${usuarioNome}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Hash:</span> <span class="hash">${hashVerificacao.substring(0, 32)}...</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Verificar autenticidade em:</span> <a href="${linkVerificacao}" class="link-verificacao">${linkVerificacao}</a>
+          <div class="certificacao-digital" style="
+            border: 2px solid #000;
+            background-color: #f5f5f5;
+            padding: 16px;
+            margin: 20px 15px;
+            page-break-inside: avoid;
+          ">
+            <h3 style="
+              color: #00008B;
+              font-size: 12px;
+              font-weight: bold;
+              text-align: center;
+              margin: 0 0 10px 0;
+              padding: 0;
+            ">CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO</h3>
+            
+            <div style="font-size: 10px; line-height: 1.6; color: #000;">
+              <div style="margin-bottom: 5px;">
+                <strong>Protocolo:</strong> ${protocoloDocumento}
+              </div>
+              <div style="margin-bottom: 5px;">
+                <strong>Data/Hora de Geração:</strong> ${dataHoraGeracao.toLocaleString('pt-BR', { 
+                  timeZone: 'America/Sao_Paulo',
+                  day: '2-digit',
+                  month: '2-digit', 
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
+              <div style="margin-bottom: 5px;">
+                <strong>Responsável pela Geração:</strong> ${usuarioNome}
+              </div>
+              <div style="margin-bottom: 8px;">
+                <strong>Hash de Validação:</strong> ${hashVerificacao}
+              </div>
+              <div style="margin-bottom: 5px;">
+                <strong>Verificar autenticidade em:</strong>
+              </div>
+              <div style="margin-bottom: 8px; word-break: break-all;">
+                <a href="${linkVerificacao}" style="color: #0000FF; font-size: 9px;">${linkVerificacao}</a>
+              </div>
+              <div style="color: #505050; font-size: 8px; margin-top: 4px;">
+                Este documento possui certificação digital conforme Lei 14.063/2020
+              </div>
             </div>
           </div>
         </body>
