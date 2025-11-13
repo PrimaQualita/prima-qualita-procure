@@ -171,6 +171,13 @@ export function DialogFinalizarProcesso({
             fornecedores (
               razao_social,
               cnpj
+            ),
+            respostas_recursos (
+              decisao,
+              texto_resposta,
+              url_documento,
+              nome_arquivo,
+              data_resposta
             )
           `)
           .in('rejeicao_id', rejeitados.map(r => r.id));
@@ -1558,77 +1565,164 @@ export function DialogFinalizarProcesso({
             {recursosRecebidos.length > 0 && (
               <div className="mt-6 px-6 space-y-4">
                 <h3 className="text-lg font-semibold">📄 Recursos Recebidos</h3>
-                {recursosRecebidos.map((recurso) => (
-                  <Card key={recurso.id}>
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold">{recurso.fornecedores.razao_social}</h4>
-                        <Badge>Recurso Enviado</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        <strong>CNPJ:</strong> {recurso.fornecedores.cnpj}
-                      </p>
-                      {recurso.mensagem_fornecedor && (
-                        <p className="text-sm">
-                          <strong>Mensagem:</strong> {recurso.mensagem_fornecedor}
+                {recursosRecebidos.map((recurso) => {
+                  // Buscar resposta deste recurso
+                  const respostaRecurso = recursosRecebidos.find(r => r.id === recurso.id);
+                  
+                  return (
+                    <Card key={recurso.id}>
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold">{recurso.fornecedores.razao_social}</h4>
+                          <Badge>Recurso Enviado</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          <strong>CNPJ:</strong> {recurso.fornecedores.cnpj}
                         </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        Enviado em: {new Date(recurso.data_envio).toLocaleString('pt-BR')}
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              let filePath = recurso.url_arquivo;
-                              if (filePath.includes('https://')) {
-                                const urlParts = filePath.split('/processo-anexos/');
-                                filePath = urlParts[1] || filePath;
+                        {recurso.mensagem_fornecedor && (
+                          <p className="text-sm">
+                            <strong>Mensagem:</strong> {recurso.mensagem_fornecedor}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Enviado em: {new Date(recurso.data_envio).toLocaleString('pt-BR')}
+                        </p>
+                        
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                let filePath = recurso.url_arquivo;
+                                if (filePath.includes('https://')) {
+                                  const urlParts = filePath.split('/processo-anexos/');
+                                  filePath = urlParts[1] || filePath;
+                                }
+                                
+                                const { data, error } = await supabase.storage
+                                  .from('processo-anexos')
+                                  .createSignedUrl(filePath, 3600);
+                                
+                                if (error) throw error;
+                                if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                              } catch (error) {
+                                console.error('Erro ao gerar URL:', error);
+                                toast.error('Erro ao visualizar recurso');
                               }
-                              
-                              const { data, error } = await supabase.storage
-                                .from('processo-anexos')
-                                .createSignedUrl(filePath, 3600);
-                              
-                              if (error) throw error;
-                              if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-                            } catch (error) {
-                              console.error('Erro ao gerar URL:', error);
-                              toast.error('Erro ao visualizar recurso');
-                            }
-                          }}
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          Visualizar: {recurso.nome_arquivo}
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => {
-                            setRecursoSelecionado(recurso.id);
-                            setDecisaoRecurso('provimento');
-                            setDialogRespostaRecursoOpen(true);
-                          }}
-                        >
-                          Dar Provimento
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            setRecursoSelecionado(recurso.id);
-                            setDecisaoRecurso('negado');
-                            setDialogRespostaRecursoOpen(true);
-                          }}
-                        >
-                          Negar Provimento
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                            }}
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            Visualizar: {recurso.nome_arquivo}
+                          </Button>
+                          
+                          {/* Verificar se já existe resposta */}
+                          {!(recurso as any).respostas_recursos?.length ? (
+                            <>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  setRecursoSelecionado(recurso.id);
+                                  setDecisaoRecurso('provimento');
+                                  setDialogRespostaRecursoOpen(true);
+                                }}
+                              >
+                                Dar Provimento
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  setRecursoSelecionado(recurso.id);
+                                  setDecisaoRecurso('negado');
+                                  setDialogRespostaRecursoOpen(true);
+                                }}
+                              >
+                                Negar Provimento
+                              </Button>
+                            </>
+                          ) : (
+                            <div className="w-full space-y-2 border-t pt-3 mt-2">
+                              <div className="flex items-center justify-between">
+                                <Badge variant={(recurso as any).respostas_recursos[0].decisao === 'provimento' ? 'default' : 'destructive'}>
+                                  {(recurso as any).respostas_recursos[0].decisao === 'provimento' ? '✅ Provimento Concedido' : '❌ Provimento Negado'}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date((recurso as any).respostas_recursos[0].data_resposta).toLocaleString('pt-BR')}
+                                </span>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      let filePath = (recurso as any).respostas_recursos[0].url_documento;
+                                      if (filePath.includes('https://')) {
+                                        const urlParts = filePath.split('/processo-anexos/');
+                                        filePath = urlParts[1] || filePath;
+                                      }
+                                      
+                                      const { data, error } = await supabase.storage
+                                        .from('processo-anexos')
+                                        .createSignedUrl(filePath, 3600);
+                                      
+                                      if (error) throw error;
+                                      if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                                    } catch (error) {
+                                      console.error('Erro ao visualizar:', error);
+                                      toast.error('Erro ao visualizar resposta');
+                                    }
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Visualizar Resposta
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      let filePath = (recurso as any).respostas_recursos[0].url_documento;
+                                      if (filePath.includes('https://')) {
+                                        const urlParts = filePath.split('/processo-anexos/');
+                                        filePath = urlParts[1] || filePath;
+                                      }
+                                      
+                                      const { data, error } = await supabase.storage
+                                        .from('processo-anexos')
+                                        .download(filePath);
+                                      
+                                      if (error) throw error;
+                                      
+                                      if (data) {
+                                        const url = URL.createObjectURL(data);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = (recurso as any).respostas_recursos[0].nome_arquivo;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                      }
+                                    } catch (error) {
+                                      console.error('Erro ao baixar:', error);
+                                      toast.error('Erro ao baixar resposta');
+                                    }
+                                  }}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Baixar Resposta
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1843,9 +1937,9 @@ export function DialogFinalizarProcesso({
                     if (!user) throw new Error("Usuário não autenticado");
 
                     const { data: perfil, error: perfilError } = await supabase
-                      .from('perfis' as any)
+                      .from('profiles')
                       .select('nome_completo, cpf')
-                      .eq('user_id', user.id)
+                      .eq('id', user.id)
                       .single();
 
                     if (perfilError || !perfil) throw new Error("Perfil não encontrado");
@@ -1869,8 +1963,8 @@ export function DialogFinalizarProcesso({
                     const pdfResult = await gerarRespostaRecursoPDF(
                       decisaoRecurso,
                       textoRespostaRecurso,
-                      (perfil as any).nome_completo,
-                      (perfil as any).cpf,
+                      perfil.nome_completo,
+                      perfil.cpf,
                       fornecedorNome,
                       numeroProcesso
                     );
