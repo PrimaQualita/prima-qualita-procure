@@ -1400,7 +1400,7 @@ export function DialogFinalizarProcesso({
 
         <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
           <div className="flex flex-col w-full gap-3">
-            {/* Relatório Final - Qualquer gestor/colaborador pode gerar */}
+            {/* Relatório Final - Qualquer gestor/colaborador pode gerar e deletar */}
             <div className="flex items-center gap-3">
               {!relatorioFinalUrl ? (
                 <Button
@@ -1433,21 +1433,19 @@ export function DialogFinalizarProcesso({
                     <Download className="h-4 w-4 mr-2" />
                     Baixar
                   </Button>
-                  {isResponsavelLegal && (
-                    <Button
-                      onClick={() => deletarRelatorioFinal(relatorioFinalId)}
-                      variant="destructive"
-                      size="icon"
-                      title="Excluir Relatório Final"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <Button
+                    onClick={() => deletarRelatorioFinal(relatorioFinalId)}
+                    variant="destructive"
+                    size="icon"
+                    title="Excluir Relatório Final"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </>
               )}
             </div>
             
-            {/* Autorização - Apenas Responsável Legal pode gerar */}
+            {/* Autorização - Apenas Responsável Legal pode gerar e deletar */}
             <div className="flex items-center gap-3">
               {!autorizacaoDiretaUrl ? (
                 <Button
