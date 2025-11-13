@@ -211,17 +211,29 @@ export function DialogRespostasCotacao({
     if (!encaminhamento) return;
 
     try {
-      await supabase.storage
+      // Deletar do banco de dados primeiro usando o ID
+      const { error: dbError } = await supabase
+        .from('encaminhamentos_processo')
+        .delete()
+        .eq('id', encaminhamento.id);
+
+      if (dbError) {
+        console.error('Erro ao deletar do banco:', dbError);
+        throw dbError;
+      }
+
+      // Deletar arquivo do storage
+      const { error: storageError } = await supabase.storage
         .from('processo-anexos')
         .remove([encaminhamento.storagePath]);
 
-      await supabase
-        .from('encaminhamentos_processo')
-        .delete()
-        .eq('protocolo', encaminhamento.protocolo);
+      if (storageError) {
+        console.error('Erro ao deletar do storage:', storageError);
+      }
 
+      // Limpar estado local
       setEncaminhamento(null);
-      toast.success("Encaminhamento excluído");
+      toast.success("Encaminhamento excluído com sucesso");
     } catch (error) {
       console.error('Erro ao excluir encaminhamento:', error);
       toast.error("Erro ao excluir encaminhamento");
