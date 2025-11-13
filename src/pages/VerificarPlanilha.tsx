@@ -26,6 +26,7 @@ export default function VerificarPlanilha() {
     setResultado(null);
 
     try {
+      // @ts-ignore - Temporary ignore until types are updated
       const { data, error } = await supabase
         .from("planilhas_consolidadas")
         .select(`
