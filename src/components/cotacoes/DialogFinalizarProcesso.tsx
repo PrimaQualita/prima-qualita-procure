@@ -1948,14 +1948,14 @@ export function DialogFinalizarProcesso({
                       .from('cotacoes_precos')
                       .select(`
                         id,
-                        processos_compras!inner(numero_processo)
+                        processos_compras!inner(numero_processo_interno)
                       `)
                       .eq('id', cotacaoId)
                       .single();
 
                     if (cotacaoError) throw cotacaoError;
 
-                    const numeroProcesso = (cotacao as any)?.processos_compras?.numero_processo || '';
+                    const numeroProcesso = (cotacao as any)?.processos_compras?.numero_processo_interno || '';
 
                     const recurso = recursosRecebidos.find(r => r.id === recursoSelecionado);
                     const fornecedorNome = recurso?.fornecedores?.razao_social || '';
