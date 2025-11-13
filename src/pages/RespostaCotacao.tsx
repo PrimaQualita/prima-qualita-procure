@@ -630,7 +630,7 @@ const RespostaCotacao = () => {
                       <TableCell>
                         <Input
                           type="text"
-                          placeholder="EMS"
+                          placeholder="Informe a marca"
                           value={respostas[item.id]?.marca_ofertada || ""}
                           onChange={(e) =>
                             setRespostas({
@@ -646,20 +646,27 @@ const RespostaCotacao = () => {
                     )}
                     <TableCell>
                       <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={respostas[item.id]?.valor_unitario_ofertado || ""}
-                        onChange={(e) =>
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={
+                          respostas[item.id]?.valor_unitario_ofertado
+                            ? respostas[item.id].valor_unitario_ofertado
+                                .toFixed(2)
+                                .replace('.', ',')
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const valor = e.target.value.replace(',', '.');
+                          const numero = parseFloat(valor) || 0;
                           setRespostas({
                             ...respostas,
                             [item.id]: {
                               ...respostas[item.id],
-                              valor_unitario_ofertado: parseFloat(e.target.value) || 0,
+                              valor_unitario_ofertado: numero,
                             },
-                          })
-                        }
+                          });
+                        }}
                       />
                     </TableCell>
                     <TableCell className="text-right">
