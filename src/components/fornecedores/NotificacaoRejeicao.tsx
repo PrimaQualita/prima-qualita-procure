@@ -128,7 +128,15 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
       const storageUrl = filePath;
 
       // Salvar recurso no banco
-      const { error: insertError } = await supabase
+      console.log('Tentando inserir recurso:', {
+        rejeicao_id: rejeicaoId,
+        fornecedor_id: fornecedorId,
+        url_arquivo: storageUrl,
+        nome_arquivo: arquivo.name,
+        mensagem_fornecedor: mensagemRecurso[rejeicaoId] || null
+      });
+      
+      const { data: insertData, error: insertError } = await supabase
         .from('recursos_fornecedor')
         .insert({
           rejeicao_id: rejeicaoId,
@@ -136,7 +144,10 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
           url_arquivo: storageUrl,
           nome_arquivo: arquivo.name,
           mensagem_fornecedor: mensagemRecurso[rejeicaoId] || null
-        });
+        })
+        .select();
+
+      console.log('Resultado insert recurso:', { insertData, insertError });
 
       if (insertError) throw insertError;
 
