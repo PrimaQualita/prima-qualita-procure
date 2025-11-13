@@ -58,7 +58,7 @@ export const gerarEncaminhamentoPDF = async (
       img.src = logoHorizontal;
     });
     
-    doc.addImage(base64Logo, 'PNG', (pageWidth - 60) / 2, 10, 60, 15);
+    doc.addImage(base64Logo, 'PNG', (pageWidth - 60) / 2, 10, 60, 18);
     
     // Rodapé
     const yRodape = pageHeight - 20;
@@ -113,11 +113,19 @@ export const gerarEncaminhamentoPDF = async (
     yPos = 40;
   }
   
+  // Desenhar quadro da certificação digital
+  const certBoxY = yPos;
+  const certBoxHeight = 60;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(15, certBoxY, pageWidth - 30, certBoxHeight);
+  
+  yPos = certBoxY + 8;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, yPos, { align: 'center' });
   
-  yPos += 10;
+  yPos += 8;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   
@@ -128,14 +136,14 @@ export const gerarEncaminhamentoPDF = async (
   doc.text(`Responsável pela emissão: ${usuarioNome}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 5;
   doc.text(`CPF: ${usuarioCpf}`, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 8;
+  yPos += 7;
   
   doc.text('Este documento foi gerado digitalmente pelo sistema Prima Qualitá Procure.', pageWidth / 2, yPos, { align: 'center' });
-  yPos += 5;
+  yPos += 4;
   doc.text('Para verificar a autenticidade deste documento, acesse:', pageWidth / 2, yPos, { align: 'center' });
-  yPos += 5;
+  yPos += 4;
   doc.text(`${window.location.origin}/verificar-autorizacao`, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 5;
+  yPos += 4;
   doc.text(`e informe o protocolo: ${protocolo}`, pageWidth / 2, yPos, { align: 'center' });
   
   // Salvar no Supabase Storage
