@@ -164,7 +164,7 @@ export const gerarProcessoCompletoPDF = async (
               
               // url_arquivo já é o storage path
               const { data: signedUrlData, error: signedError } = await supabase.storage
-                .from('cotacao-anexos')
+                .from('processo-anexos')
                 .createSignedUrl(anexo.url_arquivo, 60);
               
               if (signedError || !signedUrlData) {
