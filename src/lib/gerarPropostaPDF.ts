@@ -32,7 +32,8 @@ export async function gerarPropostaPDF(
   valorTotal: number,
   observacoes: string | null,
   usuarioNome: string,
-  usuarioCpf: string
+  usuarioCpf: string,
+  protocoloResposta?: string
 ): Promise<Blob> {
   const doc = new jsPDF();
   const dataEnvio = new Date().toLocaleString('pt-BR');
@@ -104,12 +105,12 @@ export async function gerarPropostaPDF(
   // Cabeçalho da tabela
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('Item', margemEsquerda, y);
+  doc.text('Item', margemEsquerda + 2, y, { align: 'center' });
   doc.text('Descrição', margemEsquerda + 10, y);
-  doc.text('Qtd', margemEsquerda + 75, y);
-  doc.text('Unid', margemEsquerda + 95, y);
-  doc.text('Marca', margemEsquerda + 115, y);
-  doc.text('Vlr Unit (R$)', margemEsquerda + 155, y, { align: 'right' });
+  doc.text('Qtd', margemEsquerda + 78, y, { align: 'center' });
+  doc.text('Unid', margemEsquerda + 98, y, { align: 'center' });
+  doc.text('Marca', margemEsquerda + 125, y, { align: 'center' });
+  doc.text('Vlr Unit (R$)', margemEsquerda + 157, y, { align: 'right' });
   doc.text('Vlr Total (R$)', larguraUtil + margemEsquerda, y, { align: 'right' });
   y += 2;
   
@@ -129,21 +130,28 @@ export async function gerarPropostaPDF(
 
     const valorItemTotal = item.quantidade * item.valor_unitario_ofertado;
     
-    doc.text(item.numero_item.toString(), margemEsquerda, y);
+    // Item (centralizado)
+    doc.text(item.numero_item.toString(), margemEsquerda + 2, y, { align: 'center' });
     
+    // Descrição (justificada)
     const descricaoMaxWidth = 60;
     const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
-    doc.text(descricaoLines[0], margemEsquerda + 10, y);
+    doc.text(descricaoLines[0], margemEsquerda + 10, y, { align: 'justify' });
     
-    doc.text(formatarMoeda(item.quantidade), margemEsquerda + 75, y);
-    doc.text(item.unidade, margemEsquerda + 95, y);
+    // Quantidade (centralizada)
+    doc.text(formatarMoeda(item.quantidade), margemEsquerda + 78, y, { align: 'center' });
     
+    // Unidade (centralizada)
+    doc.text(item.unidade, margemEsquerda + 98, y, { align: 'center' });
+    
+    // Marca (centralizada)
     const marcaMaxWidth = 35;
     const marcaText = item.marca_ofertada && item.marca_ofertada.trim() !== '' ? item.marca_ofertada : '-';
     const marcaLines = doc.splitTextToSize(marcaText, marcaMaxWidth);
-    doc.text(marcaLines[0], margemEsquerda + 115, y);
+    doc.text(marcaLines[0], margemEsquerda + 125, y, { align: 'center' });
     
-    doc.text(formatarMoeda(item.valor_unitario_ofertado), margemEsquerda + 155, y, { align: 'right' });
+    // Valores (alinhados à direita)
+    doc.text(formatarMoeda(item.valor_unitario_ofertado), margemEsquerda + 157, y, { align: 'right' });
     doc.text(formatarMoeda(valorItemTotal), larguraUtil + margemEsquerda, y, { align: 'right' });
     
     y += 6;
@@ -187,7 +195,7 @@ export async function gerarPropostaPDF(
     y = 20;
   }
 
-  const protocolo = uuidv4();
+  const protocolo = protocoloResposta || uuidv4();
   const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
 
   adicionarCertificacaoDigital(doc, {
