@@ -19,6 +19,7 @@ const getPageTitle = (pathname: string) => {
     "/fornecedores": "Cadastro de Fornecedores",
     "/contatos": "Contato",
     "/auditoria": "Log de Auditoria",
+    "/compliance": "Compliance",
     "/perfil": "Meu Perfil",
   };
   return routes[pathname] || "Sistema de Compras";
@@ -31,6 +32,8 @@ export function DashboardLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isGestor, setIsGestor] = useState(false);
+  const [isCompliance, setIsCompliance] = useState(false);
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -88,6 +91,8 @@ export function DashboardLayout() {
       }
 
       setProfile(profileData);
+      setIsCompliance(profileData?.compliance || false);
+      setIsResponsavelLegal(profileData?.responsavel_legal || false);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
@@ -144,7 +149,12 @@ export function DashboardLayout() {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar isGestor={isGestor} profile={profile} />
+        <AppSidebar 
+          isGestor={isGestor} 
+          profile={profile} 
+          isCompliance={isCompliance}
+          isResponsavelLegal={isResponsavelLegal}
+        />
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
             <SidebarTrigger />
