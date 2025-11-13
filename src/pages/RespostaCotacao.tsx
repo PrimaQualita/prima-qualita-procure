@@ -407,7 +407,7 @@ const RespostaCotacao = () => {
         cotacao_resposta_fornecedor_id: respostaCriada.id,
         item_cotacao_id: item.id,
         valor_unitario_ofertado: respostas[item.id]?.valor_unitario_ofertado || 0,
-        marca_ofertada: respostas[item.id]?.marca_ofertada || null,
+        marca: respostas[item.id]?.marca_ofertada || null,
       }));
 
       const { error: itensError } = await supabaseAnon
