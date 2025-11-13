@@ -98,7 +98,8 @@ export function DialogPlanilhaConsolidada({
           motivo_rejeicao,
           fornecedor:fornecedor_id (
             razao_social,
-            cnpj
+            cnpj,
+            email
           )
         `)
         .eq("cotacao_id", cotacaoId)
