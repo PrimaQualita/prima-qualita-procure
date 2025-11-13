@@ -1,0 +1,269 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { AlertCircle, Upload } from "lucide-react";
+import { useDropzone } from "react-dropzone";
+
+interface Rejeicao {
+  id: string;
+  motivo_rejeicao: string;
+  data_rejeicao: string;
+  status_recurso: string;
+  cotacao_id: string;
+  cotacoes_precos: {
+    titulo_cotacao: string;
+    processos_compras: {
+      numero_processo_interno: string;
+    };
+  };
+}
+
+export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) {
+  const [rejeicoes, setRejeicoes] = useState<Rejeicao[]>([]);
+  const [desejaRecorrer, setDesejaRecorrer] = useState<{ [key: string]: boolean }>({});
+  const [mensagemRecurso, setMensagemRecurso] = useState<{ [key: string]: string }>({});
+  const [arquivoRecurso, setArquivoRecurso] = useState<{ [key: string]: File | null }>({});
+  const [enviandoRecurso, setEnviandoRecurso] = useState<{ [key: string]: boolean }>({});
+
+  useEffect(() => {
+    loadRejeicoes();
+  }, [fornecedorId]);
+
+  const loadRejeicoes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .select(`
+          *,
+          cotacoes_precos (
+            titulo_cotacao,
+            processos_compras (
+              numero_processo_interno
+            )
+          )
+        `)
+        .eq('fornecedor_id', fornecedorId)
+        .eq('revertido', false)
+        .order('data_rejeicao', { ascending: false });
+
+      if (error) throw error;
+      setRejeicoes(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar rejeições:', error);
+    }
+  };
+
+  const handleEnviarRecurso = async (rejeicaoId: string) => {
+    const arquivo = arquivoRecurso[rejeicaoId];
+    if (!arquivo) {
+      toast.error('Por favor, anexe o arquivo do recurso');
+      return;
+    }
+
+    setEnviandoRecurso(prev => ({ ...prev, [rejeicaoId]: true }));
+
+    try {
+      // Upload do arquivo
+      const fileExt = arquivo.name.split('.').pop();
+      const fileName = `recurso_${rejeicaoId}_${Date.now()}.${fileExt}`;
+      const filePath = `recursos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('processo-anexos')
+        .upload(filePath, arquivo);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('processo-anexos')
+        .getPublicUrl(filePath);
+
+      // Salvar recurso no banco
+      const { error: insertError } = await supabase
+        .from('recursos_fornecedor')
+        .insert({
+          rejeicao_id: rejeicaoId,
+          fornecedor_id: fornecedorId,
+          url_arquivo: publicUrl,
+          nome_arquivo: arquivo.name,
+          mensagem_fornecedor: mensagemRecurso[rejeicaoId] || null
+        });
+
+      if (insertError) throw insertError;
+
+      // Atualizar status da rejeição
+      const { error: updateError } = await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .update({ status_recurso: 'recurso_enviado' })
+        .eq('id', rejeicaoId);
+
+      if (updateError) throw updateError;
+
+      toast.success('Recurso enviado com sucesso!');
+      loadRejeicoes();
+      
+      // Limpar estado
+      setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
+      setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
+      setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: null }));
+    } catch (error) {
+      console.error('Erro ao enviar recurso:', error);
+      toast.error('Erro ao enviar recurso');
+    } finally {
+      setEnviandoRecurso(prev => ({ ...prev, [rejeicaoId]: false }));
+    }
+  };
+
+  const DropzoneRecurso = ({ rejeicaoId }: { rejeicaoId: string }) => {
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+      accept: {
+        'application/pdf': ['.pdf'],
+        'application/msword': ['.doc'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+      },
+      maxFiles: 1,
+      onDrop: (acceptedFiles) => {
+        if (acceptedFiles.length > 0) {
+          setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: acceptedFiles[0] }));
+          toast.success('Arquivo anexado com sucesso');
+        }
+      }
+    });
+
+    return (
+      <div
+        {...getRootProps()}
+        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+          isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+        }`}
+      >
+        <input {...getInputProps()} />
+        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {arquivoRecurso[rejeicaoId]
+            ? arquivoRecurso[rejeicaoId]!.name
+            : 'Clique ou arraste o arquivo do recurso (PDF, DOC, DOCX)'}
+        </p>
+      </div>
+    );
+  };
+
+  if (rejeicoes.length === 0) return null;
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-destructive flex items-center gap-2">
+        <AlertCircle className="h-5 w-5" />
+        Notificações de Rejeição
+      </h3>
+
+      {rejeicoes.map((rejeicao) => (
+        <Card key={rejeicao.id} className="p-4 border-destructive">
+          <div className="space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h4 className="font-semibold">
+                  Processo: {rejeicao.cotacoes_precos.processos_compras.numero_processo_interno}
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  {rejeicao.cotacoes_precos.titulo_cotacao}
+                </p>
+              </div>
+              <Badge variant="destructive">Rejeitado</Badge>
+            </div>
+
+            <div className="bg-destructive/10 p-3 rounded-lg">
+              <p className="text-sm font-medium mb-1">Motivo da Rejeição:</p>
+              <p className="text-sm">{rejeicao.motivo_rejeicao}</p>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Rejeitado em: {new Date(rejeicao.data_rejeicao).toLocaleString('pt-BR')}
+            </p>
+
+            {rejeicao.status_recurso === 'sem_recurso' && !desejaRecorrer[rejeicao.id] && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Deseja entrar com recurso?</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setDesejaRecorrer(prev => ({ ...prev, [rejeicao.id]: true }))}
+                  >
+                    Sim, desejo recorrer
+                  </Button>
+                  <Button variant="ghost" onClick={() => {}}>
+                    Não
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {desejaRecorrer[rejeicao.id] && rejeicao.status_recurso === 'sem_recurso' && (
+              <div className="space-y-4 border-t pt-4">
+                <div>
+                  <Label htmlFor={`mensagem-${rejeicao.id}`}>
+                    Mensagem do Recurso (Opcional)
+                  </Label>
+                  <Textarea
+                    id={`mensagem-${rejeicao.id}`}
+                    placeholder="Descreva os motivos do seu recurso..."
+                    value={mensagemRecurso[rejeicao.id] || ''}
+                    onChange={(e) =>
+                      setMensagemRecurso(prev => ({ ...prev, [rejeicao.id]: e.target.value }))
+                    }
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label>Anexar Recurso (Obrigatório)</Label>
+                  <div className="mt-2">
+                    <DropzoneRecurso rejeicaoId={rejeicao.id} />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleEnviarRecurso(rejeicao.id)}
+                    disabled={enviandoRecurso[rejeicao.id]}
+                  >
+                    {enviandoRecurso[rejeicao.id] ? 'Enviando...' : 'Enviar Recurso'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDesejaRecorrer(prev => ({ ...prev, [rejeicao.id]: false }))}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {rejeicao.status_recurso === 'recurso_enviado' && (
+              <Badge variant="outline" className="w-fit">
+                Recurso enviado - Aguardando análise
+              </Badge>
+            )}
+
+            {rejeicao.status_recurso === 'recurso_deferido' && (
+              <Badge variant="outline" className="w-fit bg-green-50">
+                Recurso Deferido
+              </Badge>
+            )}
+
+            {rejeicao.status_recurso === 'recurso_indeferido' && (
+              <Badge variant="destructive" className="w-fit">
+                Recurso Indeferido
+              </Badge>
+            )}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}

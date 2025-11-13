@@ -100,6 +100,8 @@ export function DialogFinalizarProcesso({
   const [motivoRejeicaoFornecedor, setMotivoRejeicaoFornecedor] = useState<Record<string, string>>({});
   const [dialogRejeicaoOpen, setDialogRejeicaoOpen] = useState(false);
   const [fornecedorParaRejeitar, setFornecedorParaRejeitar] = useState<string | null>(null);
+  const [fornecedoresRejeitadosDB, setFornecedoresRejeitadosDB] = useState<any[]>([]);
+  const [recursosRecebidos, setRecursosRecebidos] = useState<any[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -109,8 +111,63 @@ export function DialogFinalizarProcesso({
       loadAutorizacoes();
       loadRelatorioFinal();
       checkResponsavelLegal();
+      loadFornecedoresRejeitados();
+      loadRecursos();
     }
   }, [open, cotacaoId]);
+
+  const loadFornecedoresRejeitados = async () => {
+    if (!cotacaoId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .select(`
+          *,
+          fornecedores (
+            id,
+            razao_social,
+            cnpj
+          )
+        `)
+        .eq('cotacao_id', cotacaoId)
+        .eq('revertido', false);
+
+      if (error) throw error;
+      setFornecedoresRejeitadosDB(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar fornecedores rejeitados:', error);
+    }
+  };
+
+  const loadRecursos = async () => {
+    if (!cotacaoId) return;
+
+    try {
+      const { data: rejeitados } = await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .select('id')
+        .eq('cotacao_id', cotacaoId);
+
+      if (rejeitados && rejeitados.length > 0) {
+        const { data, error } = await supabase
+          .from('recursos_fornecedor')
+          .select(`
+            *,
+            fornecedores (
+              razao_social,
+              cnpj
+            )
+          `)
+          .in('rejeicao_id', rejeitados.map(r => r.id));
+
+        if (error) throw error;
+        setRecursosRecebidos(data || []);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar recursos:', error);
+    }
+  };
 
   const loadAllFornecedores = async () => {
     setLoading(true);
@@ -1046,6 +1103,21 @@ export function DialogFinalizarProcesso({
     try {
       setLoading(true);
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Salvar registro de rejeição
+      const { error: rejeicaoError } = await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .insert({
+          cotacao_id: cotacaoId,
+          fornecedor_id: fornecedorParaRejeitar,
+          motivo_rejeicao: motivo.trim(),
+          usuario_rejeitou_id: user.id
+        });
+
+      if (rejeicaoError) throw rejeicaoError;
+
       // Marcar fornecedor como rejeitado
       const { error } = await supabase
         .from("cotacao_respostas_fornecedor")
@@ -1065,6 +1137,7 @@ export function DialogFinalizarProcesso({
       
       // Recarregar fornecedores para atualizar a lista com próximo colocado
       await loadAllFornecedores();
+      await loadFornecedoresRejeitados();
     } catch (error) {
       console.error("Erro ao rejeitar fornecedor:", error);
       toast.error("Erro ao rejeitar fornecedor");
@@ -1394,6 +1467,104 @@ export function DialogFinalizarProcesso({
                   </Card>
                 </div>
               ))
+            )}
+
+            {/* Fornecedores Rejeitados */}
+            {fornecedoresRejeitadosDB.length > 0 && (
+              <div className="mt-6 px-6 space-y-4">
+                <h3 className="text-lg font-semibold text-destructive">🚫 Fornecedores Rejeitados</h3>
+                {fornecedoresRejeitadosDB.map((rejeicao) => (
+                  <Card key={rejeicao.id} className="border-destructive">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold">{rejeicao.fornecedores.razao_social}</h4>
+                        <Badge variant="destructive">Rejeitado</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        <strong>CNPJ:</strong> {rejeicao.fornecedores.cnpj}
+                      </p>
+                      <p className="text-sm">
+                        <strong>Motivo da Rejeição:</strong> {rejeicao.motivo_rejeicao}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Rejeitado em: {new Date(rejeicao.data_rejeicao).toLocaleString('pt-BR')}
+                      </p>
+                      {rejeicao.status_recurso !== 'sem_recurso' && (
+                        <Badge variant="outline" className="mt-2">
+                          Status Recurso: {rejeicao.status_recurso.replace('_', ' ').toUpperCase()}
+                        </Badge>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const { data: { user } } = await supabase.auth.getUser();
+                            if (!user) throw new Error("Usuário não autenticado");
+
+                            const { error } = await supabase
+                              .from('fornecedores_rejeitados_cotacao')
+                              .update({
+                                revertido: true,
+                                usuario_reverteu_id: user.id,
+                                data_reversao: new Date().toISOString()
+                              })
+                              .eq('id', rejeicao.id);
+
+                            if (error) throw error;
+
+                            await loadFornecedoresRejeitados();
+                            await loadAllFornecedores();
+                            toast.success("Rejeição revertida com sucesso");
+                          } catch (error) {
+                            console.error('Erro ao reverter rejeição:', error);
+                            toast.error('Erro ao reverter rejeição');
+                          }
+                        }}
+                        className="mt-2"
+                      >
+                        Reverter Rejeição
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Recursos Recebidos */}
+            {recursosRecebidos.length > 0 && (
+              <div className="mt-6 px-6 space-y-4">
+                <h3 className="text-lg font-semibold">📄 Recursos Recebidos</h3>
+                {recursosRecebidos.map((recurso) => (
+                  <Card key={recurso.id}>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold">{recurso.fornecedores.razao_social}</h4>
+                        <Badge>Recurso Enviado</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        <strong>CNPJ:</strong> {recurso.fornecedores.cnpj}
+                      </p>
+                      {recurso.mensagem_fornecedor && (
+                        <p className="text-sm">
+                          <strong>Mensagem:</strong> {recurso.mensagem_fornecedor}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Enviado em: {new Date(recurso.data_envio).toLocaleString('pt-BR')}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(recurso.url_arquivo, '_blank')}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Visualizar Recurso: {recurso.nome_arquivo}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </div>
         </ScrollArea>

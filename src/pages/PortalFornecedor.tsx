@@ -10,6 +10,7 @@ import primaLogo from "@/assets/prima-qualita-logo.png";
 import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
+import { NotificacaoRejeicao } from "@/components/fornecedores/NotificacaoRejeicao";
 import { Input } from "@/components/ui/input";
 
 export default function PortalFornecedor() {
@@ -309,6 +310,13 @@ export default function PortalFornecedor() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Notificação de Rejeição com Recurso */}
+        {fornecedor?.id && (
+          <div className="mb-6">
+            <NotificacaoRejeicao fornecedorId={fornecedor.id} />
+          </div>
+        )}
+
         {/* Alerta de Documentos Pendentes */}
         {documentosPendentes.length > 0 && (
           <Card className="mb-6 border-orange-500/50 bg-orange-500/10">
