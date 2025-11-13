@@ -258,8 +258,66 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
               Rejeitado em: {new Date(rejeicao.data_rejeicao).toLocaleString('pt-BR')}
             </p>
 
-            {/* Opção de enviar recurso - só aparece se ainda não enviou */}
-            {rejeicao.status_recurso === 'sem_recurso' && !desejaRecorrer[rejeicao.id] && !desejaDeclinar[rejeicao.id] && (
+            {/* Resposta ao recurso - Provimento ou Negado */}
+            {rejeicao.resposta_recurso && (
+              <div className="space-y-3">
+                <div className={`rounded-lg p-4 border ${
+                  rejeicao.resposta_recurso.decisao === 'provimento'
+                    ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+                    : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                }`}>
+                  <p className={`text-sm font-semibold ${
+                    rejeicao.resposta_recurso.decisao === 'provimento'
+                      ? 'text-green-900 dark:text-green-100'
+                      : 'text-red-900 dark:text-red-100'
+                  }`}>
+                    {rejeicao.resposta_recurso.decisao === 'provimento' ? '✓ Recurso Aceito' : '✗ Recurso Negado'}
+                  </p>
+                  <p className={`text-xs mt-1 ${
+                    rejeicao.resposta_recurso.decisao === 'provimento'
+                      ? 'text-green-700 dark:text-green-300'
+                      : 'text-red-700 dark:text-red-300'
+                  }`}>
+                    Resposta recebida em: {new Date(rejeicao.resposta_recurso.data_resposta).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (rejeicao.resposta_recurso?.url_documento) {
+                        window.open(rejeicao.resposta_recurso.url_documento, '_blank');
+                      }
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Visualizar Resposta
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (rejeicao.resposta_recurso?.url_documento) {
+                        const a = document.createElement('a');
+                        a.href = rejeicao.resposta_recurso.url_documento;
+                        a.download = rejeicao.resposta_recurso.nome_arquivo;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      }
+                    }}
+                  >
+                    Baixar Resposta
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Opção de enviar recurso - só aparece se ainda não enviou E não tem resposta */}
+            {!rejeicao.resposta_recurso && rejeicao.status_recurso === 'sem_recurso' && !desejaRecorrer[rejeicao.id] && !desejaDeclinar[rejeicao.id] && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Deseja entrar com recurso?</p>
                 <div className="flex gap-2">
@@ -277,7 +335,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
             )}
 
             {/* Formulário de envio de recurso */}
-            {desejaRecorrer[rejeicao.id] && rejeicao.status_recurso === 'sem_recurso' && !desejaDeclinar[rejeicao.id] && (
+            {!rejeicao.resposta_recurso && desejaRecorrer[rejeicao.id] && rejeicao.status_recurso === 'sem_recurso' && !desejaDeclinar[rejeicao.id] && (
               <div className="space-y-4 border-t pt-4">
                 <div>
                   <Label htmlFor={`mensagem-${rejeicao.id}`}>
@@ -319,7 +377,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
             )}
 
             {/* Recurso já enviado - aguardando análise */}
-            {rejeicao.status_recurso === 'recurso_enviado' && (
+            {!rejeicao.resposta_recurso && rejeicao.status_recurso === 'recurso_enviado' && (
               <div className="space-y-3">
                 <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-4 border border-blue-200 dark:border-blue-800">
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
