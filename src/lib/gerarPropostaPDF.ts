@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
-import { gerarHashDocumento } from './certificacaoDigital';
+import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ItemProposta {
   numero_item: number;
@@ -16,12 +17,12 @@ interface DadosFornecedor {
   endereco_comercial: string;
 }
 
-// Função para formatar valores em Real brasileiro
+// Função para formatar valores em Real brasileiro com separadores
 const formatarMoeda = (valor: number): string => {
-  return valor.toLocaleString('pt-BR', { 
+  return new Intl.NumberFormat('pt-BR', { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
-  });
+  }).format(valor);
 };
 
 export async function gerarPropostaPDF(
@@ -29,7 +30,9 @@ export async function gerarPropostaPDF(
   fornecedor: DadosFornecedor,
   itens: ItemProposta[],
   valorTotal: number,
-  observacoes: string | null
+  observacoes: string | null,
+  usuarioNome: string,
+  usuarioCpf: string
 ): Promise<Blob> {
   const doc = new jsPDF();
   const dataEnvio = new Date().toLocaleString('pt-BR');
@@ -134,7 +137,7 @@ export async function gerarPropostaPDF(
     
     doc.text(formatarMoeda(item.quantidade), margemEsquerda + 85, y);
     doc.text(item.unidade, margemEsquerda + 105, y);
-    doc.text(item.marca_ofertada || '-', margemEsquerda + 125, y);
+    doc.text(item.marca_ofertada && item.marca_ofertada.trim() !== '' ? item.marca_ofertada : '-', margemEsquerda + 125, y);
     doc.text(formatarMoeda(item.valor_unitario_ofertado), margemEsquerda + 145, y, { align: 'right' });
     doc.text(formatarMoeda(valorItemTotal), larguraUtil + margemEsquerda, y, { align: 'right' });
     
@@ -179,44 +182,17 @@ export async function gerarPropostaPDF(
     y = 20;
   }
 
-  const certBoxY = y;
-  const certBoxHeight = 50;
-  
-  // Fundo cinza claro
-  doc.setFillColor(240, 249, 255);
-  doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight, 'F');
-  
-  // Borda azul
-  doc.setDrawColor(14, 165, 233);
-  doc.setLineWidth(1);
-  doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight);
-  
-  y += 6;
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(14, 165, 233);
-  doc.text('🔒 CERTIFICAÇÃO DIGITAL', pageWidth / 2, y, { align: 'center' });
-  
-  y += 7;
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text('Hash SHA-256 do Documento:', margemEsquerda + 3, y);
-  y += 5;
-  
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(5, 150, 105); // Verde
-  const hashLines = doc.splitTextToSize(hash, larguraUtil - 6);
-  doc.text(hashLines, margemEsquerda + 3, y);
-  y += hashLines.length * 4 + 5;
-  
-  doc.setFontSize(7);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'italic');
-  const textoAutenticidade = 'Este documento foi certificado digitalmente. O hash acima garante a autenticidade e integridade desta proposta. Qualquer alteração no conteúdo resultará em um hash diferente, invalidando a certificação.';
-  const autenticidadeLines = doc.splitTextToSize(textoAutenticidade, larguraUtil - 6);
-  doc.text(autenticidadeLines, margemEsquerda + 3, y);
+  const protocolo = uuidv4();
+  const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
+
+  adicionarCertificacaoDigital(doc, {
+    protocolo,
+    dataHora: dataEnvio,
+    responsavel: usuarioNome,
+    cpf: usuarioCpf,
+    hash,
+    linkVerificacao
+  }, y);
 
   // Gerar PDF como blob
   const pdfBlob = doc.output('blob');

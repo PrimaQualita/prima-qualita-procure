@@ -263,10 +263,11 @@ const RespostaCotacao = () => {
 
       // Gerar PDF certificado
       toast.info("Gerando proposta certificada...");
+      
       const pdfBlob = await gerarPropostaPDF(
         {
-          numero: processoCompra?.numero_processo || 'N/A',
-          objeto: processoCompra?.objeto || 'N/A'
+          numero: cotacao?.processo_compra?.numero_processo_interno || 'N/A',
+          objeto: cotacao?.processo_compra?.objeto_resumido || 'N/A'
         },
         {
           razao_social: dadosEmpresa.razao_social,
@@ -275,7 +276,9 @@ const RespostaCotacao = () => {
         },
         itensParaPDF,
         valorTotal,
-        observacoes
+        observacoes,
+        dadosEmpresa.razao_social,
+        dadosEmpresa.cnpj
       );
 
       const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
