@@ -324,6 +324,40 @@ export function DialogRespostasCotacao({
     }
   };
 
+  const gerarESalvarPDFProposta = async (resposta: RespostaFornecedor) => {
+    try {
+      setGerandoPDF(resposta.id);
+      
+      const { url, nome } = await gerarPropostaFornecedorPDF(
+        resposta.id,
+        resposta.fornecedor,
+        resposta.valor_total_anual_ofertado,
+        resposta.observacoes_fornecedor,
+        tituloCotacao
+      );
+
+      // Salvar referência do anexo no banco
+      const { error: anexoError } = await supabase
+        .from('anexos_cotacao_fornecedor')
+        .insert({
+          cotacao_resposta_fornecedor_id: resposta.id,
+          nome_arquivo: nome,
+          url_arquivo: url,
+          tipo_anexo: 'PROPOSTA'
+        });
+
+      if (anexoError) throw anexoError;
+
+      toast.success('PDF da proposta gerado e salvo com sucesso!');
+      loadRespostas(); // Recarregar para mostrar o PDF
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      toast.error('Erro ao gerar PDF da proposta');
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
   const gerarPDFProposta = async (resposta: RespostaFornecedor) => {
     try {
       // Buscar critério de julgamento e processo da cotação
