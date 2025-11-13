@@ -213,14 +213,19 @@ export const gerarProcessoCompletoPDF = async (
         console.log(`  Buscando: ${planilha.nome_arquivo}`);
         console.log(`  Storage path: ${planilha.url_arquivo}`);
         
-        // Bucket documents é público, usar getPublicUrl
-        const { data: publicUrlData } = supabase.storage
-          .from('documents')
-          .getPublicUrl(planilha.url_arquivo);
+        // Planilha é salva no bucket processo-anexos (privado), usar signed URL
+        const { data: signedUrlData, error: signedError } = await supabase.storage
+          .from('processo-anexos')
+          .createSignedUrl(planilha.url_arquivo, 60);
         
-        console.log(`  Public URL: ${publicUrlData.publicUrl}`);
+        if (signedError || !signedUrlData) {
+          console.error(`  ✗ Erro ao gerar URL assinada: ${signedError?.message}`);
+          throw signedError;
+        }
         
-        const response = await fetch(publicUrlData.publicUrl);
+        console.log(`  Signed URL gerada com sucesso`);
+        
+        const response = await fetch(signedUrlData.signedUrl);
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           const pdfDoc = await PDFDocument.load(arrayBuffer);
