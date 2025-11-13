@@ -47,7 +47,16 @@ export default function Compliance() {
 
   const loadProcessos = async () => {
     try {
-      const { data, error } = await supabase
+      // Primeiro, buscar TODOS os contratos de gestão
+      const { data: contratosData, error: contratosError } = await supabase
+        .from("contratos_gestao")
+        .select("id, nome_contrato")
+        .order("nome_contrato");
+
+      if (contratosError) throw contratosError;
+
+      // Depois, buscar processos que foram enviados ao compliance
+      const { data: processosData, error: processosError } = await supabase
         .from("processos_compras")
         .select(`
           id,
@@ -66,40 +75,27 @@ export default function Compliance() {
               url_arquivo,
               data_geracao
             )
-          ),
-          contratos_gestao (
-            id,
-            nome_contrato
           )
         `)
         .eq("cotacoes_precos.enviado_compliance", true);
 
-      if (error) throw error;
+      if (processosError) throw processosError;
 
-      // Agrupar processos por contrato de gestão
-      const processosPorContrato = data?.reduce((acc: any, processo: any) => {
-        const contratoId = processo.contrato_gestao_id;
-        const contratoNome = processo.contratos_gestao?.nome_contrato || "Sem Contrato";
-        
-        if (!acc[contratoId]) {
-          acc[contratoId] = {
-            id: contratoId,
-            nome: contratoNome,
-            processos: []
-          };
-        }
-        
-        acc[contratoId].processos.push({
-          id: processo.id,
-          numero_processo_interno: processo.numero_processo_interno,
-          objeto_resumido: processo.objeto_resumido,
-          cotacoes: processo.cotacoes_precos || [],
-        });
-        
-        return acc;
-      }, {}) || {};
+      // Montar estrutura: todos os contratos com seus processos (se houver)
+      const contratosList = contratosData.map(contrato => ({
+        id: contrato.id,
+        nome: contrato.nome_contrato,
+        processos: processosData
+          ?.filter((p: any) => p.contrato_gestao_id === contrato.id)
+          .map((processo: any) => ({
+            id: processo.id,
+            numero_processo_interno: processo.numero_processo_interno,
+            objeto_resumido: processo.objeto_resumido,
+            cotacoes: processo.cotacoes_precos || [],
+          })) || []
+      }));
 
-      setProcessos(Object.values(processosPorContrato));
+      setProcessos(contratosList);
     } catch (error: any) {
       console.error("Erro ao carregar processos:", error);
       toast.error("Erro ao carregar processos de compliance");
@@ -169,14 +165,14 @@ export default function Compliance() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {loading ? (
         <div className="py-8 text-center text-muted-foreground">
           Carregando processos...
         </div>
       ) : processos.length === 0 ? (
         <div className="py-8 text-center text-muted-foreground">
-          Nenhum processo enviado ao compliance ainda
+          Nenhum contrato de gestão cadastrado
         </div>
       ) : (
         processos.map((contrato: any) => (
@@ -188,73 +184,79 @@ export default function Compliance() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Processo</TableHead>
-                    <TableHead>Objeto</TableHead>
-                    <TableHead>Cotação</TableHead>
-                    <TableHead>Data Envio</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Planilha Consolidada</TableHead>
-                    <TableHead className="text-center">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {contrato.processos.map((processo: any) =>
-                    processo.cotacoes.map((cotacao: any) =>
-                      cotacao.planilhas_consolidadas.map((planilha: any) => (
-                        <TableRow key={planilha.id}>
-                          <TableCell className="font-medium">
-                            {processo.numero_processo_interno}
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate">
-                            {processo.objeto_resumido}
-                          </TableCell>
-                          <TableCell>{cotacao.titulo_cotacao}</TableCell>
-                          <TableCell>
-                            {cotacao.data_envio_compliance
-                              ? formatarData(cotacao.data_envio_compliance)
-                              : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {cotacao.respondido_compliance ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Respondido
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                Pendente
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>{planilha.nome_arquivo}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2 justify-center">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleVisualizarPlanilha(planilha)}
-                              >
-                                <Eye className="h-4 w-4 mr-2" />
-                                Visualizar
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleBaixarPlanilha(planilha)}
-                              >
-                                <Download className="h-4 w-4 mr-2" />
-                                Baixar
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )
-                  )}
-                </TableBody>
-              </Table>
+              {contrato.processos.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  Nenhum processo enviado ao compliance neste contrato
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Processo</TableHead>
+                      <TableHead>Objeto</TableHead>
+                      <TableHead>Cotação</TableHead>
+                      <TableHead>Data Envio</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Planilha Consolidada</TableHead>
+                      <TableHead className="text-center">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contrato.processos.map((processo: any) =>
+                      processo.cotacoes.map((cotacao: any) =>
+                        cotacao.planilhas_consolidadas.map((planilha: any) => (
+                          <TableRow key={planilha.id}>
+                            <TableCell className="font-medium">
+                              {processo.numero_processo_interno}
+                            </TableCell>
+                            <TableCell className="max-w-xs truncate">
+                              {processo.objeto_resumido}
+                            </TableCell>
+                            <TableCell>{cotacao.titulo_cotacao}</TableCell>
+                            <TableCell>
+                              {cotacao.data_envio_compliance
+                                ? formatarData(cotacao.data_envio_compliance)
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {cotacao.respondido_compliance ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Respondido
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  Pendente
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>{planilha.nome_arquivo}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-2 justify-center">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleVisualizarPlanilha(planilha)}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Visualizar
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleBaixarPlanilha(planilha)}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Baixar
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         ))
