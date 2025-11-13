@@ -1547,7 +1547,8 @@ export function DialogFinalizarProcesso({
                             const { data: { user } } = await supabase.auth.getUser();
                             if (!user) throw new Error("Usuário não autenticado");
 
-                            const { error } = await supabase
+                            // Atualizar a tabela de rejeições
+                            const { error: rejeicaoError } = await supabase
                               .from('fornecedores_rejeitados_cotacao')
                               .update({
                                 revertido: true,
@@ -1556,7 +1557,29 @@ export function DialogFinalizarProcesso({
                               })
                               .eq('id', rejeicao.id);
 
-                            if (error) throw error;
+                            if (rejeicaoError) throw rejeicaoError;
+
+                            // Buscar o fornecedor_id da rejeição
+                            const { data: rejeicaoData, error: fetchError } = await supabase
+                              .from('fornecedores_rejeitados_cotacao')
+                              .select('fornecedor_id')
+                              .eq('id', rejeicao.id)
+                              .single();
+
+                            if (fetchError) throw fetchError;
+
+                            // Atualizar a resposta do fornecedor para não rejeitado
+                            const { error: respostaError } = await supabase
+                              .from('cotacao_respostas_fornecedor')
+                              .update({
+                                rejeitado: false,
+                                motivo_rejeicao: null,
+                                data_rejeicao: null
+                              })
+                              .eq('fornecedor_id', rejeicaoData.fornecedor_id)
+                              .eq('cotacao_id', cotacaoId);
+
+                            if (respostaError) throw respostaError;
 
                             await loadFornecedoresRejeitados();
                             await loadAllFornecedores();
