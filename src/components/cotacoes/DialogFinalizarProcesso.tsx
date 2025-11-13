@@ -144,10 +144,19 @@ export function DialogFinalizarProcesso({
     if (!cotacaoId) return;
 
     try {
-      const { data: rejeitados } = await supabase
+      console.log('🔍 Carregando recursos para cotação:', cotacaoId);
+      
+      const { data: rejeitados, error: errorRejeitados } = await supabase
         .from('fornecedores_rejeitados_cotacao')
         .select('id')
         .eq('cotacao_id', cotacaoId);
+
+      console.log('📋 Rejeições encontradas:', rejeitados);
+
+      if (errorRejeitados) {
+        console.error('Erro ao buscar rejeições:', errorRejeitados);
+        throw errorRejeitados;
+      }
 
       if (rejeitados && rejeitados.length > 0) {
         const { data, error } = await supabase
@@ -161,8 +170,17 @@ export function DialogFinalizarProcesso({
           `)
           .in('rejeicao_id', rejeitados.map(r => r.id));
 
-        if (error) throw error;
+        console.log('📄 Recursos encontrados:', data);
+        
+        if (error) {
+          console.error('Erro ao buscar recursos:', error);
+          throw error;
+        }
+        
         setRecursosRecebidos(data || []);
+      } else {
+        console.log('ℹ️ Nenhuma rejeição encontrada');
+        setRecursosRecebidos([]);
       }
     } catch (error) {
       console.error('Erro ao carregar recursos:', error);
