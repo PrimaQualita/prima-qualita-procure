@@ -284,7 +284,19 @@ export function DialogPlanilhaConsolidada({
             .total { background-color: #f0f9ff; font-weight: bold; }
             .estimativa { background-color: #fef3c7; font-weight: bold; }
             .lote-header { background-color: #0284c7; color: white; font-size: 16px; padding: 10px; margin-top: 20px; }
-            .criterio-badge { display: inline-block; padding: 5px 15px; background-color: #0ea5e9; color: white; border-radius: 5px; font-size: 14px; margin-bottom: 20px; }
+            .criterio-badge { 
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              padding: 8px 20px; 
+              background-color: #0ea5e9; 
+              color: white; 
+              border-radius: 5px; 
+              font-size: 14px; 
+              margin: 0 auto 20px auto; 
+              max-width: fit-content;
+              text-align: center;
+            }
             .col-item { width: 40px; text-align: center; }
             .col-qtd { width: 50px; text-align: center; }
             .col-unid { width: 70px; text-align: center; }
@@ -345,7 +357,7 @@ export function DialogPlanilhaConsolidada({
           ${logoBase64 ? `<div class="header-logo"><img src="${logoBase64}" alt="Prima Qualitá Saúde" /></div>` : ''}
           <h1>PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO</h1>
           <div class="criterio-badge">
-            Visualização: ${tipoVisualizacao === "item" ? "Por Item" : tipoVisualizacao === "lote" ? "Por Lote" : "Global"}
+            Critério de Julgamento: ${tipoVisualizacao === "item" ? "Menor Valor por Item" : tipoVisualizacao === "lote" ? "Menor Valor por Lote" : "Menor Valor Global"}
           </div>
       `;
 
