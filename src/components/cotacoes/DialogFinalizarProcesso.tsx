@@ -453,11 +453,20 @@ export function DialogFinalizarProcesso({
     const itensDoFornecedor = todosItens.filter(i => i.cotacao_resposta_fornecedor_id === resposta.id);
     const itensVencidos: any[] = [];
 
-    // Filtrar apenas respostas não rejeitadas para comparação
-    const respostasNaoRejeitadas = respostas.filter(r => !r.rejeitado);
+    // Buscar fornecedores com rejeição revertida
+    const { data: rejeicoesRevertidas } = await supabase
+      .from('fornecedores_rejeitados_cotacao')
+      .select('fornecedor_id')
+      .eq('cotacao_id', cotacaoId)
+      .eq('revertido', true);
+
+    const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
+
+    // Filtrar respostas não rejeitadas OU rejeitadas mas revertidas
+    const respostasNaoRejeitadas = respostas.filter(r => !r.rejeitado || fornecedoresRevertidos.has(r.fornecedor_id));
     const itensNaoRejeitados = todosItens.filter(item => {
       const resp = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
-      return resp && !resp.rejeitado;
+      return resp && (!resp.rejeitado || fornecedoresRevertidos.has(resp.fornecedor_id));
     });
 
     if (criterio === "global") {
