@@ -121,7 +121,7 @@ export function DialogRespostasCotacao({
       if (error) throw error;
 
       toast.success("Enviado ao Compliance com sucesso!");
-      onClose();
+      onOpenChange(false);
     } catch (error) {
       console.error('Erro ao enviar ao Compliance:', error);
       toast.error("Erro ao enviar ao Compliance");
