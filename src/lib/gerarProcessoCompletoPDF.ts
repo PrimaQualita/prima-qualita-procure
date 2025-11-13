@@ -48,7 +48,22 @@ export const gerarProcessoCompletoPDF = async (
         for (const anexo of anexos) {
           try {
             console.log(`  Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
-            const response = await fetch(anexo.url_arquivo);
+            
+            // Extrair o path do arquivo da URL completa
+            const urlObj = new URL(anexo.url_arquivo);
+            const storagePath = urlObj.pathname.replace('/storage/v1/object/public/processo-anexos/', '');
+            
+            // Buscar URL assinada para bucket privado
+            const { data: signedUrlData, error: signedError } = await supabase.storage
+              .from('processo-anexos')
+              .createSignedUrl(storagePath, 60);
+            
+            if (signedError || !signedUrlData) {
+              console.error(`  ✗ Erro ao gerar URL assinada: ${signedError?.message}`);
+              continue;
+            }
+            
+            const response = await fetch(signedUrlData.signedUrl);
             if (response.ok) {
               const arrayBuffer = await response.arrayBuffer();
               const pdfDoc = await PDFDocument.load(arrayBuffer);
@@ -174,15 +189,29 @@ export const gerarProcessoCompletoPDF = async (
       console.log("📊 Mesclando planilha consolidada...");
       try {
         console.log(`  Buscando: ${planilha.nome_arquivo}`);
-        const response = await fetch(planilha.url_arquivo);
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-          copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`  ✓ Mesclado: ${planilha.nome_arquivo} (${copiedPages.length} páginas)`);
+        
+        // Extrair o path do arquivo da URL completa
+        const urlObj = new URL(planilha.url_arquivo);
+        const storagePath = urlObj.pathname.replace('/storage/v1/object/public/documents/', '');
+        
+        // Buscar URL assinada para bucket público (mas usar método correto)
+        const { data: signedUrlData, error: signedError } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(storagePath, 60);
+        
+        if (signedError || !signedUrlData) {
+          console.error(`  ✗ Erro ao gerar URL assinada para planilha: ${signedError?.message}`);
         } else {
-          console.error(`  ✗ Erro HTTP ${response.status} ao buscar planilha`);
+          const response = await fetch(signedUrlData.signedUrl);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach((page) => pdfFinal.addPage(page));
+            console.log(`  ✓ Mesclado: ${planilha.nome_arquivo} (${copiedPages.length} páginas)`);
+          } else {
+            console.error(`  ✗ Erro HTTP ${response.status} ao buscar planilha`);
+          }
         }
       } catch (error) {
         console.error(`  ✗ Erro ao mesclar planilha consolidada:`, error);
@@ -210,15 +239,25 @@ export const gerarProcessoCompletoPDF = async (
       console.log("📋 Mesclando documento de encaminhamento ao compliance...");
       try {
         console.log(`  Buscando: ${encaminhamento.protocolo}`);
-        const response = await fetch(encaminhamento.url);
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-          copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`  ✓ Mesclado: Encaminhamento ${encaminhamento.protocolo} (${copiedPages.length} páginas)`);
+        
+        // Usar o storage_path do encaminhamento
+        const { data: signedUrlData, error: signedError } = await supabase.storage
+          .from('processo-anexos')
+          .createSignedUrl(encaminhamento.storage_path, 60);
+        
+        if (signedError || !signedUrlData) {
+          console.error(`  ✗ Erro ao gerar URL assinada para encaminhamento: ${signedError?.message}`);
         } else {
-          console.error(`  ✗ Erro HTTP ${response.status} ao buscar encaminhamento`);
+          const response = await fetch(signedUrlData.signedUrl);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach((page) => pdfFinal.addPage(page));
+            console.log(`  ✓ Mesclado: Encaminhamento ${encaminhamento.protocolo} (${copiedPages.length} páginas)`);
+          } else {
+            console.error(`  ✗ Erro HTTP ${response.status} ao buscar encaminhamento`);
+          }
         }
       } catch (error) {
         console.error(`  ✗ Erro ao mesclar documento de encaminhamento:`, error);
