@@ -709,6 +709,7 @@ export function DialogRespostasCotacao({
                                       .getPublicUrl(anexo.url_arquivo);
                                     window.open(data.publicUrl, '_blank');
                                   }}
+                                  title="Visualizar PDF"
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
@@ -716,7 +717,9 @@ export function DialogRespostasCotacao({
                             ))}
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground">-</span>
+                          <span className="text-sm text-muted-foreground italic" title="Fornecedor não anexou proposta em PDF">
+                            Não anexado
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-center">
