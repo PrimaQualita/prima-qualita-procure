@@ -758,6 +758,37 @@ export function DialogRespostasCotacao({
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    if (confirm('Deseja realmente excluir este anexo?')) {
+                                      try {
+                                        // Excluir do storage
+                                        await supabase.storage
+                                          .from('processo-anexos')
+                                          .remove([anexo.url_arquivo]);
+                                        
+                                        // Excluir do banco
+                                        const { error } = await supabase
+                                          .from('anexos_cotacao_fornecedor')
+                                          .delete()
+                                          .eq('id', anexo.id);
+                                        
+                                        if (error) throw error;
+                                        
+                                        toast.success('Anexo excluído com sucesso');
+                                        loadRespostas();
+                                      } catch (error) {
+                                        console.error('Erro ao excluir anexo:', error);
+                                        toast.error('Erro ao excluir anexo');
+                                      }
+                                    }
+                                  }}
+                                  title="Excluir PDF"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                               </div>
                             ))}
                           </div>
