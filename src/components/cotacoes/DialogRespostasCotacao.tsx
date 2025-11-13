@@ -109,7 +109,7 @@ export function DialogRespostasCotacao({
         .from("encaminhamentos_processo")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .order("data_geracao", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       
