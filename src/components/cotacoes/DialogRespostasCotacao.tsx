@@ -211,7 +211,18 @@ export function DialogRespostasCotacao({
     if (!encaminhamento) return;
 
     try {
-      // Deletar do banco de dados primeiro usando o ID
+      console.log('Excluindo encaminhamento:', encaminhamento.id);
+      
+      // Deletar arquivo do storage primeiro
+      const { error: storageError } = await supabase.storage
+        .from('processo-anexos')
+        .remove([encaminhamento.storagePath]);
+
+      if (storageError) {
+        console.error('Erro ao deletar do storage:', storageError);
+      }
+
+      // Deletar do banco de dados usando o ID
       const { error: dbError } = await supabase
         .from('encaminhamentos_processo')
         .delete()
@@ -222,17 +233,11 @@ export function DialogRespostasCotacao({
         throw dbError;
       }
 
-      // Deletar arquivo do storage
-      const { error: storageError } = await supabase.storage
-        .from('processo-anexos')
-        .remove([encaminhamento.storagePath]);
-
-      if (storageError) {
-        console.error('Erro ao deletar do storage:', storageError);
-      }
-
-      // Limpar estado local
+      console.log('Encaminhamento excluído com sucesso');
+      
+      // Limpar estado local e recarregar
       setEncaminhamento(null);
+      await loadEncaminhamento();
       toast.success("Encaminhamento excluído com sucesso");
     } catch (error) {
       console.error('Erro ao excluir encaminhamento:', error);
