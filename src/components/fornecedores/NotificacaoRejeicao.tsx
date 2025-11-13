@@ -87,7 +87,6 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
             rejeicao_id,
             respostas_recursos (
               decisao,
-              texto_resposta,
               url_documento,
               nome_arquivo,
               data_resposta
