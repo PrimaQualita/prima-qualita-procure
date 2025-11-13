@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, CheckCircle2, XCircle, FileText, FileCheck, FileSpreadsheet, FileBox } from "lucide-react";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
+import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 
 const VerificarDocumento = () => {
   const [searchParams] = useSearchParams();
@@ -166,6 +167,11 @@ const VerificarDocumento = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Logo no topo */}
+        <div className="flex justify-center mb-6">
+          <img src={logoHorizontal} alt="Prima Qualitá" className="h-16" />
+        </div>
+        
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
             <Shield className="h-12 w-12 text-primary" />

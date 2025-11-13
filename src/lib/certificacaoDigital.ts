@@ -20,17 +20,9 @@ export const adicionarCertificacaoDigital = (
   
   let y = yInicial;
   
-  // Título da certificação
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 139); // Azul escuro
-  doc.text('CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO', pageWidth / 2, y, { align: 'center' });
-  
-  y += 8;
-  
   // Desenhar retângulo com fundo cinza claro
-  const certBoxY = y - 3;
-  const certBoxHeight = 60;
+  const certBoxY = y;
+  const certBoxHeight = 65;
   
   // Fundo cinza
   doc.setFillColor(245, 245, 245);
@@ -40,6 +32,15 @@ export const adicionarCertificacaoDigital = (
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(1);
   doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight);
+  
+  // Título da certificação DENTRO DO QUADRO
+  y += 6;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 139); // Azul escuro
+  doc.text('CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO', pageWidth / 2, y, { align: 'center' });
+  
+  y += 7;
   
   // Conteúdo da certificação
   doc.setFontSize(10);
