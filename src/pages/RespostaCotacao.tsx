@@ -262,26 +262,6 @@ const RespostaCotacao = () => {
         valor_unitario_ofertado: respostas[item.id]?.valor_unitario_ofertado || 0
       }));
 
-      // Gerar PDF certificado
-      toast.info("Gerando proposta certificada...");
-      
-      const pdfBlob = await gerarPropostaPDF(
-        {
-          numero: processoCompra?.numero_processo_interno || 'N/A',
-          objeto: processoCompra?.objeto_resumido || 'N/A'
-        },
-        {
-          razao_social: dadosEmpresa.razao_social,
-          cnpj: dadosEmpresa.cnpj,
-          endereco_comercial: enderecoCompleto,
-        },
-        itensParaPDF,
-        valorTotal,
-        observacoes,
-        dadosEmpresa.razao_social,
-        dadosEmpresa.cnpj
-      );
-
       const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
       
       let fornecedorId: string | undefined;
@@ -373,6 +353,27 @@ const RespostaCotacao = () => {
         toast.error("Erro ao criar resposta");
         throw erroResposta;
       }
+
+      // Gerar PDF certificado com o ID da resposta como protocolo
+      toast.info("Gerando proposta certificada...");
+      
+      const pdfBlob = await gerarPropostaPDF(
+        {
+          numero: processoCompra?.numero_processo_interno || 'N/A',
+          objeto: processoCompra?.objeto_resumido || 'N/A'
+        },
+        {
+          razao_social: dadosEmpresa.razao_social,
+          cnpj: dadosEmpresa.cnpj,
+          endereco_comercial: enderecoCompleto,
+        },
+        itensParaPDF,
+        valorTotal,
+        observacoes,
+        dadosEmpresa.razao_social,
+        dadosEmpresa.cnpj,
+        respostaCriada.id
+      );
 
       // Upload do PDF para storage
       toast.info("Fazendo upload da proposta...");
