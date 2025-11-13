@@ -140,7 +140,7 @@ export default function Compliance() {
 
   const baixarProcesso = async (processo: ProcessoCompliance) => {
     try {
-      toast.loading("Gerando arquivo do processo...");
+      toast.loading("Gerando arquivo do processo... Isso pode levar alguns minutos.");
       
       const { gerarProcessoCompletoPDF } = await import("@/lib/gerarProcessoCompletoPDF");
       const resultado = await gerarProcessoCompletoPDF(
@@ -150,12 +150,19 @@ export default function Compliance() {
       
       toast.dismiss();
       
+      // Fetch o arquivo e baixar
+      const response = await fetch(resultado.url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
       const link = document.createElement('a');
-      link.href = resultado.url;
+      link.href = blobUrl;
       link.download = resultado.filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      window.URL.revokeObjectURL(blobUrl);
       
       toast.success("Processo baixado com sucesso");
     } catch (error: any) {
