@@ -155,11 +155,19 @@ export const gerarProcessoCompletoPDF = async (
         if (anexosFornecedor && anexosFornecedor.length > 0) {
           for (const anexo of anexosFornecedor) {
             try {
+              // Verificar se é PDF
+              if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+                console.log(`    ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF. Apenas PDFs podem ser mesclados.`);
+                continue;
+              }
+              
               console.log(`    Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
               
-              // Gerar URL assinada para bucket cotacao-anexos
+              // Extrair o path do arquivo da URL completa
               const urlObj = new URL(anexo.url_arquivo);
-              const storagePath = urlObj.pathname.split('/storage/v1/object/public/cotacao-anexos/')[1];
+              const storagePath = urlObj.pathname.replace('/storage/v1/object/public/cotacao-anexos/', '');
+              
+              console.log(`    Storage path: ${storagePath}`);
               
               const { data: signedUrlData, error: signedError } = await supabase.storage
                 .from('cotacao-anexos')
@@ -170,6 +178,7 @@ export const gerarProcessoCompletoPDF = async (
                 continue;
               }
               
+              console.log(`    Fetching from signed URL...`);
               const response = await fetch(signedUrlData.signedUrl);
               if (response.ok) {
                 const arrayBuffer = await response.arrayBuffer();
@@ -209,29 +218,48 @@ export const gerarProcessoCompletoPDF = async (
       console.log("📊 Mesclando planilha consolidada...");
       try {
         console.log(`  Buscando: ${planilha.nome_arquivo}`);
+        console.log(`  URL completa: ${planilha.url_arquivo}`);
         
-        // Extrair path da URL
+        // Extrair path da URL - planilha pode estar em diferentes locais
         const urlObj = new URL(planilha.url_arquivo);
-        const storagePath = urlObj.pathname.split('/storage/v1/object/public/documents/')[1];
+        let storagePath = '';
         
-        console.log(`  Storage path: ${storagePath}`);
-        
-        const { data: signedUrlData, error: signedError } = await supabase.storage
-          .from('documents')
-          .createSignedUrl(storagePath, 60);
-        
-        if (signedError || !signedUrlData) {
-          console.error(`  ✗ Erro ao gerar URL assinada para planilha: ${signedError?.message}`);
+        // Tentar diferentes padrões de URL
+        if (urlObj.pathname.includes('/documents/')) {
+          storagePath = urlObj.pathname.split('/documents/')[1];
+        } else if (urlObj.pathname.includes('/storage/v1/object/public/documents/')) {
+          storagePath = urlObj.pathname.split('/storage/v1/object/public/documents/')[1];
         } else {
-          const response = await fetch(signedUrlData.signedUrl);
-          if (response.ok) {
-            const arrayBuffer = await response.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-            copiedPages.forEach((page) => pdfFinal.addPage(page));
-            console.log(`  ✓ Mesclado: ${planilha.nome_arquivo} (${copiedPages.length} páginas)`);
+          // Última tentativa: pegar tudo depois de /public/
+          const parts = urlObj.pathname.split('/public/');
+          if (parts.length > 1) {
+            storagePath = parts[1].replace('documents/', '');
+          }
+        }
+        
+        console.log(`  Storage path extraído: ${storagePath}`);
+        
+        if (!storagePath) {
+          console.error(`  ✗ Não foi possível extrair storage path da URL: ${planilha.url_arquivo}`);
+        } else {
+          const { data: signedUrlData, error: signedError } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(storagePath, 60);
+          
+          if (signedError || !signedUrlData) {
+            console.error(`  ✗ Erro ao gerar URL assinada para planilha: ${signedError?.message}`);
           } else {
-            console.error(`  ✗ Erro HTTP ${response.status} ao buscar planilha`);
+            console.log(`  Fetching planilha from signed URL...`);
+            const response = await fetch(signedUrlData.signedUrl);
+            if (response.ok) {
+              const arrayBuffer = await response.arrayBuffer();
+              const pdfDoc = await PDFDocument.load(arrayBuffer);
+              const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+              copiedPages.forEach((page) => pdfFinal.addPage(page));
+              console.log(`  ✓ Mesclado: ${planilha.nome_arquivo} (${copiedPages.length} páginas)`);
+            } else {
+              console.error(`  ✗ Erro HTTP ${response.status} ao buscar planilha`);
+            }
           }
         }
       } catch (error) {
