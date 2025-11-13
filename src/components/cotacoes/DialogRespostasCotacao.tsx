@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { gerarEncaminhamentoPDF } from '@/lib/gerarEncaminhamentoPDF';
+import { gerarPropostaFornecedorPDF } from '@/lib/gerarPropostaFornecedorPDF';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -84,6 +85,7 @@ export function DialogRespostasCotacao({
   const [enviandoCompliance, setEnviandoCompliance] = useState(false);
   const [encaminhamento, setEncaminhamento] = useState<any>(null);
   const [gerandoEncaminhamento, setGerandoEncaminhamento] = useState(false);
+  const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && cotacaoId) {
