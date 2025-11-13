@@ -399,28 +399,26 @@ const ProcessosCompras = () => {
         ) : (
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-4 mb-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setContratoSelecionado(null)}
-                  title="Voltar"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <div>
                   <CardTitle>Processos de Compras</CardTitle>
                   <CardDescription>
                     Contrato: {contratoSelecionado.nome_contrato}
                   </CardDescription>
                 </div>
-                <Button onClick={() => {
-                  setProcessoParaEditar(null);
-                  setDialogProcessoOpen(true);
-                }}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Processo
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => {
+                    setProcessoParaEditar(null);
+                    setDialogProcessoOpen(true);
+                  }}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo Processo
+                  </Button>
+                  <Button variant="secondary" onClick={() => setContratoSelecionado(null)}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>

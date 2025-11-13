@@ -203,7 +203,7 @@ const Selecoes = () => {
                     Contrato: {contratoSelecionado.nome_contrato}
                   </CardDescription>
                 </div>
-                <Button variant="outline" onClick={() => setContratoSelecionado(null)}>
+                <Button variant="secondary" onClick={() => setContratoSelecionado(null)}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Voltar
                 </Button>

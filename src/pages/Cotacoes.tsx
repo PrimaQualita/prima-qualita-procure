@@ -898,13 +898,13 @@ const Cotacoes = () => {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setProcessoSelecionado(null)}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Voltar
-                  </Button>
                   <Button onClick={() => setDialogCotacaoOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Cotação
+                  </Button>
+                  <Button variant="secondary" onClick={() => setProcessoSelecionado(null)}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar
                   </Button>
                 </div>
               </div>
