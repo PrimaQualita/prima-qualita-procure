@@ -667,6 +667,11 @@ export function DialogRespostasCotacao({
                       Excluir
                     </Button>
                   </div>
+                </div>
+              )}
+              
+              {planilhaGerada && (
+                <div className="mt-6 pt-6 border-t">
                   <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="w-full">
                     <Send className="mr-2 h-4 w-4" />
                     {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
