@@ -109,46 +109,28 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
         return;
       }
       
-      console.log('Usuário autenticado:', user.id);
       // Upload do arquivo
       const fileExt = arquivo.name.split('.').pop();
       const fileName = `recurso_${rejeicaoId}_${Date.now()}.${fileExt}`;
       const filePath = `recursos/${fileName}`;
 
-      console.log('Tentando upload:', { filePath, bucket: 'processo-anexos' });
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('processo-anexos')
         .upload(filePath, arquivo);
-
-      console.log('Resultado upload:', { uploadData, uploadError });
       
       if (uploadError) throw uploadError;
 
-      // Usar caminho do storage ao invés de URL pública
-      const storageUrl = filePath;
-
       // Salvar recurso no banco
-      console.log('Tentando inserir recurso:', {
-        rejeicao_id: rejeicaoId,
-        fornecedor_id: fornecedorId,
-        url_arquivo: storageUrl,
-        nome_arquivo: arquivo.name,
-        mensagem_fornecedor: mensagemRecurso[rejeicaoId] || null
-      });
-      
-      const { data: insertData, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('recursos_fornecedor')
         .insert({
           rejeicao_id: rejeicaoId,
           fornecedor_id: fornecedorId,
-          url_arquivo: storageUrl,
+          url_arquivo: filePath,
           nome_arquivo: arquivo.name,
           mensagem_fornecedor: mensagemRecurso[rejeicaoId] || null
         })
         .select();
-
-      console.log('Resultado insert recurso:', { insertData, insertError });
 
       if (insertError) throw insertError;
 
@@ -162,14 +144,14 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
       toast.success('Recurso enviado com sucesso!');
       
-      // Atualizar estado local imediatamente
+      // Atualizar estado local PRIMEIRO
       setRejeicoes(prev => prev.map(r => 
         r.id === rejeicaoId 
           ? { ...r, status_recurso: 'recurso_enviado' }
           : r
       ));
       
-      // Limpar estado
+      // Limpar estados de formulário
       setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
       setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
       setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: null }));
