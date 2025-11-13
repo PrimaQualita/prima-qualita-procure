@@ -106,10 +106,10 @@ export async function gerarPropostaPDF(
   doc.setFont('helvetica', 'bold');
   doc.text('Item', margemEsquerda, y);
   doc.text('Descrição', margemEsquerda + 10, y);
-  doc.text('Qtd', margemEsquerda + 85, y);
-  doc.text('Unid', margemEsquerda + 105, y);
-  doc.text('Marca', margemEsquerda + 125, y);
-  doc.text('Vlr Unit (R$)', margemEsquerda + 145, y, { align: 'right' });
+  doc.text('Qtd', margemEsquerda + 75, y);
+  doc.text('Unid', margemEsquerda + 95, y);
+  doc.text('Marca', margemEsquerda + 115, y);
+  doc.text('Vlr Unit (R$)', margemEsquerda + 155, y, { align: 'right' });
   doc.text('Vlr Total (R$)', larguraUtil + margemEsquerda, y, { align: 'right' });
   y += 2;
   
@@ -131,14 +131,19 @@ export async function gerarPropostaPDF(
     
     doc.text(item.numero_item.toString(), margemEsquerda, y);
     
-    const descricaoMaxWidth = 70;
+    const descricaoMaxWidth = 60;
     const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
     doc.text(descricaoLines[0], margemEsquerda + 10, y);
     
-    doc.text(formatarMoeda(item.quantidade), margemEsquerda + 85, y);
-    doc.text(item.unidade, margemEsquerda + 105, y);
-    doc.text(item.marca_ofertada && item.marca_ofertada.trim() !== '' ? item.marca_ofertada : '-', margemEsquerda + 125, y);
-    doc.text(formatarMoeda(item.valor_unitario_ofertado), margemEsquerda + 145, y, { align: 'right' });
+    doc.text(formatarMoeda(item.quantidade), margemEsquerda + 75, y);
+    doc.text(item.unidade, margemEsquerda + 95, y);
+    
+    const marcaMaxWidth = 35;
+    const marcaText = item.marca_ofertada && item.marca_ofertada.trim() !== '' ? item.marca_ofertada : '-';
+    const marcaLines = doc.splitTextToSize(marcaText, marcaMaxWidth);
+    doc.text(marcaLines[0], margemEsquerda + 115, y);
+    
+    doc.text(formatarMoeda(item.valor_unitario_ofertado), margemEsquerda + 155, y, { align: 'right' });
     doc.text(formatarMoeda(valorItemTotal), larguraUtil + margemEsquerda, y, { align: 'right' });
     
     y += 6;
