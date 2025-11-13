@@ -149,37 +149,19 @@ export const gerarRespostaRecursoPDF = async (
     y = 40;
   }
   
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margemEsquerda, y, larguraUtil, 45, 'F');
+  y += 15;
   
-  y += 7;
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, y, { align: 'center' });
+  const { adicionarCertificacaoDigital } = await import('./certificacaoDigital');
+  const hash = btoa(protocolo + dataHora).substring(0, 32).toUpperCase();
   
-  y += 6;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 5, y);
-  
-  y += 5;
-  doc.text(`Emitido em: ${dataHora}`, margemEsquerda + 5, y);
-  
-  y += 5;
-  doc.text(`Responsável: ${usuarioNome}`, margemEsquerda + 5, y);
-  
-  y += 5;
-  doc.text(`CPF: ${usuarioCpf}`, margemEsquerda + 5, y);
-  
-  y += 5;
-  const hash = btoa(protocolo + dataHora).substring(0, 32);
-  doc.text(`Hash de verificação: ${hash}`, margemEsquerda + 5, y);
-  
-  y += 5;
-  const linkVerificacao = `https://prima-qualita-procure.lovable.app/verificar-autorizacao?protocolo=${protocolo}`;
-  doc.setTextColor(0, 0, 255);
-  doc.textWithLink('Verificar autenticidade deste documento', margemEsquerda + 5, y, { url: linkVerificacao });
-  doc.setTextColor(0, 0, 0);
+  adicionarCertificacaoDigital(doc, {
+    protocolo,
+    dataHora,
+    responsavel: usuarioNome,
+    cpf: usuarioCpf,
+    hash,
+    linkVerificacao: `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`
+  }, y);
   
   // Gerar PDF como blob
   const pdfBlob = doc.output('blob');
