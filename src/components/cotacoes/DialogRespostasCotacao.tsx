@@ -719,9 +719,27 @@ export function DialogRespostasCotacao({
                             ))}
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground italic" title="Fornecedor não anexou proposta em PDF">
-                            Não anexado
-                          </span>
+                          <div className="flex flex-col gap-2 items-center">
+                            <span className="text-sm text-muted-foreground italic">
+                              Não anexado
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => gerarESalvarPDFProposta(resposta)}
+                              disabled={gerandoPDF === resposta.id}
+                              title="Gerar PDF da proposta automaticamente"
+                            >
+                              {gerandoPDF === resposta.id ? (
+                                <>Gerando...</>
+                              ) : (
+                                <>
+                                  <FileText className="h-4 w-4 mr-1" />
+                                  Gerar PDF
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                       <TableCell className="text-center">
