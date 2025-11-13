@@ -39,20 +39,53 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
       const { data, error } = await supabase
         .from('fornecedores_rejeitados_cotacao')
         .select(`
-          *,
-          cotacoes_precos (
-            titulo_cotacao,
-            processos_compras (
-              numero_processo_interno
-            )
-          )
+          id,
+          motivo_rejeicao,
+          data_rejeicao,
+          status_recurso,
+          cotacao_id,
+          fornecedor_id
         `)
         .eq('fornecedor_id', fornecedorId)
         .eq('revertido', false)
         .order('data_rejeicao', { ascending: false });
 
-      if (error) throw error;
-      setRejeicoes(data || []);
+      if (error) {
+        console.error('Erro ao carregar rejeições:', error);
+        return;
+      }
+
+      // Buscar dados das cotações separadamente
+      if (data && data.length > 0) {
+        const cotacaoIds = data.map(r => r.cotacao_id);
+        const { data: cotacoes, error: cotacoesError } = await supabase
+          .from('cotacoes_precos')
+          .select(`
+            id,
+            titulo_cotacao,
+            processos_compras (
+              numero_processo_interno
+            )
+          `)
+          .in('id', cotacaoIds);
+
+        if (cotacoesError) {
+          console.error('Erro ao carregar cotações:', cotacoesError);
+          setRejeicoes(data as any);
+          return;
+        }
+
+        // Combinar dados
+        const rejeicoesComCotacoes = data.map(rejeicao => {
+          const cotacao = cotacoes?.find(c => c.id === rejeicao.cotacao_id);
+          return {
+            ...rejeicao,
+            cotacoes_precos: cotacao || null
+          };
+        });
+
+        setRejeicoes(rejeicoesComCotacoes as any);
+      }
     } catch (error) {
       console.error('Erro ao carregar rejeições:', error);
     }
