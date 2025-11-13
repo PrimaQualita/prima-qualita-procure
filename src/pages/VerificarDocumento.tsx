@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,35 +6,42 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, CheckCircle2, XCircle, FileText, FileCheck, FileSpreadsheet, FileBox } from "lucide-react";
 import { format } from "date-fns";
+import { useSearchParams } from "react-router-dom";
 
 const VerificarDocumento = () => {
+  const [searchParams] = useSearchParams();
   const [protocolo, setProtocolo] = useState("");
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const { toast } = useToast();
 
-  const verificarDocumento = async () => {
-    if (!protocolo.trim()) {
-      toast({
-        title: "Erro",
-        description: "Por favor, informe o protocolo do documento",
-        variant: "destructive",
-      });
-      return;
+  useEffect(() => {
+    const protocoloParam = searchParams.get('protocolo');
+    if (protocoloParam) {
+      setProtocolo(protocoloParam);
+      verificarDocumentoAutomatico(protocoloParam);
     }
+  }, [searchParams]);
 
+  const verificarDocumentoAutomatico = async (prot: string) => {
     setLoading(true);
+    await verificarComProtocolo(prot);
+    setLoading(false);
+  };
+
+  const verificarComProtocolo = async (prot: string) => {
     setResultado(null);
 
     try {
-      // Procurar em todas as tabelas de documentos oficiais
-      
+      console.log('Procurando protocolo:', prot);
       // 1. Autorizações de Processo
-      const { data: autorizacao } = await supabase
+      const { data: autorizacao, error: errorAuth } = await supabase
         .from('autorizacoes_processo')
         .select('*')
-        .eq('protocolo', protocolo)
+        .eq('protocolo', prot)
         .maybeSingle();
+
+      console.log('Autorizacao:', autorizacao, errorAuth);
 
       if (autorizacao) {
         setResultado({
@@ -53,11 +60,13 @@ const VerificarDocumento = () => {
       }
 
       // 2. Relatórios Finais
-      const { data: relatorio } = await supabase
+      const { data: relatorio, error: errorRel } = await supabase
         .from('relatorios_finais')
         .select('*')
-        .eq('protocolo', protocolo)
+        .eq('protocolo', prot)
         .maybeSingle();
+
+      console.log('Relatorio:', relatorio, errorRel);
 
       if (relatorio) {
         setResultado({
@@ -75,11 +84,13 @@ const VerificarDocumento = () => {
       }
 
       // 3. Planilhas Consolidadas
-      const { data: planilha } = await supabase
+      const { data: planilha, error: errorPlan } = await supabase
         .from('planilhas_consolidadas')
         .select('*')
-        .eq('protocolo', protocolo)
+        .eq('protocolo', prot)
         .maybeSingle();
+
+      console.log('Planilha:', planilha, errorPlan);
 
       if (planilha) {
         setResultado({
@@ -97,11 +108,13 @@ const VerificarDocumento = () => {
       }
 
       // 4. Encaminhamentos de Processo
-      const { data: encaminhamento } = await supabase
+      const { data: encaminhamento, error: errorEnc } = await supabase
         .from('encaminhamentos_processo')
         .select('*')
-        .eq('protocolo', protocolo)
+        .eq('protocolo', prot)
         .maybeSingle();
+
+      console.log('Encaminhamento:', encaminhamento, errorEnc);
 
       if (encaminhamento) {
         setResultado({
@@ -130,9 +143,22 @@ const VerificarDocumento = () => {
         description: "Erro ao verificar o documento. Tente novamente.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
+  };
+
+  const verificarDocumento = async () => {
+    if (!protocolo.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, informe o protocolo do documento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    await verificarComProtocolo(protocolo);
+    setLoading(false);
   };
 
   const IconeDocumento = resultado?.icone || FileText;
