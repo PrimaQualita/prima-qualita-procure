@@ -941,7 +941,7 @@ export function DialogPlanilhaConsolidada({
       }
 
       // Adicionar certificação digital no final do documento
-      const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${protocoloDocumento}`;
+      const linkVerificacao = `${window.location.origin}/verificar-documento?protocolo=${protocoloDocumento}`;
       
       html += `
           <div class="certificacao-digital">

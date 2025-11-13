@@ -123,7 +123,7 @@ export const gerarEncaminhamentoPDF = async (
     responsavel: usuarioNome,
     cpf: usuarioCpf,
     hash,
-    linkVerificacao: `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`
+    linkVerificacao: `${window.location.origin}/verificar-documento?protocolo=${protocolo}`
   }, yPos);
   
   // Salvar no Supabase Storage
