@@ -272,10 +272,24 @@ export function DialogPlanilhaConsolidada({
           <meta charset="UTF-8">
           <title>Planilha Consolidada - Estimativa de Preços</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            .header-logo { text-align: center; margin-bottom: 30px; }
-            .header-logo img { max-width: 300px; height: auto; }
+            @page { margin: 40px 40px 80px 40px; }
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px 40px 100px 40px; position: relative; }
+            .header-logo { text-align: center; margin-bottom: 20px; }
+            .header-logo img { max-width: 200px; height: auto; display: block; margin: 0 auto; }
             h1 { color: #0ea5e9; font-size: 24px; margin-bottom: 30px; text-align: center; }
+            .footer { 
+              position: fixed; 
+              bottom: 0; 
+              left: 0; 
+              right: 0; 
+              text-align: center; 
+              font-size: 9px; 
+              color: #64748b; 
+              padding: 5px 20px; 
+              background-color: white; 
+              border-top: 1px solid #e2e8f0;
+              line-height: 1.2;
+            }
             h2 { color: #0284c7; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
             th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; vertical-align: middle; }
@@ -285,7 +299,7 @@ export function DialogPlanilhaConsolidada({
             .estimativa { background-color: #fef3c7; font-weight: bold; }
             .lote-header { background-color: #0284c7; color: white; font-size: 16px; padding: 10px; margin-top: 20px; }
             .criterio-badge { 
-              display: flex; 
+              display: inline-flex; 
               align-items: center; 
               justify-content: center; 
               padding: 8px 20px; 
@@ -293,9 +307,8 @@ export function DialogPlanilhaConsolidada({
               color: white; 
               border-radius: 5px; 
               font-size: 14px; 
-              margin: 0 auto 20px auto; 
-              max-width: fit-content;
-              text-align: center;
+              margin: 0 0 20px 0;
+              line-height: 1.5;
             }
             .col-item { width: 40px; text-align: center; }
             .col-qtd { width: 50px; text-align: center; }
@@ -358,6 +371,10 @@ export function DialogPlanilhaConsolidada({
           <h1>PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO</h1>
           <div class="criterio-badge">
             Critério de Julgamento: ${tipoVisualizacao === "item" ? "Menor Valor por Item" : tipoVisualizacao === "lote" ? "Menor Valor por Lote" : "Menor Valor Global"}
+          </div>
+          <div class="footer">
+            <div>Prima Qualitá Saúde</div>
+            <div>Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040</div>
           </div>
       `;
 
