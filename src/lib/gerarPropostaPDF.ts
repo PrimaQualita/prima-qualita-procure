@@ -73,7 +73,8 @@ export async function gerarPropostaPDF(
   y += 5;
   
   doc.setFont('helvetica', 'normal');
-  const objetoLines = doc.splitTextToSize(`Descrição: ${processo.objeto}`, larguraUtil);
+  const objetoLimpo = stripHtml(processo.objeto);
+  const objetoLines = doc.splitTextToSize(`Descrição: ${objetoLimpo}`, larguraUtil);
   doc.text(objetoLines, margemEsquerda, y);
   y += objetoLines.length * 5 + 3;
   
