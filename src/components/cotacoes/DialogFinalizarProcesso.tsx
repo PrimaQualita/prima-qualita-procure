@@ -2047,17 +2047,19 @@ export function DialogFinalizarProcesso({
                   }
 
                   try {
+                    console.log('🔄 Iniciando reversão de rejeição:', rejeicaoParaReverter);
                     const { data: { user } } = await supabase.auth.getUser();
                     if (!user) throw new Error("Usuário não autenticado");
 
                     // Buscar o fornecedor_id da rejeição
                     const { data: rejeicaoData, error: fetchError } = await supabase
                       .from('fornecedores_rejeitados_cotacao')
-                      .select('fornecedor_id')
+                      .select('fornecedor_id, cotacao_id')
                       .eq('id', rejeicaoParaReverter)
                       .single();
 
                     if (fetchError) throw fetchError;
+                    console.log('📋 Fornecedor a ser reabilitado:', rejeicaoData.fornecedor_id);
 
                     // Atualizar a tabela de rejeições
                     const { error: rejeicaoError } = await supabase
@@ -2070,7 +2072,11 @@ export function DialogFinalizarProcesso({
                       })
                       .eq('id', rejeicaoParaReverter);
 
-                    if (rejeicaoError) throw rejeicaoError;
+                    if (rejeicaoError) {
+                      console.error('❌ Erro ao marcar rejeição como revertida:', rejeicaoError);
+                      throw rejeicaoError;
+                    }
+                    console.log('✅ Rejeição marcada como revertida');
 
                     // Atualizar a resposta do fornecedor para não rejeitado
                     const { error: respostaError } = await supabase
@@ -2081,18 +2087,39 @@ export function DialogFinalizarProcesso({
                         data_rejeicao: null
                       })
                       .eq('fornecedor_id', rejeicaoData.fornecedor_id)
-                      .eq('cotacao_id', cotacaoId);
+                      .eq('cotacao_id', rejeicaoData.cotacao_id);
 
-                    if (respostaError) throw respostaError;
+                    if (respostaError) {
+                      console.error('❌ Erro ao atualizar resposta do fornecedor:', respostaError);
+                      throw respostaError;
+                    }
+                    console.log('✅ Resposta do fornecedor atualizada para não rejeitado');
+
+                    // Verificar se a atualização funcionou
+                    const { data: respostaVerificacao, error: verificacaoError } = await supabase
+                      .from('cotacao_respostas_fornecedor')
+                      .select('rejeitado, motivo_rejeicao')
+                      .eq('fornecedor_id', rejeicaoData.fornecedor_id)
+                      .eq('cotacao_id', rejeicaoData.cotacao_id)
+                      .single();
+
+                    if (verificacaoError) {
+                      console.error('⚠️ Erro ao verificar atualização:', verificacaoError);
+                    } else {
+                      console.log('🔍 Verificação pós-atualização:', respostaVerificacao);
+                    }
 
                     toast.success("Rejeição revertida com sucesso");
                     setDialogReversaoOpen(false);
                     setMotivoReversao("");
                     setRejeicaoParaReverter(null);
+                    
+                    console.log('🔄 Recarregando dados...');
                     await loadFornecedoresRejeitados();
                     await loadAllFornecedores();
+                    console.log('✅ Dados recarregados');
                   } catch (error) {
-                    console.error('Erro ao reverter rejeição:', error);
+                    console.error('❌ Erro ao reverter rejeição:', error);
                     toast.error('Erro ao reverter rejeição');
                   }
                 }}
