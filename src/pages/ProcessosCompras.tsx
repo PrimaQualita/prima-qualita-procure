@@ -399,8 +399,16 @@ const ProcessosCompras = () => {
         ) : (
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center gap-4 mb-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setContratoSelecionado(null)}
+                  title="Voltar"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
                   <CardTitle>Processos de Compras</CardTitle>
                   <CardDescription>
                     Contrato: {contratoSelecionado.nome_contrato}
