@@ -307,7 +307,14 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
             )}
 
             {/* Recurso já enviado - aguardando análise */}
-            {rejeicao.status_recurso === 'recurso_enviado' && (
+            {(() => {
+              const shouldShow = rejeicao.status_recurso === 'recurso_enviado';
+              console.log(`🔍 CONDIÇÃO BOTÕES - ID: ${rejeicao.id.substring(0,8)}, Status: "${rejeicao.status_recurso}", ShouldShow: ${shouldShow}`);
+              if (shouldShow) {
+                console.log('✅ RENDERIZANDO SEÇÃO DE BOTÕES!');
+              }
+              return shouldShow;
+            })() && (
               <div className="space-y-3">
                 <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-4 border border-blue-200 dark:border-blue-800">
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
