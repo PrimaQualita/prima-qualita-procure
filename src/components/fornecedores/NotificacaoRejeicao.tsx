@@ -144,13 +144,15 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
       toast.success('Recurso enviado com sucesso!');
       
-      // Limpar estados PRIMEIRO
+      // Atualizar estado local com novo status
+      setRejeicoes(prev => prev.map(r => 
+        r.id === rejeicaoId ? { ...r, status_recurso: 'recurso_enviado' } : r
+      ));
+      
+      // Limpar estados de formulário
       setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
       setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
       setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: null }));
-      
-      // Recarregar dados do banco
-      await loadRejeicoes();
     } catch (error) {
       console.error('Erro ao enviar recurso:', error);
       toast.error('Erro ao enviar recurso');
