@@ -22,7 +22,7 @@ export const adicionarCertificacaoDigital = (
   
   // Desenhar retângulo com fundo cinza claro
   const certBoxY = y;
-  const certBoxHeight = 65;
+  const certBoxHeight = 56;
   
   // Fundo cinza
   doc.setFillColor(245, 245, 245);
