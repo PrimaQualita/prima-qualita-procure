@@ -1558,11 +1558,24 @@ export function DialogFinalizarProcesso({
                         size="sm"
                         onClick={async () => {
                           try {
+                            // Extrair apenas o path se vier URL completa
+                            let filePath = recurso.url_arquivo;
+                            if (filePath.includes('https://')) {
+                              const urlParts = filePath.split('/processo-anexos/');
+                              filePath = urlParts[1] || filePath;
+                            }
+                            
+                            console.log('Gerando URL assinada para:', filePath);
+                            
                             const { data, error } = await supabase.storage
                               .from('processo-anexos')
-                              .createSignedUrl(recurso.url_arquivo, 3600); // 1 hora de validade
+                              .createSignedUrl(filePath, 3600);
                             
-                            if (error) throw error;
+                            if (error) {
+                              console.error('Erro ao criar signed URL:', error);
+                              throw error;
+                            }
+                            
                             if (data?.signedUrl) {
                               window.open(data.signedUrl, '_blank');
                             }
