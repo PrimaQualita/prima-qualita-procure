@@ -212,24 +212,22 @@ export const gerarProcessoCompletoPDF = async (
         console.log(`  Buscando: ${planilha.nome_arquivo}`);
         console.log(`  Storage path: ${planilha.url_arquivo}`);
         
-        // url_arquivo já é o storage path
-        const { data: signedUrlData, error: signedError } = await supabase.storage
+        // Bucket documents é público, usar getPublicUrl
+        const { data: publicUrlData } = supabase.storage
           .from('documents')
-          .createSignedUrl(planilha.url_arquivo, 60);
+          .getPublicUrl(planilha.url_arquivo);
         
-        if (signedError || !signedUrlData) {
-          console.error(`  ✗ Erro ao gerar URL assinada para planilha: ${signedError?.message}`);
+        console.log(`  Public URL: ${publicUrlData.publicUrl}`);
+        
+        const response = await fetch(publicUrlData.publicUrl);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+          copiedPages.forEach((page) => pdfFinal.addPage(page));
+          console.log(`  ✓ Mesclado: ${planilha.nome_arquivo} (${copiedPages.length} páginas)`);
         } else {
-          const response = await fetch(signedUrlData.signedUrl);
-          if (response.ok) {
-            const arrayBuffer = await response.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-            copiedPages.forEach((page) => pdfFinal.addPage(page));
-            console.log(`  ✓ Mesclado: ${planilha.nome_arquivo} (${copiedPages.length} páginas)`);
-          } else {
-            console.error(`  ✗ Erro HTTP ${response.status} ao buscar planilha`);
-          }
+          console.error(`  ✗ Erro HTTP ${response.status} ao buscar planilha`);
         }
       } catch (error) {
         console.error(`  ✗ Erro ao mesclar planilha consolidada:`, error);
