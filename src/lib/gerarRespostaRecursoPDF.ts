@@ -103,13 +103,40 @@ export const gerarRespostaRecursoPDF = async (
   doc.setFont('helvetica', 'normal');
   const linhasResposta = doc.splitTextToSize(textoResposta, larguraUtil);
   
-  linhasResposta.forEach((linha: string) => {
+  // Função para justificar texto manualmente
+  const justifyLine = (text: string, width: number): string => {
+    const words = text.trim().split(/\s+/);
+    if (words.length === 1) return text;
+    
+    const textWidth = doc.getTextWidth(words.join(' '));
+    const spaceWidth = (width - doc.getTextWidth(words.join(''))) / (words.length - 1);
+    
+    let justified = '';
+    words.forEach((word, index) => {
+      justified += word;
+      if (index < words.length - 1) {
+        const spaces = Math.round(spaceWidth / doc.getTextWidth(' '));
+        justified += ' '.repeat(Math.max(1, spaces));
+      }
+    });
+    
+    return justified;
+  };
+  
+  linhasResposta.forEach((linha: string, index: number) => {
     if (y > pageHeight - 40) {
       doc.addPage();
       adicionarLogoERodape();
       y = 40;
     }
-    doc.text(linha, margemEsquerda, y, { align: 'justify' });
+    
+    // Justificar todas as linhas exceto a última
+    if (index < linhasResposta.length - 1 && linha.trim().length > 0) {
+      const justified = justifyLine(linha, larguraUtil);
+      doc.text(justified, margemEsquerda, y);
+    } else {
+      doc.text(linha, margemEsquerda, y);
+    }
     y += 6;
   });
   
