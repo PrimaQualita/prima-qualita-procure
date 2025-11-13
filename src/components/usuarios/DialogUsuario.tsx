@@ -43,6 +43,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [dataNascimento, setDataNascimento] = useState("");
   const [role, setRole] = useState<"gestor" | "colaborador">("colaborador");
   const [responsavelLegal, setResponsavelLegal] = useState(false);
+  const [compliance, setCompliance] = useState(false);
 
   // Carregar dados do usuário quando for edição
   useEffect(() => {
@@ -53,6 +54,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
       setDataNascimento(usuarioEdit.data_nascimento || "");
       setRole((usuarioEdit.role as "gestor" | "colaborador") || "colaborador");
       setResponsavelLegal(usuarioEdit.responsavel_legal || false);
+      setCompliance((usuarioEdit as any).compliance || false);
     } else {
       resetForm();
     }
@@ -65,6 +67,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setDataNascimento("");
     setRole("colaborador");
     setResponsavelLegal(false);
+    setCompliance(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,6 +103,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             cpf: cpf.replace(/\D/g, ""),
             data_nascimento: dataNascimento,
             responsavel_legal: responsavelLegal,
+            compliance: compliance,
           })
           .eq("id", usuarioEdit.id);
 
@@ -169,6 +173,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               dataNascimento,
               role,
               responsavelLegal,
+              compliance,
             },
           }
         );
@@ -298,6 +303,19 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               />
               <Label htmlFor="responsavel-legal" className="font-normal cursor-pointer">
                 Responsável Legal
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="compliance"
+                checked={compliance}
+                onChange={(e) => setCompliance(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="compliance" className="font-normal cursor-pointer">
+                Compliance
               </Label>
             </div>
           </div>

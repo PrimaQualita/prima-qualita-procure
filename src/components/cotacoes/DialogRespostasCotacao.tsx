@@ -10,7 +10,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileDown, Mail, Trash2, FileSpreadsheet } from "lucide-react";
+import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -72,12 +72,63 @@ export function DialogRespostasCotacao({
   const [respostaSelecionada, setRespostaSelecionada] = useState<RespostaFornecedor | null>(null);
   const [emailTexto, setEmailTexto] = useState("");
   const [planilhaConsolidadaOpen, setPlanilhaConsolidadaOpen] = useState(false);
+  const [planilhaGerada, setPlanilhaGerada] = useState<any>(null);
+  const [gerandoPlanilha, setGerandoPlanilha] = useState(false);
+  const [enviandoCompliance, setEnviandoCompliance] = useState(false);
 
   useEffect(() => {
     if (open && cotacaoId) {
       loadRespostas();
+      loadPlanilhaGerada();
     }
   }, [open, cotacaoId]);
+
+  const loadPlanilhaGerada = async () => {
+    try {
+      const { data } = await supabase
+        .from("planilhas_consolidadas")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .maybeSingle();
+      
+      setPlanilhaGerada(data);
+    } catch (error) {
+      console.error("Erro ao carregar planilha:", error);
+    }
+  };
+
+  const gerarPlanilhaConsolidada = async () => {
+    setGerandoPlanilha(true);
+    setPlanilhaConsolidadaOpen(true);
+    setGerandoPlanilha(false);
+  };
+
+  const enviarAoCompliance = async () => {
+    if (!planilhaGerada) return;
+    
+    setEnviandoCompliance(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from("cotacoes_precos")
+        .update({
+          enviado_compliance: true,
+          data_envio_compliance: new Date().toISOString(),
+        })
+        .eq("id", cotacaoId);
+
+      if (error) throw error;
+
+      toast.success("Processo enviado ao Compliance com sucesso!");
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Erro ao enviar ao compliance:", error);
+      toast.error("Erro ao enviar ao compliance: " + error.message);
+    } finally {
+      setEnviandoCompliance(false);
+    }
+  };
 
   const loadRespostas = async () => {
     setLoading(true);
@@ -469,14 +520,6 @@ export function DialogRespostasCotacao({
               <div className="text-sm text-muted-foreground">
                 Total de respostas: <strong>{respostas.length}</strong>
               </div>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => setPlanilhaConsolidadaOpen(true)}
-              >
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Planilha Consolidada
-              </Button>
             </div>
 
             <Table>
@@ -548,6 +591,48 @@ export function DialogRespostasCotacao({
                 })}
               </TableBody>
             </Table>
+
+            {/* Botões de Planilha e Compliance */}
+            <div className="mt-6 space-y-4 border-t pt-4">
+              <Button 
+                onClick={gerarPlanilhaConsolidada}
+                disabled={gerandoPlanilha}
+                className="w-full"
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
+              </Button>
+
+              {planilhaGerada && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={async () => {
+                      const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(planilhaGerada.url_arquivo, 3600);
+                      if (data) window.open(data.signedUrl, "_blank");
+                    }}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Visualizar
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={async () => {
+                      const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(planilhaGerada.url_arquivo, 3600);
+                      if (data) {
+                        const link = document.createElement("a");
+                        link.href = data.signedUrl;
+                        link.download = planilhaGerada.nome_arquivo;
+                        link.click();
+                      }
+                    }}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Baixar
+                    </Button>
+                  </div>
+                  <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="w-full">
+                    <Send className="mr-2 h-4 w-4" />
+                    {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </DialogContent>

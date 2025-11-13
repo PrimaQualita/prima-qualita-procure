@@ -47,9 +47,11 @@ import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
 interface AppSidebarProps {
   isGestor: boolean;
   profile: any;
+  isCompliance?: boolean;
+  isResponsavelLegal?: boolean;
 }
 
-export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
+export function AppSidebar({ isGestor, profile, isCompliance = false, isResponsavelLegal = false }: AppSidebarProps) {
   const { open } = useSidebar();
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -128,6 +130,15 @@ export function AppSidebar({ isGestor, profile }: AppSidebarProps) {
       href: "/contatos",
     },
   ];
+
+  // Adicionar menu Compliance se for Responsável Legal ou Compliance
+  if (isResponsavelLegal || isCompliance) {
+    menuItems.push({
+      title: "Compliance",
+      icon: FileCheck,
+      href: "/compliance",
+    });
+  }
 
   if (isGestor) {
     menuItems.push({
