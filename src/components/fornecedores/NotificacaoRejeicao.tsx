@@ -101,15 +101,27 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
     setEnviandoRecurso(prev => ({ ...prev, [rejeicaoId]: true }));
 
     try {
+      // Verificar se usuário está autenticado
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Você precisa estar autenticado para enviar recursos');
+        return;
+      }
+      
+      console.log('Usuário autenticado:', user.id);
       // Upload do arquivo
       const fileExt = arquivo.name.split('.').pop();
       const fileName = `recurso_${rejeicaoId}_${Date.now()}.${fileExt}`;
       const filePath = `recursos/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
+      console.log('Tentando upload:', { filePath, bucket: 'processo-anexos' });
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('processo-anexos')
         .upload(filePath, arquivo);
 
+      console.log('Resultado upload:', { uploadData, uploadError });
+      
       if (uploadError) throw uploadError;
 
       // Usar caminho do storage ao invés de URL pública
