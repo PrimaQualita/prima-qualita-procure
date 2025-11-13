@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Upload } from "lucide-react";
-import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
+import { Upload, Download } from "lucide-react";
+import { gerarPropostaHTML } from "@/lib/gerarPropostaHTML";
 
 // Cliente Supabase sem autenticação persistente - usa sessionStorage isolado
 const supabaseAnon = createClient(
@@ -111,25 +111,23 @@ interface Lote {
 }
 
 interface RespostaItem {
-  [key: string]: number;
+  [key: string]: {
+    valor_unitario_ofertado: number;
+    marca_ofertada: string;
+  };
 }
 
 const RespostaCotacao = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const cotacaoIdParam = searchParams.get("cotacao");
-  const respostaIdParam = searchParams.get("resposta"); // ID da resposta existente para correção
   
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [cotacaoId, setCotacaoId] = useState<string | null>(null);
-  const [itens, setItens] = useState<ItemCotacao[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [cotacao, setCotacao] = useState<any>(null);
+  const [processoCompra, setProcessoCompra] = useState<any>(null);
+  const [itensCotacao, setItensCotacao] = useState<ItemCotacao[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
-  const [criterioJulgamento, setCriterioJulgamento] = useState<'global' | 'por_item' | 'por_lote'>('global');
-  const [cotacaoTitulo, setCotacaoTitulo] = useState("");
-  const [cotacaoDescricao, setCotacaoDescricao] = useState("");
-  const [dataLimite, setDataLimite] = useState("");
-  const [modoCorrecao, setModoCorrecao] = useState(false);
   
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
@@ -140,13 +138,16 @@ const RespostaCotacao = () => {
     municipio: "",
     uf: "",
     cep: "",
+    endereco_comercial: "",
   });
   
-  const [valoresItens, setValoresItens] = useState<RespostaItem>({});
-  const [marcasItens, setMarcasItens] = useState<{ [key: string]: string }>({});
+  const [respostas, setRespostas] = useState<RespostaItem>({});
   const [observacoes, setObservacoes] = useState("");
-  const [tipoProcesso, setTipoProcesso] = useState<string>("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  
+  const [gerandoHTML, setGerandoHTML] = useState(false);
+  const [htmlGerado, setHtmlGerado] = useState<string | null>(null);
+  const [arquivoProposta, setArquivoProposta] = useState<File | null>(null);
 
   useEffect(() => {
     if (cotacaoIdParam) {
@@ -159,283 +160,187 @@ const RespostaCotacao = () => {
 
   const loadCotacao = async () => {
     try {
-      console.log("🔍 Carregando cotação com ID:", cotacaoIdParam);
-      
-      // Buscar cotação SEM JOIN (RLS pode estar bloqueando)
-      const { data: cotacao, error: cotacaoError } = await supabaseAnon
+      // Buscar cotação
+      const { data: cotacaoData, error: cotacaoError } = await supabaseAnon
         .from("cotacoes_precos")
         .select("*")
         .eq("id", cotacaoIdParam)
         .single();
 
-      console.log("📊 Dados da cotação:", cotacao);
-      console.log("❌ Erro ao buscar cotação:", cotacaoError);
-
-      if (cotacaoError || !cotacao) {
-        console.error("Erro detalhado:", cotacaoError);
+      if (cotacaoError || !cotacaoData) {
         toast.error("Cotação não encontrada");
         setLoading(false);
         return;
       }
 
-      // Buscar tipo do processo separadamente
-      const { data: processo } = await supabaseAnon
-        .from("processos_compras")
-        .select("tipo")
-        .eq("id", cotacao.processo_compra_id)
-        .single();
-
-      console.log("📋 Tipo do processo:", processo?.tipo);
-
       // Verificar data limite
-      const dataLimite = new Date(cotacao.data_limite_resposta);
+      const dataLimite = new Date(cotacaoData.data_limite_resposta);
       if (dataLimite < new Date()) {
         toast.error("O prazo para resposta desta cotação expirou");
         setLoading(false);
         return;
       }
 
-      setCotacaoId(cotacao.id);
-      setCotacaoTitulo(cotacao.titulo_cotacao);
-      setCotacaoDescricao(cotacao.descricao_cotacao || "");
-      setDataLimite(cotacao.data_limite_resposta);
-      setCriterioJulgamento(cotacao.criterio_julgamento || 'global');
-      setTipoProcesso(processo?.tipo || "");
+      setCotacao(cotacaoData);
+
+      // Buscar processo
+      const { data: processoData } = await supabaseAnon
+        .from("processos_compras")
+        .select("*")
+        .eq("id", cotacaoData.processo_compra_id)
+        .single();
+
+      setProcessoCompra(processoData);
 
       // Carregar lotes se for por lote
-      if (cotacao.criterio_julgamento === 'por_lote') {
-        const { data: lotesData, error: lotesError } = await supabaseAnon
+      if (cotacaoData.criterio_julgamento === 'por_lote') {
+        const { data: lotesData } = await supabaseAnon
           .from("lotes_cotacao")
           .select("*")
-          .eq("cotacao_id", cotacao.id)
+          .eq("cotacao_id", cotacaoData.id)
           .order("numero_lote", { ascending: true });
 
-        if (lotesError) {
-          console.error("Erro ao carregar lotes:", lotesError);
-        } else {
-          setLotes(lotesData || []);
-        }
+        setLotes(lotesData || []);
       }
 
-      // Carregar itens da cotação
-      console.log("🔍 Carregando itens da cotação:", cotacao.id);
-      const { data: itensData, error: itensError } = await supabaseAnon
+      // Carregar itens
+      const { data: itensData } = await supabaseAnon
         .from("itens_cotacao")
         .select("*")
-        .eq("cotacao_id", cotacao.id)
+        .eq("cotacao_id", cotacaoData.id)
         .order("numero_item", { ascending: true });
 
-      console.log("📋 Itens retornados do banco:", itensData);
-      console.log("❌ Erro ao carregar itens:", itensError);
-      console.log("🔢 Quantidade de itens:", itensData?.length || 0);
-
-      if (itensError) {
-        toast.error("Erro ao carregar itens da cotação");
-        console.error("Erro completo ao carregar itens:", itensError);
-      } else if (!itensData || itensData.length === 0) {
-        console.warn("⚠️ Nenhum item encontrado para cotação:", cotacao.id);
-        toast.error("Esta cotação não possui itens cadastrados");
-      } else {
-        console.log("✅ Itens carregados com sucesso:", itensData.length);
-        setItens(itensData);
-      }
-
-      // Se há ID de resposta, carregar dados da resposta existente para correção
-      if (respostaIdParam) {
-        await loadRespostaExistente(respostaIdParam, itensData);
-      }
-
+      setItensCotacao(itensData || []);
       setLoading(false);
     } catch (error) {
       console.error("Erro ao carregar cotação:", error);
-      toast.error("Erro ao carregar cotação");
+      toast.error("Erro ao carregar dados da cotação");
       setLoading(false);
     }
   };
 
-  const loadRespostaExistente = async (respostaId: string, itensBase: ItemCotacao[]) => {
+  const handleGerarHTML = async () => {
     try {
-      console.log("📝 Carregando resposta existente para correção:", respostaId);
-      
-      // Buscar resposta do fornecedor
-      const { data: respostaData } = await supabaseAnon
-        .from("cotacao_respostas_fornecedor")
-        .select(`
-          observacoes_fornecedor,
-          fornecedor:fornecedor_id (
-            razao_social,
-            cnpj,
-            endereco_comercial
-          )
-        `)
-        .eq("id", respostaId)
-        .single();
+      setGerandoHTML(true);
 
-      if (!respostaData) {
-        console.warn("Resposta não encontrada");
+      // Validar dados da empresa
+      try {
+        dadosEmpresaSchema.parse(dadosEmpresa);
+        setErrors({});
+      } catch (error: any) {
+        const fieldErrors: { [key: string]: string } = {};
+        error.errors.forEach((err: any) => {
+          fieldErrors[err.path[0]] = err.message;
+        });
+        setErrors(fieldErrors);
+        toast.error("Por favor, preencha todos os campos corretamente");
+        setGerandoHTML(false);
         return;
       }
 
-      // Buscar itens da resposta
-      const { data: itensRespostaData } = await supabaseAnon
-        .from("respostas_itens_fornecedor")
-        .select(`
-          item_cotacao_id,
-          valor_unitario_ofertado,
-          marca
-        `)
-        .eq("cotacao_resposta_fornecedor_id", respostaId);
-
-      console.log("✅ Dados da resposta carregados:", respostaData);
-      console.log("✅ Itens da resposta:", itensRespostaData);
-
-      setModoCorrecao(true);
-
-      // Preencher dados da empresa
-      const fornecedor = respostaData.fornecedor as any;
-      const enderecoCompleto = fornecedor.endereco_comercial || "";
-      
-      setDadosEmpresa({
-        razao_social: fornecedor.razao_social || "",
-        cnpj: fornecedor.cnpj || "",
-        logradouro: enderecoCompleto.split(",")[0]?.trim() || "",
-        numero: "",
-        bairro: "",
-        municipio: "",
-        uf: "",
-        cep: "",
+      // Validar se todos os valores foram preenchidos
+      const itensIncompletos = itensCotacao.filter(item => {
+        const resposta = respostas[item.id];
+        return !resposta?.valor_unitario_ofertado || resposta.valor_unitario_ofertado <= 0;
       });
 
-      // Preencher valores e marcas dos itens
-      const novosValores: RespostaItem = {};
-      const novasMarcas: { [key: string]: string } = {};
-      
-      (itensRespostaData || []).forEach((itemResposta: any) => {
-        novosValores[itemResposta.item_cotacao_id] = itemResposta.valor_unitario_ofertado;
-        if (itemResposta.marca) {
-          novasMarcas[itemResposta.item_cotacao_id] = itemResposta.marca;
-        }
-      });
+      if (itensIncompletos.length > 0) {
+        toast.error("Por favor, preencha os valores unitários de todos os itens");
+        setGerandoHTML(false);
+        return;
+      }
 
-      setValoresItens(novosValores);
-      setMarcasItens(novasMarcas);
-      setObservacoes(respostaData.observacoes_fornecedor || "");
+      const valorTotal = calcularValorTotal();
 
-      toast.success("Dados da proposta anterior carregados. Revise e corrija conforme necessário.");
+      // Preparar endereço completo
+      const enderecoCompleto = `${dadosEmpresa.logradouro}, Nº ${dadosEmpresa.numero}, ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}, CEP: ${dadosEmpresa.cep}`;
+
+      // Preparar itens para o HTML
+      const itensParaHTML = itensCotacao.map(item => ({
+        numero_item: item.numero_item,
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        marca_ofertada: respostas[item.id]?.marca_ofertada || '',
+        valor_unitario_ofertado: respostas[item.id]?.valor_unitario_ofertado || 0
+      }));
+
+      // Gerar HTML certificado
+      const htmlContent = await gerarPropostaHTML(
+        {
+          numero: processoCompra?.numero_processo || 'N/A',
+          objeto: processoCompra?.objeto || 'N/A'
+        },
+        {
+          razao_social: dadosEmpresa.razao_social,
+          cnpj: dadosEmpresa.cnpj,
+          endereco_comercial: enderecoCompleto,
+        },
+        itensParaHTML,
+        valorTotal,
+        observacoes
+      );
+
+      setHtmlGerado(htmlContent);
+      setDadosEmpresa(prev => ({ ...prev, endereco_comercial: enderecoCompleto }));
+      toast.success("Proposta certificada gerada! Faça o download e depois envie o arquivo.");
     } catch (error) {
-      console.error("Erro ao carregar resposta existente:", error);
-      toast.error("Não foi possível carregar os dados da proposta anterior");
+      console.error('Erro ao gerar HTML:', error);
+      toast.error('Erro ao gerar proposta certificada');
+    } finally {
+      setGerandoHTML(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validar dados da empresa
-    try {
-      dadosEmpresaSchema.parse(dadosEmpresa);
-      setErrors({});
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const newErrors: { [key: string]: string } = {};
-        error.errors.forEach((err) => {
-          if (err.path[0]) {
-            newErrors[err.path[0].toString()] = err.message;
-          }
-        });
-        setErrors(newErrors);
-        toast.error("Por favor, preencha todos os campos obrigatórios corretamente");
-        return;
-      }
+  const handleDownloadHTML = () => {
+    if (!htmlGerado) return;
+
+    const blob = new Blob([htmlGerado], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const nomeEmpresa = dadosEmpresa.razao_social.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+    const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+    a.download = `Proposta_${nomeEmpresa}_${dataAtual}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Arquivo baixado! Agora faça o upload deste arquivo.");
+  };
+
+  const handleSubmit = async () => {
+    if (!arquivoProposta) {
+      toast.error("Por favor, faça o upload do arquivo HTML certificado");
+      return;
     }
 
-    // Validar preenchimento de valores baseado no critério de julgamento
-    if (criterioJulgamento === 'global') {
-      // Global: TODOS os itens devem ser cotados obrigatoriamente
-      const todosItensPreenchidos = itens.every(item => valoresItens[item.id] && valoresItens[item.id] > 0);
-      if (!todosItensPreenchidos) {
-        toast.error("Para cotação global, todos os itens devem ser cotados");
-        return;
-      }
-    } else if (criterioJulgamento === 'por_lote') {
-      // Por lote: Se cotar algum item de um lote, deve cotar TODOS os itens daquele lote
-      const lotesComItens = new Map<string, { total: number; cotados: number }>();
-      
-      itens.forEach(item => {
-        if (item.lote_id) {
-          if (!lotesComItens.has(item.lote_id)) {
-            lotesComItens.set(item.lote_id, { total: 0, cotados: 0 });
-          }
-          const loteInfo = lotesComItens.get(item.lote_id)!;
-          loteInfo.total++;
-          if (valoresItens[item.id] && valoresItens[item.id] > 0) {
-            loteInfo.cotados++;
-          }
-        }
-      });
-
-      // Verificar se algum lote está parcialmente cotado
-      let loteInvalido = false;
-      lotesComItens.forEach((info, loteId) => {
-        if (info.cotados > 0 && info.cotados < info.total) {
-          const lote = lotes.find(l => l.id === loteId);
-          toast.error(`Lote ${lote?.numero_lote}: se cotar algum item do lote, deve cotar TODOS os itens deste lote`);
-          loteInvalido = true;
-        }
-      });
-
-      if (loteInvalido) return;
-
-      // Verificar se pelo menos um lote completo foi cotado
-      const algumLoteCotado = Array.from(lotesComItens.values()).some(info => info.cotados > 0);
-      if (!algumLoteCotado) {
-        toast.error("Você deve cotar pelo menos um lote completo");
-        return;
-      }
-    } else if (criterioJulgamento === 'por_item') {
-      // Por item: Pode deixar itens sem cotar, mas precisa cotar pelo menos um
-      const algumItemCotado = itens.some(item => valoresItens[item.id] && valoresItens[item.id] > 0);
-      if (!algumItemCotado) {
-        toast.error("Você deve cotar pelo menos um item");
-        return;
-      }
-    }
-
-    setSaving(true);
+    setSubmitting(true);
     try {
       const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
-      console.log("=== INÍCIO DO ENVIO ===");
-      console.log("CNPJ limpo:", cnpjLimpo);
       
       let fornecedorId: string | undefined;
       
-      // Buscar fornecedor existente
-      console.log("1. Buscando fornecedor...");
-      const { data: fornecedorBuscado, error: erroBusca } = await supabaseAnon
+      // Buscar ou criar fornecedor
+      const { data: fornecedorBuscado } = await supabaseAnon
         .from("fornecedores")
         .select("id")
         .eq("cnpj", cnpjLimpo)
         .limit(1)
         .maybeSingle();
 
-      console.log("Resultado busca:", fornecedorBuscado, "Erro:", erroBusca);
-
       if (fornecedorBuscado) {
         fornecedorId = fornecedorBuscado.id;
-        console.log("✓ Fornecedor encontrado:", fornecedorId);
       } else {
-        // Criar novo fornecedor
-        console.log("2. Criando novo fornecedor...");
         const dadosFornecedor = {
           razao_social: dadosEmpresa.razao_social,
           cnpj: cnpjLimpo,
           email: `cotacao-${cnpjLimpo}@temporario.com`,
           telefone: "00000000000",
-          endereco_comercial: `${dadosEmpresa.logradouro}, ${dadosEmpresa.numero} - ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf} - CEP: ${dadosEmpresa.cep}`,
+          endereco_comercial: dadosEmpresa.endereco_comercial,
           status_aprovacao: "pendente",
           ativo: false,
         };
-        console.log("Dados fornecedor:", dadosFornecedor);
         
         const { data: fornecedorCriado, error: erroCreate } = await supabaseAnon
           .from("fornecedores")
@@ -443,11 +348,7 @@ const RespostaCotacao = () => {
           .select("id")
           .single();
 
-        console.log("Resultado criação:", fornecedorCriado, "Erro:", erroCreate);
-
         if (erroCreate) {
-          console.error("✗ Erro ao criar:", erroCreate);
-          // Tentar buscar novamente
           const { data: fornecedorRetry } = await supabaseAnon
             .from("fornecedores")
             .select("id")
@@ -456,14 +357,12 @@ const RespostaCotacao = () => {
           
           if (fornecedorRetry) {
             fornecedorId = fornecedorRetry.id;
-            console.log("✓ Fornecedor encontrado na retry:", fornecedorId);
           } else {
             toast.error("Erro ao criar fornecedor: " + erroCreate.message);
             throw erroCreate;
           }
         } else {
           fornecedorId = fornecedorCriado.id;
-          console.log("✓ Fornecedor criado:", fornecedorId);
         }
       }
 
@@ -472,98 +371,87 @@ const RespostaCotacao = () => {
       }
 
       // Verificar se fornecedor já respondeu esta cotação
-      console.log("3. Verificando se já existe resposta anterior...");
       const { data: respostaExistente } = await supabaseAnon
         .from("cotacao_respostas_fornecedor")
         .select("id")
-        .eq("cotacao_id", cotacaoId)
+        .eq("cotacao_id", cotacao.id)
         .eq("fornecedor_id", fornecedorId)
         .maybeSingle();
 
-      // Se já existe, excluir resposta anterior e seus itens para sobrescrever
+      // Se já existe, excluir resposta anterior
       if (respostaExistente) {
-        console.log("✓ Resposta anterior encontrada, sobrescrevendo...");
-        
-        // Excluir itens da resposta anterior
-        const { error: erroExcluirItens } = await supabaseAnon
+        await supabaseAnon
           .from("respostas_itens_fornecedor")
           .delete()
           .eq("cotacao_resposta_fornecedor_id", respostaExistente.id);
 
-        if (erroExcluirItens) {
-          console.error("Erro ao excluir itens anteriores:", erroExcluirItens);
-          toast.error("Erro ao atualizar proposta. Tente novamente.");
-          throw erroExcluirItens;
-        }
-
-        // Excluir resposta anterior
-        const { error: erroExcluirResposta } = await supabaseAnon
+        await supabaseAnon
           .from("cotacao_respostas_fornecedor")
           .delete()
           .eq("id", respostaExistente.id);
-
-        if (erroExcluirResposta) {
-          console.error("Erro ao excluir resposta anterior:", erroExcluirResposta);
-          toast.error("Erro ao atualizar proposta. Tente novamente.");
-          throw erroExcluirResposta;
-        }
-
-        console.log("✓ Resposta anterior excluída, criando nova...");
       }
 
-      // Calcular valor total
-      const valorTotal = itens.reduce((total, item) => {
-        return total + (item.quantidade * (valoresItens[item.id] || 0));
-      }, 0);
-      console.log("4. Valor total calculado:", valorTotal);
-
-      // Criar nova resposta da cotação
-      console.log("5. Criando nova resposta da cotação...");
-      const { data: resposta, error: respostaError } = await supabaseAnon
+      // Criar nova resposta
+      const valorTotal = calcularValorTotal();
+      const { data: respostaCriada, error: erroResposta } = await supabaseAnon
         .from("cotacao_respostas_fornecedor")
         .insert({
-          cotacao_id: cotacaoId,
+          cotacao_id: cotacao.id,
           fornecedor_id: fornecedorId,
-          valor_total_anual_ofertado: valorTotal,
-          observacoes_fornecedor: observacoes,
+          observacoes: observacoes || null,
+          valor_total: valorTotal,
+          data_resposta: new Date().toISOString(),
         })
-        .select()
+        .select("id")
         .single();
 
-      console.log("Resultado resposta:", resposta, "Erro:", respostaError);
-
-      if (respostaError) {
-        toast.error("Erro ao criar resposta: " + respostaError.message);
-        throw respostaError;
+      if (erroResposta || !respostaCriada) {
+        toast.error("Erro ao criar resposta");
+        throw erroResposta;
       }
 
-      // Atualizar marcas nos itens (se for Material) - REMOVIDO
-      // As marcas agora são salvas em respostas_itens_fornecedor
+      // Upload do arquivo HTML para storage
+      const nomeArquivo = arquivoProposta.name;
+      const caminhoArquivo = `propostas/${fornecedorId}/${Date.now()}_${nomeArquivo}`;
 
-      // Criar respostas dos itens (apenas itens que foram cotados)
-      console.log("6. Criando respostas dos itens...");
-      const respostasItens = itens
-        .filter(item => valoresItens[item.id] && valoresItens[item.id] > 0)
-        .map(item => ({
-          cotacao_resposta_fornecedor_id: resposta.id,
-          item_cotacao_id: item.id,
-          valor_unitario_ofertado: valoresItens[item.id],
-          marca: tipoProcesso === "material" ? (marcasItens[item.id] || null) : null,
-        }));
-      console.log("Itens a inserir:", respostasItens);
+      const { data: uploadData, error: uploadError } = await supabaseAnon.storage
+        .from('processo-anexos')
+        .upload(caminhoArquivo, arquivoProposta, {
+          contentType: 'text/html',
+        });
+
+      if (uploadError) {
+        toast.error("Erro ao fazer upload do arquivo");
+        throw uploadError;
+      }
+
+      // Salvar anexo no banco
+      await supabaseAnon
+        .from('anexos_cotacao_fornecedor')
+        .insert({
+          cotacao_resposta_fornecedor_id: respostaCriada.id,
+          tipo_anexo: 'Proposta Certificada',
+          url_arquivo: uploadData.path,
+          nome_arquivo: nomeArquivo,
+        });
+
+      // Inserir itens da resposta
+      const respostasItens = itensCotacao.map(item => ({
+        cotacao_resposta_fornecedor_id: respostaCriada.id,
+        item_cotacao_id: item.id,
+        valor_unitario_ofertado: respostas[item.id]?.valor_unitario_ofertado || 0,
+        marca_ofertada: respostas[item.id]?.marca_ofertada || null,
+      }));
 
       const { error: itensError } = await supabaseAnon
         .from("respostas_itens_fornecedor")
         .insert(respostasItens);
-
-      console.log("Erro itens:", itensError);
 
       if (itensError) {
         toast.error("Erro ao criar itens: " + itensError.message);
         throw itensError;
       }
 
-      console.log("=== SUCESSO! ===");
       toast.success("Resposta enviada com sucesso!");
       
       setTimeout(() => {
@@ -571,20 +459,21 @@ const RespostaCotacao = () => {
       }, 2000);
       
     } catch (error: any) {
-      console.error("=== ERRO GERAL ===", error);
+      console.error("Erro ao enviar resposta:", error);
       toast.error("Erro: " + (error?.message || "Erro desconhecido"));
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
-  const calcularTotalItem = (item: ItemCotacao) => {
-    const valor = valoresItens[item.id] || 0;
-    return item.quantidade * valor;
-  };
-
-  const calcularTotalGeral = () => {
-    return itens.reduce((total, item) => total + calcularTotalItem(item), 0);
+  const calcularValorTotal = () => {
+    return itensCotacao.reduce((total, item) => {
+      const resposta = respostas[item.id];
+      if (resposta && resposta.valor_unitario_ofertado) {
+        return total + (item.quantidade * resposta.valor_unitario_ofertado);
+      }
+      return total;
+    }, 0);
   };
 
   if (loading) {
@@ -599,392 +488,335 @@ const RespostaCotacao = () => {
             <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-12" />
             <div>
               <h1 className="text-xl font-bold">Resposta de Cotação de Preços</h1>
-              <p className="text-sm text-muted-foreground">{cotacaoTitulo}</p>
+              <p className="text-sm text-muted-foreground">{cotacao?.titulo_cotacao}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <form onSubmit={handleSubmit} onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
-            e.preventDefault();
-          }
-        }} className="space-y-6">
-          {/* Dados da Empresa */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Dados da Empresa</CardTitle>
-              <CardDescription>
-                Preencha os dados completos da sua empresa
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4">
+      <div className="container mx-auto px-4 py-8 space-y-6">
+        {/* Dados da Empresa */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Dados da Empresa</CardTitle>
+            <CardDescription>
+              Preencha os dados completos da sua empresa
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="razao_social">Razão Social *</Label>
+                <Input
+                  id="razao_social"
+                  value={dadosEmpresa.razao_social}
+                  onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, razao_social: e.target.value })}
+                  className={errors.razao_social ? "border-destructive" : ""}
+                />
+                {errors.razao_social && (
+                  <p className="text-sm text-destructive">{errors.razao_social}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="cnpj">CNPJ *</Label>
+                <Input
+                  id="cnpj"
+                  value={dadosEmpresa.cnpj}
+                  onChange={(e) => {
+                    const cnpjFormatado = formatarCNPJ(e.target.value);
+                    setDadosEmpresa({ ...dadosEmpresa, cnpj: cnpjFormatado });
+                  }}
+                  placeholder="00.000.000/0000-00"
+                  maxLength={18}
+                  className={errors.cnpj ? "border-destructive" : ""}
+                />
+                {errors.cnpj && (
+                  <p className="text-sm text-destructive">{errors.cnpj}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="razao_social">Razão Social *</Label>
+                  <Label htmlFor="logradouro">Logradouro *</Label>
                   <Input
-                    id="razao_social"
-                    value={dadosEmpresa.razao_social}
-                    onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, razao_social: e.target.value })}
-                    className={errors.razao_social ? "border-destructive" : ""}
+                    id="logradouro"
+                    value={dadosEmpresa.logradouro}
+                    onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, logradouro: e.target.value })}
+                    className={errors.logradouro ? "border-destructive" : ""}
                   />
-                  {errors.razao_social && (
-                    <p className="text-sm text-destructive">{errors.razao_social}</p>
+                  {errors.logradouro && (
+                    <p className="text-sm text-destructive">{errors.logradouro}</p>
                   )}
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="cnpj">CNPJ *</Label>
+                  <Label htmlFor="numero">Número *</Label>
                   <Input
-                    id="cnpj"
-                    value={dadosEmpresa.cnpj}
-                    onChange={(e) => {
-                      const cnpjFormatado = formatarCNPJ(e.target.value);
-                      setDadosEmpresa({ ...dadosEmpresa, cnpj: cnpjFormatado });
-                    }}
-                    placeholder="00.000.000/0000-00"
-                    maxLength={18}
-                    className={errors.cnpj ? "border-destructive" : ""}
+                    id="numero"
+                    value={dadosEmpresa.numero}
+                    onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, numero: e.target.value })}
+                    className={errors.numero ? "border-destructive" : ""}
                   />
-                  {errors.cnpj && (
-                    <p className="text-sm text-destructive">{errors.cnpj}</p>
+                  {errors.numero && (
+                    <p className="text-sm text-destructive">{errors.numero}</p>
                   )}
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2 grid gap-2">
-                    <Label htmlFor="logradouro">Logradouro *</Label>
-                    <Input
-                      id="logradouro"
-                      value={dadosEmpresa.logradouro}
-                      onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, logradouro: e.target.value })}
-                      className={errors.logradouro ? "border-destructive" : ""}
-                    />
-                    {errors.logradouro && (
-                      <p className="text-sm text-destructive">{errors.logradouro}</p>
-                    )}
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="numero">Número *</Label>
-                    <Input
-                      id="numero"
-                      value={dadosEmpresa.numero}
-                      onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, numero: e.target.value })}
-                      className={errors.numero ? "border-destructive" : ""}
-                    />
-                    {errors.numero && (
-                      <p className="text-sm text-destructive">{errors.numero}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="bairro">Bairro *</Label>
-                    <Input
-                      id="bairro"
-                      value={dadosEmpresa.bairro}
-                      onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, bairro: e.target.value })}
-                      className={errors.bairro ? "border-destructive" : ""}
-                    />
-                    {errors.bairro && (
-                      <p className="text-sm text-destructive">{errors.bairro}</p>
-                    )}
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="municipio">Município *</Label>
-                    <Input
-                      id="municipio"
-                      value={dadosEmpresa.municipio}
-                      onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, municipio: e.target.value })}
-                      className={errors.municipio ? "border-destructive" : ""}
-                    />
-                    {errors.municipio && (
-                      <p className="text-sm text-destructive">{errors.municipio}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="uf">UF *</Label>
-                    <Select
-                      value={dadosEmpresa.uf}
-                      onValueChange={(value) => setDadosEmpresa({ ...dadosEmpresa, uf: value })}
-                    >
-                      <SelectTrigger className={errors.uf ? "border-destructive" : ""}>
-                        <SelectValue placeholder="Selecione o estado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {UFS.map((uf) => (
-                          <SelectItem key={uf} value={uf}>
-                            {uf}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.uf && (
-                      <p className="text-sm text-destructive">{errors.uf}</p>
-                    )}
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="cep">CEP *</Label>
-                    <Input
-                      id="cep"
-                      value={dadosEmpresa.cep}
-                      onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, cep: e.target.value })}
-                      placeholder="00000-000"
-                      className={errors.cep ? "border-destructive" : ""}
-                    />
-                    {errors.cep && (
-                      <p className="text-sm text-destructive">{errors.cep}</p>
-                    )}
-                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Itens da Cotação */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Itens da Cotação</CardTitle>
-              <CardDescription>
-                {cotacaoDescricao || "Informe os valores unitários para cada item"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {criterioJulgamento === 'por_lote' && lotes.length > 0 ? (
-                // Exibição por lote
-                <div className="space-y-6">
-                  {lotes.map((lote) => {
-                    const itensDoLote = itens.filter(item => item.lote_id === lote.id).sort((a, b) => a.numero_item - b.numero_item);
-                    const totalLote = itensDoLote.reduce((acc, item) => {
-                      const valor = valoresItens[item.id] || 0;
-                      return acc + (valor * item.quantidade);
-                    }, 0);
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="bairro">Bairro *</Label>
+                  <Input
+                    id="bairro"
+                    value={dadosEmpresa.bairro}
+                    onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, bairro: e.target.value })}
+                    className={errors.bairro ? "border-destructive" : ""}
+                  />
+                  {errors.bairro && (
+                    <p className="text-sm text-destructive">{errors.bairro}</p>
+                  )}
+                </div>
 
-                    return (
-                      <div key={lote.id} className="border rounded-lg overflow-hidden">
-                        <div className="bg-primary text-primary-foreground px-4 py-3">
-                          <h3 className="font-semibold">
-                            LOTE {lote.numero_lote} - {lote.descricao_lote}
-                          </h3>
-                        </div>
-                        <Table>
-                           <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-20">Item</TableHead>
-                              <TableHead>Descrição</TableHead>
-                              <TableHead className="w-24">Qtd</TableHead>
-                              <TableHead className="w-24">Unid.</TableHead>
-                              {tipoProcesso === "material" && <TableHead className="w-40">Marca *</TableHead>}
-                              <TableHead className="w-40">Valor Unitário (R$) *</TableHead>
-                              <TableHead className="w-32 text-right">Valor Total</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                             {itensDoLote.map((item) => (
-                              <TableRow key={item.id}>
-                                <TableCell>{item.numero_item}</TableCell>
-                                <TableCell>{item.descricao}</TableCell>
-                                <TableCell>{item.quantidade}</TableCell>
-                                <TableCell>{item.unidade}</TableCell>
-                                {tipoProcesso === "material" && (
-                                  <TableCell>
-                                    <Input
-                                      type="text"
-                                      value={marcasItens[item.id] || ""}
-                                      onChange={(e) => setMarcasItens({
-                                        ...marcasItens,
-                                        [item.id]: e.target.value
-                                      })}
-                                      placeholder="Marca do produto"
-                                    />
-                                  </TableCell>
-                                )}
-                                <TableCell>
-                                   <Input
-                                     type="text"
-                                     data-item-index={itensDoLote.findIndex(i => i.id === item.id)}
-                                     value={valoresItens[item.id] !== undefined && valoresItens[item.id] !== 0 
-                                       ? valoresItens[item.id].toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                       : ""}
-                                     onChange={(e) => {
-                                       const valorLimpo = e.target.value.replace(/\D/g, "");
-                                       const valorNumerico = valorLimpo ? parseFloat(valorLimpo) / 100 : 0;
-                                       setValoresItens({
-                                         ...valoresItens,
-                                         [item.id]: valorNumerico
-                                       });
-                                     }}
-                                     onKeyDown={(e) => {
-                                       if (e.key === 'Enter' || e.key === 'ArrowDown') {
-                                         e.preventDefault();
-                                         const currentIndex = parseInt(e.currentTarget.getAttribute('data-item-index') || '0');
-                                         const nextInput = document.querySelector(`input[data-item-index="${currentIndex + 1}"]`) as HTMLInputElement;
-                                         if (nextInput) {
-                                           nextInput.focus();
-                                           nextInput.select();
-                                         }
-                                       } else if (e.key === 'ArrowUp') {
-                                         e.preventDefault();
-                                         const currentIndex = parseInt(e.currentTarget.getAttribute('data-item-index') || '0');
-                                         const prevInput = document.querySelector(`input[data-item-index="${currentIndex - 1}"]`) as HTMLInputElement;
-                                         if (prevInput) {
-                                           prevInput.focus();
-                                           prevInput.select();
-                                         }
-                                       }
-                                     }}
-                                     placeholder="0,00"
-                                   />
-                                </TableCell>
-                                <TableCell className="text-right font-medium">
-                                  R$ {((valoresItens[item.id] || 0) * item.quantidade).toLocaleString("pt-BR", {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                            <TableRow className="bg-muted/50">
-                              <TableCell colSpan={tipoProcesso === "material" ? 6 : 5} className="text-right font-semibold">
-                                TOTAL DO LOTE {lote.numero_lote}:
-                              </TableCell>
-                              <TableCell className="text-right font-bold text-lg">
-                                R$ {totalLote.toLocaleString("pt-BR", {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </TableCell>
-                            </TableRow>
-                          </TableBody>
-                        </Table>
-                      </div>
-                    );
-                  })}
-                  <div className="bg-primary text-primary-foreground px-6 py-4 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold">TOTAL GERAL:</span>
-                      <span className="text-2xl font-bold">
-                        R$ {calcularTotalGeral().toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
+                <div className="grid gap-2">
+                  <Label htmlFor="municipio">Município *</Label>
+                  <Input
+                    id="municipio"
+                    value={dadosEmpresa.municipio}
+                    onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, municipio: e.target.value })}
+                    className={errors.municipio ? "border-destructive" : ""}
+                  />
+                  {errors.municipio && (
+                    <p className="text-sm text-destructive">{errors.municipio}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="uf">UF *</Label>
+                  <Select value={dadosEmpresa.uf} onValueChange={(value) => setDadosEmpresa({ ...dadosEmpresa, uf: value })}>
+                    <SelectTrigger className={errors.uf ? "border-destructive" : ""}>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {UFS.map(uf => (
+                        <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.uf && (
+                    <p className="text-sm text-destructive">{errors.uf}</p>
+                  )}
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="cep">CEP *</Label>
+                  <Input
+                    id="cep"
+                    value={dadosEmpresa.cep}
+                    onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, cep: e.target.value })}
+                    placeholder="00000-000"
+                    maxLength={9}
+                    className={errors.cep ? "border-destructive" : ""}
+                  />
+                  {errors.cep && (
+                    <p className="text-sm text-destructive">{errors.cep}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Itens da Cotação */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Itens da Cotação</CardTitle>
+            <CardDescription>
+              Informe os valores unitários para cada item
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Item</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead className="text-center">Qtd</TableHead>
+                  <TableHead className="text-center">Unid.</TableHead>
+                  {processoCompra?.tipo === "material" && (
+                    <TableHead className="text-center">Marca *</TableHead>
+                  )}
+                  <TableHead className="text-center">Valor Unitário (R$) *</TableHead>
+                  <TableHead className="text-right">Valor Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {itensCotacao.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.numero_item}</TableCell>
+                    <TableCell>{item.descricao}</TableCell>
+                    <TableCell className="text-center">{item.quantidade}</TableCell>
+                    <TableCell className="text-center">{item.unidade}</TableCell>
+                    {processoCompra?.tipo === "material" && (
+                      <TableCell>
+                        <Input
+                          type="text"
+                          placeholder="EMS"
+                          value={respostas[item.id]?.marca_ofertada || ""}
+                          onChange={(e) =>
+                            setRespostas({
+                              ...respostas,
+                              [item.id]: {
+                                ...respostas[item.id],
+                                marca_ofertada: e.target.value,
+                              },
+                            })
+                          }
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={respostas[item.id]?.valor_unitario_ofertado || ""}
+                        onChange={(e) =>
+                          setRespostas({
+                            ...respostas,
+                            [item.id]: {
+                              ...respostas[item.id],
+                              valor_unitario_ofertado: parseFloat(e.target.value) || 0,
+                            },
+                          })
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      R${" "}
+                      {(
+                        item.quantidade *
+                        (respostas[item.id]?.valor_unitario_ofertado || 0)
+                      ).toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="font-bold bg-muted/50">
+                  <TableCell colSpan={processoCompra?.tipo === "material" ? 6 : 5} className="text-right">
+                    TOTAL GERAL:
+                  </TableCell>
+                  <TableCell className="text-right">
+                    R$ {calcularValorTotal().toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* Observações */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Observações</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              placeholder="Adicione observações ou informações adicionais sobre sua proposta..."
+              rows={4}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Gerar e Enviar Proposta */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Gerar e Enviar Proposta Certificada</CardTitle>
+            <CardDescription>
+              Primeiro gere a proposta certificada, depois faça o download, e por fim envie o arquivo HTML gerado
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              onClick={handleGerarHTML}
+              disabled={gerandoHTML || htmlGerado !== null}
+              className="w-full"
+            >
+              {gerandoHTML ? "Gerando Proposta Certificada..." : htmlGerado ? "Proposta Gerada ✓" : "Gerar Proposta Certificada"}
+            </Button>
+
+            {htmlGerado && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="font-semibold mb-3 text-blue-900">Download e Upload da Proposta</h3>
+                
+                <div className="mb-4">
+                  <Button
+                    onClick={handleDownloadHTML}
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Baixar Proposta Certificada (HTML)
+                  </Button>
+                  <p className="text-xs text-blue-600 mt-2 text-center">
+                    Primeiro faça o download do arquivo certificado
+                  </p>
+                </div>
+
+                <div className="border-t border-blue-200 pt-4">
+                  <p className="text-sm text-blue-700 mb-3">
+                    Agora faça o upload do arquivo HTML que você baixou:
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="file"
+                        accept=".html,.htm"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setArquivoProposta(file);
+                            toast.success(`Arquivo ${file.name} selecionado`);
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      {arquivoProposta && (
+                        <span className="text-sm text-green-600 flex items-center gap-1">
+                          <Upload className="h-4 w-4" />
+                          {arquivoProposta.name}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-              ) : (
-                // Exibição padrão (global ou por item)
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-20">Item</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="w-24">Qtd</TableHead>
-                      <TableHead className="w-24">Unid.</TableHead>
-                      {tipoProcesso === "material" && <TableHead className="w-40">Marca *</TableHead>}
-                      <TableHead className="w-40">Valor Unitário (R$) *</TableHead>
-                      <TableHead className="w-32 text-right">Valor Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itens.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.numero_item}</TableCell>
-                        <TableCell>{item.descricao}</TableCell>
-                        <TableCell>{item.quantidade}</TableCell>
-                        <TableCell>{item.unidade}</TableCell>
-                        {tipoProcesso === "material" && (
-                          <TableCell>
-                            <Input
-                              type="text"
-                              value={marcasItens[item.id] || ""}
-                              onChange={(e) => setMarcasItens({
-                                ...marcasItens,
-                                [item.id]: e.target.value
-                              })}
-                              placeholder="Marca do produto"
-                            />
-                          </TableCell>
-                        )}
-                        <TableCell>
-                          <Input
-                            type="text"
-                            data-item-index={itens.findIndex(i => i.id === item.id)}
-                            value={valoresItens[item.id] !== undefined && valoresItens[item.id] !== 0 
-                              ? valoresItens[item.id].toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                              : ""}
-                            onChange={(e) => {
-                              const valorLimpo = e.target.value.replace(/\D/g, "");
-                              const valorNumerico = valorLimpo ? parseFloat(valorLimpo) / 100 : 0;
-                              setValoresItens({
-                                ...valoresItens,
-                                [item.id]: valorNumerico
-                              });
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === 'ArrowDown') {
-                                e.preventDefault();
-                                const currentIndex = parseInt(e.currentTarget.getAttribute('data-item-index') || '0');
-                                const nextInput = document.querySelector(`input[data-item-index="${currentIndex + 1}"]`) as HTMLInputElement;
-                                if (nextInput) {
-                                  nextInput.focus();
-                                  nextInput.select();
-                                }
-                              } else if (e.key === 'ArrowUp') {
-                                e.preventDefault();
-                                const currentIndex = parseInt(e.currentTarget.getAttribute('data-item-index') || '0');
-                                const prevInput = document.querySelector(`input[data-item-index="${currentIndex - 1}"]`) as HTMLInputElement;
-                                if (prevInput) {
-                                  prevInput.focus();
-                                  prevInput.select();
-                                }
-                              }
-                            }}
-                            placeholder="0,00"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          R$ {calcularTotalItem(item).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="font-bold bg-muted">
-                      <TableCell colSpan={tipoProcesso === "material" ? 6 : 5} className="text-right">TOTAL GERAL:</TableCell>
-                      <TableCell className="text-right">
-                        R$ {calcularTotalGeral().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              )}
-
-              <div className="mt-4 grid gap-2">
-                <Label htmlFor="observacoes">Observações</Label>
-                <Textarea
-                  id="observacoes"
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                  rows={4}
-                  placeholder="Adicione observações ou informações adicionais sobre sua proposta..."
-                />
               </div>
-            </CardContent>
-          </Card>
+            )}
 
-          <div className="flex justify-end gap-4">
-            <Button type="submit" disabled={saving} size="lg">
-              {saving ? "Enviando..." : "Enviar Resposta"}
+            <Button 
+              onClick={handleSubmit}
+              disabled={submitting || !htmlGerado || !arquivoProposta}
+              className="w-full"
+            >
+              {submitting ? "Enviando..." : "Enviar Resposta"}
             </Button>
-          </div>
-        </form>
+            
+            {!htmlGerado && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Primeiro gere a proposta certificada para poder enviar
+              </p>
+            )}
+            {htmlGerado && !arquivoProposta && (
+              <p className="text-xs text-amber-600 text-center mt-2">
+                Faça o upload do arquivo HTML certificado para continuar
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
