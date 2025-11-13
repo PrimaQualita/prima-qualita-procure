@@ -144,15 +144,25 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
       toast.success('Recurso enviado com sucesso!');
       
-      // Atualizar estado local PRIMEIRO
-      setRejeicoes(prev => prev.map(r => 
-        r.id === rejeicaoId 
-          ? { ...r, status_recurso: 'recurso_enviado' }
-          : r
-      ));
+      console.log('🔄 ANTES de atualizar estado local. Rejeições atuais:', rejeicoes);
+      
+      // Atualizar estado local PRIMEIRO para forçar re-render
+      setRejeicoes(prev => {
+        const updated = prev.map(r => 
+          r.id === rejeicaoId 
+            ? { ...r, status_recurso: 'recurso_enviado' as const }
+            : r
+        );
+        console.log('✅ DEPOIS de atualizar estado local. Rejeições atualizadas:', updated);
+        return updated;
+      });
       
       // Limpar estados de formulário
-      setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
+      setDesejaRecorrer(prev => {
+        const newState = { ...prev, [rejeicaoId]: false };
+        console.log('🧹 Estado desejaRecorrer atualizado:', newState);
+        return newState;
+      });
       setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
       setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: null }));
     } catch (error) {
