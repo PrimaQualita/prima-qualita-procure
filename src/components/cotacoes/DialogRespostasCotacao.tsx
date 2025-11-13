@@ -295,6 +295,12 @@ export function DialogRespostasCotacao({
             razao_social,
             cnpj,
             endereco_comercial
+          ),
+          anexos:anexos_cotacao_fornecedor (
+            id,
+            nome_arquivo,
+            url_arquivo,
+            tipo_anexo
           )
         `)
         .eq("cotacao_id", cotacaoId)
@@ -313,6 +319,7 @@ export function DialogRespostasCotacao({
           cnpj: r.fornecedores?.cnpj || "N/A",
           endereco_comercial: r.fornecedores?.endereco_comercial || "",
         },
+        anexos: r.anexos || [],
       }));
 
       setRespostas(respostasFormatadas);
