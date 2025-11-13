@@ -83,6 +83,7 @@ export function DialogRespostasCotacao({
     if (open && cotacaoId) {
       loadRespostas();
       loadPlanilhaGerada();
+      loadEncaminhamento();
     }
   }, [open, cotacaoId]);
 
@@ -92,11 +93,29 @@ export function DialogRespostasCotacao({
         .from("planilhas_consolidadas")
         .select("*")
         .eq("cotacao_id", cotacaoId)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
       
       setPlanilhaGerada(data);
     } catch (error) {
       console.error("Erro ao carregar planilha:", error);
+    }
+  };
+
+  const loadEncaminhamento = async () => {
+    try {
+      const { data } = await supabase
+        .from("encaminhamentos_processo")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_geracao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      setEncaminhamento(data);
+    } catch (error) {
+      console.error("Erro ao carregar encaminhamento:", error);
     }
   };
 
@@ -163,7 +182,8 @@ export function DialogRespostasCotacao({
         perfil.cpf
       );
 
-      const { error: saveError } = await supabase
+      // Salvar no banco
+      const { error: dbError } = await supabase
         .from('encaminhamentos_processo')
         .insert({
           cotacao_id: cotacaoId,
@@ -174,12 +194,11 @@ export function DialogRespostasCotacao({
           gerado_por: user.id
         });
 
-      if (saveError) {
-        console.error('Erro ao salvar encaminhamento:', saveError);
-      }
+      if (dbError) throw dbError;
 
-      setEncaminhamento(resultado);
-      toast.success("Encaminhamento gerado com sucesso!");
+      // Recarregar encaminhamento
+      await loadEncaminhamento();
+      toast.success('Encaminhamento gerado com sucesso!');
     } catch (error) {
       console.error('Erro ao gerar encaminhamento:', error);
       toast.error("Erro ao gerar encaminhamento");
@@ -772,7 +791,22 @@ export function DialogRespostasCotacao({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(encaminhamento.url, '_blank')}
+                          onClick={async () => {
+                            try {
+                              const { data, error } = await supabase.storage
+                                .from('processo-anexos')
+                                .download(encaminhamento.storage_path);
+                              
+                              if (error) throw error;
+                              
+                              const blob = new Blob([data], { type: 'application/pdf' });
+                              const url = URL.createObjectURL(blob);
+                              window.open(url, '_blank');
+                            } catch (error) {
+                              console.error('Erro ao visualizar:', error);
+                              toast.error('Erro ao visualizar encaminhamento');
+                            }
+                          }}
                           className="flex-1"
                         >
                           <Eye className="mr-2 h-4 w-4" />
@@ -781,11 +815,25 @@ export function DialogRespostasCotacao({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = encaminhamento.url;
-                            link.download = encaminhamento.fileName;
-                            link.click();
+                          onClick={async () => {
+                            try {
+                              const { data, error } = await supabase.storage
+                                .from('processo-anexos')
+                                .download(encaminhamento.storage_path);
+                              
+                              if (error) throw error;
+                              
+                              const blob = new Blob([data], { type: 'application/pdf' });
+                              const url = URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `encaminhamento-${processoNumero}.pdf`;
+                              link.click();
+                              URL.revokeObjectURL(url);
+                            } catch (error) {
+                              console.error('Erro ao baixar:', error);
+                              toast.error('Erro ao baixar encaminhamento');
+                            }
                           }}
                           className="flex-1"
                         >
