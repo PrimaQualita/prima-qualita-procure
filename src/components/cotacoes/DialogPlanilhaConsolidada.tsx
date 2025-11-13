@@ -304,22 +304,23 @@ export function DialogPlanilhaConsolidada({
               line-height: 1.2;
             }
             .certificacao-digital {
-              margin-top: 40px;
-              padding: 20px;
-              border: 2px solid #0ea5e9;
-              border-radius: 8px;
+              margin-top: 30px;
+              padding: 15px;
+              border: 1px solid #0ea5e9;
+              border-radius: 5px;
               background-color: #f0f9ff;
               page-break-inside: avoid;
+              font-size: 9px;
             }
             .certificacao-digital h3 {
               color: #0284c7;
-              font-size: 16px;
-              margin-bottom: 15px;
+              font-size: 11px;
+              margin-bottom: 10px;
               font-weight: bold;
             }
             .certificacao-digital .info-item {
-              margin: 8px 0;
-              font-size: 11px;
+              margin: 5px 0;
+              font-size: 9px;
             }
             .certificacao-digital .info-label {
               font-weight: bold;
@@ -328,17 +329,15 @@ export function DialogPlanilhaConsolidada({
             .certificacao-digital .hash {
               font-family: 'Courier New', monospace;
               background-color: #e0f2fe;
-              padding: 4px 8px;
-              border-radius: 4px;
+              padding: 2px 4px;
+              border-radius: 3px;
               word-break: break-all;
+              font-size: 8px;
             }
-            .certificacao-digital .aviso-legal {
-              margin-top: 15px;
-              padding-top: 15px;
-              border-top: 1px solid #0ea5e9;
-              font-size: 10px;
-              color: #0369a1;
-              font-style: italic;
+            .certificacao-digital .link-verificacao {
+              color: #0284c7;
+              text-decoration: underline;
+              font-size: 9px;
             }
           </style>
         </head>
@@ -347,35 +346,6 @@ export function DialogPlanilhaConsolidada({
           <h1>PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO</h1>
           <div class="criterio-badge">
             Visualização: ${tipoVisualizacao === "item" ? "Por Item" : tipoVisualizacao === "lote" ? "Por Lote" : "Global"}
-          </div>
-          
-          <div class="certificacao-digital">
-            <h3>🔒 CERTIFICAÇÃO DIGITAL DO DOCUMENTO</h3>
-            <div class="info-item">
-              <span class="info-label">Protocolo do Documento:</span> ${protocoloDocumento}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Data e Hora de Geração:</span> ${dataHoraGeracao.toLocaleString('pt-BR', { 
-                timeZone: 'America/Sao_Paulo',
-                day: '2-digit',
-                month: '2-digit', 
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-              })} (Horário de Brasília)
-            </div>
-            <div class="info-item">
-              <span class="info-label">Gerado por:</span> ${usuarioNome}${usuarioEmail ? ` (${usuarioEmail})` : ''}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Hash de Verificação:</span> <span class="hash">${hashVerificacao}</span>
-            </div>
-            <div class="aviso-legal">
-              Este documento foi gerado eletronicamente pelo sistema de gestão de compras e possui validade legal conforme Lei nº 14.063/2020, 
-              que dispõe sobre o uso de assinaturas eletrônicas. A autenticidade pode ser verificada através do protocolo e hash de verificação acima.
-              Qualquer alteração no conteúdo deste documento após sua geração invalidará sua autenticidade.
-            </div>
           </div>
       `;
 
@@ -916,7 +886,35 @@ export function DialogPlanilhaConsolidada({
         }
       }
 
+      // Adicionar certificação digital no final do documento
+      const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${protocoloDocumento}`;
+      
       html += `
+          <div class="certificacao-digital">
+            <h3>🔒 CERTIFICAÇÃO DIGITAL DO DOCUMENTO</h3>
+            <div class="info-item">
+              <span class="info-label">Protocolo:</span> ${protocoloDocumento}
+            </div>
+            <div class="info-item">
+              <span class="info-label">Data/Hora:</span> ${dataHoraGeracao.toLocaleString('pt-BR', { 
+                timeZone: 'America/Sao_Paulo',
+                day: '2-digit',
+                month: '2-digit', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </div>
+            <div class="info-item">
+              <span class="info-label">Gerado por:</span> ${usuarioNome}
+            </div>
+            <div class="info-item">
+              <span class="info-label">Hash:</span> <span class="hash">${hashVerificacao.substring(0, 32)}...</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Verificar autenticidade em:</span> <a href="${linkVerificacao}" class="link-verificacao">${linkVerificacao}</a>
+            </div>
+          </div>
         </body>
         </html>
       `;
@@ -960,7 +958,8 @@ export function DialogPlanilhaConsolidada({
           nome_arquivo: nomeArquivo,
           url_arquivo: filePath,
           usuario_gerador_id: user?.id,
-          data_geracao: new Date().toISOString()
+          data_geracao: new Date().toISOString(),
+          protocolo: protocoloDocumento
         });
 
       if (dbError) throw dbError;
