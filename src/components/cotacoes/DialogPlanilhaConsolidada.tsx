@@ -350,18 +350,16 @@ export function DialogPlanilhaConsolidada({
               font-size: 8px;
             }
             .rodape {
-              position: fixed;
-              bottom: 0;
-              left: 0;
-              right: 0;
               margin-top: 30px;
-              padding: 8px 15px;
+              padding-top: 10px;
               border-top: 2px solid #0ea5e9;
               text-align: center;
-              font-size: 8px;
-              color: #64748b;
-              line-height: 1.3;
-              background-color: white;
+              font-size: 9px;
+              color: #475569;
+              line-height: 1.4;
+            }
+            .rodape strong {
+              color: #0f172a;
             }
           </style>
         </head>

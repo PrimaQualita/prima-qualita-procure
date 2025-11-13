@@ -24,6 +24,7 @@ import PortalFornecedor from "./pages/PortalFornecedor";
 import RespostaCotacao from "./pages/RespostaCotacao";
 import VerificarProposta from "./pages/VerificarProposta";
 import VerificarAutorizacao from "./pages/VerificarAutorizacao";
+import VerificarPlanilha from "./pages/VerificarPlanilha";
 import Credenciamentos from "./pages/Credenciamentos";
 import ContratacoesEspecificas from "./pages/ContratacoesEspecificas";
 import Contratos from "./pages/Contratos";
@@ -50,6 +51,7 @@ const App = () => (
           <Route path="/resposta-cotacao" element={<RespostaCotacao />} />
           <Route path="/verificar-proposta" element={<VerificarProposta />} />
           <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
+          <Route path="/verificar-planilha" element={<VerificarPlanilha />} />
           
           {/* Rotas com sidebar */}
           <Route element={<DashboardLayout />}>
