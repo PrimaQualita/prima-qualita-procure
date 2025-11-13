@@ -70,8 +70,45 @@ export function DialogAnaliseCompliance({
   useEffect(() => {
     if (open) {
       loadExistingAnalise();
+      loadFornecedoresPropostas();
     }
   }, [open, cotacaoId]);
+
+  const loadFornecedoresPropostas = async () => {
+    try {
+      const { data: respostas, error } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          *,
+          fornecedores (
+            razao_social,
+            cnpj
+          )
+        `)
+        .eq("cotacao_id", cotacaoId);
+
+      if (error) throw error;
+
+      if (respostas && respostas.length > 0) {
+        const empresasPreenchidas = respostas.map((resposta: any) => ({
+          razao_social: resposta.fornecedores?.razao_social || "",
+          cnpj: resposta.fornecedores?.cnpj || "",
+          capital_social: "",
+          ano_fundacao: "",
+          contratos_ativos_oss: false,
+          conflito_interesse: "",
+          capacidade_tecnica: "",
+          risco_financeiro: "",
+          reputacao: "",
+          cnae: "",
+        }));
+        
+        setEmpresas(empresasPreenchidas);
+      }
+    } catch (error: any) {
+      console.error("Erro ao carregar fornecedores:", error);
+    }
+  };
 
   const loadExistingAnalise = async () => {
     try {

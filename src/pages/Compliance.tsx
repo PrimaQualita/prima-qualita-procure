@@ -119,6 +119,52 @@ export default function Compliance() {
     setAnaliseDialogOpen(true);
   };
 
+  const visualizarProcesso = async (processo: ProcessoCompliance) => {
+    try {
+      toast.loading("Gerando visualização do processo...");
+      
+      const { gerarProcessoCompletoPDF } = await import("@/lib/gerarProcessoCompletoPDF");
+      const resultado = await gerarProcessoCompletoPDF(
+        processo.cotacao_id,
+        `${processo.numero_processo_interno}/${processo.ano_referencia}`
+      );
+      
+      toast.dismiss();
+      window.open(resultado.url, '_blank');
+    } catch (error: any) {
+      toast.dismiss();
+      console.error("Erro ao visualizar processo:", error);
+      toast.error("Erro ao gerar visualização do processo");
+    }
+  };
+
+  const baixarProcesso = async (processo: ProcessoCompliance) => {
+    try {
+      toast.loading("Gerando arquivo do processo...");
+      
+      const { gerarProcessoCompletoPDF } = await import("@/lib/gerarProcessoCompletoPDF");
+      const resultado = await gerarProcessoCompletoPDF(
+        processo.cotacao_id,
+        `${processo.numero_processo_interno}/${processo.ano_referencia}`
+      );
+      
+      toast.dismiss();
+      
+      const link = document.createElement('a');
+      link.href = resultado.url;
+      link.download = resultado.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success("Processo baixado com sucesso");
+    } catch (error: any) {
+      toast.dismiss();
+      console.error("Erro ao baixar processo:", error);
+      toast.error("Erro ao gerar arquivo do processo");
+    }
+  };
+
   const formatarData = (data: string) => {
     return new Date(data).toLocaleDateString("pt-BR", {
       day: "2-digit",
@@ -267,7 +313,7 @@ export default function Compliance() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => toast.info("Em desenvolvimento")}
+                              onClick={() => visualizarProcesso(processo)}
                             >
                               <Eye className="h-4 w-4 mr-2" />
                               Visualizar Processo
@@ -275,7 +321,7 @@ export default function Compliance() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => toast.info("Em desenvolvimento")}
+                              onClick={() => baixarProcesso(processo)}
                             >
                               <Download className="h-4 w-4 mr-2" />
                               Baixar Processo
