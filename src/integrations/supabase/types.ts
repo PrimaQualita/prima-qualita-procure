@@ -712,6 +712,7 @@ export type Database = {
           fornecedor_id: string
           id: string
           motivo_rejeicao: string
+          motivo_reversao: string | null
           revertido: boolean | null
           status_recurso: string | null
           usuario_rejeitou_id: string
@@ -725,6 +726,7 @@ export type Database = {
           fornecedor_id: string
           id?: string
           motivo_rejeicao: string
+          motivo_reversao?: string | null
           revertido?: boolean | null
           status_recurso?: string | null
           usuario_rejeitou_id: string
@@ -738,6 +740,7 @@ export type Database = {
           fornecedor_id?: string
           id?: string
           motivo_rejeicao?: string
+          motivo_reversao?: string | null
           revertido?: boolean | null
           status_recurso?: string | null
           usuario_rejeitou_id?: string

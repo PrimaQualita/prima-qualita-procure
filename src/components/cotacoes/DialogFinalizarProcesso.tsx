@@ -107,6 +107,9 @@ export function DialogFinalizarProcesso({
   const [dialogRespostaRecursoOpen, setDialogRespostaRecursoOpen] = useState(false);
   const [decisaoRecurso, setDecisaoRecurso] = useState<'provimento' | 'negado' | null>(null);
   const [textoRespostaRecurso, setTextoRespostaRecurso] = useState("");
+  const [dialogReversaoOpen, setDialogReversaoOpen] = useState(false);
+  const [rejeicaoParaReverter, setRejeicaoParaReverter] = useState<string | null>(null);
+  const [motivoReversao, setMotivoReversao] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -1542,52 +1545,9 @@ export function DialogFinalizarProcesso({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={async () => {
-                          try {
-                            const { data: { user } } = await supabase.auth.getUser();
-                            if (!user) throw new Error("Usuário não autenticado");
-
-                            // Atualizar a tabela de rejeições
-                            const { error: rejeicaoError } = await supabase
-                              .from('fornecedores_rejeitados_cotacao')
-                              .update({
-                                revertido: true,
-                                usuario_reverteu_id: user.id,
-                                data_reversao: new Date().toISOString()
-                              })
-                              .eq('id', rejeicao.id);
-
-                            if (rejeicaoError) throw rejeicaoError;
-
-                            // Buscar o fornecedor_id da rejeição
-                            const { data: rejeicaoData, error: fetchError } = await supabase
-                              .from('fornecedores_rejeitados_cotacao')
-                              .select('fornecedor_id')
-                              .eq('id', rejeicao.id)
-                              .single();
-
-                            if (fetchError) throw fetchError;
-
-                            // Atualizar a resposta do fornecedor para não rejeitado
-                            const { error: respostaError } = await supabase
-                              .from('cotacao_respostas_fornecedor')
-                              .update({
-                                rejeitado: false,
-                                motivo_rejeicao: null,
-                                data_rejeicao: null
-                              })
-                              .eq('fornecedor_id', rejeicaoData.fornecedor_id)
-                              .eq('cotacao_id', cotacaoId);
-
-                            if (respostaError) throw respostaError;
-
-                            await loadFornecedoresRejeitados();
-                            await loadAllFornecedores();
-                            toast.success("Rejeição revertida com sucesso");
-                          } catch (error) {
-                            console.error('Erro ao reverter rejeição:', error);
-                            toast.error('Erro ao reverter rejeição');
-                          }
+                        onClick={() => {
+                          setRejeicaoParaReverter(rejeicao.id);
+                          setDialogReversaoOpen(true);
                         }}
                         className="mt-2"
                       >
@@ -2037,6 +1997,108 @@ export function DialogFinalizarProcesso({
                 disabled={!textoRespostaRecurso.trim() || loading}
               >
                 {decisaoRecurso === 'provimento' ? 'Dar Provimento' : 'Negar Provimento'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para Reverter Rejeição */}
+        <Dialog open={dialogReversaoOpen} onOpenChange={setDialogReversaoOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Reverter Rejeição de Fornecedor</DialogTitle>
+              <DialogDescription>
+                Informe o motivo da reversão da rejeição. Esta ação reabilitará o fornecedor como vencedor.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="motivo-reversao">Motivo da Reversão *</Label>
+                <Textarea
+                  id="motivo-reversao"
+                  placeholder="Descreva o motivo pelo qual está revertendo a rejeição..."
+                  value={motivoReversao}
+                  onChange={(e) => setMotivoReversao(e.target.value)}
+                  rows={6}
+                  className="min-h-[120px]"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setDialogReversaoOpen(false);
+                setMotivoReversao("");
+                setRejeicaoParaReverter(null);
+              }}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={async () => {
+                  if (!motivoReversao.trim()) {
+                    toast.error("Informe o motivo da reversão");
+                    return;
+                  }
+
+                  if (!rejeicaoParaReverter) {
+                    toast.error("Rejeição não identificada");
+                    return;
+                  }
+
+                  try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) throw new Error("Usuário não autenticado");
+
+                    // Buscar o fornecedor_id da rejeição
+                    const { data: rejeicaoData, error: fetchError } = await supabase
+                      .from('fornecedores_rejeitados_cotacao')
+                      .select('fornecedor_id')
+                      .eq('id', rejeicaoParaReverter)
+                      .single();
+
+                    if (fetchError) throw fetchError;
+
+                    // Atualizar a tabela de rejeições
+                    const { error: rejeicaoError } = await supabase
+                      .from('fornecedores_rejeitados_cotacao')
+                      .update({
+                        revertido: true,
+                        usuario_reverteu_id: user.id,
+                        data_reversao: new Date().toISOString(),
+                        motivo_reversao: motivoReversao.trim()
+                      })
+                      .eq('id', rejeicaoParaReverter);
+
+                    if (rejeicaoError) throw rejeicaoError;
+
+                    // Atualizar a resposta do fornecedor para não rejeitado
+                    const { error: respostaError } = await supabase
+                      .from('cotacao_respostas_fornecedor')
+                      .update({
+                        rejeitado: false,
+                        motivo_rejeicao: null,
+                        data_rejeicao: null
+                      })
+                      .eq('fornecedor_id', rejeicaoData.fornecedor_id)
+                      .eq('cotacao_id', cotacaoId);
+
+                    if (respostaError) throw respostaError;
+
+                    toast.success("Rejeição revertida com sucesso");
+                    setDialogReversaoOpen(false);
+                    setMotivoReversao("");
+                    setRejeicaoParaReverter(null);
+                    await loadFornecedoresRejeitados();
+                    await loadAllFornecedores();
+                  } catch (error) {
+                    console.error('Erro ao reverter rejeição:', error);
+                    toast.error('Erro ao reverter rejeição');
+                  }
+                }}
+                disabled={!motivoReversao.trim()}
+              >
+                Confirmar Reversão
               </Button>
             </DialogFooter>
           </DialogContent>
