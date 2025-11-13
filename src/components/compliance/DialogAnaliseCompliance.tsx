@@ -391,7 +391,7 @@ export function DialogAnaliseCompliance({
                       <Input
                         value={empresa.ano_fundacao}
                         onChange={(e) => atualizarEmpresa(index, "ano_fundacao", e.target.value)}
-                        placeholder="2020"
+                        placeholder="Ex: 2015"
                       />
                     </div>
                   </div>
