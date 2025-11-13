@@ -308,20 +308,29 @@ export function DialogFinalizarProcesso({
     const fornecedoresVencedores = new Set<string>();
     const fornecedoresRejeitados = new Set<string>();
 
-    // Identificar fornecedores rejeitados
+    // Buscar rejeições revertidas
+    const { data: rejeicoesRevertidas } = await supabase
+      .from('fornecedores_rejeitados_cotacao')
+      .select('fornecedor_id')
+      .eq('cotacao_id', cotacaoId)
+      .eq('revertido', true);
+
+    const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
+
+    // Identificar fornecedores rejeitados (excluindo os que foram revertidos)
     respostas.forEach(r => {
-      if (r.rejeitado) {
+      if (r.rejeitado && !fornecedoresRevertidos.has(r.fornecedor_id)) {
         fornecedoresRejeitados.add(r.fornecedor_id);
       }
     });
 
-    // Filtrar respostas não rejeitadas
-    const respostasNaoRejeitadas = respostas.filter(r => !r.rejeitado);
+    // Filtrar respostas não rejeitadas OU rejeitadas mas revertidas
+    const respostasValidas = respostas.filter(r => !r.rejeitado || fornecedoresRevertidos.has(r.fornecedor_id));
 
     if (criterio === "global") {
-      if (respostasNaoRejeitadas.length > 0) {
-        const menorValor = Math.min(...respostasNaoRejeitadas.map(r => Number(r.valor_total_anual_ofertado)));
-        const vencedor = respostasNaoRejeitadas.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
+      if (respostasValidas.length > 0) {
+        const menorValor = Math.min(...respostasValidas.map(r => Number(r.valor_total_anual_ofertado)));
+        const vencedor = respostasValidas.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
         if (vencedor) fornecedoresVencedores.add(vencedor.fornecedor_id);
       }
     } else if (criterio === "item" || criterio === "por_item") {
@@ -329,7 +338,8 @@ export function DialogFinalizarProcesso({
         const itensPorNumero: Record<number, any[]> = {};
         itens.forEach(item => {
           const resposta = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
-          if (!resposta?.rejeitado) {
+          // Incluir se não foi rejeitado OU se foi rejeitado mas revertido
+          if (!resposta?.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id)) {
             const numItem = item.itens_cotacao.numero_item;
             if (!itensPorNumero[numItem]) itensPorNumero[numItem] = [];
             itensPorNumero[numItem].push(item);
@@ -342,7 +352,9 @@ export function DialogFinalizarProcesso({
             const vencedor = itensDoNumero.find(i => Number(i.valor_unitario_ofertado) === menorValor);
             if (vencedor) {
               const resposta = respostas.find(r => r.id === vencedor.cotacao_resposta_fornecedor_id);
-              if (resposta && !resposta.rejeitado) fornecedoresVencedores.add(resposta.fornecedor_id);
+              if (resposta && (!resposta.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id))) {
+                fornecedoresVencedores.add(resposta.fornecedor_id);
+              }
             }
           }
         });
@@ -352,7 +364,8 @@ export function DialogFinalizarProcesso({
         const itensPorLote: Record<string, Record<string, any[]>> = {};
         itens.forEach(item => {
           const resposta = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
-          if (!resposta?.rejeitado) {
+          // Incluir se não foi rejeitado OU se foi rejeitado mas revertido
+          if (!resposta?.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id)) {
             const loteId = item.itens_cotacao.lote_id;
             if (!loteId) return;
             if (!itensPorLote[loteId]) itensPorLote[loteId] = {};
@@ -375,7 +388,9 @@ export function DialogFinalizarProcesso({
             const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
             if (vencedor) {
               const resposta = respostas.find(r => r.id === vencedor.respostaId);
-              if (resposta && !resposta.rejeitado) fornecedoresVencedores.add(resposta.fornecedor_id);
+              if (resposta && (!resposta.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id))) {
+                fornecedoresVencedores.add(resposta.fornecedor_id);
+              }
             }
           }
         });
