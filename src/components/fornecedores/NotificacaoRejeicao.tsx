@@ -33,13 +33,6 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
   useEffect(() => {
     loadRejeicoes();
-    
-    // Reload quando houver mudanças
-    const interval = setInterval(() => {
-      loadRejeicoes();
-    }, 3000);
-    
-    return () => clearInterval(interval);
   }, [fornecedorId]);
 
   const loadRejeicoes = async () => {
