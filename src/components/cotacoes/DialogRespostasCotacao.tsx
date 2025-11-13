@@ -131,7 +131,7 @@ export function DialogRespostasCotacao({
   };
 
   const gerarEncaminhamento = async () => {
-    if (!numeroProcesso || !objetoProcesso) {
+    if (!processoNumero || !processoObjeto) {
       toast.error("Informações do processo não encontradas");
       return;
     }
@@ -146,9 +146,9 @@ export function DialogRespostasCotacao({
       }
 
       const { data: perfil, error: perfilError } = await supabase
-        .from('perfis')
+        .from('profiles')
         .select('nome_completo, cpf')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .single();
 
       if (perfilError || !perfil) {
@@ -157,8 +157,8 @@ export function DialogRespostasCotacao({
       }
 
       const resultado = await gerarEncaminhamentoPDF(
-        numeroProcesso,
-        objetoProcesso,
+        processoNumero,
+        processoObjeto,
         perfil.nome_completo,
         perfil.cpf
       );
@@ -167,7 +167,7 @@ export function DialogRespostasCotacao({
         .from('encaminhamentos_processo')
         .insert({
           cotacao_id: cotacaoId,
-          processo_numero: numeroProcesso,
+          processo_numero: processoNumero,
           protocolo: resultado.protocolo,
           storage_path: resultado.storagePath,
           url: resultado.url,
@@ -752,13 +752,13 @@ export function DialogRespostasCotacao({
               {planilhaGerada && (
                 <div className="mt-6 pt-6 border-t space-y-4">
                   <div className="flex gap-2">
-                    <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="flex-1">
-                      <Send className="mr-2 h-4 w-4" />
-                      {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
-                    </Button>
                     <Button onClick={gerarEncaminhamento} disabled={gerandoEncaminhamento} className="flex-1">
                       <FileText className="mr-2 h-4 w-4" />
                       {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
+                    </Button>
+                    <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="flex-1">
+                      <Send className="mr-2 h-4 w-4" />
+                      {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
                     </Button>
                   </div>
 
