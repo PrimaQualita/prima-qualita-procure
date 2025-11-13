@@ -144,16 +144,16 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
       toast.success('Recurso enviado com sucesso!');
       
-      console.log('🔄 ANTES de atualizar estado local. Rejeições atuais:', rejeicoes);
+      console.log('🔄 ANTES de atualizar estado local. Rejeições atuais:', rejeicoes.map(r => ({ id: r.id, status_recurso: r.status_recurso })));
       
       // Atualizar estado local PRIMEIRO para forçar re-render
       setRejeicoes(prev => {
         const updated = prev.map(r => 
           r.id === rejeicaoId 
-            ? { ...r, status_recurso: 'recurso_enviado' as const }
+            ? { ...r, status_recurso: 'recurso_enviado' }
             : r
         );
-        console.log('✅ DEPOIS de atualizar estado local. Rejeições atualizadas:', updated);
+        console.log('✅ DEPOIS de atualizar estado local. Status de cada rejeição:', updated.map(r => ({ id: r.id, status_recurso: r.status_recurso, status_type: typeof r.status_recurso })));
         return updated;
       });
       
@@ -208,6 +208,12 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
   };
 
   if (rejeicoes.length === 0) return null;
+
+  console.log('🎨 RENDERIZANDO. Rejeições:', rejeicoes.map(r => ({ 
+    id: r.id, 
+    status_recurso: r.status_recurso,
+    desejaRecorrer: desejaRecorrer[r.id]
+  })));
 
   return (
     <div className="space-y-4">
