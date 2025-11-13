@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { toast } from "sonner";
 import { z } from "zod";
+import { Upload } from "lucide-react";
+import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
 
 // Cliente Supabase sem autenticação persistente - usa sessionStorage isolado
 const supabaseAnon = createClient(
