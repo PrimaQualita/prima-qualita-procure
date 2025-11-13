@@ -1400,14 +1400,13 @@ export function DialogFinalizarProcesso({
 
         <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
           <div className="flex flex-col w-full gap-3">
-            {/* Relatório Final */}
+            {/* Relatório Final - Qualquer gestor/colaborador pode gerar */}
             <div className="flex items-center gap-3">
               {!relatorioFinalUrl ? (
                 <Button
                   onClick={gerarRelatorio}
-                  disabled={loading || !todosDocumentosAprovados || !isResponsavelLegal}
+                  disabled={loading || !todosDocumentosAprovados}
                   className="flex-1"
-                  title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar relatórios" : ""}
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Gerar Relatório Final
@@ -1448,7 +1447,7 @@ export function DialogFinalizarProcesso({
               )}
             </div>
             
-            {/* Autorização */}
+            {/* Autorização - Apenas Responsável Legal pode gerar */}
             <div className="flex items-center gap-3">
               {!autorizacaoDiretaUrl ? (
                 <Button
