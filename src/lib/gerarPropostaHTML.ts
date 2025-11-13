@@ -15,6 +15,14 @@ interface DadosFornecedor {
   endereco_comercial: string;
 }
 
+// Função para formatar valores em Real brasileiro
+const formatarMoeda = (valor: number): string => {
+  return valor.toLocaleString('pt-BR', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
+};
+
 export async function gerarPropostaHTML(
   processo: { numero: string; objeto: string },
   fornecedor: DadosFornecedor,
@@ -99,16 +107,16 @@ export async function gerarPropostaHTML(
         <tr>
           <td style="text-align: center;">${item.numero_item}</td>
           <td>${item.descricao}</td>
-          <td style="text-align: center;">${item.quantidade}</td>
+          <td style="text-align: center;">${formatarMoeda(item.quantidade)}</td>
           <td style="text-align: center;">${item.unidade}</td>
           <td style="text-align: center;">${item.marca_ofertada || '-'}</td>
-          <td class="text-right">${item.valor_unitario_ofertado.toFixed(2)}</td>
-          <td class="text-right">${valorItemTotal.toFixed(2)}</td>
+          <td class="text-right">${formatarMoeda(item.valor_unitario_ofertado)}</td>
+          <td class="text-right">${formatarMoeda(valorItemTotal)}</td>
         </tr>`;
         }).join('')}
         <tr class="total">
           <td colspan="6" class="text-right"><strong>VALOR TOTAL DA PROPOSTA:</strong></td>
-          <td class="text-right"><strong>R$ ${valorTotal.toFixed(2)}</strong></td>
+          <td class="text-right"><strong>R$ ${formatarMoeda(valorTotal)}</strong></td>
         </tr>
       </tbody>
     </table>
