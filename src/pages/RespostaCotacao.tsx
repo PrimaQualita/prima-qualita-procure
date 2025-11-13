@@ -267,8 +267,8 @@ const RespostaCotacao = () => {
       
       const pdfBlob = await gerarPropostaPDF(
         {
-          numero: cotacao?.processo_compra?.numero_processo_interno || 'N/A',
-          objeto: cotacao?.processo_compra?.objeto_resumido || 'N/A'
+          numero: processoCompra?.numero_processo_interno || 'N/A',
+          objeto: processoCompra?.objeto_resumido || 'N/A'
         },
         {
           razao_social: dadosEmpresa.razao_social,
