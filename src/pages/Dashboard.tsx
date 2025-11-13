@@ -9,12 +9,16 @@ import primaLogo from "@/assets/prima-qualita-logo.png";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import html2pdf from "html2pdf.js";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const Dashboard = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [contratos, setContratos] = useState<any[]>([]);
   const [processos, setProcessos] = useState<any[]>([]);
+  const [isCompliance, setIsCompliance] = useState(false);
+  const [processosPendentesCompliance, setProcessosPendentesCompliance] = useState(0);
   
   // Filtros Gráfico 1 - Pizza
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear().toString());
@@ -35,7 +39,43 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadData();
+    checkComplianceRole();
   }, []);
+
+  const checkComplianceRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("compliance, responsavel_legal")
+        .eq("id", user.id)
+        .single();
+
+      if (profileData && (profileData.compliance || profileData.responsavel_legal)) {
+        setIsCompliance(true);
+        loadProcessosPendentesCompliance();
+      }
+    } catch (error) {
+      console.error("Erro ao verificar perfil:", error);
+    }
+  };
+
+  const loadProcessosPendentesCompliance = async () => {
+    try {
+      const { count, error } = await supabase
+        .from("cotacoes_precos")
+        .select("*", { count: "exact", head: true })
+        .eq("enviado_compliance", true)
+        .eq("respondido_compliance", false);
+
+      if (error) throw error;
+      setProcessosPendentesCompliance(count || 0);
+    } catch (error) {
+      console.error("Erro ao carregar processos pendentes:", error);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -380,6 +420,16 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        {isCompliance && processosPendentesCompliance > 0 && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Processos Pendentes de Compliance</AlertTitle>
+            <AlertDescription>
+              Você tem {processosPendentesCompliance} processo(s) aguardando análise no menu Compliance.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Gráfico 1 - Pizza */}
           <Card>
