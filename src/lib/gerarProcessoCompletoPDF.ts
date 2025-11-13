@@ -49,7 +49,7 @@ export const gerarProcessoCompletoPDF = async (
           try {
             // Verificar se é PDF
             if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-              console.log(`  ⚠️ Pulando arquivo não-PDF: ${anexo.nome_arquivo}`);
+              console.log(`  ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF. Apenas PDFs podem ser mesclados.`);
               continue;
             }
             
@@ -156,7 +156,21 @@ export const gerarProcessoCompletoPDF = async (
           for (const anexo of anexosFornecedor) {
             try {
               console.log(`    Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
-              const response = await fetch(anexo.url_arquivo);
+              
+              // Gerar URL assinada para bucket cotacao-anexos
+              const urlObj = new URL(anexo.url_arquivo);
+              const storagePath = urlObj.pathname.split('/storage/v1/object/public/cotacao-anexos/')[1];
+              
+              const { data: signedUrlData, error: signedError } = await supabase.storage
+                .from('cotacao-anexos')
+                .createSignedUrl(storagePath, 60);
+              
+              if (signedError || !signedUrlData) {
+                console.error(`    ✗ Erro ao gerar URL assinada: ${signedError?.message}`);
+                continue;
+              }
+              
+              const response = await fetch(signedUrlData.signedUrl);
               if (response.ok) {
                 const arrayBuffer = await response.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(arrayBuffer);
@@ -196,10 +210,15 @@ export const gerarProcessoCompletoPDF = async (
       try {
         console.log(`  Buscando: ${planilha.nome_arquivo}`);
         
-        // Usar storage_path diretamente
+        // Extrair path da URL
+        const urlObj = new URL(planilha.url_arquivo);
+        const storagePath = urlObj.pathname.split('/storage/v1/object/public/documents/')[1];
+        
+        console.log(`  Storage path: ${storagePath}`);
+        
         const { data: signedUrlData, error: signedError } = await supabase.storage
           .from('documents')
-          .createSignedUrl(planilha.storage_path, 60);
+          .createSignedUrl(storagePath, 60);
         
         if (signedError || !signedUrlData) {
           console.error(`  ✗ Erro ao gerar URL assinada para planilha: ${signedError?.message}`);
