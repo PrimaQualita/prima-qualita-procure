@@ -920,15 +920,30 @@ export function DialogPlanilhaConsolidada({
         </html>
       `;
 
-      // Salvar no storage em vez de fazer download direto
-      const blob = new Blob([html], { type: "text/html" });
-      const nomeArquivo = `planilha_consolidada_${cotacaoId}_${Date.now()}.html`;
+      // Gerar PDF usando html2pdf.js
+      const element = document.createElement('div');
+      element.innerHTML = html;
+
+      const opt = {
+        margin: [10, 10, 20, 10],
+        filename: `planilha_consolidada_${cotacaoId}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      // @ts-ignore
+      const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
+
+      // Salvar no storage
+      const nomeArquivo = `planilha_consolidada_${cotacaoId}_${Date.now()}.pdf`;
       const filePath = `${cotacaoId}/${nomeArquivo}`;
 
       const { error: uploadError } = await supabase.storage
         .from("processo-anexos")
-        .upload(filePath, blob, {
-          contentType: "text/html",
+        .upload(filePath, pdfBlob, {
+          contentType: "application/pdf",
           upsert: false
         });
 
