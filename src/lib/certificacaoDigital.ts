@@ -30,11 +30,16 @@ export const adicionarCertificacaoDigital = (
   
   // Desenhar retângulo com fundo cinza claro
   const certBoxY = y - 3;
-  const certBoxHeight = 58;
-  doc.setFillColor(240, 240, 240); // Cinza claro
+  const certBoxHeight = 60;
+  
+  // Fundo cinza
+  doc.setFillColor(245, 245, 245);
+  doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight, 'F');
+  
+  // Borda preta
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.8);
-  doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight, 'FD'); // FD = Fill and Draw
+  doc.setLineWidth(1);
+  doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight);
   
   // Conteúdo da certificação
   doc.setFontSize(10);
@@ -51,12 +56,12 @@ export const adicionarCertificacaoDigital = (
   y += 5;
   
   doc.text(`Hash de Validação: ${dados.hash}`, margemEsquerda + 3, y);
-  y += 7;
+  y += 6;
   
   // Link de verificação com quebra de linha
   doc.setFont('helvetica', 'bold');
   doc.text('Verificar autenticidade em:', margemEsquerda + 3, y);
-  y += 5;
+  y += 4;
   
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 255); // Azul para o link
@@ -69,18 +74,14 @@ export const adicionarCertificacaoDigital = (
     });
   });
   
-  y += linkLinhas.length * 4 + 3;
+  y += linkLinhas.length * 4 + 2;
   
   // Texto legal
-  doc.setTextColor(100, 100, 100); // Cinza
+  doc.setTextColor(80, 80, 80); // Cinza escuro
   doc.setFontSize(8);
-  const textoLegal = doc.splitTextToSize(
-    'Este documento possui certificação digital conforme Lei 14.063/2020',
-    larguraUtil - 6
-  );
-  doc.text(textoLegal, margemEsquerda + 3, y);
+  doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margemEsquerda + 3, y);
   
-  y += textoLegal.length * 3 + 5;
+  y += 6;
   
   return y; // Retorna a posição Y final
 };
