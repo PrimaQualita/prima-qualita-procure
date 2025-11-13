@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, Eye, Download, ChevronRight, ArrowLeft } from "lucide-react";
+import { FileText, Eye, Download, ChevronRight, ArrowLeft, FileCheck } from "lucide-react";
 import { toast } from "sonner";
+import { stripHtml } from "@/lib/htmlUtils";
+import { DialogAnaliseCompliance } from "@/components/compliance/DialogAnaliseCompliance";
 import {
   Table,
   TableBody,
@@ -27,11 +29,10 @@ interface ProcessoCompliance {
   objeto_resumido: string;
   cotacao_id: string;
   titulo_cotacao: string;
+  criterio_julgamento: string;
   data_envio_compliance: string;
   respondido_compliance: boolean;
-  planilha_id: string;
-  planilha_nome: string;
-  planilha_url: string;
+  ano_referencia: number;
 }
 
 export default function Compliance() {
@@ -40,6 +41,8 @@ export default function Compliance() {
   const [processos, setProcessos] = useState<Record<string, ProcessoCompliance[]>>({});
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
+  const [analiseDialogOpen, setAnaliseDialogOpen] = useState(false);
+  const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoCompliance | null>(null);
 
   useEffect(() => {
     loadData();
@@ -63,16 +66,13 @@ export default function Compliance() {
           numero_processo_interno,
           objeto_resumido,
           contrato_gestao_id,
+          ano_referencia,
           cotacoes_precos!inner (
             id,
             titulo_cotacao,
+            criterio_julgamento,
             data_envio_compliance,
-            respondido_compliance,
-            planilhas_consolidadas (
-              id,
-              nome_arquivo,
-              url_arquivo
-            )
+            respondido_compliance
           )
         `)
         .eq("cotacoes_precos.enviado_compliance", true);
@@ -86,23 +86,20 @@ export default function Compliance() {
         const contratoId = processo.contrato_gestao_id;
         
         processo.cotacoes_precos?.forEach((cotacao: any) => {
-          cotacao.planilhas_consolidadas?.forEach((planilha: any) => {
-            if (!processosAgrupados[contratoId]) {
-              processosAgrupados[contratoId] = [];
-            }
-            
-            processosAgrupados[contratoId].push({
-              id: processo.id,
-              numero_processo_interno: processo.numero_processo_interno,
-              objeto_resumido: processo.objeto_resumido,
-              cotacao_id: cotacao.id,
-              titulo_cotacao: cotacao.titulo_cotacao,
-              data_envio_compliance: cotacao.data_envio_compliance,
-              respondido_compliance: cotacao.respondido_compliance,
-              planilha_id: planilha.id,
-              planilha_nome: planilha.nome_arquivo,
-              planilha_url: planilha.url_arquivo,
-            });
+          if (!processosAgrupados[contratoId]) {
+            processosAgrupados[contratoId] = [];
+          }
+          
+          processosAgrupados[contratoId].push({
+            id: processo.id,
+            numero_processo_interno: processo.numero_processo_interno,
+            objeto_resumido: processo.objeto_resumido,
+            cotacao_id: cotacao.id,
+            titulo_cotacao: cotacao.titulo_cotacao,
+            criterio_julgamento: cotacao.criterio_julgamento,
+            data_envio_compliance: cotacao.data_envio_compliance,
+            respondido_compliance: cotacao.respondido_compliance,
+            ano_referencia: processo.ano_referencia,
           });
         });
       });
@@ -117,53 +114,9 @@ export default function Compliance() {
     }
   };
 
-  const handleVisualizarPlanilha = async (processo: ProcessoCompliance) => {
-    try {
-      let filePath = processo.planilha_url;
-      if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
-        filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
-      }
-
-      const { data, error } = await supabase.storage
-        .from("processo-anexos")
-        .createSignedUrl(filePath, 3600);
-
-      if (error) throw error;
-      if (!data?.signedUrl) throw new Error("Erro ao gerar URL de visualização");
-
-      window.open(data.signedUrl, "_blank");
-    } catch (error: any) {
-      console.error("Erro ao visualizar planilha:", error);
-      toast.error("Erro ao visualizar planilha: " + error.message);
-    }
-  };
-
-  const handleBaixarPlanilha = async (processo: ProcessoCompliance) => {
-    try {
-      let filePath = processo.planilha_url;
-      if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
-        filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
-      }
-
-      const { data, error } = await supabase.storage
-        .from("processo-anexos")
-        .createSignedUrl(filePath, 3600);
-
-      if (error) throw error;
-      if (!data?.signedUrl) throw new Error("Erro ao gerar URL de download");
-
-      const link = document.createElement("a");
-      link.href = data.signedUrl;
-      link.download = processo.planilha_nome;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast.success("Download iniciado!");
-    } catch (error: any) {
-      console.error("Erro ao baixar planilha:", error);
-      toast.error("Erro ao baixar planilha: " + error.message);
-    }
+  const abrirAnaliseCompliance = (processo: ProcessoCompliance) => {
+    setProcessoSelecionado(processo);
+    setAnaliseDialogOpen(true);
   };
 
   const formatarData = (data: string) => {
@@ -286,18 +239,17 @@ export default function Compliance() {
                       <TableHead>Cotação</TableHead>
                       <TableHead>Data Envio</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Planilha</TableHead>
                       <TableHead className="text-center">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {processos[contratoSelecionado.id].map((processo) => (
-                      <TableRow key={`${processo.id}-${processo.planilha_id}`}>
+                      <TableRow key={`${processo.id}-${processo.cotacao_id}`}>
                         <TableCell className="font-medium">
-                          {processo.numero_processo_interno}
+                          {processo.numero_processo_interno}/{processo.ano_referencia}
                         </TableCell>
-                        <TableCell className="max-w-xs truncate">
-                          {processo.objeto_resumido}
+                        <TableCell className="max-w-md">
+                          {stripHtml(processo.objeto_resumido)}
                         </TableCell>
                         <TableCell>{processo.titulo_cotacao}</TableCell>
                         <TableCell>
@@ -310,26 +262,31 @@ export default function Compliance() {
                             <Badge variant="destructive">Pendente</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="max-w-xs truncate">
-                          {processo.planilha_nome}
-                        </TableCell>
                         <TableCell>
-                          <div className="flex gap-2 justify-center">
+                          <div className="flex gap-2 justify-center flex-wrap">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleVisualizarPlanilha(processo)}
+                              onClick={() => toast.info("Em desenvolvimento")}
                             >
                               <Eye className="h-4 w-4 mr-2" />
-                              Visualizar
+                              Visualizar Processo
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleBaixarPlanilha(processo)}
+                              onClick={() => toast.info("Em desenvolvimento")}
                             >
                               <Download className="h-4 w-4 mr-2" />
-                              Baixar
+                              Baixar Processo
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => abrirAnaliseCompliance(processo)}
+                            >
+                              <FileCheck className="h-4 w-4 mr-2" />
+                              Gerar Análise
                             </Button>
                           </div>
                         </TableCell>
@@ -344,6 +301,18 @@ export default function Compliance() {
               )}
             </CardContent>
           </Card>
+        )}
+
+        {processoSelecionado && (
+          <DialogAnaliseCompliance
+            open={analiseDialogOpen}
+            onOpenChange={setAnaliseDialogOpen}
+            processoId={processoSelecionado.id}
+            cotacaoId={processoSelecionado.cotacao_id}
+            numeroProcesso={`${processoSelecionado.numero_processo_interno}/${processoSelecionado.ano_referencia}`}
+            objetoDescricao={stripHtml(processoSelecionado.objeto_resumido)}
+            criterioJulgamento={processoSelecionado.criterio_julgamento}
+          />
         )}
       </div>
     </div>
