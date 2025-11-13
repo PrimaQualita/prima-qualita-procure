@@ -10,8 +10,9 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send } from "lucide-react";
+import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { gerarEncaminhamentoPDF } from '@/lib/gerarEncaminhamentoPDF';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -75,6 +76,8 @@ export function DialogRespostasCotacao({
   const [planilhaGerada, setPlanilhaGerada] = useState<any>(null);
   const [gerandoPlanilha, setGerandoPlanilha] = useState(false);
   const [enviandoCompliance, setEnviandoCompliance] = useState(false);
+  const [encaminhamento, setEncaminhamento] = useState<any>(null);
+  const [gerandoEncaminhamento, setGerandoEncaminhamento] = useState(false);
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -104,29 +107,105 @@ export function DialogRespostasCotacao({
   };
 
   const enviarAoCompliance = async () => {
-    if (!planilhaGerada) return;
-    
-    setEnviandoCompliance(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      setEnviandoCompliance(true);
       
       const { error } = await supabase
-        .from("cotacoes_precos")
-        .update({
+        .from('cotacoes_precos')
+        .update({ 
           enviado_compliance: true,
-          data_envio_compliance: new Date().toISOString(),
+          data_envio_compliance: new Date().toISOString()
         })
-        .eq("id", cotacaoId);
+        .eq('id', cotacaoId);
 
       if (error) throw error;
 
-      toast.success("Processo enviado ao Compliance com sucesso!");
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error("Erro ao enviar ao compliance:", error);
-      toast.error("Erro ao enviar ao compliance: " + error.message);
+      toast.success("Enviado ao Compliance com sucesso!");
+      onClose();
+    } catch (error) {
+      console.error('Erro ao enviar ao Compliance:', error);
+      toast.error("Erro ao enviar ao Compliance");
     } finally {
       setEnviandoCompliance(false);
+    }
+  };
+
+  const gerarEncaminhamento = async () => {
+    if (!numeroProcesso || !objetoProcesso) {
+      toast.error("Informações do processo não encontradas");
+      return;
+    }
+
+    try {
+      setGerandoEncaminhamento(true);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      const { data: perfil, error: perfilError } = await supabase
+        .from('perfis')
+        .select('nome_completo, cpf')
+        .eq('user_id', user.id)
+        .single();
+
+      if (perfilError || !perfil) {
+        toast.error("Perfil não encontrado");
+        return;
+      }
+
+      const resultado = await gerarEncaminhamentoPDF(
+        numeroProcesso,
+        objetoProcesso,
+        perfil.nome_completo,
+        perfil.cpf
+      );
+
+      const { error: saveError } = await supabase
+        .from('encaminhamentos_processo')
+        .insert({
+          cotacao_id: cotacaoId,
+          processo_numero: numeroProcesso,
+          protocolo: resultado.protocolo,
+          storage_path: resultado.storagePath,
+          url: resultado.url,
+          gerado_por: user.id
+        });
+
+      if (saveError) {
+        console.error('Erro ao salvar encaminhamento:', saveError);
+      }
+
+      setEncaminhamento(resultado);
+      toast.success("Encaminhamento gerado com sucesso!");
+    } catch (error) {
+      console.error('Erro ao gerar encaminhamento:', error);
+      toast.error("Erro ao gerar encaminhamento");
+    } finally {
+      setGerandoEncaminhamento(false);
+    }
+  };
+
+  const excluirEncaminhamento = async () => {
+    if (!encaminhamento) return;
+
+    try {
+      await supabase.storage
+        .from('processo-anexos')
+        .remove([encaminhamento.storagePath]);
+
+      await supabase
+        .from('encaminhamentos_processo')
+        .delete()
+        .eq('protocolo', encaminhamento.protocolo);
+
+      setEncaminhamento(null);
+      toast.success("Encaminhamento excluído");
+    } catch (error) {
+      console.error('Erro ao excluir encaminhamento:', error);
+      toast.error("Erro ao excluir encaminhamento");
     }
   };
 
@@ -671,11 +750,58 @@ export function DialogRespostasCotacao({
               )}
               
               {planilhaGerada && (
-                <div className="mt-6 pt-6 border-t">
-                  <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="w-full">
-                    <Send className="mr-2 h-4 w-4" />
-                    {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
-                  </Button>
+                <div className="mt-6 pt-6 border-t space-y-4">
+                  <div className="flex gap-2">
+                    <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="flex-1">
+                      <Send className="mr-2 h-4 w-4" />
+                      {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                    </Button>
+                    <Button onClick={gerarEncaminhamento} disabled={gerandoEncaminhamento} className="flex-1">
+                      <FileText className="mr-2 h-4 w-4" />
+                      {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
+                    </Button>
+                  </div>
+
+                  {encaminhamento && (
+                    <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Encaminhamento Gerado</span>
+                        <span className="text-xs text-muted-foreground">Protocolo: {encaminhamento.protocolo}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(encaminhamento.url, '_blank')}
+                          className="flex-1"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Visualizar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = encaminhamento.url;
+                            link.download = encaminhamento.fileName;
+                            link.click();
+                          }}
+                          className="flex-1"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Baixar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={excluirEncaminhamento}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
