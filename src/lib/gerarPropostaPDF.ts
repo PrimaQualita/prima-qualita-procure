@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
 import { v4 as uuidv4 } from 'uuid';
+import { stripHtml } from './htmlUtils';
 
 interface ItemProposta {
   numero_item: number;
@@ -135,7 +136,8 @@ export async function gerarPropostaPDF(
     
     // Descrição (justificada)
     const descricaoMaxWidth = 60;
-    const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
+    const descricaoLimpa = stripHtml(item.descricao);
+    const descricaoLines = doc.splitTextToSize(descricaoLimpa, descricaoMaxWidth);
     doc.text(descricaoLines[0], margemEsquerda + 10, y, { align: 'justify' });
     
     // Quantidade (centralizada)
