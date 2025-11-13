@@ -273,7 +273,7 @@ export function DialogPlanilhaConsolidada({
           <title>Planilha Consolidada</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; padding: 15px; padding-bottom: 50px; }
+            body { font-family: Arial, sans-serif; padding: 15px; }
             .logo-container { text-align: center; margin-bottom: 15px; }
             .logo-container img { max-width: 180px; height: auto; }
             h1 { 
@@ -350,17 +350,13 @@ export function DialogPlanilhaConsolidada({
               font-size: 8px;
             }
             .rodape {
-              position: fixed;
-              bottom: 5mm;
-              left: 0;
-              right: 0;
-              padding: 8px 15px;
+              margin-top: 30px;
+              padding-top: 10px;
               border-top: 2px solid #0ea5e9;
               text-align: center;
               font-size: 9px;
               color: #475569;
               line-height: 1.4;
-              background-color: white;
             }
             .rodape strong {
               color: #0f172a;
@@ -955,17 +951,16 @@ export function DialogPlanilhaConsolidada({
       element.innerHTML = html;
 
       const opt = {
-        margin: [5, 5, 15, 5],
+        margin: [5, 5, 5, 5],
         filename: `planilha_consolidada_${cotacaoId}.pdf`,
         image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { 
-          scale: 2, 
-          useCORS: true, 
+          scale: 2,
+          useCORS: true,
           letterRendering: true,
           logging: false,
           scrollY: 0,
-          scrollX: 0,
-          windowHeight: document.documentElement.scrollHeight
+          scrollX: 0
         },
         jsPDF: { 
           unit: 'mm', 
@@ -974,8 +969,7 @@ export function DialogPlanilhaConsolidada({
           compress: true
         },
         pagebreak: { 
-          mode: ['avoid-all', 'css', 'legacy'],
-          avoid: '.rodape'
+          mode: ['avoid-all', 'css', 'legacy']
         }
       };
 

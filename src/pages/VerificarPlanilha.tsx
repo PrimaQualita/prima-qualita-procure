@@ -39,9 +39,6 @@ export default function VerificarPlanilha() {
                 nome_contrato
               )
             )
-          ),
-          profiles!planilhas_consolidadas_usuario_gerador_id_fkey(
-            nome_completo
           )
         `)
         .eq("protocolo", protocolo.trim())
@@ -161,10 +158,7 @@ export default function VerificarPlanilha() {
                   </p>
                 </div>
 
-                <div>
-                  <p className="text-sm font-semibold text-gray-600">Gerado por</p>
-                  <p className="text-sm">{resultado.dados.profiles?.nome_completo || "Sistema"}</p>
-                </div>
+                {/* Gerador removido temporariamente até tipos serem atualizados */}
 
                 <div>
                   <p className="text-sm font-semibold text-gray-600">Contrato de Gestão</p>
