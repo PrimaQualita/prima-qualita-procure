@@ -88,19 +88,17 @@ export function DialogAnexosProcesso({
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("processo-anexos")
-        .getPublicUrl(fileName);
+      // Get file path (relative path within bucket)
+      const filePath = fileName;
 
-      // Save to database
+      // Save to database (armazena apenas o caminho relativo)
       const { error: dbError } = await supabase
         .from("anexos_processo_compra")
         .insert({
           processo_compra_id: processoId,
           tipo_anexo: tipo,
           nome_arquivo: file.name,
-          url_arquivo: publicUrl,
+          url_arquivo: filePath,
           usuario_upload_id: user.id,
         });
 
@@ -121,8 +119,16 @@ export function DialogAnexosProcesso({
 
   const handleDownload = async (anexo: AnexoProcesso) => {
     try {
+      // Gera URL assinada temporária para bucket privado
+      const { data, error } = await supabase.storage
+        .from("processo-anexos")
+        .createSignedUrl(anexo.url_arquivo, 3600); // URL válida por 1 hora
+
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error("Erro ao gerar URL de download");
+
       const link = document.createElement("a");
-      link.href = anexo.url_arquivo;
+      link.href = data.signedUrl;
       link.download = anexo.nome_arquivo;
       link.click();
     } catch (error: any) {
@@ -138,13 +144,10 @@ export function DialogAnexosProcesso({
     if (!confirm("Deseja realmente excluir este anexo?")) return;
 
     try {
-      // Delete from storage
-      const fileName = anexo.url_arquivo.split("/").pop();
-      if (fileName) {
-        await supabase.storage
-          .from("processo-anexos")
-          .remove([`${processoId}/${fileName}`]);
-      }
+      // Delete from storage (url_arquivo já é o caminho relativo)
+      await supabase.storage
+        .from("processo-anexos")
+        .remove([anexo.url_arquivo]);
 
       // Delete from database
       const { error } = await supabase
