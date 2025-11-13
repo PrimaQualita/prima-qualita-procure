@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet, AlertCircle, FileText } from "lucide-react";
 import { toast } from "sonner";
@@ -72,6 +73,9 @@ interface ItemCotacao {
 const Cotacoes = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [loadingProcessos, setLoadingProcessos] = useState(false);
+  const [loadingCotacoes, setLoadingCotacoes] = useState(false);
+  const [loadingItens, setLoadingItens] = useState(false);
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
   const [processos, setProcessos] = useState<Processo[]>([]);
@@ -114,8 +118,12 @@ const Cotacoes = () => {
   });
 
   useEffect(() => {
-    checkAuth();
-    loadContratos();
+    const init = async () => {
+      await checkAuth();
+      await loadContratos();
+      setLoading(false);
+    };
+    init();
   }, []);
 
   useEffect(() => {
@@ -132,10 +140,7 @@ const Cotacoes = () => {
 
   useEffect(() => {
     if (cotacaoSelecionada) {
-      loadItens(cotacaoSelecionada.id);
-      loadLotes(cotacaoSelecionada.id);
-      loadAutorizacoes(cotacaoSelecionada.id);
-      loadEmailsAnexados(cotacaoSelecionada.id);
+      loadItensAndRelated(cotacaoSelecionada.id);
       setCriterioJulgamento(cotacaoSelecionada.criterio_julgamento);
     }
   }, [cotacaoSelecionada]);
@@ -157,7 +162,6 @@ const Cotacoes = () => {
     setIsResponsavelLegal(profile?.responsavel_legal || false);
     setUsuarioNome(profile?.nome_completo || '');
     setUsuarioCpf(profile?.cpf || '');
-    setLoading(false);
   };
 
   const loadContratos = async () => {
@@ -175,6 +179,7 @@ const Cotacoes = () => {
   };
 
   const loadProcessos = async (contratoId: string) => {
+    setLoadingProcessos(true);
     const { data, error } = await supabase
       .from("processos_compras")
       .select("*")
@@ -188,9 +193,11 @@ const Cotacoes = () => {
     } else {
       setProcessos(data || []);
     }
+    setLoadingProcessos(false);
   };
 
   const loadCotacoes = async (processoId: string) => {
+    setLoadingCotacoes(true);
     console.log("Carregando cotações para processo:", processoId);
     const { data, error } = await supabase
       .from("cotacoes_precos")
@@ -210,6 +217,19 @@ const Cotacoes = () => {
         criterio_julgamento: (c.criterio_julgamento || processo?.criterio_julgamento || 'global') as 'por_item' | 'global' | 'por_lote'
       })));
     }
+    setLoadingCotacoes(false);
+  };
+
+  const loadItensAndRelated = async (cotacaoId: string) => {
+    setLoadingItens(true);
+    // Carregar tudo em paralelo para ser mais rápido
+    await Promise.all([
+      loadItens(cotacaoId),
+      loadLotes(cotacaoId),
+      loadAutorizacoes(cotacaoId),
+      loadEmailsAnexados(cotacaoId)
+    ]);
+    setLoadingItens(false);
   };
 
   const loadLotes = async (cotacaoId: string) => {
@@ -809,45 +829,59 @@ const Cotacoes = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nº Processo</TableHead>
-                    <TableHead>Objeto</TableHead>
-                    <TableHead className="text-right">Valor Estimado</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {processos.length === 0 ? (
+              {loadingProcessos ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-full max-w-md" />
+                      </div>
+                      <Skeleton className="h-9 w-32" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
-                        Nenhum processo que requer cotação encontrado neste contrato
-                      </TableCell>
+                      <TableHead>Nº Processo</TableHead>
+                      <TableHead>Objeto</TableHead>
+                      <TableHead className="text-right">Valor Estimado</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
-                  ) : (
-                    processos.map((processo) => (
-                      <TableRow key={processo.id}>
-                        <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
-                        <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
-                        <TableCell className="text-right">
-                          R$ {processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setProcessoSelecionado(processo)}
-                          >
-                            <ChevronRight className="h-4 w-4 mr-2" />
-                            Ver Cotações
-                          </Button>
+                  </TableHeader>
+                  <TableBody>
+                    {processos.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          Nenhum processo que requer cotação encontrado neste contrato
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      processos.map((processo) => (
+                        <TableRow key={processo.id}>
+                          <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
+                          <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
+                          <TableCell className="text-right">
+                            R$ {processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setProcessoSelecionado(processo)}
+                            >
+                              <ChevronRight className="h-4 w-4 mr-2" />
+                              Ver Cotações
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         )}
