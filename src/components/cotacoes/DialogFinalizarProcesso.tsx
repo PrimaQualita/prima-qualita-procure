@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarAutorizacaoCompraDireta } from "@/lib/gerarAutorizacaoPDF";
 import { gerarRelatorioFinal } from "@/lib/gerarRelatorioFinalPDF";
+import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
 
 interface FornecedorVencedor {
   razaoSocial: string;
@@ -102,6 +103,10 @@ export function DialogFinalizarProcesso({
   const [fornecedorParaRejeitar, setFornecedorParaRejeitar] = useState<string | null>(null);
   const [fornecedoresRejeitadosDB, setFornecedoresRejeitadosDB] = useState<any[]>([]);
   const [recursosRecebidos, setRecursosRecebidos] = useState<any[]>([]);
+  const [recursoSelecionado, setRecursoSelecionado] = useState<string | null>(null);
+  const [dialogRespostaRecursoOpen, setDialogRespostaRecursoOpen] = useState(false);
+  const [decisaoRecurso, setDecisaoRecurso] = useState<'provimento' | 'negado' | null>(null);
+  const [textoRespostaRecurso, setTextoRespostaRecurso] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -1571,41 +1576,56 @@ export function DialogFinalizarProcesso({
                       <p className="text-xs text-muted-foreground">
                         Enviado em: {new Date(recurso.data_envio).toLocaleString('pt-BR')}
                       </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            // Extrair apenas o path se vier URL completa
-                            let filePath = recurso.url_arquivo;
-                            if (filePath.includes('https://')) {
-                              const urlParts = filePath.split('/processo-anexos/');
-                              filePath = urlParts[1] || filePath;
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              let filePath = recurso.url_arquivo;
+                              if (filePath.includes('https://')) {
+                                const urlParts = filePath.split('/processo-anexos/');
+                                filePath = urlParts[1] || filePath;
+                              }
+                              
+                              const { data, error } = await supabase.storage
+                                .from('processo-anexos')
+                                .createSignedUrl(filePath, 3600);
+                              
+                              if (error) throw error;
+                              if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                            } catch (error) {
+                              console.error('Erro ao gerar URL:', error);
+                              toast.error('Erro ao visualizar recurso');
                             }
-                            
-                            console.log('Gerando URL assinada para:', filePath);
-                            
-                            const { data, error } = await supabase.storage
-                              .from('processo-anexos')
-                              .createSignedUrl(filePath, 3600);
-                            
-                            if (error) {
-                              console.error('Erro ao criar signed URL:', error);
-                              throw error;
-                            }
-                            
-                            if (data?.signedUrl) {
-                              window.open(data.signedUrl, '_blank');
-                            }
-                          } catch (error) {
-                            console.error('Erro ao gerar URL:', error);
-                            toast.error('Erro ao visualizar recurso');
-                          }
-                        }}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Visualizar Recurso: {recurso.nome_arquivo}
-                      </Button>
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Visualizar: {recurso.nome_arquivo}
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            setRecursoSelecionado(recurso.id);
+                            setDecisaoRecurso('provimento');
+                            setDialogRespostaRecursoOpen(true);
+                          }}
+                        >
+                          Dar Provimento
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setRecursoSelecionado(recurso.id);
+                            setDecisaoRecurso('negado');
+                            setDialogRespostaRecursoOpen(true);
+                          }}
+                        >
+                          Negar Provimento
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -1768,6 +1788,123 @@ export function DialogFinalizarProcesso({
                 disabled={!fornecedorParaRejeitar || !motivoRejeicaoFornecedor[fornecedorParaRejeitar]?.trim()}
               >
                 Confirmar Rejeição
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de Resposta de Recurso */}
+        <Dialog open={dialogRespostaRecursoOpen} onOpenChange={(open) => {
+          setDialogRespostaRecursoOpen(open);
+          if (!open) {
+            setRecursoSelecionado(null);
+            setDecisaoRecurso(null);
+            setTextoRespostaRecurso("");
+          }
+        }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {decisaoRecurso === 'provimento' ? '✅ Dar Provimento ao Recurso' : '❌ Negar Provimento ao Recurso'}
+              </DialogTitle>
+              <DialogDescription>
+                Escreva a fundamentação da decisão. Será gerado um documento oficial com certificação digital.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="texto-resposta">Fundamentação *</Label>
+                <Textarea
+                  id="texto-resposta"
+                  placeholder="Descreva a fundamentação da decisão..."
+                  value={textoRespostaRecurso}
+                  onChange={(e) => setTextoRespostaRecurso(e.target.value)}
+                  rows={10}
+                  className="min-h-[200px]"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogRespostaRecursoOpen(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={async () => {
+                  if (!recursoSelecionado || !decisaoRecurso || !textoRespostaRecurso.trim()) {
+                    toast.error("Preencha a fundamentação da decisão");
+                    return;
+                  }
+
+                  setLoading(true);
+                  try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) throw new Error("Usuário não autenticado");
+
+                    const { data: perfil, error: perfilError } = await supabase
+                      .from('perfis' as any)
+                      .select('nome_completo, cpf')
+                      .eq('user_id', user.id)
+                      .single();
+
+                    if (perfilError || !perfil) throw new Error("Perfil não encontrado");
+
+                    const { data: cotacao, error: cotacaoError } = await supabase
+                      .from('cotacoes_precos')
+                      .select(`
+                        id,
+                        processos_compras!inner(numero_processo)
+                      `)
+                      .eq('id', cotacaoId)
+                      .single();
+
+                    if (cotacaoError) throw cotacaoError;
+
+                    const numeroProcesso = (cotacao as any)?.processos_compras?.numero_processo || '';
+
+                    const recurso = recursosRecebidos.find(r => r.id === recursoSelecionado);
+                    const fornecedorNome = recurso?.fornecedores?.razao_social || '';
+
+                    const pdfResult = await gerarRespostaRecursoPDF(
+                      decisaoRecurso,
+                      textoRespostaRecurso,
+                      (perfil as any).nome_completo,
+                      (perfil as any).cpf,
+                      fornecedorNome,
+                      numeroProcesso
+                    );
+
+                    const { error: insertError } = await supabase
+                      .from('respostas_recursos')
+                      .insert({
+                        recurso_id: recursoSelecionado,
+                        decisao: decisaoRecurso,
+                        texto_resposta: textoRespostaRecurso,
+                        url_documento: pdfResult.url,
+                        nome_arquivo: pdfResult.fileName,
+                        protocolo: pdfResult.protocolo,
+                        usuario_respondeu_id: user.id
+                      });
+
+                    if (insertError) throw insertError;
+
+                    toast.success("Resposta de recurso gerada com sucesso!");
+                    setDialogRespostaRecursoOpen(false);
+                    setRecursoSelecionado(null);
+                    setDecisaoRecurso(null);
+                    setTextoRespostaRecurso("");
+                    await loadRecursos();
+                  } catch (error) {
+                    console.error('Erro ao gerar resposta:', error);
+                    toast.error('Erro ao gerar resposta de recurso');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={!textoRespostaRecurso.trim() || loading}
+              >
+                {decisaoRecurso === 'provimento' ? 'Dar Provimento' : 'Negar Provimento'}
               </Button>
             </DialogFooter>
           </DialogContent>

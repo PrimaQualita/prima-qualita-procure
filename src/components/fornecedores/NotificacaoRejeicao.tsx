@@ -21,6 +21,13 @@ interface Rejeicao {
       numero_processo_interno: string;
     };
   };
+  resposta_recurso?: {
+    decisao: string;
+    texto_resposta: string;
+    url_documento: string;
+    nome_arquivo: string;
+    data_resposta: string;
+  };
 }
 
 export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) {
@@ -56,9 +63,11 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
         return;
       }
 
-      // Buscar dados das cotações separadamente
+      // Buscar dados das cotações e recursos/respostas separadamente
       if (data && data.length > 0) {
+        const rejeicaoIds = data.map(r => r.id);
         const cotacaoIds = data.map(r => r.cotacao_id);
+        
         const { data: cotacoes, error: cotacoesError } = await supabase
           .from('cotacoes_precos')
           .select(`
@@ -70,22 +79,43 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
           `)
           .in('id', cotacaoIds);
 
+        // Buscar recursos e suas respostas
+        const { data: recursos, error: recursosError } = await supabase
+          .from('recursos_fornecedor')
+          .select(`
+            id,
+            rejeicao_id,
+            respostas_recursos (
+              decisao,
+              texto_resposta,
+              url_documento,
+              nome_arquivo,
+              data_resposta
+            )
+          `)
+          .in('rejeicao_id', rejeicaoIds);
+
         if (cotacoesError) {
           console.error('Erro ao carregar cotações:', cotacoesError);
-          setRejeicoes(data as any);
-          return;
+        }
+        if (recursosError) {
+          console.error('Erro ao carregar recursos:', recursosError);
         }
 
         // Combinar dados
-        const rejeicoesComCotacoes = data.map(rejeicao => {
+        const rejeicoesComDados = data.map(rejeicao => {
           const cotacao = cotacoes?.find(c => c.id === rejeicao.cotacao_id);
+          const recurso = recursos?.find(r => r.rejeicao_id === rejeicao.id);
+          const respostaRecurso = (recurso as any)?.respostas_recursos?.[0] || null;
+          
           return {
             ...rejeicao,
-            cotacoes_precos: cotacao || null
+            cotacoes_precos: cotacao || null,
+            resposta_recurso: respostaRecurso
           };
         });
 
-        setRejeicoes(rejeicoesComCotacoes as any);
+        setRejeicoes(rejeicoesComDados as any);
       }
     } catch (error) {
       console.error('Erro ao carregar rejeições:', error);
@@ -475,13 +505,103 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
               </div>
             )}
 
-            {rejeicao.status_recurso === 'recurso_deferido' && (
+            {/* Resposta do Recurso */}
+            {rejeicao.resposta_recurso && (
+              <div className="space-y-4 border-t pt-4 mt-4 bg-muted/50 p-4 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-lg">📋 Resposta do Departamento de Compras</h4>
+                  <Badge variant={rejeicao.resposta_recurso.decisao === 'provimento' ? 'default' : 'destructive'}>
+                    {rejeicao.resposta_recurso.decisao === 'provimento' ? '✅ PROVIMENTO CONCEDIDO' : '❌ PROVIMENTO NEGADO'}
+                  </Badge>
+                </div>
+                
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Data da Resposta:</strong> {new Date(rejeicao.resposta_recurso.data_resposta).toLocaleString('pt-BR')}
+                  </p>
+                  
+                  <div>
+                    <Label className="text-sm font-semibold">Fundamentação:</Label>
+                    <p className="text-sm mt-1 whitespace-pre-wrap border-l-4 border-primary pl-3">
+                      {rejeicao.resposta_recurso.texto_resposta}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        let filePath = rejeicao.resposta_recurso?.url_documento || '';
+                        if (filePath.includes('https://')) {
+                          const urlParts = filePath.split('/processo-anexos/');
+                          filePath = urlParts[1] || filePath;
+                        }
+                        
+                        const { data, error } = await supabase.storage
+                          .from('processo-anexos')
+                          .createSignedUrl(filePath, 3600);
+                        
+                        if (error) throw error;
+                        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                      } catch (error) {
+                        console.error('Erro ao visualizar:', error);
+                        toast.error('Erro ao visualizar documento');
+                      }
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Visualizar Documento Oficial
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        let filePath = rejeicao.resposta_recurso?.url_documento || '';
+                        if (filePath.includes('https://')) {
+                          const urlParts = filePath.split('/processo-anexos/');
+                          filePath = urlParts[1] || filePath;
+                        }
+                        
+                        const { data, error } = await supabase.storage
+                          .from('processo-anexos')
+                          .download(filePath);
+                        
+                        if (error) throw error;
+                        
+                        if (data) {
+                          const url = URL.createObjectURL(data);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = rejeicao.resposta_recurso?.nome_arquivo || 'resposta_recurso.pdf';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }
+                      } catch (error) {
+                        console.error('Erro ao baixar:', error);
+                        toast.error('Erro ao baixar documento');
+                      }
+                    }}
+                  >
+                    Baixar Documento
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {rejeicao.status_recurso === 'recurso_deferido' && !rejeicao.resposta_recurso && (
               <Badge variant="outline" className="w-fit bg-green-50">
                 Recurso Deferido
               </Badge>
             )}
 
-            {rejeicao.status_recurso === 'recurso_indeferido' && (
+            {rejeicao.status_recurso === 'recurso_indeferido' && !rejeicao.resposta_recurso && (
               <Badge variant="destructive" className="w-fit">
                 Recurso Indeferido
               </Badge>

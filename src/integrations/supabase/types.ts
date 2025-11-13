@@ -1303,6 +1303,53 @@ export type Database = {
           },
         ]
       }
+      respostas_recursos: {
+        Row: {
+          created_at: string
+          data_resposta: string
+          decisao: string
+          id: string
+          nome_arquivo: string
+          protocolo: string
+          recurso_id: string
+          texto_resposta: string
+          url_documento: string
+          usuario_respondeu_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_resposta?: string
+          decisao: string
+          id?: string
+          nome_arquivo: string
+          protocolo: string
+          recurso_id: string
+          texto_resposta: string
+          url_documento: string
+          usuario_respondeu_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_resposta?: string
+          decisao?: string
+          id?: string
+          nome_arquivo?: string
+          protocolo?: string
+          recurso_id?: string
+          texto_resposta?: string
+          url_documento?: string
+          usuario_respondeu_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "respostas_recursos_recurso_id_fkey"
+            columns: ["recurso_id"]
+            isOneToOne: false
+            referencedRelation: "recursos_fornecedor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       selecao_fornecedor_convites: {
         Row: {
           created_at: string | null
