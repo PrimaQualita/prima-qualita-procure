@@ -30,10 +30,10 @@ export const adicionarCertificacaoDigital = (
   
   // Desenhar retângulo com fundo cinza claro
   const certBoxY = y - 3;
-  const certBoxHeight = 55;
-  doc.setFillColor(245, 245, 245); // Cinza claro
+  const certBoxHeight = 58;
+  doc.setFillColor(240, 240, 240); // Cinza claro
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.8);
   doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight, 'FD'); // FD = Fill and Draw
   
   // Conteúdo da certificação
