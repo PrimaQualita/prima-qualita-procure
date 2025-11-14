@@ -33,6 +33,39 @@ export const adicionarCertificacaoDigital = (
   let y = yInicial;
   const yInicioCertificacao = y;
   
+  // Primeiro, calcular toda a altura do conteúdo
+  let yTemp = y + 6; // Título
+  yTemp += 7; // Espaço após título
+  yTemp += 5; // Protocolo
+  yTemp += 5; // Data/Hora
+  
+  const responsavelText = doc.splitTextToSize(`Responsável pela Geração: ${dados.responsavel} - CPF: ${dados.cpf}`, larguraUtil - 6);
+  yTemp += responsavelText.length * 5;
+  
+  const hashText = doc.splitTextToSize(`Hash de Validação: ${dados.hash}`, larguraUtil - 6);
+  yTemp += hashText.length * 5 + 1;
+  
+  yTemp += 4; // "Verificar autenticidade em:"
+  
+  const linkLinhas = doc.splitTextToSize(dados.linkVerificacao, larguraUtil - 6);
+  yTemp += linkLinhas.length * 4 + 1;
+  
+  yTemp += 3; // Texto legal
+  yTemp += 3; // Margem final
+  
+  const alturaConteudo = yTemp - yInicioCertificacao;
+  
+  // Desenhar retângulo ANTES do texto
+  // Fundo cinza
+  doc.setFillColor(245, 245, 245);
+  doc.rect(margemEsquerda, yInicioCertificacao, larguraUtil, alturaConteudo, 'F');
+  
+  // Borda preta
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(margemEsquerda, yInicioCertificacao, larguraUtil, alturaConteudo, 'S');
+  
+  // Agora desenhar o texto POR CIMA
   // Título da certificação
   y += 6;
   doc.setFontSize(12);
@@ -53,11 +86,9 @@ export const adicionarCertificacaoDigital = (
   doc.text(`Data/Hora de Geração: ${dados.dataHora}`, margemEsquerda + 3, y);
   y += 5;
   
-  const responsavelText = doc.splitTextToSize(`Responsável pela Geração: ${dados.responsavel} - CPF: ${dados.cpf}`, larguraUtil - 6);
   doc.text(responsavelText, margemEsquerda + 3, y);
   y += responsavelText.length * 5;
   
-  const hashText = doc.splitTextToSize(`Hash de Validação: ${dados.hash}`, larguraUtil - 6);
   doc.text(hashText, margemEsquerda + 3, y);
   y += hashText.length * 5 + 1;
   
@@ -69,8 +100,6 @@ export const adicionarCertificacaoDigital = (
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 255); // Azul para o link
   
-  // Quebrar o link em múltiplas linhas se necessário
-  const linkLinhas = doc.splitTextToSize(dados.linkVerificacao, larguraUtil - 6);
   linkLinhas.forEach((linha: string, index: number) => {
     doc.textWithLink(linha, margemEsquerda + 3, y + (index * 4), {
       url: dados.linkVerificacao
@@ -86,19 +115,6 @@ export const adicionarCertificacaoDigital = (
   doc.text(textoLegal, margemEsquerda + 3, y);
   
   y += 3;
-  
-  // Calcular altura real do conteúdo
-  const alturaConteudo = y - yInicioCertificacao;
-  
-  // Desenhar retângulo com altura dinâmica
-  // Fundo cinza
-  doc.setFillColor(245, 245, 245);
-  doc.rect(margemEsquerda, yInicioCertificacao, larguraUtil, alturaConteudo, 'F');
-  
-  // Borda preta
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.5);
-  doc.rect(margemEsquerda, yInicioCertificacao, larguraUtil, alturaConteudo, 'S');
   
   return y; // Retorna a posição Y final
 };
