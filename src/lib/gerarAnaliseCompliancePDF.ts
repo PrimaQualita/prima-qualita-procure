@@ -84,7 +84,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setTextColor(0);
     
     const lines = pdf.splitTextToSize(text, maxWidth);
-    const lineHeight = fontSize * 0.625; // Espaçamento 1.25
+    const lineHeight = 6.25; // Espaçamento fixo de 1.25 para fonte 10
     
     for (const line of lines) {
       if (yPos + lineHeight > pageHeight - 25) {
@@ -114,18 +114,20 @@ export const gerarAnaliseCompliancePDF = async (
 
   // Cabeçalho
   addText("Ao Setor de Compras da Prima Qualitá", 11);
-  yPos += 3;
+  yPos += 6.25;
   addText("De: Departamento de Compliance", 11);
-  yPos += 3;
+  yPos += 6.25;
   addText("Referência: Análise de Conformidade e Risco dos Fornecedores no Processo de Seleção.", 11);
-  yPos += 5;
-  addText(`Processo ${data.processo_numero}`, 11, true);
-  yPos += 3;
-  const objetoTexto = data.objeto_descricao.endsWith('.') 
-    ? data.objeto_descricao.slice(0, -1) 
-    : data.objeto_descricao;
+  yPos += 6.25;
+  
+  // Limpar "Processo " do número do processo
+  const processoNumeroParaCabecalho = data.processo_numero.replace(/^Processo\s+/i, '');
+  addText(`Processo ${processoNumeroParaCabecalho}`, 11, true);
+  yPos += 6.25;
+  
+  const objetoTexto = data.objeto_descricao.replace(/\.$/, '');
   addText(`Objeto: ${objetoTexto}`, 11);
-  yPos += 10;
+  yPos += 12.5;
 
   // Introdução
   pdf.setFontSize(14);
@@ -134,7 +136,8 @@ export const gerarAnaliseCompliancePDF = async (
   yPos += 8;
 
   const criterioFormatado = data.criterio_julgamento.replace(/_/g, ' ');
-  const introducao = `Este relatório apresenta a análise de risco e conformidade realizada pelo Departamento de Compliance da Prima Qualitá sobre as empresas participantes do processo de seleção ${data.processo_numero} para ${objetoTexto}. O critério de julgamento adotado é ${criterioFormatado}. A análise foi conduzida com base em informações públicas, documentação fornecida pelos fornecedores e critérios objetivos de avaliação de risco.`;
+  const processoNumeroTexto = data.processo_numero.replace(/^Processo\s+/i, '');
+  const introducao = `Este relatório apresenta a análise de risco e conformidade realizada pelo Departamento de Compliance da Prima Qualitá sobre as empresas participantes do processo de seleção ${processoNumeroTexto} para ${objetoTexto}. O critério de julgamento adotado é ${criterioFormatado}. A análise foi conduzida com base em informações públicas, documentação fornecida pelos fornecedores e critérios objetivos de avaliação de risco.`;
   
   // Texto justificado para introdução
   pdf.setFontSize(10);
@@ -148,7 +151,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
     yPos += 6.25;
   });
-  yPos += 10;
+  yPos += 12.5;
 
   // Empresas Analisadas
   pdf.setFontSize(14);
@@ -163,36 +166,32 @@ export const gerarAnaliseCompliancePDF = async (
 
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0);
     pdf.text(`2.${index + 1}. ${empresa.razao_social} - ${empresa.cnpj}`, margin, yPos);
-    yPos += 10;
+    yPos += 12.5;
 
     // Capital Social
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(10);
-    const capitalSocialText = "Capital Social:";
-    const capitalSocialWidth = pdf.getTextWidth(capitalSocialText);
-    pdf.text(capitalSocialText, margin, yPos);
+    pdf.setTextColor(0);
+    pdf.text("Capital Social:", margin, yPos);
     pdf.setFont("helvetica", "normal");
-    pdf.text(`R$ ${empresa.capital_social}`, margin + capitalSocialWidth + 2, yPos);
+    pdf.text(` R$ ${empresa.capital_social}`, margin + pdf.getTextWidth("Capital Social:"), yPos);
     yPos += 6.25;
     
     // Ano de Fundação
     pdf.setFont("helvetica", "bold");
-    const anoFundacaoText = "Ano de Fundação:";
-    const anoFundacaoWidth = pdf.getTextWidth(anoFundacaoText);
-    pdf.text(anoFundacaoText, margin, yPos);
+    pdf.text("Ano de Fundação:", margin, yPos);
     pdf.setFont("helvetica", "normal");
-    pdf.text(`${empresa.ano_fundacao}`, margin + anoFundacaoWidth + 2, yPos);
+    pdf.text(` ${empresa.ano_fundacao}`, margin + pdf.getTextWidth("Ano de Fundação:"), yPos);
     yPos += 6.25;
 
     // Contratos Ativos com a OSS
     pdf.setFont("helvetica", "bold");
-    const contratosAtivosText = "Contratos Ativos com a OSS:";
-    const contratosAtivosWidth = pdf.getTextWidth(contratosAtivosText);
-    pdf.text(contratosAtivosText, margin, yPos);
+    pdf.text("Contratos Ativos com a OSS:", margin, yPos);
     pdf.setFont("helvetica", "normal");
-    pdf.text(empresa.contratos_ativos_oss ? "Sim" : "Não", margin + contratosAtivosWidth + 2, yPos);
-    yPos += 10;
+    pdf.text(` ${empresa.contratos_ativos_oss ? "Sim" : "Não"}`, margin + pdf.getTextWidth("Contratos Ativos com a OSS:"), yPos);
+    yPos += 12.5;
 
     // Campos de análise
     const campos = [
@@ -213,28 +212,27 @@ export const gerarAnaliseCompliancePDF = async (
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "bold");
       pdf.setTextColor(0);
-      const tituloWidth = pdf.getTextWidth(campo.titulo);
       pdf.text(campo.titulo, margin, yPos);
       
       pdf.setFont("helvetica", "normal");
-      const lines = pdf.splitTextToSize(textoLimpo || "Não informado", maxWidth - tituloWidth - 2);
+      const tituloWidth = pdf.getTextWidth(campo.titulo);
+      const lines = pdf.splitTextToSize(` ${textoLimpo || "Não informado"}`, maxWidth);
       let firstLine = true;
       lines.forEach((line: string) => {
         if (!firstLine && yPos + 6.25 > pageHeight - 25) {
           addNewPage();
         }
         if (firstLine) {
-          pdf.text(line, margin + tituloWidth + 2, yPos, { align: "justify", maxWidth: maxWidth - tituloWidth - 2 });
+          pdf.text(line, margin + tituloWidth, yPos, { align: "justify", maxWidth: maxWidth - tituloWidth });
           firstLine = false;
         } else {
           pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
         }
         yPos += 6.25;
       });
-      yPos += 3;
     });
 
-    yPos += 5;
+    yPos += 6.25;
   });
 
   // Considerações Finais
@@ -244,13 +242,14 @@ export const gerarAnaliseCompliancePDF = async (
   
   pdf.setFontSize(14);
   pdf.setFont("helvetica", "bold");
-  pdf.setTextColor(0);
+  pdf.setTextColor(0); // Preto
   pdf.text("3. Considerações Finais e Recomendações", margin, yPos);
-  yPos += 8;
+  yPos += 12.5;
   
   const consideracoesTexto = extractTextFromHTML(data.consideracoes_finais);
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0); // Preto
   const consideracoesLines = pdf.splitTextToSize(consideracoesTexto, maxWidth);
   consideracoesLines.forEach((line: string) => {
     if (yPos + 6.25 > pageHeight - 25) {
@@ -259,7 +258,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
     yPos += 6.25;
   });
-  yPos += 10;
+  yPos += 12.5;
 
   // Conclusão
   if (yPos > pageHeight - 40) {
@@ -270,11 +269,12 @@ export const gerarAnaliseCompliancePDF = async (
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0);
   pdf.text("4. Conclusão", margin, yPos);
-  yPos += 8;
+  yPos += 12.5;
   
   const conclusaoTexto = extractTextFromHTML(data.conclusao);
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0);
   const conclusaoLines = pdf.splitTextToSize(conclusaoTexto, maxWidth);
   conclusaoLines.forEach((line: string) => {
     if (yPos + 6.25 > pageHeight - 25) {
@@ -283,7 +283,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
     yPos += 6.25;
   });
-  yPos += 15;
+  yPos += 18.75;
 
   // Certificação Digital
   const { data: { user } } = await supabase.auth.getUser();
@@ -295,7 +295,9 @@ export const gerarAnaliseCompliancePDF = async (
 
   const timestamp = new Date().getTime();
   const processoNumeroLimpo = data.processo_numero.replace(/^Processo\s+/i, '').trim();
-  const protocolo = `COMP-${processoNumeroLimpo.replace(/\//g, "-")}-${timestamp}`;
+  // Remove a duplicação do ano, mantém apenas a primeira parte
+  const processoSemDuplicacao = processoNumeroLimpo.replace(/(\d{4})-\d{4}$/, '$1');
+  const protocolo = `COMP-${processoSemDuplicacao.replace(/\//g, "-")}-${timestamp}`;
 
   const dadosCertificacao = {
     protocolo: protocolo,
