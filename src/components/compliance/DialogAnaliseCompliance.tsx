@@ -171,6 +171,16 @@ export function DialogAnaliseCompliance({
     });
   };
 
+  const formatarCriterioJulgamento = (criterio: string) => {
+    const criterios: Record<string, string> = {
+      "por_item": "Por Item",
+      "global": "Global",
+      "por_lote": "Por Lote"
+    };
+    
+    return criterios[criterio.toLowerCase()] || criterio;
+  };
+
   const atualizarEmpresa = (index: number, campo: keyof EmpresaAnalise, valor: any) => {
     const novasEmpresas = [...empresas];
     
@@ -351,7 +361,7 @@ export function DialogAnaliseCompliance({
             <CardContent className="space-y-2 text-sm">
               <p><strong>Processo:</strong> {numeroProcesso}</p>
               <p><strong>Objeto:</strong> {objetoDescricao}</p>
-              <p><strong>Critério de Julgamento:</strong> {criterioJulgamento}</p>
+              <p><strong>Critério de Julgamento:</strong> {formatarCriterioJulgamento(criterioJulgamento)}</p>
             </CardContent>
           </Card>
 
