@@ -622,16 +622,65 @@ export function DialogAnaliseCompliance({
                       <p className="text-xs text-muted-foreground">Documento de Análise de Compliance</p>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(urlDocumento, "_blank")}
-                  >
-                    Visualizar PDF
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(urlDocumento, "_blank")}
+                    >
+                      Visualizar PDF
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={gerarDocumento}
+                      disabled={loading}
+                    >
+                      Regerar
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={async () => {
+                        if (confirm("Deseja realmente apagar este documento?")) {
+                          try {
+                            setLoading(true);
+                            // Apagar documento do storage
+                            const path = urlDocumento.split('/processo-anexos/')[1];
+                            if (path) {
+                              await supabase.storage
+                                .from('processo-anexos')
+                                .remove([path]);
+                            }
+                            
+                            // Limpar campos da análise
+                            await supabase
+                              .from("analises_compliance")
+                              .update({
+                                url_documento: null,
+                                nome_arquivo: null,
+                                protocolo: null,
+                              })
+                              .eq("id", analiseId!);
+                            
+                            setUrlDocumento(null);
+                            setNomeArquivo(null);
+                            toast.success("Documento apagado com sucesso!");
+                          } catch (error) {
+                            console.error("Erro ao apagar documento:", error);
+                            toast.error("Erro ao apagar documento");
+                          } finally {
+                            setLoading(false);
+                          }
+                        }
+                      }}
+                    >
+                      Apagar
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  O documento foi gerado com sucesso. Você pode visualizá-lo antes de finalizar e enviar a análise.
+                  O documento foi gerado com sucesso. Você pode visualizá-lo, regerá-lo ou apagá-lo antes de finalizar e enviar a análise.
                 </p>
               </CardContent>
             </Card>
