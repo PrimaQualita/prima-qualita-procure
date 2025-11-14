@@ -115,9 +115,12 @@ export const gerarAnaliseCompliancePDF = async (
   yPos += 3;
   addText("Referência: Análise de Conformidade e Risco dos Fornecedores no Processo de Seleção.", 11);
   yPos += 5;
-  addText(`Processo: ${data.processo_numero}`, 11, true);
+  addText(`Processo ${data.processo_numero}`, 11, true);
   yPos += 3;
-  addText(`Objeto: ${data.objeto_descricao}`, 11);
+  const objetoTexto = data.objeto_descricao.endsWith('.') 
+    ? data.objeto_descricao.slice(0, -1) 
+    : data.objeto_descricao;
+  addText(`Objeto: ${objetoTexto}`, 11);
   yPos += 10;
 
   // Introdução
@@ -126,9 +129,21 @@ export const gerarAnaliseCompliancePDF = async (
   pdf.text("1. Introdução", margin, yPos);
   yPos += 8;
 
-  const introducao = `Este parecer tem como objetivo realizar uma análise detalhada das empresas participantes do processo de seleção para ${data.objeto_descricao}, do tipo ${data.criterio_julgamento}, em regime de empreitada integral, conforme as diretrizes estabelecidas no Termo de Referência. A análise abordou os aspectos de conformidade jurídica, regularidade fiscal, governança corporativa, capacidade técnica, reputação no mercado e risco financeiro. O foco foi garantir que as empresas selecionadas estejam aptas a executar o contrato com máxima eficiência, mantendo-se em conformidade com as exigências legais e regulatórias, especialmente no que tange à Lei Geral de Proteção de Dados (LGPD).\n\nNosso objetivo é assegurar que as empresas fornecedoras sejam capazes de atender aos requisitos técnicos e operacionais, garantindo segurança da informação, eficiência operacional e conformidade com os padrões estabelecidos pela OSS Prima Qualitá, conforme especificações descritas no Termo de Referência.`;
+  const criterioFormatado = data.criterio_julgamento.replace(/_/g, ' ');
+  const introducao = `Este relatório apresenta a análise de risco e conformidade realizada pelo Departamento de Compliance da Prima Qualitá sobre as empresas participantes do processo de seleção ${data.processo_numero} para ${objetoTexto} O critério de julgamento adotado é ${criterioFormatado}. A análise foi conduzida com base em informações públicas, documentação fornecida pelos fornecedores e critérios objetivos de avaliação de risco.`;
   
-  addText(introducao, 10);
+  // Texto justificado para introdução
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0);
+  const introducaoLines = pdf.splitTextToSize(introducao, maxWidth);
+  introducaoLines.forEach((line: string) => {
+    if (yPos + 5 > pageHeight - 25) {
+      addNewPage();
+    }
+    pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
+    yPos += 5;
+  });
   yPos += 10;
 
   // Empresas Analisadas
@@ -147,9 +162,16 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.text(`2.${index + 1}. ${empresa.razao_social} - ${empresa.cnpj}`, margin, yPos);
     yPos += 8;
 
-    addText(`Capital Social: R$ ${empresa.capital_social}`, 10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text(`Capital Social: `, margin, yPos);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`R$ ${empresa.capital_social}`, margin + 33, yPos);
     yPos += 5;
-    addText(`Ano de Fundação: ${empresa.ano_fundacao}`, 10);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`Ano de Fundação: `, margin, yPos);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`${empresa.ano_fundacao}`, margin + 38, yPos);
     yPos += 8;
 
     // Contratos Ativos
@@ -175,11 +197,31 @@ export const gerarAnaliseCompliancePDF = async (
         addNewPage();
       }
       
-      addText(campo.titulo, 10, true);
-      yPos += 5;
       const textoLimpo = extractTextFromHTML(campo.conteudo);
-      addText(textoLimpo || "Não informado", 10);
-      yPos += 8;
+      const textoCompleto = `${campo.titulo} ${textoLimpo || "Não informado"}`;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(0);
+      const tituloWidth = pdf.getTextWidth(campo.titulo);
+      pdf.text(campo.titulo, margin, yPos);
+      
+      pdf.setFont("helvetica", "normal");
+      const lines = pdf.splitTextToSize(textoLimpo || "Não informado", maxWidth - tituloWidth - 2);
+      let firstLine = true;
+      lines.forEach((line: string) => {
+        if (!firstLine && yPos + 5 > pageHeight - 25) {
+          addNewPage();
+        }
+        if (firstLine) {
+          pdf.text(line, margin + tituloWidth + 2, yPos);
+          firstLine = false;
+        } else {
+          pdf.text(line, margin, yPos);
+        }
+        yPos += 5;
+      });
+      yPos += 3;
     });
 
     yPos += 5;
@@ -192,11 +234,21 @@ export const gerarAnaliseCompliancePDF = async (
   
   pdf.setFontSize(14);
   pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(0);
   pdf.text("3. Considerações Finais e Recomendações", margin, yPos);
   yPos += 8;
   
   const consideracoesTexto = extractTextFromHTML(data.consideracoes_finais);
-  addText(consideracoesTexto, 10);
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  const consideracoesLines = pdf.splitTextToSize(consideracoesTexto, maxWidth);
+  consideracoesLines.forEach((line: string) => {
+    if (yPos + 5 > pageHeight - 25) {
+      addNewPage();
+    }
+    pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
+    yPos += 5;
+  });
   yPos += 10;
 
   // Conclusão
@@ -254,7 +306,7 @@ export const gerarAnaliseCompliancePDF = async (
     responsavel: profile?.nome_completo || "Sistema",
     cpf: profile?.cpf || "",
     hash: `SHA256:${timestamp}`,
-    linkVerificacao: `${window.location.origin}/verificar-documento`,
+    linkVerificacao: `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`,
   };
   
   yPos = adicionarCertificacaoDigital(pdf, dadosCertificacao, yPos + 10);
