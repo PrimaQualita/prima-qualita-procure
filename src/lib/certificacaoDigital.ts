@@ -31,21 +31,9 @@ export const adicionarCertificacaoDigital = (
   const larguraUtil = pageWidth - 30;
   
   let y = yInicial;
+  const yInicioCertificacao = y;
   
-  // Desenhar retângulo com fundo cinza claro
-  const certBoxY = y;
-  const certBoxHeight = 68;
-  
-  // Fundo cinza
-  doc.setFillColor(245, 245, 245);
-  doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight, 'F');
-  
-  // Borda preta
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.5);
-  doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight, 'S');
-  
-  // Título da certificação DENTRO DO QUADRO
+  // Título da certificação
   y += 6;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
@@ -97,7 +85,20 @@ export const adicionarCertificacaoDigital = (
   const textoLegal = doc.splitTextToSize('Este documento possui certificação digital conforme Lei 14.063/2020', larguraUtil - 6);
   doc.text(textoLegal, margemEsquerda + 3, y);
   
-  y += 6;
+  y += 3;
+  
+  // Calcular altura real do conteúdo
+  const alturaConteudo = y - yInicioCertificacao;
+  
+  // Desenhar retângulo com altura dinâmica
+  // Fundo cinza
+  doc.setFillColor(245, 245, 245);
+  doc.rect(margemEsquerda, yInicioCertificacao, larguraUtil, alturaConteudo, 'F');
+  
+  // Borda preta
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(margemEsquerda, yInicioCertificacao, larguraUtil, alturaConteudo, 'S');
   
   return y; // Retorna a posição Y final
 };
