@@ -158,9 +158,29 @@ export function DialogAnaliseCompliance({
     setEmpresas(empresas.filter((_, i) => i !== index));
   };
 
+  const formatarMoeda = (valor: string) => {
+    // Remove tudo que não é número
+    const numero = valor.replace(/\D/g, "");
+    
+    // Converte para número e formata
+    const valorNumerico = Number(numero) / 100;
+    
+    return valorNumerico.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  };
+
   const atualizarEmpresa = (index: number, campo: keyof EmpresaAnalise, valor: any) => {
     const novasEmpresas = [...empresas];
-    novasEmpresas[index] = { ...novasEmpresas[index], [campo]: valor };
+    
+    // Se for capital social, formata como moeda
+    if (campo === "capital_social") {
+      novasEmpresas[index] = { ...novasEmpresas[index], [campo]: formatarMoeda(valor) };
+    } else {
+      novasEmpresas[index] = { ...novasEmpresas[index], [campo]: valor };
+    }
+    
     setEmpresas(novasEmpresas);
   };
 
