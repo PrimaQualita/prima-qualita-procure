@@ -92,7 +92,7 @@ export const gerarEncaminhamentoPDF = async (
   
   // Texto principal
   doc.setFontSize(11);
-  const textoPrincipal = `Encaminha-se ao Departamento de Compliance da Prima Qualitá Saúde o presente processo de contratação, com a planilha de propostas em anexo, para análise prévia de conformidade e parecer técnico, nos termos do artigo 5º do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações.`;
+  const textoPrincipal = `Encaminhamos o Presente Processo para análise e verificação de regularidade jurídica e reputacional dos fornecedores, em atendimento ao procedimento interno definido por requisitos legais e normativos da OS Prima Qualitá Saúde, nos processos de aquisição e serviços.`;
   const linhasPrincipal = doc.splitTextToSize(textoPrincipal, 170);
   doc.text(linhasPrincipal, 20, yPos, { align: 'justify', maxWidth: 170 });
   
