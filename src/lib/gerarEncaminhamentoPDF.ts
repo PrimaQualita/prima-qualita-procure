@@ -74,7 +74,7 @@ export const gerarEncaminhamentoPDF = async (
   await adicionarLogoERodape();
   
   // De/Para
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text('De: Departamento de Compras', 20, 50);
   doc.text('Para: Departamento de Compliance', 20, 58);
@@ -83,7 +83,6 @@ export const gerarEncaminhamentoPDF = async (
   doc.text(`Processo ${numeroProcesso}`, 20, 70);
   
   // Assunto
-  doc.setFontSize(12);
   const textoLimpo = extractTextFromHTML(objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
   doc.text(linhasAssunto, 20, 82, { align: 'justify', maxWidth: 170 });
@@ -91,7 +90,6 @@ export const gerarEncaminhamentoPDF = async (
   let yPos = 82 + (linhasAssunto.length * 7) + 10;
   
   // Texto principal
-  doc.setFontSize(11);
   const textoPrincipal = `Encaminhamos o Presente Processo para análise e verificação de regularidade jurídica e reputacional dos fornecedores, em atendimento ao procedimento interno definido por requisitos legais e normativos da OS Prima Qualitá Saúde, nos processos de aquisição e serviços.`;
   const linhasPrincipal = doc.splitTextToSize(textoPrincipal, 170);
   doc.text(linhasPrincipal, 20, yPos, { align: 'justify', maxWidth: 170 });
