@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { gerarAnaliseCompliancePDF } from "@/lib/gerarAnaliseCompliancePDF";
+import { formatarCNPJ } from "@/lib/validators";
 
 interface EmpresaAnalise {
   razao_social: string;
@@ -93,7 +94,7 @@ export function DialogAnaliseCompliance({
       if (respostas && respostas.length > 0) {
         const empresasPreenchidas = respostas.map((resposta: any) => ({
           razao_social: resposta.fornecedores?.razao_social || "",
-          cnpj: resposta.fornecedores?.cnpj || "",
+          cnpj: formatarCNPJ(resposta.fornecedores?.cnpj || ""),
           capital_social: "",
           ano_fundacao: "",
           contratos_ativos_oss: false,
