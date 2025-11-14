@@ -262,8 +262,42 @@ export function DialogAnaliseCompliance({
         return;
       }
 
-      // Salvar análise primeiro
-      await salvarRascunho();
+      // Salvar ou atualizar análise e obter o ID
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const analiseData = {
+        cotacao_id: cotacaoId,
+        processo_numero: numeroProcesso,
+        objeto_descricao: objetoDescricao,
+        criterio_julgamento: criterioJulgamento,
+        empresas: empresas as any,
+        consideracoes_finais: consideracoesFinais,
+        conclusao: conclusao,
+        status_aprovacao: statusAprovacao,
+        empresas_reprovadas: empresasReprovadas,
+        usuario_analista_id: user?.id,
+      };
+
+      let idAnalise = analiseId;
+
+      if (analiseId) {
+        const { error } = await supabase
+          .from("analises_compliance")
+          .update(analiseData)
+          .eq("id", analiseId);
+
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from("analises_compliance")
+          .insert(analiseData)
+          .select()
+          .single();
+
+        if (error) throw error;
+        idAnalise = data.id;
+        setAnaliseId(data.id);
+      }
 
       // Gerar PDF
       const resultado = await gerarAnaliseCompliancePDF({
@@ -275,17 +309,17 @@ export function DialogAnaliseCompliance({
         conclusao: conclusao,
       });
 
-      // Atualizar análise com informações do documento
-      const { error } = await supabase
+      // Atualizar análise com informações do documento usando o ID correto
+      const { error: updateError } = await supabase
         .from("analises_compliance")
         .update({
           url_documento: resultado.url,
           nome_arquivo: resultado.filename,
           protocolo: resultado.protocolo,
         })
-        .eq("id", analiseId!);
+        .eq("id", idAnalise);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       toast.success("Documento gerado com sucesso!");
       
