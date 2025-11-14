@@ -148,7 +148,43 @@ export default function VerificarAutorizacao() {
         return;
       }
 
-      // Não encontrou nem autorização nem relatório
+      // Se não encontrou, tentar buscar em analises_compliance
+      console.log('🔎 [VERIFICAÇÃO] Buscando em analises_compliance...');
+      const { data: compData, error: compError } = await supabase
+        .from('analises_compliance' as any)
+        .select('*')
+        .eq('protocolo', protocoloLimpo)
+        .maybeSingle();
+
+      console.log('📋 [VERIFICAÇÃO] Resultado analises_compliance:', { 
+        encontrado: !!compData, 
+        erro: compError?.message,
+        dados: compData 
+      });
+
+      if (compData && !compError) {
+        console.log('✅ [VERIFICAÇÃO] Análise de Compliance encontrada!');
+        
+        const { data: usuario } = await supabase
+          .from('profiles')
+          .select('nome_completo, cpf')
+          .eq('id', (compData as any).usuario_analista_id)
+          .single();
+
+        setAutorizacao({
+          ...(compData as any),
+          usuario
+        });
+        setTipoDocumento('compliance' as any);
+
+        toast({
+          title: "Análise de Compliance verificada",
+          description: "Documento autêntico encontrado no sistema",
+        });
+        return;
+      }
+
+      // Não encontrou em nenhuma tabela
       console.error('❌ [VERIFICAÇÃO] Documento não encontrado em nenhuma tabela');
       console.error('🔍 [VERIFICAÇÃO] Protocolo buscado:', protocoloLimpo);
       
