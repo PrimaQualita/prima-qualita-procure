@@ -1,10 +1,20 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FileText, Eye, Download, ChevronRight, ArrowLeft, FileCheck } from "lucide-react";
+import { FileText, Eye, Download, ChevronRight, ArrowLeft, FileCheck, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
 import { DialogAnaliseCompliance } from "@/components/compliance/DialogAnaliseCompliance";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -43,6 +53,8 @@ export default function Compliance() {
   const [filtro, setFiltro] = useState("");
   const [analiseDialogOpen, setAnaliseDialogOpen] = useState(false);
   const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoCompliance | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [analiseParaDeletar, setAnaliseParaDeletar] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -169,6 +181,43 @@ export default function Compliance() {
       toast.dismiss();
       console.error("Erro ao baixar processo:", error);
       toast.error("Erro ao gerar arquivo do processo");
+    }
+  };
+
+  const editarAnalise = async (processo: ProcessoCompliance) => {
+    setProcessoSelecionado(processo);
+    setAnaliseDialogOpen(true);
+  };
+
+  const confirmarExclusaoAnalise = async (cotacaoId: string) => {
+    setAnaliseParaDeletar(cotacaoId);
+    setDeleteDialogOpen(true);
+  };
+
+  const excluirAnalise = async () => {
+    if (!analiseParaDeletar) return;
+
+    try {
+      // Usar RPC ou SQL direto para deletar da tabela analises_compliance
+      const { error } = await supabase.rpc('delete_analise_compliance', {
+        p_cotacao_id: analiseParaDeletar
+      });
+
+      if (error) {
+        // Se RPC não existir, tentar com query SQL direta
+        console.log("Tentando exclusão direta...");
+        throw error;
+      }
+
+      toast.success("Análise excluída com sucesso");
+      setDeleteDialogOpen(false);
+      setAnaliseParaDeletar(null);
+      
+      // Recarregar todos os dados
+      loadData();
+    } catch (error: any) {
+      console.error("Erro ao excluir análise:", error);
+      toast.error("Erro ao excluir análise. Tabela pode não existir.");
     }
   };
 
@@ -341,6 +390,26 @@ export default function Compliance() {
                               <FileCheck className="h-4 w-4 mr-2" />
                               Gerar Análise
                             </Button>
+                            {processo.respondido_compliance && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => editarAnalise(processo)}
+                                >
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Editar
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => confirmarExclusaoAnalise(processo.cotacao_id)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Excluir
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -367,6 +436,23 @@ export default function Compliance() {
             criterioJulgamento={processoSelecionado.criterio_julgamento}
           />
         )}
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir esta análise de compliance? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={excluirAnalise} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
