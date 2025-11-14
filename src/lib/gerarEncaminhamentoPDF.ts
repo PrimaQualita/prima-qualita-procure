@@ -73,23 +73,22 @@ export const gerarEncaminhamentoPDF = async (
   
   await adicionarLogoERodape();
   
-  // Título
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('ENCAMINHAMENTO', pageWidth / 2, 50, { align: 'center' });
-  
-  // Processo
+  // De/Para
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 65, { align: 'center' });
+  doc.text('De: Departamento de Compras', 20, 50);
+  doc.text('Para: Departamento de Compliance', 20, 58);
+  
+  // Processo
+  doc.text(`Processo ${numeroProcesso}`, 20, 70);
   
   // Assunto
   doc.setFontSize(12);
   const textoLimpo = extractTextFromHTML(objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
-  doc.text(linhasAssunto, 20, 77, { align: 'justify', maxWidth: 170 });
+  doc.text(linhasAssunto, 20, 82, { align: 'justify', maxWidth: 170 });
   
-  let yPos = 77 + (linhasAssunto.length * 7) + 10;
+  let yPos = 82 + (linhasAssunto.length * 7) + 10;
   
   // Texto principal
   doc.setFontSize(11);

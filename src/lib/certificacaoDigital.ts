@@ -42,8 +42,8 @@ export const adicionarCertificacaoDigital = (
   
   // Borda preta
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(1);
-  doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight);
+  doc.setLineWidth(0.5);
+  doc.rect(margemEsquerda, certBoxY, larguraUtil, certBoxHeight, 'S');
   
   // Título da certificação DENTRO DO QUADRO
   y += 6;
