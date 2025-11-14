@@ -43,6 +43,7 @@ interface ProcessoCompliance {
   data_envio_compliance: string;
   respondido_compliance: boolean;
   ano_referencia: number;
+  tem_analise: boolean;
 }
 
 export default function Compliance() {
@@ -91,6 +92,24 @@ export default function Compliance() {
 
       if (processosError) throw processosError;
 
+      // Buscar IDs de cotações que têm análise
+      // Como a tabela pode não existir no schema, vamos tentar e capturar erro
+      let cotacoesComAnalise = new Set<string>();
+      
+      try {
+        const { data: analisesData, error: analisesError } = await supabase
+          .from("analises_compliance" as any)
+          .select("cotacao_id");
+        
+        if (!analisesError && analisesData) {
+          analisesData.forEach((analise: any) => {
+            cotacoesComAnalise.add(analise.cotacao_id);
+          });
+        }
+      } catch (e) {
+        console.log("Tabela analises_compliance não disponível ou erro ao buscar");
+      }
+
       // Agrupar processos por contrato
       const processosAgrupados: Record<string, ProcessoCompliance[]> = {};
       
@@ -112,6 +131,7 @@ export default function Compliance() {
             data_envio_compliance: cotacao.data_envio_compliance,
             respondido_compliance: cotacao.respondido_compliance,
             ano_referencia: processo.ano_referencia,
+            tem_analise: cotacoesComAnalise.has(cotacao.id),
           });
         });
       });
@@ -386,11 +406,12 @@ export default function Compliance() {
                               variant="outline"
                               size="sm"
                               onClick={() => abrirAnaliseCompliance(processo)}
+                              disabled={processo.tem_analise}
                             >
                               <FileCheck className="h-4 w-4 mr-2" />
-                              Gerar Análise
+                              {processo.tem_analise ? "Análise Gerada" : "Gerar Análise"}
                             </Button>
-                            {processo.respondido_compliance && (
+                            {processo.tem_analise && (
                               <>
                                 <Button
                                   variant="outline"
