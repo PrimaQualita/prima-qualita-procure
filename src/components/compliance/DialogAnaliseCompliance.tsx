@@ -68,6 +68,8 @@ export function DialogAnaliseCompliance({
   const [empresasReprovadas, setEmpresasReprovadas] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [analiseId, setAnaliseId] = useState<string | null>(null);
+  const [urlDocumento, setUrlDocumento] = useState<string | null>(null);
+  const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -130,6 +132,8 @@ export function DialogAnaliseCompliance({
         setConclusao(data.conclusao || "");
         setStatusAprovacao((data.status_aprovacao as any) || "pendente");
         setEmpresasReprovadas(data.empresas_reprovadas || []);
+        setUrlDocumento(data.url_documento || null);
+        setNomeArquivo(data.nome_arquivo || null);
       }
     } catch (error: any) {
       console.error("Erro ao carregar análise:", error);
@@ -320,6 +324,10 @@ export function DialogAnaliseCompliance({
         .eq("id", idAnalise);
 
       if (updateError) throw updateError;
+
+      // Atualizar estados locais com os dados do documento
+      setUrlDocumento(resultado.url);
+      setNomeArquivo(resultado.filename);
 
       toast.success("Documento gerado com sucesso!");
       
@@ -596,6 +604,39 @@ export function DialogAnaliseCompliance({
             </CardContent>
           </Card>
 
+          {/* Visualização do Documento Gerado */}
+          {urlDocumento && (
+            <Card className="border-green-200 bg-green-50/50">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-green-700">
+                  <FileText className="h-5 w-5" />
+                  Documento Gerado
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-sm">{nomeArquivo}</p>
+                      <p className="text-xs text-muted-foreground">Documento de Análise de Compliance</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(urlDocumento, "_blank")}
+                  >
+                    Visualizar PDF
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  O documento foi gerado com sucesso. Você pode visualizá-lo antes de finalizar e enviar a análise.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Ações */}
           <div className="flex gap-3 justify-end">
             <Button onClick={salvarRascunho} variant="outline" disabled={loading}>
@@ -606,7 +647,7 @@ export function DialogAnaliseCompliance({
               <FileText className="h-4 w-4 mr-2" />
               Gerar Documento
             </Button>
-            <Button onClick={finalizarAnalise} disabled={loading}>
+            <Button onClick={finalizarAnalise} disabled={loading || !urlDocumento}>
               Finalizar e Enviar
             </Button>
           </div>
