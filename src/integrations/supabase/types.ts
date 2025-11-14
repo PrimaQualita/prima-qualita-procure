@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      analises_compliance: {
+        Row: {
+          conclusao: string | null
+          consideracoes_finais: string | null
+          cotacao_id: string
+          created_at: string | null
+          criterio_julgamento: string
+          data_analise: string | null
+          empresas: Json
+          empresas_reprovadas: string[] | null
+          id: string
+          nome_arquivo: string | null
+          objeto_descricao: string
+          processo_numero: string
+          protocolo: string | null
+          status_aprovacao: string | null
+          updated_at: string | null
+          url_documento: string | null
+          usuario_analista_id: string | null
+        }
+        Insert: {
+          conclusao?: string | null
+          consideracoes_finais?: string | null
+          cotacao_id: string
+          created_at?: string | null
+          criterio_julgamento: string
+          data_analise?: string | null
+          empresas?: Json
+          empresas_reprovadas?: string[] | null
+          id?: string
+          nome_arquivo?: string | null
+          objeto_descricao: string
+          processo_numero: string
+          protocolo?: string | null
+          status_aprovacao?: string | null
+          updated_at?: string | null
+          url_documento?: string | null
+          usuario_analista_id?: string | null
+        }
+        Update: {
+          conclusao?: string | null
+          consideracoes_finais?: string | null
+          cotacao_id?: string
+          created_at?: string | null
+          criterio_julgamento?: string
+          data_analise?: string | null
+          empresas?: Json
+          empresas_reprovadas?: string[] | null
+          id?: string
+          nome_arquivo?: string | null
+          objeto_descricao?: string
+          processo_numero?: string
+          protocolo?: string | null
+          status_aprovacao?: string | null
+          updated_at?: string | null
+          url_documento?: string | null
+          usuario_analista_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analises_compliance_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       anexos_cotacao_fornecedor: {
         Row: {
           cotacao_resposta_fornecedor_id: string
@@ -426,15 +494,19 @@ export type Database = {
           created_at: string | null
           criterio_julgamento: string | null
           data_envio: string | null
+          data_envio_compliance: string | null
           data_finalizacao: string | null
           data_limite_resposta: string
+          data_resposta_compliance: string | null
           descricao_cotacao: string | null
           documentos_aprovados: Json | null
+          enviado_compliance: boolean | null
           enviado_para_selecao: boolean | null
           fornecedor_vencedor_id: string | null
           id: string
           processo_compra_id: string
           processo_finalizado: boolean | null
+          respondido_compliance: boolean | null
           status_cotacao: Database["public"]["Enums"]["status_cotacao"] | null
           titulo_cotacao: string
           updated_at: string | null
@@ -443,15 +515,19 @@ export type Database = {
           created_at?: string | null
           criterio_julgamento?: string | null
           data_envio?: string | null
+          data_envio_compliance?: string | null
           data_finalizacao?: string | null
           data_limite_resposta: string
+          data_resposta_compliance?: string | null
           descricao_cotacao?: string | null
           documentos_aprovados?: Json | null
+          enviado_compliance?: boolean | null
           enviado_para_selecao?: boolean | null
           fornecedor_vencedor_id?: string | null
           id?: string
           processo_compra_id: string
           processo_finalizado?: boolean | null
+          respondido_compliance?: boolean | null
           status_cotacao?: Database["public"]["Enums"]["status_cotacao"] | null
           titulo_cotacao: string
           updated_at?: string | null
@@ -460,15 +536,19 @@ export type Database = {
           created_at?: string | null
           criterio_julgamento?: string | null
           data_envio?: string | null
+          data_envio_compliance?: string | null
           data_finalizacao?: string | null
           data_limite_resposta?: string
+          data_resposta_compliance?: string | null
           descricao_cotacao?: string | null
           documentos_aprovados?: Json | null
+          enviado_compliance?: boolean | null
           enviado_para_selecao?: boolean | null
           fornecedor_vencedor_id?: string | null
           id?: string
           processo_compra_id?: string
           processo_finalizado?: boolean | null
+          respondido_compliance?: boolean | null
           status_cotacao?: Database["public"]["Enums"]["status_cotacao"] | null
           titulo_cotacao?: string
           updated_at?: string | null
@@ -619,6 +699,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "emails_cotacao_anexados_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      encaminhamentos_processo: {
+        Row: {
+          cotacao_id: string | null
+          created_at: string
+          gerado_por: string | null
+          id: string
+          processo_numero: string
+          protocolo: string
+          storage_path: string
+          url: string
+        }
+        Insert: {
+          cotacao_id?: string | null
+          created_at?: string
+          gerado_por?: string | null
+          id?: string
+          processo_numero: string
+          protocolo: string
+          storage_path: string
+          url: string
+        }
+        Update: {
+          cotacao_id?: string | null
+          created_at?: string
+          gerado_por?: string | null
+          id?: string
+          processo_numero?: string
+          protocolo?: string
+          storage_path?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encaminhamentos_processo_cotacao_id_fkey"
             columns: ["cotacao_id"]
             isOneToOne: false
             referencedRelation: "cotacoes_precos"
@@ -995,6 +1116,47 @@ export type Database = {
         }
         Relationships: []
       }
+      planilhas_consolidadas: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          data_geracao: string
+          id: string
+          nome_arquivo: string
+          protocolo: string | null
+          url_arquivo: string
+          usuario_gerador_id: string
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          data_geracao?: string
+          id?: string
+          nome_arquivo: string
+          protocolo?: string | null
+          url_arquivo: string
+          usuario_gerador_id: string
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          data_geracao?: string
+          id?: string
+          nome_arquivo?: string
+          protocolo?: string | null
+          url_arquivo?: string
+          usuario_gerador_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planilhas_consolidadas_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processos_compras: {
         Row: {
           ano_referencia: number
@@ -1083,12 +1245,14 @@ export type Database = {
         Row: {
           ativo: boolean | null
           avatar_url: string | null
+          compliance: boolean | null
           cpf: string
           created_at: string | null
           data_criacao: string | null
           data_nascimento: string | null
           data_ultimo_login: string | null
           email: string
+          gestor: boolean | null
           id: string
           nome_completo: string
           primeiro_acesso: boolean | null
@@ -1099,12 +1263,14 @@ export type Database = {
         Insert: {
           ativo?: boolean | null
           avatar_url?: string | null
+          compliance?: boolean | null
           cpf: string
           created_at?: string | null
           data_criacao?: string | null
           data_nascimento?: string | null
           data_ultimo_login?: string | null
           email: string
+          gestor?: boolean | null
           id: string
           nome_completo: string
           primeiro_acesso?: boolean | null
@@ -1115,12 +1281,14 @@ export type Database = {
         Update: {
           ativo?: boolean | null
           avatar_url?: string | null
+          compliance?: boolean | null
           cpf?: string
           created_at?: string | null
           data_criacao?: string | null
           data_nascimento?: string | null
           data_ultimo_login?: string | null
           email?: string
+          gestor?: boolean | null
           id?: string
           nome_completo?: string
           primeiro_acesso?: boolean | null
@@ -1481,6 +1649,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_analise_compliance: {
+        Args: { p_cotacao_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1490,7 +1662,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "gestor" | "colaborador"
+      app_role: "gestor" | "colaborador" | "compliance"
       status_atendimento: "aberto" | "em_analise" | "respondido" | "fechado"
       status_contrato: "ativo" | "encerrado" | "suspenso"
       status_cotacao: "em_aberto" | "encerrada" | "cancelada"
@@ -1633,7 +1805,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["gestor", "colaborador"],
+      app_role: ["gestor", "colaborador", "compliance"],
       status_atendimento: ["aberto", "em_analise", "respondido", "fechado"],
       status_contrato: ["ativo", "encerrado", "suspenso"],
       status_cotacao: ["em_aberto", "encerrada", "cancelada"],
