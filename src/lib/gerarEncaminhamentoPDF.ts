@@ -76,7 +76,7 @@ export const gerarEncaminhamentoPDF = async (
   // Título
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('AUTORIZAÇÃO', pageWidth / 2, 50, { align: 'center' });
+  doc.text('ENCAMINHAMENTO', pageWidth / 2, 50, { align: 'center' });
   
   // Processo
   doc.setFontSize(14);
@@ -93,18 +93,11 @@ export const gerarEncaminhamentoPDF = async (
   
   // Texto principal
   doc.setFontSize(11);
-  const textoPrincipal = `Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, autorizo a presente contratação por SELEÇÃO DE FORNECEDORES, conforme requisição e termo de referência anexos, nos termos do art.4° do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição.`;
+  const textoPrincipal = `Encaminha-se ao Departamento de Compliance da Prima Qualitá Saúde o presente processo de contratação, com a planilha de propostas em anexo, para análise prévia de conformidade e parecer técnico, nos termos do artigo 5º do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações.`;
   const linhasPrincipal = doc.splitTextToSize(textoPrincipal, 170);
   doc.text(linhasPrincipal, 20, yPos, { align: 'justify', maxWidth: 170 });
   
   yPos += linhasPrincipal.length * 6 + 10;
-  
-  // Texto de encaminhamento
-  const textoEncaminhamento = `Encaminha-se ao Departamento de Compras, para as providências cabíveis.`;
-  const linhasEncaminhamento = doc.splitTextToSize(textoEncaminhamento, 170);
-  doc.text(linhasEncaminhamento, 20, yPos, { align: 'justify', maxWidth: 170 });
-  
-  yPos += linhasEncaminhamento.length * 6 + 30;
   
   // Certificação Digital
   if (yPos > pageHeight - 70) {
