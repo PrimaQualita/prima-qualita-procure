@@ -1352,8 +1352,8 @@ export function DialogRespostasCotacao({
                 </div>
               )}
 
-              {/* 5. A NOVA ANALISE DO COMPLIANCE */}
-              {analiseCompliance && planilhaGerada && (
+              {/* ========== 5. NOVA ANALISE (só se houver mais de uma) ========== */}
+              {analiseCompliance && analisesAnteriores.length > 0 && (
                 <div className="mt-6 pt-6 border-t space-y-4">
                   <h3 className="text-lg font-semibold">Nova Análise de Compliance</h3>
                   
