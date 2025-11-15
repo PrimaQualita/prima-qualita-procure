@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from '@/integrations/supabase/client';
-import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
+import { gerarHashDocumento } from './certificacaoDigital';
 
 // Função para gerar protocolo no formato XXXX-XXXX-XXXX-XXXX
 const gerarProtocolo = (): string => {
@@ -58,12 +58,6 @@ export async function gerarPropostaFornecedorPDF(
     const doc = new jsPDF();
     
     // Cores do sistema (HSL convertido para RGB)
-    // --primary: 196 100% 20% = rgb(0, 102, 102)
-    // --secondary: 210 100% 20% = rgb(0, 102, 153)
-    // --muted: 196 100% 87% = rgb(209, 247, 247)
-    // --foreground: 199 100% 14% = rgb(0, 71, 71)
-    // --accent: 196 100% 75% = rgb(128, 242, 242)
-    
     const corPrimaria = [0, 102, 102];
     const corSecundaria = [0, 102, 153];
     const corFundo = [209, 247, 247];
@@ -118,77 +112,71 @@ export async function gerarPropostaFornecedorPDF(
     y += 8;
 
     // Cabeçalho da tabela com fundo
-    // Larguras das colunas otimizadas: Item(10), Desc(78), Qtd(24), Unid(24), VlrUnit(22), VlrTotal(22)
     doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
     doc.rect(15, y - 5, 180, 8, 'F');
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
+    doc.text('ITEM', 18, y);
+    doc.text('DESCRIÇÃO', 35, y);
+    doc.text('QTD', 120, y);
+    doc.text('UNID', 140, y);
+    doc.text('VL. UNIT.', 160, y);
+    doc.text('VL. TOTAL', 180, y, { align: 'right' });
     
-    // Cabeçalhos das colunas
-    doc.text('Item', 20, y + 1, { align: 'center' });
-    doc.text('Descrição', 30, y + 1, { align: 'left' });
-    doc.text('Qtd', 120, y + 1, { align: 'center' });
-    doc.text('Unid', 140, y + 1, { align: 'center' });
-    doc.text('Vlr Unit', 168, y + 1, { align: 'right' });
-    doc.text('Vlr Total', 188, y + 1, { align: 'right' });
-    y += 5;
-
-    // Itens com linhas alternadas
-    doc.setFont('helvetica', 'normal');
+    y += 6;
     doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
-    let subtotal = 0;
+
+    // Itens da proposta
     let isAlternate = false;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
 
-    const itensOrdenados = (itens as any[] || [])
-      .map((item: any) => ({
-        numero_item: item.itens_cotacao?.numero_item || 0,
-        descricao: item.itens_cotacao?.descricao || "",
-        quantidade: item.itens_cotacao?.quantidade || 0,
-        unidade: item.itens_cotacao?.unidade || "",
-        valor_unitario_ofertado: item.valor_unitario_ofertado || 0
-      }))
-      .sort((a, b) => a.numero_item - b.numero_item);
-
-    for (const item of itensOrdenados) {
-      if (y > 265) {
+    for (const item of itens) {
+      if (y > 260) {
         doc.addPage();
         y = 20;
-        isAlternate = false;
+        
+        // Repetir cabeçalho da tabela
+        doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
+        doc.rect(15, y - 5, 180, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ITEM', 18, y);
+        doc.text('DESCRIÇÃO', 35, y);
+        doc.text('QTD', 120, y);
+        doc.text('UNID', 140, y);
+        doc.text('VL. UNIT.', 160, y);
+        doc.text('VL. TOTAL', 180, y, { align: 'right' });
+        y += 6;
+        doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
       }
 
-      // Fundo alternado para as linhas
+      const itemCotacao: any = item.itens_cotacao;
+      const valorUnitario = item.valor_unitario_ofertado;
+      const valorTotalItem = valorUnitario * itemCotacao.quantidade;
+
+      // Fundo alternado para linhas
       if (isAlternate) {
         doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
-        doc.rect(15, y - 3.5, 180, 7, 'F');
+        doc.rect(15, y - 4, 180, 6, 'F');
       }
-      
-      const valorTotal = item.quantidade * item.valor_unitario_ofertado;
-      subtotal += valorTotal;
 
-      doc.setFontSize(8);
-      // Item - centralizado
-      doc.text(item.numero_item.toString(), 20, y + 1, { align: 'center' });
+      doc.text(itemCotacao.numero_item.toString(), 18, y);
       
-      // Descrição - largura maior (78px)
-      const descricaoMaxWidth = 78;
-      const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
-      doc.text(descricaoLines[0], 30, y + 1);
+      const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 80);
+      doc.text(descricaoLinhas[0], 35, y);
       
-      // Quantidade - centralizado (sem casas decimais)
-      doc.text(Math.round(item.quantidade).toString(), 120, y + 1, { align: 'center' });
+      doc.text(itemCotacao.quantidade.toFixed(2), 120, y);
+      doc.text(itemCotacao.unidade, 140, y);
+      doc.text(`R$ ${valorUnitario.toFixed(2)}`, 160, y);
+      doc.text(`R$ ${valorTotalItem.toFixed(2)}`, 193, y, { align: 'right' });
       
-      // Unidade - centralizado
-      doc.text(item.unidade, 140, y + 1, { align: 'center' });
-      
-      // Valor Unitário - alinhado à direita
-      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 168, y + 1, { align: 'right' });
-      
-      // Valor Total - alinhado à direita
-      doc.text(`R$ ${valorTotal.toFixed(2)}`, 188, y + 1, { align: 'right' });
-      
-      y += 7;
+      y += 6;
       isAlternate = !isAlternate;
     }
 
@@ -228,18 +216,10 @@ export async function gerarPropostaFornecedorPDF(
       y += obsLines.length * 5;
     }
 
-    // Certificação Digital
-    if (y > 220) {
-      doc.addPage();
-      y = 20;
-    }
-
-    y += 10;
-
+    // Gerar protocolo
     const protocolo = gerarProtocolo();
-    const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
 
-    // Salvar o protocolo no banco ANTES de gerar o PDF
+    // Salvar o protocolo no banco
     const { error: protocoloError } = await supabase
       .from('cotacao_respostas_fornecedor')
       .update({ 
@@ -251,80 +231,180 @@ export async function gerarPropostaFornecedorPDF(
       console.error('Erro ao salvar protocolo:', protocoloError);
     }
 
-    // Adicionar certificação digital com hash temporário (será atualizado depois)
-    adicionarCertificacaoDigital(doc, {
-      protocolo,
-      dataHora: dataGeracao,
-      responsavel: usuarioNome || fornecedor.razao_social,
-      cpf: usuarioCpf || fornecedor.cnpj,
-      hash: 'CALCULANDO...', // Placeholder temporário
-      linkVerificacao
-    }, y);
-
     // Gerar PDF base como blob
     const pdfBlob = doc.output('blob');
     
-    // Se houver comprovantes, mesclar os PDFs
-    let pdfFinal: Blob;
+    // Carregar PDF base com pdf-lib
+    const pdfPropostaBytes = await pdfBlob.arrayBuffer();
+    let pdfFinal = await PDFDocument.load(pdfPropostaBytes);
     
+    // Se houver comprovantes, mesclar os PDFs
     if (comprovantes.length > 0) {
-      // Carregar o PDF da proposta
-      const pdfPropostaBytes = await pdfBlob.arrayBuffer();
-      const pdfProposta = await PDFDocument.load(pdfPropostaBytes);
-      
-      // Mesclar cada comprovante na ordem
       for (const comprovante of comprovantes) {
         try {
           const comprovanteBytes = await comprovante.arrayBuffer();
           const pdfComprovante = await PDFDocument.load(comprovanteBytes);
           
-          // Copiar todas as páginas do comprovante para a proposta
           const pageIndices = pdfComprovante.getPageIndices();
-          const copiedPages = await pdfProposta.copyPages(pdfComprovante, pageIndices);
+          const copiedPages = await pdfFinal.copyPages(pdfComprovante, pageIndices);
           
           copiedPages.forEach((page) => {
-            pdfProposta.addPage(page);
+            pdfFinal.addPage(page);
           });
         } catch (error) {
           console.error('Erro ao mesclar comprovante:', error);
         }
       }
-      
-      // Salvar PDF mesclado
-      const pdfMescladoBytes = await pdfProposta.save();
-      pdfFinal = new Blob([new Uint8Array(pdfMescladoBytes)], { type: 'application/pdf' });
-    } else {
-      pdfFinal = pdfBlob;
     }
 
-    // Calcular hash do PDF FINAL (após mesclar comprovantes)
-    const pdfArrayBuffer = await pdfFinal.arrayBuffer();
-    const hash = await gerarHashDocumento(pdfArrayBuffer);
-
+    // Salvar PDF mesclado (sem certificação) e calcular hash
+    const pdfMescladoBytes = await pdfFinal.save();
+    const hash = await gerarHashDocumento(pdfMescladoBytes as unknown as ArrayBuffer);
+    
     console.log('Hash calculado do PDF final:', hash);
+
+    // Adicionar página de certificação
+    const novaPagina = pdfFinal.addPage();
+    const { width, height } = novaPagina.getSize();
+    const font = await pdfFinal.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfFinal.embedFont(StandardFonts.HelveticaBold);
+
+    // Desenhar retângulo de fundo
+    novaPagina.drawRectangle({
+      x: 40,
+      y: height - 200,
+      width: width - 80,
+      height: 180,
+      color: rgb(0.96, 0.96, 0.96),
+      borderColor: rgb(0, 0, 0),
+      borderWidth: 1,
+    });
+
+    // Título
+    novaPagina.drawText('CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO', {
+      x: width / 2 - 200,
+      y: height - 50,
+      size: 12,
+      font: fontBold,
+      color: rgb(0, 0, 0.55),
+    });
+
+    let yPos = height - 75;
+    const fontSize = 10;
+    const lineHeight = 15;
+
+    // Protocolo
+    novaPagina.drawText(`Protocolo: ${protocolo}`, {
+      x: 50,
+      y: yPos,
+      size: fontSize,
+      font: font,
+    });
+    yPos -= lineHeight;
+
+    // Data/Hora
+    novaPagina.drawText(`Data/Hora de Geração: ${dataGeracao}`, {
+      x: 50,
+      y: yPos,
+      size: fontSize,
+      font: font,
+    });
+    yPos -= lineHeight;
+
+    // Responsável
+    const responsavel = usuarioNome || fornecedor.razao_social;
+    const cpfCnpj = usuarioCpf || fornecedor.cnpj;
+    novaPagina.drawText(`Responsável pela Geração: ${responsavel} - CPF/CNPJ: ${cpfCnpj}`, {
+      x: 50,
+      y: yPos,
+      size: fontSize,
+      font: font,
+    });
+    yPos -= lineHeight;
+
+    // Hash (quebrado em 2 linhas se necessário)
+    novaPagina.drawText('Hash de Validação:', {
+      x: 50,
+      y: yPos,
+      size: fontSize,
+      font: fontBold,
+    });
+    yPos -= lineHeight;
+
+    const hashParte1 = hash.substring(0, 64);
+    const hashParte2 = hash.substring(64);
+    
+    novaPagina.drawText(hashParte1, {
+      x: 50,
+      y: yPos,
+      size: 8,
+      font: font,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+    
+    if (hashParte2) {
+      yPos -= 12;
+      novaPagina.drawText(hashParte2, {
+        x: 50,
+        y: yPos,
+        size: 8,
+        font: font,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+    }
+
+    yPos -= lineHeight;
+
+    // Link de verificação
+    const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
+    novaPagina.drawText('Verificar autenticidade em:', {
+      x: 50,
+      y: yPos,
+      size: fontSize,
+      font: fontBold,
+    });
+    yPos -= lineHeight;
+
+    novaPagina.drawText(linkVerificacao, {
+      x: 50,
+      y: yPos,
+      size: 8,
+      font: font,
+      color: rgb(0, 0, 1),
+    });
+    yPos -= lineHeight;
+
+    // Texto legal
+    novaPagina.drawText('Este documento possui certificação digital conforme Lei 14.063/2020', {
+      x: 50,
+      y: yPos,
+      size: 7,
+      font: font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+
+    // Salvar PDF final com certificação
+    const pdfFinalComCertBytes = await pdfFinal.save();
+    const pdfFinalBlob = new Blob([pdfFinalComCertBytes as unknown as BlobPart], { type: 'application/pdf' });
 
     const nomeArquivo = `proposta_${fornecedor.cnpj.replace(/[^\d]/g, '')}_${Date.now()}.pdf`;
 
     // Upload para o storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('processo-anexos')
-      .upload(nomeArquivo, pdfFinal, {
+      .upload(nomeArquivo, pdfFinalBlob, {
         contentType: 'application/pdf',
         cacheControl: '3600',
       });
 
     if (uploadError) throw uploadError;
 
-    // Obter URL pública (bucket é privado, então precisamos de signed URL)
-    const { data: signedUrlData } = await supabase.storage
-      .from('processo-anexos')
-      .createSignedUrl(uploadData.path, 31536000); // 1 ano
-
     return {
       url: uploadData.path,
       nome: nomeArquivo,
       hash: hash
     };
+
   } catch (error) {
     console.error('Erro ao gerar PDF da proposta:', error);
     throw error;
