@@ -28,6 +28,7 @@ import primaLogo from "@/assets/prima-qualita-logo.png";
 import { ArrowLeft, Plus, Shield, User, RotateCcw, Trash2, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogUsuario } from "@/components/usuarios/DialogUsuario";
+import { mascaraCPF } from "@/lib/validators";
 
 
 interface Usuario {
@@ -284,7 +285,7 @@ const Usuarios = () => {
                     <TableRow key={usuario.id}>
                       <TableCell className="font-medium">{usuario.nome_completo}</TableCell>
                       <TableCell>{usuario.email}</TableCell>
-                      <TableCell>{usuario.cpf}</TableCell>
+                      <TableCell>{mascaraCPF(usuario.cpf)}</TableCell>
                       <TableCell>
                         {usuario.role === "gestor" ? (
                           <Badge variant="default" className="gap-1">
