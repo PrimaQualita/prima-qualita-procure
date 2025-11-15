@@ -238,8 +238,103 @@ export async function gerarPropostaFornecedorPDF(
     const pdfPropostaBytes = await pdfBlob.arrayBuffer();
     let pdfFinal = await PDFDocument.load(pdfPropostaBytes);
     
-    // Se houver comprovantes, mesclar os PDFs
+    // Adicionar certificação ANTES de mesclar comprovantes
+    // Verificar se há espaço na última página
+    const ultimaPagina = pdfFinal.getPage(pdfFinal.getPageCount() - 1);
+    const { height } = ultimaPagina.getSize();
+    
+    // Se y atual for maior que 220, não há espaço suficiente - adicionar nova página
+    let paginaCert;
+    let yPosCert;
+    
+    if (y > height - 100) {
+      // Criar nova página para certificação
+      paginaCert = pdfFinal.addPage();
+      yPosCert = height - 40;
+    } else {
+      // Usar a última página
+      paginaCert = ultimaPagina;
+      yPosCert = y + 10;
+    }
+
+    const { width } = paginaCert.getSize();
+    const font = await pdfFinal.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfFinal.embedFont(StandardFonts.HelveticaBold);
+
+    // Altura do quadro de certificação (ajustado sem hash)
+    const alturaQuadro = 80;
+
+    // Desenhar retângulo de fundo
+    paginaCert.drawRectangle({
+      x: 40,
+      y: yPosCert - alturaQuadro,
+      width: width - 80,
+      height: alturaQuadro,
+      color: rgb(0.96, 0.96, 0.96),
+      borderColor: rgb(0, 0, 0),
+      borderWidth: 1,
+    });
+
+    // Título
+    paginaCert.drawText('CERTIFICAÇÃO DIGITAL', {
+      x: width / 2 - 80,
+      y: yPosCert - 15,
+      size: 12,
+      font: fontBold,
+      color: rgb(0, 0, 0.55),
+    });
+
+    let yPos = yPosCert - 35;
+    const fontSize = 10;
+    const lineHeight = 15;
+
+    // Protocolo
+    paginaCert.drawText(`Protocolo: ${protocolo}`, {
+      x: 50,
+      y: yPos,
+      size: fontSize,
+      font: font,
+    });
+    yPos -= lineHeight;
+
+    // Link de verificação
+    const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
+    paginaCert.drawText('Verificar autenticidade em:', {
+      x: 50,
+      y: yPos,
+      size: 9,
+      font: fontBold,
+    });
+    yPos -= 12;
+
+    paginaCert.drawText(linkVerificacao, {
+      x: 50,
+      y: yPos,
+      size: 7,
+      font: font,
+      color: rgb(0, 0, 1),
+    });
+    yPos -= 12;
+
+    // Texto legal
+    paginaCert.drawText('Este documento possui certificação digital conforme Lei 14.063/2020', {
+      x: 50,
+      y: yPos,
+      size: 7,
+      font: font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+
+    // AGORA sim salvar e calcular hash
+    const pdfComCertBytes = await pdfFinal.save();
+    const hash = await gerarHashDocumento(pdfComCertBytes as unknown as ArrayBuffer);
+    
+    console.log('Hash calculado do PDF (com certificação, sem comprovantes):', hash);
+
+    // Se houver comprovantes, carregar novamente e mesclar
     if (comprovantes.length > 0) {
+      pdfFinal = await PDFDocument.load(pdfComCertBytes);
+      
       for (const comprovante of comprovantes) {
         try {
           const comprovanteBytes = await comprovante.arrayBuffer();
@@ -251,141 +346,17 @@ export async function gerarPropostaFornecedorPDF(
           copiedPages.forEach((page) => {
             pdfFinal.addPage(page);
           });
+          
+          console.log('Comprovante mesclado:', comprovante.name);
         } catch (error) {
-          console.error('Erro ao mesclar comprovante:', error);
+          console.error('Erro ao mesclar comprovante:', comprovante.name, error);
         }
       }
     }
 
-    // Salvar PDF mesclado (sem certificação) e calcular hash
-    const pdfMescladoBytes = await pdfFinal.save();
-    const hash = await gerarHashDocumento(pdfMescladoBytes as unknown as ArrayBuffer);
-    
-    console.log('Hash calculado do PDF final:', hash);
-
-    // Adicionar página de certificação
-    const novaPagina = pdfFinal.addPage();
-    const { width, height } = novaPagina.getSize();
-    const font = await pdfFinal.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfFinal.embedFont(StandardFonts.HelveticaBold);
-
-    // Desenhar retângulo de fundo
-    novaPagina.drawRectangle({
-      x: 40,
-      y: height - 200,
-      width: width - 80,
-      height: 180,
-      color: rgb(0.96, 0.96, 0.96),
-      borderColor: rgb(0, 0, 0),
-      borderWidth: 1,
-    });
-
-    // Título
-    novaPagina.drawText('CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO', {
-      x: width / 2 - 200,
-      y: height - 50,
-      size: 12,
-      font: fontBold,
-      color: rgb(0, 0, 0.55),
-    });
-
-    let yPos = height - 75;
-    const fontSize = 10;
-    const lineHeight = 15;
-
-    // Protocolo
-    novaPagina.drawText(`Protocolo: ${protocolo}`, {
-      x: 50,
-      y: yPos,
-      size: fontSize,
-      font: font,
-    });
-    yPos -= lineHeight;
-
-    // Data/Hora
-    novaPagina.drawText(`Data/Hora de Geração: ${dataGeracao}`, {
-      x: 50,
-      y: yPos,
-      size: fontSize,
-      font: font,
-    });
-    yPos -= lineHeight;
-
-    // Responsável
-    const responsavel = usuarioNome || fornecedor.razao_social;
-    const cpfCnpj = usuarioCpf || fornecedor.cnpj;
-    novaPagina.drawText(`Responsável pela Geração: ${responsavel} - CPF/CNPJ: ${cpfCnpj}`, {
-      x: 50,
-      y: yPos,
-      size: fontSize,
-      font: font,
-    });
-    yPos -= lineHeight;
-
-    // Hash (quebrado em 2 linhas se necessário)
-    novaPagina.drawText('Hash de Validação:', {
-      x: 50,
-      y: yPos,
-      size: fontSize,
-      font: fontBold,
-    });
-    yPos -= lineHeight;
-
-    const hashParte1 = hash.substring(0, 64);
-    const hashParte2 = hash.substring(64);
-    
-    novaPagina.drawText(hashParte1, {
-      x: 50,
-      y: yPos,
-      size: 8,
-      font: font,
-      color: rgb(0.2, 0.2, 0.2),
-    });
-    
-    if (hashParte2) {
-      yPos -= 12;
-      novaPagina.drawText(hashParte2, {
-        x: 50,
-        y: yPos,
-        size: 8,
-        font: font,
-        color: rgb(0.2, 0.2, 0.2),
-      });
-    }
-
-    yPos -= lineHeight;
-
-    // Link de verificação
-    const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
-    novaPagina.drawText('Verificar autenticidade em:', {
-      x: 50,
-      y: yPos,
-      size: fontSize,
-      font: fontBold,
-    });
-    yPos -= lineHeight;
-
-    novaPagina.drawText(linkVerificacao, {
-      x: 50,
-      y: yPos,
-      size: 8,
-      font: font,
-      color: rgb(0, 0, 1),
-    });
-    yPos -= lineHeight;
-
-    // Texto legal
-    novaPagina.drawText('Este documento possui certificação digital conforme Lei 14.063/2020', {
-      x: 50,
-      y: yPos,
-      size: 7,
-      font: font,
-      color: rgb(0.3, 0.3, 0.3),
-    });
-
-    // Salvar PDF final com certificação
-    const pdfFinalComCertBytes = await pdfFinal.save();
-    const pdfFinalBlob = new Blob([pdfFinalComCertBytes as unknown as BlobPart], { type: 'application/pdf' });
+    // Salvar PDF final (com certificação E comprovantes se houver)
+    const pdfFinalBytes = await pdfFinal.save();
+    const pdfFinalBlob = new Blob([pdfFinalBytes as unknown as BlobPart], { type: 'application/pdf' });
 
     const nomeArquivo = `proposta_${fornecedor.cnpj.replace(/[^\d]/g, '')}_${Date.now()}.pdf`;
 

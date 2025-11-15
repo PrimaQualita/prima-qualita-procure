@@ -241,17 +241,15 @@ const VerificarProposta = () => {
                 
                 <div className="grid gap-3">
                   <div className="flex justify-between items-start py-2 border-b">
+                    <span className="text-sm font-medium text-muted-foreground">Tipo de Documento:</span>
+                    <span className="text-sm font-medium">Proposta de Preços</span>
+                  </div>
+
+                  <div className="flex justify-between items-start py-2 border-b">
                     <span className="text-sm font-medium text-muted-foreground">Protocolo:</span>
                     <Badge variant="outline" className="font-mono">
                       {protocolo}
                     </Badge>
-                  </div>
-
-                  <div className="flex justify-between items-start py-2 border-b">
-                    <span className="text-sm font-medium text-muted-foreground">Hash de Verificação:</span>
-                    <span className="font-mono text-xs text-primary break-all max-w-md text-right">
-                      {resposta.hash_certificacao || "Hash não disponível"}
-                    </span>
                   </div>
 
                   <div className="flex justify-between items-start py-2 border-b">
@@ -279,26 +277,22 @@ const VerificarProposta = () => {
                     <span className="text-sm font-medium">{resposta.cotacao.titulo_cotacao}</span>
                   </div>
 
-                  {resposta.fornecedor.razao_social !== "Documento de Autorização" && (
+                  <div className="flex justify-between items-start py-2 border-b">
+                    <span className="text-sm font-medium text-muted-foreground">Responsável pela Geração:</span>
+                    <span className="text-sm font-medium">
+                      {resposta.fornecedor.cnpj === "00000000000000" 
+                        ? (resposta.usuario_gerador?.nome_completo || "Sistema")
+                        : resposta.fornecedor.razao_social
+                      }
+                    </span>
+                  </div>
+
+                  {resposta.fornecedor.razao_social !== "Documento de Autorização" && resposta.fornecedor.cnpj !== "00000000000000" && (
                     <>
                       <div className="flex justify-between items-start py-2 border-b">
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {resposta.fornecedor.cnpj === "00000000000000" ? "Gerado por:" : "Fornecedor:"}
-                        </span>
-                        <span className="text-sm font-medium">
-                          {resposta.fornecedor.cnpj === "00000000000000" 
-                            ? (resposta.usuario_gerador?.nome_completo || "Sistema")
-                            : resposta.fornecedor.razao_social
-                          }
-                        </span>
+                        <span className="text-sm font-medium text-muted-foreground">CNPJ:</span>
+                        <span className="text-sm font-medium">{formatarCNPJ(resposta.fornecedor.cnpj)}</span>
                       </div>
-
-                      {resposta.fornecedor.cnpj !== "00000000000000" && (
-                        <div className="flex justify-between items-start py-2 border-b">
-                          <span className="text-sm font-medium text-muted-foreground">CNPJ:</span>
-                          <span className="text-sm font-medium">{formatarCNPJ(resposta.fornecedor.cnpj)}</span>
-                        </div>
-                      )}
 
                       <div className="flex justify-between items-start py-2">
                         <span className="text-sm font-medium text-muted-foreground">Valor Total:</span>
@@ -310,6 +304,18 @@ const VerificarProposta = () => {
                         </span>
                       </div>
                     </>
+                  )}
+
+                  {resposta.fornecedor.razao_social !== "Documento de Autorização" && resposta.fornecedor.cnpj === "00000000000000" && (
+                    <div className="flex justify-between items-start py-2">
+                      <span className="text-sm font-medium text-muted-foreground">Valor Total:</span>
+                      <span className="text-lg font-bold text-primary">
+                        R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
