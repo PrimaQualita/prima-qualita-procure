@@ -49,6 +49,26 @@ export const gerarAnaliseCompliancePDF = async (
   const margin = 20;
   const maxWidth = pageWidth - 2 * margin;
 
+  // Função para adicionar rodapé em qualquer página
+  const addFooter = () => {
+    const currentPage = pdf.getCurrentPageInfo().pageNumber;
+    const footerY = pageHeight - 15;
+    pdf.setFontSize(8);
+    pdf.setTextColor(100);
+    pdf.text(
+      "Prima Qualitá - Organização Social de Saúde",
+      pageWidth / 2,
+      footerY,
+      { align: "center" }
+    );
+    pdf.text(
+      `Página ${currentPage}`,
+      pageWidth - margin,
+      footerY,
+      { align: "right" }
+    );
+  };
+
   // Função para adicionar nova página com logo e rodapé
   const addNewPage = () => {
     pdf.addPage();
@@ -61,28 +81,14 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.addImage(logo, "PNG", logoX, 10, logoWidth, logoHeight);
     
     // Rodapé
-    const footerY = pageHeight - 15;
-    pdf.setFontSize(8);
-    pdf.setTextColor(100);
-    pdf.text(
-      "Prima Qualitá - Organização Social de Saúde",
-      pageWidth / 2,
-      footerY,
-      { align: "center" }
-    );
-    pdf.text(
-      `Página ${pdf.getNumberOfPages()}`,
-      pageWidth - margin,
-      footerY,
-      { align: "right" }
-    );
+    addFooter();
     
     // Resetar formatação para o texto normal
     pdf.setFontSize(12);
     pdf.setTextColor(0);
     pdf.setFont("times", "normal");
     
-    yPos = 35;
+    yPos = 40;
   };
 
   // Função para verificar espaço e adicionar texto
@@ -146,10 +152,14 @@ export const gerarAnaliseCompliancePDF = async (
 
   // Logo inicial - maior e centralizado
   const logoWidth = 60;
-  const logoHeight = 15;
+  const logoHeight = 20;
   const logoX = (pageWidth - logoWidth) / 2;
   pdf.addImage(logo, "PNG", logoX, 10, logoWidth, logoHeight);
-  yPos = 35;
+  
+  // Rodapé primeira página
+  addFooter();
+  
+  yPos = 40;
 
   // Título
   pdf.setFontSize(16);
@@ -850,29 +860,12 @@ export const gerarAnaliseCompliancePDF = async (
     linkVerificacao: `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`,
   };
   
-  // Garantir espaço suficiente para certificação e rodapé (pelo menos 80mm)
+  // Garantir espaço suficiente para certificação (pelo menos 80mm)
   if (yPos > pageHeight - 80) {
     addNewPage();
   }
   
   yPos = adicionarCertificacaoDigital(pdf, dadosCertificacao, yPos + 10);
-
-  // Rodapé na última página
-  const footerY = pageHeight - 15;
-  pdf.setFontSize(8);
-  pdf.setTextColor(100);
-  pdf.text(
-    "Prima Qualitá - Organização Social de Saúde",
-    pageWidth / 2,
-    footerY,
-    { align: "center" }
-  );
-  pdf.text(
-    `Página ${pdf.getNumberOfPages()}`,
-    pageWidth - margin,
-    footerY,
-    { align: "right" }
-  );
 
   // Salvar PDF
   const pdfBlob = pdf.output("blob");
