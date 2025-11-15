@@ -144,7 +144,9 @@ export function DialogRespostasCotacao({
 
   const loadPlanilhaGerada = async () => {
     try {
-      const { data } = await supabase
+      console.log('🔄 Carregando planilha gerada para cotação:', cotacaoId);
+      
+      const { data, error } = await supabase
         .from("planilhas_consolidadas")
         .select("*")
         .eq("cotacao_id", cotacaoId)
@@ -152,6 +154,12 @@ export function DialogRespostasCotacao({
         .limit(1)
         .maybeSingle();
       
+      if (error) {
+        console.error('❌ Erro ao carregar planilha:', error);
+        throw error;
+      }
+      
+      console.log('📄 Planilha encontrada:', data);
       setPlanilhaGerada(data);
     } catch (error) {
       console.error("Erro ao carregar planilha:", error);
