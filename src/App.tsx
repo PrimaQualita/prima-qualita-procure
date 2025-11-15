@@ -27,6 +27,7 @@ import VerificarProposta from "./pages/VerificarProposta";
 import VerificarAutorizacao from "./pages/VerificarAutorizacao";
 import VerificarPlanilha from "./pages/VerificarPlanilha";
 import VerificarDocumento from "./pages/VerificarDocumento";
+import VerificarEncaminhamento from "./pages/VerificarEncaminhamento";
 import Credenciamentos from "./pages/Credenciamentos";
 import ContratacoesEspecificas from "./pages/ContratacoesEspecificas";
 import Contratos from "./pages/Contratos";
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
           <Route path="/verificar-planilha" element={<VerificarPlanilha />} />
           <Route path="/verificar-documento" element={<VerificarDocumento />} />
+          <Route path="/verificar-encaminhamento" element={<VerificarEncaminhamento />} />
           
           {/* Rotas com sidebar */}
           <Route element={<DashboardLayout />}>
