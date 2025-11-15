@@ -467,7 +467,7 @@ export function DialogRespostasCotacao({
         .update({ hash_certificacao: hash })
         .eq("id", resposta.id);
 
-      // Deletar anexo PROPOSTA anterior se existir
+      // Deletar APENAS anexo PROPOSTA anterior (manter COMPROVANTES)
       await supabase
         .from('anexos_cotacao_fornecedor')
         .delete()
