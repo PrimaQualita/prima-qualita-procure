@@ -157,7 +157,9 @@ const IncluirPrecosPublicos = () => {
         
         console.log(`Processando linha ${index + 2}:`, line);
         
-        const campos = line.split(separador).map(campo => campo.trim());
+        // Remove aspas extras que o Excel pode adicionar
+        const cleanLine = line.replace(/"/g, '');
+        const campos = cleanLine.split(separador).map(campo => campo.trim()).filter(campo => campo !== '');
         console.log(`Campos separados:`, campos);
         
         // Template agora tem apenas: Número Item, Valor Unitário, Marca
