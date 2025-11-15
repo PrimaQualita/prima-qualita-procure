@@ -46,6 +46,11 @@ export async function gerarPropostaFornecedorPDF(
   usuarioCpf?: string
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
+    console.log('📄 Dados recebidos no gerarPropostaFornecedorPDF:', {
+      fornecedor,
+      valorTotal,
+      tituloCotacao
+    });
     // Buscar itens da resposta
     const { data: itens, error: itensError } = await supabase
       .from('respostas_itens_fornecedor')

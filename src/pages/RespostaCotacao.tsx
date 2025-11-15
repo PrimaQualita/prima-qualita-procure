@@ -387,6 +387,16 @@ const RespostaCotacao = () => {
 
       // Preparar endereço completo
       const enderecoCompleto = `${dadosEmpresa.logradouro}, Nº ${dadosEmpresa.numero}, ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf}, CEP: ${dadosEmpresa.cep}`;
+      
+      console.log('📍 Dados do endereço do formulário:', {
+        logradouro: dadosEmpresa.logradouro,
+        numero: dadosEmpresa.numero,
+        bairro: dadosEmpresa.bairro,
+        municipio: dadosEmpresa.municipio,
+        uf: dadosEmpresa.uf,
+        cep: dadosEmpresa.cep,
+        enderecoCompleto
+      });
 
       // Preparar itens para o PDF
       const itensParaPDF = itensCotacao.map(item => ({
@@ -492,6 +502,12 @@ const RespostaCotacao = () => {
 
       // Gerar PDF certificado com comprovantes anexados
       toast.info("Gerando proposta certificada...");
+      
+      console.log('📄 Dados sendo enviados para o PDF:', {
+        razao_social: dadosEmpresa.razao_social,
+        cnpj: dadosEmpresa.cnpj,
+        endereco_comercial: enderecoCompleto,
+      });
       
       const { url: pdfUrl, nome: pdfNome } = await gerarPropostaFornecedorPDF(
         respostaCriada.id,
