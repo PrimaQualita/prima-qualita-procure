@@ -89,14 +89,50 @@ export function DialogRespostasCotacao({
   const [encaminhamento, setEncaminhamento] = useState<any>(null);
   const [gerandoEncaminhamento, setGerandoEncaminhamento] = useState(false);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
+  const [analiseCompliance, setAnaliseCompliance] = useState<any>(null);
+  const [empresasAprovadas, setEmpresasAprovadas] = useState<string[]>([]);
+  const [empresasReprovadas, setEmpresasReprovadas] = useState<string[]>([]);
 
   useEffect(() => {
     if (open && cotacaoId) {
       loadRespostas();
       loadPlanilhaGerada();
       loadEncaminhamento();
+      loadAnaliseCompliance();
     }
   }, [open, cotacaoId]);
+
+  const loadAnaliseCompliance = async () => {
+    try {
+      const { data } = await supabase
+        .from("analises_compliance")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .maybeSingle();
+      
+      if (data) {
+        setAnaliseCompliance(data);
+        
+        // Carregar empresas do JSON
+        const empresas = data.empresas as any[] || [];
+        const aprovadas: string[] = [];
+        const reprovadas: string[] = [];
+        
+        empresas.forEach((emp: any) => {
+          if (emp.aprovado) {
+            aprovadas.push(emp.razao_social);
+          } else {
+            reprovadas.push(emp.razao_social);
+          }
+        });
+        
+        setEmpresasAprovadas(aprovadas);
+        setEmpresasReprovadas(reprovadas);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar análise de compliance:", error);
+    }
+  };
 
   const loadPlanilhaGerada = async () => {
     try {
@@ -1060,6 +1096,107 @@ export function DialogRespostasCotacao({
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
+                </div>
+              )}
+              
+              {/* Análise de Compliance */}
+              {analiseCompliance && (
+                <div className="mt-6 pt-6 border-t space-y-4">
+                  <h3 className="text-lg font-semibold">Análise de Compliance</h3>
+                  
+                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Documento de Análise</span>
+                      <Badge variant={
+                        analiseCompliance.status_aprovacao === 'aprovado' ? 'default' : 
+                        analiseCompliance.status_aprovacao === 'reprovado' ? 'destructive' : 
+                        'secondary'
+                      }>
+                        {analiseCompliance.status_aprovacao === 'aprovado' ? 'Aprovado' : 
+                         analiseCompliance.status_aprovacao === 'reprovado' ? 'Reprovado' : 
+                         'Pendente'}
+                      </Badge>
+                    </div>
+                    
+                    {analiseCompliance.protocolo && (
+                      <div className="text-xs text-muted-foreground">
+                        Protocolo: {analiseCompliance.protocolo}
+                      </div>
+                    )}
+
+                    {/* Empresas Aprovadas */}
+                    {empresasAprovadas.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-green-600">Empresas Aprovadas</h4>
+                        <div className="space-y-1">
+                          {empresasAprovadas.map((empresa, idx) => (
+                            <div key={idx} className="text-sm pl-4 border-l-2 border-green-600">
+                              {empresa}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Empresas Reprovadas */}
+                    {empresasReprovadas.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-red-600">Empresas Reprovadas</h4>
+                        <div className="space-y-1">
+                          {empresasReprovadas.map((empresa, idx) => (
+                            <div key={idx} className="text-sm pl-4 border-l-2 border-red-600">
+                              {empresa}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (analiseCompliance.url_documento) {
+                            window.open(analiseCompliance.url_documento, '_blank');
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar Análise
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (analiseCompliance.url_documento) {
+                            const link = document.createElement('a');
+                            link.href = analiseCompliance.url_documento;
+                            link.download = analiseCompliance.nome_arquivo || 'analise_compliance.pdf';
+                            link.click();
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Baixar Análise
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Botão para Gerar Planilha Consolidada (excluindo reprovadas) */}
+                  <Button 
+                    onClick={() => setPlanilhaConsolidadaOpen(true)} 
+                    disabled={gerandoPlanilha}
+                    className="w-full"
+                  >
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    {gerandoPlanilha ? "Gerando..." : "Gerar Nova Planilha Consolidada"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Você poderá selecionar quais empresas incluir na planilha
+                  </p>
                 </div>
               )}
               

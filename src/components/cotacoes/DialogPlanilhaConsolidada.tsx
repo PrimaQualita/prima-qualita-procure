@@ -64,6 +64,7 @@ export function DialogPlanilhaConsolidada({
   const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor">("menor");
   const [todosItens, setTodosItens] = useState<any[]>([]);
   const [tipoProcesso, setTipoProcesso] = useState<string>("");
+  const [empresasSelecionadas, setEmpresasSelecionadas] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -184,6 +185,14 @@ export function DialogPlanilhaConsolidada({
       }
 
       setRespostas(respostasCompletas);
+      
+      // Inicializar todas as empresas como selecionadas (exceto as rejeitadas)
+      const empresasNaoRejeitadas = new Set(
+        respostasCompletas
+          .filter(r => !r.rejeitado)
+          .map(r => r.fornecedor.razao_social)
+      );
+      setEmpresasSelecionadas(empresasNaoRejeitadas);
       
       // Armazenar TODOS os itens da cotação para usar na configuração
       setTodosItens(itensFormatados || []);
@@ -420,7 +429,7 @@ export function DialogPlanilhaConsolidada({
                 <th class="col-descricao">Descrição</th>
                 <th class="col-qtd">Qtd</th>
                 <th class="col-unid">Unid</th>
-                ${respostas.map(r => {
+                ${respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social)).map(r => {
                   const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
                   return `
                   <th class="text-right empresa" style="font-size: 10px; padding: 4px;">
@@ -445,7 +454,9 @@ export function DialogPlanilhaConsolidada({
           const tipoCalculoItem = calculosPorItem[chaveItem] || calculoGlobal;
           
           const valores: number[] = [];
-          respostas.forEach(resposta => {
+          const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+          
+          respostasFiltradas.forEach(resposta => {
             const itemResposta = resposta.itens.find((i: any) => 
               i.numero_item === item.numero_item
             );
@@ -467,7 +478,9 @@ export function DialogPlanilhaConsolidada({
               <td class="col-unid">${item.unidade}</td>
           `;
 
-          respostas.forEach(resposta => {
+          const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+          
+          respostasFiltradas.forEach(resposta => {
             const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
             const valorTotal = itemResposta 
               ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
@@ -501,7 +514,8 @@ export function DialogPlanilhaConsolidada({
           `;
         });
 
-        const colspanTotal = tipoProcesso === "material" ? (4 + (respostas.length * 2)) : (4 + respostas.length);
+        const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+        const colspanTotal = tipoProcesso === "material" ? (4 + (respostasFiltradas.length * 2)) : (4 + respostasFiltradas.length);
         html += `
               <tr class="total">
                 <td colspan="${colspanTotal}"><strong>VALOR TOTAL ESTIMADO</strong></td>
@@ -1254,12 +1268,50 @@ export function DialogPlanilhaConsolidada({
               </div>
             )}
 
+            {/* Seleção de Empresas */}
+            <div className="space-y-3 mt-6 p-4 border rounded-lg bg-muted/30">
+              <Label className="text-base font-semibold">Selecionar Empresas para Planilha</Label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Marque as empresas que devem aparecer na planilha consolidada. Empresas reprovadas estão desmarcadas por padrão.
+              </p>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {respostas.map((resposta, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-2 border rounded">
+                    <input
+                      type="checkbox"
+                      id={`empresa-${idx}`}
+                      checked={empresasSelecionadas.has(resposta.fornecedor.razao_social)}
+                      onChange={(e) => {
+                        const novaSelecao = new Set(empresasSelecionadas);
+                        if (e.target.checked) {
+                          novaSelecao.add(resposta.fornecedor.razao_social);
+                        } else {
+                          novaSelecao.delete(resposta.fornecedor.razao_social);
+                        }
+                        setEmpresasSelecionadas(novaSelecao);
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor={`empresa-${idx}`} className="flex-1 cursor-pointer text-sm">
+                      <span className="font-medium">{resposta.fornecedor.razao_social}</span>
+                      {resposta.rejeitado && (
+                        <span className="ml-2 text-xs text-red-600">(Reprovada)</span>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        CNPJ: {resposta.fornecedor.cnpj}
+                      </div>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="rounded-lg bg-muted p-4 mt-4">
               <p className="text-sm text-muted-foreground">
-                <strong>Respostas encontradas:</strong> {respostas.length} fornecedor(es)
+                <strong>Empresas selecionadas:</strong> {empresasSelecionadas.size} de {respostas.length} fornecedor(es)
               </p>
               <p className="text-sm text-muted-foreground mt-2">
-                Configure o tipo de cálculo individualmente e gere a planilha consolidada.
+                Configure o tipo de cálculo e selecione as empresas antes de gerar a planilha.
               </p>
             </div>
           </div>
