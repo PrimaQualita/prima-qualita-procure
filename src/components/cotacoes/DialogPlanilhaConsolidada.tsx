@@ -91,7 +91,7 @@ export function DialogPlanilhaConsolidada({
         setTipoProcesso(cotacaoData.processos_compras.tipo);
       }
 
-      // Buscar empresas reprovadas em análises anteriores
+      // Buscar empresas reprovadas em análises anteriores para marcar, mas NÃO filtrar
       const { data: analisesAnteriores } = await supabase
         .from("analises_compliance" as any)
         .select("empresas_reprovadas")
@@ -108,7 +108,7 @@ export function DialogPlanilhaConsolidada({
         });
       }
 
-      console.log("CNPJs reprovados anteriormente:", Array.from(cnpjsReprovados));
+      console.log("CNPJs reprovados anteriormente (para referência):", Array.from(cnpjsReprovados));
 
       const { data: respostasData, error } = await supabase
         .from("cotacao_respostas_fornecedor")
@@ -157,11 +157,12 @@ export function DialogPlanilhaConsolidada({
       const respostasCompletas: RespostaConsolidada[] = [];
 
       for (const resposta of respostasData || []) {
-        // Filtrar empresas reprovadas
+        // NÃO filtrar empresas reprovadas - incluir todas
         const cnpjFornecedor = resposta.fornecedor?.cnpj || "";
-        if (cnpjsReprovados.has(cnpjFornecedor)) {
-          console.log(`Empresa ${resposta.fornecedor?.razao_social} (${cnpjFornecedor}) foi reprovada anteriormente - não incluída na planilha`);
-          continue;
+        const foiReprovada = cnpjsReprovados.has(cnpjFornecedor);
+        
+        if (foiReprovada) {
+          console.log(`Empresa ${resposta.fornecedor?.razao_social} (${cnpjFornecedor}) foi reprovada anteriormente - incluída mas desmarcada por padrão`);
         }
 
         const { data: itensData } = await supabase
@@ -205,17 +206,17 @@ export function DialogPlanilhaConsolidada({
           fornecedor: resposta.fornecedor as any,
           itens: itensFormatadosFornecedor,
           valor_total: resposta.valor_total_anual_ofertado,
-          rejeitado: resposta.rejeitado || false,
-          motivo_rejeicao: resposta.motivo_rejeicao || undefined,
+          rejeitado: resposta.rejeitado || foiReprovada, // Marcar como rejeitada se foi reprovada antes
+          motivo_rejeicao: resposta.motivo_rejeicao || (foiReprovada ? 'Reprovada em análise anterior' : undefined),
         });
       }
 
       setRespostas(respostasCompletas);
       
-      // Inicializar todas as empresas como selecionadas (exceto as rejeitadas)
+      // Inicializar apenas empresas NÃO reprovadas como selecionadas
       const empresasNaoRejeitadas = new Set(
         respostasCompletas
-          .filter(r => !r.rejeitado)
+          .filter(r => !cnpjsReprovados.has(r.fornecedor.cnpj))
           .map(r => r.fornecedor.razao_social)
       );
       setEmpresasSelecionadas(empresasNaoRejeitadas);
