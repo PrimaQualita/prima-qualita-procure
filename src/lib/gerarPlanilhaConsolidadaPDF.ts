@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { adicionarCertificacaoDigital, gerarHashDocumento } from './certificacaoDigital';
+import { gerarHashDocumento } from './certificacaoDigital';
 
 interface ItemCotacao {
   numero_item: number;
@@ -15,6 +15,7 @@ interface RespostaFornecedor {
   fornecedor: {
     razao_social: string;
     cnpj: string;
+    email?: string;
   };
   itens: {
     numero_item: number;
@@ -39,6 +40,13 @@ const formatarMoeda = (valor: number): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+};
+
+// Decodificar entidades HTML
+const decodeHtmlEntities = (text: string): string => {
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
 };
 
 export async function gerarPlanilhaConsolidadaPDF(
@@ -74,9 +82,15 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.text(processo.numero, pageWidth / 2, 23, { align: 'center' });
-  doc.text(processo.objeto, pageWidth / 2, 30, { align: 'center' });
+  
+  // Decodificar o objeto antes de exibir
+  const objetoDecodificado = decodeHtmlEntities(processo.objeto);
+  const objetoLinhas = doc.splitTextToSize(objetoDecodificado, larguraUtil);
+  objetoLinhas.forEach((linha: string, index: number) => {
+    doc.text(linha, pageWidth / 2, 30 + (index * 5), { align: 'center' });
+  });
 
-  y = 45;
+  y = 50;
 
   // Informações da Cotação
   doc.setTextColor(0, 0, 0);
@@ -102,10 +116,11 @@ export async function gerarPlanilhaConsolidadaPDF(
     { header: 'Unid.', dataKey: 'unidade' }
   ];
 
-  // Adicionar colunas de fornecedores
+  // Adicionar colunas de fornecedores com CNPJ e Email
   respostas.forEach((resposta, index) => {
+    const headerText = `${resposta.fornecedor.razao_social}\nCNPJ: ${resposta.fornecedor.cnpj}${resposta.fornecedor.email ? '\n' + resposta.fornecedor.email : ''}`;
     colunas.push({
-      header: resposta.fornecedor.razao_social,
+      header: headerText,
       dataKey: `fornecedor_${index}`
     });
   });
@@ -185,41 +200,11 @@ export async function gerarPlanilhaConsolidadaPDF(
   // Pegar a posição Y após a tabela
   const finalY = (doc as any).lastAutoTable.finalY;
 
-  // Adicionar informações adicionais
-  y = finalY + 10;
-
-  // Verificar se precisa de nova página
-  if (y > pageHeight - 80) {
-    doc.addPage();
-    y = 20;
-  }
-
-  // Informações de fornecedores com CNPJ
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Fornecedores Participantes:', margemEsquerda, y);
-  y += 6;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  
-  respostas.forEach((resposta, index) => {
-    if (y > pageHeight - 60) {
-      doc.addPage();
-      y = 20;
-    }
-    
-    const texto = `${index + 1}. ${resposta.fornecedor.razao_social} - CNPJ: ${resposta.fornecedor.cnpj}`;
-    doc.text(texto, margemEsquerda + 5, y);
-    y += 5;
-  });
-
-  y += 5;
-
   // Verificar se precisa de nova página para certificação
-  if (y > pageHeight - 70) {
+  let y2 = finalY + 15;
+  if (y2 > pageHeight - 50) {
     doc.addPage();
-    y = 20;
+    y2 = 20;
   }
 
   // Gerar hash do conteúdo
@@ -235,18 +220,37 @@ export async function gerarPlanilhaConsolidadaPDF(
   });
 
   const hash = await gerarHashDocumento(conteudoParaHash);
-
-  // Adicionar certificação digital
   const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${dadosProtocolo.protocolo}`;
+
+  // Certificação simplificada
+  doc.setFillColor(245, 245, 245);
+  doc.rect(margemEsquerda, y2, larguraUtil, 35, 'F');
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(margemEsquerda, y2, larguraUtil, 35, 'S');
+
+  y2 += 6;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 139);
+  doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, y2, { align: 'center' });
   
-  adicionarCertificacaoDigital(doc, {
-    protocolo: dadosProtocolo.protocolo,
-    dataHora: new Date().toLocaleString('pt-BR'),
-    responsavel: dadosProtocolo.usuario.nome_completo,
-    cpf: dadosProtocolo.usuario.cpf,
-    hash: hash,
-    linkVerificacao: linkVerificacao
-  }, y);
+  y2 += 6;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  
+  doc.text(`Protocolo: ${dadosProtocolo.protocolo}`, margemEsquerda + 3, y2);
+  y2 += 5;
+  doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')} por ${dadosProtocolo.usuario.nome_completo}`, margemEsquerda + 3, y2);
+  y2 += 5;
+  doc.text(`Hash: ${hash.substring(0, 60)}...`, margemEsquerda + 3, y2);
+  y2 += 5;
+  
+  doc.setTextColor(0, 0, 255);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.text(`Verifique em: ${linkVerificacao}`, margemEsquerda + 3, y2);
 
   return doc.output('blob');
 }
