@@ -117,28 +117,42 @@ const IncluirPrecosPublicos = () => {
   const importarTemplate = async (file: File) => {
     try {
       const text = await file.text();
-      const lines = text.split('\n').slice(1); // Remove cabeçalho
+      // Remove BOM se existir e divide as linhas
+      const cleanText = text.replace(/^\uFEFF/, '');
+      const lines = cleanText.split('\n').slice(1); // Remove cabeçalho
       
       const novasRespostas = { ...respostas };
+      let itensImportados = 0;
       
       lines.forEach((line) => {
-        const [numItem, , , , valor, marca] = line.split(';');
+        // Ignora linhas vazias
+        if (!line.trim()) return;
+        
+        const campos = line.split(';').map(campo => campo.trim());
+        const [numItem, , , , valor, marca] = campos;
+        
+        if (!numItem) return;
+        
         const item = itens.find(i => i.numero_item === parseInt(numItem));
         
-        if (item && valor) {
+        if (item && valor && valor !== '') {
+          // Limpa e formata o valor (aceita tanto vírgula quanto ponto)
+          const valorLimpo = valor.replace(/[^\d,.-]/g, '').replace('.', ',');
+          
           novasRespostas[item.id] = {
             item_id: item.id,
-            valor_unitario: valor.replace('.', ','),
-            marca: marca || '',
+            valor_unitario: valorLimpo,
+            marca: marca && marca !== '' ? marca.trim() : '',
           };
+          itensImportados++;
         }
       });
       
       setRespostas(novasRespostas);
-      toast.success("Dados importados com sucesso!");
+      toast.success(`${itensImportados} itens importados com sucesso!`);
     } catch (error) {
       console.error("Erro ao importar template:", error);
-      toast.error("Erro ao importar template");
+      toast.error("Erro ao importar template: " + (error instanceof Error ? error.message : "Erro desconhecido"));
     }
   };
 
