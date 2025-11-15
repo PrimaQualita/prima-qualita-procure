@@ -388,10 +388,10 @@ export function DialogRespostasCotacao({
   };
   
   const excluirPlanilha = async () => {
-    if (!planilhaGerada) return;
+    if (!planilhaParaExcluir) return;
     
     try {
-      const filePath = planilhaGerada.url_arquivo;
+      const filePath = planilhaParaExcluir.url_arquivo;
 
       const { error: storageError } = await supabase.storage
         .from("processo-anexos")
@@ -402,12 +402,13 @@ export function DialogRespostasCotacao({
       const { error: dbError } = await supabase
         .from("planilhas_consolidadas")
         .delete()
-        .eq("id", planilhaGerada.id);
+        .eq("id", planilhaParaExcluir.id);
 
       if (dbError) throw dbError;
 
-      setPlanilhaGerada(null);
+      setPlanilhaParaExcluir(null);
       setConfirmDeletePlanilhaOpen(false);
+      loadPlanilhaGerada(); // Recarregar lista
       toast.success("Planilha excluída com sucesso");
     } catch (error: any) {
       console.error("Erro ao excluir planilha:", error);
@@ -890,6 +891,7 @@ export function DialogRespostasCotacao({
   
   // Estados para confirmação de exclusão de planilha
   const [confirmDeletePlanilhaOpen, setConfirmDeletePlanilhaOpen] = useState(false);
+  const [planilhaParaExcluir, setPlanilhaParaExcluir] = useState<any>(null);
   
 
   const confirmarExclusao = (resposta: RespostaFornecedor) => {
@@ -1140,6 +1142,16 @@ export function DialogRespostasCotacao({
                           >
                             <Download className="mr-2 h-4 w-4" />
                             Baixar
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setPlanilhaParaExcluir(planilha);
+                              setConfirmDeletePlanilhaOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -1415,7 +1427,13 @@ export function DialogRespostasCotacao({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão de Planilha</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a planilha consolidada?
+              Tem certeza que deseja excluir esta planilha consolidada?
+              <br /><br />
+              {planilhaParaExcluir && (
+                <span className="text-sm">
+                  Protocolo: <strong>{planilhaParaExcluir.protocolo}</strong>
+                </span>
+              )}
               <br /><br />
               Esta ação não pode ser desfeita. Você poderá gerar uma nova planilha a qualquer momento.
             </AlertDialogDescription>
