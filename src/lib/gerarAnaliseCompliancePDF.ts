@@ -249,8 +249,29 @@ export const gerarAnaliseCompliancePDF = async (
     const conflitoWidth = maxWidth - conflitoLabelWidth;
     const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", conflitoWidth);
     
-    // Primeira linha na mesma linha do rótulo
-    pdf.text(conflitoLines[0] || "", margin + conflitoLabelWidth, yPos);
+    // Primeira linha na mesma linha do rótulo - justificar se não for a única linha
+    if (conflitoLines.length > 1 && conflitoLines[0]) {
+      const words = conflitoLines[0].split(' ');
+      if (words.length > 1) {
+        const lineWidth = pdf.getTextWidth(conflitoLines[0]);
+        const spaceWidth = (conflitoWidth - lineWidth) / (words.length - 1);
+        const normalSpaceWidth = pdf.getTextWidth(' ');
+        const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+        
+        let x = margin + conflitoLabelWidth;
+        for (let j = 0; j < words.length; j++) {
+          pdf.text(words[j], x, yPos);
+          if (j < words.length - 1) {
+            x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+          }
+        }
+      } else {
+        pdf.text(conflitoLines[0], margin + conflitoLabelWidth, yPos);
+      }
+    } else {
+      // Se for a única linha, não justifica
+      pdf.text(conflitoLines[0] || "", margin + conflitoLabelWidth, yPos);
+    }
     yPos += 7.5;
     
     // Linhas seguintes justificadas
@@ -307,7 +328,28 @@ export const gerarAnaliseCompliancePDF = async (
     const capacidadeWidth = maxWidth - capacidadeLabelWidth;
     const capacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", capacidadeWidth);
     
-    pdf.text(capacidadeLines[0] || "", margin + capacidadeLabelWidth, yPos);
+    // Primeira linha na mesma linha do rótulo - justificar se não for a única linha
+    if (capacidadeLines.length > 1 && capacidadeLines[0]) {
+      const words = capacidadeLines[0].split(' ');
+      if (words.length > 1) {
+        const lineWidth = pdf.getTextWidth(capacidadeLines[0]);
+        const spaceWidth = (capacidadeWidth - lineWidth) / (words.length - 1);
+        const normalSpaceWidth = pdf.getTextWidth(' ');
+        const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+        
+        let x = margin + capacidadeLabelWidth;
+        for (let j = 0; j < words.length; j++) {
+          pdf.text(words[j], x, yPos);
+          if (j < words.length - 1) {
+            x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+          }
+        }
+      } else {
+        pdf.text(capacidadeLines[0], margin + capacidadeLabelWidth, yPos);
+      }
+    } else {
+      pdf.text(capacidadeLines[0] || "", margin + capacidadeLabelWidth, yPos);
+    }
     yPos += 7.5;
     
     for (let i = 1; i < capacidadeLines.length; i++) {
@@ -362,7 +404,28 @@ export const gerarAnaliseCompliancePDF = async (
     const riscoWidth = maxWidth - riscoLabelWidth;
     const riscoLines = pdf.splitTextToSize(riscoTexto || "Não informado", riscoWidth);
     
-    pdf.text(riscoLines[0] || "", margin + riscoLabelWidth, yPos);
+    // Primeira linha na mesma linha do rótulo - justificar se não for a única linha
+    if (riscoLines.length > 1 && riscoLines[0]) {
+      const words = riscoLines[0].split(' ');
+      if (words.length > 1) {
+        const lineWidth = pdf.getTextWidth(riscoLines[0]);
+        const spaceWidth = (riscoWidth - lineWidth) / (words.length - 1);
+        const normalSpaceWidth = pdf.getTextWidth(' ');
+        const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+        
+        let x = margin + riscoLabelWidth;
+        for (let j = 0; j < words.length; j++) {
+          pdf.text(words[j], x, yPos);
+          if (j < words.length - 1) {
+            x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+          }
+        }
+      } else {
+        pdf.text(riscoLines[0], margin + riscoLabelWidth, yPos);
+      }
+    } else {
+      pdf.text(riscoLines[0] || "", margin + riscoLabelWidth, yPos);
+    }
     yPos += 7.5;
     
     for (let i = 1; i < riscoLines.length; i++) {
@@ -417,7 +480,28 @@ export const gerarAnaliseCompliancePDF = async (
     const reputacaoWidth = maxWidth - reputacaoLabelWidth;
     const reputacaoLines = pdf.splitTextToSize(reputacaoTexto || "Não informado", reputacaoWidth);
     
-    pdf.text(reputacaoLines[0] || "", margin + reputacaoLabelWidth, yPos);
+    // Primeira linha na mesma linha do rótulo - justificar se não for a única linha
+    if (reputacaoLines.length > 1 && reputacaoLines[0]) {
+      const words = reputacaoLines[0].split(' ');
+      if (words.length > 1) {
+        const lineWidth = pdf.getTextWidth(reputacaoLines[0]);
+        const spaceWidth = (reputacaoWidth - lineWidth) / (words.length - 1);
+        const normalSpaceWidth = pdf.getTextWidth(' ');
+        const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+        
+        let x = margin + reputacaoLabelWidth;
+        for (let j = 0; j < words.length; j++) {
+          pdf.text(words[j], x, yPos);
+          if (j < words.length - 1) {
+            x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+          }
+        }
+      } else {
+        pdf.text(reputacaoLines[0], margin + reputacaoLabelWidth, yPos);
+      }
+    } else {
+      pdf.text(reputacaoLines[0] || "", margin + reputacaoLabelWidth, yPos);
+    }
     yPos += 7.5;
     
     for (let i = 1; i < reputacaoLines.length; i++) {
@@ -472,7 +556,28 @@ export const gerarAnaliseCompliancePDF = async (
     const cnaeWidth = maxWidth - cnaeLabelWidth;
     const cnaeLines = pdf.splitTextToSize(cnaeTexto || "Não informado", cnaeWidth);
     
-    pdf.text(cnaeLines[0] || "", margin + cnaeLabelWidth, yPos);
+    // Primeira linha na mesma linha do rótulo - justificar se não for a única linha
+    if (cnaeLines.length > 1 && cnaeLines[0]) {
+      const words = cnaeLines[0].split(' ');
+      if (words.length > 1) {
+        const lineWidth = pdf.getTextWidth(cnaeLines[0]);
+        const spaceWidth = (cnaeWidth - lineWidth) / (words.length - 1);
+        const normalSpaceWidth = pdf.getTextWidth(' ');
+        const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+        
+        let x = margin + cnaeLabelWidth;
+        for (let j = 0; j < words.length; j++) {
+          pdf.text(words[j], x, yPos);
+          if (j < words.length - 1) {
+            x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+          }
+        }
+      } else {
+        pdf.text(cnaeLines[0], margin + cnaeLabelWidth, yPos);
+      }
+    } else {
+      pdf.text(cnaeLines[0] || "", margin + cnaeLabelWidth, yPos);
+    }
     yPos += 7.5;
     
     for (let i = 1; i < cnaeLines.length; i++) {
