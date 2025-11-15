@@ -15,7 +15,7 @@ export default function VerificarAutorizacao() {
   const [protocolo, setProtocolo] = useState(searchParams.get("protocolo") || "");
   const [loading, setLoading] = useState(false);
   const [autorizacao, setAutorizacao] = useState<any>(null);
-  const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | null>(null);
+  const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | 'compliance' | null>(null);
   const [buscaRealizada, setBuscaRealizada] = useState(false);
 
   const verificarAutorizacao = async (protocoloParam?: string) => {
@@ -165,9 +165,10 @@ export default function VerificarAutorizacao() {
       if (compData && !compError) {
         console.log('✅ [VERIFICAÇÃO] Análise de Compliance encontrada!');
         
+        // Não buscar CPF - informação restrita
         const { data: usuario } = await supabase
           .from('profiles')
-          .select('nome_completo, cpf')
+          .select('nome_completo')
           .eq('id', (compData as any).usuario_analista_id)
           .single();
 
@@ -287,7 +288,8 @@ export default function VerificarAutorizacao() {
                   <CheckCircle2 className="w-8 h-8 text-green-600" />
                   <div>
                     <CardTitle className="text-green-600">
-                      {tipoDocumento === 'relatorio' ? 'Relatório Final Autêntico' : 'Autorização Autêntica'}
+                      {tipoDocumento === 'relatorio' ? 'Relatório Final Autêntico' : 
+                       tipoDocumento === 'compliance' ? 'Análise de Riscos e Conformidades Autêntica' : 'Autorização Autêntica'}
                     </CardTitle>
                     <CardDescription>Documento verificado e válido</CardDescription>
                   </div>
@@ -308,13 +310,14 @@ export default function VerificarAutorizacao() {
                   <p className="text-sm text-muted-foreground">Tipo de Documento</p>
                   <p className="font-semibold capitalize">
                     {tipoDocumento === 'relatorio' ? 'Relatório Final' : 
+                     tipoDocumento === 'compliance' ? 'Análise de Riscos e Conformidades' :
                      autorizacao.tipo_autorizacao === 'compra_direta' ? 'Autorização - Compra Direta' : 'Autorização - Seleção de Fornecedores'}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Data de Geração</p>
                   <p className="font-semibold">
-                    {new Date(autorizacao.data_geracao).toLocaleString('pt-BR', {
+                    {new Date(autorizacao.data_geracao || autorizacao.data_analise).toLocaleString('pt-BR', {
                       dateStyle: 'long',
                       timeStyle: 'medium'
                     })}
@@ -323,7 +326,9 @@ export default function VerificarAutorizacao() {
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Responsável</p>
                   <p className="font-semibold">{autorizacao.usuario?.nome_completo}</p>
-                  <p className="text-sm text-muted-foreground">CPF: {autorizacao.usuario?.cpf}</p>
+                  {autorizacao.usuario?.cpf && (
+                    <p className="text-sm text-muted-foreground">CPF: {autorizacao.usuario.cpf}</p>
+                  )}
                 </div>
               </div>
 
