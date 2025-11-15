@@ -126,6 +126,10 @@ const IncluirPrecosPublicos = () => {
       console.log("Total de linhas:", lines.length);
       console.log("Primeira linha (cabeçalho):", lines[0]);
       
+      // Detecta o separador (tab ou ponto e vírgula)
+      const separador = lines[0].includes('\t') ? '\t' : ';';
+      console.log("Separador detectado:", separador === '\t' ? 'TAB' : 'PONTO E VÍRGULA');
+      
       // Remove cabeçalho
       const dataLines = lines.slice(1);
       
@@ -141,7 +145,7 @@ const IncluirPrecosPublicos = () => {
         
         console.log(`Processando linha ${index + 2}:`, line);
         
-        const campos = line.split(';').map(campo => campo.trim());
+        const campos = line.split(separador).map(campo => campo.trim());
         console.log(`Campos separados:`, campos);
         
         const [numItem, descricao, quantidade, unidade, valor, marca] = campos;
