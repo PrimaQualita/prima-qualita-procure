@@ -252,10 +252,10 @@ const RespostaCotacao = () => {
       ])
     ].map(row => row.join('\t')).join('\n');
 
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `template_${cotacao?.titulo_cotacao || 'cotacao'}.csv`;
+    link.download = `template_${cotacao?.titulo_cotacao || 'cotacao'}.txt`;
     link.click();
     toast.success("Template baixado com sucesso!");
   };
