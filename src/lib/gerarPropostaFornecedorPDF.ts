@@ -43,7 +43,8 @@ export async function gerarPropostaFornecedorPDF(
       .select(`
         valor_unitario_ofertado,
         marca,
-        itens_cotacao:item_cotacao_id (
+        item_cotacao_id,
+        itens_cotacao!inner (
           numero_item,
           descricao,
           quantidade,
@@ -52,7 +53,17 @@ export async function gerarPropostaFornecedorPDF(
       `)
       .eq('cotacao_resposta_fornecedor_id', respostaId);
 
-    if (itensError) throw itensError;
+    if (itensError) {
+      console.error('Erro ao buscar itens:', itensError);
+      throw itensError;
+    }
+
+    if (!itens || itens.length === 0) {
+      console.error('Nenhum item encontrado para resposta:', respostaId);
+      throw new Error('Nenhum item encontrado para esta proposta');
+    }
+
+    console.log('Itens carregados para PDF:', itens);
 
     const dataGeracao = new Date().toLocaleString('pt-BR');
 
@@ -158,7 +169,13 @@ export async function gerarPropostaFornecedorPDF(
         doc.setFontSize(8);
       }
 
-      const itemCotacao: any = item.itens_cotacao;
+      const itemCotacao: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
+      
+      if (!itemCotacao) {
+        console.warn('Item sem dados de cotação:', item);
+        continue;
+      }
+      
       const valorUnitario = item.valor_unitario_ofertado;
       const valorTotalItem = valorUnitario * itemCotacao.quantidade;
 
