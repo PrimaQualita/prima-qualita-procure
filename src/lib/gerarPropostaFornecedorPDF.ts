@@ -347,23 +347,28 @@ export async function gerarPropostaFornecedorPDF(
     
     console.log('Hash calculado do PDF (com certificação, sem comprovantes):', hash);
 
-    // Se houver comprovantes, carregar novamente e mesclar
+    // Se houver comprovantes PDF, carregar novamente e mesclar
     if (comprovantes.length > 0) {
       pdfFinal = await PDFDocument.load(pdfComCertBytes);
       
       for (const comprovante of comprovantes) {
         try {
-          const comprovanteBytes = await comprovante.arrayBuffer();
-          const pdfComprovante = await PDFDocument.load(comprovanteBytes);
-          
-          const pageIndices = pdfComprovante.getPageIndices();
-          const copiedPages = await pdfFinal.copyPages(pdfComprovante, pageIndices);
-          
-          copiedPages.forEach((page) => {
-            pdfFinal.addPage(page);
-          });
-          
-          console.log('Comprovante mesclado:', comprovante.name);
+          // Só tenta mesclar se for PDF
+          if (comprovante.type === 'application/pdf' || comprovante.name.toLowerCase().endsWith('.pdf')) {
+            const comprovanteBytes = await comprovante.arrayBuffer();
+            const pdfComprovante = await PDFDocument.load(comprovanteBytes);
+            
+            const pageIndices = pdfComprovante.getPageIndices();
+            const copiedPages = await pdfFinal.copyPages(pdfComprovante, pageIndices);
+            
+            copiedPages.forEach((page) => {
+              pdfFinal.addPage(page);
+            });
+            
+            console.log('Comprovante mesclado:', comprovante.name);
+          } else {
+            console.log('Comprovante não-PDF será enviado separadamente:', comprovante.name);
+          }
         } catch (error) {
           console.error('Erro ao mesclar comprovante:', comprovante.name, error);
         }
