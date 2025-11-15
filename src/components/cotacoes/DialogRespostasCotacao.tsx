@@ -1220,10 +1220,10 @@ export function DialogRespostasCotacao({
                 </div>
               )}
 
-              {/* Análise de Compliance - MOVIDO PARA DEPOIS */}
-              {analiseCompliance && (
+              {/* Nova Análise de Compliance - APÓS a planilha consolidada */}
+              {analiseCompliance && planilhaGerada && (
                 <div className="mt-6 pt-6 border-t space-y-4">
-                  <h3 className="text-lg font-semibold">Análise de Compliance</h3>
+                  <h3 className="text-lg font-semibold">Nova Análise de Compliance</h3>
                   
                   <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
                     <div className="flex items-center justify-between">
