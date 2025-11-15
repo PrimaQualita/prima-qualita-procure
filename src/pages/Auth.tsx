@@ -36,11 +36,14 @@ const Auth = () => {
       let emailToLogin = loginIdentifier;
 
       if (isCPF) {
+        // Remover formatação do CPF (pontos e traço) antes de buscar
+        const cpfSemFormatacao = loginIdentifier.replace(/\D/g, '');
+        
         // Buscar email pelo CPF
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("email")
-          .eq("cpf", loginIdentifier)
+          .eq("cpf", cpfSemFormatacao)
           .single();
 
         if (profileError || !profile) {
