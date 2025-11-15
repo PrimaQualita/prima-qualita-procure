@@ -279,7 +279,7 @@ const RespostaCotacao = () => {
       let importados = 0;
 
       // Verificar se é arquivo Excel (.xlsx)
-      if (file.name.endsWith('.xlsx')) {
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -294,10 +294,13 @@ const RespostaCotacao = () => {
           const item = itensCotacao.find(it => it.numero_item === parseInt(numeroItem.toString()));
           
           if (item && valorUnitario) {
+            const valorNumerico = parseFloat(valorUnitario.toString().replace(/,/g, '.'));
+            const valorFormatado = valorNumerico.toFixed(2).replace('.', ',');
+            
             novasRespostas[item.id] = {
               ...novasRespostas[item.id],
-              valor_unitario_ofertado: parseFloat(valorUnitario.toString().replace(/,/g, '.')),
-              valor_display: valorUnitario.toString(),
+              valor_unitario_ofertado: valorNumerico,
+              valor_display: valorFormatado,
               marca_ofertada: marca ? marca.toString() : ''
             };
             importados++;
@@ -328,10 +331,13 @@ const RespostaCotacao = () => {
           const item = itensCotacao.find(it => it.numero_item === parseInt(numeroItem));
           
           if (item && valorUnitario) {
+            const valorNumerico = parseFloat(valorUnitario.replace(/,/g, '.'));
+            const valorFormatado = valorNumerico.toFixed(2).replace('.', ',');
+            
             novasRespostas[item.id] = {
               ...novasRespostas[item.id],
-              valor_unitario_ofertado: parseFloat(valorUnitario.replace(/,/g, '.')),
-              valor_display: valorUnitario,
+              valor_unitario_ofertado: valorNumerico,
+              valor_display: valorFormatado,
               marca_ofertada: marca || ''
             };
             importados++;
