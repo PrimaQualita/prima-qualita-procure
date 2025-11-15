@@ -110,7 +110,11 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Nome: ${fornecedor.razao_social}`, 20, y + 16);
-    doc.text(`CNPJ: ${fornecedor.cnpj}`, 20, y + 22);
+    
+    // Não mostrar CNPJ para Preços Públicos
+    if (fornecedor.cnpj !== '00000000000000') {
+      doc.text(`CNPJ: ${fornecedor.cnpj}`, 20, y + 22);
+    }
     
     y += 32;
 
@@ -122,7 +126,7 @@ export async function gerarPropostaFornecedorPDF(
     y += 8;
 
     // Cabeçalho da tabela com fundo
-    // Larguras das colunas: Item(10), Desc(60), Qtd(18), Unid(20), VlrUnit(28), VlrTotal(28)
+    // Larguras das colunas otimizadas: Item(10), Desc(78), Qtd(24), Unid(24), VlrUnit(22), VlrTotal(22)
     doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
     doc.rect(15, y - 5, 180, 8, 'F');
     
@@ -130,12 +134,12 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     
-    // Cabeçalhos das colunas - Proporções: Item(8), Desc(85), Qtd(22), Unid(22), VlrUnit(30), VlrTotal(33)
-    doc.text('Item', 19, y + 1, { align: 'center' });
-    doc.text('Descrição', 60, y + 1, { align: 'left' });
-    doc.text('Qtd', 126, y + 1, { align: 'center' });
-    doc.text('Unid', 143, y + 1, { align: 'center' });
-    doc.text('Vlr Unit', 165, y + 1, { align: 'right' });
+    // Cabeçalhos das colunas
+    doc.text('Item', 20, y + 1, { align: 'center' });
+    doc.text('Descrição', 30, y + 1, { align: 'left' });
+    doc.text('Qtd', 120, y + 1, { align: 'center' });
+    doc.text('Unid', 140, y + 1, { align: 'center' });
+    doc.text('Vlr Unit', 168, y + 1, { align: 'right' });
     doc.text('Vlr Total', 188, y + 1, { align: 'right' });
     y += 5;
 
@@ -172,24 +176,24 @@ export async function gerarPropostaFornecedorPDF(
       subtotal += valorTotal;
 
       doc.setFontSize(8);
-      // Item (15-23) - centralizado
-      doc.text(item.numero_item.toString(), 19, y + 1, { align: 'center' });
+      // Item - centralizado
+      doc.text(item.numero_item.toString(), 20, y + 1, { align: 'center' });
       
-      // Descrição (28-113) - largura de 50
-      const descricaoMaxWidth = 50;
+      // Descrição - largura maior (78px)
+      const descricaoMaxWidth = 78;
       const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
-      doc.text(descricaoLines[0], 28, y + 1);
+      doc.text(descricaoLines[0], 30, y + 1);
       
-      // Quantidade (115-137) - centralizado
-      doc.text(item.quantidade.toFixed(2), 126, y + 1, { align: 'center' });
+      // Quantidade - centralizado
+      doc.text(item.quantidade.toFixed(2), 120, y + 1, { align: 'center' });
       
-      // Unidade (137-150) - centralizado
-      doc.text(item.unidade, 143, y + 1, { align: 'center' });
+      // Unidade - centralizado
+      doc.text(item.unidade, 140, y + 1, { align: 'center' });
       
-      // Valor Unitário (150-180) - alinhado à direita
-      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 165, y + 1, { align: 'right' });
+      // Valor Unitário - alinhado à direita
+      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 168, y + 1, { align: 'right' });
       
-      // Valor Total (180-195) - alinhado à direita
+      // Valor Total - alinhado à direita
       doc.text(`R$ ${valorTotal.toFixed(2)}`, 188, y + 1, { align: 'right' });
       
       y += 7;
@@ -247,6 +251,7 @@ export async function gerarPropostaFornecedorPDF(
     const { error: protocoloError } = await supabase
       .from('cotacao_respostas_fornecedor')
       .update({ 
+        protocolo: protocolo,
         observacoes_fornecedor: observacoes ? `${observacoes}\n\nProtocolo: ${protocolo}\nHash: ${hash}` : `Protocolo: ${protocolo}\nHash: ${hash}`
       })
       .eq('id', respostaId);

@@ -94,7 +94,7 @@ const VerificarProposta = () => {
           });
         }
       } else {
-        // Buscar na tabela de respostas de cotação (propostas)
+        // Buscar na tabela de respostas de cotação (propostas) pelo protocolo
         const { data, error } = await supabaseAnon
           .from("cotacao_respostas_fornecedor")
           .select(`
@@ -112,7 +112,7 @@ const VerificarProposta = () => {
               )
             )
           `)
-          .eq("id", protocolo)
+          .eq("protocolo", protocolo)
           .maybeSingle();
 
         if (error) throw error;
