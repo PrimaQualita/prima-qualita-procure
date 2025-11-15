@@ -117,7 +117,7 @@ const VerificarProposta = () => {
               razao_social,
               cnpj
             ),
-            usuario_gerador:usuario_gerador_id (
+            profiles:usuario_gerador_id (
               nome_completo
             ),
             cotacoes_precos:cotacao_id (
@@ -146,7 +146,7 @@ const VerificarProposta = () => {
               razao_social: (data.fornecedores as any)?.razao_social || "N/A",
               cnpj: (data.fornecedores as any)?.cnpj || "N/A",
             },
-            usuario_gerador: (data.usuario_gerador as any) || null,
+            usuario_gerador: (data.profiles as any) || null,
             cotacao: {
               titulo_cotacao: (data.cotacoes_precos as any)?.titulo_cotacao || "N/A",
               processo: {
