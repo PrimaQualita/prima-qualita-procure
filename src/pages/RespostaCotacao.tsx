@@ -508,14 +508,23 @@ const RespostaCotacao = () => {
         marca: respostas[item.id]?.marca_ofertada || null,
       }));
 
-      const { error: itensError } = await supabaseAnon
+      console.log('💾 Inserindo', respostasItens.length, 'itens para resposta ID:', respostaCriada.id);
+
+      const { data: itensInseridos, error: itensError } = await supabaseAnon
         .from("respostas_itens_fornecedor")
-        .insert(respostasItens);
+        .insert(respostasItens)
+        .select();
 
       if (itensError) {
+        console.error('❌ Erro ao criar itens:', itensError);
         toast.error("Erro ao criar itens: " + itensError.message);
         throw itensError;
       }
+
+      console.log('✅ Itens inseridos com sucesso:', itensInseridos);
+
+      // Aguardar um pouco para garantir que a transação foi concluída
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // DEPOIS: Gerar PDF certificado com comprovantes anexados
       toast.info("Gerando proposta certificada...");
