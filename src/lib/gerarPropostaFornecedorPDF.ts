@@ -93,10 +93,9 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     
-    // Se for preços públicos (CNPJ 00000000000000), mostrar o nome do usuário
+    // Se for preços públicos (CNPJ 00000000000000), mostrar apenas a fonte
     if (fornecedor.cnpj === '00000000000000') {
       doc.text(`Fonte: ${fornecedor.razao_social}`, 20, y + 16);
-      doc.text(`Responsável: ${usuarioNome || 'Sistema'}`, 20, y + 22);
     } else {
       doc.text(`Nome: ${fornecedor.razao_social}`, 20, y + 16);
       doc.text(`CNPJ: ${fornecedor.cnpj}`, 20, y + 22);
@@ -288,8 +287,11 @@ export async function gerarPropostaFornecedorPDF(
     const fontSize = 10;
     const lineHeight = 15;
 
-    // Responsável pela geração
-    const responsavel = usuarioNome || fornecedor.razao_social;
+    // Responsável pela geração - SEMPRE o usuário que gerou quando for preços públicos
+    const responsavel = fornecedor.cnpj === '00000000000000' 
+      ? (usuarioNome || 'Não informado')
+      : fornecedor.razao_social;
+    
     paginaCert.drawText(`Responsável: ${responsavel}`, {
       x: 50,
       y: yPos,
