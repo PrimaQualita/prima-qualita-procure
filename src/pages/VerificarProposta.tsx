@@ -277,15 +277,6 @@ const VerificarProposta = () => {
                     <span className="text-sm font-medium">{resposta.cotacao.titulo_cotacao}</span>
                   </div>
 
-                  <div className="flex justify-between items-start py-2 border-b">
-                    <span className="text-sm font-medium text-muted-foreground">Responsável pela Geração:</span>
-                    <span className="text-sm font-medium">
-                      {resposta.fornecedor.cnpj === "00000000000000" 
-                        ? (resposta.usuario_gerador?.nome_completo || "Não informado")
-                        : resposta.fornecedor.razao_social
-                      }
-                    </span>
-                  </div>
 
                   {resposta.fornecedor.razao_social !== "Documento de Autorização" && resposta.fornecedor.cnpj !== "00000000000000" && (
                     <>
