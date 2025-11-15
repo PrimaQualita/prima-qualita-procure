@@ -76,7 +76,6 @@ export function DialogAnaliseCompliance({
   useEffect(() => {
     if (open) {
       loadExistingAnalise();
-      loadFornecedoresPropostas();
     }
   }, [open, cotacaoId]);
 
@@ -136,6 +135,9 @@ export function DialogAnaliseCompliance({
         setEmpresasReprovadas(data.empresas_reprovadas || []);
         setUrlDocumento(data.url_documento || null);
         setNomeArquivo(data.nome_arquivo || null);
+      } else {
+        // Só carrega fornecedores se não houver análise existente
+        await loadFornecedoresPropostas();
       }
     } catch (error: any) {
       console.error("Erro ao carregar análise:", error);
