@@ -30,7 +30,7 @@ import {
 import { stripHtml } from "@/lib/htmlUtils";
 import { DialogPlanilhaConsolidada } from "./DialogPlanilhaConsolidada";
 import { v4 as uuidv4 } from 'uuid';
-import html2pdf from 'html2pdf.js';
+import { gerarPlanilhaConsolidadaPDF } from "@/lib/gerarPlanilhaConsolidadaPDF";
 
 interface DialogRespostasCotacaoProps {
   open: boolean;
@@ -204,13 +204,34 @@ export function DialogRespostasCotacao({
     try {
       setGerandoPlanilha(true);
       
+      // Buscar dados do usuário
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("nome_completo, cpf")
+        .eq("id", user.id)
+        .single();
+
+      if (!profileData) throw new Error("Perfil do usuário não encontrado");
+
+      // Buscar processo
+      const { data: processoData } = await supabase
+        .from("processos_compras")
+        .select("numero_processo_interno, objeto_resumido")
+        .eq("id", processo.id)
+        .single();
+
+      if (!processoData) throw new Error("Processo não encontrado");
+
       // Buscar TODAS as respostas para gerar com todas as empresas
       const { data: respostasData, error: respostasError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
           id,
           valor_total_anual_ofertado,
-          fornecedor:fornecedores!inner(razao_social, cnpj, email)
+          fornecedor:fornecedores!inner(razao_social, cnpj)
         `)
         .eq("cotacao_id", cotacaoId);
 
@@ -240,11 +261,12 @@ export function DialogRespostasCotacao({
         .eq("cotacao_id", cotacaoId)
         .order("numero_item");
 
+      if (!itensData) throw new Error("Itens não encontrados");
+
       // Buscar respostas dos itens
       const { data: respostasItensData } = await supabase
         .from("respostas_itens_fornecedor")
         .select(`
-          id,
           cotacao_resposta_fornecedor_id,
           item_cotacao_id,
           valor_unitario_ofertado,
@@ -254,7 +276,7 @@ export function DialogRespostasCotacao({
 
       // Criar estrutura de dados consolidada
       const respostasConsolidadas = respostasData.map(resposta => {
-        const itensResposta = itensData?.map(item => {
+        const itensResposta = itensData.map(item => {
           const respostaItem = respostasItensData?.find(
             ri => ri.cotacao_resposta_fornecedor_id === resposta.id && 
                   ri.item_cotacao_id === item.id
@@ -262,37 +284,50 @@ export function DialogRespostasCotacao({
           
           return {
             numero_item: item.numero_item,
-            descricao: item.descricao,
-            quantidade: item.quantidade,
-            unidade: item.unidade,
             valor_unitario_ofertado: respostaItem?.valor_unitario_ofertado || 0,
-            lote_id: item.lote_id,
-            lote_numero: item.lotes_cotacao?.numero_lote,
-            lote_descricao: item.lotes_cotacao?.descricao_lote,
             marca: respostaItem?.marca
           };
-        }) || [];
+        });
 
         return {
-          fornecedor: resposta.fornecedor,
+          fornecedor: {
+            razao_social: resposta.fornecedor.razao_social,
+            cnpj: resposta.fornecedor.cnpj
+          },
           itens: itensResposta,
           valor_total: resposta.valor_total_anual_ofertado
         };
       });
 
-      // Gerar o HTML da planilha (simplificado - apenas com dados essenciais)
-      const html = gerarHTMLPlanilha(respostasConsolidadas, itensData || []);
-      
-      // Converter para PDF
-      const opt = {
-        margin: 10,
-        filename: `Planilha_Consolidada_${new Date().getTime()}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-      };
+      // Gerar protocolo único
+      const protocolo = `PLAN-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-      const pdfBlob = await html2pdf().set(opt).from(html).output('blob');
+      // Gerar PDF usando a função correta com formatação
+      const pdfBlob = await gerarPlanilhaConsolidadaPDF(
+        {
+          numero: processoData.numero_processo_interno,
+          objeto: processoData.objeto_resumido
+        },
+        {
+          titulo_cotacao: cotacao?.titulo_cotacao || "Cotação"
+        },
+        itensData.map(item => ({
+          numero_item: item.numero_item,
+          descricao: item.descricao,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          lote_numero: item.lotes_cotacao?.numero_lote,
+          lote_descricao: item.lotes_cotacao?.descricao_lote
+        })),
+        respostasConsolidadas,
+        {
+          protocolo,
+          usuario: {
+            nome_completo: profileData.nome_completo,
+            cpf: profileData.cpf
+          }
+        }
+      );
       
       // Upload para o storage
       const fileName = `planilha_consolidada_${cotacaoId}_${uuidv4()}.pdf`;
@@ -307,12 +342,6 @@ export function DialogRespostasCotacao({
       const { data: { publicUrl } } = supabase.storage
         .from('processo-anexos')
         .getPublicUrl(filePath);
-
-      // Gerar protocolo único
-      const protocolo = `PLAN-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-
-      // Salvar no banco
-      const { data: { user } } = await supabase.auth.getUser();
       
       const { error: insertError } = await supabase
         .from('planilhas_consolidadas')
