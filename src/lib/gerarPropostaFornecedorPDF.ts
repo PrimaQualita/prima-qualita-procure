@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { PDFDocument } from 'pdf-lib';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ItemProposta {
@@ -20,7 +21,8 @@ export async function gerarPropostaFornecedorPDF(
   fornecedor: DadosFornecedor,
   valorTotal: number,
   observacoes: string | null,
-  tituloCotacao: string
+  tituloCotacao: string,
+  comprovantes: File[] = []
 ): Promise<{ url: string; nome: string }> {
   try {
     // Buscar itens da resposta
@@ -149,14 +151,48 @@ export async function gerarPropostaFornecedorPDF(
       y += obsLines.length * 5;
     }
 
-    // Gerar PDF como blob
+    // Gerar PDF base como blob
     const pdfBlob = doc.output('blob');
+    
+    // Se houver comprovantes, mesclar os PDFs
+    let pdfFinal: Blob;
+    
+    if (comprovantes.length > 0) {
+      // Carregar o PDF da proposta
+      const pdfPropostaBytes = await pdfBlob.arrayBuffer();
+      const pdfProposta = await PDFDocument.load(pdfPropostaBytes);
+      
+      // Mesclar cada comprovante na ordem
+      for (const comprovante of comprovantes) {
+        try {
+          const comprovanteBytes = await comprovante.arrayBuffer();
+          const pdfComprovante = await PDFDocument.load(comprovanteBytes);
+          
+          // Copiar todas as páginas do comprovante para a proposta
+          const pageIndices = pdfComprovante.getPageIndices();
+          const copiedPages = await pdfProposta.copyPages(pdfComprovante, pageIndices);
+          
+          copiedPages.forEach((page) => {
+            pdfProposta.addPage(page);
+          });
+        } catch (error) {
+          console.error('Erro ao mesclar comprovante:', error);
+        }
+      }
+      
+      // Salvar PDF mesclado
+      const pdfMescladoBytes = await pdfProposta.save();
+      pdfFinal = new Blob([new Uint8Array(pdfMescladoBytes)], { type: 'application/pdf' });
+    } else {
+      pdfFinal = pdfBlob;
+    }
+
     const nomeArquivo = `proposta_${fornecedor.cnpj.replace(/[^\d]/g, '')}_${Date.now()}.pdf`;
 
     // Upload para o storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('processo-anexos')
-      .upload(nomeArquivo, pdfBlob, {
+      .upload(nomeArquivo, pdfFinal, {
         contentType: 'application/pdf',
         cacheControl: '3600',
       });
