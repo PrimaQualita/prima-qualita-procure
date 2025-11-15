@@ -194,13 +194,14 @@ export function DialogRespostasCotacao({
         .from('cotacoes_precos')
         .update({ 
           enviado_compliance: true,
+          respondido_compliance: false, // Resetar para permitir novo parecer
           data_envio_compliance: new Date().toISOString()
         })
         .eq('id', cotacaoId);
 
       if (error) throw error;
 
-      toast.success("Enviado ao Compliance com sucesso!");
+      toast.success("Enviado ao Compliance com sucesso! Um novo parecer poderá ser realizado.");
       onOpenChange(false);
     } catch (error) {
       console.error('Erro ao enviar ao Compliance:', error);
