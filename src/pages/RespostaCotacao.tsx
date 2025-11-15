@@ -500,7 +500,24 @@ const RespostaCotacao = () => {
         throw erroResposta;
       }
 
-      // Gerar PDF certificado com comprovantes anexados
+      // PRIMEIRO: Inserir itens da resposta ANTES de gerar o PDF
+      const respostasItens = itensCotacao.map(item => ({
+        cotacao_resposta_fornecedor_id: respostaCriada.id,
+        item_cotacao_id: item.id,
+        valor_unitario_ofertado: respostas[item.id]?.valor_unitario_ofertado || 0,
+        marca: respostas[item.id]?.marca_ofertada || null,
+      }));
+
+      const { error: itensError } = await supabaseAnon
+        .from("respostas_itens_fornecedor")
+        .insert(respostasItens);
+
+      if (itensError) {
+        toast.error("Erro ao criar itens: " + itensError.message);
+        throw itensError;
+      }
+
+      // DEPOIS: Gerar PDF certificado com comprovantes anexados
       toast.info("Gerando proposta certificada...");
       
       console.log('📄 Dados sendo enviados para o PDF:', {
@@ -531,23 +548,6 @@ const RespostaCotacao = () => {
           url_arquivo: pdfUrl,
           nome_arquivo: pdfNome,
         });
-
-      // Inserir itens da resposta
-      const respostasItens = itensCotacao.map(item => ({
-        cotacao_resposta_fornecedor_id: respostaCriada.id,
-        item_cotacao_id: item.id,
-        valor_unitario_ofertado: respostas[item.id]?.valor_unitario_ofertado || 0,
-        marca: respostas[item.id]?.marca_ofertada || null,
-      }));
-
-      const { error: itensError } = await supabaseAnon
-        .from("respostas_itens_fornecedor")
-        .insert(respostasItens);
-
-      if (itensError) {
-        toast.error("Erro ao criar itens: " + itensError.message);
-        throw itensError;
-      }
 
       toast.success("Resposta enviada com sucesso!");
       
