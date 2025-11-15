@@ -202,13 +202,30 @@ const RespostaCotacao = () => {
       }
 
       // Carregar itens
-      const { data: itensData } = await supabaseAnon
+      const { data: itensData, error: itensError } = await supabaseAnon
         .from("itens_cotacao")
         .select("*")
         .eq("cotacao_id", cotacaoData.id)
         .order("numero_item", { ascending: true });
 
+      if (itensError) {
+        console.error("Erro ao carregar itens:", itensError);
+        throw itensError;
+      }
+
+      console.log("Itens carregados:", itensData);
       setItensCotacao(itensData || []);
+      
+      // Inicializar respostas para cada item
+      const respostasIniciais: { [key: string]: any } = {};
+      (itensData || []).forEach((item) => {
+        respostasIniciais[item.id] = {
+          valor_unitario_ofertado: 0,
+          valor_display: "",
+          marca_ofertada: "",
+        };
+      });
+      setRespostas(respostasIniciais);
       setLoading(false);
     } catch (error) {
       console.error("Erro ao carregar cotação:", error);
