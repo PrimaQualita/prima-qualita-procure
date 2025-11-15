@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FileText, CheckCircle2, XCircle, Search, Download } from "lucide-react";
+import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 
 export default function VerificarAutorizacao() {
   const [searchParams] = useSearchParams();
@@ -15,7 +16,7 @@ export default function VerificarAutorizacao() {
   const [protocolo, setProtocolo] = useState(searchParams.get("protocolo") || "");
   const [loading, setLoading] = useState(false);
   const [autorizacao, setAutorizacao] = useState<any>(null);
-  const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | 'compliance' | null>(null);
+  const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | 'compliance' | 'planilha' | 'encaminhamento' | null>(null);
   const [buscaRealizada, setBuscaRealizada] = useState(false);
 
   const verificarAutorizacao = async (protocoloParam?: string) => {
@@ -42,7 +43,7 @@ export default function VerificarAutorizacao() {
     console.log('📏 [VERIFICAÇÃO] Tamanho:', protocoloLimpo.length);
     
     try {
-      // Tentar buscar como autorização primeiro
+      // 1. Autorizações de Processo
       console.log('🔎 [VERIFICAÇÃO] Buscando em autorizacoes_processo...');
       const { data: autData, error: autError } = await supabase
         .from('autorizacoes_processo')
@@ -57,12 +58,11 @@ export default function VerificarAutorizacao() {
       });
 
       if (autData && !autError) {
-        // Encontrou autorização
         console.log('✅ [VERIFICAÇÃO] Autorização encontrada!');
         const { data: cotacao } = await supabase
           .from('cotacoes_precos')
           .select('titulo_cotacao, processo_compra_id')
-          .eq('id', (autData as any).cotacao_id)
+          .eq('id', autData.cotacao_id)
           .single();
 
         let processo = null;
@@ -78,11 +78,11 @@ export default function VerificarAutorizacao() {
         const { data: usuario } = await supabase
           .from('profiles')
           .select('nome_completo, cpf')
-          .eq('id', (autData as any).usuario_gerador_id)
+          .eq('id', autData.usuario_gerador_id)
           .single();
 
         setAutorizacao({
-          ...(autData as any),
+          ...autData,
           cotacao: cotacao ? { ...cotacao, processo } : null,
           usuario
         });
@@ -95,7 +95,7 @@ export default function VerificarAutorizacao() {
         return;
       }
 
-      // Se não encontrou autorização, tentar buscar como relatório final
+      // 2. Relatórios Finais
       console.log('🔎 [VERIFICAÇÃO] Buscando em relatorios_finais...');
       const { data: relData, error: relError } = await supabase
         .from('relatorios_finais')
@@ -110,12 +110,11 @@ export default function VerificarAutorizacao() {
       });
 
       if (relData && !relError) {
-        // Encontrou relatório final
         console.log('✅ [VERIFICAÇÃO] Relatório Final encontrado!');
         const { data: cotacao } = await supabase
           .from('cotacoes_precos')
           .select('titulo_cotacao, processo_compra_id')
-          .eq('id', (relData as any).cotacao_id)
+          .eq('id', relData.cotacao_id)
           .single();
 
         let processo = null;
@@ -131,11 +130,11 @@ export default function VerificarAutorizacao() {
         const { data: usuario } = await supabase
           .from('profiles')
           .select('nome_completo, cpf')
-          .eq('id', (relData as any).usuario_gerador_id)
+          .eq('id', relData.usuario_gerador_id)
           .single();
 
         setAutorizacao({
-          ...(relData as any),
+          ...relData,
           cotacao: cotacao ? { ...cotacao, processo } : null,
           usuario
         });
@@ -148,7 +147,7 @@ export default function VerificarAutorizacao() {
         return;
       }
 
-      // Se não encontrou, tentar buscar em analises_compliance
+      // 3. Análises de Compliance
       console.log('🔎 [VERIFICAÇÃO] Buscando em analises_compliance...');
       const { data: compData, error: compError } = await supabase
         .from('analises_compliance')
@@ -165,21 +164,132 @@ export default function VerificarAutorizacao() {
       if (compData && !compError) {
         console.log('✅ [VERIFICAÇÃO] Análise de Compliance encontrada!');
         
-        // Não buscar CPF - informação restrita
         const { data: usuario } = await supabase
           .from('profiles')
           .select('nome_completo')
-          .eq('id', (compData as any).usuario_analista_id)
+          .eq('id', compData.usuario_analista_id)
           .single();
 
         setAutorizacao({
-          ...(compData as any),
+          ...compData,
           usuario
         });
-        setTipoDocumento('compliance' as any);
+        setTipoDocumento('compliance');
 
         toast({
           title: "Análise de Compliance verificada",
+          description: "Documento autêntico encontrado no sistema",
+        });
+        return;
+      }
+
+      // 4. Planilhas Consolidadas
+      console.log('🔎 [VERIFICAÇÃO] Buscando em planilhas_consolidadas...');
+      const { data: planData, error: planError } = await supabase
+        .from('planilhas_consolidadas')
+        .select('*')
+        .eq('protocolo', protocoloLimpo)
+        .maybeSingle();
+
+      console.log('📋 [VERIFICAÇÃO] Resultado planilhas_consolidadas:', { 
+        encontrado: !!planData, 
+        erro: planError?.message,
+        dados: planData 
+      });
+
+      if (planData && !planError) {
+        console.log('✅ [VERIFICAÇÃO] Planilha Consolidada encontrada!');
+
+        const { data: cotacao } = await supabase
+          .from('cotacoes_precos')
+          .select('titulo_cotacao, processo_compra_id')
+          .eq('id', planData.cotacao_id)
+          .single();
+
+        let processo = null;
+        if (cotacao?.processo_compra_id) {
+          const { data: processoData } = await supabase
+            .from('processos_compras')
+            .select('numero_processo_interno, objeto_resumido')
+            .eq('id', cotacao.processo_compra_id)
+            .single();
+          processo = processoData;
+        }
+
+        const { data: usuario } = await supabase
+          .from('profiles')
+          .select('nome_completo, cpf')
+          .eq('id', planData.usuario_gerador_id)
+          .single();
+
+        setAutorizacao({
+          ...planData,
+          cotacao: cotacao ? { ...cotacao, processo } : null,
+          usuario
+        });
+        setTipoDocumento('planilha');
+
+        toast({
+          title: "Planilha Consolidada verificada",
+          description: "Documento autêntico encontrado no sistema",
+        });
+        return;
+      }
+
+      // 5. Encaminhamentos de Processo
+      console.log('🔎 [VERIFICAÇÃO] Buscando em encaminhamentos_processo...');
+      const { data: encData, error: encError } = await supabase
+        .from('encaminhamentos_processo')
+        .select('*')
+        .eq('protocolo', protocoloLimpo)
+        .maybeSingle();
+
+      console.log('📋 [VERIFICAÇÃO] Resultado encaminhamentos_processo:', { 
+        encontrado: !!encData, 
+        erro: encError?.message,
+        dados: encData 
+      });
+
+      if (encData && !encError) {
+        console.log('✅ [VERIFICAÇÃO] Encaminhamento de Processo encontrado!');
+
+        let cotacao = null;
+        let processo = null;
+
+        if (encData.cotacao_id) {
+          const { data: cotacaoData } = await supabase
+            .from('cotacoes_precos')
+            .select('titulo_cotacao, processo_compra_id')
+            .eq('id', encData.cotacao_id)
+            .single();
+          cotacao = cotacaoData;
+
+          if (cotacaoData?.processo_compra_id) {
+            const { data: processoData } = await supabase
+              .from('processos_compras')
+              .select('numero_processo_interno, objeto_resumido')
+              .eq('id', cotacaoData.processo_compra_id)
+              .single();
+            processo = processoData;
+          }
+        }
+
+        const { data: usuario } = await supabase
+          .from('profiles')
+          .select('nome_completo, cpf')
+          .eq('id', encData.gerado_por)
+          .single();
+
+        setAutorizacao({
+          ...encData,
+          data_geracao: encData.created_at,
+          cotacao: cotacao ? { ...cotacao, processo } : null,
+          usuario
+        });
+        setTipoDocumento('encaminhamento');
+
+        toast({
+          title: "Encaminhamento de Processo verificado",
           description: "Documento autêntico encontrado no sistema",
         });
         return;
@@ -236,14 +346,12 @@ export default function VerificarAutorizacao() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/10 py-12 px-4">
       <div className="container max-w-4xl mx-auto space-y-8">
         <div className="text-center space-y-4">
-          <div className="flex justify-center mb-4">
-            <div className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center">
-              <FileText className="w-16 h-16 text-primary" />
-            </div>
+          <div className="flex justify-center mb-6">
+            <img src={logoHorizontal} alt="Prima Qualità" className="h-16" />
           </div>
           <h1 className="text-4xl font-bold text-foreground">Verificação de Documentos</h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Insira o protocolo de autorizações ou relatórios finais para verificar sua autenticidade
+            Insira o protocolo para verificar a autenticidade de autorizações, relatórios, planilhas e encaminhamentos
           </p>
         </div>
 
@@ -289,7 +397,10 @@ export default function VerificarAutorizacao() {
                   <div>
                     <CardTitle className="text-green-600">
                       {tipoDocumento === 'relatorio' ? 'Relatório Final Autêntico' : 
-                       tipoDocumento === 'compliance' ? 'Análise de Riscos e Conformidades Autêntica' : 'Autorização Autêntica'}
+                       tipoDocumento === 'compliance' ? 'Análise de Riscos e Conformidades Autêntica' :
+                       tipoDocumento === 'planilha' ? 'Planilha Consolidada Autêntica' :
+                       tipoDocumento === 'encaminhamento' ? 'Encaminhamento de Processo Autêntico' :
+                       'Autorização Autêntica'}
                     </CardTitle>
                     <CardDescription>Documento verificado e válido</CardDescription>
                   </div>
@@ -311,6 +422,8 @@ export default function VerificarAutorizacao() {
                   <p className="font-semibold capitalize">
                     {tipoDocumento === 'relatorio' ? 'Relatório Final' : 
                      tipoDocumento === 'compliance' ? 'Análise de Riscos e Conformidades' :
+                     tipoDocumento === 'planilha' ? 'Planilha Consolidada' :
+                     tipoDocumento === 'encaminhamento' ? 'Encaminhamento de Processo' :
                      autorizacao.tipo_autorizacao === 'compra_direta' ? 'Autorização - Compra Direta' : 'Autorização - Seleção de Fornecedores'}
                   </p>
                 </div>
