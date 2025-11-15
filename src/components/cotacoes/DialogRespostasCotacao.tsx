@@ -1058,17 +1058,17 @@ export function DialogRespostasCotacao({
               <div className="mt-6 pt-6 border-t space-y-4">
                 <h3 className="text-lg font-semibold">Planilha Consolidada</h3>
                 
-                {!planilhaGerada && (
-                  <Button 
-                    onClick={gerarPlanilhaConsolidada}
-                    disabled={gerandoPlanilha}
-                    className="w-full"
-                  >
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
-                  </Button>
-                )}
+                {/* BOTÃO SEMPRE VISÍVEL para gerar nova planilha */}
+                <Button 
+                  onClick={gerarPlanilhaConsolidada}
+                  disabled={gerandoPlanilha}
+                  className="w-full"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  {gerandoPlanilha ? "Gerando..." : planilhaGerada ? "Gerar Nova Planilha Consolidada" : "Gerar Planilha Consolidada"}
+                </Button>
                 
+                {/* Planilha gerada */}
                 {planilhaGerada && (
                   <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
                     <div className="flex items-center justify-between">
