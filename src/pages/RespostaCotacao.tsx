@@ -250,7 +250,7 @@ const RespostaCotacao = () => {
         '',
         ''
       ])
-    ].map(row => row.join(',')).join('\n');
+    ].map(row => row.join('\t')).join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
