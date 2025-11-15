@@ -224,14 +224,14 @@ const VerificarProposta = () => {
                   <div className="flex justify-between items-start py-2 border-b">
                     <span className="text-sm font-medium text-muted-foreground">Protocolo:</span>
                     <Badge variant="outline" className="font-mono">
-                      {resposta.id.toUpperCase()}
+                      {protocolo}
                     </Badge>
                   </div>
 
                   <div className="flex justify-between items-start py-2 border-b">
                     <span className="text-sm font-medium text-muted-foreground">Hash de Verificação:</span>
-                    <span className="font-mono text-xs text-primary">
-                      {resposta.id.replace(/-/g, "").substring(0, 32)}
+                    <span className="font-mono text-xs text-primary break-all">
+                      {resposta.id.replace(/-/g, "").substring(0, 64)}
                     </span>
                   </div>
 
