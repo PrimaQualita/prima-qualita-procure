@@ -184,6 +184,7 @@ export function DialogAnaliseCompliance({
       const empresasJson = empresas.map(emp => ({
         razao_social: emp.razao_social,
         cnpj: emp.cnpj,
+        aprovado: emp.aprovado,
         capital_social: "",
         ano_fundacao: "",
         contratos_ativos_oss: false,
