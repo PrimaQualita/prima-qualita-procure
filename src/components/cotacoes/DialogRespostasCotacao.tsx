@@ -30,7 +30,6 @@ import {
 import { stripHtml } from "@/lib/htmlUtils";
 import { DialogPlanilhaConsolidada } from "./DialogPlanilhaConsolidada";
 import { v4 as uuidv4 } from 'uuid';
-import { gerarPlanilhaConsolidadaPDF } from "@/lib/gerarPlanilhaConsolidadaPDF";
 
 interface DialogRespostasCotacaoProps {
   open: boolean;
