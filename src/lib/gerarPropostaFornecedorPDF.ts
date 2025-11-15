@@ -53,18 +53,7 @@ export async function gerarPropostaFornecedorPDF(
 
     if (itensError) throw itensError;
 
-    // Criar conteúdo para hash de certificação
     const dataGeracao = new Date().toLocaleString('pt-BR');
-    const conteudoHash = `
-      Fornecedor: ${fornecedor.razao_social}
-      CNPJ: ${fornecedor.cnpj}
-      Cotação: ${tituloCotacao}
-      Data: ${dataGeracao}
-      Valor Total: ${valorTotal.toFixed(2)}
-      Itens: ${JSON.stringify(itens)}
-    `;
-    
-    const hash = await gerarHashDocumento(conteudoHash);
 
     const doc = new jsPDF();
     
@@ -109,10 +98,13 @@ export async function gerarPropostaFornecedorPDF(
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Nome: ${fornecedor.razao_social}`, 20, y + 16);
     
-    // Não mostrar CNPJ para Preços Públicos
-    if (fornecedor.cnpj !== '00000000000000') {
+    // Se for preços públicos (CNPJ 00000000000000), mostrar o nome do usuário
+    if (fornecedor.cnpj === '00000000000000') {
+      doc.text(`Fonte: ${fornecedor.razao_social}`, 20, y + 16);
+      doc.text(`Responsável: ${usuarioNome || 'Sistema'}`, 20, y + 22);
+    } else {
+      doc.text(`Nome: ${fornecedor.razao_social}`, 20, y + 16);
       doc.text(`CNPJ: ${fornecedor.cnpj}`, 20, y + 22);
     }
     
@@ -259,12 +251,13 @@ export async function gerarPropostaFornecedorPDF(
       console.error('Erro ao salvar protocolo:', protocoloError);
     }
 
+    // Adicionar certificação digital com hash temporário (será atualizado depois)
     adicionarCertificacaoDigital(doc, {
       protocolo,
       dataHora: dataGeracao,
       responsavel: usuarioNome || fornecedor.razao_social,
       cpf: usuarioCpf || fornecedor.cnpj,
-      hash,
+      hash: 'CALCULANDO...', // Placeholder temporário
       linkVerificacao
     }, y);
 
@@ -303,6 +296,12 @@ export async function gerarPropostaFornecedorPDF(
     } else {
       pdfFinal = pdfBlob;
     }
+
+    // Calcular hash do PDF FINAL (após mesclar comprovantes)
+    const pdfArrayBuffer = await pdfFinal.arrayBuffer();
+    const hash = await gerarHashDocumento(pdfArrayBuffer);
+
+    console.log('Hash calculado do PDF final:', hash);
 
     const nomeArquivo = `proposta_${fornecedor.cnpj.replace(/[^\d]/g, '')}_${Date.now()}.pdf`;
 
