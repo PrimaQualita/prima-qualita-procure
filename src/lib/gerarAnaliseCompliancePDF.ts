@@ -240,7 +240,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const conflitoLabelWidth = pdf.getTextWidth(conflitoLabel + " ");
+    const conflitoLabelWidth = pdf.getTextWidth(conflitoLabel + "  ");
     const conflitoWidth = maxWidth - conflitoLabelWidth;
     const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", conflitoWidth);
     
@@ -298,7 +298,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const capacidadeLabelWidth = pdf.getTextWidth(capacidadeLabel + " ");
+    const capacidadeLabelWidth = pdf.getTextWidth(capacidadeLabel + "  ");
     const capacidadeWidth = maxWidth - capacidadeLabelWidth;
     const capacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", capacidadeWidth);
     
@@ -352,7 +352,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const riscoLabelWidth = pdf.getTextWidth(riscoLabel + " ");
+    const riscoLabelWidth = pdf.getTextWidth(riscoLabel + "  ");
     const riscoWidth = maxWidth - riscoLabelWidth;
     const riscoLines = pdf.splitTextToSize(riscoTexto || "Não informado", riscoWidth);
     
