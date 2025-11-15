@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Upload } from "lucide-react";
-import { gerarPropostaPDF } from "@/lib/gerarPropostaPDF";
+import { Upload, FileText, X } from "lucide-react";
+import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
 
 // Cliente Supabase sem autenticação persistente - usa sessionStorage isolado
 const supabaseAnon = createClient(
@@ -145,6 +145,7 @@ const RespostaCotacao = () => {
   const [respostas, setRespostas] = useState<RespostaItem>({});
   const [observacoes, setObservacoes] = useState("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [arquivosComprovantes, setArquivosComprovantes] = useState<File[]>([]);
   
 
   useEffect(() => {
@@ -238,6 +239,86 @@ const RespostaCotacao = () => {
       console.error("Erro ao carregar cotação:", error);
       toast.error("Erro ao carregar dados da cotação");
       setLoading(false);
+    }
+  };
+
+  const gerarTemplate = () => {
+    const csvContent = [
+      ['Número Item', 'Valor Unitário', 'Marca'],
+      ...itensCotacao.map(item => [
+        item.numero_item.toString(),
+        '',
+        ''
+      ])
+    ].map(row => row.join('\t')).join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `template_${cotacao?.titulo_cotacao || 'cotacao'}.csv`;
+    link.click();
+    toast.success("Template baixado com sucesso!");
+  };
+
+  const importarTemplate = async (file: File) => {
+    try {
+      const texto = await file.text();
+      console.log('Conteúdo do arquivo:', texto);
+      
+      const linhas = texto.split('\n').filter(l => l.trim());
+      console.log('Total de linhas:', linhas.length);
+      
+      if (linhas.length < 2) {
+        toast.error('Arquivo vazio ou inválido');
+        return;
+      }
+
+      const cabecalho = linhas[0];
+      console.log('Primeira linha (cabeçalho):', cabecalho);
+      
+      const separador = cabecalho.includes('\t') ? '\t' : ',';
+      console.log('Separador detectado:', separador === '\t' ? 'TAB' : 'VÍRGULA');
+
+      const novasRespostas = { ...respostas };
+      let importados = 0;
+
+      for (let i = 1; i < linhas.length; i++) {
+        const linha = linhas[i].trim();
+        if (!linha) {
+          console.log(`Linha ${i + 1} vazia, ignorando`);
+          continue;
+        }
+
+        console.log(`Processando linha ${i + 1}: ${linha}`);
+        
+        const campos = linha.split(separador).map(c => c.trim().replace(/^"|"$/g, ''));
+        console.log('Campos separados:', campos);
+        
+        if (campos.length < 2) continue;
+
+        const [numeroItem, valorUnitario, marca = ''] = campos;
+        
+        const item = itensCotacao.find(it => it.numero_item === parseInt(numeroItem));
+        
+        if (item) {
+          console.log('Item encontrado:', item);
+          novasRespostas[item.id] = {
+            ...novasRespostas[item.id],
+            valor_unitario_ofertado: parseFloat(valorUnitario.replace(/,/g, '.')),
+            valor_display: valorUnitario,
+            marca_ofertada: marca
+          };
+          console.log(`Item ${numeroItem} importado - Valor: ${valorUnitario}, Marca: ${marca}`);
+          importados++;
+        }
+      }
+
+      console.log('Novas respostas:', novasRespostas);
+      setRespostas(novasRespostas);
+      toast.success(`${importados} item(ns) importado(s) com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao importar:', error);
+      toast.error('Erro ao importar template');
     }
   };
 
@@ -378,53 +459,30 @@ const RespostaCotacao = () => {
         throw erroResposta;
       }
 
-      // Gerar PDF certificado com o ID da resposta como protocolo
+      // Gerar PDF certificado com comprovantes anexados
       toast.info("Gerando proposta certificada...");
       
-      const pdfBlob = await gerarPropostaPDF(
-        {
-          numero: processoCompra?.numero_processo_interno || 'N/A',
-          objeto: processoCompra?.objeto_resumido || 'N/A'
-        },
+      const { url: pdfUrl, nome: pdfNome } = await gerarPropostaFornecedorPDF(
+        respostaCriada.id,
         {
           razao_social: dadosEmpresa.razao_social,
           cnpj: dadosEmpresa.cnpj,
           endereco_comercial: enderecoCompleto,
         },
-        itensParaPDF,
         valorTotal,
         observacoes,
-        dadosEmpresa.razao_social,
-        dadosEmpresa.cnpj,
-        respostaCriada.id
+        cotacao.titulo_cotacao,
+        arquivosComprovantes
       );
 
-      // Upload do PDF para storage
-      toast.info("Fazendo upload da proposta...");
-      const nomeEmpresa = dadosEmpresa.razao_social.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
-      const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-      const nomeArquivo = `Proposta_${nomeEmpresa}_${dataAtual}.pdf`;
-      const caminhoArquivo = `propostas/${fornecedorId}/${Date.now()}_${nomeArquivo}`;
-
-      const { data: uploadData, error: uploadError } = await supabaseAnon.storage
-        .from('processo-anexos')
-        .upload(caminhoArquivo, pdfBlob, {
-          contentType: 'application/pdf',
-        });
-
-      if (uploadError) {
-        toast.error("Erro ao fazer upload do arquivo");
-        throw uploadError;
-      }
-
-      // Salvar anexo no banco
+      // Salvar anexo da proposta no banco
       await supabaseAnon
         .from('anexos_cotacao_fornecedor')
         .insert({
           cotacao_resposta_fornecedor_id: respostaCriada.id,
-          tipo_anexo: 'Proposta Certificada',
-          url_arquivo: uploadData.path,
-          nome_arquivo: nomeArquivo,
+          tipo_anexo: 'PROPOSTA',
+          url_arquivo: pdfUrl,
+          nome_arquivo: pdfNome,
         });
 
       // Inserir itens da resposta
@@ -629,6 +687,99 @@ const RespostaCotacao = () => {
             <CardDescription>
               Informe os valores unitários para cada item
             </CardDescription>
+            
+            {/* Botões de Template e Anexos */}
+            <div className="flex flex-col gap-4 pt-4">
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="file"
+                  id="importar-template"
+                  accept=".csv,.txt"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      importarTemplate(file);
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={gerarTemplate}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Baixar Template
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById('importar-template')?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar Template Preenchido
+                </Button>
+              </div>
+
+              {/* Área de Upload de Anexos */}
+              <div className="space-y-2">
+                <Label>Comprovantes/Anexos (Opcional)</Label>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="file"
+                    id="upload-comprovantes"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      setArquivosComprovantes([...arquivosComprovantes, ...files]);
+                      toast.success(`${files.length} arquivo(s) adicionado(s)`);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('upload-comprovantes')?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Adicionar Arquivos
+                  </Button>
+                </div>
+                
+                {arquivosComprovantes.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {arquivosComprovantes.length} arquivo(s) anexado(s):
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {arquivosComprovantes.map((arquivo, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm"
+                        >
+                          <FileText className="h-4 w-4" />
+                          <span className="max-w-[200px] truncate">{arquivo.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setArquivosComprovantes(
+                                arquivosComprovantes.filter((_, i) => i !== index)
+                              );
+                              toast.success("Arquivo removido");
+                            }}
+                            className="hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
