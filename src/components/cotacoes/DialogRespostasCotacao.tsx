@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { stripHtml } from "@/lib/htmlUtils";
 import { DialogPlanilhaConsolidada } from "./DialogPlanilhaConsolidada";
+import { v4 as uuidv4 } from 'uuid';
+import html2pdf from 'html2pdf.js';
 
 interface DialogRespostasCotacaoProps {
   open: boolean;
