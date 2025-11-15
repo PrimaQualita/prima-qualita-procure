@@ -343,10 +343,39 @@ const IncluirPrecosPublicos = () => {
         .update({ hash_certificacao: hashProposta })
         .eq("id", respostaCotacao.id);
 
+      // Salvar comprovantes como anexos separados ANTES da proposta
+      if (arquivosComprovantes.length > 0) {
+        for (const arquivo of arquivosComprovantes) {
+          const timestamp = Date.now();
+          const nomeArquivoStorage = `comprovante_${cnpjPrecosPublicos}_${timestamp}_${arquivo.name}`;
+          
+          // Upload do comprovante
+          const { error: uploadError } = await supabase.storage
+            .from('processo-anexos')
+            .upload(nomeArquivoStorage, arquivo, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('Erro ao fazer upload do comprovante:', uploadError);
+            continue;
+          }
+
+          // Salvar registro do comprovante no banco
+          await supabase.from("anexos_cotacao_fornecedor").insert({
+            cotacao_resposta_fornecedor_id: respostaCotacao.id,
+            tipo_anexo: "COMPROVANTE",
+            nome_arquivo: arquivo.name,
+            url_arquivo: nomeArquivoStorage,
+          });
+        }
+      }
+
       // Salvar anexo da proposta com comprovantes mesclados
       await supabase.from("anexos_cotacao_fornecedor").insert({
         cotacao_resposta_fornecedor_id: respostaCotacao.id,
-        tipo_anexo: "proposta",
+        tipo_anexo: "PROPOSTA",
         nome_arquivo: nomeProposta,
         url_arquivo: urlProposta,
       });
