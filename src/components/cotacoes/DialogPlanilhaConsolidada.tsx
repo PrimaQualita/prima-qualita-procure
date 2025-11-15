@@ -247,15 +247,32 @@ export function DialogPlanilhaConsolidada({
       const hashVerificacao = protocoloDocumento.replace(/-/g, '').substring(0, 32).toUpperCase();
       
       // Buscar informações do usuário que está gerando
-      const { data: userData } = await supabase.auth.getUser();
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('nome_completo, email')
-        .eq('id', userData?.user?.id || '')
-        .single();
+      let usuarioNome = 'Sistema';
+      let usuarioEmail = '';
       
-      const usuarioNome = profileData?.nome_completo || 'Sistema';
-      const usuarioEmail = profileData?.email || '';
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          console.error('Erro ao buscar usuário:', userError);
+        } else if (userData?.user?.id) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('nome_completo, email')
+            .eq('id', userData.user.id)
+            .single();
+          
+          if (profileError) {
+            console.error('Erro ao buscar perfil:', profileError);
+          } else if (profileData) {
+            usuarioNome = profileData.nome_completo || 'Sistema';
+            usuarioEmail = profileData.email || '';
+          }
+        }
+      } catch (error) {
+        console.error('Erro na autenticação:', error);
+      }
+      
       // Converter logo para base64
       const logoPath = '/src/assets/prima-qualita-logo-horizontal.png';
       let logoBase64 = '';
