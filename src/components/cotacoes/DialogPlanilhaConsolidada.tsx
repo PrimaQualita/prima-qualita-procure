@@ -821,7 +821,6 @@ export function DialogPlanilhaConsolidada({
           </tbody>
         </table>
       `;
-        }
       }
 
       // Adicionar certificação digital no final do documento
