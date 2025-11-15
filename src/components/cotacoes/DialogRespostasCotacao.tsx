@@ -1100,7 +1100,7 @@ export function DialogRespostasCotacao({
               </TableBody>
             </Table>
 
-            {/* ========== 2. BOTÃO + PLANILHAS CONSOLIDADAS ========== */}
+            {/* ========== 2. PLANILHAS CONSOLIDADAS ========== */}
             <div className="mt-6 pt-6 border-t space-y-4">
                 <h3 className="text-lg font-semibold">Planilha Consolidada</h3>
                 
@@ -1174,25 +1174,11 @@ export function DialogRespostasCotacao({
                 </p>
               </div>
 
-              {/* ========== 3. BOTÃO + ENCAMINHAMENTOS ========== */}
+              {/* ========== 3. ENCAMINHAMENTOS ========== */}
               <div className="mt-6 pt-6 border-t space-y-4">
                 <h3 className="text-lg font-semibold">Encaminhamentos</h3>
                 
-                {planilhaGerada && (
-                  <Button
-                    onClick={gerarEncaminhamento}
-                    disabled={gerandoEncaminhamento}
-                    className="w-full"
-                  >
-                    {gerandoEncaminhamento ? "Gerando..." : (
-                      <>
-                        <FileText className="mr-2 h-4 w-4" />
-                        Gerar Encaminhamento para Compliance
-                      </>
-                    )}
-                  </Button>
-                )}
-                
+                {/* Mostrar encaminhamentos anteriores */}
                 {encaminhamentos.map((enc) => (
                   <div key={enc.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
                     <div className="flex items-center justify-between">
@@ -1248,181 +1234,24 @@ export function DialogRespostasCotacao({
                     </div>
                   </div>
                 ))}
+
+                {/* Botão para gerar encaminhamento (só se tiver planilha) */}
+                {planilhasAnteriores.length > 0 && (
+                  <Button
+                    onClick={gerarEncaminhamento}
+                    disabled={gerandoEncaminhamento}
+                    className="w-full"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento para Compliance"}
+                  </Button>
+                )}
               </div>
 
-              {/* ========== 4. PRIMEIRA ANÁLISE DO COMPLIANCE ========== */}
-              {analisesAnteriores.length > 0 && (
-                <div className="mt-6 pt-6 border-t space-y-4">
-                  <h3 className="text-lg font-semibold">Primeira Análise de Compliance</h3>
-                  
-                  {(() => {
-                    const primeiraAnalise = analisesAnteriores[analisesAnteriores.length - 1];
-                    const empresasAnt = primeiraAnalise.empresas as any[];
-                    const aprovadasAnt = empresasAnt.filter((emp: any) => emp.aprovado === true).map((emp: any) => emp.razao_social);
-                    const reprovadasAnt = empresasAnt.filter((emp: any) => emp.aprovado === false).map((emp: any) => emp.razao_social);
-                    
-                    return (
-                      <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">Documento de Análise</span>
-                          <Badge variant={
-                            primeiraAnalise.status_aprovacao === 'aprovado' ? 'default' : 
-                            primeiraAnalise.status_aprovacao === 'reprovado' ? 'destructive' : 
-                            'secondary'
-                          }>
-                            {primeiraAnalise.status_aprovacao === 'aprovado' ? 'Aprovado' : 
-                             primeiraAnalise.status_aprovacao === 'reprovado' ? 'Reprovado' : 
-                             'Pendente'}
-                          </Badge>
-                        </div>
-                        
-                        {primeiraAnalise.protocolo && (
-                          <div className="text-xs text-muted-foreground">
-                            Protocolo: {primeiraAnalise.protocolo}
-                          </div>
-                        )}
+              {/* ========== 4. ANÁLISES DE COMPLIANCE ========== */}
+              {/* Removido - análises antigas */}
 
-                        {aprovadasAnt.length > 0 && (
-                          <div className="space-y-2">
-                            <h4 className="text-sm font-medium text-green-600">Empresas Aprovadas</h4>
-                            <div className="space-y-1">
-                              {aprovadasAnt.map((empresa, idx) => (
-                                <div key={idx} className="text-sm pl-4 border-l-2 border-green-600">
-                                  {empresa}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {reprovadasAnt.length > 0 && (
-                          <div className="space-y-2">
-                            <h4 className="text-sm font-medium text-red-600">Empresas Reprovadas</h4>
-                            <div className="space-y-1">
-                              {reprovadasAnt.map((empresa, idx) => (
-                                <div key={idx} className="text-sm pl-4 border-l-2 border-red-600">
-                                  {empresa}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              if (primeiraAnalise.url_documento) {
-                                window.open(primeiraAnalise.url_documento, '_blank');
-                              }
-                            }}
-                            className="flex-1"
-                          >
-                            <Eye className="mr-2 h-4 w-4" />
-                            Visualizar Análise
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              if (primeiraAnalise.url_documento) {
-                                const link = document.createElement('a');
-                                link.href = primeiraAnalise.url_documento;
-                                link.download = primeiraAnalise.nome_arquivo || 'analise_compliance.pdf';
-                                link.click();
-                              }
-                            }}
-                            className="flex-1"
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Baixar Análise
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* 4. A NOVA PLANILHA GERADA */}
-              
-              {planilhaGerada && (
-                <div className="mt-6 pt-6 border-t space-y-4">
-                  <h3 className="text-lg font-semibold">Nova Planilha Consolidada</h3>
-                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Planilha Gerada em {new Date(planilhaGerada.created_at).toLocaleString('pt-BR')}</span>
-                    </div>
-                    {planilhaGerada.protocolo && (
-                      <div className="text-xs text-muted-foreground">
-                        Protocolo: {planilhaGerada.protocolo}
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          const { data } = await supabase.storage
-                            .from('processo-anexos')
-                            .createSignedUrl(planilhaGerada.url_arquivo, 3600);
-                          if (data?.signedUrl) {
-                            window.open(data.signedUrl, '_blank');
-                          }
-                        }}
-                        className="flex-1"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Visualizar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          const { data, error } = await supabase.storage
-                            .from('processo-anexos')
-                            .download(planilhaGerada.url_arquivo);
-                          if (error) throw error;
-                          const blob = new Blob([data], { type: 'application/pdf' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = planilhaGerada.nome_arquivo;
-                          a.click();
-                        }}
-                        className="flex-1"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Baixar
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          setConfirmDeletePlanilhaOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Botões de Encaminhamento e Compliance */}
-                  <div className="flex gap-2 mt-4">
-                    <Button onClick={gerarEncaminhamento} disabled={gerandoEncaminhamento} className="flex-1">
-                      <FileText className="mr-2 h-4 w-4" />
-                      {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
-                    </Button>
-                    <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="flex-1">
-                      <Send className="mr-2 h-4 w-4" />
-                      {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* ========== 5. NOVA ANALISE (só se houver mais de uma) ========== */}
+              {/* ========== 5. NOVA ANALISE ========== */}
               {analiseCompliance && analisesAnteriores.length > 0 && (
                 <div className="mt-6 pt-6 border-t space-y-4">
                   <h3 className="text-lg font-semibold">Nova Análise de Compliance</h3>
