@@ -244,13 +244,13 @@ const RespostaCotacao = () => {
 
   const gerarTemplate = () => {
     const csvContent = [
-      ['Número Item', 'Valor Unitário', 'Marca'],
+      ['Número Item', 'Marca', 'Valor Unitário'],
       ...itensCotacao.map(item => [
         item.numero_item.toString(),
         '',
         ''
       ])
-    ].map(row => row.join('\t')).join('\n');
+    ].map(row => row.join(',')).join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
