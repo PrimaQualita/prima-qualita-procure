@@ -36,6 +36,14 @@ function extractTextFromHTML(html: string): string {
   if (!html) return "";
   const tmp = document.createElement("div");
   tmp.innerHTML = html;
+  
+  // Substituir quebras de linha e parágrafos por \n
+  tmp.innerHTML = tmp.innerHTML
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/li>/gi, '\n');
+  
   return tmp.textContent || tmp.innerText || "";
 }
 
