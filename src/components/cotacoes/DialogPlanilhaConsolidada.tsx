@@ -700,6 +700,9 @@ export function DialogPlanilhaConsolidada({
 
         } else {
           // Visualização por item sem agrupamento por lote
+          // IMPORTANTE: Filtrar respostas pelas empresas selecionadas ANTES de gerar o HTML
+          const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+          
           html += `
             <table>
               <thead>`;
@@ -711,17 +714,17 @@ export function DialogPlanilhaConsolidada({
                 <th class="col-item" rowspan="2">Item</th>
                 <th class="col-descricao" rowspan="2">Descrição</th>
                 <th class="col-qtd" rowspan="2">Qtd</th>
-                <th class="col-unid" rowspan="2">Unid</th>
-                ${respostas.map(r => {
-                  const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
-                  const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
-                  return `<th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 8px; text-align: center; vertical-align: middle;"><div style="margin-bottom: 4px;">${r.fornecedor.razao_social}</div>${!isPrecosPublicos ? `<div style="font-weight: normal; margin-bottom: 3px; font-size: 9px;">${cnpjFormatado}</div>` : ''}${!isPrecosPublicos ? `<div style="font-weight: normal; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}</th>`;
-                }).join("")}
-                <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
-              </tr>
-              <tr>
-                ${respostas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
-              </tr>`;
+              <th class="col-unid" rowspan="2">Unid</th>
+              ${respostasFiltradas.map(r => {
+                const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
+                const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
+                return `<th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 8px; text-align: center; vertical-align: middle;"><div style="margin-bottom: 4px;">${r.fornecedor.razao_social}</div>${!isPrecosPublicos ? `<div style="font-weight: normal; margin-bottom: 3px; font-size: 9px;">${cnpjFormatado}</div>` : ''}${!isPrecosPublicos ? `<div style="font-weight: normal; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}</th>`;
+              }).join("")}
+              <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+            </tr>
+            <tr>
+              ${respostasFiltradas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+            </tr>`;
           } else {
             // Cabeçalho de uma linha para outros tipos
             html += `
@@ -729,14 +732,14 @@ export function DialogPlanilhaConsolidada({
                 <th class="col-item">Item</th>
                 <th class="col-descricao">Descrição</th>
                 <th class="col-qtd">Qtd</th>
-                <th class="col-unid">Unid</th>
-                ${respostas.map(r => {
-                  const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
-                  const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
-                  return `<th class="text-right empresa" style="font-size: 10px; padding: 4px;"><div>${r.fornecedor.razao_social}</div>${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${cnpjFormatado}</div>` : ''}${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}</th>`;
-                }).join("")}
-                <th class="text-right col-estimativa">Estimativa</th>
-              </tr>`;
+              <th class="col-unid">Unid</th>
+              ${respostasFiltradas.map(r => {
+                const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
+                const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
+                return `<th class="text-right empresa" style="font-size: 10px; padding: 4px;"><div>${r.fornecedor.razao_social}</div>${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${cnpjFormatado}</div>` : ''}${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}</th>`;
+              }).join("")}
+              <th class="text-right col-estimativa">Estimativa</th>
+            </tr>`;
           }
           
           html += `
@@ -745,13 +748,15 @@ export function DialogPlanilhaConsolidada({
           `;
 
           let totalGeralEstimativa = 0;
+          
+          // IMPORTANTE: Filtrar respostas pelas empresas selecionadas UMA VEZ, antes do loop
+          const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
 
           todosItens.forEach((item: any) => {
             const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
             const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
             
             const valores: number[] = [];
-            const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
             
             respostasFiltradas.forEach(resposta => {
               const itemResposta = resposta.itens.find((i: any) => 
