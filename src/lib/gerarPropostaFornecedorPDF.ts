@@ -68,6 +68,8 @@ export async function gerarPropostaFornecedorPDF(
       console.log(`  ${index + 1}. ${arquivo.name} (${arquivo.type}, ${arquivo.size} bytes)`);
     });
     // Buscar itens da resposta
+    console.log('🔍 Buscando itens para resposta ID:', respostaId);
+    
     const { data: itens, error: itensError } = await supabaseAnon
       .from('respostas_itens_fornecedor')
       .select(`
@@ -83,17 +85,24 @@ export async function gerarPropostaFornecedorPDF(
       `)
       .eq('cotacao_resposta_fornecedor_id', respostaId);
 
+    console.log('📊 Resultado da busca:', {
+      encontrou: itens?.length || 0,
+      erro: itensError,
+      itens: itens
+    });
+
     if (itensError) {
-      console.error('Erro ao buscar itens:', itensError);
+      console.error('❌ Erro ao buscar itens:', itensError);
       throw itensError;
     }
 
     if (!itens || itens.length === 0) {
-      console.error('Nenhum item encontrado para resposta:', respostaId);
+      console.error('❌ Nenhum item encontrado para resposta:', respostaId);
+      console.error('Isso pode ser um problema de RLS ou timing');
       throw new Error('Nenhum item encontrado para esta proposta');
     }
 
-    console.log('Itens carregados para PDF:', itens);
+    console.log('✅ Itens carregados para PDF:', itens.length);
 
     const dataGeracao = new Date().toLocaleString('pt-BR');
 
