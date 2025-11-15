@@ -54,8 +54,11 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.addPage();
     yPos = 20;
     
-    // Logo
-    pdf.addImage(logo, "PNG", margin, 10, 40, 10);
+    // Logo - maior e centralizado
+    const logoWidth = 60;
+    const logoHeight = 15;
+    const logoX = (pageWidth - logoWidth) / 2;
+    pdf.addImage(logo, "PNG", logoX, 10, logoWidth, logoHeight);
     
     // Rodapé
     const footerY = pageHeight - 15;
@@ -83,26 +86,55 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("helvetica", isBold ? "bold" : "normal");
     pdf.setTextColor(0);
     
-    const lines = pdf.splitTextToSize(text, maxWidth);
-    const lineHeight = 6.25; // Espaçamento fixo de 1.25 para fonte 10
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (yPos + lineHeight > pageHeight - 25) {
-        addNewPage();
+    if (isJustified) {
+      // Para texto justificado, usar jsPDF com align: justify
+      const lineHeight = fontSize * 0.625; // 1.25 line spacing
+      const words = text.split(' ');
+      let currentLine = '';
+      
+      for (let i = 0; i < words.length; i++) {
+        const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+        const testWidth = pdf.getTextWidth(testLine);
+        
+        if (testWidth > maxWidth && currentLine !== '') {
+          if (yPos + lineHeight > pageHeight - 25) {
+            addNewPage();
+          }
+          pdf.text(currentLine, margin, yPos, { align: 'justify', maxWidth: maxWidth });
+          yPos += lineHeight;
+          currentLine = words[i];
+        } else {
+          currentLine = testLine;
+        }
       }
-      if (isJustified && i < lines.length - 1) {
-        // Justificar todas as linhas exceto a última
-        pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
-      } else {
+      
+      // Última linha (não justificada)
+      if (currentLine) {
+        if (yPos + lineHeight > pageHeight - 25) {
+          addNewPage();
+        }
+        pdf.text(currentLine, margin, yPos);
+        yPos += lineHeight;
+      }
+    } else {
+      const lines = pdf.splitTextToSize(text, maxWidth);
+      const lineHeight = 6.25;
+      
+      for (const line of lines) {
+        if (yPos + lineHeight > pageHeight - 25) {
+          addNewPage();
+        }
         pdf.text(line, margin, yPos);
+        yPos += lineHeight;
       }
-      yPos += lineHeight;
     }
   };
 
-  // Logo inicial
-  pdf.addImage(logo, "PNG", margin, 10, 40, 10);
+  // Logo inicial - maior e centralizado
+  const logoWidth = 60;
+  const logoHeight = 15;
+  const logoX = (pageWidth - logoWidth) / 2;
+  pdf.addImage(logo, "PNG", logoX, 10, logoWidth, logoHeight);
   yPos = 35;
 
   // Título
@@ -167,7 +199,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setTextColor(0);
     pdf.text("Capital Social:", margin, yPos);
     pdf.setFont("helvetica", "normal");
-    pdf.text(` R$ ${empresa.capital_social}`, margin + pdf.getTextWidth("Capital Social:"), yPos);
+    pdf.text(` ${empresa.capital_social}`, margin + pdf.getTextWidth("Capital Social:"), yPos);
     yPos += 6.25;
     
     // Ano de Fundação
