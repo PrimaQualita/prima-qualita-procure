@@ -42,56 +42,83 @@ export async function gerarPropostaFornecedorPDF(
     if (itensError) throw itensError;
 
     const doc = new jsPDF();
-    let y = 20;
+    
+    // Cores do sistema (HSL convertido para RGB)
+    // --primary: 196 100% 20% = rgb(0, 102, 102)
+    // --secondary: 210 100% 20% = rgb(0, 102, 153)
+    // --muted: 196 100% 87% = rgb(209, 247, 247)
+    // --foreground: 199 100% 14% = rgb(0, 71, 71)
+    // --accent: 196 100% 75% = rgb(128, 242, 242)
+    
+    const corPrimaria = [0, 102, 102];
+    const corSecundaria = [0, 102, 153];
+    const corFundo = [209, 247, 247];
+    const corTexto = [0, 71, 71];
+    const corAccent = [128, 242, 242];
+    
+    let y = 0;
 
-    // Cabeçalho
-    doc.setFontSize(16);
+    // Cabeçalho com fundo colorido
+    doc.setFillColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
+    doc.rect(0, 0, 210, 50, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    doc.text('PROPOSTA COMERCIAL', 105, y, { align: 'center' });
-    y += 10;
+    doc.text('PROPOSTA COMERCIAL', 105, 25, { align: 'center' });
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Ref: ${tituloCotacao}`, 105, 38, { align: 'center' });
+    
+    y = 60;
 
-    // Informações do fornecedor
+    // Bloco de informações do fornecedor com fundo
+    doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
+    doc.rect(15, y, 180, 32, 'F');
+    
+    doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
     doc.setFontSize(12);
-    doc.text('DADOS DO FORNECEDOR', 20, y);
-    y += 8;
-
+    doc.setFont('helvetica', 'bold');
+    doc.text('DADOS DO FORNECEDOR', 20, y + 8);
+    
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Razão Social: ${fornecedor.razao_social}`, 20, y);
-    y += 6;
-    doc.text(`CNPJ: ${fornecedor.cnpj}`, 20, y);
-    y += 6;
+    doc.text(`Razão Social: ${fornecedor.razao_social}`, 20, y + 16);
+    doc.text(`CNPJ: ${fornecedor.cnpj}`, 20, y + 22);
     if (fornecedor.endereco_comercial) {
-      doc.text(`Endereço: ${fornecedor.endereco_comercial}`, 20, y);
-      y += 6;
+      doc.text(`Endereço: ${fornecedor.endereco_comercial}`, 20, y + 28);
     }
-    y += 5;
+    
+    y += 42;
 
-    // Título da cotação
+    // Título da seção de itens
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Cotação: ${tituloCotacao}`, 20, y);
-    y += 10;
-
-    // Tabela de itens
-    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
     doc.text('ITENS DA PROPOSTA', 20, y);
     y += 8;
 
-    // Cabeçalho da tabela
+    // Cabeçalho da tabela com fundo
+    doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
+    doc.rect(15, y - 5, 180, 8, 'F');
+    
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
     doc.text('Item', 20, y);
     doc.text('Descrição', 35, y);
     doc.text('Qtd', 120, y);
     doc.text('Unid', 140, y);
     doc.text('Vlr Unit', 160, y);
     doc.text('Vlr Total', 180, y);
-    y += 2;
-    doc.line(20, y, 200, y);
     y += 5;
 
-    // Itens
+    // Itens com linhas alternadas
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
     let subtotal = 0;
+    let isAlternate = false;
 
     const itensOrdenados = (itens as any[] || [])
       .map((item: any) => ({
@@ -104,48 +131,68 @@ export async function gerarPropostaFornecedorPDF(
       .sort((a, b) => a.numero_item - b.numero_item);
 
     for (const item of itensOrdenados) {
-      if (y > 270) {
+      if (y > 265) {
         doc.addPage();
         y = 20;
+        isAlternate = false;
       }
 
+      // Fundo alternado para as linhas
+      if (isAlternate) {
+        doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
+        doc.rect(15, y - 4, 180, 7, 'F');
+      }
+      
       const valorTotal = item.quantidade * item.valor_unitario_ofertado;
       subtotal += valorTotal;
 
+      doc.setFontSize(9);
       doc.text(item.numero_item.toString(), 20, y);
       
       const descricaoMaxWidth = 80;
       const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
       doc.text(descricaoLines[0], 35, y);
       
-      doc.text(item.quantidade.toFixed(2), 120, y);
+      doc.text(item.quantidade.toFixed(2), 120, y, { align: 'right' });
       doc.text(item.unidade, 140, y);
-      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 160, y);
-      doc.text(`R$ ${valorTotal.toFixed(2)}`, 180, y);
+      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 175, y, { align: 'right' });
+      doc.text(`R$ ${valorTotal.toFixed(2)}`, 195, y, { align: 'right' });
       
-      y += 6;
+      y += 7;
+      isAlternate = !isAlternate;
     }
+
 
     // Linha de separação
     y += 2;
-    doc.line(20, y, 200, y);
-    y += 6;
+    doc.setDrawColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
+    doc.setLineWidth(0.5);
+    doc.line(15, y, 195, y);
+    y += 8;
 
-    // Valor total
+    // Valor total com destaque
+    doc.setFillColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
+    doc.rect(120, y - 6, 75, 12, 'F');
+    
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text(`VALOR TOTAL: R$ ${valorTotal.toFixed(2)}`, 140, y);
-    y += 10;
+    doc.setFontSize(12);
+    doc.text(`VALOR TOTAL: R$ ${valorTotal.toFixed(2)}`, 193, y, { align: 'right' });
+    
+    doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
+    y += 15;
 
     // Observações
     if (observacoes) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
+      doc.setFontSize(11);
+      doc.setTextColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
       doc.text('OBSERVAÇÕES:', 20, y);
-      y += 6;
+      y += 7;
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
+      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
       const obsLines = doc.splitTextToSize(observacoes, 170);
       doc.text(obsLines, 20, y);
       y += obsLines.length * 5;
