@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { Upload, FileText, X } from "lucide-react";
 import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
+import * as XLSX from 'xlsx';
 
 // Cliente Supabase sem autenticação persistente - usa sessionStorage isolado
 const supabaseAnon = createClient(
@@ -243,21 +244,33 @@ const RespostaCotacao = () => {
   };
 
   const gerarTemplate = () => {
-    const csvContent = [
+    // Criar dados do Excel
+    const dados = [
       ['Número Item', 'Marca', 'Valor Unitário'],
       ...itensCotacao.map(item => [
-        item.numero_item.toString(),
+        item.numero_item,
         '',
         ''
       ])
-    ].map(row => row.join('\t')).join('\n');
+    ];
 
-    const blob = new Blob([csvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `template_${cotacao?.titulo_cotacao || 'cotacao'}.txt`;
-    link.click();
-    toast.success("Template baixado com sucesso!");
+    // Criar workbook e worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(dados);
+
+    // Definir largura das colunas
+    ws['!cols'] = [
+      { wch: 15 },
+      { wch: 30 },
+      { wch: 20 }
+    ];
+
+    // Adicionar worksheet ao workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Template');
+
+    // Gerar e baixar arquivo
+    XLSX.writeFile(wb, `template_${cotacao?.titulo_cotacao || 'cotacao'}.xlsx`);
+    toast.success("Template Excel baixado com sucesso!");
   };
 
   const importarTemplate = async (file: File) => {
