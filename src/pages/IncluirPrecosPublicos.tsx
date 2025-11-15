@@ -263,14 +263,14 @@ const IncluirPrecosPublicos = () => {
         fornecedorId = novoFornecedor.id;
       }
 
-      // Criar resposta da cotação
+      // Criar resposta da cotação (observações SEM fonte - será adicionada no PDF)
       const { data: respostaCotacao, error: errorResposta } = await supabase
         .from("cotacao_respostas_fornecedor")
         .insert({
           cotacao_id: cotacaoIdParam,
           fornecedor_id: fornecedorId,
           valor_total_anual_ofertado: valorTotal,
-          observacoes_fornecedor: `Fonte: ${nomeFonte}\n\n${observacoes}`,
+          observacoes_fornecedor: observacoes || null,
           data_envio_resposta: new Date().toISOString(),
         })
         .select()
