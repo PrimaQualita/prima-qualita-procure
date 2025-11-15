@@ -184,8 +184,8 @@ export async function gerarPropostaFornecedorPDF(
       const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
       doc.text(descricaoLines[0], 30, y + 1);
       
-      // Quantidade - centralizado
-      doc.text(item.quantidade.toFixed(2), 120, y + 1, { align: 'center' });
+      // Quantidade - centralizado (sem casas decimais)
+      doc.text(Math.round(item.quantidade).toString(), 120, y + 1, { align: 'center' });
       
       // Unidade - centralizado
       doc.text(item.unidade, 140, y + 1, { align: 'center' });
