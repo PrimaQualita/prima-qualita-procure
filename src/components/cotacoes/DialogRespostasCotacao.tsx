@@ -119,9 +119,9 @@ export function DialogRespostasCotacao({
         const reprovadas: string[] = [];
         
         empresas.forEach((emp: any) => {
-          if (emp.aprovado) {
+          if (emp.aprovado === true || emp.aprovado === 'true') {
             aprovadas.push(emp.razao_social);
-          } else {
+          } else if (emp.aprovado === false || emp.aprovado === 'false') {
             reprovadas.push(emp.razao_social);
           }
         });
@@ -1099,7 +1099,92 @@ export function DialogRespostasCotacao({
                 </div>
               )}
               
-              {/* Análise de Compliance */}
+              {planilhaGerada && (
+                <div className="mt-6 pt-6 border-t space-y-4">
+                  <div className="flex gap-2">
+                    <Button onClick={gerarEncaminhamento} disabled={gerandoEncaminhamento} className="flex-1">
+                      <FileText className="mr-2 h-4 w-4" />
+                      {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
+                    </Button>
+                    <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="flex-1">
+                      <Send className="mr-2 h-4 w-4" />
+                      {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                    </Button>
+                  </div>
+
+                  {encaminhamento && (
+                    <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Encaminhamento Gerado</span>
+                        <span className="text-xs text-muted-foreground">Protocolo: {encaminhamento.protocolo}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const { data, error } = await supabase.storage
+                                .from('processo-anexos')
+                                .download(encaminhamento.storage_path);
+                              
+                              if (error) throw error;
+                              
+                              const blob = new Blob([data], { type: 'application/pdf' });
+                              const url = URL.createObjectURL(blob);
+                              window.open(url, '_blank');
+                            } catch (error) {
+                              console.error('Erro ao visualizar:', error);
+                              toast.error('Erro ao visualizar encaminhamento');
+                            }
+                          }}
+                          className="flex-1"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Visualizar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const { data, error } = await supabase.storage
+                                .from('processo-anexos')
+                                .download(encaminhamento.storage_path);
+                              
+                              if (error) throw error;
+                              
+                              const blob = new Blob([data], { type: 'application/pdf' });
+                              const url = URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `encaminhamento-${processoNumero}.pdf`;
+                              link.click();
+                              URL.revokeObjectURL(url);
+                            } catch (error) {
+                              console.error('Erro ao baixar:', error);
+                              toast.error('Erro ao baixar encaminhamento');
+                            }
+                          }}
+                          className="flex-1"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Baixar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setConfirmDeleteEncaminhamentoOpen(true)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Análise de Compliance - MOVIDO PARA DEPOIS */}
               {analiseCompliance && (
                 <div className="mt-6 pt-6 border-t space-y-4">
                   <h3 className="text-lg font-semibold">Análise de Compliance</h3>
@@ -1197,91 +1282,6 @@ export function DialogRespostasCotacao({
                   <p className="text-xs text-muted-foreground text-center">
                     Você poderá selecionar quais empresas incluir na planilha
                   </p>
-                </div>
-              )}
-              
-              {planilhaGerada && (
-                <div className="mt-6 pt-6 border-t space-y-4">
-                  <div className="flex gap-2">
-                    <Button onClick={gerarEncaminhamento} disabled={gerandoEncaminhamento} className="flex-1">
-                      <FileText className="mr-2 h-4 w-4" />
-                      {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
-                    </Button>
-                    <Button onClick={enviarAoCompliance} disabled={enviandoCompliance} className="flex-1">
-                      <Send className="mr-2 h-4 w-4" />
-                      {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
-                    </Button>
-                  </div>
-
-                  {encaminhamento && (
-                    <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Encaminhamento Gerado</span>
-                        <span className="text-xs text-muted-foreground">Protocolo: {encaminhamento.protocolo}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const { data, error } = await supabase.storage
-                                .from('processo-anexos')
-                                .download(encaminhamento.storage_path);
-                              
-                              if (error) throw error;
-                              
-                              const blob = new Blob([data], { type: 'application/pdf' });
-                              const url = URL.createObjectURL(blob);
-                              window.open(url, '_blank');
-                            } catch (error) {
-                              console.error('Erro ao visualizar:', error);
-                              toast.error('Erro ao visualizar encaminhamento');
-                            }
-                          }}
-                          className="flex-1"
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          Visualizar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const { data, error } = await supabase.storage
-                                .from('processo-anexos')
-                                .download(encaminhamento.storage_path);
-                              
-                              if (error) throw error;
-                              
-                              const blob = new Blob([data], { type: 'application/pdf' });
-                              const url = URL.createObjectURL(blob);
-                              const link = document.createElement('a');
-                              link.href = url;
-                              link.download = `encaminhamento-${processoNumero}.pdf`;
-                              link.click();
-                              URL.revokeObjectURL(url);
-                            } catch (error) {
-                              console.error('Erro ao baixar:', error);
-                              toast.error('Erro ao baixar encaminhamento');
-                            }
-                          }}
-                          className="flex-1"
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Baixar
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => setConfirmDeleteEncaminhamentoOpen(true)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
