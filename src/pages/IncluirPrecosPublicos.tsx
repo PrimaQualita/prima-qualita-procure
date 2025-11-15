@@ -278,6 +278,20 @@ const IncluirPrecosPublicos = () => {
 
       if (errorResposta) throw errorResposta;
 
+      // Inserir itens da resposta ANTES de gerar o PDF
+      const itensResposta = itens.map((item) => ({
+        cotacao_resposta_fornecedor_id: respostaCotacao.id,
+        item_cotacao_id: item.id,
+        valor_unitario_ofertado: parseFloat(respostas[item.id].valor_unitario.replace(/,/g, ".")),
+        marca: respostas[item.id].marca || null,
+      }));
+
+      const { error: errorItens } = await supabase
+        .from("respostas_itens_fornecedor")
+        .insert(itensResposta);
+
+      if (errorItens) throw errorItens;
+
       // Gerar PDF da proposta
       const dadosFornecedor = {
         razao_social: `Preços Públicos - ${nomeFonte}`,
@@ -324,20 +338,6 @@ const IncluirPrecosPublicos = () => {
           url_arquivo: nomeArquivo,
         });
       }
-
-      // Inserir itens da resposta
-      const itensResposta = itens.map((item) => ({
-        cotacao_resposta_fornecedor_id: respostaCotacao.id,
-        item_cotacao_id: item.id,
-        valor_unitario_ofertado: parseFloat(respostas[item.id].valor_unitario.replace(/,/g, ".")),
-        marca: respostas[item.id].marca || null,
-      }));
-
-      const { error: errorItens } = await supabase
-        .from("respostas_itens_fornecedor")
-        .insert(itensResposta);
-
-      if (errorItens) throw errorItens;
 
       toast.success("Preços públicos incluídos com sucesso!");
       
