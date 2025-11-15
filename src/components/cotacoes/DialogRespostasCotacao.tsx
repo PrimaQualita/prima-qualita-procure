@@ -216,11 +216,19 @@ export function DialogRespostasCotacao({
 
       if (!profileData) throw new Error("Perfil do usuário não encontrado");
 
-      // Buscar processo
+      // Buscar processo através da cotação
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select("processo_compra_id")
+        .eq("id", cotacaoId)
+        .single();
+
+      if (!cotacaoData) throw new Error("Cotação não encontrada");
+
       const { data: processoData } = await supabase
         .from("processos_compras")
         .select("numero_processo_interno, objeto_resumido")
-        .eq("id", processo.id)
+        .eq("id", cotacaoData.processo_compra_id)
         .single();
 
       if (!processoData) throw new Error("Processo não encontrado");
