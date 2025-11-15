@@ -86,7 +86,7 @@ export function DialogRespostasCotacao({
   const [planilhaGerada, setPlanilhaGerada] = useState<any>(null);
   const [gerandoPlanilha, setGerandoPlanilha] = useState(false);
   const [enviandoCompliance, setEnviandoCompliance] = useState(false);
-  const [encaminhamento, setEncaminhamento] = useState<any>(null);
+  const [encaminhamentos, setEncaminhamentos] = useState<any[]>([]);
   const [gerandoEncaminhamento, setGerandoEncaminhamento] = useState(false);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
   const [analiseCompliance, setAnaliseCompliance] = useState<any>(null);
@@ -172,13 +172,11 @@ export function DialogRespostasCotacao({
         .from("encaminhamentos_processo")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
       
-      setEncaminhamento(data);
+      setEncaminhamentos(data || []);
     } catch (error) {
-      console.error("Erro ao carregar encaminhamento:", error);
+      console.error("Erro ao carregar encaminhamentos:", error);
     }
   };
 
@@ -238,18 +236,6 @@ export function DialogRespostasCotacao({
         return;
       }
 
-      // Deletar encaminhamento anterior se existir
-      if (encaminhamento) {
-        await supabase.storage
-          .from('processo-anexos')
-          .remove([encaminhamento.storagePath]);
-        
-        await supabase
-          .from('encaminhamentos_processo')
-          .delete()
-          .eq('id', encaminhamento.id);
-      }
-
       const resultado = await gerarEncaminhamentoPDF(
         processoNumero,
         processoObjeto,
@@ -282,26 +268,28 @@ export function DialogRespostasCotacao({
     }
   };
 
-  const excluirEncaminhamento = async () => {
-    if (!encaminhamento) return;
+  const excluirEncaminhamento = async (encaminhamentoId: string, storagePath: string) => {
+    if (!encaminhamentoId) return;
 
     try {
-      console.log('Excluindo encaminhamento:', encaminhamento.id);
+      console.log('Excluindo encaminhamento:', encaminhamentoId);
       
       // Deletar arquivo do storage primeiro
-      const { error: storageError } = await supabase.storage
-        .from('processo-anexos')
-        .remove([encaminhamento.storagePath]);
+      if (storagePath) {
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove([storagePath]);
 
-      if (storageError) {
-        console.error('Erro ao deletar do storage:', storageError);
+        if (storageError) {
+          console.error('Erro ao deletar do storage:', storageError);
+        }
       }
 
-      // Deletar do banco de dados usando o ID
+      // Deletar do banco de dados
       const { error: dbError } = await supabase
         .from('encaminhamentos_processo')
         .delete()
-        .eq('id', encaminhamento.id);
+        .eq('id', encaminhamentoId);
 
       if (dbError) {
         console.error('Erro ao deletar do banco:', dbError);
@@ -310,9 +298,8 @@ export function DialogRespostasCotacao({
 
       console.log('Encaminhamento excluído com sucesso');
       
-      // Limpar estado local sem recarregar
-      setEncaminhamento(null);
-      setConfirmDeleteEncaminhamentoOpen(false);
+      // Recarregar lista
+      await loadEncaminhamento();
       toast.success("Encaminhamento excluído com sucesso");
     } catch (error) {
       console.error('Erro ao excluir encaminhamento:', error);
@@ -851,8 +838,6 @@ export function DialogRespostasCotacao({
   // Estados para confirmação de exclusão de planilha
   const [confirmDeletePlanilhaOpen, setConfirmDeletePlanilhaOpen] = useState(false);
   
-  // Estados para confirmação de exclusão de encaminhamento
-  const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
 
   const confirmarExclusao = (resposta: RespostaFornecedor) => {
     setRespostaParaExcluir(resposta);
@@ -1074,73 +1059,64 @@ export function DialogRespostasCotacao({
                     </Button>
                   </div>
 
-                  {encaminhamento && (
-                    <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Encaminhamento Gerado</span>
-                        <span className="text-xs text-muted-foreground">Protocolo: {encaminhamento.protocolo}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const { data, error } = await supabase.storage
-                                .from('processo-anexos')
-                                .download(encaminhamento.storage_path);
-                              
-                              if (error) throw error;
-                              
-                              const blob = new Blob([data], { type: 'application/pdf' });
-                              const url = URL.createObjectURL(blob);
-                              window.open(url, '_blank');
-                            } catch (error) {
-                              console.error('Erro ao visualizar:', error);
-                              toast.error('Erro ao visualizar encaminhamento');
-                            }
-                          }}
-                          className="flex-1"
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          Visualizar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const { data, error } = await supabase.storage
-                                .from('processo-anexos')
-                                .download(encaminhamento.storage_path);
-                              
-                              if (error) throw error;
-                              
-                              const blob = new Blob([data], { type: 'application/pdf' });
-                              const url = URL.createObjectURL(blob);
-                              const link = document.createElement('a');
-                              link.href = url;
-                              link.download = `encaminhamento-${processoNumero}.pdf`;
-                              link.click();
-                              URL.revokeObjectURL(url);
-                            } catch (error) {
-                              console.error('Erro ao baixar:', error);
-                              toast.error('Erro ao baixar encaminhamento');
-                            }
-                          }}
-                          className="flex-1"
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Baixar
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => setConfirmDeleteEncaminhamentoOpen(true)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                  {encaminhamentos.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Encaminhamentos Gerados</p>
+                      {encaminhamentos.map((enc) => (
+                        <div key={enc.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Protocolo: {enc.protocolo}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(enc.created_at).toLocaleString('pt-BR')}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(enc.url, '_blank')}
+                              className="flex-1"
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              Visualizar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const { data, error } = await supabase.storage
+                                    .from('processo-anexos')
+                                    .download(enc.storage_path);
+                                  
+                                  if (error) throw error;
+                                  
+                                  const blob = new Blob([data], { type: 'application/pdf' });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `encaminhamento_${enc.protocolo}.pdf`;
+                                  a.click();
+                                } catch (error) {
+                                  console.error('Erro ao baixar:', error);
+                                  toast.error('Erro ao baixar encaminhamento');
+                                }
+                              }}
+                              className="flex-1"
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Baixar
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => excluirEncaminhamento(enc.id, enc.storage_path)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1399,24 +1375,6 @@ export function DialogRespostasCotacao({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={confirmDeleteEncaminhamentoOpen} onOpenChange={setConfirmDeleteEncaminhamentoOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão de Encaminhamento</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir o encaminhamento gerado?
-              <br /><br />
-              Esta ação não pode ser desfeita. Você poderá gerar um novo encaminhamento a qualquer momento.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={excluirEncaminhamento} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Excluir Encaminhamento
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <DialogPlanilhaConsolidada
         open={planilhaConsolidadaOpen}
