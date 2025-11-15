@@ -114,19 +114,21 @@ export async function gerarPropostaFornecedorPDF(
     y += 8;
 
     // Cabeçalho da tabela com fundo
+    // Larguras das colunas: Item(10), Desc(60), Qtd(18), Unid(20), VlrUnit(28), VlrTotal(28)
     doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
     doc.rect(15, y - 5, 180, 8, 'F');
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    // Texto alinhado verticalmente (baseline: middle)
-    doc.text('Item', 22, y + 1, { align: 'center' });
-    doc.text('Descrição', 80, y + 1, { align: 'center' });
-    doc.text('Qtd', 128, y + 1, { align: 'center' });
-    doc.text('Unid', 148, y + 1, { align: 'center' });
-    doc.text('Vlr Unit', 168, y + 1, { align: 'right' });
-    doc.text('Vlr Total', 188, y + 1, { align: 'right' });
+    
+    // Cabeçalhos das colunas com posições ajustadas
+    doc.text('Item', 20, y + 1, { align: 'center' });
+    doc.text('Descrição', 55, y + 1, { align: 'left' });
+    doc.text('Qtd', 116, y + 1, { align: 'right' });
+    doc.text('Unid', 135, y + 1, { align: 'center' });
+    doc.text('Vlr Unit', 158, y + 1, { align: 'right' });
+    doc.text('Vlr Total', 185, y + 1, { align: 'right' });
     y += 5;
 
     // Itens com linhas alternadas
@@ -161,18 +163,26 @@ export async function gerarPropostaFornecedorPDF(
       const valorTotal = item.quantidade * item.valor_unitario_ofertado;
       subtotal += valorTotal;
 
-      doc.setFontSize(9);
-      // Texto centralizado verticalmente na linha
-      doc.text(item.numero_item.toString(), 22, y + 1, { align: 'center' });
+      doc.setFontSize(8);
+      // Item (coluna 1: 15-25)
+      doc.text(item.numero_item.toString(), 20, y + 1, { align: 'center' });
       
-      const descricaoMaxWidth = 80;
+      // Descrição (coluna 2: 30-110) - largura de 55
+      const descricaoMaxWidth = 55;
       const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
-      doc.text(descricaoLines[0], 35, y + 1);
+      doc.text(descricaoLines[0], 30, y + 1);
       
-      doc.text(item.quantidade.toFixed(2), 128, y + 1, { align: 'center' });
-      doc.text(item.unidade, 148, y + 1, { align: 'center' });
-      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 168, y + 1, { align: 'right' });
-      doc.text(`R$ ${valorTotal.toFixed(2)}`, 188, y + 1, { align: 'right' });
+      // Quantidade (coluna 3: 110-123) - alinhado à direita
+      doc.text(item.quantidade.toFixed(2), 116, y + 1, { align: 'right' });
+      
+      // Unidade (coluna 4: 123-143) - centralizado
+      doc.text(item.unidade, 135, y + 1, { align: 'center' });
+      
+      // Valor Unitário (coluna 5: 143-171) - alinhado à direita
+      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 158, y + 1, { align: 'right' });
+      
+      // Valor Total (coluna 6: 171-195) - alinhado à direita
+      doc.text(`R$ ${valorTotal.toFixed(2)}`, 185, y + 1, { align: 'right' });
       
       y += 7;
       isAlternate = !isAlternate;
@@ -224,6 +234,14 @@ export async function gerarPropostaFornecedorPDF(
 
     const protocolo = uuidv4();
     const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
+
+    // Salvar o protocolo no banco ANTES de gerar o PDF
+    await supabase.from('anexos_cotacao_fornecedor').insert({
+      cotacao_resposta_fornecedor_id: respostaId,
+      tipo_anexo: 'protocolo_certificacao',
+      nome_arquivo: `protocolo_${protocolo}`,
+      url_arquivo: protocolo
+    });
 
     adicionarCertificacaoDigital(doc, {
       protocolo,
