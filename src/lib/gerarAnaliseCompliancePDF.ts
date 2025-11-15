@@ -77,6 +77,11 @@ export const gerarAnaliseCompliancePDF = async (
       { align: "right" }
     );
     
+    // Resetar formatação para o texto normal
+    pdf.setFontSize(12);
+    pdf.setTextColor(0);
+    pdf.setFont("times", "normal");
+    
     yPos = 35;
   };
 
