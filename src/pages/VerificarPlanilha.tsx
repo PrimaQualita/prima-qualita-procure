@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Search, CheckCircle, XCircle } from "lucide-react";
+import primaLogo from "@/assets/prima-qualita-logo.png";
 
 export default function VerificarPlanilha() {
   const [protocolo, setProtocolo] = useState("");
@@ -66,6 +67,13 @@ export default function VerificarPlanilha() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 p-4">
       <div className="container mx-auto max-w-4xl py-8">
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <img 
+              src={primaLogo} 
+              alt="Prima Qualitá Saúde" 
+              className="h-16 md:h-20 object-contain"
+            />
+          </div>
           <h1 className="text-4xl font-bold text-blue-900 mb-2">
             Verificação de Planilha Consolidada
           </h1>
