@@ -976,7 +976,19 @@ export function DialogPlanilhaConsolidada({
             
             <div style="font-size: 10px; line-height: 1.6; color: #000;">
               <div style="margin-bottom: 5px;">
+                <strong>Responsável:</strong> ${usuarioNome}
+              </div>
+              <div style="margin-bottom: 5px;">
+                <strong>E-mail:</strong> ${usuarioEmail}
+              </div>
+              <div style="margin-bottom: 5px;">
                 <strong>Protocolo:</strong> ${protocoloDocumento}
+              </div>
+              <div style="margin-bottom: 8px;">
+                <strong>Verificar autenticidade em:</strong>
+              </div>
+              <div style="margin-bottom: 8px; word-break: break-all;">
+                <a href="${linkVerificacao}" style="color: #0000FF; font-size: 9px;">${linkVerificacao}</a>
               </div>
               <div style="margin-bottom: 5px;">
                 <strong>Data/Hora de Geração:</strong> ${dataHoraGeracao.toLocaleString('pt-BR', { 
@@ -988,17 +1000,8 @@ export function DialogPlanilhaConsolidada({
                   minute: '2-digit'
                 })}
               </div>
-              <div style="margin-bottom: 5px;">
-                <strong>Responsável pela Geração:</strong> ${usuarioNome}
-              </div>
               <div style="margin-bottom: 8px;">
                 <strong>Hash de Validação:</strong> ${hashVerificacao}
-              </div>
-              <div style="margin-bottom: 5px;">
-                <strong>Verificar autenticidade em:</strong>
-              </div>
-              <div style="margin-bottom: 8px; word-break: break-all;">
-                <a href="${linkVerificacao}" style="color: #0000FF; font-size: 9px;">${linkVerificacao}</a>
               </div>
               <div style="color: #505050; font-size: 8px; margin-top: 4px;">
                 Este documento possui certificação digital conforme Lei 14.063/2020
