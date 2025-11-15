@@ -118,10 +118,10 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.text('ITEM', 20, y, { align: 'center' });
-    doc.text('DESCRIÇÃO', 55, y, { align: 'center' });
-    doc.text('QTD', 110, y, { align: 'center' });
-    doc.text('UNID', 135, y, { align: 'center' });
-    doc.text('VL. UNIT.', 160, y, { align: 'center' });
+    doc.text('DESCRIÇÃO', 48, y, { align: 'center' });
+    doc.text('QTD', 105, y, { align: 'center' });
+    doc.text('UNID', 130, y, { align: 'center' });
+    doc.text('VL. UNIT.', 158, y, { align: 'center' });
     doc.text('VL. TOTAL', 185, y, { align: 'center' });
     
     y += 6;
@@ -144,10 +144,10 @@ export async function gerarPropostaFornecedorPDF(
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
         doc.text('ITEM', 20, y, { align: 'center' });
-        doc.text('DESCRIÇÃO', 55, y, { align: 'center' });
-        doc.text('QTD', 110, y, { align: 'center' });
-        doc.text('UNID', 135, y, { align: 'center' });
-        doc.text('VL. UNIT.', 160, y, { align: 'center' });
+        doc.text('DESCRIÇÃO', 48, y, { align: 'center' });
+        doc.text('QTD', 105, y, { align: 'center' });
+        doc.text('UNID', 130, y, { align: 'center' });
+        doc.text('VL. UNIT.', 158, y, { align: 'center' });
         doc.text('VL. TOTAL', 185, y, { align: 'center' });
         y += 6;
         doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
@@ -167,12 +167,12 @@ export async function gerarPropostaFornecedorPDF(
 
       doc.text(itemCotacao.numero_item.toString(), 20, y, { align: 'center' });
       
-      const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 50);
-      doc.text(descricaoLinhas[0], 30, y);
+      const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 35);
+      doc.text(descricaoLinhas[0], 28, y);
       
-      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 110, y, { align: 'center' });
-      doc.text(itemCotacao.unidade, 135, y, { align: 'center' });
-      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 175, y, { align: 'right' });
+      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 105, y, { align: 'center' });
+      doc.text(itemCotacao.unidade, 130, y, { align: 'center' });
+      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 173, y, { align: 'right' });
       doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 193, y, { align: 'right' });
       
       y += 6;
