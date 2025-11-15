@@ -127,8 +127,11 @@ export function DialogAnaliseCompliance({
       if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
+        console.log("Dados carregados da análise:", data);
         setAnaliseId(data.id);
-        setEmpresas((data.empresas as any) || []);
+        const empresasCarregadas = (data.empresas as any) || [];
+        console.log("Empresas carregadas:", empresasCarregadas);
+        setEmpresas(empresasCarregadas);
         setConsideracoesFinais(data.consideracoes_finais || "");
         setConclusao(data.conclusao || "");
         setStatusAprovacao((data.status_aprovacao as any) || "pendente");
@@ -137,6 +140,7 @@ export function DialogAnaliseCompliance({
         setNomeArquivo(data.nome_arquivo || null);
       } else {
         // Só carrega fornecedores se não houver análise existente
+        console.log("Nenhuma análise existente, carregando fornecedores");
         await loadFornecedoresPropostas();
       }
     } catch (error: any) {
@@ -214,6 +218,8 @@ export function DialogAnaliseCompliance({
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
+      
+      console.log("Salvando empresas:", empresas);
       
       const analiseData = {
         cotacao_id: cotacaoId,
