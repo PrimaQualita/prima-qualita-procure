@@ -673,12 +673,12 @@ export function DialogPlanilhaConsolidada({
               totalGeralEstimativa += totalLoteEstimativa;
 
               if (loteInfo) {
-                html += `
-                  <tr class="total">
-                    <td colspan="${4 + (tipoProcesso === "material" ? respostas.length * 2 : respostas.length)}"><strong>TOTAL DO LOTE ${loteInfo.numero}</strong></td>
-                    <td class="text-right"><strong>${totalLoteEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
-                  </tr>
-                `;
+              html += `
+                <tr class="total">
+                  <td colspan="${4 + (tipoProcesso === "material" ? respostasFiltradas.length * 2 : respostasFiltradas.length)}"><strong>TOTAL DO LOTE ${loteInfo.numero}</strong></td>
+                  <td class="text-right"><strong>${totalLoteEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+                </tr>
+              `;
               }
 
               html += `
@@ -691,7 +691,7 @@ export function DialogPlanilhaConsolidada({
             <table>
               <tbody>
                 <tr class="total">
-                  <td colspan="${4 + (tipoProcesso === "material" ? respostas.length * 2 : respostas.length)}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+                  <td colspan="${4 + (tipoProcesso === "material" ? respostasFiltradas.length * 2 : respostasFiltradas.length)}"><strong>VALOR TOTAL ESTIMADO</strong></td>
                   <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
                 </tr>
               </tbody>
@@ -817,7 +817,7 @@ export function DialogPlanilhaConsolidada({
 
           html += `
             <tr class="total">
-              <td colspan="${4 + (tipoProcesso === "material" ? respostas.length * 2 : respostas.length)}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+              <td colspan="${4 + (tipoProcesso === "material" ? respostasFiltradas.length * 2 : respostasFiltradas.length)}"><strong>VALOR TOTAL ESTIMADO</strong></td>
               <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
             </tr>
           </tbody>
