@@ -56,7 +56,7 @@ export const gerarAnaliseCompliancePDF = async (
     
     // Logo - maior e centralizado
     const logoWidth = 60;
-    const logoHeight = 17;
+    const logoHeight = 20;
     const logoX = (pageWidth - logoWidth) / 2;
     pdf.addImage(logo, "PNG", logoX, 10, logoWidth, logoHeight);
     
