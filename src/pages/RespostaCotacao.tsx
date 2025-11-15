@@ -872,7 +872,7 @@ const RespostaCotacao = () => {
                   type="file"
                   id="upload-comprovantes"
                   multiple
-                  accept=".pdf,.jpg,.jpeg,.png"
+                  accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
                   className="hidden"
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);
