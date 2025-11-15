@@ -894,7 +894,8 @@ export function DialogRespostasCotacao({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Respostas Recebidas</DialogTitle>
@@ -1475,11 +1476,12 @@ export function DialogRespostasCotacao({
                 </div>
               )}
 
-            </div>
           </div>
         )}
       </DialogContent>
+    </Dialog>
 
+      <AlertDialog open={emailCorrecaoOpen} onOpenChange={setEmailCorrecaoOpen}>
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Solicitar Correção de Proposta</AlertDialogTitle>
@@ -1575,6 +1577,6 @@ export function DialogRespostasCotacao({
         criterioJulgamento={criterioJulgamento}
         onPlanilhaGerada={loadPlanilhaGerada}
       />
-    </Dialog>
+    </>
   );
 }
