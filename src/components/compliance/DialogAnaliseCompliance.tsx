@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { gerarAnaliseCompliancePDF } from "@/lib/gerarAnaliseCompliancePDF";
 import { formatarCNPJ } from "@/lib/validators";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface EmpresaAnalise {
   razao_social: string;
@@ -70,6 +71,7 @@ export function DialogAnaliseCompliance({
   const [analiseId, setAnaliseId] = useState<string | null>(null);
   const [urlDocumento, setUrlDocumento] = useState<string | null>(null);
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -388,6 +390,7 @@ export function DialogAnaliseCompliance({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -641,40 +644,9 @@ export function DialogAnaliseCompliance({
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={async () => {
-                        if (confirm("Deseja realmente apagar este documento?")) {
-                          try {
-                            setLoading(true);
-                            // Apagar documento do storage
-                            const path = urlDocumento.split('/processo-anexos/')[1];
-                            if (path) {
-                              await supabase.storage
-                                .from('processo-anexos')
-                                .remove([path]);
-                            }
-                            
-                            // Limpar campos da análise
-                            await supabase
-                              .from("analises_compliance")
-                              .update({
-                                url_documento: null,
-                                nome_arquivo: null,
-                                protocolo: null,
-                              })
-                              .eq("id", analiseId!);
-                            
-                            setUrlDocumento(null);
-                            setNomeArquivo(null);
-                            toast.success("Documento apagado com sucesso!");
-                          } catch (error) {
-                            console.error("Erro ao apagar documento:", error);
-                            toast.error("Erro ao apagar documento");
-                          } finally {
-                            setLoading(false);
-                          }
-                        }
-                      }}
+                      onClick={() => setShowDeleteConfirm(true)}
                     >
+                      <Trash2 className="h-4 w-4 mr-2" />
                       Apagar
                     </Button>
                   </div>
@@ -701,7 +673,49 @@ export function DialogAnaliseCompliance({
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Apagar documento"
+        description="Deseja realmente apagar este documento?"
+        confirmText="Apagar"
+        cancelText="Cancelar"
+        onConfirm={async () => {
+          try {
+            setLoading(true);
+            // Apagar documento do storage
+            const path = urlDocumento?.split('/processo-anexos/')[1];
+            if (path) {
+              await supabase.storage
+                .from('processo-anexos')
+                .remove([path]);
+            }
+            
+            // Limpar campos da análise
+            await supabase
+              .from("analises_compliance")
+              .update({
+                url_documento: null,
+                nome_arquivo: null,
+                protocolo: null,
+              })
+              .eq("id", analiseId!);
+            
+            setUrlDocumento(null);
+            setNomeArquivo(null);
+            toast.success("Documento apagado com sucesso!");
+          } catch (error) {
+            console.error("Erro ao apagar documento:", error);
+            toast.error("Erro ao apagar documento");
+          } finally {
+            setLoading(false);
+            setShowDeleteConfirm(false);
+          }
+        }}
+      />
+    </>
   );
 }
