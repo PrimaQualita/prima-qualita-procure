@@ -2,7 +2,15 @@ import jsPDF from 'jspdf';
 import { PDFDocument } from 'pdf-lib';
 import { supabase } from '@/integrations/supabase/client';
 import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
-import { v4 as uuidv4 } from 'uuid';
+
+// Função para gerar protocolo no formato XXXX-XXXX-XXXX-XXXX
+const gerarProtocolo = (): string => {
+  const parte1 = Math.floor(1000 + Math.random() * 9000);
+  const parte2 = Math.floor(1000 + Math.random() * 9000);
+  const parte3 = Math.floor(1000 + Math.random() * 9000);
+  const parte4 = Math.floor(1000 + Math.random() * 9000);
+  return `${parte1}-${parte2}-${parte3}-${parte4}`;
+};
 
 interface ItemProposta {
   numero_item: number;
@@ -122,13 +130,13 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     
-    // Cabeçalhos das colunas com posições ajustadas
-    doc.text('Item', 20, y + 1, { align: 'center' });
-    doc.text('Descrição', 55, y + 1, { align: 'left' });
-    doc.text('Qtd', 119, y + 1, { align: 'center' });
-    doc.text('Unid', 135, y + 1, { align: 'center' });
-    doc.text('Vlr Unit', 158, y + 1, { align: 'right' });
-    doc.text('Vlr Total', 185, y + 1, { align: 'right' });
+    // Cabeçalhos das colunas - Proporções: Item(8), Desc(85), Qtd(22), Unid(22), VlrUnit(30), VlrTotal(33)
+    doc.text('Item', 19, y + 1, { align: 'center' });
+    doc.text('Descrição', 60, y + 1, { align: 'left' });
+    doc.text('Qtd', 126, y + 1, { align: 'center' });
+    doc.text('Unid', 143, y + 1, { align: 'center' });
+    doc.text('Vlr Unit', 165, y + 1, { align: 'right' });
+    doc.text('Vlr Total', 188, y + 1, { align: 'right' });
     y += 5;
 
     // Itens com linhas alternadas
@@ -164,25 +172,25 @@ export async function gerarPropostaFornecedorPDF(
       subtotal += valorTotal;
 
       doc.setFontSize(8);
-      // Item (coluna 1: 15-25) - centralizado
-      doc.text(item.numero_item.toString(), 20, y + 1, { align: 'center' });
+      // Item (15-23) - centralizado
+      doc.text(item.numero_item.toString(), 19, y + 1, { align: 'center' });
       
-      // Descrição (coluna 2: 30-110) - largura de 55
-      const descricaoMaxWidth = 55;
+      // Descrição (28-113) - largura de 50
+      const descricaoMaxWidth = 50;
       const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
-      doc.text(descricaoLines[0], 30, y + 1);
+      doc.text(descricaoLines[0], 28, y + 1);
       
-      // Quantidade (coluna 3: 110-123) - centralizado
-      doc.text(item.quantidade.toFixed(2), 119, y + 1, { align: 'center' });
+      // Quantidade (115-137) - centralizado
+      doc.text(item.quantidade.toFixed(2), 126, y + 1, { align: 'center' });
       
-      // Unidade (coluna 4: 123-143) - centralizado
-      doc.text(item.unidade, 135, y + 1, { align: 'center' });
+      // Unidade (137-150) - centralizado
+      doc.text(item.unidade, 143, y + 1, { align: 'center' });
       
-      // Valor Unitário (coluna 5: 143-171) - alinhado à direita
-      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 158, y + 1, { align: 'right' });
+      // Valor Unitário (150-180) - alinhado à direita
+      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 165, y + 1, { align: 'right' });
       
-      // Valor Total (coluna 6: 171-195) - alinhado à direita
-      doc.text(`R$ ${valorTotal.toFixed(2)}`, 185, y + 1, { align: 'right' });
+      // Valor Total (180-195) - alinhado à direita
+      doc.text(`R$ ${valorTotal.toFixed(2)}`, 188, y + 1, { align: 'right' });
       
       y += 7;
       isAlternate = !isAlternate;
@@ -232,16 +240,20 @@ export async function gerarPropostaFornecedorPDF(
 
     y += 10;
 
-    const protocolo = uuidv4();
+    const protocolo = gerarProtocolo();
     const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
 
     // Salvar o protocolo no banco ANTES de gerar o PDF
-    await supabase.from('anexos_cotacao_fornecedor').insert({
-      cotacao_resposta_fornecedor_id: respostaId,
-      tipo_anexo: 'protocolo_certificacao',
-      nome_arquivo: `protocolo_${protocolo}`,
-      url_arquivo: protocolo
-    });
+    const { error: protocoloError } = await supabase
+      .from('cotacao_respostas_fornecedor')
+      .update({ 
+        observacoes_fornecedor: observacoes ? `${observacoes}\n\nProtocolo: ${protocolo}\nHash: ${hash}` : `Protocolo: ${protocolo}\nHash: ${hash}`
+      })
+      .eq('id', respostaId);
+
+    if (protocoloError) {
+      console.error('Erro ao salvar protocolo:', protocoloError);
+    }
 
     adicionarCertificacaoDigital(doc, {
       protocolo,
