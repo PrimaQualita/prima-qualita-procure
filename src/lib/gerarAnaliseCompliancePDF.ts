@@ -263,8 +263,8 @@ export const gerarAnaliseCompliancePDF = async (
       pdf.setFontSize(12);
       pdf.setTextColor(0);
       
+      // Justificar todas as linhas exceto a última
       if (i < conflitoLines.length - 1) {
-        // Justificar linhas do meio
         const words = conflitoLines[i].split(' ');
         if (words.length > 1) {
           const lineWidth = pdf.getTextWidth(conflitoLines[i]);
@@ -319,6 +319,7 @@ export const gerarAnaliseCompliancePDF = async (
       pdf.setFontSize(12);
       pdf.setTextColor(0);
       
+      // Justificar todas as linhas exceto a última
       if (i < capacidadeLines.length - 1) {
         const words = capacidadeLines[i].split(' ');
         if (words.length > 1) {
@@ -373,6 +374,7 @@ export const gerarAnaliseCompliancePDF = async (
       pdf.setFontSize(12);
       pdf.setTextColor(0);
       
+      // Justificar todas as linhas exceto a última
       if (i < riscoLines.length - 1) {
         const words = riscoLines[i].split(' ');
         if (words.length > 1) {
@@ -427,6 +429,7 @@ export const gerarAnaliseCompliancePDF = async (
       pdf.setFontSize(12);
       pdf.setTextColor(0);
       
+      // Justificar todas as linhas exceto a última
       if (i < reputacaoLines.length - 1) {
         const words = reputacaoLines[i].split(' ');
         if (words.length > 1) {
@@ -481,6 +484,7 @@ export const gerarAnaliseCompliancePDF = async (
       pdf.setFontSize(12);
       pdf.setTextColor(0);
       
+      // Justificar todas as linhas exceto a última
       if (i < cnaeLines.length - 1) {
         const words = cnaeLines[i].split(' ');
         if (words.length > 1) {
@@ -532,18 +536,18 @@ export const gerarAnaliseCompliancePDF = async (
       yPos += 10;
     }
     
-    // Adicionar rótulo "Recomendações:" em negrito
+    // Adicionar rótulo "Recomendações:" em negrito com recuo de 2cm
+    const recuo = 56.69; // 2cm em pontos
     if (yPos > pageHeight - 30) {
       addNewPage();
     }
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    pdf.text("Recomendações:", margin, yPos);
+    pdf.text("Recomendações:", margin + recuo, yPos);
     yPos += 7.5;
     
-    // Texto das recomendações com recuo de 2cm (56.69 pontos)
-    const recuo = 56.69; // 2cm em pontos
+    // Texto das recomendações com recuo de 2cm
     const textoRecomendacoes = recomendacoesMatch[1].trim();
     
     pdf.setFont("times", "normal");
