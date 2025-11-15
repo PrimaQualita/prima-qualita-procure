@@ -74,7 +74,7 @@ export async function gerarPropostaHTML(
   <h1>PROPOSTA DE COTAÇÃO DE PREÇOS</h1>
   
   <div class="info">
-    <p><strong>Processo:</strong> ${processo.numero}</p>
+    <p><strong>${processo.numero}</strong></p>
     <p><strong>Descrição:</strong> ${processo.objeto}</p>
     <p><strong>Data de Envio:</strong> ${dataEnvio}</p>
   </div>

@@ -69,7 +69,7 @@ export async function gerarPropostaPDF(
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text(`Processo: ${processo.numero}`, margemEsquerda, y);
+  doc.text(processo.numero, margemEsquerda, y);
   y += 5;
   
   doc.setFont('helvetica', 'normal');
