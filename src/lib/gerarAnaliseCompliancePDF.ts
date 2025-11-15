@@ -232,9 +232,11 @@ export const gerarAnaliseCompliancePDF = async (
     }
     const conflitoTexto = extractTextFromHTML(empresa.conflito_interesse);
     pdf.setFont("times", "bold");
+    pdf.setFontSize(12);
     pdf.text("Conflito de Interesse: ", margin, yPos);
     pdf.setFont("times", "normal");
-    const conflitoWidth = maxWidth - pdf.getTextWidth("Conflito de Interesse: ");
+    pdf.setFontSize(12);
+    const conflitoWidth = maxWidth - pdf.getTextWidth("Conflito de Interesse: ") - 2;
     const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", conflitoWidth);
     let xPos = margin + pdf.getTextWidth("Conflito de Interesse: ");
     
@@ -247,6 +249,9 @@ export const gerarAnaliseCompliancePDF = async (
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
+      
+      pdf.setFont("times", "normal");
+      pdf.setFontSize(12);
       
       if (i < conflitoLines.length - 1) {
         // Justificar linhas do meio
@@ -280,9 +285,11 @@ export const gerarAnaliseCompliancePDF = async (
     }
     const capacidadeTexto = extractTextFromHTML(empresa.capacidade_tecnica);
     pdf.setFont("times", "bold");
+    pdf.setFontSize(12);
     pdf.text("Capacidade Técnica: ", margin, yPos);
     pdf.setFont("times", "normal");
-    const capacidadeWidth = maxWidth - pdf.getTextWidth("Capacidade Técnica: ");
+    pdf.setFontSize(12);
+    const capacidadeWidth = maxWidth - pdf.getTextWidth("Capacidade Técnica: ") - 2;
     const capacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", capacidadeWidth);
     xPos = margin + pdf.getTextWidth("Capacidade Técnica: ");
     
@@ -293,6 +300,9 @@ export const gerarAnaliseCompliancePDF = async (
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
+      
+      pdf.setFont("times", "normal");
+      pdf.setFontSize(12);
       
       if (i < capacidadeLines.length - 1) {
         const words = capacidadeLines[i].split(' ');
@@ -324,9 +334,11 @@ export const gerarAnaliseCompliancePDF = async (
     }
     const riscoTexto = extractTextFromHTML(empresa.risco_financeiro);
     pdf.setFont("times", "bold");
+    pdf.setFontSize(12);
     pdf.text("Risco Financeiro: ", margin, yPos);
     pdf.setFont("times", "normal");
-    const riscoWidth = maxWidth - pdf.getTextWidth("Risco Financeiro: ");
+    pdf.setFontSize(12);
+    const riscoWidth = maxWidth - pdf.getTextWidth("Risco Financeiro: ") - 2;
     const riscoLines = pdf.splitTextToSize(riscoTexto || "Não informado", riscoWidth);
     xPos = margin + pdf.getTextWidth("Risco Financeiro: ");
     
@@ -337,6 +349,9 @@ export const gerarAnaliseCompliancePDF = async (
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
+      
+      pdf.setFont("times", "normal");
+      pdf.setFontSize(12);
       
       if (i < riscoLines.length - 1) {
         const words = riscoLines[i].split(' ');
@@ -368,9 +383,11 @@ export const gerarAnaliseCompliancePDF = async (
     }
     const reputacaoTexto = extractTextFromHTML(empresa.reputacao);
     pdf.setFont("times", "bold");
+    pdf.setFontSize(12);
     pdf.text("Reputação: ", margin, yPos);
     pdf.setFont("times", "normal");
-    const reputacaoWidth = maxWidth - pdf.getTextWidth("Reputação: ");
+    pdf.setFontSize(12);
+    const reputacaoWidth = maxWidth - pdf.getTextWidth("Reputação: ") - 2;
     const reputacaoLines = pdf.splitTextToSize(reputacaoTexto || "Não informado", reputacaoWidth);
     xPos = margin + pdf.getTextWidth("Reputação: ");
     
@@ -381,6 +398,9 @@ export const gerarAnaliseCompliancePDF = async (
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
+      
+      pdf.setFont("times", "normal");
+      pdf.setFontSize(12);
       
       if (i < reputacaoLines.length - 1) {
         const words = reputacaoLines[i].split(' ');
@@ -412,9 +432,11 @@ export const gerarAnaliseCompliancePDF = async (
     }
     const cnaeTexto = extractTextFromHTML(empresa.cnae);
     pdf.setFont("times", "bold");
+    pdf.setFontSize(12);
     pdf.text("CNAE: ", margin, yPos);
     pdf.setFont("times", "normal");
-    const cnaeWidth = maxWidth - pdf.getTextWidth("CNAE: ");
+    pdf.setFontSize(12);
+    const cnaeWidth = maxWidth - pdf.getTextWidth("CNAE: ") - 2;
     const cnaeLines = pdf.splitTextToSize(cnaeTexto || "Não informado", cnaeWidth);
     xPos = margin + pdf.getTextWidth("CNAE: ");
     
@@ -425,6 +447,9 @@ export const gerarAnaliseCompliancePDF = async (
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
+      
+      pdf.setFont("times", "normal");
+      pdf.setFontSize(12);
       
       if (i < cnaeLines.length - 1) {
         const words = cnaeLines[i].split(' ');
