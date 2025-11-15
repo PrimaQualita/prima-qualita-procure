@@ -292,6 +292,14 @@ const IncluirPrecosPublicos = () => {
 
       if (errorItens) throw errorItens;
 
+      // Buscar dados do usuário logado para certificação
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("nome_completo, cpf")
+        .eq("id", user?.id)
+        .single();
+
       // Gerar PDF da proposta
       const dadosFornecedor = {
         razao_social: `Preços Públicos - ${nomeFonte}`,
@@ -305,7 +313,9 @@ const IncluirPrecosPublicos = () => {
         valorTotal,
         `Fonte: ${nomeFonte}\n\n${observacoes}`,
         cotacao.titulo_cotacao,
-        arquivosComprovantes // Passa os comprovantes para serem mesclados
+        arquivosComprovantes, // Passa os comprovantes para serem mesclados
+        profile?.nome_completo || "Sistema",
+        profile?.cpf || "Sistema"
       );
 
       // Salvar anexo da proposta com comprovantes mesclados
