@@ -90,8 +90,11 @@ export function DialogRespostasCotacao({
   const [gerandoEncaminhamento, setGerandoEncaminhamento] = useState(false);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
   const [analiseCompliance, setAnaliseCompliance] = useState<any>(null);
+  const [analiseAnterior, setAnaliseAnterior] = useState<any>(null);
   const [empresasAprovadas, setEmpresasAprovadas] = useState<string[]>([]);
   const [empresasReprovadas, setEmpresasReprovadas] = useState<string[]>([]);
+  const [empresasAprovadasAnterior, setEmpresasAprovadasAnterior] = useState<string[]>([]);
+  const [empresasReprovadasAnterior, setEmpresasReprovadasAnterior] = useState<string[]>([]);
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -104,38 +107,46 @@ export function DialogRespostasCotacao({
 
   const loadAnaliseCompliance = async () => {
     try {
-      const { data } = await supabase
+      // Buscar TODAS as análises ordenadas por data
+      const { data: analises } = await supabase
         .from("analises_compliance")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
       
-      if (data) {
-        setAnaliseCompliance(data);
+      if (analises && analises.length > 0) {
+        // A mais recente
+        const maisRecente = analises[0];
+        setAnaliseCompliance(maisRecente);
         
-        // Carregar empresas do JSON
-        const empresas = data.empresas as any[] || [];
-        const aprovadas: string[] = [];
-        const reprovadas: string[] = [];
-        
-        console.log('📊 Análise de Compliance:', data);
-        console.log('📋 Empresas no JSON:', empresas);
-        
-        empresas.forEach((emp: any) => {
-          console.log(`Empresa: ${emp.razao_social}, Aprovado:`, emp.aprovado, typeof emp.aprovado);
-          
-          if (emp.aprovado === true || emp.aprovado === 'true') {
-            aprovadas.push(emp.razao_social);
-          } else if (emp.aprovado === false || emp.aprovado === 'false') {
-            reprovadas.push(emp.razao_social);
-          }
-        });
-        
-        console.log('✅ Aprovadas:', aprovadas);
-        console.log('❌ Reprovadas:', reprovadas);
+        // Carregar empresas da análise mais recente
+        const empresas = maisRecente.empresas as any[];
+        const aprovadas = empresas
+          .filter((emp: any) => emp.aprovado === true)
+          .map((emp: any) => emp.razao_social);
+        const reprovadas = empresas
+          .filter((emp: any) => emp.aprovado === false)
+          .map((emp: any) => emp.razao_social);
         
         setEmpresasAprovadas(aprovadas);
         setEmpresasReprovadas(reprovadas);
+
+        // Se houver análise anterior, carregar também
+        if (analises.length > 1) {
+          const anterior = analises[1];
+          setAnaliseAnterior(anterior);
+          
+          const empresasAnt = anterior.empresas as any[];
+          const aprovadasAnt = empresasAnt
+            .filter((emp: any) => emp.aprovado === true)
+            .map((emp: any) => emp.razao_social);
+          const reprovadasAnt = empresasAnt
+            .filter((emp: any) => emp.aprovado === false)
+            .map((emp: any) => emp.razao_social);
+          
+          setEmpresasAprovadasAnterior(aprovadasAnt);
+          setEmpresasReprovadasAnterior(reprovadasAnt);
+        }
       }
     } catch (error) {
       console.error("Erro ao carregar análise de compliance:", error);
@@ -1045,7 +1056,93 @@ export function DialogRespostasCotacao({
                 {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
               </Button>
 
-              {/* Removido daqui - aparecerá após análise de compliance */}
+              {/* Análise de Compliance ANTERIOR (se existir) */}
+              {analiseAnterior && (
+                <div className="mt-6 pt-6 border-t space-y-4">
+                  <h3 className="text-lg font-semibold">Análise de Compliance Anterior</h3>
+                  
+                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Documento de Análise Anterior</span>
+                      <Badge variant={
+                        analiseAnterior.status_aprovacao === 'aprovado' ? 'default' : 
+                        analiseAnterior.status_aprovacao === 'reprovado' ? 'destructive' : 
+                        'secondary'
+                      }>
+                        {analiseAnterior.status_aprovacao === 'aprovado' ? 'Aprovado' : 
+                         analiseAnterior.status_aprovacao === 'reprovado' ? 'Reprovado' : 
+                         'Pendente'}
+                      </Badge>
+                    </div>
+                    
+                    {analiseAnterior.protocolo && (
+                      <div className="text-xs text-muted-foreground">
+                        Protocolo: {analiseAnterior.protocolo}
+                      </div>
+                    )}
+
+                    {/* Empresas Aprovadas Anterior */}
+                    {empresasAprovadasAnterior.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-green-600">Empresas Aprovadas</h4>
+                        <div className="space-y-1">
+                          {empresasAprovadasAnterior.map((empresa, idx) => (
+                            <div key={idx} className="text-sm pl-4 border-l-2 border-green-600">
+                              {empresa}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Empresas Reprovadas Anterior */}
+                    {empresasReprovadasAnterior.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-red-600">Empresas Reprovadas</h4>
+                        <div className="space-y-1">
+                          {empresasReprovadasAnterior.map((empresa, idx) => (
+                            <div key={idx} className="text-sm pl-4 border-l-2 border-red-600">
+                              {empresa}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (analiseAnterior.url_documento) {
+                            window.open(analiseAnterior.url_documento, '_blank');
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar Análise
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (analiseAnterior.url_documento) {
+                            const link = document.createElement('a');
+                            link.href = analiseAnterior.url_documento;
+                            link.download = analiseAnterior.nome_arquivo || 'analise_compliance_anterior.pdf';
+                            link.click();
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Baixar Análise
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {planilhaGerada && (
                 <div className="mt-6 pt-6 border-t space-y-4">
