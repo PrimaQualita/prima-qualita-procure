@@ -474,13 +474,13 @@ const IncluirPrecosPublicos = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-16">Item</TableHead>
-                      <TableHead className="w-24">Descrição</TableHead>
-                      <TableHead className="w-20">Qtd</TableHead>
-                      <TableHead className="w-20">Unid</TableHead>
-                      <TableHead className="w-48">Valor Unit. (R$) *</TableHead>
-                      <TableHead className="w-32">Marca</TableHead>
-                      <TableHead className="w-48">Vlr Total</TableHead>
+                      <TableHead className="w-16 text-center">Item</TableHead>
+                      <TableHead className="w-24 text-center">Descrição</TableHead>
+                      <TableHead className="w-20 text-center">Qtd</TableHead>
+                      <TableHead className="w-20 text-center">Unid</TableHead>
+                      <TableHead className="w-48 text-center">Valor Unit. (R$) *</TableHead>
+                      <TableHead className="w-32 text-center">Marca</TableHead>
+                      <TableHead className="w-48 text-center">Vlr Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
