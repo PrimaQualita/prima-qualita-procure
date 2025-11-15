@@ -1100,78 +1100,78 @@ export function DialogRespostasCotacao({
               </TableBody>
             </Table>
 
-            {/* ========== 2. BOTÃO + PLANILHA CONSOLIDADA ========== */}
+            {/* ========== 2. BOTÃO + PLANILHAS CONSOLIDADAS ========== */}
             <div className="mt-6 pt-6 border-t space-y-4">
                 <h3 className="text-lg font-semibold">Planilha Consolidada</h3>
                 
-                {/* PRIMEIRO BOTÃO - Gera com TODAS as empresas, sem seleção */}
-                {!planilhaGerada && (
-                  <Button 
-                    onClick={gerarPlanilhaConsolidada}
-                    disabled={gerandoPlanilha}
-                    className="w-full"
-                  >
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
-                  </Button>
-                )}
-                
-                {/* Planilha gerada */}
-                {planilhaGerada && (
-                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Protocolo: {planilhaGerada.protocolo}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(planilhaGerada.data_geracao).toLocaleString('pt-BR')}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          const { data } = await supabase.storage
-                            .from('processo-anexos')
-                            .createSignedUrl(planilhaGerada.url_arquivo, 3600);
-                          if (data?.signedUrl) {
-                            window.open(data.signedUrl, '_blank');
-                          }
-                        }}
-                        className="flex-1"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Visualizar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          const { data, error } = await supabase.storage
-                            .from('processo-anexos')
-                            .download(planilhaGerada.url_arquivo);
-                          if (error) throw error;
-                          const blob = new Blob([data], { type: 'application/pdf' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = planilhaGerada.nome_arquivo;
-                          a.click();
-                        }}
-                        className="flex-1"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Baixar
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setConfirmDeletePlanilhaOpen(true)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                {/* Mostrar planilhas anteriores */}
+                {planilhasAnteriores.length > 0 && (
+                  <div className="space-y-3">
+                    {planilhasAnteriores.map((planilha) => (
+                      <div key={planilha.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-sm font-medium">Protocolo: {planilha.protocolo}</span>
+                            <div className="text-xs text-muted-foreground">
+                              Planilha Gerada em {new Date(planilha.data_geracao).toLocaleString('pt-BR')}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              const { data } = await supabase.storage
+                                .from('processo-anexos')
+                                .createSignedUrl(planilha.url_arquivo, 3600);
+                              if (data?.signedUrl) {
+                                window.open(data.signedUrl, '_blank');
+                              }
+                            }}
+                            className="flex-1"
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualizar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              const { data, error } = await supabase.storage
+                                .from('processo-anexos')
+                                .download(planilha.url_arquivo);
+                              if (error) throw error;
+                              const blob = new Blob([data], { type: 'application/pdf' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = planilha.nome_arquivo;
+                              a.click();
+                            }}
+                            className="flex-1"
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Baixar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+
+                {/* Botão para gerar nova planilha */}
+                <Button 
+                  onClick={gerarPlanilhaConsolidada}
+                  disabled={gerandoPlanilha}
+                  className="w-full"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Você poderá escolher o método de cálculo (menor preço, média, mediana)
+                </p>
               </div>
 
               {/* ========== 3. BOTÃO + ENCAMINHAMENTOS ========== */}
@@ -1508,18 +1508,6 @@ export function DialogRespostasCotacao({
                     </div>
                   </div>
 
-                  {/* Botão para Gerar Planilha Consolidada (excluindo reprovadas) */}
-                  <Button 
-                    onClick={() => setPlanilhaConsolidadaOpen(true)} 
-                    disabled={gerandoPlanilha}
-                    className="w-full"
-                  >
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    {gerandoPlanilha ? "Gerando..." : "Gerar Nova Planilha Consolidada"}
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Você poderá selecionar quais empresas incluir na planilha
-                  </p>
                 </div>
               )}
 
