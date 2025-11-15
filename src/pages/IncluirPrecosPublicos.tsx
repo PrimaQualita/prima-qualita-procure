@@ -117,23 +117,42 @@ const IncluirPrecosPublicos = () => {
   const importarTemplate = async (file: File) => {
     try {
       const text = await file.text();
+      console.log("Conteúdo do arquivo:", text);
+      
       // Remove BOM se existir e divide as linhas
       const cleanText = text.replace(/^\uFEFF/, '');
-      const lines = cleanText.split('\n').slice(1); // Remove cabeçalho
+      const lines = cleanText.split('\n');
+      
+      console.log("Total de linhas:", lines.length);
+      console.log("Primeira linha (cabeçalho):", lines[0]);
+      
+      // Remove cabeçalho
+      const dataLines = lines.slice(1);
       
       const novasRespostas = { ...respostas };
       let itensImportados = 0;
       
-      lines.forEach((line) => {
+      dataLines.forEach((line, index) => {
         // Ignora linhas vazias
-        if (!line.trim()) return;
+        if (!line.trim()) {
+          console.log(`Linha ${index + 2} vazia, ignorando`);
+          return;
+        }
+        
+        console.log(`Processando linha ${index + 2}:`, line);
         
         const campos = line.split(';').map(campo => campo.trim());
-        const [numItem, , , , valor, marca] = campos;
+        console.log(`Campos separados:`, campos);
         
-        if (!numItem) return;
+        const [numItem, descricao, quantidade, unidade, valor, marca] = campos;
+        
+        if (!numItem) {
+          console.log(`Linha ${index + 2}: número do item vazio`);
+          return;
+        }
         
         const item = itens.find(i => i.numero_item === parseInt(numItem));
+        console.log(`Item encontrado:`, item);
         
         if (item && valor && valor !== '') {
           // Limpa e formata o valor (aceita tanto vírgula quanto ponto)
@@ -144,10 +163,15 @@ const IncluirPrecosPublicos = () => {
             valor_unitario: valorLimpo,
             marca: marca && marca !== '' ? marca.trim() : '',
           };
+          
+          console.log(`Item ${numItem} importado - Valor: ${valorLimpo}, Marca: ${marca}`);
           itensImportados++;
+        } else {
+          console.log(`Item ${numItem} NÃO importado - item existe: ${!!item}, valor: ${valor}`);
         }
       });
       
+      console.log("Novas respostas:", novasRespostas);
       setRespostas(novasRespostas);
       toast.success(`${itensImportados} itens importados com sucesso!`);
     } catch (error) {
