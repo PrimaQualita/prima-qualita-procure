@@ -45,7 +45,7 @@ export default function VerificarAutorizacao() {
       // Tentar buscar como autorização primeiro
       console.log('🔎 [VERIFICAÇÃO] Buscando em autorizacoes_processo...');
       const { data: autData, error: autError } = await supabase
-        .from('autorizacoes_processo' as any)
+        .from('autorizacoes_processo')
         .select('*')
         .eq('protocolo', protocoloLimpo)
         .maybeSingle();
@@ -98,7 +98,7 @@ export default function VerificarAutorizacao() {
       // Se não encontrou autorização, tentar buscar como relatório final
       console.log('🔎 [VERIFICAÇÃO] Buscando em relatorios_finais...');
       const { data: relData, error: relError } = await supabase
-        .from('relatorios_finais' as any)
+        .from('relatorios_finais')
         .select('*')
         .eq('protocolo', protocoloLimpo)
         .maybeSingle();
@@ -151,7 +151,7 @@ export default function VerificarAutorizacao() {
       // Se não encontrou, tentar buscar em analises_compliance
       console.log('🔎 [VERIFICAÇÃO] Buscando em analises_compliance...');
       const { data: compData, error: compError } = await supabase
-        .from('analises_compliance' as any)
+        .from('analises_compliance')
         .select('*')
         .eq('protocolo', protocoloLimpo)
         .maybeSingle();
