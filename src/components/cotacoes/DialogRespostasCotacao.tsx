@@ -317,7 +317,7 @@ export function DialogRespostasCotacao({
           objeto: processoData.objeto_resumido
         },
         {
-          titulo_cotacao: cotacao?.titulo_cotacao || "Cotação"
+          titulo_cotacao: tituloCotacao
         },
         itensData.map(item => ({
           numero_item: item.numero_item,
