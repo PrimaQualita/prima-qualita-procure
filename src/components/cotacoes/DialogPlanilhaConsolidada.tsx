@@ -91,6 +91,25 @@ export function DialogPlanilhaConsolidada({
         setTipoProcesso(cotacaoData.processos_compras.tipo);
       }
 
+      // Buscar empresas reprovadas em análises anteriores
+      const { data: analisesAnteriores } = await supabase
+        .from("analises_compliance" as any)
+        .select("empresas_reprovadas")
+        .eq("cotacao_id", cotacaoId);
+
+      const cnpjsReprovados = new Set<string>();
+      if (analisesAnteriores && analisesAnteriores.length > 0) {
+        analisesAnteriores.forEach((analise: any) => {
+          if (analise.empresas_reprovadas) {
+            analise.empresas_reprovadas.forEach((cnpj: string) => {
+              cnpjsReprovados.add(cnpj);
+            });
+          }
+        });
+      }
+
+      console.log("CNPJs reprovados anteriormente:", Array.from(cnpjsReprovados));
+
       const { data: respostasData, error } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -138,6 +157,13 @@ export function DialogPlanilhaConsolidada({
       const respostasCompletas: RespostaConsolidada[] = [];
 
       for (const resposta of respostasData || []) {
+        // Filtrar empresas reprovadas
+        const cnpjFornecedor = resposta.fornecedor?.cnpj || "";
+        if (cnpjsReprovados.has(cnpjFornecedor)) {
+          console.log(`Empresa ${resposta.fornecedor?.razao_social} (${cnpjFornecedor}) foi reprovada anteriormente - não incluída na planilha`);
+          continue;
+        }
+
         const { data: itensData } = await supabase
           .from("respostas_itens_fornecedor")
           .select(`
@@ -161,7 +187,7 @@ export function DialogPlanilhaConsolidada({
         console.log(`📦 Itens do fornecedor ${resposta.fornecedor.razao_social}:`, itensData);
         console.log(`🏷️ Marcas encontradas:`, itensData?.map((i: any) => ({ item: i.item_cotacao.numero_item, marca: i.marca })));
 
-        const itensFormatados = (itensData || []).map((item: any) => ({
+        const itensFormatadosFornecedor = (itensData || []).map((item: any) => ({
           numero_item: item.item_cotacao.numero_item,
           descricao: item.item_cotacao.descricao,
           quantidade: item.item_cotacao.quantidade,
@@ -173,11 +199,11 @@ export function DialogPlanilhaConsolidada({
           lote_descricao: item.item_cotacao.lote?.descricao_lote,
         })).sort((a, b) => a.numero_item - b.numero_item);
 
-        console.log(`✅ Itens formatados para ${resposta.fornecedor.razao_social}:`, itensFormatados);
+        console.log(`✅ Itens formatados para ${resposta.fornecedor.razao_social}:`, itensFormatadosFornecedor);
 
         respostasCompletas.push({
           fornecedor: resposta.fornecedor as any,
-          itens: itensFormatados,
+          itens: itensFormatadosFornecedor,
           valor_total: resposta.valor_total_anual_ofertado,
           rejeitado: resposta.rejeitado || false,
           motivo_rejeicao: resposta.motivo_rejeicao || undefined,
