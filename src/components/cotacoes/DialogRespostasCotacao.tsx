@@ -131,22 +131,8 @@ export function DialogRespostasCotacao({
         setEmpresasAprovadas(aprovadas);
         setEmpresasReprovadas(reprovadas);
 
-        // Se houver análise anterior, carregar também
-        if (analises.length > 1) {
-          const anterior = analises[1];
-          setAnaliseAnterior(anterior);
-          
-          const empresasAnt = anterior.empresas as any[];
-          const aprovadasAnt = empresasAnt
-            .filter((emp: any) => emp.aprovado === true)
-            .map((emp: any) => emp.razao_social);
-          const reprovadasAnt = empresasAnt
-            .filter((emp: any) => emp.aprovado === false)
-            .map((emp: any) => emp.razao_social);
-          
-          setEmpresasAprovadasAnterior(aprovadasAnt);
-          setEmpresasReprovadasAnterior(reprovadasAnt);
-        }
+        // Guardar todas as análises (incluindo a mais recente)
+        setAnalisesAnteriores(analises);
       }
     } catch (error) {
       console.error("Erro ao carregar análise de compliance:", error);
@@ -1260,13 +1246,10 @@ export function DialogRespostasCotacao({
                 </div>
               )}
 
-              {/* ========== 4. ANÁLISES DE COMPLIANCE ========== */}
-              {/* Removido - análises antigas */}
-
-              {/* ========== 5. NOVA ANALISE ========== */}
-              {analiseCompliance && analisesAnteriores.length > 0 && (
+              {/* ========== 4. ANÁLISE DE COMPLIANCE ========== */}
+              {analiseCompliance && (
                 <div className="mt-6 pt-6 border-t space-y-4">
-                  <h3 className="text-lg font-semibold">Nova Análise de Compliance</h3>
+                  <h3 className="text-lg font-semibold">Análise de Compliance</h3>
                   
                   <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
                     <div className="flex items-center justify-between">
