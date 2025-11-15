@@ -89,7 +89,7 @@ export const gerarAnaliseCompliancePDF = async (
     if (isJustified) {
       // Para texto justificado corretamente
       const lines = pdf.splitTextToSize(text, maxWidth);
-      const lineHeight = fontSize * 0.5;
+      const lineHeight = fontSize * 0.625; // Espaçamento 1.25
       
       for (let i = 0; i < lines.length; i++) {
         if (yPos + lineHeight > pageHeight - 25) {
@@ -126,7 +126,7 @@ export const gerarAnaliseCompliancePDF = async (
       }
     } else {
       const lines = pdf.splitTextToSize(text, maxWidth);
-      const lineHeight = fontSize * 0.5;
+      const lineHeight = fontSize * 0.625; // Espaçamento 1.25
       
       for (const line of lines) {
         if (yPos + lineHeight > pageHeight - 25) {
@@ -156,20 +156,20 @@ export const gerarAnaliseCompliancePDF = async (
 
   // Cabeçalho
   addText("Ao Setor de Compras da Prima Qualitá", 12);
-  yPos += 6;
+  yPos += 7.5;
   addText("De: Departamento de Compliance", 12);
-  yPos += 6;
+  yPos += 7.5;
   addText("Referência: Análise de Conformidade e Risco dos Fornecedores no Processo de Seleção.", 12);
-  yPos += 6;
+  yPos += 7.5;
   
   // Limpar "Processo " do número do processo
   const processoNumeroParaCabecalho = data.processo_numero.replace(/^Processo\s+/i, '');
   addText(`Processo ${processoNumeroParaCabecalho}`, 12, true);
-  yPos += 6;
+  yPos += 7.5;
   
   const objetoTexto = data.objeto_descricao.replace(/\.$/, '');
   addText(`Objeto: ${objetoTexto}`, 12);
-  yPos += 10;
+  yPos += 12;
 
   // Introdução
   pdf.setFontSize(14);
@@ -199,29 +199,32 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "bold");
     pdf.setTextColor(0);
     pdf.text(`2.${index + 1}. ${empresa.razao_social} - ${empresa.cnpj}`, margin, yPos);
-    yPos += 10;
+    yPos += 12;
 
     // Capital Social
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
     pdf.text("Capital Social: ", margin, yPos);
+    const capitalSocialX = margin + pdf.getTextWidth("Capital Social: ");
     pdf.setFont("times", "normal");
-    pdf.text(empresa.capital_social, margin + pdf.getTextWidth("Capital Social: "), yPos);
-    yPos += 6;
+    pdf.text(empresa.capital_social, capitalSocialX, yPos);
+    yPos += 7.5;
     
     // Ano de Fundação
     pdf.setFont("times", "bold");
     pdf.text("Ano de Fundação: ", margin, yPos);
+    const anoFundacaoX = margin + pdf.getTextWidth("Ano de Fundação: ");
     pdf.setFont("times", "normal");
-    pdf.text(empresa.ano_fundacao, margin + pdf.getTextWidth("Ano de Fundação: "), yPos);
-    yPos += 6;
+    pdf.text(empresa.ano_fundacao, anoFundacaoX, yPos);
+    yPos += 7.5;
 
     // Contratos Ativos com a OSS
     pdf.setFont("times", "bold");
     pdf.text("Contratos Ativos com a OSS: ", margin, yPos);
+    const contratosX = margin + pdf.getTextWidth("Contratos Ativos com a OSS: ");
     pdf.setFont("times", "normal");
-    pdf.text(empresa.contratos_ativos_oss ? "Sim" : "Não", margin + pdf.getTextWidth("Contratos Ativos com a OSS: "), yPos);
-    yPos += 6;
+    pdf.text(empresa.contratos_ativos_oss ? "Sim" : "Não", contratosX, yPos);
+    yPos += 7.5;
 
     // Conflito de Interesse
     if (yPos > pageHeight - 30) {
@@ -237,7 +240,7 @@ export const gerarAnaliseCompliancePDF = async (
     
     // Primeira linha na mesma linha do rótulo
     pdf.text(conflitoLines[0] || "", xPos, yPos);
-    yPos += 6;
+    yPos += 7.5;
     
     // Linhas seguintes justificadas
     for (let i = 1; i < conflitoLines.length; i++) {
@@ -268,7 +271,7 @@ export const gerarAnaliseCompliancePDF = async (
         // Última linha não justificada
         pdf.text(conflitoLines[i], margin, yPos);
       }
-      yPos += 6;
+      yPos += 7.5;
     }
 
     // Capacidade Técnica
@@ -284,7 +287,7 @@ export const gerarAnaliseCompliancePDF = async (
     xPos = margin + pdf.getTextWidth("Capacidade Técnica: ");
     
     pdf.text(capacidadeLines[0] || "", xPos, yPos);
-    yPos += 6;
+    yPos += 7.5;
     
     for (let i = 1; i < capacidadeLines.length; i++) {
       if (yPos > pageHeight - 25) {
@@ -312,7 +315,7 @@ export const gerarAnaliseCompliancePDF = async (
       } else {
         pdf.text(capacidadeLines[i], margin, yPos);
       }
-      yPos += 6;
+      yPos += 7.5;
     }
 
     // Risco Financeiro
@@ -328,7 +331,7 @@ export const gerarAnaliseCompliancePDF = async (
     xPos = margin + pdf.getTextWidth("Risco Financeiro: ");
     
     pdf.text(riscoLines[0] || "", xPos, yPos);
-    yPos += 6;
+    yPos += 7.5;
     
     for (let i = 1; i < riscoLines.length; i++) {
       if (yPos > pageHeight - 25) {
@@ -356,7 +359,7 @@ export const gerarAnaliseCompliancePDF = async (
       } else {
         pdf.text(riscoLines[i], margin, yPos);
       }
-      yPos += 6;
+      yPos += 7.5;
     }
 
     // Reputação
@@ -372,7 +375,7 @@ export const gerarAnaliseCompliancePDF = async (
     xPos = margin + pdf.getTextWidth("Reputação: ");
     
     pdf.text(reputacaoLines[0] || "", xPos, yPos);
-    yPos += 6;
+    yPos += 7.5;
     
     for (let i = 1; i < reputacaoLines.length; i++) {
       if (yPos > pageHeight - 25) {
@@ -400,7 +403,7 @@ export const gerarAnaliseCompliancePDF = async (
       } else {
         pdf.text(reputacaoLines[i], margin, yPos);
       }
-      yPos += 6;
+      yPos += 7.5;
     }
 
     // CNAE
@@ -416,7 +419,7 @@ export const gerarAnaliseCompliancePDF = async (
     xPos = margin + pdf.getTextWidth("CNAE: ");
     
     pdf.text(cnaeLines[0] || "", xPos, yPos);
-    yPos += 6;
+    yPos += 7.5;
     
     for (let i = 1; i < cnaeLines.length; i++) {
       if (yPos > pageHeight - 25) {
@@ -444,10 +447,10 @@ export const gerarAnaliseCompliancePDF = async (
       } else {
         pdf.text(cnaeLines[i], margin, yPos);
       }
-      yPos += 6;
+      yPos += 7.5;
     }
 
-    yPos += 6;
+    yPos += 7.5;
   });
 
   // Considerações Finais
