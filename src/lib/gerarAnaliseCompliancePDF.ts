@@ -245,7 +245,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const conflitoLabelWidth = pdf.getTextWidth(conflitoLabel + "  ");
+    const conflitoLabelWidth = pdf.getTextWidth(conflitoLabel + "   ");
     const conflitoWidth = maxWidth - conflitoLabelWidth;
     const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", conflitoWidth);
     
@@ -303,7 +303,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const capacidadeLabelWidth = pdf.getTextWidth(capacidadeLabel + "  ");
+    const capacidadeLabelWidth = pdf.getTextWidth(capacidadeLabel + "   ");
     const capacidadeWidth = maxWidth - capacidadeLabelWidth;
     const capacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", capacidadeWidth);
     
@@ -411,7 +411,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const reputacaoLabelWidth = pdf.getTextWidth(reputacaoLabel + " ");
+    const reputacaoLabelWidth = pdf.getTextWidth(reputacaoLabel + "  ");
     const reputacaoWidth = maxWidth - reputacaoLabelWidth;
     const reputacaoLines = pdf.splitTextToSize(reputacaoTexto || "Não informado", reputacaoWidth);
     
@@ -520,8 +520,83 @@ export const gerarAnaliseCompliancePDF = async (
   yPos += 10;
   
   const consideracoesTexto = extractTextFromHTML(data.consideracoes_finais);
-  addText(consideracoesTexto, 12, false, true);
-  yPos += 10;
+  
+  // Verificar se há "Recomendações:" no texto
+  const recomendacoesMatch = consideracoesTexto.match(/Recomendações:\s*(.*)/);
+  
+  if (recomendacoesMatch) {
+    // Texto antes de "Recomendações:"
+    const textoAntes = consideracoesTexto.substring(0, recomendacoesMatch.index);
+    if (textoAntes.trim()) {
+      addText(textoAntes.trim(), 12, false, true);
+      yPos += 10;
+    }
+    
+    // Adicionar rótulo "Recomendações:" em negrito
+    if (yPos > pageHeight - 30) {
+      addNewPage();
+    }
+    pdf.setFont("times", "bold");
+    pdf.setFontSize(12);
+    pdf.setTextColor(0);
+    pdf.text("Recomendações:", margin, yPos);
+    yPos += 7.5;
+    
+    // Texto das recomendações com recuo de 2cm (56.69 pontos)
+    const recuo = 56.69; // 2cm em pontos
+    const textoRecomendacoes = recomendacoesMatch[1].trim();
+    
+    pdf.setFont("times", "normal");
+    pdf.setFontSize(12);
+    pdf.setTextColor(0);
+    
+    const maxWidthComRecuo = maxWidth - recuo;
+    const linhasRecomendacoes = pdf.splitTextToSize(textoRecomendacoes, maxWidthComRecuo);
+    const lineHeight = 12 * 0.625;
+    
+    for (let i = 0; i < linhasRecomendacoes.length; i++) {
+      if (yPos + lineHeight > pageHeight - 25) {
+        addNewPage();
+      }
+      
+      pdf.setFont("times", "normal");
+      pdf.setFontSize(12);
+      pdf.setTextColor(0);
+      
+      // Justificar todas as linhas exceto a última
+      if (i < linhasRecomendacoes.length - 1) {
+        const line = linhasRecomendacoes[i];
+        const words = line.split(' ');
+        
+        if (words.length > 1) {
+          const lineWidth = pdf.getTextWidth(line);
+          const spaceWidth = (maxWidthComRecuo - lineWidth) / (words.length - 1);
+          const normalSpaceWidth = pdf.getTextWidth(' ');
+          const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+          
+          let x = margin + recuo;
+          for (let j = 0; j < words.length; j++) {
+            pdf.text(words[j], x, yPos);
+            if (j < words.length - 1) {
+              x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+            }
+          }
+        } else {
+          pdf.text(line, margin + recuo, yPos);
+        }
+      } else {
+        // Última linha não justificada
+        pdf.text(linhasRecomendacoes[i], margin + recuo, yPos);
+      }
+      
+      yPos += lineHeight;
+    }
+    
+    yPos += 10;
+  } else {
+    addText(consideracoesTexto, 12, false, true);
+    yPos += 10;
+  }
 
   // Conclusão
   if (yPos > pageHeight - 40) {
