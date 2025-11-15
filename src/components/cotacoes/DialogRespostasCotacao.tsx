@@ -398,36 +398,65 @@ export function DialogRespostasCotacao({
     try {
       setGerandoPDF(resposta.id);
       
-      // Buscar comprovantes pelas URLs salvas
+      // Buscar comprovantes pelas URLs salvas - COM LOG COMPLETO
       const comprovantes: File[] = [];
+      
+      console.log('=== INÍCIO RECUPERAÇÃO COMPROVANTES ===');
+      console.log('Resposta ID:', resposta.id);
+      console.log('Possui comprovantes_urls?', resposta.comprovantes_urls);
+      console.log('Array de URLs:', JSON.stringify(resposta.comprovantes_urls));
+      
       if (resposta.comprovantes_urls && resposta.comprovantes_urls.length > 0) {
-        console.log('URLs de comprovantes encontradas:', resposta.comprovantes_urls);
+        console.log(`📁 Encontradas ${resposta.comprovantes_urls.length} URLs para download`);
         
-        for (const url of resposta.comprovantes_urls) {
+        for (let i = 0; i < resposta.comprovantes_urls.length; i++) {
+          const url = resposta.comprovantes_urls[i];
+          console.log(`\n[${i + 1}/${resposta.comprovantes_urls.length}] Processando:`, url);
+          
           try {
-            console.log('Baixando comprovante:', url);
             const { data: fileData, error: downloadError } = await supabase.storage
               .from('processo-anexos')
               .download(url);
             
             if (downloadError) {
-              console.error('Erro ao baixar comprovante:', downloadError);
+              console.error('❌ ERRO no download:', downloadError);
+              toast.error(`Falha ao baixar: ${url.split('/').pop()}`);
               continue;
             }
             
-            if (fileData) {
-              const nomeArquivo = url.split('/').pop() || 'comprovante.pdf';
-              const file = new File([fileData], nomeArquivo, { type: 'application/pdf' });
-              comprovantes.push(file);
-              console.log('Comprovante convertido:', nomeArquivo);
+            if (!fileData) {
+              console.error('❌ Download sem dados para:', url);
+              continue;
             }
+            
+            const nomeArquivo = url.split('/').pop() || 'comprovante.pdf';
+            const file = new File([fileData], nomeArquivo, { type: 'application/pdf' });
+            comprovantes.push(file);
+            console.log('✅ Comprovante OK:', nomeArquivo, `(${(fileData.size / 1024).toFixed(2)} KB)`);
+            
           } catch (error) {
-            console.error('Erro ao processar comprovante:', error);
+            console.error('❌ Exceção ao processar:', url, error);
+            toast.error(`Erro ao processar: ${url.split('/').pop()}`);
           }
         }
+      } else {
+        console.warn('⚠️ NENHUMA URL DE COMPROVANTE ENCONTRADA!');
+        console.log('Estrutura da resposta:', {
+          id: resposta.id,
+          has_comprovantes_urls: !!resposta.comprovantes_urls,
+          type: typeof resposta.comprovantes_urls,
+          value: resposta.comprovantes_urls
+        });
       }
 
-      console.log('Total de comprovantes recuperados:', comprovantes.length);
+      console.log('\n=== RESULTADO FINAL ===');
+      console.log(`📊 Total recuperado: ${comprovantes.length} de ${resposta.comprovantes_urls?.length || 0} esperados`);
+      
+      if (comprovantes.length === 0 && resposta.comprovantes_urls && resposta.comprovantes_urls.length > 0) {
+        toast.warning('⚠️ Nenhum comprovante pôde ser recuperado. PDF será gerado sem anexos.');
+      } else if (comprovantes.length > 0) {
+        toast.success(`✅ ${comprovantes.length} comprovante(s) recuperado(s) para mesclagem`);
+      }
 
       // Buscar dados do usuário que gerou (se for preços públicos)
       let usuarioNome: string | undefined;
