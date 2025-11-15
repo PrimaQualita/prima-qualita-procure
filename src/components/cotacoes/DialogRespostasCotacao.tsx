@@ -156,15 +156,11 @@ export function DialogRespostasCotacao({
       }
       
       if (data && data.length > 0) {
-        // A mais recente
-        setPlanilhaGerada(data[0]);
-        console.log('📄 Planilha mais recente:', data[0]);
-        
-        // Planilhas anteriores (todas menos a mais recente)
-        if (data.length > 1) {
-          setPlanilhasAnteriores(data.slice(1));
-          console.log('📚 Planilhas anteriores:', data.slice(1));
-        }
+        // Guardar TODAS as planilhas (sem separar)
+        setPlanilhasAnteriores(data);
+        console.log('📄 Planilhas consolidadas encontradas:', data.length);
+      } else {
+        setPlanilhasAnteriores([]);
       }
     } catch (error) {
       console.error("Erro ao carregar planilhas:", error);
@@ -187,6 +183,11 @@ export function DialogRespostasCotacao({
 
   const gerarPlanilhaConsolidada = () => {
     setPlanilhaConsolidadaOpen(true);
+  };
+
+  const handlePlanilhaGerada = () => {
+    // Recarregar a lista de planilhas após gerar uma nova
+    loadPlanilhaGerada();
   };
 
   // Função auxiliar para gerar o HTML da planilha
