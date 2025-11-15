@@ -272,10 +272,6 @@ const VerificarProposta = () => {
                     <span className="text-sm font-medium">{resposta.cotacao.processo.numero_processo_interno}</span>
                   </div>
 
-                  <div className="flex justify-between items-start py-2 border-b">
-                    <span className="text-sm font-medium text-muted-foreground">Processo/Tipo:</span>
-                    <span className="text-sm font-medium">{resposta.cotacao.titulo_cotacao}</span>
-                  </div>
 
 
                   {resposta.fornecedor.razao_social !== "Documento de Autorização" && resposta.fornecedor.cnpj !== "00000000000000" && (
