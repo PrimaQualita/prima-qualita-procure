@@ -275,58 +275,70 @@ const RespostaCotacao = () => {
 
   const importarTemplate = async (file: File) => {
     try {
-      const texto = await file.text();
-      console.log('Conteúdo do arquivo:', texto);
-      
-      const linhas = texto.split('\n').filter(l => l.trim());
-      console.log('Total de linhas:', linhas.length);
-      
-      if (linhas.length < 2) {
-        toast.error('Arquivo vazio ou inválido');
-        return;
-      }
-
-      const cabecalho = linhas[0];
-      console.log('Primeira linha (cabeçalho):', cabecalho);
-      
-      const separador = cabecalho.includes('\t') ? '\t' : ',';
-      console.log('Separador detectado:', separador === '\t' ? 'TAB' : 'VÍRGULA');
-
       const novasRespostas = { ...respostas };
       let importados = 0;
 
-      for (let i = 1; i < linhas.length; i++) {
-        const linha = linhas[i].trim();
-        if (!linha) {
-          console.log(`Linha ${i + 1} vazia, ignorando`);
-          continue;
+      // Verificar se é arquivo Excel (.xlsx)
+      if (file.name.endsWith('.xlsx')) {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const dados = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+        // Ignorar cabeçalho (primeira linha)
+        for (let i = 1; i < dados.length; i++) {
+          const [numeroItem, marca, valorUnitario] = dados[i];
+          
+          if (!numeroItem) continue;
+
+          const item = itensCotacao.find(it => it.numero_item === parseInt(numeroItem.toString()));
+          
+          if (item && valorUnitario) {
+            novasRespostas[item.id] = {
+              ...novasRespostas[item.id],
+              valor_unitario_ofertado: parseFloat(valorUnitario.toString().replace(/,/g, '.')),
+              valor_display: valorUnitario.toString(),
+              marca_ofertada: marca ? marca.toString() : ''
+            };
+            importados++;
+          }
+        }
+      } else {
+        // Processar CSV/TXT
+        const texto = await file.text();
+        const linhas = texto.split('\n').filter(l => l.trim());
+        
+        if (linhas.length < 2) {
+          toast.error('Arquivo vazio ou inválido');
+          return;
         }
 
-        console.log(`Processando linha ${i + 1}: ${linha}`);
-        
-        const campos = linha.split(separador).map(c => c.trim().replace(/^"|"$/g, ''));
-        console.log('Campos separados:', campos);
-        
-        if (campos.length < 2) continue;
+        const separador = linhas[0].includes('\t') ? '\t' : ',';
 
-        const [numeroItem, valorUnitario, marca = ''] = campos;
-        
-        const item = itensCotacao.find(it => it.numero_item === parseInt(numeroItem));
-        
-        if (item) {
-          console.log('Item encontrado:', item);
-          novasRespostas[item.id] = {
-            ...novasRespostas[item.id],
-            valor_unitario_ofertado: parseFloat(valorUnitario.replace(/,/g, '.')),
-            valor_display: valorUnitario,
-            marca_ofertada: marca
-          };
-          console.log(`Item ${numeroItem} importado - Valor: ${valorUnitario}, Marca: ${marca}`);
-          importados++;
+        for (let i = 1; i < linhas.length; i++) {
+          const linha = linhas[i].trim();
+          if (!linha) continue;
+
+          const campos = linha.split(separador).map(c => c.trim().replace(/^"|"$/g, ''));
+          
+          if (campos.length < 2) continue;
+
+          const [numeroItem, marca, valorUnitario] = campos;
+          
+          const item = itensCotacao.find(it => it.numero_item === parseInt(numeroItem));
+          
+          if (item && valorUnitario) {
+            novasRespostas[item.id] = {
+              ...novasRespostas[item.id],
+              valor_unitario_ofertado: parseFloat(valorUnitario.replace(/,/g, '.')),
+              valor_display: valorUnitario,
+              marca_ofertada: marca || ''
+            };
+            importados++;
+          }
         }
       }
 
-      console.log('Novas respostas:', novasRespostas);
       setRespostas(novasRespostas);
       toast.success(`${importados} item(ns) importado(s) com sucesso!`);
     } catch (error) {
@@ -707,7 +719,7 @@ const RespostaCotacao = () => {
                 <input
                   type="file"
                   id="importar-template"
-                  accept=".csv,.txt"
+                  accept=".csv,.txt,.xlsx"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
