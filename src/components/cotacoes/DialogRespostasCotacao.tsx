@@ -392,15 +392,74 @@ export function DialogRespostasCotacao({
     try {
       setGerandoPDF(resposta.id);
       
-      const { url, nome } = await gerarPropostaFornecedorPDF(
+      // Buscar comprovantes/anexos originais
+      const { data: anexosOriginais } = await supabase
+        .from('anexos_cotacao_fornecedor')
+        .select('url_arquivo, nome_arquivo')
+        .eq('cotacao_resposta_fornecedor_id', resposta.id)
+        .eq('tipo_anexo', 'COMPROVANTE');
+
+      // Converter anexos em Files
+      const comprovantes: File[] = [];
+      if (anexosOriginais && anexosOriginais.length > 0) {
+        for (const anexo of anexosOriginais) {
+          try {
+            const { data: fileData } = await supabase.storage
+              .from('processo-anexos')
+              .download(anexo.url_arquivo);
+            
+            if (fileData) {
+              const file = new File([fileData], anexo.nome_arquivo, { type: 'application/pdf' });
+              comprovantes.push(file);
+            }
+          } catch (error) {
+            console.error('Erro ao baixar comprovante:', error);
+          }
+        }
+      }
+
+      // Buscar dados do usuário que gerou (se for preços públicos)
+      let usuarioNome: string | undefined;
+      let usuarioCpf: string | undefined;
+
+      if (resposta.fornecedor.cnpj === '00000000000000' && resposta.usuario_gerador_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('nome_completo, cpf')
+          .eq('id', resposta.usuario_gerador_id)
+          .single();
+
+        if (profile) {
+          usuarioNome = profile.nome_completo;
+          usuarioCpf = profile.cpf;
+        }
+      }
+      
+      const { url, nome, hash } = await gerarPropostaFornecedorPDF(
         resposta.id,
         resposta.fornecedor,
         resposta.valor_total_anual_ofertado,
         resposta.observacoes_fornecedor,
-        tituloCotacao
+        tituloCotacao,
+        comprovantes,
+        usuarioNome,
+        usuarioCpf
       );
 
-      // Salvar referência do anexo no banco
+      // Atualizar hash de certificação
+      await supabase
+        .from("cotacao_respostas_fornecedor")
+        .update({ hash_certificacao: hash })
+        .eq("id", resposta.id);
+
+      // Deletar anexo PROPOSTA anterior se existir
+      await supabase
+        .from('anexos_cotacao_fornecedor')
+        .delete()
+        .eq('cotacao_resposta_fornecedor_id', resposta.id)
+        .eq('tipo_anexo', 'PROPOSTA');
+
+      // Salvar novo anexo
       const { error: anexoError } = await supabase
         .from('anexos_cotacao_fornecedor')
         .insert({
