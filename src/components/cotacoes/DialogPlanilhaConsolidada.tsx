@@ -238,8 +238,11 @@ export function DialogPlanilhaConsolidada({
 
   const gerarPlanilha = async () => {
     try {
-      // Gerar identificadores únicos para certificação
-      const protocoloDocumento = uuidv4();
+      // Gerar protocolo numérico no formato XXXX-XXXX-XXXX-XXXX
+      const timestamp = new Date().getTime();
+      const protocoloNumerico = timestamp.toString().padStart(16, '0');
+      const protocoloDocumento = protocoloNumerico.match(/.{1,4}/g)?.join('-') || protocoloNumerico;
+      
       const dataHoraGeracao = new Date();
       const hashVerificacao = protocoloDocumento.replace(/-/g, '').substring(0, 32).toUpperCase();
       
