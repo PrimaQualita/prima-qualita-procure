@@ -402,10 +402,10 @@ export function DialogPlanilhaConsolidada({
           html += `
               <tr>
                 <th class="col-item" rowspan="2">Item</th>
-                <th class="col-descricao" rowspan="2">Descrição</th>
-                <th class="col-qtd" rowspan="2">Qtd</th>
-                <th class="col-unid" rowspan="2">Unid</th>
-                ${respostas.map(r => {
+              <th class="col-descricao" rowspan="2">Descrição</th>
+              <th class="col-qtd" rowspan="2">Qtd</th>
+              <th class="col-unid" rowspan="2">Unid</th>
+              ${respostasFiltradas.map(r => {
                   const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
                   const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
                   return `
@@ -416,10 +416,10 @@ export function DialogPlanilhaConsolidada({
                   </th>
                 `;
                 }).join("")}
-                <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
-              </tr>
-              <tr>
-                ${respostas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+              <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+            </tr>
+            <tr>
+              ${respostasFiltradas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
               </tr>`;
         } else {
           // Cabeçalho de uma linha para outros tipos
@@ -448,13 +448,15 @@ export function DialogPlanilhaConsolidada({
         `;
 
         let totalGeralEstimativa = 0;
+        
+        // IMPORTANTE: Filtrar respostas pelas empresas selecionadas UMA VEZ, antes do loop
+        const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
 
         todosItens.forEach((item: any) => {
           const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
           const tipoCalculoItem = calculosPorItem[chaveItem] || calculoGlobal;
           
           const valores: number[] = [];
-          const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
           
           respostasFiltradas.forEach(resposta => {
             const itemResposta = resposta.itens.find((i: any) => 
@@ -513,7 +515,6 @@ export function DialogPlanilhaConsolidada({
           `;
         });
 
-        const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
         const colspanTotal = tipoProcesso === "material" ? (4 + (respostasFiltradas.length * 2)) : (4 + respostasFiltradas.length);
         html += `
               <tr class="total">
@@ -525,9 +526,11 @@ export function DialogPlanilhaConsolidada({
         `;
 
       } else if (tipoVisualizacao === "lote" && criterioJulgamento === "por_lote") {
-        // Agrupar itens por lote
+        // Agrupar itens por lote APENAS das empresas selecionadas
         const lotes = new Map<string, any[]>();
-        respostas.forEach(resposta => {
+        const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+        
+        respostasFiltradas.forEach(resposta => {
           resposta.itens.forEach(item => {
             if (item.lote_id) {
               if (!lotes.has(item.lote_id)) {
@@ -558,10 +561,10 @@ export function DialogPlanilhaConsolidada({
               html += `
                 <tr>
                   <th class="col-item" rowspan="2">Item</th>
-                  <th class="col-descricao" rowspan="2">Descrição</th>
-                  <th class="col-qtd" rowspan="2">Qtd</th>
-                  <th class="col-unid" rowspan="2">Unid</th>
-                  ${respostas.map(r => {
+              <th class="col-descricao" rowspan="2">Descrição</th>
+              <th class="col-qtd" rowspan="2">Qtd</th>
+              <th class="col-unid" rowspan="2">Unid</th>
+              ${respostasFiltradas.map(r => {
                     const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
                     const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
                     return `
@@ -572,185 +575,20 @@ export function DialogPlanilhaConsolidada({
                     </th>
                   `;
                   }).join("")}
-                  <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
-                </tr>
-                <tr>
-                  ${respostas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+              <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+            </tr>
+            <tr>
+              ${respostasFiltradas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
                 </tr>`;
             } else {
               // Cabeçalho de uma linha para outros tipos
               html += `
                 <tr>
                   <th class="col-item">Item</th>
-                  <th class="col-descricao">Descrição</th>
-                  <th class="col-qtd">Qtd</th>
-                  <th class="col-unid">Unid</th>
-                  ${respostas.map(r => {
-                    const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
-                    return `
-                    <th class="text-right empresa" style="font-size: 10px; padding: 4px;">
-                      <div>${r.fornecedor.razao_social}</div>
-                      ${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px;">CNPJ: ${r.fornecedor.cnpj}</div>` : ''}
-                      ${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px;">${r.fornecedor.email}</div>` : ''}
-                    </th>
-                  `}).join("")}
-                  <th class="text-right col-estimativa">Estimativa</th>
-                </tr>`;
-            }
-            
-            html += `
-              </thead>
-              <tbody>
-          `;
-
-          // Agrupar por item
-          const itensPorNumero = new Map<number, any[]>();
-          itensDoLote.forEach(item => {
-            if (!itensPorNumero.has(item.numero_item)) {
-              itensPorNumero.set(item.numero_item, []);
-            }
-            itensPorNumero.get(item.numero_item)!.push(item);
-          });
-
-          let totalLoteEstimativa = 0;
-
-          Array.from(itensPorNumero.entries())
-            .sort(([a], [b]) => a - b)
-            .forEach(([numeroItem, itens]) => {
-              const item = itens[0];
-              const valores = itens.map(i => i.valor_unitario_ofertado);
-              const stats = calcularEstatisticas(valores);
-              const valorEstimativa = stats[tipoCalculoLote];
-              const totalItemEstimativa = Math.round(valorEstimativa * item.quantidade * 100) / 100;
-              totalLoteEstimativa += totalItemEstimativa;
-
-              html += `
-                <tr>
-                  <td class="col-item">${numeroItem}</td>
-                  <td class="col-descricao">${stripHtml(item.descricao)}</td>
-                  <td class="col-qtd">${item.quantidade.toLocaleString("pt-BR")}</td>
-                  <td class="col-unid">${item.unidade}</td>
-              `;
-
-              respostas.forEach(resposta => {
-                const itemResposta = resposta.itens.find(
-                  i => i.numero_item === numeroItem && i.lote_id === loteId
-                );
-                const valorTotal = itemResposta 
-                  ? Math.round(itemResposta.valor_unitario_ofertado * item.quantidade * 100) / 100
-                  : 0;
-                
-                if (tipoProcesso === "material") {
-                  // Marca + Valor para tipo Material
-                  html += `
-                    <td class="col-unid">${itemResposta?.marca || "-"}</td>
-                    <td class="text-right">
-                      ${itemResposta 
-                        ? `${itemResposta.valor_unitario_ofertado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
-                        : "-"}
-                    </td>
-                  `;
-                } else {
-                  // Apenas Valor para outros tipos
-                  html += `
-                    <td class="text-right">
-                      ${itemResposta 
-                        ? `${itemResposta.valor_unitario_ofertado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
-                        : "-"}
-                    </td>
-                  `;
-                }
-              });
-
-              html += `
-                  <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${totalItemEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small></td>
-                </tr>
-              `;
-            });
-
-          html += `
-                <tr class="total">
-                  <td colspan="${4 + (tipoProcesso === "material" ? respostas.length * 2 : respostas.length)}"><strong>TOTAL DO LOTE ${primeiroItem.lote_numero}</strong></td>
-                  <td class="text-right"><strong>${totalLoteEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
-                </tr>
-              </tbody>
-            </table>
-          `;
-        });
-
-      } else {
-        // Visualização por item - verificar se deve agrupar por lote
-        if (criterioJulgamento === "por_lote") {
-          // Agrupar itens por lote
-          const itensPorLote: Record<string, any[]> = {};
-          const lotesInfo: Record<string, { numero: number; descricao: string }> = {};
-          
-          todosItens.forEach((item: any) => {
-            const loteKey = item.lote_id || 'sem-lote';
-            if (!itensPorLote[loteKey]) {
-              itensPorLote[loteKey] = [];
-            }
-            itensPorLote[loteKey].push(item);
-            
-            if (item.lote_id) {
-              lotesInfo[loteKey] = {
-                numero: item.numero_lote || 0,
-                descricao: item.descricao_lote || ''
-              };
-            }
-          });
-
-          let totalGeralEstimativa = 0;
-
-          // Processar cada lote
-          Object.keys(itensPorLote)
-            .sort((a, b) => {
-              const numA = lotesInfo[a]?.numero || 0;
-              const numB = lotesInfo[b]?.numero || 0;
-              return numA - numB;
-            })
-            .forEach((loteKey) => {
-              const itensDoLote = itensPorLote[loteKey];
-              const loteInfo = lotesInfo[loteKey];
-
-              if (loteInfo) {
-                html += `
-                  <div class="lote-header">
-                    LOTE ${loteInfo.numero} - ${loteInfo.descricao}
-                  </div>`;
-              }
-
-              html += `
-                <table>
-                  <thead>`;
-              
-              if (tipoProcesso === "material") {
-                // Cabeçalho de duas linhas para Material
-                html += `
-                  <tr>
-                    <th class="col-item" rowspan="2">Item</th>
-                    <th class="col-descricao" rowspan="2">Descrição</th>
-                    <th class="col-qtd" rowspan="2">Qtd</th>
-                    <th class="col-unid" rowspan="2">Unid</th>
-                    ${respostas.map(r => {
-                      const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
-                      const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
-                      return `<th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 8px; text-align: center; vertical-align: middle;"><div style="margin-bottom: 4px;">${r.fornecedor.razao_social}</div>${!isPrecosPublicos ? `<div style="font-weight: normal; margin-bottom: 3px; font-size: 9px;">${cnpjFormatado}</div>` : ''}${!isPrecosPublicos ? `<div style="font-weight: normal; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}</th>`;
-                    }).join("")}
-                    <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
-                  </tr>
-                  <tr>
-                    ${respostas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
-                  </tr>`;
-              } else {
-                // Cabeçalho de uma linha para outros tipos
-                html += `
-                  <tr>
-                    <th class="col-item">Item</th>
-                    <th class="col-descricao">Descrição</th>
-                    <th class="col-qtd">Qtd</th>
-                    <th class="col-unid">Unid</th>
-                    ${respostas.map(r => {
+              <th class="col-descricao">Descrição</th>
+              <th class="col-qtd">Qtd</th>
+              <th class="col-unid">Unid</th>
+              ${respostasFiltradas.map(r => {
                       const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
                       const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
                       return `<th class="text-right empresa" style="font-size: 10px; padding: 8px; text-align: center; vertical-align: middle;"><div style="margin-bottom: 4px;">${r.fornecedor.razao_social}</div>${!isPrecosPublicos ? `<div style="font-weight: normal; margin-bottom: 3px; font-size: 9px;">${cnpjFormatado}</div>` : ''}${!isPrecosPublicos ? `<div style="font-weight: normal; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}</th>`;
@@ -771,7 +609,7 @@ export function DialogPlanilhaConsolidada({
                 const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
                 
                 const valores: number[] = [];
-                respostas.forEach(resposta => {
+                respostasFiltradas.forEach(resposta => {
                   // Buscar item pela combinação de lote_id E numero_item para evitar duplicação
                   const itemResposta = resposta.itens.find((i: any) => 
                     i.numero_item === item.numero_item && 
@@ -795,7 +633,7 @@ export function DialogPlanilhaConsolidada({
                     <td class="col-unid">${item.unidade}</td>
                 `;
 
-                respostas.forEach(resposta => {
+                respostasFiltradas.forEach(resposta => {
                   const itemResposta = resposta.itens.find((i: any) => 
                     i.numero_item === item.numero_item && 
                     (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
@@ -913,7 +751,9 @@ export function DialogPlanilhaConsolidada({
             const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
             
             const valores: number[] = [];
-            respostas.forEach(resposta => {
+            const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+            
+            respostasFiltradas.forEach(resposta => {
               const itemResposta = resposta.itens.find((i: any) => 
                 i.numero_item === item.numero_item && 
                 (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
@@ -936,7 +776,7 @@ export function DialogPlanilhaConsolidada({
                 <td class="col-unid">${item.unidade}</td>
             `;
 
-            respostas.forEach(resposta => {
+            respostasFiltradas.forEach(resposta => {
               const itemResposta = resposta.itens.find((i: any) => 
                 i.numero_item === item.numero_item && 
                 (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
