@@ -3,6 +3,15 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from '@/integrations/supabase/client';
 import { gerarHashDocumento } from './certificacaoDigital';
 
+// Função para formatar CNPJ
+const formatarCNPJ = (cnpj: string): string => {
+  const apenasNumeros = cnpj.replace(/[^\d]/g, '');
+  
+  if (apenasNumeros.length !== 14) return cnpj;
+  
+  return `${apenasNumeros.slice(0, 2)}.${apenasNumeros.slice(2, 5)}.${apenasNumeros.slice(5, 8)}/${apenasNumeros.slice(8, 12)}-${apenasNumeros.slice(12, 14)}`;
+};
+
 // Função para gerar protocolo no formato XXXX-XXXX-XXXX-XXXX
 const gerarProtocolo = (): string => {
   const parte1 = Math.floor(1000 + Math.random() * 9000);
@@ -114,7 +123,7 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(`Fonte: ${fornecedor.razao_social}`, 20, y + 16);
     } else {
       doc.text(`Razão Social: ${fornecedor.razao_social}`, 20, y + 16);
-      doc.text(`CNPJ: ${fornecedor.cnpj}`, 20, y + 22);
+      doc.text(`CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`, 20, y + 22);
       if (fornecedor.endereco_comercial) {
         doc.text(`Endereço: ${fornecedor.endereco_comercial}`, 20, y + 28);
       }
