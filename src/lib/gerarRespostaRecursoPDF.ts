@@ -24,7 +24,11 @@ export const gerarRespostaRecursoPDF = async (
     dateStyle: 'long', 
     timeStyle: 'medium' 
   });
-  const protocolo = `RESP-REC-${numeroProcesso}-${Date.now()}`;
+  
+  // Gerar protocolo numérico no formato XXXX-XXXX-XXXX-XXXX
+  const timestamp = agora.getTime();
+  const protocoloNumerico = timestamp.toString().padStart(16, '0');
+  const protocolo = protocoloNumerico.match(/.{1,4}/g)?.join('-') || protocoloNumerico;
   
   // Criar PDF
   const doc = new jsPDF({
