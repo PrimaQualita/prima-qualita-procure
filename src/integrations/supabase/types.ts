@@ -442,6 +442,7 @@ export type Database = {
           data_envio_resposta: string | null
           data_rejeicao: string | null
           fornecedor_id: string
+          hash_certificacao: string | null
           id: string
           motivo_rejeicao: string | null
           observacoes_fornecedor: string | null
@@ -455,6 +456,7 @@ export type Database = {
           data_envio_resposta?: string | null
           data_rejeicao?: string | null
           fornecedor_id: string
+          hash_certificacao?: string | null
           id?: string
           motivo_rejeicao?: string | null
           observacoes_fornecedor?: string | null
@@ -468,6 +470,7 @@ export type Database = {
           data_envio_resposta?: string | null
           data_rejeicao?: string | null
           fornecedor_id?: string
+          hash_certificacao?: string | null
           id?: string
           motivo_rejeicao?: string | null
           observacoes_fornecedor?: string | null
