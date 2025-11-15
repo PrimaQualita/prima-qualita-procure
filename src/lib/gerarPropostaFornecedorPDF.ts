@@ -65,7 +65,7 @@ export async function gerarPropostaFornecedorPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    doc.text('PROPOSTA COMERCIAL', 105, 25, { align: 'center' });
+    doc.text('PROPOSTA DE PREÇOS PÚBLICOS', 105, 25, { align: 'center' });
     
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
@@ -106,12 +106,13 @@ export async function gerarPropostaFornecedorPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('Item', 20, y);
-    doc.text('Descrição', 35, y);
-    doc.text('Qtd', 120, y);
-    doc.text('Unid', 140, y);
-    doc.text('Vlr Unit', 160, y);
-    doc.text('Vlr Total', 180, y);
+    // Texto alinhado verticalmente (baseline: middle)
+    doc.text('Item', 22, y + 1, { align: 'center' });
+    doc.text('Descrição', 80, y + 1, { align: 'center' });
+    doc.text('Qtd', 128, y + 1, { align: 'center' });
+    doc.text('Unid', 148, y + 1, { align: 'center' });
+    doc.text('Vlr Unit', 168, y + 1, { align: 'right' });
+    doc.text('Vlr Total', 188, y + 1, { align: 'right' });
     y += 5;
 
     // Itens com linhas alternadas
@@ -140,23 +141,24 @@ export async function gerarPropostaFornecedorPDF(
       // Fundo alternado para as linhas
       if (isAlternate) {
         doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
-        doc.rect(15, y - 4, 180, 7, 'F');
+        doc.rect(15, y - 3.5, 180, 7, 'F');
       }
       
       const valorTotal = item.quantidade * item.valor_unitario_ofertado;
       subtotal += valorTotal;
 
       doc.setFontSize(9);
-      doc.text(item.numero_item.toString(), 20, y);
+      // Texto centralizado verticalmente na linha
+      doc.text(item.numero_item.toString(), 22, y + 1, { align: 'center' });
       
       const descricaoMaxWidth = 80;
       const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
-      doc.text(descricaoLines[0], 35, y);
+      doc.text(descricaoLines[0], 35, y + 1);
       
-      doc.text(item.quantidade.toFixed(2), 120, y, { align: 'right' });
-      doc.text(item.unidade, 140, y);
-      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 175, y, { align: 'right' });
-      doc.text(`R$ ${valorTotal.toFixed(2)}`, 195, y, { align: 'right' });
+      doc.text(item.quantidade.toFixed(2), 128, y + 1, { align: 'center' });
+      doc.text(item.unidade, 148, y + 1, { align: 'center' });
+      doc.text(`R$ ${item.valor_unitario_ofertado.toFixed(2)}`, 168, y + 1, { align: 'right' });
+      doc.text(`R$ ${valorTotal.toFixed(2)}`, 188, y + 1, { align: 'right' });
       
       y += 7;
       isAlternate = !isAlternate;
