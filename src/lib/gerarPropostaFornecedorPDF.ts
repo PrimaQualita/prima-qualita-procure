@@ -172,7 +172,7 @@ export async function gerarPropostaFornecedorPDF(
       
       doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 110, y, { align: 'center' });
       doc.text(itemCotacao.unidade, 135, y, { align: 'center' });
-      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 160, y, { align: 'right' });
+      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 175, y, { align: 'right' });
       doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 193, y, { align: 'right' });
       
       y += 6;
