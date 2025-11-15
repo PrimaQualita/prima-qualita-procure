@@ -202,50 +202,108 @@ export const gerarAnaliseCompliancePDF = async (
     yPos += 10;
 
     // Capital Social
-    pdf.setFont("times", "bold");
-    pdf.setFontSize(12);
-    pdf.setTextColor(0);
-    pdf.text("Capital Social:", margin, yPos);
     pdf.setFont("times", "normal");
-    pdf.text(` ${empresa.capital_social}`, margin + pdf.getTextWidth("Capital Social:"), yPos);
+    pdf.setFontSize(12);
+    pdf.text(`Capital Social: ${empresa.capital_social}`, margin, yPos);
     yPos += 6;
     
     // Ano de Fundação
-    pdf.setFont("times", "bold");
-    pdf.text("Ano de Fundação:", margin, yPos);
-    pdf.setFont("times", "normal");
-    pdf.text(` ${empresa.ano_fundacao}`, margin + pdf.getTextWidth("Ano de Fundação:"), yPos);
+    pdf.text(`Ano de Fundação: ${empresa.ano_fundacao}`, margin, yPos);
     yPos += 6;
 
     // Contratos Ativos com a OSS
-    pdf.setFont("times", "bold");
-    pdf.text("Contratos Ativos com a OSS:", margin, yPos);
-    pdf.setFont("times", "normal");
-    pdf.text(` ${empresa.contratos_ativos_oss ? "Sim" : "Não"}`, margin + pdf.getTextWidth("Contratos Ativos com a OSS:"), yPos);
+    pdf.text(`Contratos Ativos com a OSS: ${empresa.contratos_ativos_oss ? "Sim" : "Não"}`, margin, yPos);
     yPos += 6;
 
-    // Campos de análise
-    const campos = [
-      { titulo: "Conflito de Interesse:", conteudo: empresa.conflito_interesse },
-      { titulo: "Capacidade Técnica:", conteudo: empresa.capacidade_tecnica },
-      { titulo: "Risco Financeiro:", conteudo: empresa.risco_financeiro },
-      { titulo: "Reputação:", conteudo: empresa.reputacao },
-      { titulo: "CNAE:", conteudo: empresa.cnae },
-    ];
-
-    campos.forEach((campo) => {
-      if (yPos > pageHeight - 30) {
+    // Conflito de Interesse
+    if (yPos > pageHeight - 30) {
+      addNewPage();
+    }
+    const conflitoTexto = extractTextFromHTML(empresa.conflito_interesse);
+    pdf.text("Conflito de Interesse: ", margin, yPos);
+    const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", maxWidth - pdf.getTextWidth("Conflito de Interesse: "));
+    let xPos = margin + pdf.getTextWidth("Conflito de Interesse: ");
+    pdf.text(conflitoLines[0] || "", xPos, yPos);
+    yPos += 6;
+    for (let i = 1; i < conflitoLines.length; i++) {
+      if (yPos > pageHeight - 25) {
         addNewPage();
       }
-      
-      const textoLimpo = extractTextFromHTML(campo.conteudo);
-      
-      addText(campo.titulo, 12, true);
+      pdf.text(conflitoLines[i], margin, yPos);
       yPos += 6;
-      
-      addText(textoLimpo || "Não informado", 12, false, true);
+    }
+
+    // Capacidade Técnica
+    if (yPos > pageHeight - 30) {
+      addNewPage();
+    }
+    const capacidadeTexto = extractTextFromHTML(empresa.capacidade_tecnica);
+    pdf.text("Capacidade Técnica: ", margin, yPos);
+    const capacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", maxWidth - pdf.getTextWidth("Capacidade Técnica: "));
+    xPos = margin + pdf.getTextWidth("Capacidade Técnica: ");
+    pdf.text(capacidadeLines[0] || "", xPos, yPos);
+    yPos += 6;
+    for (let i = 1; i < capacidadeLines.length; i++) {
+      if (yPos > pageHeight - 25) {
+        addNewPage();
+      }
+      pdf.text(capacidadeLines[i], margin, yPos);
       yPos += 6;
-    });
+    }
+
+    // Risco Financeiro
+    if (yPos > pageHeight - 30) {
+      addNewPage();
+    }
+    const riscoTexto = extractTextFromHTML(empresa.risco_financeiro);
+    pdf.text("Risco Financeiro: ", margin, yPos);
+    const riscoLines = pdf.splitTextToSize(riscoTexto || "Não informado", maxWidth - pdf.getTextWidth("Risco Financeiro: "));
+    xPos = margin + pdf.getTextWidth("Risco Financeiro: ");
+    pdf.text(riscoLines[0] || "", xPos, yPos);
+    yPos += 6;
+    for (let i = 1; i < riscoLines.length; i++) {
+      if (yPos > pageHeight - 25) {
+        addNewPage();
+      }
+      pdf.text(riscoLines[i], margin, yPos);
+      yPos += 6;
+    }
+
+    // Reputação
+    if (yPos > pageHeight - 30) {
+      addNewPage();
+    }
+    const reputacaoTexto = extractTextFromHTML(empresa.reputacao);
+    pdf.text("Reputação: ", margin, yPos);
+    const reputacaoLines = pdf.splitTextToSize(reputacaoTexto || "Não informado", maxWidth - pdf.getTextWidth("Reputação: "));
+    xPos = margin + pdf.getTextWidth("Reputação: ");
+    pdf.text(reputacaoLines[0] || "", xPos, yPos);
+    yPos += 6;
+    for (let i = 1; i < reputacaoLines.length; i++) {
+      if (yPos > pageHeight - 25) {
+        addNewPage();
+      }
+      pdf.text(reputacaoLines[i], margin, yPos);
+      yPos += 6;
+    }
+
+    // CNAE
+    if (yPos > pageHeight - 30) {
+      addNewPage();
+    }
+    const cnaeTexto = extractTextFromHTML(empresa.cnae);
+    pdf.text("CNAE: ", margin, yPos);
+    const cnaeLines = pdf.splitTextToSize(cnaeTexto || "Não informado", maxWidth - pdf.getTextWidth("CNAE: "));
+    xPos = margin + pdf.getTextWidth("CNAE: ");
+    pdf.text(cnaeLines[0] || "", xPos, yPos);
+    yPos += 6;
+    for (let i = 1; i < cnaeLines.length; i++) {
+      if (yPos > pageHeight - 25) {
+        addNewPage();
+      }
+      pdf.text(cnaeLines[i], margin, yPos);
+      yPos += 6;
+    }
 
     yPos += 6;
   });
