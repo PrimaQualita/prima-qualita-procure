@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
-import { adicionarCertificacaoDigital } from "./certificacaoDigital";
 import logo from "@/assets/prima-qualita-logo.png";
+import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 
 interface EmpresaAnalise {
   razao_social: string;
@@ -838,7 +838,7 @@ export const gerarAnaliseCompliancePDF = async (
   addText(conclusaoTexto, 12, false, true);
   yPos += 15;
 
-  // Certificação Digital
+  // Certificação Digital Simplificada
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = await supabase
     .from("profiles")
@@ -846,26 +846,73 @@ export const gerarAnaliseCompliancePDF = async (
     .eq("id", user?.id || "")
     .single();
 
-  const timestamp = new Date().getTime();
-  // Gerar protocolo apenas numérico no formato XXXX-XXXX-XXXX-XXXX
+  const agora = new Date();
+  const dataHora = agora.toLocaleString('pt-BR', { 
+    dateStyle: 'long', 
+    timeStyle: 'medium' 
+  });
+  
+  // Gerar protocolo numérico no formato XXXX-XXXX-XXXX-XXXX
+  const timestamp = agora.getTime();
   const protocoloNumerico = timestamp.toString().padStart(16, '0');
   const protocolo = protocoloNumerico.match(/.{1,4}/g)?.join('-') || protocoloNumerico;
 
-  const dadosCertificacao = {
-    protocolo: protocolo,
-    dataHora: new Date().toLocaleString("pt-BR"),
-    responsavel: profile?.nome_completo || "Sistema",
-    cpf: profile?.cpf || "",
-    hash: `SHA256:${timestamp}`,
-    linkVerificacao: `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`,
-  };
-  
-  // Garantir espaço suficiente para certificação (pelo menos 80mm)
-  if (yPos > pageHeight - 80) {
+  // Garantir espaço suficiente para certificação (pelo menos 60mm)
+  if (yPos > pageHeight - 60) {
     addNewPage();
   }
-  
-  yPos = adicionarCertificacaoDigital(pdf, dadosCertificacao, yPos + 10);
+
+  yPos += 10;
+
+  // Adicionar logo horizontal
+  const base64Logo = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar canvas'));
+      }
+    };
+    img.onerror = () => reject(new Error('Erro ao carregar logo'));
+    img.src = logoHorizontal;
+  });
+
+  pdf.addImage(base64Logo, 'PNG', (pageWidth - 60) / 2, yPos, 60, 18);
+  yPos += 25;
+
+  // Bloco de certificação
+  pdf.setFillColor(240, 240, 240);
+  pdf.rect(margin, yPos, maxWidth, 40, 'F');
+
+  yPos += 8;
+  pdf.setFontSize(10);
+  pdf.setFont('times', 'bold');
+  pdf.setTextColor(0);
+  pdf.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, yPos, { align: 'center' });
+
+  yPos += 8;
+  pdf.setFont('times', 'normal');
+  pdf.setFontSize(9);
+  pdf.text(`Protocolo: ${protocolo}`, margin + 5, yPos);
+
+  yPos += 6;
+  pdf.text(`Data/Hora: ${dataHora}`, margin + 5, yPos);
+
+  yPos += 6;
+  pdf.text(`Responsável: ${profile?.nome_completo || "Sistema"} (CPF: ${profile?.cpf || ""})`, margin + 5, yPos);
+
+  yPos += 8;
+  const linkVerificacao = `${window.location.origin}/verificar-analise-compliance?protocolo=${protocolo}`;
+  pdf.setTextColor(0, 0, 255);
+  pdf.textWithLink('Clique aqui para verificar a autenticidade', margin + 5, yPos, { url: linkVerificacao });
+  pdf.setTextColor(0);
 
   // Salvar PDF
   const pdfBlob = pdf.output("blob");
