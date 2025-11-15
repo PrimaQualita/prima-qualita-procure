@@ -258,10 +258,66 @@ export function DialogRespostasCotacao({
       
       // Limpar estado local sem recarregar
       setEncaminhamento(null);
+      setConfirmDeleteEncaminhamentoOpen(false);
       toast.success("Encaminhamento excluído com sucesso");
     } catch (error) {
       console.error('Erro ao excluir encaminhamento:', error);
       toast.error("Erro ao excluir encaminhamento");
+    }
+  };
+
+  const excluirAnexo = async () => {
+    if (!anexoParaExcluir) return;
+    
+    try {
+      // Excluir do storage
+      await supabase.storage
+        .from('processo-anexos')
+        .remove([anexoParaExcluir.url_arquivo]);
+      
+      // Excluir do banco
+      const { error } = await supabase
+        .from('anexos_cotacao_fornecedor')
+        .delete()
+        .eq('id', anexoParaExcluir.id);
+      
+      if (error) throw error;
+      
+      setConfirmDeleteAnexoOpen(false);
+      setAnexoParaExcluir(null);
+      toast.success('Anexo excluído com sucesso');
+      loadRespostas();
+    } catch (error) {
+      console.error('Erro ao excluir anexo:', error);
+      toast.error('Erro ao excluir anexo');
+    }
+  };
+  
+  const excluirPlanilha = async () => {
+    if (!planilhaGerada) return;
+    
+    try {
+      const filePath = planilhaGerada.url_arquivo;
+
+      const { error: storageError } = await supabase.storage
+        .from("processo-anexos")
+        .remove([filePath]);
+
+      if (storageError) throw storageError;
+
+      const { error: dbError } = await supabase
+        .from("planilhas_consolidadas")
+        .delete()
+        .eq("id", planilhaGerada.id);
+
+      if (dbError) throw dbError;
+
+      setPlanilhaGerada(null);
+      setConfirmDeletePlanilhaOpen(false);
+      toast.success("Planilha excluída com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao excluir planilha:", error);
+      toast.error("Erro ao excluir planilha");
     }
   };
 
@@ -636,6 +692,16 @@ export function DialogRespostasCotacao({
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [respostaParaExcluir, setRespostaParaExcluir] = useState<RespostaFornecedor | null>(null);
+  
+  // Estados para confirmação de exclusão de anexo
+  const [confirmDeleteAnexoOpen, setConfirmDeleteAnexoOpen] = useState(false);
+  const [anexoParaExcluir, setAnexoParaExcluir] = useState<any>(null);
+  
+  // Estados para confirmação de exclusão de planilha
+  const [confirmDeletePlanilhaOpen, setConfirmDeletePlanilhaOpen] = useState(false);
+  
+  // Estados para confirmação de exclusão de encaminhamento
+  const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
 
   const confirmarExclusao = (resposta: RespostaFornecedor) => {
     setRespostaParaExcluir(resposta);
@@ -762,29 +828,9 @@ export function DialogRespostasCotacao({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={async () => {
-                                    if (confirm('Deseja realmente excluir este anexo?')) {
-                                      try {
-                                        // Excluir do storage
-                                        await supabase.storage
-                                          .from('processo-anexos')
-                                          .remove([anexo.url_arquivo]);
-                                        
-                                        // Excluir do banco
-                                        const { error } = await supabase
-                                          .from('anexos_cotacao_fornecedor')
-                                          .delete()
-                                          .eq('id', anexo.id);
-                                        
-                                        if (error) throw error;
-                                        
-                                        toast.success('Anexo excluído com sucesso');
-                                        loadRespostas();
-                                      } catch (error) {
-                                        console.error('Erro ao excluir anexo:', error);
-                                        toast.error('Erro ao excluir anexo');
-                                      }
-                                    }
+                                  onClick={() => {
+                                    setAnexoParaExcluir(anexo);
+                                    setConfirmDeleteAnexoOpen(true);
                                   }}
                                   title="Excluir PDF"
                                 >
@@ -910,33 +956,7 @@ export function DialogRespostasCotacao({
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={async () => {
-                        try {
-                          let filePath = planilhaGerada.url_arquivo;
-                          if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
-                            filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
-                          }
-
-                          const { error: storageError } = await supabase.storage
-                            .from("processo-anexos")
-                            .remove([filePath]);
-
-                          if (storageError) throw storageError;
-
-                          const { error: dbError } = await supabase
-                            .from("planilhas_consolidadas")
-                            .delete()
-                            .eq("id", planilhaGerada.id);
-
-                          if (dbError) throw dbError;
-
-                          setPlanilhaGerada(null);
-                          toast.success("Planilha excluída com sucesso");
-                        } catch (error: any) {
-                          console.error("Erro ao excluir planilha:", error);
-                          toast.error("Erro ao excluir planilha");
-                        }
-                      }}
+                      onClick={() => setConfirmDeletePlanilhaOpen(true)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -1019,7 +1039,7 @@ export function DialogRespostasCotacao({
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={excluirEncaminhamento}
+                          onClick={() => setConfirmDeleteEncaminhamentoOpen(true)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -1067,7 +1087,7 @@ export function DialogRespostasCotacao({
       <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar Exclusão de Resposta</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir a resposta do fornecedor <strong>{respostaParaExcluir?.fornecedor.razao_social}</strong>?
               <br /><br />
@@ -1078,6 +1098,63 @@ export function DialogRespostasCotacao({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={excluirResposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir Resposta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeleteAnexoOpen} onOpenChange={setConfirmDeleteAnexoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão de Anexo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o anexo <strong>{anexoParaExcluir?.nome_arquivo}</strong>?
+              <br /><br />
+              Esta ação não pode ser desfeita e o arquivo será permanentemente removido.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirAnexo} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Anexo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeletePlanilhaOpen} onOpenChange={setConfirmDeletePlanilhaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão de Planilha</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a planilha consolidada?
+              <br /><br />
+              Esta ação não pode ser desfeita. Você poderá gerar uma nova planilha a qualquer momento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirPlanilha} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Planilha
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeleteEncaminhamentoOpen} onOpenChange={setConfirmDeleteEncaminhamentoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão de Encaminhamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o encaminhamento gerado?
+              <br /><br />
+              Esta ação não pode ser desfeita. Você poderá gerar um novo encaminhamento a qualquer momento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirEncaminhamento} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Encaminhamento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
