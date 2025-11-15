@@ -786,25 +786,19 @@ export const gerarAnaliseCompliancePDF = async (
       const words = linhasRecomendacoes[i].split(' ');
       
       // Justifica todas as linhas exceto a última
-      if (i < linhasRecomendacoes.length - 1 && words.length >= 2) {
+      if (i < linhasRecomendacoes.length - 1 && words.length > 1) {
         const lineWidth = pdf.getTextWidth(linhasRecomendacoes[i]);
         const extraSpace = maxWidthComRecuo - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
+        const normalSpaceWidth = pdf.getTextWidth(' ');
+        const totalSpaceWidth = spacePerGap + normalSpaceWidth;
         
-        // Aceita espaçamento maior para garantir justificação
-        if (spacePerGap < 3 && spacePerGap > 0) {
-          const normalSpaceWidth = pdf.getTextWidth(' ');
-          const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-          
-          let x = margin + recuo;
-          for (let j = 0; j < words.length; j++) {
-            pdf.text(words[j], x, yPos);
-            if (j < words.length - 1) {
-              x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
-            }
+        let xPos = margin + recuo;
+        for (let j = 0; j < words.length; j++) {
+          pdf.text(words[j], xPos, yPos);
+          if (j < words.length - 1) {
+            xPos += pdf.getTextWidth(words[j]) + totalSpaceWidth;
           }
-        } else {
-          pdf.text(linhasRecomendacoes[i], margin + recuo, yPos);
         }
       } else {
         pdf.text(linhasRecomendacoes[i], margin + recuo, yPos);
