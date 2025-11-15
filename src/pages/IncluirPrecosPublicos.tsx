@@ -303,7 +303,13 @@ const IncluirPrecosPublicos = () => {
 
       // Salvar comprovantes em PDF
       for (const comprovante of arquivosComprovantes) {
-        const nomeArquivo = `comprovante_${respostaCotacao.id}_${Date.now()}_${comprovante.name}`;
+        // Sanitizar nome do arquivo removendo acentos e caracteres especiais
+        const nomeArquivoSanitizado = comprovante.name
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+          .replace(/[^a-zA-Z0-9._-]/g, '_'); // Remove caracteres especiais
+        
+        const nomeArquivo = `comprovante_${respostaCotacao.id}_${Date.now()}_${nomeArquivoSanitizado}`;
         
         const { error: uploadError } = await supabase.storage
           .from("processo-anexos")
