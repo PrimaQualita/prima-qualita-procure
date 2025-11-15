@@ -304,40 +304,17 @@ const IncluirPrecosPublicos = () => {
         dadosFornecedor,
         valorTotal,
         `Fonte: ${nomeFonte}\n\n${observacoes}`,
-        cotacao.titulo_cotacao
+        cotacao.titulo_cotacao,
+        arquivosComprovantes // Passa os comprovantes para serem mesclados
       );
 
-      // Salvar anexo da proposta
+      // Salvar anexo da proposta com comprovantes mesclados
       await supabase.from("anexos_cotacao_fornecedor").insert({
         cotacao_resposta_fornecedor_id: respostaCotacao.id,
         tipo_anexo: "proposta",
         nome_arquivo: nomeProposta,
         url_arquivo: urlProposta,
       });
-
-      // Salvar comprovantes em PDF
-      for (const comprovante of arquivosComprovantes) {
-        // Sanitizar nome do arquivo removendo acentos e caracteres especiais
-        const nomeArquivoSanitizado = comprovante.name
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-          .replace(/[^a-zA-Z0-9._-]/g, '_'); // Remove caracteres especiais
-        
-        const nomeArquivo = `comprovante_${respostaCotacao.id}_${Date.now()}_${nomeArquivoSanitizado}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from("processo-anexos")
-          .upload(nomeArquivo, comprovante);
-
-        if (uploadError) throw uploadError;
-
-        await supabase.from("anexos_cotacao_fornecedor").insert({
-          cotacao_resposta_fornecedor_id: respostaCotacao.id,
-          tipo_anexo: "comprovante",
-          nome_arquivo: comprovante.name,
-          url_arquivo: nomeArquivo,
-        });
-      }
 
       toast.success("Preços públicos incluídos com sucesso!");
       
