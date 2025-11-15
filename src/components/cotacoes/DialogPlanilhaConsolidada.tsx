@@ -402,13 +402,15 @@ export function DialogPlanilhaConsolidada({
                 <th class="col-descricao">Descrição</th>
                 <th class="col-qtd">Qtd</th>
                 <th class="col-unid">Unid</th>
-                ${respostas.map(r => `
+                ${respostas.map(r => {
+                  const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
+                  return `
                   <th class="text-right empresa" style="font-size: 10px; padding: 4px;">
                     <div>${r.fornecedor.razao_social}</div>
-                    <div style="font-weight: normal; margin-top: 2px;">CNPJ: ${r.fornecedor.cnpj}</div>
-                    <div style="font-weight: normal; margin-top: 2px;">${r.fornecedor.email}</div>
+                    ${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px;">CNPJ: ${r.fornecedor.cnpj}</div>` : ''}
+                    ${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px;">${r.fornecedor.email}</div>` : ''}
                   </th>
-                `).join("")}
+                `}).join("")}
                 <th class="text-right col-estimativa">Estimativa</th>
               </tr>`;
         }
