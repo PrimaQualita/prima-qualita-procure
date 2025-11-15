@@ -170,10 +170,10 @@ export async function gerarPropostaFornecedorPDF(
       const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 50);
       doc.text(descricaoLinhas[0], 30, y);
       
-      doc.text(itemCotacao.quantidade.toFixed(2), 110, y, { align: 'center' });
+      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 110, y, { align: 'center' });
       doc.text(itemCotacao.unidade, 135, y, { align: 'center' });
-      doc.text(`R$ ${valorUnitario.toFixed(2)}`, 160, y, { align: 'center' });
-      doc.text(`R$ ${valorTotalItem.toFixed(2)}`, 185, y, { align: 'center' });
+      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 160, y, { align: 'right' });
+      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 193, y, { align: 'right' });
       
       y += 6;
       isAlternate = !isAlternate;
@@ -194,7 +194,7 @@ export async function gerarPropostaFornecedorPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.text(`VALOR TOTAL: R$ ${valorTotal.toFixed(2)}`, 193, y, { align: 'right' });
+    doc.text(`VALOR TOTAL: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 193, y, { align: 'right' });
     
     doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
     y += 15;
