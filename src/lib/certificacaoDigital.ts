@@ -47,8 +47,9 @@ export const adicionarCertificacaoDigital = (
   
   yTemp += 4; // "Verificar autenticidade em:"
   
-  const linkLinhas = doc.splitTextToSize(dados.linkVerificacao, larguraUtil - 6);
-  yTemp += linkLinhas.length * 4 + 1;
+  doc.setFontSize(8); // Usar fonte menor para calcular quebras de linha
+  const linkText = doc.splitTextToSize(dados.linkVerificacao, larguraUtil - 6);
+  yTemp += linkText.length * 3.5 + 1;
   
   yTemp += 3; // Texto legal
   yTemp += 3; // Margem final
@@ -94,19 +95,22 @@ export const adicionarCertificacaoDigital = (
   
   // Link de verificação com quebra de linha
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
   doc.text('Verificar autenticidade em:', margemEsquerda + 3, y);
   y += 4;
   
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 255); // Azul para o link
+  doc.setFontSize(8); // Fonte menor para o link caber melhor
   
-  linkLinhas.forEach((linha: string, index: number) => {
-    doc.textWithLink(linha, margemEsquerda + 3, y + (index * 4), {
+  const linkVerifLinhas = doc.splitTextToSize(dados.linkVerificacao, larguraUtil - 6);
+  linkVerifLinhas.forEach((linha: string, index: number) => {
+    doc.textWithLink(linha, margemEsquerda + 3, y + (index * 3.5), {
       url: dados.linkVerificacao
     });
   });
   
-  y += linkLinhas.length * 4 + 1;
+  y += linkVerifLinhas.length * 3.5 + 1;
   
   // Texto legal
   doc.setTextColor(80, 80, 80);
