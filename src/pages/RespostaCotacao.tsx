@@ -872,18 +872,33 @@ const RespostaCotacao = () => {
           <CardContent className="space-y-4">
             {/* Área de Upload de Anexos */}
             <div className="space-y-2">
-              <Label>Comprovantes/Anexos (Opcional)</Label>
+              <Label>Comprovantes em PDF (Opcional)</Label>
+              <p className="text-xs text-muted-foreground">Apenas arquivos PDF serão mesclados à proposta</p>
               <div className="flex flex-wrap gap-2">
                 <input
                   type="file"
                   id="upload-comprovantes"
                   multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
+                  accept=".pdf,application/pdf"
                   className="hidden"
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);
-                    setArquivosComprovantes([...arquivosComprovantes, ...files]);
-                    toast.success(`${files.length} arquivo(s) adicionado(s)`);
+                    
+                    // Validar que todos são PDFs
+                    const arquivosPDF = files.filter(file => 
+                      file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+                    );
+                    
+                    const arquivosInvalidos = files.length - arquivosPDF.length;
+                    
+                    if (arquivosInvalidos > 0) {
+                      toast.error(`${arquivosInvalidos} arquivo(s) ignorado(s). Apenas PDFs são aceitos.`);
+                    }
+                    
+                    if (arquivosPDF.length > 0) {
+                      setArquivosComprovantes([...arquivosComprovantes, ...arquivosPDF]);
+                      toast.success(`${arquivosPDF.length} arquivo(s) PDF adicionado(s)`);
+                    }
                   }}
                 />
                 <Button
@@ -893,7 +908,7 @@ const RespostaCotacao = () => {
                   onClick={() => document.getElementById('upload-comprovantes')?.click()}
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  Adicionar Arquivos
+                  Adicionar PDFs
                 </Button>
               </div>
               
