@@ -445,6 +445,7 @@ export type Database = {
           id: string
           motivo_rejeicao: string | null
           observacoes_fornecedor: string | null
+          protocolo: string | null
           rejeitado: boolean | null
           valor_total_anual_ofertado: number
         }
@@ -457,6 +458,7 @@ export type Database = {
           id?: string
           motivo_rejeicao?: string | null
           observacoes_fornecedor?: string | null
+          protocolo?: string | null
           rejeitado?: boolean | null
           valor_total_anual_ofertado: number
         }
@@ -469,6 +471,7 @@ export type Database = {
           id?: string
           motivo_rejeicao?: string | null
           observacoes_fornecedor?: string | null
+          protocolo?: string | null
           rejeitado?: boolean | null
           valor_total_anual_ofertado?: number
         }
