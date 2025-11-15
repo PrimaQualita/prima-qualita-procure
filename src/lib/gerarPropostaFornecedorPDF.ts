@@ -35,7 +35,7 @@ export async function gerarPropostaFornecedorPDF(
   comprovantes: File[] = [],
   usuarioNome?: string,
   usuarioCpf?: string
-): Promise<{ url: string; nome: string }> {
+): Promise<{ url: string; nome: string; hash: string }> {
   try {
     // Buscar itens da resposta
     const { data: itens, error: itensError } = await supabase
@@ -323,7 +323,8 @@ export async function gerarPropostaFornecedorPDF(
 
     return {
       url: uploadData.path,
-      nome: nomeArquivo
+      nome: nomeArquivo,
+      hash: hash
     };
   } catch (error) {
     console.error('Erro ao gerar PDF da proposta:', error);

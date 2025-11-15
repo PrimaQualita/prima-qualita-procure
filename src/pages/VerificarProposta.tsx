@@ -24,6 +24,8 @@ interface RespostaVerificada {
   id: string;
   valor_total_anual_ofertado: number;
   data_envio_resposta: string;
+  protocolo: string | null;
+  hash_certificacao: string | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
@@ -81,6 +83,8 @@ const VerificarProposta = () => {
             id: data.protocolo,
             valor_total_anual_ofertado: 0,
             data_envio_resposta: data.data_geracao,
+            protocolo: data.protocolo,
+            hash_certificacao: null,
             fornecedor: {
               razao_social: "Documento de Autorização",
               cnpj: "N/A",
@@ -99,6 +103,8 @@ const VerificarProposta = () => {
           .from("cotacao_respostas_fornecedor")
           .select(`
             id,
+            protocolo,
+            hash_certificacao,
             valor_total_anual_ofertado,
             data_envio_resposta,
             fornecedores:fornecedor_id (
@@ -122,6 +128,8 @@ const VerificarProposta = () => {
         } else {
           setResposta({
             id: data.id,
+            protocolo: data.protocolo,
+            hash_certificacao: data.hash_certificacao,
             valor_total_anual_ofertado: data.valor_total_anual_ofertado,
             data_envio_resposta: data.data_envio_resposta,
             fornecedor: {
@@ -230,8 +238,8 @@ const VerificarProposta = () => {
 
                   <div className="flex justify-between items-start py-2 border-b">
                     <span className="text-sm font-medium text-muted-foreground">Hash de Verificação:</span>
-                    <span className="font-mono text-xs text-primary break-all">
-                      {resposta.id.replace(/-/g, "").substring(0, 64)}
+                    <span className="font-mono text-xs text-primary break-all max-w-md text-right">
+                      {resposta.hash_certificacao || "Hash não disponível"}
                     </span>
                   </div>
 

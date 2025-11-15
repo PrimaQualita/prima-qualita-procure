@@ -307,7 +307,7 @@ const IncluirPrecosPublicos = () => {
         endereco_comercial: "Sistema",
       };
 
-      const { url: urlProposta, nome: nomeProposta } = await gerarPropostaFornecedorPDF(
+      const { url: urlProposta, nome: nomeProposta, hash: hashProposta } = await gerarPropostaFornecedorPDF(
         respostaCotacao.id,
         dadosFornecedor,
         valorTotal,
@@ -317,6 +317,12 @@ const IncluirPrecosPublicos = () => {
         profile?.nome_completo || "Sistema",
         profile?.cpf || "Sistema"
       );
+
+      // Atualizar hash de certificação na resposta
+      await supabase
+        .from("cotacao_respostas_fornecedor")
+        .update({ hash_certificacao: hashProposta })
+        .eq("id", respostaCotacao.id);
 
       // Salvar anexo da proposta com comprovantes mesclados
       await supabase.from("anexos_cotacao_fornecedor").insert({
