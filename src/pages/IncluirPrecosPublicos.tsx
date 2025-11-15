@@ -302,7 +302,7 @@ const IncluirPrecosPublicos = () => {
 
       // Gerar PDF da proposta
       const dadosFornecedor = {
-        razao_social: `Preços Públicos - ${nomeFonte}`,
+        razao_social: nomeFonte, // Nome da fonte direto
         cnpj: cnpjPrecosPublicos,
         endereco_comercial: "Sistema",
       };
@@ -311,7 +311,7 @@ const IncluirPrecosPublicos = () => {
         respostaCotacao.id,
         dadosFornecedor,
         valorTotal,
-        `Fonte: ${nomeFonte}\n\n${observacoes}`,
+        observacoes, // Observações sem a fonte
         cotacao.titulo_cotacao,
         arquivosComprovantes, // Passa os comprovantes para serem mesclados
         profile?.nome_completo || "Sistema",
