@@ -396,30 +396,42 @@ export function DialogRespostasCotacao({
       setGerandoPDF(resposta.id);
       
       // Buscar comprovantes/anexos originais
-      const { data: anexosOriginais } = await supabase
+      const { data: anexosOriginais, error: anexosError } = await supabase
         .from('anexos_cotacao_fornecedor')
         .select('url_arquivo, nome_arquivo')
         .eq('cotacao_resposta_fornecedor_id', resposta.id)
         .eq('tipo_anexo', 'COMPROVANTE');
+
+      console.log('Anexos originais encontrados:', anexosOriginais);
+      if (anexosError) console.error('Erro ao buscar anexos:', anexosError);
 
       // Converter anexos em Files
       const comprovantes: File[] = [];
       if (anexosOriginais && anexosOriginais.length > 0) {
         for (const anexo of anexosOriginais) {
           try {
-            const { data: fileData } = await supabase.storage
+            console.log('Baixando anexo:', anexo.url_arquivo);
+            const { data: fileData, error: downloadError } = await supabase.storage
               .from('processo-anexos')
               .download(anexo.url_arquivo);
+            
+            if (downloadError) {
+              console.error('Erro ao baixar anexo:', downloadError);
+              continue;
+            }
             
             if (fileData) {
               const file = new File([fileData], anexo.nome_arquivo, { type: 'application/pdf' });
               comprovantes.push(file);
+              console.log('Anexo convertido em File:', anexo.nome_arquivo);
             }
           } catch (error) {
             console.error('Erro ao baixar comprovante:', error);
           }
         }
       }
+
+      console.log('Total de comprovantes recuperados:', comprovantes.length);
 
       // Buscar dados do usuário que gerou (se for preços públicos)
       let usuarioNome: string | undefined;
