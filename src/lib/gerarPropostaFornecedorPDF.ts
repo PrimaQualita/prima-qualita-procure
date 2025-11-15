@@ -85,7 +85,8 @@ export async function gerarPropostaFornecedorPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    doc.text('PROPOSTA DE PREÇOS PÚBLICOS', 105, 25, { align: 'center' });
+    const tituloDocumento = fornecedor.cnpj === '00000000000000' ? 'PROPOSTA DE PREÇOS PÚBLICOS' : 'PROPOSTA DE PREÇOS';
+    doc.text(tituloDocumento, 105, 25, { align: 'center' });
     
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
@@ -94,26 +95,40 @@ export async function gerarPropostaFornecedorPDF(
     y = 60;
 
     // Bloco de informações do fornecedor com fundo
+    const isPrecosPublicos = fornecedor.cnpj === '00000000000000';
+    const alturaBloco = isPrecosPublicos ? 26 : 44;
+    
     doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
-    doc.rect(15, y, 180, 26, 'F');
+    doc.rect(15, y, 180, alturaBloco, 'F');
     
     doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('FONTE DOS PREÇOS', 20, y + 8);
+    doc.text(isPrecosPublicos ? 'FONTE DOS PREÇOS' : 'DADOS DO FORNECEDOR', 20, y + 8);
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     
     // Se for preços públicos (CNPJ 00000000000000), mostrar apenas a fonte
-    if (fornecedor.cnpj === '00000000000000') {
+    if (isPrecosPublicos) {
       doc.text(`Fonte: ${fornecedor.razao_social}`, 20, y + 16);
     } else {
-      doc.text(`Nome: ${fornecedor.razao_social}`, 20, y + 16);
+      doc.text(`Razão Social: ${fornecedor.razao_social}`, 20, y + 16);
       doc.text(`CNPJ: ${fornecedor.cnpj}`, 20, y + 22);
+      if (fornecedor.endereco_comercial) {
+        doc.text(`Endereço: ${fornecedor.endereco_comercial}`, 20, y + 28);
+      }
+      // Adicionar telefone e email se disponíveis
+      let yExtra = y + 34;
+      const dadosExtras = [];
+      if ((fornecedor as any).telefone) dadosExtras.push(`Telefone: ${(fornecedor as any).telefone}`);
+      if ((fornecedor as any).email) dadosExtras.push(`E-mail: ${(fornecedor as any).email}`);
+      if (dadosExtras.length > 0) {
+        doc.text(dadosExtras.join(' | '), 20, yExtra);
+      }
     }
     
-    y += 32;
+    y += alturaBloco + 6;
 
     // Título da seção de itens
     doc.setFontSize(12);
