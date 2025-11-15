@@ -100,25 +100,41 @@ export const gerarEncaminhamentoPDF = async (
   
   yPos += linhasPrincipal.length * 6 + 10;
   
-  // Certificação Digital
-  if (yPos > pageHeight - 70) {
+  // Certificação Digital Simplificada
+  if (yPos > pageHeight - 60) {
     doc.addPage();
     await adicionarLogoERodape();
     yPos = 40;
   }
   
-  // Certificação Digital
-  const { adicionarCertificacaoDigital } = await import('./certificacaoDigital');
-  const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
+  yPos += 10;
   
-  adicionarCertificacaoDigital(doc, {
-    protocolo,
-    dataHora,
-    responsavel: usuarioNome,
-    cpf: usuarioCpf,
-    hash,
-    linkVerificacao: `${window.location.origin}/verificar-documento?protocolo=${protocolo}`
-  }, yPos);
+  // Bloco de certificação
+  doc.setFillColor(240, 240, 240);
+  doc.rect(15, yPos, pageWidth - 30, 45, 'F');
+  
+  yPos += 8;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, yPos, { align: 'center' });
+  
+  yPos += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(`Protocolo: ${protocolo}`, 20, yPos);
+  
+  yPos += 6;
+  doc.text(`Data/Hora: ${dataHora}`, 20, yPos);
+  
+  yPos += 6;
+  doc.text(`Responsável: ${usuarioNome} (CPF: ${usuarioCpf})`, 20, yPos);
+  
+  yPos += 8;
+  const linkVerificacao = `${window.location.origin}/verificar-encaminhamento?protocolo=${protocolo}`;
+  doc.setTextColor(0, 0, 255);
+  doc.textWithLink('Clique aqui para verificar a autenticidade', 20, yPos, { url: linkVerificacao });
+  doc.setTextColor(0, 0, 0);
   
   // Salvar no Supabase Storage
   const pdfBlob = doc.output('blob');
