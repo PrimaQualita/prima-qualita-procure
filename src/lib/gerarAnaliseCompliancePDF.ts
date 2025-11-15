@@ -872,29 +872,6 @@ export const gerarAnaliseCompliancePDF = async (
 
   yPos += 10;
 
-  // Adicionar logo horizontal
-  const base64Logo = await new Promise<string>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } else {
-        reject(new Error('Erro ao criar canvas'));
-      }
-    };
-    img.onerror = () => reject(new Error('Erro ao carregar logo'));
-    img.src = logoHorizontal;
-  });
-
-  pdf.addImage(base64Logo, 'PNG', (pageWidth - 60) / 2, yPos, 60, 18);
-  yPos += 25;
-
   // Bloco de certificação
   pdf.setFillColor(240, 240, 240);
   pdf.rect(margin, yPos, maxWidth, 40, 'F');
