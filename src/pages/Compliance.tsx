@@ -146,10 +146,6 @@ export default function Compliance() {
     }
   };
 
-  const abrirAnaliseCompliance = (processo: ProcessoCompliance) => {
-    setProcessoSelecionado(processo);
-    setAnaliseDialogOpen(true);
-  };
 
   const visualizarProcesso = async (processo: ProcessoCompliance) => {
     try {
@@ -405,31 +401,20 @@ export default function Compliance() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => abrirAnaliseCompliance(processo)}
-                              disabled={processo.tem_analise}
+                              onClick={() => editarAnalise(processo)}
                             >
                               <FileCheck className="h-4 w-4 mr-2" />
-                              {processo.tem_analise ? "Análise Gerada" : "Gerar Análise"}
+                              {processo.tem_analise ? "Editar Análise" : "Fazer Análise"}
                             </Button>
                             {processo.tem_analise && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => editarAnalise(processo)}
-                                >
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Editar
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => confirmarExclusaoAnalise(processo.cotacao_id)}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Excluir
-                                </Button>
-                              </>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => confirmarExclusaoAnalise(processo.cotacao_id)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir
+                              </Button>
                             )}
                           </div>
                         </TableCell>

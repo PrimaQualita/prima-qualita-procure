@@ -146,14 +146,14 @@ export function DialogAnaliseCompliance({
       setLoading(true);
 
       let uploadedUrl = urlDocumento;
-      let fileName = nomeArquivo;
+      let uploadedFileName = nomeArquivo;
 
       // Upload do PDF se houver arquivo novo
       if (uploadedFile) {
         const fileExt = uploadedFile.name.split('.').pop();
         const timestamp = new Date().getTime();
-        const fileName = `parecer_compliance_${numeroProcesso}_${timestamp}.${fileExt}`;
-        const filePath = `compliance/${fileName}`;
+        const uploadFileName = `parecer_compliance_${numeroProcesso}_${timestamp}.${fileExt}`;
+        const filePath = `compliance/${uploadFileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("documents")
@@ -169,7 +169,7 @@ export function DialogAnaliseCompliance({
           .getPublicUrl(filePath);
 
         uploadedUrl = publicUrl;
-        fileName = uploadedFile.name;
+        uploadedFileName = uploadedFile.name;
       }
 
       if (!uploadedUrl) {
@@ -205,7 +205,7 @@ export function DialogAnaliseCompliance({
         conclusao: "",
         status_aprovacao: statusAprovacao,
         url_documento: uploadedUrl,
-        nome_arquivo: fileName,
+        nome_arquivo: uploadedFileName,
       };
 
       if (analiseId) {
