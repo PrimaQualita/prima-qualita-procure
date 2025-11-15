@@ -850,6 +850,11 @@ export const gerarAnaliseCompliancePDF = async (
     linkVerificacao: `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`,
   };
   
+  // Garantir espaço suficiente para certificação e rodapé (pelo menos 80mm)
+  if (yPos > pageHeight - 80) {
+    addNewPage();
+  }
+  
   yPos = adicionarCertificacaoDigital(pdf, dadosCertificacao, yPos + 10);
 
   // Rodapé na última página
