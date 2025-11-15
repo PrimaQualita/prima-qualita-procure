@@ -118,13 +118,21 @@ export function DialogRespostasCotacao({
         const aprovadas: string[] = [];
         const reprovadas: string[] = [];
         
+        console.log('📊 Análise de Compliance:', data);
+        console.log('📋 Empresas no JSON:', empresas);
+        
         empresas.forEach((emp: any) => {
+          console.log(`Empresa: ${emp.razao_social}, Aprovado:`, emp.aprovado, typeof emp.aprovado);
+          
           if (emp.aprovado === true || emp.aprovado === 'true') {
             aprovadas.push(emp.razao_social);
           } else if (emp.aprovado === false || emp.aprovado === 'false') {
             reprovadas.push(emp.razao_social);
           }
         });
+        
+        console.log('✅ Aprovadas:', aprovadas);
+        console.log('❌ Reprovadas:', reprovadas);
         
         setEmpresasAprovadas(aprovadas);
         setEmpresasReprovadas(reprovadas);
