@@ -92,22 +92,19 @@ export async function gerarPropostaFornecedorPDF(
 
     // Bloco de informações do fornecedor com fundo
     doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
-    doc.rect(15, y, 180, 32, 'F');
+    doc.rect(15, y, 180, 26, 'F');
     
     doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('DADOS DO FORNECEDOR', 20, y + 8);
+    doc.text('FONTE DOS PREÇOS', 20, y + 8);
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Razão Social: ${fornecedor.razao_social}`, 20, y + 16);
+    doc.text(`Nome: ${fornecedor.razao_social}`, 20, y + 16);
     doc.text(`CNPJ: ${fornecedor.cnpj}`, 20, y + 22);
-    if (fornecedor.endereco_comercial) {
-      doc.text(`Endereço: ${fornecedor.endereco_comercial}`, 20, y + 28);
-    }
     
-    y += 42;
+    y += 32;
 
     // Título da seção de itens
     doc.setFontSize(12);
