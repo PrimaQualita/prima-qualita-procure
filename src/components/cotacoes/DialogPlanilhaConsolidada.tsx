@@ -955,7 +955,7 @@ export function DialogPlanilhaConsolidada({
       }
 
       // Adicionar certificação digital no final do documento
-      const linkVerificacao = `${window.location.origin}/verificar-documento?protocolo=${protocoloDocumento}`;
+      const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${protocoloDocumento}`;
       
       html += `
           <div class="certificacao-digital" style="
@@ -972,36 +972,20 @@ export function DialogPlanilhaConsolidada({
               text-align: center;
               margin: 0 0 10px 0;
               padding: 0;
-            ">CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO</h3>
+            ">CERTIFICAÇÃO DIGITAL</h3>
             
             <div style="font-size: 10px; line-height: 1.6; color: #000;">
               <div style="margin-bottom: 5px;">
                 <strong>Responsável:</strong> ${usuarioNome}
               </div>
-              <div style="margin-bottom: 5px;">
-                <strong>E-mail:</strong> ${usuarioEmail}
-              </div>
-              <div style="margin-bottom: 5px;">
+              <div style="margin-bottom: 8px;">
                 <strong>Protocolo:</strong> ${protocoloDocumento}
               </div>
-              <div style="margin-bottom: 8px;">
-                <strong>Verificar autenticidade em:</strong>
+              <div style="margin-bottom: 5px; font-weight: bold;">
+                Verificar autenticidade em:
               </div>
               <div style="margin-bottom: 8px; word-break: break-all;">
                 <a href="${linkVerificacao}" style="color: #0000FF; font-size: 9px;">${linkVerificacao}</a>
-              </div>
-              <div style="margin-bottom: 5px;">
-                <strong>Data/Hora de Geração:</strong> ${dataHoraGeracao.toLocaleString('pt-BR', { 
-                  timeZone: 'America/Sao_Paulo',
-                  day: '2-digit',
-                  month: '2-digit', 
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
-              <div style="margin-bottom: 8px;">
-                <strong>Hash de Validação:</strong> ${hashVerificacao}
               </div>
               <div style="color: #505050; font-size: 8px; margin-top: 4px;">
                 Este documento possui certificação digital conforme Lei 14.063/2020
