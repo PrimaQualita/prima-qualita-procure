@@ -748,9 +748,6 @@ export function DialogPlanilhaConsolidada({
           `;
 
           let totalGeralEstimativa = 0;
-          
-          // IMPORTANTE: Filtrar respostas pelas empresas selecionadas UMA VEZ, antes do loop
-          const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
 
           todosItens.forEach((item: any) => {
             const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
