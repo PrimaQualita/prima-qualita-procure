@@ -103,14 +103,14 @@ export const gerarAnaliseCompliancePDF = async (
         const line = lines[i];
         const words = line.split(' ');
         
-        // Só justifica se não for a última linha E tiver pelo menos 4 palavras E o espaço extra não for excessivo
-        if (i < lines.length - 1 && words.length >= 4) {
+        // Só justifica se não for a última linha E tiver pelo menos 3 palavras
+        if (i < lines.length - 1 && words.length >= 3) {
           const lineWidth = pdf.getTextWidth(line);
           const extraSpace = maxWidth - lineWidth;
           const spacePerGap = extraSpace / (words.length - 1);
           
-          // Só justifica se o espaço extra por gap for razoável (menos de 3pt)
-          if (spacePerGap < 3) {
+          // Só justifica se o espaço extra for razoável (menos de 2pt por gap)
+          if (spacePerGap < 2 && spacePerGap > 0) {
             const normalSpaceWidth = pdf.getTextWidth(' ');
             const totalSpaceWidth = spacePerGap + normalSpaceWidth;
             
@@ -162,16 +162,18 @@ export const gerarAnaliseCompliancePDF = async (
 
   // Cabeçalho
   addText("Ao Setor de Compras da Prima Qualitá", 12);
-  yPos += 7.5;
+  yPos += 5;
   addText("De: Departamento de Compliance", 12);
-  yPos += 7.5;
+  yPos += 5;
   addText("Referência: Análise de Conformidade e Risco dos Fornecedores no Processo de Seleção.", 12);
-  yPos += 7.5;
+  yPos += 5;
   
-  // Limpar "Processo " do número do processo
-  const processoNumeroParaCabecalho = data.processo_numero.replace(/^Processo\s+/i, '');
+  // Limpar "Processo " e remover ano duplicado
+  let processoNumeroParaCabecalho = data.processo_numero.replace(/^Processo\s+/i, '');
+  // Remove o ano duplicado se existir (ex: 195/2025/2025 vira 195/2025)
+  processoNumeroParaCabecalho = processoNumeroParaCabecalho.replace(/(\d{4})\/\1$/, '$1');
   addText(`Processo ${processoNumeroParaCabecalho}`, 12, true);
-  yPos += 7.5;
+  yPos += 5;
   
   const objetoTexto = data.objeto_descricao.replace(/\.$/, '');
   addText(`Objeto: ${objetoTexto}`, 12);
@@ -250,16 +252,15 @@ export const gerarAnaliseCompliancePDF = async (
     const conflitoWidth = maxWidth - conflitoLabelWidth;
     const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", conflitoWidth);
     
-    // Primeira linha na mesma linha do rótulo - justificar se apropriado
+    // Primeira linha na mesma linha do rótulo
     if (conflitoLines.length > 1 && conflitoLines[0]) {
       const words = conflitoLines[0].split(' ');
-      if (words.length >= 4) {
+      if (words.length >= 3) {
         const lineWidth = pdf.getTextWidth(conflitoLines[0]);
         const extraSpace = conflitoWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        // Só justifica se o espaço extra não for excessivo
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -293,13 +294,12 @@ export const gerarAnaliseCompliancePDF = async (
       
       const words = conflitoLines[i].split(' ');
       
-      // Só justifica se não for a última linha E tiver palavras suficientes E espaço razoável
-      if (i < conflitoLines.length - 1 && words.length >= 4) {
+      if (i < conflitoLines.length - 1 && words.length >= 3) {
         const lineWidth = pdf.getTextWidth(conflitoLines[i]);
         const extraSpace = maxWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -340,12 +340,12 @@ export const gerarAnaliseCompliancePDF = async (
     // Primeira linha na mesma linha do rótulo
     if (capacidadeLines.length > 1 && capacidadeLines[0]) {
       const words = capacidadeLines[0].split(' ');
-      if (words.length >= 4) {
+      if (words.length >= 3) {
         const lineWidth = pdf.getTextWidth(capacidadeLines[0]);
         const extraSpace = capacidadeWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -378,12 +378,12 @@ export const gerarAnaliseCompliancePDF = async (
       
       const words = capacidadeLines[i].split(' ');
       
-      if (i < capacidadeLines.length - 1 && words.length >= 4) {
+      if (i < capacidadeLines.length - 1 && words.length >= 3) {
         const lineWidth = pdf.getTextWidth(capacidadeLines[i]);
         const extraSpace = maxWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -424,12 +424,12 @@ export const gerarAnaliseCompliancePDF = async (
     // Primeira linha na mesma linha do rótulo
     if (riscoLines.length > 1 && riscoLines[0]) {
       const words = riscoLines[0].split(' ');
-      if (words.length >= 4) {
+      if (words.length >= 3) {
         const lineWidth = pdf.getTextWidth(riscoLines[0]);
         const extraSpace = riscoWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -462,12 +462,12 @@ export const gerarAnaliseCompliancePDF = async (
       
       const words = riscoLines[i].split(' ');
       
-      if (i < riscoLines.length - 1 && words.length >= 4) {
+      if (i < riscoLines.length - 1 && words.length >= 3) {
         const lineWidth = pdf.getTextWidth(riscoLines[i]);
         const extraSpace = maxWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -508,12 +508,12 @@ export const gerarAnaliseCompliancePDF = async (
     // Primeira linha na mesma linha do rótulo
     if (reputacaoLines.length > 1 && reputacaoLines[0]) {
       const words = reputacaoLines[0].split(' ');
-      if (words.length >= 4) {
+      if (words.length >= 3) {
         const lineWidth = pdf.getTextWidth(reputacaoLines[0]);
         const extraSpace = reputacaoWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -546,12 +546,12 @@ export const gerarAnaliseCompliancePDF = async (
       
       const words = reputacaoLines[i].split(' ');
       
-      if (i < reputacaoLines.length - 1 && words.length >= 4) {
+      if (i < reputacaoLines.length - 1 && words.length >= 3) {
         const lineWidth = pdf.getTextWidth(reputacaoLines[i]);
         const extraSpace = maxWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -592,12 +592,12 @@ export const gerarAnaliseCompliancePDF = async (
     // Primeira linha na mesma linha do rótulo
     if (cnaeLines.length > 1 && cnaeLines[0]) {
       const words = cnaeLines[0].split(' ');
-      if (words.length >= 4) {
+      if (words.length >= 3) {
         const lineWidth = pdf.getTextWidth(cnaeLines[0]);
         const extraSpace = cnaeWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -630,12 +630,12 @@ export const gerarAnaliseCompliancePDF = async (
       
       const words = cnaeLines[i].split(' ');
       
-      if (i < cnaeLines.length - 1 && words.length >= 4) {
+      if (i < cnaeLines.length - 1 && words.length >= 3) {
         const lineWidth = pdf.getTextWidth(cnaeLines[i]);
         const extraSpace = maxWidth - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
@@ -715,13 +715,12 @@ export const gerarAnaliseCompliancePDF = async (
       
       const words = linhasRecomendacoes[i].split(' ');
       
-      // Justificar se não for a última linha E tiver palavras suficientes E espaço razoável
-      if (i < linhasRecomendacoes.length - 1 && words.length >= 4) {
+      if (i < linhasRecomendacoes.length - 1 && words.length >= 3) {
         const lineWidth = pdf.getTextWidth(linhasRecomendacoes[i]);
         const extraSpace = maxWidthComRecuo - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 3) {
+        if (spacePerGap < 2 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
