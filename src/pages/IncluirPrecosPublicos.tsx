@@ -240,17 +240,23 @@ const IncluirPrecosPublicos = () => {
 
       const { data: fornecedorExistente } = await supabase
         .from("fornecedores")
-        .select("id")
+        .select("id, razao_social")
         .eq("cnpj", cnpjPrecosPublicos)
         .single();
 
       if (fornecedorExistente) {
         fornecedorId = fornecedorExistente.id;
+        
+        // Atualizar o nome do fornecedor com o nome da fonte fornecido
+        await supabase
+          .from("fornecedores")
+          .update({ razao_social: nomeFonte })
+          .eq("id", fornecedorId);
       } else {
         const { data: novoFornecedor, error: errorFornecedor } = await supabase
           .from("fornecedores")
           .insert({
-            razao_social: "Preços Públicos",
+            razao_social: nomeFonte,
             cnpj: cnpjPrecosPublicos,
             email: "precos.publicos@sistema.com",
             telefone: "00000000000",
