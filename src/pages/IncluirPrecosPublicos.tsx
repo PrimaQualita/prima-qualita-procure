@@ -24,12 +24,9 @@ interface ItemCotacao {
 interface RespostaItem {
   item_id: string;
   valor_unitario: string;
+  marca: string;
 }
 
-interface ArquivoComprovante {
-  file: File;
-  item_id: string;
-}
 
 const IncluirPrecosPublicos = () => {
   const navigate = useNavigate();
@@ -45,7 +42,7 @@ const IncluirPrecosPublicos = () => {
   const [nomeFonte, setNomeFonte] = useState("");
   const [respostas, setRespostas] = useState<{ [key: string]: RespostaItem }>({});
   const [observacoes, setObservacoes] = useState("");
-  const [arquivosComprovantes, setArquivosComprovantes] = useState<ArquivoComprovante[]>([]);
+  const [arquivosComprovantes, setArquivosComprovantes] = useState<File[]>([]);
 
   useEffect(() => {
     if (cotacaoIdParam) {
@@ -83,6 +80,7 @@ const IncluirPrecosPublicos = () => {
         respostasIniciais[item.id] = {
           item_id: item.id,
           valor_unitario: "",
+          marca: "",
         };
       });
       setRespostas(respostasIniciais);
@@ -95,15 +93,53 @@ const IncluirPrecosPublicos = () => {
     }
   };
 
-  const handleAddComprovante = (itemId: string, file: File) => {
-    setArquivosComprovantes(prev => {
-      const filtered = prev.filter(a => a.item_id !== itemId);
-      return [...filtered, { file, item_id: itemId }];
-    });
+  const gerarTemplate = () => {
+    const csvContent = [
+      ['Número Item', 'Descrição', 'Quantidade', 'Unidade', 'Valor Unitário', 'Marca'],
+      ...itens.map(item => [
+        item.numero_item.toString(),
+        item.descricao,
+        item.quantidade.toString(),
+        item.unidade,
+        '', // Valor vazio para preencher
+        '' // Marca vazia para preencher
+      ])
+    ].map(row => row.join(';')).join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `template_precos_publicos_${cotacao?.titulo_cotacao || 'cotacao'}.csv`;
+    link.click();
+    toast.success("Template baixado com sucesso!");
   };
 
-  const handleRemoveComprovante = (itemId: string) => {
-    setArquivosComprovantes(prev => prev.filter(a => a.item_id !== itemId));
+  const importarTemplate = async (file: File) => {
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').slice(1); // Remove cabeçalho
+      
+      const novasRespostas = { ...respostas };
+      
+      lines.forEach((line) => {
+        const [numItem, , , , valor, marca] = line.split(';');
+        const item = itens.find(i => i.numero_item === parseInt(numItem));
+        
+        if (item && valor) {
+          novasRespostas[item.id] = {
+            item_id: item.id,
+            valor_unitario: valor.replace('.', ','),
+            marca: marca || '',
+          };
+        }
+      });
+      
+      setRespostas(novasRespostas);
+      toast.success("Dados importados com sucesso!");
+    } catch (error) {
+      console.error("Erro ao importar template:", error);
+      toast.error("Erro ao importar template");
+    }
   };
 
   const calcularValorTotal = () => {
@@ -210,18 +246,18 @@ const IncluirPrecosPublicos = () => {
 
       // Salvar comprovantes em PDF
       for (const comprovante of arquivosComprovantes) {
-        const nomeArquivo = `comprovante_${comprovante.item_id}_${Date.now()}.pdf`;
+        const nomeArquivo = `comprovante_${respostaCotacao.id}_${Date.now()}_${comprovante.name}`;
         
         const { error: uploadError } = await supabase.storage
           .from("processo-anexos")
-          .upload(nomeArquivo, comprovante.file);
+          .upload(nomeArquivo, comprovante);
 
         if (uploadError) throw uploadError;
 
         await supabase.from("anexos_cotacao_fornecedor").insert({
           cotacao_resposta_fornecedor_id: respostaCotacao.id,
           tipo_anexo: "comprovante",
-          nome_arquivo: comprovante.file.name,
+          nome_arquivo: comprovante.name,
           url_arquivo: nomeArquivo,
         });
       }
@@ -231,7 +267,7 @@ const IncluirPrecosPublicos = () => {
         cotacao_resposta_fornecedor_id: respostaCotacao.id,
         item_cotacao_id: item.id,
         valor_unitario_ofertado: parseFloat(respostas[item.id].valor_unitario.replace(/,/g, ".")),
-        marca: null,
+        marca: respostas[item.id].marca || null,
       }));
 
       const { error: errorItens } = await supabase
@@ -299,6 +335,39 @@ const IncluirPrecosPublicos = () => {
                   required
                 />
               </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={gerarTemplate}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Baixar Template
+                </Button>
+                <div>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    id="importar-template"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        importarTemplate(file);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('importar-template')?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Importar Template Preenchido
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {/* Tabela de Itens */}
@@ -314,8 +383,8 @@ const IncluirPrecosPublicos = () => {
                       <TableHead className="w-24">Qtd</TableHead>
                       <TableHead className="w-24">Unid</TableHead>
                       <TableHead className="w-40">Valor Unit. (R$) *</TableHead>
+                      <TableHead className="w-40">Marca</TableHead>
                       <TableHead className="w-32">Vlr Total</TableHead>
-                      <TableHead className="w-40">Comprovante</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -325,7 +394,6 @@ const IncluirPrecosPublicos = () => {
                         ? parseFloat(resposta.valor_unitario.replace(/,/g, "."))
                         : 0;
                       const valorTotal = valorUnitario * item.quantidade;
-                      const comprovante = arquivosComprovantes.find(a => a.item_id === item.id);
 
                       return (
                         <TableRow key={item.id}>
@@ -348,6 +416,19 @@ const IncluirPrecosPublicos = () => {
                               className="text-right"
                             />
                           </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              value={resposta?.marca || ""}
+                              onChange={(e) => {
+                                setRespostas({
+                                  ...respostas,
+                                  [item.id]: { ...resposta, marca: e.target.value },
+                                });
+                              }}
+                              placeholder="Marca (opcional)"
+                            />
+                          </TableCell>
                           <TableCell className="text-right">
                             {!isNaN(valorTotal) && valorTotal > 0
                               ? `R$ ${valorTotal.toLocaleString("pt-BR", {
@@ -356,56 +437,11 @@ const IncluirPrecosPublicos = () => {
                                 })}`
                               : "R$ 0,00"}
                           </TableCell>
-                          <TableCell>
-                            {comprovante ? (
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4" />
-                                <span className="text-sm truncate max-w-[100px]" title={comprovante.file.name}>
-                                  {comprovante.file.name}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveComprovante(item.id)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div>
-                                <input
-                                  type="file"
-                                  accept=".pdf"
-                                  id={`comprovante-${item.id}`}
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      if (file.type !== "application/pdf") {
-                                        toast.error("Apenas arquivos PDF são permitidos");
-                                        return;
-                                      }
-                                      handleAddComprovante(item.id, file);
-                                      toast.success("Comprovante anexado");
-                                    }
-                                  }}
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => document.getElementById(`comprovante-${item.id}`)?.click()}
-                                >
-                                  <Upload className="h-4 w-4 mr-2" />
-                                  Anexar PDF
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
                         </TableRow>
                       );
                     })}
                     <TableRow className="bg-muted/50 font-bold">
-                      <TableCell colSpan={5} className="text-right">
+                      <TableCell colSpan={6} className="text-right">
                         VALOR TOTAL:
                       </TableCell>
                       <TableCell className="text-right text-lg">
@@ -415,10 +451,74 @@ const IncluirPrecosPublicos = () => {
                           maximumFractionDigits: 2,
                         })}
                       </TableCell>
-                      <TableCell></TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
+              </div>
+            </div>
+
+            {/* Comprovantes */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Comprovantes (Arquivos PDF)</h3>
+              <p className="text-sm text-muted-foreground">
+                Anexe os documentos que comprovam os preços informados
+              </p>
+              
+              {arquivosComprovantes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Arquivos anexados:</p>
+                  <div className="space-y-1">
+                    {arquivosComprovantes.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          <span className="text-sm">{file.name}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setArquivosComprovantes(prev => prev.filter((_, i) => i !== index));
+                            toast.info("Arquivo removido");
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  multiple
+                  id="comprovantes-upload"
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    const pdfFiles = files.filter(f => f.type === "application/pdf");
+                    
+                    if (pdfFiles.length !== files.length) {
+                      toast.error("Apenas arquivos PDF são permitidos");
+                    }
+                    
+                    if (pdfFiles.length > 0) {
+                      setArquivosComprovantes(prev => [...prev, ...pdfFiles]);
+                      toast.success(`${pdfFiles.length} arquivo(s) anexado(s)`);
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById('comprovantes-upload')?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Anexar Comprovantes (PDF)
+                </Button>
               </div>
             </div>
 
