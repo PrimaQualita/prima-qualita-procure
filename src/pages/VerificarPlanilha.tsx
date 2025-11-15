@@ -1,5 +1,6 @@
 // @ts-nocheck - Tabelas podem não existir no schema atual
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +10,48 @@ import { Search, CheckCircle, XCircle } from "lucide-react";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 
 export default function VerificarPlanilha() {
+  const [searchParams] = useSearchParams();
   const [protocolo, setProtocolo] = useState("");
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const protocoloUrl = searchParams.get("protocolo");
+    if (protocoloUrl) {
+      setProtocolo(protocoloUrl);
+      verificarPlanilhaComProtocolo(protocoloUrl);
+    }
+  }, [searchParams]);
+
+  const verificarPlanilhaComProtocolo = async (prot: string) => {
+    if (!prot.trim()) return;
+
+    setLoading(true);
+    setResultado(null);
+
+    try {
+      // @ts-ignore - Temporary ignore until types are updated
+      const { data, error } = await supabase
+        .from("planilhas_consolidadas")
+        .select("*")
+        .eq("protocolo", prot.trim())
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        setResultado({ encontrado: false });
+      } else {
+        setResultado({ encontrado: true, dados: data });
+      }
+    } catch (error: any) {
+      console.error("Erro ao verificar planilha:", error);
+      setResultado({ encontrado: false });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const verificarPlanilha = async () => {
     if (!protocolo.trim()) {
@@ -24,43 +63,7 @@ export default function VerificarPlanilha() {
       return;
     }
 
-    setLoading(true);
-    setResultado(null);
-
-    try {
-      // @ts-ignore - Temporary ignore until types are updated
-      const { data, error } = await supabase
-        .from("planilhas_consolidadas")
-        .select("*")
-        .eq("protocolo", protocolo.trim())
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (!data) {
-        setResultado({ encontrado: false });
-        toast({
-          title: "Planilha não encontrada",
-          description: "Nenhuma planilha consolidada foi encontrada com este protocolo.",
-          variant: "destructive",
-        });
-      } else {
-        setResultado({ encontrado: true, dados: data });
-        toast({
-          title: "Planilha verificada",
-          description: "Planilha consolidada autêntica encontrada.",
-        });
-      }
-    } catch (error: any) {
-      console.error("Erro ao verificar planilha:", error);
-      toast({
-        title: "Erro na verificação",
-        description: error.message || "Erro ao verificar a planilha consolidada.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    verificarPlanilhaComProtocolo(protocolo);
   };
 
   return (
@@ -92,7 +95,7 @@ export default function VerificarPlanilha() {
           <CardContent>
             <div className="flex gap-2">
               <Input
-                placeholder="Ex: a7d2c8e2-4b8f-4ac3-b4d5-0f4eac8b6e32"
+                placeholder="Informe o protocolo da planilha"
                 value={protocolo}
                 onChange={(e) => setProtocolo(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && verificarPlanilha()}
