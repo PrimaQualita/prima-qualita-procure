@@ -136,21 +136,10 @@ export const gerarAnaliseCompliancePDF = async (
   yPos += 8;
 
   const criterioFormatado = data.criterio_julgamento.replace(/_/g, ' ');
-  const processoNumeroTexto = data.processo_numero.replace(/^Processo\s+/i, '');
+  const processoNumeroTexto = data.processo_numero.replace(/^Processo\s+/i, '').replace(/\/\d{4}$/, '');
   const introducao = `Este relatório apresenta a análise de risco e conformidade realizada pelo Departamento de Compliance da Prima Qualitá sobre as empresas participantes do processo de seleção ${processoNumeroTexto} para ${objetoTexto}. O critério de julgamento adotado é ${criterioFormatado}. A análise foi conduzida com base em informações públicas, documentação fornecida pelos fornecedores e critérios objetivos de avaliação de risco.`;
   
-  // Texto justificado para introdução
-  pdf.setFontSize(10);
-  pdf.setFont("helvetica", "normal");
-  pdf.setTextColor(0);
-  const introducaoLines = pdf.splitTextToSize(introducao, maxWidth);
-  introducaoLines.forEach((line: string) => {
-    if (yPos + 6.25 > pageHeight - 25) {
-      addNewPage();
-    }
-    pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
-    yPos += 6.25;
-  });
+  addText(introducao, 10, false, true);
   yPos += 12.5;
 
   // Empresas Analisadas
@@ -191,7 +180,7 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.text("Contratos Ativos com a OSS:", margin, yPos);
     pdf.setFont("helvetica", "normal");
     pdf.text(` ${empresa.contratos_ativos_oss ? "Sim" : "Não"}`, margin + pdf.getTextWidth("Contratos Ativos com a OSS:"), yPos);
-    yPos += 12.5;
+    yPos += 6.25;
 
     // Campos de análise
     const campos = [
@@ -216,17 +205,17 @@ export const gerarAnaliseCompliancePDF = async (
       
       pdf.setFont("helvetica", "normal");
       const tituloWidth = pdf.getTextWidth(campo.titulo);
-      const lines = pdf.splitTextToSize(` ${textoLimpo || "Não informado"}`, maxWidth);
+      const lines = pdf.splitTextToSize(textoLimpo || "Não informado", maxWidth - tituloWidth);
       let firstLine = true;
       lines.forEach((line: string) => {
         if (!firstLine && yPos + 6.25 > pageHeight - 25) {
           addNewPage();
         }
         if (firstLine) {
-          pdf.text(line, margin + tituloWidth, yPos, { align: "justify", maxWidth: maxWidth - tituloWidth });
+          pdf.text(line, margin + tituloWidth, yPos);
           firstLine = false;
         } else {
-          pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
+          pdf.text(line, margin, yPos);
         }
         yPos += 6.25;
       });
@@ -247,17 +236,7 @@ export const gerarAnaliseCompliancePDF = async (
   yPos += 12.5;
   
   const consideracoesTexto = extractTextFromHTML(data.consideracoes_finais);
-  pdf.setFontSize(10);
-  pdf.setFont("helvetica", "normal");
-  pdf.setTextColor(0); // Preto
-  const consideracoesLines = pdf.splitTextToSize(consideracoesTexto, maxWidth);
-  consideracoesLines.forEach((line: string) => {
-    if (yPos + 6.25 > pageHeight - 25) {
-      addNewPage();
-    }
-    pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
-    yPos += 6.25;
-  });
+  addText(consideracoesTexto, 10, false, true);
   yPos += 12.5;
 
   // Conclusão
@@ -272,17 +251,7 @@ export const gerarAnaliseCompliancePDF = async (
   yPos += 12.5;
   
   const conclusaoTexto = extractTextFromHTML(data.conclusao);
-  pdf.setFontSize(10);
-  pdf.setFont("helvetica", "normal");
-  pdf.setTextColor(0);
-  const conclusaoLines = pdf.splitTextToSize(conclusaoTexto, maxWidth);
-  conclusaoLines.forEach((line: string) => {
-    if (yPos + 6.25 > pageHeight - 25) {
-      addNewPage();
-    }
-    pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
-    yPos += 6.25;
-  });
+  addText(conclusaoTexto, 10, false, true);
   yPos += 18.75;
 
   // Certificação Digital
@@ -295,9 +264,10 @@ export const gerarAnaliseCompliancePDF = async (
 
   const timestamp = new Date().getTime();
   const processoNumeroLimpo = data.processo_numero.replace(/^Processo\s+/i, '').trim();
-  // Remove a duplicação do ano, mantém apenas a primeira parte
-  const processoSemDuplicacao = processoNumeroLimpo.replace(/(\d{4})-\d{4}$/, '$1');
-  const protocolo = `COMP-${processoSemDuplicacao.replace(/\//g, "-")}-${timestamp}`;
+  // Remove a duplicação do ano, mantém apenas a primeira ocorrência
+  const processoSemDuplicacao = processoNumeroLimpo.replace(/\/\d{4}$/, '');
+  // Formato: XXXX-XXXX-XXXX-XXXX
+  const protocolo = `COMP-${processoSemDuplicacao.replace(/\//g, "-")}-${timestamp}`.replace(/(.{4})(?=.)/g, '$1-').replace(/--+/g, '-');
 
   const dadosCertificacao = {
     protocolo: protocolo,
