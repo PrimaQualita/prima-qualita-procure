@@ -992,6 +992,14 @@ const Cotacoes = () => {
                       Ver Respostas
                     </Button>
                     <Button 
+                      variant="outline"
+                      onClick={() => navigate(`/incluir-precos-publicos?cotacao=${cotacaoSelecionada?.id}`)}
+                      disabled={itens.length === 0}
+                      size="sm"
+                    >
+                      Incluir Preços Públicos
+                    </Button>
+                    <Button 
                       variant="default"
                       onClick={() => setDialogEnviarOpen(true)}
                       disabled={itens.length === 0}
