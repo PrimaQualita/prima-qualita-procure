@@ -125,7 +125,7 @@ export async function gerarPropostaFornecedorPDF(
     // Cabeçalhos das colunas com posições ajustadas
     doc.text('Item', 20, y + 1, { align: 'center' });
     doc.text('Descrição', 55, y + 1, { align: 'left' });
-    doc.text('Qtd', 116, y + 1, { align: 'right' });
+    doc.text('Qtd', 119, y + 1, { align: 'center' });
     doc.text('Unid', 135, y + 1, { align: 'center' });
     doc.text('Vlr Unit', 158, y + 1, { align: 'right' });
     doc.text('Vlr Total', 185, y + 1, { align: 'right' });
@@ -164,7 +164,7 @@ export async function gerarPropostaFornecedorPDF(
       subtotal += valorTotal;
 
       doc.setFontSize(8);
-      // Item (coluna 1: 15-25)
+      // Item (coluna 1: 15-25) - centralizado
       doc.text(item.numero_item.toString(), 20, y + 1, { align: 'center' });
       
       // Descrição (coluna 2: 30-110) - largura de 55
@@ -172,8 +172,8 @@ export async function gerarPropostaFornecedorPDF(
       const descricaoLines = doc.splitTextToSize(item.descricao, descricaoMaxWidth);
       doc.text(descricaoLines[0], 30, y + 1);
       
-      // Quantidade (coluna 3: 110-123) - alinhado à direita
-      doc.text(item.quantidade.toFixed(2), 116, y + 1, { align: 'right' });
+      // Quantidade (coluna 3: 110-123) - centralizado
+      doc.text(item.quantidade.toFixed(2), 119, y + 1, { align: 'center' });
       
       // Unidade (coluna 4: 123-143) - centralizado
       doc.text(item.unidade, 135, y + 1, { align: 'center' });
