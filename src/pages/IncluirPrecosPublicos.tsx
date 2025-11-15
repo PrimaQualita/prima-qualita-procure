@@ -94,14 +94,11 @@ const IncluirPrecosPublicos = () => {
   };
 
   const gerarTemplate = () => {
-    // Usar TAB como separador para compatibilidade com Excel e acentos
+    // Template simplificado com apenas Valor Unitário e Marca
     const csvContent = [
-      ['Número Item', 'Descrição', 'Quantidade', 'Unidade', 'Valor Unitário', 'Marca'],
+      ['Número Item', 'Valor Unitário', 'Marca'],
       ...itens.map(item => [
         item.numero_item.toString(),
-        item.descricao,
-        item.quantidade.toString(),
-        item.unidade,
         '', // Valor vazio para preencher
         '' // Marca vazia para preencher
       ])
@@ -163,7 +160,8 @@ const IncluirPrecosPublicos = () => {
         const campos = line.split(separador).map(campo => campo.trim());
         console.log(`Campos separados:`, campos);
         
-        const [numItem, descricao, quantidade, unidade, valor, marca] = campos;
+        // Template agora tem apenas: Número Item, Valor Unitário, Marca
+        const [numItem, valor, marca] = campos;
         
         if (!numItem) {
           console.log(`Linha ${index + 2}: número do item vazio`);
