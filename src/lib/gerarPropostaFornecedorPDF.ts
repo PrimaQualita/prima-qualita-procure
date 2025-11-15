@@ -62,6 +62,11 @@ export async function gerarPropostaFornecedorPDF(
       valorTotal,
       tituloCotacao
     });
+    
+    console.log('📎 Comprovantes recebidos na função:', comprovantes.length);
+    comprovantes.forEach((arquivo, index) => {
+      console.log(`  ${index + 1}. ${arquivo.name} (${arquivo.type}, ${arquivo.size} bytes)`);
+    });
     // Buscar itens da resposta
     const { data: itens, error: itensError } = await supabaseAnon
       .from('respostas_itens_fornecedor')
@@ -405,13 +410,17 @@ export async function gerarPropostaFornecedorPDF(
     console.log('Hash calculado do PDF (com certificação, sem comprovantes):', hash);
 
     // Se houver comprovantes PDF, carregar novamente e mesclar
+    console.log('🔄 Verificando comprovantes para mesclar...', comprovantes.length);
     if (comprovantes.length > 0) {
+      console.log('✅ Iniciando mesclagem de', comprovantes.length, 'comprovantes');
       pdfFinal = await PDFDocument.load(pdfComCertBytes);
       
       for (const comprovante of comprovantes) {
         try {
+          console.log('📄 Processando comprovante:', comprovante.name, 'tipo:', comprovante.type);
           // Só tenta mesclar se for PDF
           if (comprovante.type === 'application/pdf' || comprovante.name.toLowerCase().endsWith('.pdf')) {
+            console.log('✅ Arquivo é PDF, mesclando...');
             const comprovanteBytes = await comprovante.arrayBuffer();
             const pdfComprovante = await PDFDocument.load(comprovanteBytes);
             
@@ -422,14 +431,16 @@ export async function gerarPropostaFornecedorPDF(
               pdfFinal.addPage(page);
             });
             
-            console.log('Comprovante mesclado:', comprovante.name);
+            console.log('✅ Comprovante mesclado com sucesso:', comprovante.name);
           } else {
-            console.log('Comprovante não-PDF será enviado separadamente:', comprovante.name);
+            console.log('⚠️ Comprovante não-PDF será enviado separadamente:', comprovante.name);
           }
         } catch (error) {
-          console.error('Erro ao mesclar comprovante:', comprovante.name, error);
+          console.error('❌ Erro ao mesclar comprovante:', comprovante.name, error);
         }
       }
+    } else {
+      console.log('ℹ️ Nenhum comprovante para mesclar');
     }
 
     // Salvar PDF final (com certificação E comprovantes se houver)
