@@ -265,11 +265,25 @@ const IncluirPrecosPublicos = () => {
 
       // Buscar dados do usuário logado
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase
+      
+      if (!user) {
+        toast.error("Erro ao identificar usuário logado");
+        return;
+      }
+      
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("nome_completo, cpf")
-        .eq("id", user?.id)
+        .eq("id", user.id)
         .single();
+
+      if (profileError) {
+        console.error("Erro ao buscar profile:", profileError);
+        toast.error("Erro ao buscar dados do usuário");
+        return;
+      }
+
+      console.log("Profile encontrado:", profile);
 
       // Criar resposta da cotação (observações SEM fonte - será adicionada no PDF)
       const { data: respostaCotacao, error: errorResposta } = await supabase
@@ -317,9 +331,11 @@ const IncluirPrecosPublicos = () => {
         observacoes, // Observações sem a fonte
         cotacao.titulo_cotacao,
         arquivosComprovantes, // Passa os comprovantes para serem mesclados
-        profile?.nome_completo || "Sistema",
-        profile?.cpf || "Sistema"
+        profile.nome_completo,
+        profile.cpf
       );
+
+      console.log("Proposta gerada com responsável:", profile.nome_completo);
 
       // Atualizar hash de certificação na resposta
       await supabase
