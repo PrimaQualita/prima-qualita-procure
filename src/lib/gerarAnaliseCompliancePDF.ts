@@ -86,11 +86,13 @@ export const gerarAnaliseCompliancePDF = async (
     const lines = pdf.splitTextToSize(text, maxWidth);
     const lineHeight = 6.25; // Espaçamento fixo de 1.25 para fonte 10
     
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       if (yPos + lineHeight > pageHeight - 25) {
         addNewPage();
       }
-      if (isJustified) {
+      if (isJustified && i < lines.length - 1) {
+        // Justificar todas as linhas exceto a última
         pdf.text(line, margin, yPos, { align: "justify", maxWidth: maxWidth });
       } else {
         pdf.text(line, margin, yPos);
@@ -202,21 +204,15 @@ export const gerarAnaliseCompliancePDF = async (
       pdf.setFont("helvetica", "bold");
       pdf.setTextColor(0);
       pdf.text(campo.titulo, margin, yPos);
+      yPos += 6.25;
       
       pdf.setFont("helvetica", "normal");
-      const tituloWidth = pdf.getTextWidth(campo.titulo);
-      const lines = pdf.splitTextToSize(textoLimpo || "Não informado", maxWidth - tituloWidth);
-      let firstLine = true;
+      const lines = pdf.splitTextToSize(textoLimpo || "Não informado", maxWidth);
       lines.forEach((line: string) => {
-        if (!firstLine && yPos + 6.25 > pageHeight - 25) {
+        if (yPos + 6.25 > pageHeight - 25) {
           addNewPage();
         }
-        if (firstLine) {
-          pdf.text(line, margin + tituloWidth, yPos);
-          firstLine = false;
-        } else {
-          pdf.text(line, margin, yPos);
-        }
+        pdf.text(line, margin, yPos);
         yPos += 6.25;
       });
     });
@@ -263,11 +259,9 @@ export const gerarAnaliseCompliancePDF = async (
     .single();
 
   const timestamp = new Date().getTime();
-  const processoNumeroLimpo = data.processo_numero.replace(/^Processo\s+/i, '').trim();
-  // Remove a duplicação do ano, mantém apenas a primeira ocorrência
-  const processoSemDuplicacao = processoNumeroLimpo.replace(/\/\d{4}$/, '');
-  // Formato: XXXX-XXXX-XXXX-XXXX
-  const protocolo = `COMP-${processoSemDuplicacao.replace(/\//g, "-")}-${timestamp}`.replace(/(.{4})(?=.)/g, '$1-').replace(/--+/g, '-');
+  // Gerar protocolo apenas numérico no formato XXXX-XXXX-XXXX-XXXX
+  const protocoloNumerico = timestamp.toString().padStart(16, '0');
+  const protocolo = protocoloNumerico.match(/.{1,4}/g)?.join('-') || protocoloNumerico;
 
   const dadosCertificacao = {
     protocolo: protocolo,
