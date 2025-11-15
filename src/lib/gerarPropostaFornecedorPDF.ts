@@ -176,8 +176,8 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 95, y, { align: 'center' });
       doc.text(itemCotacao.unidade, 115, y, { align: 'center' });
       doc.text(item.marca || '-', 135, y, { align: 'center' });
-      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 175, y, { align: 'right' });
-      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 193, y, { align: 'right' });
+      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 160, y, { align: 'center' });
+      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 185, y, { align: 'center' });
       
       y += 6;
       isAlternate = !isAlternate;
