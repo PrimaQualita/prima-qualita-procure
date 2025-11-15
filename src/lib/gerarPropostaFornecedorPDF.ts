@@ -261,8 +261,8 @@ export async function gerarPropostaFornecedorPDF(
     const font = await pdfFinal.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdfFinal.embedFont(StandardFonts.HelveticaBold);
 
-    // Altura do quadro de certificação (ajustado sem hash)
-    const alturaQuadro = 80;
+    // Altura do quadro de certificação (ajustado com responsável)
+    const alturaQuadro = 95;
 
     // Desenhar retângulo de fundo
     paginaCert.drawRectangle({
@@ -287,6 +287,16 @@ export async function gerarPropostaFornecedorPDF(
     let yPos = yPosCert - 35;
     const fontSize = 10;
     const lineHeight = 15;
+
+    // Responsável pela geração
+    const responsavel = usuarioNome || fornecedor.razao_social;
+    paginaCert.drawText(`Responsável: ${responsavel}`, {
+      x: 50,
+      y: yPos,
+      size: fontSize,
+      font: font,
+    });
+    yPos -= lineHeight;
 
     // Protocolo
     paginaCert.drawText(`Protocolo: ${protocolo}`, {

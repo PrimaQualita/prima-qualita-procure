@@ -281,7 +281,7 @@ const VerificarProposta = () => {
                     <span className="text-sm font-medium text-muted-foreground">Responsável pela Geração:</span>
                     <span className="text-sm font-medium">
                       {resposta.fornecedor.cnpj === "00000000000000" 
-                        ? (resposta.usuario_gerador?.nome_completo || "Sistema")
+                        ? (resposta.usuario_gerador?.nome_completo || "Não informado")
                         : resposta.fornecedor.razao_social
                       }
                     </span>
