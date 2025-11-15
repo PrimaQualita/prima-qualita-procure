@@ -117,12 +117,12 @@ export async function gerarPropostaFornecedorPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('ITEM', 18, y);
-    doc.text('DESCRIÇÃO', 35, y);
-    doc.text('QTD', 120, y);
-    doc.text('UNID', 140, y);
-    doc.text('VL. UNIT.', 160, y);
-    doc.text('VL. TOTAL', 180, y, { align: 'right' });
+    doc.text('ITEM', 22, y, { align: 'center' });
+    doc.text('DESCRIÇÃO', 85, y, { align: 'center' });
+    doc.text('QTD', 130, y, { align: 'center' });
+    doc.text('UNID', 150, y, { align: 'center' });
+    doc.text('VL. UNIT.', 168, y, { align: 'center' });
+    doc.text('VL. TOTAL', 188, y, { align: 'center' });
     
     y += 6;
     doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
