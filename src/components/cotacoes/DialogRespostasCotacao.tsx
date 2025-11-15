@@ -1174,79 +1174,81 @@ export function DialogRespostasCotacao({
                 </p>
               </div>
 
-              {/* ========== 3. ENCAMINHAMENTOS ========== */}
-              <div className="mt-6 pt-6 border-t space-y-4">
-                <h3 className="text-lg font-semibold">Encaminhamentos</h3>
-                
-                {/* Mostrar encaminhamentos anteriores */}
-                {encaminhamentos.map((enc) => (
-                  <div key={enc.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Protocolo: {enc.protocolo}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(enc.created_at).toLocaleString('pt-BR')}
-                      </span>
+              {/* ========== 3. ENCAMINHAMENTOS (só aparece se tiver planilha ou encaminhamentos) ========== */}
+              {(planilhasAnteriores.length > 0 || encaminhamentos.length > 0) && (
+                <div className="mt-6 pt-6 border-t space-y-4">
+                  <h3 className="text-lg font-semibold">Encaminhamentos</h3>
+                  
+                  {/* Mostrar encaminhamentos anteriores */}
+                  {encaminhamentos.map((enc) => (
+                    <div key={enc.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Protocolo: {enc.protocolo}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(enc.created_at).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(enc.url, '_blank')}
+                          className="flex-1"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Visualizar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const { data, error} = await supabase.storage
+                                .from('processo-anexos')
+                                .download(enc.storage_path);
+                              
+                              if (error) throw error;
+                              
+                              const blob = new Blob([data], { type: 'application/pdf' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `encaminhamento_${enc.protocolo}.pdf`;
+                              a.click();
+                            } catch (error) {
+                              console.error('Erro ao baixar:', error);
+                              toast.error('Erro ao baixar encaminhamento');
+                            }
+                          }}
+                          className="flex-1"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Baixar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => excluirEncaminhamento(enc.id, enc.storage_path)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(enc.url, '_blank')}
-                        className="flex-1"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Visualizar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            const { data, error} = await supabase.storage
-                              .from('processo-anexos')
-                              .download(enc.storage_path);
-                            
-                            if (error) throw error;
-                            
-                            const blob = new Blob([data], { type: 'application/pdf' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `encaminhamento_${enc.protocolo}.pdf`;
-                            a.click();
-                          } catch (error) {
-                            console.error('Erro ao baixar:', error);
-                            toast.error('Erro ao baixar encaminhamento');
-                          }
-                        }}
-                        className="flex-1"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Baixar
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => excluirEncaminhamento(enc.id, enc.storage_path)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
 
-                {/* Botão para gerar encaminhamento (só se tiver planilha) */}
-                {planilhasAnteriores.length > 0 && (
-                  <Button
-                    onClick={gerarEncaminhamento}
-                    disabled={gerandoEncaminhamento}
-                    className="w-full"
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento para Compliance"}
-                  </Button>
-                )}
-              </div>
+                  {/* Botão para gerar encaminhamento (só se tiver planilha) */}
+                  {planilhasAnteriores.length > 0 && (
+                    <Button
+                      onClick={gerarEncaminhamento}
+                      disabled={gerandoEncaminhamento}
+                      className="w-full"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento para Compliance"}
+                    </Button>
+                  )}
+                </div>
+              )}
 
               {/* ========== 4. ANÁLISES DE COMPLIANCE ========== */}
               {/* Removido - análises antigas */}
