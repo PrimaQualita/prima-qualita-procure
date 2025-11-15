@@ -118,10 +118,20 @@ const IncluirPrecosPublicos = () => {
 
   const importarTemplate = async (file: File) => {
     try {
-      // Ler arquivo como ArrayBuffer e decodificar como UTF-8
+      // Tentar ler com diferentes encodings
       const arrayBuffer = await file.arrayBuffer();
-      const decoder = new TextDecoder('utf-8');
-      const text = decoder.decode(arrayBuffer);
+      let text = '';
+      
+      // Primeiro tenta UTF-8
+      try {
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+        text = decoder.decode(arrayBuffer);
+      } catch {
+        // Se UTF-8 falhar, tenta Windows-1252 (encoding comum do Excel)
+        const decoder = new TextDecoder('windows-1252');
+        text = decoder.decode(arrayBuffer);
+      }
+      
       console.log("Conteúdo do arquivo:", text);
       
       // Remove BOM se existir e divide as linhas
