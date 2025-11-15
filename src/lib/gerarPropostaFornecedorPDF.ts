@@ -251,8 +251,7 @@ export async function gerarPropostaFornecedorPDF(
     const { error: protocoloError } = await supabase
       .from('cotacao_respostas_fornecedor')
       .update({ 
-        protocolo: protocolo,
-        observacoes_fornecedor: observacoes ? `${observacoes}\n\nProtocolo: ${protocolo}\nHash: ${hash}` : `Protocolo: ${protocolo}\nHash: ${hash}`
+        protocolo: protocolo
       })
       .eq('id', respostaId);
 
