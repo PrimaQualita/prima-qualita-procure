@@ -84,17 +84,16 @@ export function DialogRespostasCotacao({
   const [emailTexto, setEmailTexto] = useState("");
   const [planilhaConsolidadaOpen, setPlanilhaConsolidadaOpen] = useState(false);
   const [planilhaGerada, setPlanilhaGerada] = useState<any>(null);
+  const [planilhasAnteriores, setPlanilhasAnteriores] = useState<any[]>([]);
   const [gerandoPlanilha, setGerandoPlanilha] = useState(false);
   const [enviandoCompliance, setEnviandoCompliance] = useState(false);
   const [encaminhamentos, setEncaminhamentos] = useState<any[]>([]);
   const [gerandoEncaminhamento, setGerandoEncaminhamento] = useState(false);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
   const [analiseCompliance, setAnaliseCompliance] = useState<any>(null);
-  const [analiseAnterior, setAnaliseAnterior] = useState<any>(null);
+  const [analisesAnteriores, setAnalisesAnteriores] = useState<any[]>([]);
   const [empresasAprovadas, setEmpresasAprovadas] = useState<string[]>([]);
   const [empresasReprovadas, setEmpresasReprovadas] = useState<string[]>([]);
-  const [empresasAprovadasAnterior, setEmpresasAprovadasAnterior] = useState<string[]>([]);
-  const [empresasReprovadasAnterior, setEmpresasReprovadasAnterior] = useState<string[]>([]);
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -155,25 +154,33 @@ export function DialogRespostasCotacao({
 
   const loadPlanilhaGerada = async () => {
     try {
-      console.log('🔄 Carregando planilha gerada para cotação:', cotacaoId);
+      console.log('🔄 Carregando planilhas geradas para cotação:', cotacaoId);
       
+      // Buscar TODAS as planilhas ordenadas por data (mais recente primeiro)
       const { data, error } = await supabase
         .from("planilhas_consolidadas")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
       
       if (error) {
-        console.error('❌ Erro ao carregar planilha:', error);
+        console.error('❌ Erro ao carregar planilhas:', error);
         throw error;
       }
       
-      console.log('📄 Planilha encontrada:', data);
-      setPlanilhaGerada(data);
+      if (data && data.length > 0) {
+        // A mais recente
+        setPlanilhaGerada(data[0]);
+        console.log('📄 Planilha mais recente:', data[0]);
+        
+        // Planilhas anteriores (todas menos a mais recente)
+        if (data.length > 1) {
+          setPlanilhasAnteriores(data.slice(1));
+          console.log('📚 Planilhas anteriores:', data.slice(1));
+        }
+      }
     } catch (error) {
-      console.error("Erro ao carregar planilha:", error);
+      console.error("Erro ao carregar planilhas:", error);
     }
   };
 
@@ -1045,7 +1052,7 @@ export function DialogRespostasCotacao({
               </TableBody>
             </Table>
 
-            {/* Botões de Planilha e Compliance */}
+            {/* Botão de Gerar Planilha */}
             <div className="mt-6 space-y-4 border-t pt-4">
               <Button 
                 onClick={gerarPlanilhaConsolidada}
@@ -1056,97 +1063,283 @@ export function DialogRespostasCotacao({
                 {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
               </Button>
 
-              {/* Análise de Compliance ANTERIOR (se existir) */}
-              {analiseAnterior && (
+              {/* 1. PRIMEIRA PLANILHA GERADA (se houver planilhas anteriores) */}
+              {planilhasAnteriores.length > 0 && (
                 <div className="mt-6 pt-6 border-t space-y-4">
-                  <h3 className="text-lg font-semibold">Análise de Compliance Anterior</h3>
-                  
+                  <h3 className="text-lg font-semibold">Primeira Planilha Consolidada</h3>
                   <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Documento de Análise Anterior</span>
-                      <Badge variant={
-                        analiseAnterior.status_aprovacao === 'aprovado' ? 'default' : 
-                        analiseAnterior.status_aprovacao === 'reprovado' ? 'destructive' : 
-                        'secondary'
-                      }>
-                        {analiseAnterior.status_aprovacao === 'aprovado' ? 'Aprovado' : 
-                         analiseAnterior.status_aprovacao === 'reprovado' ? 'Reprovado' : 
-                         'Pendente'}
-                      </Badge>
+                      <span className="text-sm font-medium">Planilha Gerada em {new Date(planilhasAnteriores[planilhasAnteriores.length - 1].created_at).toLocaleString('pt-BR')}</span>
                     </div>
-                    
-                    {analiseAnterior.protocolo && (
+                    {planilhasAnteriores[planilhasAnteriores.length - 1].protocolo && (
                       <div className="text-xs text-muted-foreground">
-                        Protocolo: {analiseAnterior.protocolo}
+                        Protocolo: {planilhasAnteriores[planilhasAnteriores.length - 1].protocolo}
                       </div>
                     )}
-
-                    {/* Empresas Aprovadas Anterior */}
-                    {empresasAprovadasAnterior.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-green-600">Empresas Aprovadas</h4>
-                        <div className="space-y-1">
-                          {empresasAprovadasAnterior.map((empresa, idx) => (
-                            <div key={idx} className="text-sm pl-4 border-l-2 border-green-600">
-                              {empresa}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Empresas Reprovadas Anterior */}
-                    {empresasReprovadasAnterior.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-red-600">Empresas Reprovadas</h4>
-                        <div className="space-y-1">
-                          {empresasReprovadasAnterior.map((empresa, idx) => (
-                            <div key={idx} className="text-sm pl-4 border-l-2 border-red-600">
-                              {empresa}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          if (analiseAnterior.url_documento) {
-                            window.open(analiseAnterior.url_documento, '_blank');
+                          const { data } = await supabase.storage
+                            .from('processo-anexos')
+                            .createSignedUrl(planilhasAnteriores[planilhasAnteriores.length - 1].url_arquivo, 3600);
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, '_blank');
                           }
                         }}
                         className="flex-1"
                       >
                         <Eye className="mr-2 h-4 w-4" />
-                        Visualizar Análise
+                        Visualizar
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          if (analiseAnterior.url_documento) {
-                            const link = document.createElement('a');
-                            link.href = analiseAnterior.url_documento;
-                            link.download = analiseAnterior.nome_arquivo || 'analise_compliance_anterior.pdf';
-                            link.click();
-                          }
+                          const { data, error } = await supabase.storage
+                            .from('processo-anexos')
+                            .download(planilhasAnteriores[planilhasAnteriores.length - 1].url_arquivo);
+                          if (error) throw error;
+                          const blob = new Blob([data], { type: 'application/pdf' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = planilhasAnteriores[planilhasAnteriores.length - 1].nome_arquivo;
+                          a.click();
                         }}
                         className="flex-1"
                       >
                         <Download className="mr-2 h-4 w-4" />
-                        Baixar Análise
+                        Baixar
                       </Button>
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* 2. OS ENCAMINHAMENTOS (mostrar sempre que houver) */}
+              {encaminhamentos.length > 0 && (
+                <div className="mt-6 pt-6 border-t space-y-4">
+                  <h3 className="text-lg font-semibold">Encaminhamentos Gerados</h3>
+                  {encaminhamentos.map((enc) => (
+                    <div key={enc.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Protocolo: {enc.protocolo}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(enc.created_at).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(enc.url, '_blank')}
+                          className="flex-1"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Visualizar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const { data, error } = await supabase.storage
+                                .from('processo-anexos')
+                                .download(enc.storage_path);
+                              
+                              if (error) throw error;
+                              
+                              const blob = new Blob([data], { type: 'application/pdf' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `encaminhamento_${enc.protocolo}.pdf`;
+                              a.click();
+                            } catch (error) {
+                              console.error('Erro ao baixar:', error);
+                              toast.error('Erro ao baixar encaminhamento');
+                            }
+                          }}
+                          className="flex-1"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Baixar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => excluirEncaminhamento(enc.id, enc.storage_path)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 3. A PRIMEIRA ANALISE DO COMPLIANCE (se houver análises anteriores) */}
+              {analisesAnteriores.length > 0 && (
+                <div className="mt-6 pt-6 border-t space-y-4">
+                  <h3 className="text-lg font-semibold">Primeira Análise de Compliance</h3>
+                  
+                  {(() => {
+                    const primeiraAnalise = analisesAnteriores[analisesAnteriores.length - 1];
+                    const empresasAnt = primeiraAnalise.empresas as any[];
+                    const aprovadasAnt = empresasAnt.filter((emp: any) => emp.aprovado === true).map((emp: any) => emp.razao_social);
+                    const reprovadasAnt = empresasAnt.filter((emp: any) => emp.aprovado === false).map((emp: any) => emp.razao_social);
+                    
+                    return (
+                      <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Documento de Análise</span>
+                          <Badge variant={
+                            primeiraAnalise.status_aprovacao === 'aprovado' ? 'default' : 
+                            primeiraAnalise.status_aprovacao === 'reprovado' ? 'destructive' : 
+                            'secondary'
+                          }>
+                            {primeiraAnalise.status_aprovacao === 'aprovado' ? 'Aprovado' : 
+                             primeiraAnalise.status_aprovacao === 'reprovado' ? 'Reprovado' : 
+                             'Pendente'}
+                          </Badge>
+                        </div>
+                        
+                        {primeiraAnalise.protocolo && (
+                          <div className="text-xs text-muted-foreground">
+                            Protocolo: {primeiraAnalise.protocolo}
+                          </div>
+                        )}
+
+                        {aprovadasAnt.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-green-600">Empresas Aprovadas</h4>
+                            <div className="space-y-1">
+                              {aprovadasAnt.map((empresa, idx) => (
+                                <div key={idx} className="text-sm pl-4 border-l-2 border-green-600">
+                                  {empresa}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {reprovadasAnt.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-red-600">Empresas Reprovadas</h4>
+                            <div className="space-y-1">
+                              {reprovadasAnt.map((empresa, idx) => (
+                                <div key={idx} className="text-sm pl-4 border-l-2 border-red-600">
+                                  {empresa}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (primeiraAnalise.url_documento) {
+                                window.open(primeiraAnalise.url_documento, '_blank');
+                              }
+                            }}
+                            className="flex-1"
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualizar Análise
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (primeiraAnalise.url_documento) {
+                                const link = document.createElement('a');
+                                link.href = primeiraAnalise.url_documento;
+                                link.download = primeiraAnalise.nome_arquivo || 'analise_compliance.pdf';
+                                link.click();
+                              }
+                            }}
+                            className="flex-1"
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Baixar Análise
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* 4. A NOVA PLANILHA GERADA */}
               
               {planilhaGerada && (
                 <div className="mt-6 pt-6 border-t space-y-4">
-                  <div className="flex gap-2">
+                  <h3 className="text-lg font-semibold">Nova Planilha Consolidada</h3>
+                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Planilha Gerada em {new Date(planilhaGerada.created_at).toLocaleString('pt-BR')}</span>
+                    </div>
+                    {planilhaGerada.protocolo && (
+                      <div className="text-xs text-muted-foreground">
+                        Protocolo: {planilhaGerada.protocolo}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const { data } = await supabase.storage
+                            .from('processo-anexos')
+                            .createSignedUrl(planilhaGerada.url_arquivo, 3600);
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, '_blank');
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const { data, error } = await supabase.storage
+                            .from('processo-anexos')
+                            .download(planilhaGerada.url_arquivo);
+                          if (error) throw error;
+                          const blob = new Blob([data], { type: 'application/pdf' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = planilhaGerada.nome_arquivo;
+                          a.click();
+                        }}
+                        className="flex-1"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Baixar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setConfirmDeletePlanilhaOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Botões de Encaminhamento e Compliance */}
+                  <div className="flex gap-2 mt-4">
                     <Button onClick={gerarEncaminhamento} disabled={gerandoEncaminhamento} className="flex-1">
                       <FileText className="mr-2 h-4 w-4" />
                       {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
@@ -1156,71 +1349,10 @@ export function DialogRespostasCotacao({
                       {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
                     </Button>
                   </div>
-
-                  {encaminhamentos.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Encaminhamentos Gerados</p>
-                      {encaminhamentos.map((enc) => (
-                        <div key={enc.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Protocolo: {enc.protocolo}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(enc.created_at).toLocaleString('pt-BR')}
-                            </span>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(enc.url, '_blank')}
-                              className="flex-1"
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              Visualizar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  const { data, error } = await supabase.storage
-                                    .from('processo-anexos')
-                                    .download(enc.storage_path);
-                                  
-                                  if (error) throw error;
-                                  
-                                  const blob = new Blob([data], { type: 'application/pdf' });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `encaminhamento_${enc.protocolo}.pdf`;
-                                  a.click();
-                                } catch (error) {
-                                  console.error('Erro ao baixar:', error);
-                                  toast.error('Erro ao baixar encaminhamento');
-                                }
-                              }}
-                              className="flex-1"
-                            >
-                              <Download className="mr-2 h-4 w-4" />
-                              Baixar
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => excluirEncaminhamento(enc.id, enc.storage_path)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 
-              {/* Nova Análise de Compliance - APÓS a planilha consolidada */}
+              {/* 5. A NOVA ANALISE DO COMPLIANCE */}
               {analiseCompliance && planilhaGerada && (
                 <div className="mt-6 pt-6 border-t space-y-4">
                   <h3 className="text-lg font-semibold">Nova Análise de Compliance</h3>
