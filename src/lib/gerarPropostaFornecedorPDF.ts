@@ -107,6 +107,7 @@ export async function gerarPropostaFornecedorPDF(
     const dataGeracao = new Date().toLocaleString('pt-BR');
 
     const doc = new jsPDF();
+    doc.setLineHeightFactor(1.25);
     
     // Cores do sistema (HSL convertido para RGB)
     const corPrimaria = [0, 102, 102];
