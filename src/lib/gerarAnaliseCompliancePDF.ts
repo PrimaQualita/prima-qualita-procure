@@ -202,17 +202,25 @@ export const gerarAnaliseCompliancePDF = async (
     yPos += 10;
 
     // Capital Social
-    pdf.setFont("times", "normal");
+    pdf.setFont("times", "bold");
     pdf.setFontSize(12);
-    pdf.text(`Capital Social: ${empresa.capital_social}`, margin, yPos);
+    pdf.text("Capital Social: ", margin, yPos);
+    pdf.setFont("times", "normal");
+    pdf.text(empresa.capital_social, margin + pdf.getTextWidth("Capital Social: "), yPos);
     yPos += 6;
     
     // Ano de Fundação
-    pdf.text(`Ano de Fundação: ${empresa.ano_fundacao}`, margin, yPos);
+    pdf.setFont("times", "bold");
+    pdf.text("Ano de Fundação: ", margin, yPos);
+    pdf.setFont("times", "normal");
+    pdf.text(empresa.ano_fundacao, margin + pdf.getTextWidth("Ano de Fundação: "), yPos);
     yPos += 6;
 
     // Contratos Ativos com a OSS
-    pdf.text(`Contratos Ativos com a OSS: ${empresa.contratos_ativos_oss ? "Sim" : "Não"}`, margin, yPos);
+    pdf.setFont("times", "bold");
+    pdf.text("Contratos Ativos com a OSS: ", margin, yPos);
+    pdf.setFont("times", "normal");
+    pdf.text(empresa.contratos_ativos_oss ? "Sim" : "Não", margin + pdf.getTextWidth("Contratos Ativos com a OSS: "), yPos);
     yPos += 6;
 
     // Conflito de Interesse
@@ -220,16 +228,46 @@ export const gerarAnaliseCompliancePDF = async (
       addNewPage();
     }
     const conflitoTexto = extractTextFromHTML(empresa.conflito_interesse);
+    pdf.setFont("times", "bold");
     pdf.text("Conflito de Interesse: ", margin, yPos);
-    const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", maxWidth - pdf.getTextWidth("Conflito de Interesse: "));
+    pdf.setFont("times", "normal");
+    const conflitoWidth = maxWidth - pdf.getTextWidth("Conflito de Interesse: ");
+    const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", conflitoWidth);
     let xPos = margin + pdf.getTextWidth("Conflito de Interesse: ");
+    
+    // Primeira linha na mesma linha do rótulo
     pdf.text(conflitoLines[0] || "", xPos, yPos);
     yPos += 6;
+    
+    // Linhas seguintes justificadas
     for (let i = 1; i < conflitoLines.length; i++) {
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
-      pdf.text(conflitoLines[i], margin, yPos);
+      
+      if (i < conflitoLines.length - 1) {
+        // Justificar linhas do meio
+        const words = conflitoLines[i].split(' ');
+        if (words.length > 1) {
+          const lineWidth = pdf.getTextWidth(conflitoLines[i]);
+          const spaceWidth = (maxWidth - lineWidth) / (words.length - 1);
+          const normalSpaceWidth = pdf.getTextWidth(' ');
+          const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+          
+          let x = margin;
+          for (let j = 0; j < words.length; j++) {
+            pdf.text(words[j], x, yPos);
+            if (j < words.length - 1) {
+              x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+            }
+          }
+        } else {
+          pdf.text(conflitoLines[i], margin, yPos);
+        }
+      } else {
+        // Última linha não justificada
+        pdf.text(conflitoLines[i], margin, yPos);
+      }
       yPos += 6;
     }
 
@@ -238,16 +276,42 @@ export const gerarAnaliseCompliancePDF = async (
       addNewPage();
     }
     const capacidadeTexto = extractTextFromHTML(empresa.capacidade_tecnica);
+    pdf.setFont("times", "bold");
     pdf.text("Capacidade Técnica: ", margin, yPos);
-    const capacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", maxWidth - pdf.getTextWidth("Capacidade Técnica: "));
+    pdf.setFont("times", "normal");
+    const capacidadeWidth = maxWidth - pdf.getTextWidth("Capacidade Técnica: ");
+    const capacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", capacidadeWidth);
     xPos = margin + pdf.getTextWidth("Capacidade Técnica: ");
+    
     pdf.text(capacidadeLines[0] || "", xPos, yPos);
     yPos += 6;
+    
     for (let i = 1; i < capacidadeLines.length; i++) {
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
-      pdf.text(capacidadeLines[i], margin, yPos);
+      
+      if (i < capacidadeLines.length - 1) {
+        const words = capacidadeLines[i].split(' ');
+        if (words.length > 1) {
+          const lineWidth = pdf.getTextWidth(capacidadeLines[i]);
+          const spaceWidth = (maxWidth - lineWidth) / (words.length - 1);
+          const normalSpaceWidth = pdf.getTextWidth(' ');
+          const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+          
+          let x = margin;
+          for (let j = 0; j < words.length; j++) {
+            pdf.text(words[j], x, yPos);
+            if (j < words.length - 1) {
+              x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+            }
+          }
+        } else {
+          pdf.text(capacidadeLines[i], margin, yPos);
+        }
+      } else {
+        pdf.text(capacidadeLines[i], margin, yPos);
+      }
       yPos += 6;
     }
 
@@ -256,16 +320,42 @@ export const gerarAnaliseCompliancePDF = async (
       addNewPage();
     }
     const riscoTexto = extractTextFromHTML(empresa.risco_financeiro);
+    pdf.setFont("times", "bold");
     pdf.text("Risco Financeiro: ", margin, yPos);
-    const riscoLines = pdf.splitTextToSize(riscoTexto || "Não informado", maxWidth - pdf.getTextWidth("Risco Financeiro: "));
+    pdf.setFont("times", "normal");
+    const riscoWidth = maxWidth - pdf.getTextWidth("Risco Financeiro: ");
+    const riscoLines = pdf.splitTextToSize(riscoTexto || "Não informado", riscoWidth);
     xPos = margin + pdf.getTextWidth("Risco Financeiro: ");
+    
     pdf.text(riscoLines[0] || "", xPos, yPos);
     yPos += 6;
+    
     for (let i = 1; i < riscoLines.length; i++) {
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
-      pdf.text(riscoLines[i], margin, yPos);
+      
+      if (i < riscoLines.length - 1) {
+        const words = riscoLines[i].split(' ');
+        if (words.length > 1) {
+          const lineWidth = pdf.getTextWidth(riscoLines[i]);
+          const spaceWidth = (maxWidth - lineWidth) / (words.length - 1);
+          const normalSpaceWidth = pdf.getTextWidth(' ');
+          const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+          
+          let x = margin;
+          for (let j = 0; j < words.length; j++) {
+            pdf.text(words[j], x, yPos);
+            if (j < words.length - 1) {
+              x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+            }
+          }
+        } else {
+          pdf.text(riscoLines[i], margin, yPos);
+        }
+      } else {
+        pdf.text(riscoLines[i], margin, yPos);
+      }
       yPos += 6;
     }
 
@@ -274,16 +364,42 @@ export const gerarAnaliseCompliancePDF = async (
       addNewPage();
     }
     const reputacaoTexto = extractTextFromHTML(empresa.reputacao);
+    pdf.setFont("times", "bold");
     pdf.text("Reputação: ", margin, yPos);
-    const reputacaoLines = pdf.splitTextToSize(reputacaoTexto || "Não informado", maxWidth - pdf.getTextWidth("Reputação: "));
+    pdf.setFont("times", "normal");
+    const reputacaoWidth = maxWidth - pdf.getTextWidth("Reputação: ");
+    const reputacaoLines = pdf.splitTextToSize(reputacaoTexto || "Não informado", reputacaoWidth);
     xPos = margin + pdf.getTextWidth("Reputação: ");
+    
     pdf.text(reputacaoLines[0] || "", xPos, yPos);
     yPos += 6;
+    
     for (let i = 1; i < reputacaoLines.length; i++) {
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
-      pdf.text(reputacaoLines[i], margin, yPos);
+      
+      if (i < reputacaoLines.length - 1) {
+        const words = reputacaoLines[i].split(' ');
+        if (words.length > 1) {
+          const lineWidth = pdf.getTextWidth(reputacaoLines[i]);
+          const spaceWidth = (maxWidth - lineWidth) / (words.length - 1);
+          const normalSpaceWidth = pdf.getTextWidth(' ');
+          const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+          
+          let x = margin;
+          for (let j = 0; j < words.length; j++) {
+            pdf.text(words[j], x, yPos);
+            if (j < words.length - 1) {
+              x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+            }
+          }
+        } else {
+          pdf.text(reputacaoLines[i], margin, yPos);
+        }
+      } else {
+        pdf.text(reputacaoLines[i], margin, yPos);
+      }
       yPos += 6;
     }
 
@@ -292,16 +408,42 @@ export const gerarAnaliseCompliancePDF = async (
       addNewPage();
     }
     const cnaeTexto = extractTextFromHTML(empresa.cnae);
+    pdf.setFont("times", "bold");
     pdf.text("CNAE: ", margin, yPos);
-    const cnaeLines = pdf.splitTextToSize(cnaeTexto || "Não informado", maxWidth - pdf.getTextWidth("CNAE: "));
+    pdf.setFont("times", "normal");
+    const cnaeWidth = maxWidth - pdf.getTextWidth("CNAE: ");
+    const cnaeLines = pdf.splitTextToSize(cnaeTexto || "Não informado", cnaeWidth);
     xPos = margin + pdf.getTextWidth("CNAE: ");
+    
     pdf.text(cnaeLines[0] || "", xPos, yPos);
     yPos += 6;
+    
     for (let i = 1; i < cnaeLines.length; i++) {
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
-      pdf.text(cnaeLines[i], margin, yPos);
+      
+      if (i < cnaeLines.length - 1) {
+        const words = cnaeLines[i].split(' ');
+        if (words.length > 1) {
+          const lineWidth = pdf.getTextWidth(cnaeLines[i]);
+          const spaceWidth = (maxWidth - lineWidth) / (words.length - 1);
+          const normalSpaceWidth = pdf.getTextWidth(' ');
+          const totalSpaceWidth = spaceWidth + normalSpaceWidth;
+          
+          let x = margin;
+          for (let j = 0; j < words.length; j++) {
+            pdf.text(words[j], x, yPos);
+            if (j < words.length - 1) {
+              x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
+            }
+          }
+        } else {
+          pdf.text(cnaeLines[i], margin, yPos);
+        }
+      } else {
+        pdf.text(cnaeLines[i], margin, yPos);
+      }
       yPos += 6;
     }
 
