@@ -233,15 +233,19 @@ export const gerarAnaliseCompliancePDF = async (
     const conflitoTexto = extractTextFromHTML(empresa.conflito_interesse);
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
-    pdf.text("Conflito de Interesse: ", margin, yPos);
+    pdf.setTextColor(0);
+    const conflitoLabel = "Conflito de Interesse:";
+    pdf.text(conflitoLabel, margin, yPos);
+    
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
-    const conflitoWidth = maxWidth - pdf.getTextWidth("Conflito de Interesse: ") - 2;
+    pdf.setTextColor(0);
+    const conflitoLabelWidth = pdf.getTextWidth(conflitoLabel + " ");
+    const conflitoWidth = maxWidth - conflitoLabelWidth;
     const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", conflitoWidth);
-    let xPos = margin + pdf.getTextWidth("Conflito de Interesse: ");
     
     // Primeira linha na mesma linha do rótulo
-    pdf.text(conflitoLines[0] || "", xPos, yPos);
+    pdf.text(conflitoLines[0] || "", margin + conflitoLabelWidth, yPos);
     yPos += 7.5;
     
     // Linhas seguintes justificadas
@@ -252,6 +256,7 @@ export const gerarAnaliseCompliancePDF = async (
       
       pdf.setFont("times", "normal");
       pdf.setFontSize(12);
+      pdf.setTextColor(0);
       
       if (i < conflitoLines.length - 1) {
         // Justificar linhas do meio
@@ -286,14 +291,18 @@ export const gerarAnaliseCompliancePDF = async (
     const capacidadeTexto = extractTextFromHTML(empresa.capacidade_tecnica);
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
-    pdf.text("Capacidade Técnica: ", margin, yPos);
+    pdf.setTextColor(0);
+    const capacidadeLabel = "Capacidade Técnica:";
+    pdf.text(capacidadeLabel, margin, yPos);
+    
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
-    const capacidadeWidth = maxWidth - pdf.getTextWidth("Capacidade Técnica: ") - 2;
+    pdf.setTextColor(0);
+    const capacidadeLabelWidth = pdf.getTextWidth(capacidadeLabel + " ");
+    const capacidadeWidth = maxWidth - capacidadeLabelWidth;
     const capacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", capacidadeWidth);
-    xPos = margin + pdf.getTextWidth("Capacidade Técnica: ");
     
-    pdf.text(capacidadeLines[0] || "", xPos, yPos);
+    pdf.text(capacidadeLines[0] || "", margin + capacidadeLabelWidth, yPos);
     yPos += 7.5;
     
     for (let i = 1; i < capacidadeLines.length; i++) {
@@ -303,6 +312,7 @@ export const gerarAnaliseCompliancePDF = async (
       
       pdf.setFont("times", "normal");
       pdf.setFontSize(12);
+      pdf.setTextColor(0);
       
       if (i < capacidadeLines.length - 1) {
         const words = capacidadeLines[i].split(' ');
@@ -335,14 +345,18 @@ export const gerarAnaliseCompliancePDF = async (
     const riscoTexto = extractTextFromHTML(empresa.risco_financeiro);
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
-    pdf.text("Risco Financeiro: ", margin, yPos);
+    pdf.setTextColor(0);
+    const riscoLabel = "Risco Financeiro:";
+    pdf.text(riscoLabel, margin, yPos);
+    
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
-    const riscoWidth = maxWidth - pdf.getTextWidth("Risco Financeiro: ") - 2;
+    pdf.setTextColor(0);
+    const riscoLabelWidth = pdf.getTextWidth(riscoLabel + " ");
+    const riscoWidth = maxWidth - riscoLabelWidth;
     const riscoLines = pdf.splitTextToSize(riscoTexto || "Não informado", riscoWidth);
-    xPos = margin + pdf.getTextWidth("Risco Financeiro: ");
     
-    pdf.text(riscoLines[0] || "", xPos, yPos);
+    pdf.text(riscoLines[0] || "", margin + riscoLabelWidth, yPos);
     yPos += 7.5;
     
     for (let i = 1; i < riscoLines.length; i++) {
@@ -352,6 +366,7 @@ export const gerarAnaliseCompliancePDF = async (
       
       pdf.setFont("times", "normal");
       pdf.setFontSize(12);
+      pdf.setTextColor(0);
       
       if (i < riscoLines.length - 1) {
         const words = riscoLines[i].split(' ');
@@ -384,14 +399,18 @@ export const gerarAnaliseCompliancePDF = async (
     const reputacaoTexto = extractTextFromHTML(empresa.reputacao);
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
-    pdf.text("Reputação: ", margin, yPos);
+    pdf.setTextColor(0);
+    const reputacaoLabel = "Reputação:";
+    pdf.text(reputacaoLabel, margin, yPos);
+    
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
-    const reputacaoWidth = maxWidth - pdf.getTextWidth("Reputação: ") - 2;
+    pdf.setTextColor(0);
+    const reputacaoLabelWidth = pdf.getTextWidth(reputacaoLabel + " ");
+    const reputacaoWidth = maxWidth - reputacaoLabelWidth;
     const reputacaoLines = pdf.splitTextToSize(reputacaoTexto || "Não informado", reputacaoWidth);
-    xPos = margin + pdf.getTextWidth("Reputação: ");
     
-    pdf.text(reputacaoLines[0] || "", xPos, yPos);
+    pdf.text(reputacaoLines[0] || "", margin + reputacaoLabelWidth, yPos);
     yPos += 7.5;
     
     for (let i = 1; i < reputacaoLines.length; i++) {
@@ -401,6 +420,7 @@ export const gerarAnaliseCompliancePDF = async (
       
       pdf.setFont("times", "normal");
       pdf.setFontSize(12);
+      pdf.setTextColor(0);
       
       if (i < reputacaoLines.length - 1) {
         const words = reputacaoLines[i].split(' ');
@@ -433,14 +453,18 @@ export const gerarAnaliseCompliancePDF = async (
     const cnaeTexto = extractTextFromHTML(empresa.cnae);
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
-    pdf.text("CNAE: ", margin, yPos);
+    pdf.setTextColor(0);
+    const cnaeLabel = "CNAE:";
+    pdf.text(cnaeLabel, margin, yPos);
+    
     pdf.setFont("times", "normal");
     pdf.setFontSize(12);
-    const cnaeWidth = maxWidth - pdf.getTextWidth("CNAE: ") - 2;
+    pdf.setTextColor(0);
+    const cnaeLabelWidth = pdf.getTextWidth(cnaeLabel + " ");
+    const cnaeWidth = maxWidth - cnaeLabelWidth;
     const cnaeLines = pdf.splitTextToSize(cnaeTexto || "Não informado", cnaeWidth);
-    xPos = margin + pdf.getTextWidth("CNAE: ");
     
-    pdf.text(cnaeLines[0] || "", xPos, yPos);
+    pdf.text(cnaeLines[0] || "", margin + cnaeLabelWidth, yPos);
     yPos += 7.5;
     
     for (let i = 1; i < cnaeLines.length; i++) {
@@ -450,6 +474,7 @@ export const gerarAnaliseCompliancePDF = async (
       
       pdf.setFont("times", "normal");
       pdf.setFontSize(12);
+      pdf.setTextColor(0);
       
       if (i < cnaeLines.length - 1) {
         const words = cnaeLines[i].split(' ');
