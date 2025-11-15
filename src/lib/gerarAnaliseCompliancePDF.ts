@@ -260,99 +260,17 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const conflitoLabel = "Conflito de Interesse:";
-    pdf.text(conflitoLabel, margin, yPos);
+    pdf.text("Conflito de Interesse:", margin, yPos);
+    yPos += 7.5;
     
     pdf.setFont("times", "normal");
-    pdf.setFontSize(12);
-    pdf.setTextColor(0);
-    
-    // Dividir o texto em duas partes: primeira linha (ao lado do label) e resto
-    const conflitoLabelWidth = pdf.getTextWidth(conflitoLabel + "   ");
-    const firstLineWidth = maxWidth - conflitoLabelWidth;
-    
-    // Quebrar todo o texto usando a largura completa
-    const allConflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", maxWidth);
-    
-    // Se a primeira linha couber ao lado do label, colocá-la lá
-    if (allConflitoLines.length > 0 && pdf.getTextWidth(allConflitoLines[0]) <= firstLineWidth) {
-      pdf.text(allConflitoLines[0], margin + conflitoLabelWidth, yPos);
-      yPos += 7.5;
-      
-      // Processar linhas restantes
-      for (let i = 1; i < allConflitoLines.length; i++) {
-        if (yPos > pageHeight - 25) {
-          addNewPage();
-        }
-        
-        pdf.setFont("times", "normal");
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-        
-        const words = allConflitoLines[i].split(' ');
-        
-        if (i < allConflitoLines.length - 1 && words.length >= 3) {
-          const lineWidth = pdf.getTextWidth(allConflitoLines[i]);
-          const extraSpace = maxWidth - lineWidth;
-          const spacePerGap = extraSpace / (words.length - 1);
-          
-          if (spacePerGap < 2 && spacePerGap > 0) {
-            const normalSpaceWidth = pdf.getTextWidth(' ');
-            const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-            
-            let x = margin;
-            for (let j = 0; j < words.length; j++) {
-              pdf.text(words[j], x, yPos);
-              if (j < words.length - 1) {
-                x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
-              }
-            }
-          } else {
-            pdf.text(allConflitoLines[i], margin, yPos);
-          }
-        } else {
-          pdf.text(allConflitoLines[i], margin, yPos);
-        }
-        yPos += 7.5;
+    const conflitoLines = pdf.splitTextToSize(conflitoTexto || "Não informado", maxWidth);
+    for (const line of conflitoLines) {
+      if (yPos > pageHeight - 25) {
+        addNewPage();
       }
-    } else {
-      // Se não couber, colocar o texto na próxima linha
+      pdf.text(line, margin, yPos);
       yPos += 7.5;
-      for (let i = 0; i < allConflitoLines.length; i++) {
-        if (yPos > pageHeight - 25) {
-          addNewPage();
-        }
-        
-        pdf.setFont("times", "normal");
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-        
-        const words = allConflitoLines[i].split(' ');
-        
-        if (i < allConflitoLines.length - 1 && words.length >= 3) {
-          const lineWidth = pdf.getTextWidth(allConflitoLines[i]);
-          const extraSpace = maxWidth - lineWidth;
-          const spacePerGap = extraSpace / (words.length - 1);
-          
-          if (spacePerGap < 2 && spacePerGap > 0) {
-            const normalSpaceWidth = pdf.getTextWidth(' ');
-            const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-            
-            let x = margin;
-            for (let j = 0; j < words.length; j++) {
-              pdf.text(words[j], x, yPos);
-              if (j < words.length - 1) {
-                x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
-              }
-            }
-          } else {
-            pdf.text(allConflitoLines[i], margin, yPos);
-          }
-        } else {
-          pdf.text(allConflitoLines[i], margin, yPos);
-        }
-        yPos += 7.5;
-      }
     }
     
     yPos += 2.5;
@@ -365,96 +283,20 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const capacidadeLabel = "Capacidade Técnica:";
-    pdf.text(capacidadeLabel, margin, yPos);
+    pdf.text("Capacidade Técnica:", margin, yPos);
+    yPos += 7.5;
     
     pdf.setFont("times", "normal");
-    pdf.setFontSize(12);
-    pdf.setTextColor(0);
-    
-    const capacidadeLabelWidth = pdf.getTextWidth(capacidadeLabel + "   ");
-    const firstLineWidthCap = maxWidth - capacidadeLabelWidth;
-    const allCapacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", maxWidth);
-    
-    if (allCapacidadeLines.length > 0 && pdf.getTextWidth(allCapacidadeLines[0]) <= firstLineWidthCap) {
-      pdf.text(allCapacidadeLines[0], margin + capacidadeLabelWidth, yPos);
-      yPos += 7.5;
-      
-      for (let i = 1; i < allCapacidadeLines.length; i++) {
-        if (yPos > pageHeight - 25) {
-          addNewPage();
-        }
-        
-        pdf.setFont("times", "normal");
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-        
-        const words = allCapacidadeLines[i].split(' ');
-        
-        if (i < allCapacidadeLines.length - 1 && words.length >= 3) {
-          const lineWidth = pdf.getTextWidth(allCapacidadeLines[i]);
-          const extraSpace = maxWidth - lineWidth;
-          const spacePerGap = extraSpace / (words.length - 1);
-          
-          if (spacePerGap < 2 && spacePerGap > 0) {
-            const normalSpaceWidth = pdf.getTextWidth(' ');
-            const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-            
-            let x = margin;
-            for (let j = 0; j < words.length; j++) {
-              pdf.text(words[j], x, yPos);
-              if (j < words.length - 1) {
-                x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
-              }
-            }
-          } else {
-            pdf.text(allCapacidadeLines[i], margin, yPos);
-          }
-        } else {
-          pdf.text(allCapacidadeLines[i], margin, yPos);
-        }
-        yPos += 7.5;
+    const capacidadeLines = pdf.splitTextToSize(capacidadeTexto || "Não informado", maxWidth);
+    for (const line of capacidadeLines) {
+      if (yPos > pageHeight - 25) {
+        addNewPage();
       }
-    } else {
+      pdf.text(line, margin, yPos);
       yPos += 7.5;
-      for (let i = 0; i < allCapacidadeLines.length; i++) {
-        if (yPos > pageHeight - 25) {
-          addNewPage();
-        }
-        
-        pdf.setFont("times", "normal");
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-        
-        const words = allCapacidadeLines[i].split(' ');
-        
-        if (i < allCapacidadeLines.length - 1 && words.length >= 3) {
-          const lineWidth = pdf.getTextWidth(allCapacidadeLines[i]);
-          const extraSpace = maxWidth - lineWidth;
-          const spacePerGap = extraSpace / (words.length - 1);
-          
-          if (spacePerGap < 2 && spacePerGap > 0) {
-            const normalSpaceWidth = pdf.getTextWidth(' ');
-            const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-            
-            let x = margin;
-            for (let j = 0; j < words.length; j++) {
-              pdf.text(words[j], x, yPos);
-              if (j < words.length - 1) {
-                x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
     }
     
     yPos += 2.5;
-            }
-          } else {
-            pdf.text(allCapacidadeLines[i], margin, yPos);
-          }
-        } else {
-          pdf.text(allCapacidadeLines[i], margin, yPos);
-        }
-        yPos += 7.5;
-      }
-    }
 
     // Risco Financeiro
     if (yPos > pageHeight - 30) {
@@ -464,96 +306,20 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const riscoLabel = "Risco Financeiro:";
-    pdf.text(riscoLabel, margin, yPos);
+    pdf.text("Risco Financeiro:", margin, yPos);
+    yPos += 7.5;
     
     pdf.setFont("times", "normal");
-    pdf.setFontSize(12);
-    pdf.setTextColor(0);
-    
-    const riscoLabelWidth = pdf.getTextWidth(riscoLabel + "   ");
-    const firstLineWidthRisco = maxWidth - riscoLabelWidth;
-    const allRiscoLines = pdf.splitTextToSize(riscoTexto || "Não informado", maxWidth);
-    
-    if (allRiscoLines.length > 0 && pdf.getTextWidth(allRiscoLines[0]) <= firstLineWidthRisco) {
-      pdf.text(allRiscoLines[0], margin + riscoLabelWidth, yPos);
-      yPos += 7.5;
-      
-      for (let i = 1; i < allRiscoLines.length; i++) {
-        if (yPos > pageHeight - 25) {
-          addNewPage();
-        }
-        
-        pdf.setFont("times", "normal");
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-        
-        const words = allRiscoLines[i].split(' ');
-        
-        if (i < allRiscoLines.length - 1 && words.length >= 3) {
-          const lineWidth = pdf.getTextWidth(allRiscoLines[i]);
-          const extraSpace = maxWidth - lineWidth;
-          const spacePerGap = extraSpace / (words.length - 1);
-          
-          if (spacePerGap < 2 && spacePerGap > 0) {
-            const normalSpaceWidth = pdf.getTextWidth(' ');
-            const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-            
-            let x = margin;
-            for (let j = 0; j < words.length; j++) {
-              pdf.text(words[j], x, yPos);
-              if (j < words.length - 1) {
-                x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
-              }
-            }
-          } else {
-            pdf.text(allRiscoLines[i], margin, yPos);
-          }
-        } else {
-          pdf.text(allRiscoLines[i], margin, yPos);
-        }
-        yPos += 7.5;
+    const riscoLines = pdf.splitTextToSize(riscoTexto || "Não informado", maxWidth);
+    for (const line of riscoLines) {
+      if (yPos > pageHeight - 25) {
+        addNewPage();
       }
-    } else {
+      pdf.text(line, margin, yPos);
       yPos += 7.5;
-      for (let i = 0; i < allRiscoLines.length; i++) {
-        if (yPos > pageHeight - 25) {
-          addNewPage();
-        }
-        
-        pdf.setFont("times", "normal");
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-        
-        const words = allRiscoLines[i].split(' ');
-        
-        if (i < allRiscoLines.length - 1 && words.length >= 3) {
-          const lineWidth = pdf.getTextWidth(allRiscoLines[i]);
-          const extraSpace = maxWidth - lineWidth;
-          const spacePerGap = extraSpace / (words.length - 1);
-          
-          if (spacePerGap < 2 && spacePerGap > 0) {
-            const normalSpaceWidth = pdf.getTextWidth(' ');
-            const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-            
-            let x = margin;
-            for (let j = 0; j < words.length; j++) {
-              pdf.text(words[j], x, yPos);
-              if (j < words.length - 1) {
-                x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
-              }
-            }
-          } else {
-            pdf.text(allRiscoLines[i], margin, yPos);
-          }
-        } else {
-          pdf.text(allRiscoLines[i], margin, yPos);
     }
     
     yPos += 2.5;
-        yPos += 7.5;
-      }
-    }
 
     // Reputação
     if (yPos > pageHeight - 30) {
@@ -563,96 +329,20 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const reputacaoLabel = "Reputação:";
-    pdf.text(reputacaoLabel, margin, yPos);
+    pdf.text("Reputação:", margin, yPos);
+    yPos += 7.5;
     
     pdf.setFont("times", "normal");
-    pdf.setFontSize(12);
-    pdf.setTextColor(0);
-    
-    const reputacaoLabelWidth = pdf.getTextWidth(reputacaoLabel + "  ");
-    const firstLineWidthRep = maxWidth - reputacaoLabelWidth;
-    const allReputacaoLines = pdf.splitTextToSize(reputacaoTexto || "Não informado", maxWidth);
-    
-    if (allReputacaoLines.length > 0 && pdf.getTextWidth(allReputacaoLines[0]) <= firstLineWidthRep) {
-      pdf.text(allReputacaoLines[0], margin + reputacaoLabelWidth, yPos);
-      yPos += 7.5;
-      
-      for (let i = 1; i < allReputacaoLines.length; i++) {
-        if (yPos > pageHeight - 25) {
-          addNewPage();
-        }
-        
-        pdf.setFont("times", "normal");
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-        
-        const words = allReputacaoLines[i].split(' ');
-        
-        if (i < allReputacaoLines.length - 1 && words.length >= 3) {
-          const lineWidth = pdf.getTextWidth(allReputacaoLines[i]);
-          const extraSpace = maxWidth - lineWidth;
-          const spacePerGap = extraSpace / (words.length - 1);
-          
-          if (spacePerGap < 2 && spacePerGap > 0) {
-            const normalSpaceWidth = pdf.getTextWidth(' ');
-            const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-            
-            let x = margin;
-            for (let j = 0; j < words.length; j++) {
-              pdf.text(words[j], x, yPos);
-              if (j < words.length - 1) {
-                x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
-              }
-            }
-          } else {
-            pdf.text(allReputacaoLines[i], margin, yPos);
-          }
-        } else {
-          pdf.text(allReputacaoLines[i], margin, yPos);
-        }
-        yPos += 7.5;
+    const reputacaoLines = pdf.splitTextToSize(reputacaoTexto || "Não informado", maxWidth);
+    for (const line of reputacaoLines) {
+      if (yPos > pageHeight - 25) {
+        addNewPage();
       }
-    } else {
+      pdf.text(line, margin, yPos);
       yPos += 7.5;
-      for (let i = 0; i < allReputacaoLines.length; i++) {
-        if (yPos > pageHeight - 25) {
-          addNewPage();
-        }
-        
-        pdf.setFont("times", "normal");
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-        
-        const words = allReputacaoLines[i].split(' ');
-        
-        if (i < allReputacaoLines.length - 1 && words.length >= 3) {
-          const lineWidth = pdf.getTextWidth(allReputacaoLines[i]);
-          const extraSpace = maxWidth - lineWidth;
-          const spacePerGap = extraSpace / (words.length - 1);
-          
-          if (spacePerGap < 2 && spacePerGap > 0) {
-            const normalSpaceWidth = pdf.getTextWidth(' ');
-            const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-            
-            let x = margin;
-            for (let j = 0; j < words.length; j++) {
-              pdf.text(words[j], x, yPos);
-              if (j < words.length - 1) {
-                x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
-              }
-            }
-          } else {
-            pdf.text(allReputacaoLines[i], margin, yPos);
     }
     
     yPos += 2.5;
-        } else {
-          pdf.text(allReputacaoLines[i], margin, yPos);
-        }
-        yPos += 7.5;
-      }
-    }
 
     // CNAE
     if (yPos > pageHeight - 30) {
@@ -662,53 +352,18 @@ export const gerarAnaliseCompliancePDF = async (
     pdf.setFont("times", "bold");
     pdf.setFontSize(12);
     pdf.setTextColor(0);
-    const cnaeLabel = "CNAE:";
-    pdf.text(cnaeLabel, margin, yPos);
+    pdf.text("CNAE:", margin, yPos);
     yPos += 7.5;
     
     pdf.setFont("times", "normal");
-    pdf.setFontSize(12);
-    pdf.setTextColor(0);
-    
-    const allCnaeLines = pdf.splitTextToSize(cnaeTexto || "Não informado", maxWidth);
-    
-    for (let i = 0; i < allCnaeLines.length; i++) {
+    const cnaeLines = pdf.splitTextToSize(cnaeTexto || "Não informado", maxWidth);
+    for (const line of cnaeLines) {
       if (yPos > pageHeight - 25) {
         addNewPage();
       }
-      
-      pdf.setFont("times", "normal");
-      pdf.setFontSize(12);
-      pdf.setTextColor(0);
-      
-      const words = allCnaeLines[i].split(' ');
-      
-      if (i < allCnaeLines.length - 1 && words.length >= 3) {
-        const lineWidth = pdf.getTextWidth(allCnaeLines[i]);
-        const extraSpace = maxWidth - lineWidth;
-        const spacePerGap = extraSpace / (words.length - 1);
-        
-        if (spacePerGap < 2 && spacePerGap > 0) {
-          const normalSpaceWidth = pdf.getTextWidth(' ');
-          const totalSpaceWidth = spacePerGap + normalSpaceWidth;
-          
-          let x = margin;
-          for (let j = 0; j < words.length; j++) {
-            pdf.text(words[j], x, yPos);
-            if (j < words.length - 1) {
-              x += pdf.getTextWidth(words[j]) + totalSpaceWidth;
-            }
-          }
-        } else {
-          pdf.text(allCnaeLines[i], margin, yPos);
-        }
-      } else {
-        pdf.text(allCnaeLines[i], margin, yPos);
-      }
+      pdf.text(line, margin, yPos);
       yPos += 7.5;
     }
-
-    yPos += 7.5;
   });
 
   // Considerações Finais
