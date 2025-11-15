@@ -56,6 +56,29 @@ export function DialogAnaliseCompliance({
 
   const loadFornecedoresPropostas = async () => {
     try {
+      // Primeiro, buscar todas as empresas reprovadas em análises anteriores
+      const { data: analisesAnteriores, error: analisesError } = await supabase
+        .from("analises_compliance" as any)
+        .select("empresas_reprovadas")
+        .eq("cotacao_id", cotacaoId);
+
+      if (analisesError && analisesError.code !== "PGRST116") throw analisesError;
+
+      // Montar set de CNPJs reprovados
+      const cnpjsReprovados = new Set<string>();
+      if (analisesAnteriores && analisesAnteriores.length > 0) {
+        analisesAnteriores.forEach((analise: any) => {
+          if (analise.empresas_reprovadas) {
+            analise.empresas_reprovadas.forEach((cnpj: string) => {
+              cnpjsReprovados.add(cnpj);
+            });
+          }
+        });
+      }
+
+      console.log("CNPJs reprovados em análises anteriores:", Array.from(cnpjsReprovados));
+
+      // Buscar fornecedores com respostas, excluindo os rejeitados
       const { data: respostas, error } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -71,12 +94,19 @@ export function DialogAnaliseCompliance({
       if (error) throw error;
 
       if (respostas && respostas.length > 0) {
-        const empresasData = respostas.map((resposta: any) => ({
-          razao_social: resposta.fornecedores?.razao_social || "",
-          cnpj: resposta.fornecedores?.cnpj || "",
-          aprovado: true,
-        }));
+        // Filtrar empresas que já foram reprovadas anteriormente
+        const empresasData = respostas
+          .filter((resposta: any) => {
+            const cnpj = resposta.fornecedores?.cnpj || "";
+            return !cnpjsReprovados.has(cnpj);
+          })
+          .map((resposta: any) => ({
+            razao_social: resposta.fornecedores?.razao_social || "",
+            cnpj: resposta.fornecedores?.cnpj || "",
+            aprovado: true,
+          }));
         
+        console.log(`Empresas para análise (após filtrar ${cnpjsReprovados.size} reprovadas):`, empresasData);
         setEmpresas(empresasData);
       }
     } catch (error: any) {
@@ -86,30 +116,25 @@ export function DialogAnaliseCompliance({
 
   const loadExistingAnalise = async () => {
     try {
+      // Buscar a análise mais recente
       const { data, error } = await supabase
         .from("analises_compliance" as any)
         .select("*")
         .eq("cotacao_id", cotacaoId)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
-        setAnaliseId(data.id);
-        setUrlDocumento(data.url_documento);
-        setNomeArquivo(data.nome_arquivo);
-        setStatusAprovacao(data.status_aprovacao || "pendente");
-        
-        const empresasReprovadas = data.empresas_reprovadas || [];
-        
-        if (data.empresas && Array.isArray(data.empresas)) {
-          const empresasComStatus = data.empresas.map((emp: any) => ({
-            razao_social: emp.razao_social,
-            cnpj: emp.cnpj,
-            aprovado: !empresasReprovadas.includes(emp.cnpj),
-          }));
-          setEmpresas(empresasComStatus);
-        }
+        // NÃO carregar análise existente - sempre criar nova
+        // Apenas armazenar para referência
+        console.log("Análise anterior encontrada, mas criando nova análise");
+        setAnaliseId(null);
+        setUrlDocumento(null);
+        setNomeArquivo(null);
+        setStatusAprovacao("pendente");
       }
     } catch (error: any) {
       console.error("Erro ao carregar análise:", error);
@@ -209,20 +234,12 @@ export function DialogAnaliseCompliance({
         nome_arquivo: uploadedFileName,
       };
 
-      if (analiseId) {
-        const { error } = await supabase
-          .from("analises_compliance" as any)
-          .update(analiseData)
-          .eq("id", analiseId);
+      // Sempre criar NOVA análise, nunca editar
+      const { error } = await supabase
+        .from("analises_compliance" as any)
+        .insert(analiseData);
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("analises_compliance" as any)
-          .insert(analiseData);
-
-        if (error) throw error;
-      }
+      if (error) throw error;
 
       // Atualizar status da cotação
       await supabase
@@ -230,7 +247,7 @@ export function DialogAnaliseCompliance({
         .update({ respondido_compliance: true })
         .eq("id", cotacaoId);
 
-      toast.success("Análise salva com sucesso!");
+      toast.success("Nova análise de Compliance criada com sucesso!");
       onOpenChange(false);
     } catch (error: any) {
       console.error("Erro ao salvar análise:", error);
