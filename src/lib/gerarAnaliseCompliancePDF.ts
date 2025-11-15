@@ -785,12 +785,14 @@ export const gerarAnaliseCompliancePDF = async (
       
       const words = linhasRecomendacoes[i].split(' ');
       
-      if (i < linhasRecomendacoes.length - 1 && words.length >= 3) {
+      // Justifica todas as linhas exceto a última
+      if (i < linhasRecomendacoes.length - 1 && words.length >= 2) {
         const lineWidth = pdf.getTextWidth(linhasRecomendacoes[i]);
         const extraSpace = maxWidthComRecuo - lineWidth;
         const spacePerGap = extraSpace / (words.length - 1);
         
-        if (spacePerGap < 2 && spacePerGap > 0) {
+        // Aceita espaçamento maior para garantir justificação
+        if (spacePerGap < 3 && spacePerGap > 0) {
           const normalSpaceWidth = pdf.getTextWidth(' ');
           const totalSpaceWidth = spacePerGap + normalSpaceWidth;
           
