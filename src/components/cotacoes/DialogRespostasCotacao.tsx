@@ -1059,61 +1059,7 @@ export function DialogRespostasCotacao({
                 {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
               </Button>
 
-              {planilhaGerada && (
-                <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Planilha Consolidada Gerada</span>
-                    <span className="text-xs text-muted-foreground">Protocolo: {planilhaGerada.protocolo || 'N/A'}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        let filePath = planilhaGerada.url_arquivo;
-                        if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
-                          filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
-                        }
-                        const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(filePath, 3600);
-                        if (data) window.open(data.signedUrl, "_blank");
-                      }}
-                      className="flex-1"
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Visualizar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        let filePath = planilhaGerada.url_arquivo;
-                        if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
-                          filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
-                        }
-                        const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(filePath, 3600);
-                        if (data) {
-                          const link = document.createElement("a");
-                          link.href = data.signedUrl;
-                          link.download = planilhaGerada.nome_arquivo;
-                          link.click();
-                          toast.success("Download iniciado!");
-                        }
-                      }}
-                      className="flex-1"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Baixar
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setConfirmDeletePlanilhaOpen(true)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {/* Removido daqui - aparecerá após análise de compliance */}
               
               {planilhaGerada && (
                 <div className="mt-6 pt-6 border-t space-y-4">
@@ -1298,6 +1244,66 @@ export function DialogRespostasCotacao({
                   <p className="text-xs text-muted-foreground text-center">
                     Você poderá selecionar quais empresas incluir na planilha
                   </p>
+                </div>
+              )}
+
+              {/* Planilha Consolidada Gerada - MOVIDO PARA CÁ */}
+              {planilhaGerada && (
+                <div className="mt-6 pt-6 border-t space-y-4">
+                  <h3 className="text-lg font-semibold">Planilha Consolidada</h3>
+                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Planilha Gerada</span>
+                      <span className="text-xs text-muted-foreground">Protocolo: {planilhaGerada.protocolo || 'N/A'}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          let filePath = planilhaGerada.url_arquivo;
+                          if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
+                            filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
+                          }
+                          const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(filePath, 3600);
+                          if (data) window.open(data.signedUrl, "_blank");
+                        }}
+                        className="flex-1"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          let filePath = planilhaGerada.url_arquivo;
+                          if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
+                            filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
+                          }
+                          const { data } = await supabase.storage.from("processo-anexos").createSignedUrl(filePath, 3600);
+                          if (data) {
+                            const link = document.createElement("a");
+                            link.href = data.signedUrl;
+                            link.download = planilhaGerada.nome_arquivo;
+                            link.click();
+                            toast.success("Download iniciado!");
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Baixar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setConfirmDeletePlanilhaOpen(true)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
