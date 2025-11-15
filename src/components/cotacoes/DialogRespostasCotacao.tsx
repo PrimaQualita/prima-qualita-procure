@@ -53,6 +53,7 @@ interface RespostaFornecedor {
   observacoes_fornecedor: string | null;
   data_envio_resposta: string;
   usuario_gerador_id?: string | null;
+  comprovantes_urls?: string[] | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
@@ -350,6 +351,7 @@ export function DialogRespostasCotacao({
           observacoes_fornecedor,
           data_envio_resposta,
           usuario_gerador_id,
+          comprovantes_urls,
           fornecedores:fornecedor_id (
             razao_social,
             cnpj,
@@ -374,6 +376,7 @@ export function DialogRespostasCotacao({
         observacoes_fornecedor: r.observacoes_fornecedor,
         data_envio_resposta: r.data_envio_resposta,
         usuario_gerador_id: r.usuario_gerador_id,
+        comprovantes_urls: r.comprovantes_urls || [],
         fornecedor: {
           razao_social: r.fornecedores?.razao_social || "N/A",
           cnpj: r.fornecedores?.cnpj || "N/A",
@@ -395,38 +398,31 @@ export function DialogRespostasCotacao({
     try {
       setGerandoPDF(resposta.id);
       
-      // Buscar comprovantes/anexos originais
-      const { data: anexosOriginais, error: anexosError } = await supabase
-        .from('anexos_cotacao_fornecedor')
-        .select('url_arquivo, nome_arquivo')
-        .eq('cotacao_resposta_fornecedor_id', resposta.id)
-        .eq('tipo_anexo', 'COMPROVANTE');
-
-      console.log('Anexos originais encontrados:', anexosOriginais);
-      if (anexosError) console.error('Erro ao buscar anexos:', anexosError);
-
-      // Converter anexos em Files
+      // Buscar comprovantes pelas URLs salvas
       const comprovantes: File[] = [];
-      if (anexosOriginais && anexosOriginais.length > 0) {
-        for (const anexo of anexosOriginais) {
+      if (resposta.comprovantes_urls && resposta.comprovantes_urls.length > 0) {
+        console.log('URLs de comprovantes encontradas:', resposta.comprovantes_urls);
+        
+        for (const url of resposta.comprovantes_urls) {
           try {
-            console.log('Baixando anexo:', anexo.url_arquivo);
+            console.log('Baixando comprovante:', url);
             const { data: fileData, error: downloadError } = await supabase.storage
               .from('processo-anexos')
-              .download(anexo.url_arquivo);
+              .download(url);
             
             if (downloadError) {
-              console.error('Erro ao baixar anexo:', downloadError);
+              console.error('Erro ao baixar comprovante:', downloadError);
               continue;
             }
             
             if (fileData) {
-              const file = new File([fileData], anexo.nome_arquivo, { type: 'application/pdf' });
+              const nomeArquivo = url.split('/').pop() || 'comprovante.pdf';
+              const file = new File([fileData], nomeArquivo, { type: 'application/pdf' });
               comprovantes.push(file);
-              console.log('Anexo convertido em File:', anexo.nome_arquivo);
+              console.log('Comprovante convertido:', nomeArquivo);
             }
           } catch (error) {
-            console.error('Erro ao baixar comprovante:', error);
+            console.error('Erro ao processar comprovante:', error);
           }
         }
       }

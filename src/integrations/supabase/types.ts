@@ -437,6 +437,7 @@ export type Database = {
       }
       cotacao_respostas_fornecedor: {
         Row: {
+          comprovantes_urls: string[] | null
           cotacao_id: string
           created_at: string | null
           data_envio_resposta: string | null
@@ -452,6 +453,7 @@ export type Database = {
           valor_total_anual_ofertado: number
         }
         Insert: {
+          comprovantes_urls?: string[] | null
           cotacao_id: string
           created_at?: string | null
           data_envio_resposta?: string | null
@@ -467,6 +469,7 @@ export type Database = {
           valor_total_anual_ofertado: number
         }
         Update: {
+          comprovantes_urls?: string[] | null
           cotacao_id?: string
           created_at?: string | null
           data_envio_resposta?: string | null

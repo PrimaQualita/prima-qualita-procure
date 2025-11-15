@@ -324,32 +324,13 @@ const IncluirPrecosPublicos = () => {
         endereco_comercial: "Sistema",
       };
 
-      const { url: urlProposta, nome: nomeProposta, hash: hashProposta } = await gerarPropostaFornecedorPDF(
-        respostaCotacao.id,
-        dadosFornecedor,
-        valorTotal,
-        observacoes, // Observações sem a fonte
-        cotacao.titulo_cotacao,
-        arquivosComprovantes, // Passa os comprovantes para serem mesclados
-        profile.nome_completo,
-        profile.cpf
-      );
-
-      console.log("Proposta gerada com responsável:", profile.nome_completo);
-
-      // Atualizar hash de certificação na resposta
-      await supabase
-        .from("cotacao_respostas_fornecedor")
-        .update({ hash_certificacao: hashProposta })
-        .eq("id", respostaCotacao.id);
-
-      // Salvar comprovantes como anexos separados ANTES da proposta
+      // Salvar URLs dos comprovantes na resposta
+      const comprovanteUrls: string[] = [];
       if (arquivosComprovantes.length > 0) {
         for (const arquivo of arquivosComprovantes) {
           const timestamp = Date.now();
           const nomeArquivoStorage = `comprovante_${cnpjPrecosPublicos}_${timestamp}_${arquivo.name}`;
           
-          // Upload do comprovante
           const { error: uploadError } = await supabase.storage
             .from('processo-anexos')
             .upload(nomeArquivoStorage, arquivo, {
@@ -357,20 +338,31 @@ const IncluirPrecosPublicos = () => {
               upsert: false
             });
 
-          if (uploadError) {
-            console.error('Erro ao fazer upload do comprovante:', uploadError);
-            continue;
+          if (!uploadError) {
+            comprovanteUrls.push(nomeArquivoStorage);
           }
-
-          // Salvar registro do comprovante no banco
-          await supabase.from("anexos_cotacao_fornecedor").insert({
-            cotacao_resposta_fornecedor_id: respostaCotacao.id,
-            tipo_anexo: "COMPROVANTE",
-            nome_arquivo: arquivo.name,
-            url_arquivo: nomeArquivoStorage,
-          });
         }
       }
+
+      const { url: urlProposta, nome: nomeProposta, hash: hashProposta } = await gerarPropostaFornecedorPDF(
+        respostaCotacao.id,
+        dadosFornecedor,
+        valorTotal,
+        observacoes,
+        cotacao.titulo_cotacao,
+        arquivosComprovantes,
+        profile.nome_completo,
+        profile.cpf
+      );
+
+      // Atualizar com hash E URLs dos comprovantes
+      await supabase
+        .from("cotacao_respostas_fornecedor")
+        .update({ 
+          hash_certificacao: hashProposta,
+          comprovantes_urls: comprovanteUrls
+        })
+        .eq("id", respostaCotacao.id);
 
       // Salvar anexo da proposta com comprovantes mesclados
       await supabase.from("anexos_cotacao_fornecedor").insert({
@@ -483,12 +475,12 @@ const IncluirPrecosPublicos = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-16">Item</TableHead>
-                      <TableHead>Descrição</TableHead>
+                      <TableHead className="w-[200px]">Descrição</TableHead>
                       <TableHead className="w-24">Qtd</TableHead>
                       <TableHead className="w-24">Unid</TableHead>
-                      <TableHead className="w-40">Valor Unit. (R$) *</TableHead>
+                      <TableHead className="w-48">Valor Unit. (R$) *</TableHead>
                       <TableHead className="w-40">Marca</TableHead>
-                      <TableHead className="w-32">Vlr Total</TableHead>
+                      <TableHead className="w-48">Vlr Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
