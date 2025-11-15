@@ -475,12 +475,12 @@ const IncluirPrecosPublicos = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-16">Item</TableHead>
-                      <TableHead className="w-32">Descrição</TableHead>
+                      <TableHead className="w-24">Descrição</TableHead>
                       <TableHead className="w-20">Qtd</TableHead>
                       <TableHead className="w-20">Unid</TableHead>
-                      <TableHead className="w-32">Valor Unit. (R$) *</TableHead>
+                      <TableHead className="w-48">Valor Unit. (R$) *</TableHead>
                       <TableHead className="w-32">Marca</TableHead>
-                      <TableHead className="w-32">Vlr Total</TableHead>
+                      <TableHead className="w-48">Vlr Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
