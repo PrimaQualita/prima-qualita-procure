@@ -404,7 +404,7 @@ export default function Compliance() {
                               onClick={() => editarAnalise(processo)}
                             >
                               <FileCheck className="h-4 w-4 mr-2" />
-                              {processo.tem_analise ? "Editar Análise" : "Fazer Análise"}
+                              {processo.tem_analise ? "Nova Análise (Novas Empresas)" : "Fazer Análise"}
                             </Button>
                             {processo.tem_analise && (
                               <Button
