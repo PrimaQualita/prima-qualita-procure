@@ -94,6 +94,7 @@ const IncluirPrecosPublicos = () => {
   };
 
   const gerarTemplate = () => {
+    // Usar TAB como separador para compatibilidade com Excel e acentos
     const csvContent = [
       ['Número Item', 'Descrição', 'Quantidade', 'Unidade', 'Valor Unitário', 'Marca'],
       ...itens.map(item => [
@@ -104,8 +105,9 @@ const IncluirPrecosPublicos = () => {
         '', // Valor vazio para preencher
         '' // Marca vazia para preencher
       ])
-    ].map(row => row.join(';')).join('\n');
+    ].map(row => row.join('\t')).join('\n');
 
+    // Usar UTF-8 BOM para garantir compatibilidade
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
