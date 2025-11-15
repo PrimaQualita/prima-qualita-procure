@@ -493,10 +493,10 @@ const IncluirPrecosPublicos = () => {
 
                       return (
                         <TableRow key={item.id}>
-                          <TableCell>{item.numero_item}</TableCell>
+                          <TableCell className="text-center">{item.numero_item}</TableCell>
                           <TableCell>{item.descricao}</TableCell>
-                          <TableCell>{item.quantidade}</TableCell>
-                          <TableCell>{item.unidade}</TableCell>
+                          <TableCell className="text-center">{item.quantidade}</TableCell>
+                          <TableCell className="text-center">{item.unidade}</TableCell>
                           <TableCell>
                             <Input
                               type="text"
@@ -525,7 +525,7 @@ const IncluirPrecosPublicos = () => {
                               placeholder="Marca (opcional)"
                             />
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right font-semibold">
                             {!isNaN(valorTotal) && valorTotal > 0
                               ? `R$ ${valorTotal.toLocaleString("pt-BR", {
                                   minimumFractionDigits: 2,
