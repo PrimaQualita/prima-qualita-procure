@@ -1054,28 +1054,29 @@ export function DialogRespostasCotacao({
 
             {/* Botão de Gerar Planilha */}
             <div className="mt-6 space-y-4 border-t pt-4">
-              <Button 
-                onClick={gerarPlanilhaConsolidada}
-                disabled={gerandoPlanilha}
-                className="w-full"
-              >
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
-              </Button>
-
-              {/* 1. PRIMEIRA PLANILHA GERADA (se houver planilhas anteriores) */}
-              {planilhasAnteriores.length > 0 && (
-                <div className="mt-6 pt-6 border-t space-y-4">
-                  <h3 className="text-lg font-semibold">Primeira Planilha Consolidada</h3>
+              {/* ========== 2. BOTÃO + PLANILHA CONSOLIDADA ========== */}
+              <div className="mt-6 pt-6 border-t space-y-4">
+                <h3 className="text-lg font-semibold">Planilha Consolidada</h3>
+                
+                {!planilhaGerada && (
+                  <Button 
+                    onClick={gerarPlanilhaConsolidada}
+                    disabled={gerandoPlanilha}
+                    className="w-full"
+                  >
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
+                  </Button>
+                )}
+                
+                {planilhaGerada && (
                   <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Planilha Gerada em {new Date(planilhasAnteriores[planilhasAnteriores.length - 1].created_at).toLocaleString('pt-BR')}</span>
+                      <span className="text-sm font-medium">Protocolo: {planilhaGerada.protocolo}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(planilhaGerada.data_geracao).toLocaleString('pt-BR')}
+                      </span>
                     </div>
-                    {planilhasAnteriores[planilhasAnteriores.length - 1].protocolo && (
-                      <div className="text-xs text-muted-foreground">
-                        Protocolo: {planilhasAnteriores[planilhasAnteriores.length - 1].protocolo}
-                      </div>
-                    )}
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -1083,7 +1084,7 @@ export function DialogRespostasCotacao({
                         onClick={async () => {
                           const { data } = await supabase.storage
                             .from('processo-anexos')
-                            .createSignedUrl(planilhasAnteriores[planilhasAnteriores.length - 1].url_arquivo, 3600);
+                            .createSignedUrl(planilhaGerada.url_arquivo, 3600);
                           if (data?.signedUrl) {
                             window.open(data.signedUrl, '_blank');
                           }
@@ -1099,13 +1100,13 @@ export function DialogRespostasCotacao({
                         onClick={async () => {
                           const { data, error } = await supabase.storage
                             .from('processo-anexos')
-                            .download(planilhasAnteriores[planilhasAnteriores.length - 1].url_arquivo);
+                            .download(planilhaGerada.url_arquivo);
                           if (error) throw error;
                           const blob = new Blob([data], { type: 'application/pdf' });
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
-                          a.download = planilhasAnteriores[planilhasAnteriores.length - 1].nome_arquivo;
+                          a.download = planilhaGerada.nome_arquivo;
                           a.click();
                         }}
                         className="flex-1"
@@ -1113,74 +1114,95 @@ export function DialogRespostasCotacao({
                         <Download className="mr-2 h-4 w-4" />
                         Baixar
                       </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setConfirmDeletePlanilhaOpen(true)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* 2. OS ENCAMINHAMENTOS (mostrar sempre que houver) */}
-              {encaminhamentos.length > 0 && (
-                <div className="mt-6 pt-6 border-t space-y-4">
-                  <h3 className="text-lg font-semibold">Encaminhamentos Gerados</h3>
-                  {encaminhamentos.map((enc) => (
-                    <div key={enc.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Protocolo: {enc.protocolo}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(enc.created_at).toLocaleString('pt-BR')}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(enc.url, '_blank')}
-                          className="flex-1"
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          Visualizar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const { data, error } = await supabase.storage
-                                .from('processo-anexos')
-                                .download(enc.storage_path);
-                              
-                              if (error) throw error;
-                              
-                              const blob = new Blob([data], { type: 'application/pdf' });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `encaminhamento_${enc.protocolo}.pdf`;
-                              a.click();
-                            } catch (error) {
-                              console.error('Erro ao baixar:', error);
-                              toast.error('Erro ao baixar encaminhamento');
-                            }
-                          }}
-                          className="flex-1"
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Baixar
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => excluirEncaminhamento(enc.id, enc.storage_path)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+              {/* ========== 3. BOTÃO + ENCAMINHAMENTOS ========== */}
+              <div className="mt-6 pt-6 border-t space-y-4">
+                <h3 className="text-lg font-semibold">Encaminhamentos</h3>
+                
+                {planilhaGerada && (
+                  <Button
+                    onClick={gerarEncaminhamento}
+                    disabled={gerandoEncaminhamento}
+                    className="w-full"
+                  >
+                    {gerandoEncaminhamento ? "Gerando..." : (
+                      <>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Gerar Encaminhamento para Compliance
+                      </>
+                    )}
+                  </Button>
+                )}
+                
+                {encaminhamentos.map((enc) => (
+                  <div key={enc.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Protocolo: {enc.protocolo}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(enc.created_at).toLocaleString('pt-BR')}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(enc.url, '_blank')}
+                        className="flex-1"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const { data, error} = await supabase.storage
+                              .from('processo-anexos')
+                              .download(enc.storage_path);
+                            
+                            if (error) throw error;
+                            
+                            const blob = new Blob([data], { type: 'application/pdf' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `encaminhamento_${enc.protocolo}.pdf`;
+                            a.click();
+                          } catch (error) {
+                            console.error('Erro ao baixar:', error);
+                            toast.error('Erro ao baixar encaminhamento');
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Baixar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => excluirEncaminhamento(enc.id, enc.storage_path)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-              {/* 3. A PRIMEIRA ANALISE DO COMPLIANCE (se houver análises anteriores) */}
+              {/* ========== 4. PRIMEIRA ANÁLISE DO COMPLIANCE ========== */}
               {analisesAnteriores.length > 0 && (
                 <div className="mt-6 pt-6 border-t space-y-4">
                   <h3 className="text-lg font-semibold">Primeira Análise de Compliance</h3>
