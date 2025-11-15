@@ -478,7 +478,6 @@ export function DialogPlanilhaConsolidada({
               <td class="col-unid">${item.unidade}</td>
           `;
 
-          const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
           
           respostasFiltradas.forEach(resposta => {
             const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
