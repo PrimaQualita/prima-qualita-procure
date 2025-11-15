@@ -199,9 +199,189 @@ export function DialogRespostasCotacao({
   };
 
   const gerarPlanilhaConsolidada = async () => {
-    setGerandoPlanilha(true);
-    setPlanilhaConsolidadaOpen(true);
-    setGerandoPlanilha(false);
+    try {
+      setGerandoPlanilha(true);
+      
+      // Buscar TODAS as respostas para gerar com todas as empresas
+      const { data: respostasData, error: respostasError } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          id,
+          valor_total_anual_ofertado,
+          fornecedor:fornecedores!inner(razao_social, cnpj, email)
+        `)
+        .eq("cotacao_id", cotacaoId);
+
+      if (respostasError) throw respostasError;
+
+      if (!respostasData || respostasData.length === 0) {
+        toast.error("Nenhuma resposta encontrada");
+        setGerandoPlanilha(false);
+        return;
+      }
+
+      // Buscar itens da cotação
+      const { data: itensData } = await supabase
+        .from("itens_cotacao")
+        .select(`
+          id,
+          numero_item,
+          descricao,
+          quantidade,
+          unidade,
+          lote_id,
+          lotes_cotacao (
+            numero_lote,
+            descricao_lote
+          )
+        `)
+        .eq("cotacao_id", cotacaoId)
+        .order("numero_item");
+
+      // Buscar respostas dos itens
+      const { data: respostasItensData } = await supabase
+        .from("respostas_itens_fornecedor")
+        .select(`
+          id,
+          cotacao_resposta_fornecedor_id,
+          item_cotacao_id,
+          valor_unitario_ofertado,
+          marca
+        `)
+        .in("cotacao_resposta_fornecedor_id", respostasData.map(r => r.id));
+
+      // Criar estrutura de dados consolidada
+      const respostasConsolidadas = respostasData.map(resposta => {
+        const itensResposta = itensData?.map(item => {
+          const respostaItem = respostasItensData?.find(
+            ri => ri.cotacao_resposta_fornecedor_id === resposta.id && 
+                  ri.item_cotacao_id === item.id
+          );
+          
+          return {
+            numero_item: item.numero_item,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            valor_unitario_ofertado: respostaItem?.valor_unitario_ofertado || 0,
+            lote_id: item.lote_id,
+            lote_numero: item.lotes_cotacao?.numero_lote,
+            lote_descricao: item.lotes_cotacao?.descricao_lote,
+            marca: respostaItem?.marca
+          };
+        }) || [];
+
+        return {
+          fornecedor: resposta.fornecedor,
+          itens: itensResposta,
+          valor_total: resposta.valor_total_anual_ofertado
+        };
+      });
+
+      // Gerar o HTML da planilha (simplificado - apenas com dados essenciais)
+      const html = gerarHTMLPlanilha(respostasConsolidadas, itensData || []);
+      
+      // Converter para PDF
+      const opt = {
+        margin: 10,
+        filename: `Planilha_Consolidada_${new Date().getTime()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+      };
+
+      const pdfBlob = await html2pdf().set(opt).from(html).output('blob');
+      
+      // Upload para o storage
+      const fileName = `planilha_consolidada_${cotacaoId}_${uuidv4()}.pdf`;
+      const filePath = `processo-anexos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('processo-anexos')
+        .upload(filePath, pdfBlob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('processo-anexos')
+        .getPublicUrl(filePath);
+
+      // Gerar protocolo único
+      const protocolo = `PLAN-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+      // Salvar no banco
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error: insertError } = await supabase
+        .from('planilhas_consolidadas')
+        .insert({
+          cotacao_id: cotacaoId,
+          nome_arquivo: fileName,
+          url_arquivo: filePath,
+          protocolo: protocolo,
+          usuario_gerador_id: user?.id || '',
+          data_geracao: new Date().toISOString()
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success("Planilha consolidada gerada com sucesso!");
+      await loadPlanilhaGerada();
+      
+    } catch (error) {
+      console.error("Erro ao gerar planilha:", error);
+      toast.error("Erro ao gerar planilha consolidada");
+    } finally {
+      setGerandoPlanilha(false);
+    }
+  };
+
+  // Função auxiliar para gerar o HTML da planilha
+  const gerarHTMLPlanilha = (respostas: any[], itens: any[]) => {
+    return `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+            th { background-color: #f0f0f0; }
+          </style>
+        </head>
+        <body>
+          <h2>Planilha Consolidada de Propostas</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Descrição</th>
+                <th>Qtd</th>
+                <th>Unidade</th>
+                ${respostas.map(r => `<th>${r.fornecedor.razao_social}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${itens.map(item => `
+                <tr>
+                  <td>${item.numero_item}</td>
+                  <td>${item.descricao}</td>
+                  <td>${item.quantidade}</td>
+                  <td>${item.unidade}</td>
+                  ${respostas.map(r => {
+                    const itemResp = r.itens.find((i: any) => i.numero_item === item.numero_item);
+                    return `<td>R$ ${itemResp?.valor_unitario_ofertado?.toFixed(2) || '0.00'}</td>`;
+                  }).join('')}
+                </tr>
+              `).join('')}
+              <tr>
+                <td colspan="4"><strong>TOTAL</strong></td>
+                ${respostas.map(r => `<td><strong>R$ ${r.valor_total.toFixed(2)}</strong></td>`).join('')}
+              </tr>
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
   };
 
   const enviarAoCompliance = async () => {
