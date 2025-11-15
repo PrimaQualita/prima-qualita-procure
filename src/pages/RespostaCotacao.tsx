@@ -526,6 +526,11 @@ const RespostaCotacao = () => {
         endereco_comercial: enderecoCompleto,
       });
       
+      console.log('📎 Arquivos comprovantes:', arquivosComprovantes.length, 'arquivos');
+      arquivosComprovantes.forEach((arquivo, index) => {
+        console.log(`  ${index + 1}. ${arquivo.name} (${arquivo.type})`);
+      });
+      
       const { url: pdfUrl, nome: pdfNome } = await gerarPropostaFornecedorPDF(
         respostaCriada.id,
         {
