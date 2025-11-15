@@ -239,7 +239,7 @@ export function DialogRespostasCotacao({
         .select(`
           id,
           valor_total_anual_ofertado,
-          fornecedor:fornecedores!inner(razao_social, cnpj)
+          fornecedor:fornecedores!inner(razao_social, cnpj, email)
         `)
         .eq("cotacao_id", cotacaoId);
 
@@ -300,7 +300,8 @@ export function DialogRespostasCotacao({
         return {
           fornecedor: {
             razao_social: resposta.fornecedor.razao_social,
-            cnpj: resposta.fornecedor.cnpj
+            cnpj: resposta.fornecedor.cnpj,
+            email: resposta.fornecedor.email
           },
           itens: itensResposta,
           valor_total: resposta.valor_total_anual_ofertado
