@@ -52,6 +52,7 @@ interface RespostaFornecedor {
   valor_total_anual_ofertado: number;
   observacoes_fornecedor: string | null;
   data_envio_resposta: string;
+  usuario_gerador_id?: string | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
@@ -348,6 +349,7 @@ export function DialogRespostasCotacao({
           valor_total_anual_ofertado,
           observacoes_fornecedor,
           data_envio_resposta,
+          usuario_gerador_id,
           fornecedores:fornecedor_id (
             razao_social,
             cnpj,
@@ -371,6 +373,7 @@ export function DialogRespostasCotacao({
         valor_total_anual_ofertado: r.valor_total_anual_ofertado,
         observacoes_fornecedor: r.observacoes_fornecedor,
         data_envio_resposta: r.data_envio_resposta,
+        usuario_gerador_id: r.usuario_gerador_id,
         fornecedor: {
           razao_social: r.fornecedores?.razao_social || "N/A",
           cnpj: r.fornecedores?.cnpj || "N/A",
