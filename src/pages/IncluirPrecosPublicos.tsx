@@ -118,7 +118,10 @@ const IncluirPrecosPublicos = () => {
 
   const importarTemplate = async (file: File) => {
     try {
-      const text = await file.text();
+      // Ler arquivo como ArrayBuffer e decodificar como UTF-8
+      const arrayBuffer = await file.arrayBuffer();
+      const decoder = new TextDecoder('utf-8');
+      const text = decoder.decode(arrayBuffer);
       console.log("Conteúdo do arquivo:", text);
       
       // Remove BOM se existir e divide as linhas
