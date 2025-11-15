@@ -117,12 +117,12 @@ export async function gerarPropostaFornecedorPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('ITEM', 22, y, { align: 'center' });
-    doc.text('DESCRIÇÃO', 85, y, { align: 'center' });
-    doc.text('QTD', 130, y, { align: 'center' });
-    doc.text('UNID', 150, y, { align: 'center' });
-    doc.text('VL. UNIT.', 168, y, { align: 'center' });
-    doc.text('VL. TOTAL', 188, y, { align: 'center' });
+    doc.text('ITEM', 20, y, { align: 'center' });
+    doc.text('DESCRIÇÃO', 55, y, { align: 'center' });
+    doc.text('QTD', 110, y, { align: 'center' });
+    doc.text('UNID', 135, y, { align: 'center' });
+    doc.text('VL. UNIT.', 160, y, { align: 'center' });
+    doc.text('VL. TOTAL', 185, y, { align: 'center' });
     
     y += 6;
     doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
@@ -143,12 +143,12 @@ export async function gerarPropostaFornecedorPDF(
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text('ITEM', 18, y);
-        doc.text('DESCRIÇÃO', 35, y);
-        doc.text('QTD', 120, y);
-        doc.text('UNID', 140, y);
-        doc.text('VL. UNIT.', 160, y);
-        doc.text('VL. TOTAL', 180, y, { align: 'right' });
+        doc.text('ITEM', 20, y, { align: 'center' });
+        doc.text('DESCRIÇÃO', 55, y, { align: 'center' });
+        doc.text('QTD', 110, y, { align: 'center' });
+        doc.text('UNID', 135, y, { align: 'center' });
+        doc.text('VL. UNIT.', 160, y, { align: 'center' });
+        doc.text('VL. TOTAL', 185, y, { align: 'center' });
         y += 6;
         doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
         doc.setFont('helvetica', 'normal');
@@ -165,15 +165,15 @@ export async function gerarPropostaFornecedorPDF(
         doc.rect(15, y - 4, 180, 6, 'F');
       }
 
-      doc.text(itemCotacao.numero_item.toString(), 18, y);
+      doc.text(itemCotacao.numero_item.toString(), 20, y, { align: 'center' });
       
-      const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 80);
-      doc.text(descricaoLinhas[0], 35, y);
+      const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 50);
+      doc.text(descricaoLinhas[0], 30, y);
       
-      doc.text(itemCotacao.quantidade.toFixed(2), 120, y);
-      doc.text(itemCotacao.unidade, 140, y);
-      doc.text(`R$ ${valorUnitario.toFixed(2)}`, 160, y);
-      doc.text(`R$ ${valorTotalItem.toFixed(2)}`, 193, y, { align: 'right' });
+      doc.text(itemCotacao.quantidade.toFixed(2), 110, y, { align: 'center' });
+      doc.text(itemCotacao.unidade, 135, y, { align: 'center' });
+      doc.text(`R$ ${valorUnitario.toFixed(2)}`, 160, y, { align: 'center' });
+      doc.text(`R$ ${valorTotalItem.toFixed(2)}`, 185, y, { align: 'center' });
       
       y += 6;
       isAlternate = !isAlternate;
