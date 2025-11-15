@@ -386,7 +386,7 @@ const RespostaCotacao = () => {
       const valorTotal = calcularValorTotal();
 
       // Preparar endereço completo
-      const enderecoCompleto = `${dadosEmpresa.logradouro}, Nº ${dadosEmpresa.numero}, ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}, CEP: ${dadosEmpresa.cep}`;
+      const enderecoCompleto = `${dadosEmpresa.logradouro}, Nº ${dadosEmpresa.numero}, ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf}, CEP: ${dadosEmpresa.cep}`;
 
       // Preparar itens para o PDF
       const itensParaPDF = itensCotacao.map(item => ({
