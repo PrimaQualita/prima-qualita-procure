@@ -163,10 +163,17 @@ const RespostaCotacao = () => {
         .from("cotacoes_precos")
         .select("*")
         .eq("id", cotacaoIdParam)
-        .single();
+        .maybeSingle();
 
-      if (cotacaoError || !cotacaoData) {
-        toast.error("Cotação não encontrada");
+      if (cotacaoError) {
+        console.error("Erro ao buscar cotação:", cotacaoError);
+        toast.error("Erro ao carregar cotação: " + cotacaoError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!cotacaoData) {
+        toast.error("Cotação não encontrada ou não está mais disponível para respostas");
         setLoading(false);
         return;
       }
