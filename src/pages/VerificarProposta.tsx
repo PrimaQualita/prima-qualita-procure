@@ -117,7 +117,7 @@ const VerificarProposta = () => {
               razao_social,
               cnpj
             ),
-            profiles:usuario_gerador_id (
+            profiles!usuario_gerador_id (
               nome_completo
             ),
             cotacoes_precos:cotacao_id (
