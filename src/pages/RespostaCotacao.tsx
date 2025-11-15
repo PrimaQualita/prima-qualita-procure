@@ -721,64 +721,6 @@ const RespostaCotacao = () => {
                 </Button>
               </div>
 
-              {/* Área de Upload de Anexos */}
-              <div className="space-y-2">
-                <Label>Comprovantes/Anexos (Opcional)</Label>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    type="file"
-                    id="upload-comprovantes"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      setArquivosComprovantes([...arquivosComprovantes, ...files]);
-                      toast.success(`${files.length} arquivo(s) adicionado(s)`);
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('upload-comprovantes')?.click()}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Adicionar Arquivos
-                  </Button>
-                </div>
-                
-                {arquivosComprovantes.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      {arquivosComprovantes.length} arquivo(s) anexado(s):
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {arquivosComprovantes.map((arquivo, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm"
-                        >
-                          <FileText className="h-4 w-4" />
-                          <span className="max-w-[200px] truncate">{arquivo.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setArquivosComprovantes(
-                                arquivosComprovantes.filter((_, i) => i !== index)
-                              );
-                              toast.success("Arquivo removido");
-                            }}
-                            className="hover:text-destructive"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -897,6 +839,65 @@ const RespostaCotacao = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Área de Upload de Anexos */}
+            <div className="space-y-2">
+              <Label>Comprovantes/Anexos (Opcional)</Label>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="file"
+                  id="upload-comprovantes"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setArquivosComprovantes([...arquivosComprovantes, ...files]);
+                    toast.success(`${files.length} arquivo(s) adicionado(s)`);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById('upload-comprovantes')?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Adicionar Arquivos
+                </Button>
+              </div>
+              
+              {arquivosComprovantes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    {arquivosComprovantes.length} arquivo(s) anexado(s):
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {arquivosComprovantes.map((arquivo, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm"
+                      >
+                        <FileText className="h-4 w-4" />
+                        <span className="max-w-[200px] truncate">{arquivo.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setArquivosComprovantes(
+                              arquivosComprovantes.filter((_, i) => i !== index)
+                            );
+                            toast.success("Arquivo removido");
+                          }}
+                          className="hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <Button 
               onClick={handleSubmit}
               disabled={submitting}
