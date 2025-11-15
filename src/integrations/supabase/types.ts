@@ -448,6 +448,7 @@ export type Database = {
           observacoes_fornecedor: string | null
           protocolo: string | null
           rejeitado: boolean | null
+          usuario_gerador_id: string | null
           valor_total_anual_ofertado: number
         }
         Insert: {
@@ -462,6 +463,7 @@ export type Database = {
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           rejeitado?: boolean | null
+          usuario_gerador_id?: string | null
           valor_total_anual_ofertado: number
         }
         Update: {
@@ -476,6 +478,7 @@ export type Database = {
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           rejeitado?: boolean | null
+          usuario_gerador_id?: string | null
           valor_total_anual_ofertado?: number
         }
         Relationships: [
@@ -491,6 +494,13 @@ export type Database = {
             columns: ["fornecedor_id"]
             isOneToOne: false
             referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotacao_respostas_fornecedor_usuario_gerador_id_fkey"
+            columns: ["usuario_gerador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

@@ -26,10 +26,14 @@ interface RespostaVerificada {
   data_envio_resposta: string;
   protocolo: string | null;
   hash_certificacao: string | null;
+  usuario_gerador_id: string | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
   };
+  usuario_gerador?: {
+    nome_completo: string;
+  } | null;
   cotacao: {
     titulo_cotacao: string;
     processo: {
@@ -85,6 +89,7 @@ const VerificarProposta = () => {
             data_envio_resposta: data.data_geracao,
             protocolo: data.protocolo,
             hash_certificacao: null,
+            usuario_gerador_id: null,
             fornecedor: {
               razao_social: "Documento de Autorização",
               cnpj: "N/A",
@@ -105,11 +110,15 @@ const VerificarProposta = () => {
             id,
             protocolo,
             hash_certificacao,
+            usuario_gerador_id,
             valor_total_anual_ofertado,
             data_envio_resposta,
             fornecedores:fornecedor_id (
               razao_social,
               cnpj
+            ),
+            usuario_gerador:usuario_gerador_id (
+              nome_completo
             ),
             cotacoes_precos:cotacao_id (
               titulo_cotacao,
@@ -130,12 +139,14 @@ const VerificarProposta = () => {
             id: data.id,
             protocolo: data.protocolo,
             hash_certificacao: data.hash_certificacao,
+            usuario_gerador_id: data.usuario_gerador_id,
             valor_total_anual_ofertado: data.valor_total_anual_ofertado,
             data_envio_resposta: data.data_envio_resposta,
             fornecedor: {
               razao_social: (data.fornecedores as any)?.razao_social || "N/A",
               cnpj: (data.fornecedores as any)?.cnpj || "N/A",
             },
+            usuario_gerador: (data.usuario_gerador as any) || null,
             cotacao: {
               titulo_cotacao: (data.cotacoes_precos as any)?.titulo_cotacao || "N/A",
               processo: {
@@ -271,14 +282,23 @@ const VerificarProposta = () => {
                   {resposta.fornecedor.razao_social !== "Documento de Autorização" && (
                     <>
                       <div className="flex justify-between items-start py-2 border-b">
-                        <span className="text-sm font-medium text-muted-foreground">Fornecedor:</span>
-                        <span className="text-sm font-medium">{resposta.fornecedor.razao_social}</span>
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {resposta.fornecedor.cnpj === "00000000000000" ? "Gerado por:" : "Fornecedor:"}
+                        </span>
+                        <span className="text-sm font-medium">
+                          {resposta.fornecedor.cnpj === "00000000000000" 
+                            ? (resposta.usuario_gerador?.nome_completo || "Sistema")
+                            : resposta.fornecedor.razao_social
+                          }
+                        </span>
                       </div>
 
-                      <div className="flex justify-between items-start py-2 border-b">
-                        <span className="text-sm font-medium text-muted-foreground">CNPJ:</span>
-                        <span className="text-sm font-medium">{formatarCNPJ(resposta.fornecedor.cnpj)}</span>
-                      </div>
+                      {resposta.fornecedor.cnpj !== "00000000000000" && (
+                        <div className="flex justify-between items-start py-2 border-b">
+                          <span className="text-sm font-medium text-muted-foreground">CNPJ:</span>
+                          <span className="text-sm font-medium">{formatarCNPJ(resposta.fornecedor.cnpj)}</span>
+                        </div>
+                      )}
 
                       <div className="flex justify-between items-start py-2">
                         <span className="text-sm font-medium text-muted-foreground">Valor Total:</span>

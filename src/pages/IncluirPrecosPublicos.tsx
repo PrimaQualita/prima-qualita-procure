@@ -263,6 +263,14 @@ const IncluirPrecosPublicos = () => {
         fornecedorId = novoFornecedor.id;
       }
 
+      // Buscar dados do usuário logado
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("nome_completo, cpf")
+        .eq("id", user?.id)
+        .single();
+
       // Criar resposta da cotação (observações SEM fonte - será adicionada no PDF)
       const { data: respostaCotacao, error: errorResposta } = await supabase
         .from("cotacao_respostas_fornecedor")
@@ -272,6 +280,7 @@ const IncluirPrecosPublicos = () => {
           valor_total_anual_ofertado: valorTotal,
           observacoes_fornecedor: observacoes || null,
           data_envio_resposta: new Date().toISOString(),
+          usuario_gerador_id: user?.id,
         })
         .select()
         .single();
@@ -292,13 +301,7 @@ const IncluirPrecosPublicos = () => {
 
       if (errorItens) throw errorItens;
 
-      // Buscar dados do usuário logado para certificação
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("nome_completo, cpf")
-        .eq("id", user?.id)
-        .single();
+      // Gerar PDF da proposta (já temos profile do usuário logado)
 
       // Gerar PDF da proposta
       const dadosFornecedor = {
