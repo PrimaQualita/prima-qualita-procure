@@ -1,6 +1,8 @@
 import jsPDF from 'jspdf';
 import { PDFDocument } from 'pdf-lib';
 import { supabase } from '@/integrations/supabase/client';
+import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ItemProposta {
   numero_item: number;
@@ -22,7 +24,9 @@ export async function gerarPropostaFornecedorPDF(
   valorTotal: number,
   observacoes: string | null,
   tituloCotacao: string,
-  comprovantes: File[] = []
+  comprovantes: File[] = [],
+  usuarioNome?: string,
+  usuarioCpf?: string
 ): Promise<{ url: string; nome: string }> {
   try {
     // Buscar itens da resposta
@@ -40,6 +44,19 @@ export async function gerarPropostaFornecedorPDF(
       .eq('cotacao_resposta_fornecedor_id', respostaId);
 
     if (itensError) throw itensError;
+
+    // Criar conteúdo para hash de certificação
+    const dataGeracao = new Date().toLocaleString('pt-BR');
+    const conteudoHash = `
+      Fornecedor: ${fornecedor.razao_social}
+      CNPJ: ${fornecedor.cnpj}
+      Cotação: ${tituloCotacao}
+      Data: ${dataGeracao}
+      Valor Total: ${valorTotal.toFixed(2)}
+      Itens: ${JSON.stringify(itens)}
+    `;
+    
+    const hash = await gerarHashDocumento(conteudoHash);
 
     const doc = new jsPDF();
     
@@ -199,6 +216,26 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(obsLines, 20, y);
       y += obsLines.length * 5;
     }
+
+    // Certificação Digital
+    if (y > 220) {
+      doc.addPage();
+      y = 20;
+    }
+
+    y += 10;
+
+    const protocolo = uuidv4();
+    const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
+
+    adicionarCertificacaoDigital(doc, {
+      protocolo,
+      dataHora: dataGeracao,
+      responsavel: usuarioNome || fornecedor.razao_social,
+      cpf: usuarioCpf || fornecedor.cnpj,
+      hash,
+      linkVerificacao
+    }, y);
 
     // Gerar PDF base como blob
     const pdfBlob = doc.output('blob');
