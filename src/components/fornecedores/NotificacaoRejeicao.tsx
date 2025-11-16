@@ -41,6 +41,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
   useEffect(() => {
     loadRejeicoes();
+    loadRecursos();
   }, [fornecedorId]);
 
   const loadRejeicoes = async () => {
@@ -130,6 +131,40 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
     }
   };
 
+  const loadRecursos = async () => {
+    try {
+      // Buscar recursos diretamente pelo fornecedor_id
+      const { data: recursos, error } = await supabase
+        .from('recursos_fornecedor')
+        .select(`
+          id,
+          rejeicao_id,
+          mensagem_fornecedor,
+          data_envio,
+          nome_arquivo,
+          url_arquivo,
+          respostas_recursos (
+            decisao,
+            texto_resposta,
+            url_documento,
+            nome_arquivo,
+            data_resposta
+          )
+        `)
+        .eq('fornecedor_id', fornecedorId)
+        .order('data_envio', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao carregar recursos:', error);
+        return;
+      }
+
+      setRecursosEnviados(recursos || []);
+    } catch (error) {
+      console.error('Erro ao carregar recursos:', error);
+    }
+  };
+
   const handleEnviarRecurso = async (rejeicaoId: string) => {
     const arquivo = arquivoRecurso[rejeicaoId];
     if (!arquivo) {
@@ -200,7 +235,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
       if (error) throw error;
 
       toast.success("Recurso excluído com sucesso!");
-      await loadRejeicoes();
+      await loadRecursos();
     } catch (error) {
       console.error('Erro ao excluir recurso:', error);
       toast.error("Erro ao excluir recurso");
