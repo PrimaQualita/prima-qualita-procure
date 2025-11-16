@@ -1501,8 +1501,8 @@ export function DialogRespostasCotacao({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={excluirEncaminhamento}>
-              Excluir
+            <AlertDialogAction onClick={excluirEncaminhamento} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Encaminhamento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1518,23 +1518,21 @@ export function DialogRespostasCotacao({
               <br /><br />
               {analiseParaExcluir && (
                 <span className="text-sm">
-                  Data: <strong>{new Date(analiseParaExcluir.data_analise || '').toLocaleString("pt-BR")}</strong>
                   {analiseParaExcluir.protocolo && (
                     <>
-                      <br />
                       Protocolo: <strong>{analiseParaExcluir.protocolo}</strong>
                     </>
                   )}
                 </span>
               )}
               <br /><br />
-              Esta ação não pode ser desfeita.
+              Esta ação não pode ser desfeita. Você poderá solicitar uma nova análise a qualquer momento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={excluirAnaliseCompliance}>
-              Excluir
+            <AlertDialogAction onClick={excluirAnaliseCompliance} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Análise
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
