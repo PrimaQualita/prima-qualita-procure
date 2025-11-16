@@ -37,6 +37,7 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
   const [mensagemRecurso, setMensagemRecurso] = useState<{ [key: string]: string }>({});
   const [arquivoRecurso, setArquivoRecurso] = useState<{ [key: string]: File | null }>({});
   const [enviandoRecurso, setEnviandoRecurso] = useState<{ [key: string]: boolean }>({});
+  const [recursosEnviados, setRecursosEnviados] = useState<any[]>([]);
 
   useEffect(() => {
     loadRejeicoes();
@@ -85,8 +86,13 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
           .select(`
             id,
             rejeicao_id,
+            mensagem_fornecedor,
+            data_envio,
+            nome_arquivo,
+            url_arquivo,
             respostas_recursos (
               decisao,
+              texto_resposta,
               url_documento,
               nome_arquivo,
               data_resposta
@@ -100,6 +106,9 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
         if (recursosError) {
           console.error('Erro ao carregar recursos:', recursosError);
         }
+
+        // Separar recursos com respostas para exibir na seção própria
+        setRecursosEnviados(recursos || []);
 
         // Combinar dados
         const rejeicoesComDados = data.map(rejeicao => {
@@ -171,22 +180,30 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
       if (updateError) throw updateError;
 
+      await loadRejeicoes();
       toast.success('Recurso enviado com sucesso!');
-      
-      // Atualizar estado local com novo status
-      setRejeicoes(prev => prev.map(r => 
-        r.id === rejeicaoId ? { ...r, status_recurso: 'recurso_enviado' } : r
-      ));
-      
-      // Limpar estados de formulário
-      setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
-      setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
-      setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: null }));
     } catch (error) {
       console.error('Erro ao enviar recurso:', error);
       toast.error('Erro ao enviar recurso');
     } finally {
       setEnviandoRecurso(prev => ({ ...prev, [rejeicaoId]: false }));
+    }
+  };
+
+  const handleExcluirRecurso = async (recursoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('recursos_fornecedor')
+        .delete()
+        .eq('id', recursoId);
+
+      if (error) throw error;
+
+      toast.success("Recurso excluído com sucesso!");
+      await loadRejeicoes();
+    } catch (error) {
+      console.error('Erro ao excluir recurso:', error);
+      toast.error("Erro ao excluir recurso");
     }
   };
 
@@ -224,16 +241,98 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
     );
   };
 
-  if (rejeicoes.length === 0) return null;
-
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-destructive flex items-center gap-2">
-        <AlertCircle className="h-5 w-5" />
-        Notificações de Rejeição
-      </h3>
+    <div className="space-y-6">
+      {/* Seção de Recursos Enviados */}
+      {recursosEnviados.length > 0 && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">📄 Meus Recursos Enviados</h3>
+          <div className="space-y-4">
+            {recursosEnviados.map((recurso) => {
+              const respostaRecurso = (recurso as any).respostas_recursos?.[0];
+              
+              return (
+                <Card key={recurso.id} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          📅 Enviado em: {new Date(recurso.data_envio).toLocaleString('pt-BR')}
+                        </p>
+                        {recurso.mensagem_fornecedor && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            💬 Mensagem: {recurso.mensagem_fornecedor}
+                          </p>
+                        )}
+                      </div>
+                      {!respostaRecurso && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleExcluirRecurso(recurso.id)}
+                        >
+                          Excluir Recurso
+                        </Button>
+                      )}
+                    </div>
 
-      {rejeicoes.map((rejeicao) => (
+                    {/* Documento enviado */}
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      <a
+                        href={recurso.url_arquivo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {recurso.nome_arquivo}
+                      </a>
+                    </div>
+
+                    {/* Status/Resposta */}
+                    {respostaRecurso ? (
+                      <div className="mt-3 p-3 bg-muted rounded-md space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={respostaRecurso.decisao === 'provimento' ? 'default' : 'destructive'}>
+                            {respostaRecurso.decisao === 'provimento' ? '✅ Provimento Concedido' : '❌ Provimento Negado'}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(respostaRecurso.data_resposta).toLocaleString('pt-BR')}
+                          </span>
+                        </div>
+                        <p className="text-sm">{respostaRecurso.texto_resposta}</p>
+                        {respostaRecurso.url_documento && (
+                          <a
+                            href={respostaRecurso.url_documento}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline flex items-center gap-1"
+                          >
+                            <FileText className="h-4 w-4" />
+                            {respostaRecurso.nome_arquivo}
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <Badge variant="outline">⏳ Aguardando análise</Badge>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Seção de Notificações de Rejeição */}
+      {rejeicoes.length > 0 && (
+        <>
+          <h3 className="text-lg font-semibold text-destructive flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            Notificações de Rejeição
+          </h3>
+
+          {rejeicoes.map((rejeicao) => (
         <Card key={rejeicao.id} className="p-4 border-destructive">
           <div className="space-y-4">
             <div className="flex items-start justify-between">
@@ -666,6 +765,8 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
           </div>
         </Card>
       ))}
+        </>
+      )}
     </div>
   );
 }
