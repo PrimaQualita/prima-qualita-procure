@@ -1172,7 +1172,7 @@ export function DialogFinalizarProcesso({
     }
   };
 
-  const gerarAutorizacao = async (tipo: 'inicio_processo' | 'autorizacao_pagamento') => {
+  const gerarAutorizacao = async () => {
     if (relatoriosFinais.length === 0) {
       toast.error("É necessário gerar o Relatório Final antes da autorização");
       return;
@@ -1275,7 +1275,7 @@ export function DialogFinalizarProcesso({
         .insert({
           cotacao_id: cotacaoId,
           protocolo: resultadoAutorizacao.protocolo,
-          tipo_autorizacao: tipo,
+          tipo_autorizacao: 'compra_direta',
           nome_arquivo: resultadoAutorizacao.fileName,
           url_arquivo: resultadoAutorizacao.url,
           usuario_gerador_id: currentSession!.user.id,
@@ -1284,7 +1284,7 @@ export function DialogFinalizarProcesso({
 
       if (insertError) throw insertError;
 
-      toast.success(`Autorização de ${tipo === 'inicio_processo' ? 'Início de Processo' : 'Pagamento'} gerada com sucesso!`);
+      toast.success("Autorização gerada com sucesso!");
       await loadAutorizacoes();
     } catch (error) {
       console.error("Erro ao gerar autorização:", error);
@@ -1950,7 +1950,7 @@ export function DialogFinalizarProcesso({
             {relatoriosFinais.length > 0 && (
               <div className="flex flex-col gap-2">
                 <Button
-                  onClick={() => gerarAutorizacao('inicio_processo')}
+                  onClick={gerarAutorizacao}
                   disabled={loading || !isResponsavelLegal}
                   className="w-full"
                   title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : ""}
