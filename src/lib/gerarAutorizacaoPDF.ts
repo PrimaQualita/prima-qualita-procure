@@ -227,7 +227,7 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 40, 'FD');
+  doc.rect(20, yPos, 170, 45, 'FD');
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
@@ -252,9 +252,13 @@ export const gerarAutorizacaoCompraDireta = async (
   const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
   doc.text(linkQuebrado, 25, yPos + 35);
   
+  // Calcular posição do texto legal baseado no número de linhas do link
+  const numLinhasLink = linkQuebrado.length;
+  const yTextoLegal = yPos + 35 + (numLinhasLink * 3.5) + 2;
+  
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
-  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yPos + 39);
+  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yTextoLegal);
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');
@@ -395,7 +399,7 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFillColor(240, 249, 255);
   doc.setDrawColor(0, 51, 102);
   doc.setLineWidth(0.5);
-  doc.rect(20, yPos, 170, 40, 'FD');
+  doc.rect(20, yPos, 170, 45, 'FD');
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
@@ -410,8 +414,8 @@ export const gerarAutorizacaoSelecao = async (
   doc.text(`Responsável: ${usuarioNome} | CPF: ${usuarioCpf}`, 25, yPos + 24);
   
   // Hash e link de verificação
-  const hash = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
-  doc.text(`Hash: ${hash}`, 25, yPos + 30);
+  const hashSelecao = protocolo.replace(/-/g, '').substring(0, 32).toUpperCase();
+  doc.text(`Hash: ${hashSelecao}`, 25, yPos + 30);
   
   // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
@@ -420,9 +424,13 @@ export const gerarAutorizacaoSelecao = async (
   const linkQuebradoSelecao = doc.splitTextToSize(`Verificar em: ${linkCompletoSelecao}`, 165);
   doc.text(linkQuebradoSelecao, 25, yPos + 35);
   
+  // Calcular posição do texto legal baseado no número de linhas do link
+  const numLinhasLinkSelecao = linkQuebradoSelecao.length;
+  const yTextoLegalSelecao = yPos + 35 + (numLinhasLinkSelecao * 3.5) + 2;
+  
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
-  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yPos + 39);
+  doc.text('Documento com validade legal (Lei 14.063/2020)', 25, yTextoLegalSelecao);
   
   // Gerar blob
   console.log('[PDF] Gerando blob...');
