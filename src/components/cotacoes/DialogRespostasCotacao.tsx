@@ -263,6 +263,11 @@ export function DialogRespostasCotacao({
     }
   };
 
+  const handleEncaminhamentoGerado = () => {
+    // Recarregar a lista de encaminhamentos após gerar um novo
+    loadEncaminhamentos();
+  };
+
   const gerarEncaminhamento = async () => {
     if (!processoNumero || !processoObjeto) {
       toast.error("Informações do processo não encontradas");
@@ -310,9 +315,8 @@ export function DialogRespostasCotacao({
 
       if (dbError) throw dbError;
 
-      // Recarregar encaminhamento
-      await loadEncaminhamento();
-      toast.success('Encaminhamento gerado com sucesso!');
+      toast.success("Encaminhamento gerado com sucesso!");
+      handleEncaminhamentoGerado();
     } catch (error) {
       console.error('Erro ao gerar encaminhamento:', error);
       toast.error("Erro ao gerar encaminhamento");
@@ -321,42 +325,85 @@ export function DialogRespostasCotacao({
     }
   };
 
-  const excluirEncaminhamento = async (encaminhamentoId: string, storagePath: string) => {
-    if (!encaminhamentoId) return;
+  const handleEncaminhamentoGerado = () => {
+    loadEncaminhamentos();
+  };
 
+  const excluirEncaminhamento = async () => {
+    if (!encaminhamentoParaExcluir) return;
+    
     try {
-      console.log('Excluindo encaminhamento:', encaminhamentoId);
-      
-      // Deletar arquivo do storage primeiro
-      if (storagePath) {
-        const { error: storageError } = await supabase.storage
-          .from('processo-anexos')
-          .remove([storagePath]);
+      const { error: storageError } = await supabase.storage
+        .from("processo-anexos")
+        .remove([encaminhamentoParaExcluir.storage_path]);
 
-        if (storageError) {
-          console.error('Erro ao deletar do storage:', storageError);
-        }
-      }
+      if (storageError) throw storageError;
 
-      // Deletar do banco de dados
       const { error: dbError } = await supabase
-        .from('encaminhamentos_processo')
+        .from("encaminhamentos_processo")
         .delete()
-        .eq('id', encaminhamentoId);
+        .eq("id", encaminhamentoParaExcluir.id);
 
-      if (dbError) {
-        console.error('Erro ao deletar do banco:', dbError);
-        throw dbError;
+      if (dbError) throw dbError;
+
+      setEncaminhamentoParaExcluir(null);
+      setConfirmDeleteEncaminhamentoOpen(false);
+      handleEncaminhamentoGerado();
+      toast.success("Encaminhamento excluído com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao excluir encaminhamento:", error);
+      toast.error("Erro ao excluir encaminhamento");
+    }
+  };
+
+  const excluirAnaliseCompliance = async () => {
+    if (!analiseParaExcluir) return;
+    
+    try {
+      // Remover arquivo do storage
+      const fileName = analiseParaExcluir.url_documento?.split('/').pop();
+      if (fileName) {
+        const { error: storageError } = await supabase.storage
+          .from("documents")
+          .remove([`compliance/${fileName}`]);
+
+        if (storageError) console.error("Erro ao excluir arquivo:", storageError);
       }
 
-      console.log('Encaminhamento excluído com sucesso');
-      
-      // Recarregar lista
-      await loadEncaminhamento();
-      toast.success("Encaminhamento excluído com sucesso");
+      const { error: dbError } = await supabase
+        .from("analises_compliance")
+        .delete()
+        .eq("id", analiseParaExcluir.id);
+
+      if (dbError) throw dbError;
+
+      setAnaliseParaExcluir(null);
+      setConfirmDeleteAnaliseOpen(false);
+      loadAnaliseCompliance();
+      toast.success("Análise de compliance excluída com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao excluir análise:", error);
+      toast.error("Erro ao excluir análise de compliance");
+    }
+  };
+
+  const handleNovaAnalise = async () => {
+    try {
+      // Resetar status para permitir nova análise
+      const { error } = await supabase
+        .from('cotacoes_precos')
+        .update({ 
+          respondido_compliance: false
+        })
+        .eq('id', cotacaoId);
+
+      if (error) throw error;
+
+      toast.success("Agora o Compliance pode fazer uma nova análise!");
+      onOpenChange(false);
     } catch (error) {
-      console.error('Erro ao excluir encaminhamento:', error);
-      toast.error("Erro ao excluir encaminhamento");
+      console.error('Erro ao solicitar nova análise:', error);
+      toast.error("Erro ao solicitar nova análise");
     }
   };
 
@@ -408,11 +455,42 @@ export function DialogRespostasCotacao({
 
       setPlanilhaParaExcluir(null);
       setConfirmDeletePlanilhaOpen(false);
-      loadPlanilhaGerada(); // Recarregar lista
+      loadPlanilhaGerada();
       toast.success("Planilha excluída com sucesso");
     } catch (error: any) {
       console.error("Erro ao excluir planilha:", error);
       toast.error("Erro ao excluir planilha");
+    }
+  };
+
+  const excluirAnaliseCompliance = async () => {
+    if (!analiseParaExcluir) return;
+    
+    try {
+      // Remover arquivo do storage
+      const fileName = analiseParaExcluir.url_documento?.split('/').pop();
+      if (fileName) {
+        const { error: storageError } = await supabase.storage
+          .from("documents")
+          .remove([`compliance/${fileName}`]);
+
+        if (storageError) console.error("Erro ao excluir arquivo:", storageError);
+      }
+
+      const { error: dbError } = await supabase
+        .from("analises_compliance")
+        .delete()
+        .eq("id", analiseParaExcluir.id);
+
+      if (dbError) throw dbError;
+
+      setAnaliseParaExcluir(null);
+      setConfirmDeleteAnaliseOpen(false);
+      loadAnaliseCompliance();
+      toast.success("Análise de compliance excluída com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao excluir análise:", error);
+      toast.error("Erro ao excluir análise de compliance");
     }
   };
 
@@ -889,9 +967,13 @@ export function DialogRespostasCotacao({
   const [confirmDeleteAnexoOpen, setConfirmDeleteAnexoOpen] = useState(false);
   const [anexoParaExcluir, setAnexoParaExcluir] = useState<any>(null);
   
-  // Estados para confirmação de exclusão de planilha
+  // Estados para confirmação de exclusão
   const [confirmDeletePlanilhaOpen, setConfirmDeletePlanilhaOpen] = useState(false);
   const [planilhaParaExcluir, setPlanilhaParaExcluir] = useState<any>(null);
+  const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
+  const [encaminhamentoParaExcluir, setEncaminhamentoParaExcluir] = useState<any>(null);
+  const [confirmDeleteAnaliseOpen, setConfirmDeleteAnaliseOpen] = useState(false);
+  const [analiseParaExcluir, setAnaliseParaExcluir] = useState<any>(null);
   
 
   const confirmarExclusao = (resposta: RespostaFornecedor) => {
@@ -1227,7 +1309,10 @@ export function DialogRespostasCotacao({
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => excluirEncaminhamento(enc.id, enc.storage_path)}
+                          onClick={() => {
+                            setEncaminhamentoParaExcluir(enc);
+                            setConfirmDeleteEncaminhamentoOpen(true);
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -1259,92 +1344,83 @@ export function DialogRespostasCotacao({
                 </div>
               )}
 
-              {/* ========== 4. ANÁLISE DE COMPLIANCE ========== */}
-              {analiseCompliance && (
+              {/* ========== 4. ANÁLISES DE COMPLIANCE ========== */}
+              {analisesAnteriores.length > 0 && (
                 <div className="mt-6 pt-6 border-t space-y-4">
-                  <h3 className="text-lg font-semibold">Análise de Compliance</h3>
+                  <h3 className="text-lg font-semibold">Análises de Compliance</h3>
                   
-                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Documento de Análise</span>
-                      <Badge variant={
-                        analiseCompliance.status_aprovacao === 'aprovado' ? 'default' : 
-                        analiseCompliance.status_aprovacao === 'reprovado' ? 'destructive' : 
-                        'secondary'
-                      }>
-                        {analiseCompliance.status_aprovacao === 'aprovado' ? 'Aprovado' : 
-                         analiseCompliance.status_aprovacao === 'reprovado' ? 'Reprovado' : 
-                         'Pendente'}
-                      </Badge>
-                    </div>
-                    
-                    {analiseCompliance.protocolo && (
-                      <div className="text-xs text-muted-foreground">
-                        Protocolo: {analiseCompliance.protocolo}
-                      </div>
-                    )}
-
-                    {/* Empresas Aprovadas */}
-                    {empresasAprovadas.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-green-600">Empresas Aprovadas</h4>
-                        <div className="space-y-1">
-                          {empresasAprovadas.map((empresa, idx) => (
-                            <div key={idx} className="text-sm pl-4 border-l-2 border-green-600">
-                              {empresa}
-                            </div>
-                          ))}
+                  {analisesAnteriores.map((analise, index) => (
+                    <div key={analise.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-medium">
+                            Análise #{analisesAnteriores.length - index}
+                            {index === 0 && <span className="ml-2 text-xs text-primary">(Mais recente)</span>}
+                          </span>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(analise.data_analise || '').toLocaleString("pt-BR")}
+                          </p>
+                          {analise.protocolo && (
+                            <p className="text-xs text-muted-foreground">
+                              Protocolo: {analise.protocolo}
+                            </p>
+                          )}
+                          <p className="text-xs mt-1">
+                            Status: <span className={analise.status_aprovacao === 'aprovado' ? 'text-green-600' : 'text-red-600'}>
+                              {analise.status_aprovacao === 'aprovado' ? 'Aprovado' : 'Reprovado'}
+                            </span>
+                          </p>
                         </div>
                       </div>
-                    )}
-
-                    {/* Empresas Reprovadas */}
-                    {empresasReprovadas.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-red-600">Empresas Reprovadas</h4>
-                        <div className="space-y-1">
-                          {empresasReprovadas.map((empresa, idx) => (
-                            <div key={idx} className="text-sm pl-4 border-l-2 border-red-600">
-                              {empresa}
-                            </div>
-                          ))}
+                      
+                      {analise.url_documento && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(analise.url_documento, '_blank')}
+                            className="flex-1"
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualizar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = analise.url_documento;
+                              link.download = analise.nome_arquivo || 'analise_compliance.pdf';
+                              link.click();
+                            }}
+                            className="flex-1"
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Baixar
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setAnaliseParaExcluir(analise);
+                              setConfirmDeleteAnaliseOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          if (analiseCompliance.url_documento) {
-                            window.open(analiseCompliance.url_documento, '_blank');
-                          }
-                        }}
-                        className="flex-1"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Visualizar Análise
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          if (analiseCompliance.url_documento) {
-                            const link = document.createElement('a');
-                            link.href = analiseCompliance.url_documento;
-                            link.download = analiseCompliance.nome_arquivo || 'analise_compliance.pdf';
-                            link.click();
-                          }
-                        }}
-                        className="flex-1"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Baixar Análise
-                      </Button>
+                      )}
                     </div>
-                  </div>
+                  ))}
 
+                  {/* Botão para solicitar nova análise */}
+                  <Button
+                    onClick={handleNovaAnalise}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    Solicitar Nova Análise
+                  </Button>
                 </div>
               )}
 
@@ -1446,6 +1522,65 @@ export function DialogRespostasCotacao({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Confirmação de exclusão de encaminhamento */}
+      <AlertDialog open={confirmDeleteEncaminhamentoOpen} onOpenChange={setConfirmDeleteEncaminhamentoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão de Encaminhamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este encaminhamento ao compliance?
+              <br /><br />
+              {encaminhamentoParaExcluir && (
+                <span className="text-sm">
+                  Protocolo: <strong>{encaminhamentoParaExcluir.protocolo}</strong>
+                </span>
+              )}
+              <br /><br />
+              Esta ação não pode ser desfeita. Você poderá gerar um novo encaminhamento a qualquer momento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirEncaminhamento}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de exclusão de análise de compliance */}
+      <AlertDialog open={confirmDeleteAnaliseOpen} onOpenChange={setConfirmDeleteAnaliseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão de Análise</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta análise de compliance?
+              <br /><br />
+              {analiseParaExcluir && (
+                <span className="text-sm">
+                  Data: <strong>{new Date(analiseParaExcluir.data_analise || '').toLocaleString("pt-BR")}</strong>
+                  {analiseParaExcluir.protocolo && (
+                    <>
+                      <br />
+                      Protocolo: <strong>{analiseParaExcluir.protocolo}</strong>
+                    </>
+                  )}
+                </span>
+              )}
+              <br /><br />
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirAnaliseCompliance}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
 
       <DialogPlanilhaConsolidada
