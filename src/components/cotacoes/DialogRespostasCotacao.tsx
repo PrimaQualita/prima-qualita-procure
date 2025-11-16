@@ -443,9 +443,18 @@ export function DialogRespostasCotacao({
 
   const handleNovaAnalise = async () => {
     try {
-      // Não resetar o status, apenas permitir que uma nova análise seja criada
-      // O compliance poderá criar uma nova análise sem afetar as anteriores
-      toast.success("O Compliance pode agora criar uma nova análise!");
+      // Resetar o status de respondido_compliance para que o compliance saiba que precisa fazer nova análise
+      const { error } = await supabase
+        .from('cotacoes_precos')
+        .update({ 
+          respondido_compliance: false,
+          data_resposta_compliance: null
+        })
+        .eq('id', cotacaoId);
+
+      if (error) throw error;
+
+      toast.success("Nova análise solicitada! O Compliance foi notificado.");
       onOpenChange(false);
     } catch (error) {
       console.error('Erro ao solicitar nova análise:', error);
