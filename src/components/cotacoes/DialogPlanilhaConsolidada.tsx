@@ -940,8 +940,12 @@ export function DialogPlanilhaConsolidada({
       // Registrar no banco de dados
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Coletar CNPJs dos fornecedores incluídos na planilha
-      const cnpjsIncluidos = respostasFiltradas.map(r => r.fornecedor.cnpj);
+      // Coletar CNPJs dos fornecedores incluídos na planilha (empresas selecionadas)
+      const cnpjsIncluidos = respostas
+        .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social))
+        .map(r => r.fornecedor.cnpj);
+      
+      console.log("💾 Salvando planilha com fornecedores incluídos:", cnpjsIncluidos);
       
       const { error: dbError } = await supabase
         .from("planilhas_consolidadas")
