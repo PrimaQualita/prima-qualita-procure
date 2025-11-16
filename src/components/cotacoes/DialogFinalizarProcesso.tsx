@@ -210,14 +210,54 @@ export function DialogFinalizarProcesso({
       // PRIMEIRO: Buscar a ÚLTIMA planilha consolidada gerada
       const { data: ultimaPlanilha } = await supabase
         .from("planilhas_consolidadas")
-        .select("fornecedores_incluidos")
+        .select("fornecedores_incluidos, data_geracao")
         .eq("cotacao_id", cotacaoId)
         .order("data_geracao", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      console.log("📋 Última planilha consolidada:", ultimaPlanilha);
-      console.log("👥 Fornecedores incluídos na última planilha:", ultimaPlanilha?.fornecedores_incluidos);
+      console.log("📋 ========== ÚLTIMA PLANILHA CONSOLIDADA ==========");
+      console.log("Data geração:", ultimaPlanilha?.data_geracao);
+      console.log("Fornecedores incluídos (raw):", ultimaPlanilha?.fornecedores_incluidos);
+      console.log("É array?:", Array.isArray(ultimaPlanilha?.fornecedores_incluidos));
+      console.log("Tamanho:", ultimaPlanilha?.fornecedores_incluidos ? (ultimaPlanilha.fornecedores_incluidos as any[]).length : 0);
+
+      // FALLBACK: Se não houver planilha com fornecedores incluídos, buscar da análise de compliance mais recente
+      let cnpjsPermitidos: string[] = [];
+      
+      if (ultimaPlanilha?.fornecedores_incluidos && Array.isArray(ultimaPlanilha.fornecedores_incluidos) && ultimaPlanilha.fornecedores_incluidos.length > 0) {
+        cnpjsPermitidos = ultimaPlanilha.fornecedores_incluidos as string[];
+        console.log("✅ Usando CNPJs da última planilha consolidada:", cnpjsPermitidos);
+      } else {
+        console.log("⚠️ Planilha NÃO tem fornecedores_incluidos! Buscando da análise de compliance...");
+        
+        // Buscar análise de compliance mais recente
+        const { data: analiseCompliance } = await supabase
+          .from("analises_compliance")
+          .select("empresas_reprovadas")
+          .eq("cotacao_id", cotacaoId)
+          .order("data_analise", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        console.log("📊 Análise de compliance mais recente:", analiseCompliance);
+        console.log("Empresas reprovadas:", analiseCompliance?.empresas_reprovadas);
+
+        // Buscar TODAS as respostas para filtrar
+        const { data: todasRespostas } = await supabase
+          .from("cotacao_respostas_fornecedor")
+          .select("fornecedores!inner(cnpj)")
+          .eq("cotacao_id", cotacaoId);
+
+        const cnpjsReprovados = new Set(analiseCompliance?.empresas_reprovadas || []);
+        cnpjsPermitidos = todasRespostas
+          ?.filter(r => !cnpjsReprovados.has(r.fornecedores.cnpj))
+          .map(r => r.fornecedores.cnpj) || [];
+
+        console.log("✅ CNPJs permitidos (excluindo reprovados):", cnpjsPermitidos);
+      }
+
+      console.log("================================================");
 
       // Buscar cotação com critério de julgamento
       const { data: cotacao, error: cotacaoError } = await supabase
@@ -231,7 +271,7 @@ export function DialogFinalizarProcesso({
       console.log("📊 Critério de julgamento:", cotacao?.criterio_julgamento);
 
       // Buscar respostas dos fornecedores
-      let query = supabase
+      const { data: respostas, error: respostasError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
           id,
@@ -243,30 +283,20 @@ export function DialogFinalizarProcesso({
         `)
         .eq("cotacao_id", cotacaoId);
 
-      // SE EXISTE PLANILHA com fornecedores incluídos, filtrar apenas esses CNPJs
-      if (ultimaPlanilha?.fornecedores_incluidos && Array.isArray(ultimaPlanilha.fornecedores_incluidos) && ultimaPlanilha.fornecedores_incluidos.length > 0) {
-        console.log("🔍 FILTRANDO apenas fornecedores da última planilha:", ultimaPlanilha.fornecedores_incluidos);
-        // Não podemos filtrar por CNPJ diretamente na query de resposta, então buscaremos todos e filtraremos depois
-      }
-
-      const { data: respostas, error: respostasError } = await query;
-
       if (respostasError) throw respostasError;
 
-      // FILTRAR respostas pelos CNPJs da última planilha
-      let respostasFiltradas = respostas || [];
-      if (ultimaPlanilha?.fornecedores_incluidos && Array.isArray(ultimaPlanilha.fornecedores_incluidos) && ultimaPlanilha.fornecedores_incluidos.length > 0) {
-        const cnpjsIncluidos = ultimaPlanilha.fornecedores_incluidos as string[];
-        respostasFiltradas = respostas?.filter(r => 
-          cnpjsIncluidos.includes(r.fornecedores.cnpj)
-        ) || [];
-        console.log(`✅ FILTRADO: ${respostas?.length || 0} respostas → ${respostasFiltradas.length} da última planilha`);
-      }
+      console.log(`📝 Total de respostas no DB: ${respostas?.length || 0}`);
 
-      console.log(`📝 Total de respostas após filtro: ${respostasFiltradas.length}`);
-      console.log(`❌ Respostas rejeitadas: ${respostasFiltradas.filter(r => r.rejeitado).length || 0}`);
+      // FILTRAR respostas pelos CNPJs permitidos
+      const respostasFiltradas = cnpjsPermitidos.length > 0
+        ? respostas?.filter(r => cnpjsPermitidos.includes(r.fornecedores.cnpj)) || []
+        : respostas || [];
+
+      console.log(`✅ RESULTADO DO FILTRO: ${respostas?.length || 0} → ${respostasFiltradas.length} fornecedores`);
+      console.log("Fornecedores após filtro:", respostasFiltradas.map(r => `${r.fornecedores.razao_social} (${r.fornecedores.cnpj})`));
 
       if (respostasFiltradas.length === 0) {
+        console.log("❌ NENHUM FORNECEDOR após filtro!");
         setFornecedoresData([]);
         setLoading(false);
         return;
