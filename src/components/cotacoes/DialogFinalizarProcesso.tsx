@@ -111,12 +111,22 @@ export function DialogFinalizarProcesso({
   const [dialogReversaoOpen, setDialogReversaoOpen] = useState(false);
   const [rejeicaoParaReverter, setRejeicaoParaReverter] = useState<string | null>(null);
   const [motivoReversao, setMotivoReversao] = useState("");
+  const [confirmFinalizarOpen, setConfirmFinalizarOpen] = useState(false);
+  const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
+  const [encaminhamentoParaExcluir, setEncaminhamentoParaExcluir] = useState<any>(null);
+  const [confirmDeleteAutorizacaoOpen, setConfirmDeleteAutorizacaoOpen] = useState(false);
+  const [autorizacaoParaExcluir, setAutorizacaoParaExcluir] = useState<any>(null);
+  const [confirmDeleteRelatorioOpen, setConfirmDeleteRelatorioOpen] = useState(false);
+  const [relatorioParaExcluir, setRelatorioParaExcluir] = useState<any>(null);
+  const [encaminhamentos, setEncaminhamentos] = useState<any[]>([]);
+  const [autorizacoes, setAutorizacoes] = useState<any[]>([]);
 
   useEffect(() => {
     if (open) {
       console.log("📂 Dialog aberto, carregando todos os fornecedores vencedores");
       loadAllFornecedores();
       loadDocumentosAprovados();
+      loadEncaminhamentos();
       loadAutorizacoes();
       loadRelatorioFinal();
       checkResponsavelLegal();
@@ -645,21 +655,37 @@ export function DialogFinalizarProcesso({
     }
   };
 
-  const loadAutorizacoes = async () => {
-    const { data, error } = await (supabase as any)
-      .from("autorizacoes_processo")
-      .select("*")
-      .eq("cotacao_id", cotacaoId)
-      .eq("tipo_autorizacao", "compra_direta")
-      .order("data_geracao", { ascending: false })
-      .limit(1)
-      .single();
+  const loadEncaminhamentos = async () => {
+    if (!cotacaoId) return;
 
-    if (error && error.code !== 'PGRST116') {
+    try {
+      const { data, error } = await supabase
+        .from("encaminhamentos_processo")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setEncaminhamentos(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar encaminhamentos:", error);
+    }
+  };
+
+  const loadAutorizacoes = async () => {
+    if (!cotacaoId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("autorizacoes_processo")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_geracao", { ascending: false });
+
+      if (error) throw error;
+      setAutorizacoes(data || []);
+    } catch (error) {
       console.error("Erro ao carregar autorizações:", error);
-    } else if (data) {
-      setAutorizacaoDiretaUrl(data.url_arquivo);
-      setAutorizacaoDiretaId(data.id);
     }
   };
 
@@ -916,66 +942,98 @@ export function DialogFinalizarProcesso({
     }
   };
 
-  const deletarAutorizacao = async (autorizacaoId: string) => {
-    if (!confirm("Tem certeza que deseja deletar esta autorização? Será necessário gerar uma nova.")) {
-      return;
-    }
+  const deletarEncaminhamento = async () => {
+    if (!encaminhamentoParaExcluir) return;
 
     try {
-      const { error } = await (supabase as any)
-        .from("autorizacoes_processo")
+      const storageUrl = encaminhamentoParaExcluir.url;
+      const filePath = storageUrl.split("/processo-anexos/")[1];
+
+      const { error: storageError } = await supabase.storage
+        .from("processo-anexos")
+        .remove([filePath]);
+
+      if (storageError) {
+        console.error("Erro ao remover do storage:", storageError);
+      }
+
+      const { error: dbError } = await supabase
+        .from("encaminhamentos_processo")
         .delete()
-        .eq("id", autorizacaoId);
+        .eq("id", encaminhamentoParaExcluir.id);
 
-      if (error) throw error;
+      if (dbError) throw dbError;
 
-      setAutorizacaoDiretaUrl("");
-      setAutorizacaoDiretaId("");
-      toast.success("Autorização deletada");
-    } catch (error) {
-      console.error("Erro ao deletar autorização:", error);
-      toast.error("Erro ao deletar autorização");
+      setEncaminhamentoParaExcluir(null);
+      setConfirmDeleteEncaminhamentoOpen(false);
+      await loadEncaminhamentos();
+      toast.success("Encaminhamento excluído com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao excluir encaminhamento:", error);
+      toast.error("Erro ao excluir encaminhamento");
     }
   };
 
-  const deletarRelatorioFinal = async (relatorioId: string) => {
-    if (!confirm("Tem certeza que deseja deletar este relatório final?")) {
-      return;
-    }
+  const deletarAutorizacao = async () => {
+    if (!autorizacaoParaExcluir) return;
 
     try {
-      // Buscar informações do relatório antes de deletar
-      const { data: relatorioData } = await supabase
-        .from("relatorios_finais")
-        .select("nome_arquivo")
-        .eq("id", relatorioId)
-        .single();
+      const arquivoUrl = autorizacaoParaExcluir.url_arquivo;
+      const filePath = arquivoUrl.split("/processo-anexos/")[1];
 
-      // Deletar o arquivo do storage se existir
-      if (relatorioData?.nome_arquivo) {
-        const { error: storageError } = await supabase.storage
-          .from("documents")
-          .remove([`relatorios/${relatorioData.nome_arquivo}`]);
+      const { error: storageError } = await supabase.storage
+        .from("processo-anexos")
+        .remove([filePath]);
 
-        if (storageError) {
-          console.error("Erro ao deletar arquivo do storage:", storageError);
-        }
+      if (storageError) {
+        console.error("Erro ao remover do storage:", storageError);
       }
 
-      // Deletar o registro do banco de dados
-      const { error } = await supabase
+      const { error: dbError } = await supabase
+        .from("autorizacoes_processo")
+        .delete()
+        .eq("id", autorizacaoParaExcluir.id);
+
+      if (dbError) throw dbError;
+
+      setAutorizacaoParaExcluir(null);
+      setConfirmDeleteAutorizacaoOpen(false);
+      await loadAutorizacoes();
+      toast.success("Autorização excluída com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao excluir autorização:", error);
+      toast.error("Erro ao excluir autorização");
+    }
+  };
+
+  const deletarRelatorioFinal = async () => {
+    if (!relatorioParaExcluir) return;
+
+    try {
+      const filePath = relatorioParaExcluir.url_arquivo.split("/processo-anexos/")[1];
+
+      const { error: storageError } = await supabase.storage
+        .from("processo-anexos")
+        .remove([filePath]);
+
+      if (storageError) {
+        console.error("Erro ao remover do storage:", storageError);
+      }
+
+      const { error: dbError } = await supabase
         .from("relatorios_finais")
         .delete()
-        .eq("id", relatorioId);
+        .eq("id", relatorioParaExcluir.id);
 
-      if (error) throw error;
+      if (dbError) throw dbError;
 
-      // Recarregar a lista de relatórios
+      setRelatorioParaExcluir(null);
+      setConfirmDeleteRelatorioOpen(false);
       await loadRelatorioFinal();
-      toast.success("Relatório final deletado com sucesso");
-    } catch (error) {
-      console.error("Erro ao deletar relatório final:", error);
-      toast.error("Erro ao deletar relatório final");
+      toast.success("Relatório final excluído com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao excluir relatório final:", error);
+      toast.error("Erro ao excluir relatório final");
     }
   };
 
@@ -1873,7 +1931,10 @@ export function DialogFinalizarProcesso({
                         <Download className="h-4 w-4" />
                       </Button>
                       <Button
-                        onClick={() => deletarRelatorioFinal(relatorio.id)}
+                        onClick={() => {
+                          setRelatorioParaExcluir(relatorio);
+                          setConfirmDeleteRelatorioOpen(true);
+                        }}
                         variant="destructive"
                         size="icon"
                         title="Excluir"
@@ -1886,65 +1947,17 @@ export function DialogFinalizarProcesso({
               )}
             </div>
             
-            {/* Autorização - Apenas Responsável Legal pode gerar e deletar */}
-            <div className="flex items-center gap-3">
-              {!autorizacaoDiretaUrl ? (
-                <Button
-                  onClick={gerarAutorizacao}
-                  disabled={loading || !todosDocumentosAprovados || relatoriosFinais.length === 0 || !isResponsavelLegal}
-                  className="flex-1"
-                  title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : relatoriosFinais.length === 0 ? "Gere o Relatório Final primeiro" : ""}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Gerar Autorização
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    onClick={() => window.open(autorizacaoDiretaUrl, '_blank')}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Visualizar Autorização
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = autorizacaoDiretaUrl;
-                      link.download = 'autorizacao-compra-direta.pdf';
-                      link.click();
-                    }}
-                    variant="outline"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar
-                  </Button>
-                  {isResponsavelLegal && (
-                    <Button
-                      onClick={() => deletarAutorizacao(autorizacaoDiretaId)}
-                      variant="destructive"
-                      size="icon"
-                      title="Excluir Autorização"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-
             {/* Botões de Ação */}
             <div className="flex gap-3">
               <Button onClick={() => onOpenChange(false)} variant="outline" className="flex-1">
                 Cancelar
               </Button>
               <Button
-                onClick={finalizarProcesso}
-                disabled={loading || !autorizacaoDiretaUrl}
+                onClick={() => setConfirmFinalizarOpen(true)}
+                disabled={loading || relatoriosFinais.length === 0 || !isResponsavelLegal}
                 className="flex-1"
               >
-                Enviar para Contratação
+                Finalizar Processo
               </Button>
             </div>
           </div>
@@ -2248,6 +2261,48 @@ export function DialogFinalizarProcesso({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+          open={confirmDeleteEncaminhamentoOpen}
+          onOpenChange={setConfirmDeleteEncaminhamentoOpen}
+          onConfirm={deletarEncaminhamento}
+          title="Confirmar Exclusão de Encaminhamento"
+          description={
+            encaminhamentoParaExcluir 
+              ? `Tem certeza que deseja excluir este encaminhamento?\n\nProtocolo: ${encaminhamentoParaExcluir.protocolo}\n\nEsta ação não pode ser desfeita. Você poderá gerar um novo encaminhamento a qualquer momento.`
+              : ""
+          }
+          confirmText="Excluir Encaminhamento"
+          cancelText="Cancelar"
+        />
+
+        <ConfirmDialog
+          open={confirmDeleteAutorizacaoOpen}
+          onOpenChange={setConfirmDeleteAutorizacaoOpen}
+          onConfirm={deletarAutorizacao}
+          title="Confirmar Exclusão de Autorização"
+          description={
+            autorizacaoParaExcluir 
+              ? `Tem certeza que deseja excluir esta autorização?\n\nProtocolo: ${autorizacaoParaExcluir.protocolo}\nTipo: ${autorizacaoParaExcluir.tipo_autorizacao === 'inicio_processo' ? 'Início de Processo' : 'Autorização de Pagamento'}\n\nEsta ação não pode ser desfeita. Você poderá gerar uma nova autorização a qualquer momento.`
+              : ""
+          }
+          confirmText="Excluir Autorização"
+          cancelText="Cancelar"
+        />
+
+        <ConfirmDialog
+          open={confirmDeleteRelatorioOpen}
+          onOpenChange={setConfirmDeleteRelatorioOpen}
+          onConfirm={deletarRelatorioFinal}
+          title="Confirmar Exclusão de Relatório Final"
+          description={
+            relatorioParaExcluir 
+              ? `Tem certeza que deseja excluir este relatório final?\n\nProtocolo: ${relatorioParaExcluir.protocolo}\n\nEsta ação não pode ser desfeita. Você poderá gerar um novo relatório final a qualquer momento.`
+              : ""
+          }
+          confirmText="Excluir Relatório"
+          cancelText="Cancelar"
+        />
       </DialogContent>
     </Dialog>
   );

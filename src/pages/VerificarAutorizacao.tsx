@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FileText, CheckCircle2, XCircle, Search, Download } from "lucide-react";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
+import { stripHtml } from "@/lib/htmlUtils";
 
 export default function VerificarAutorizacao() {
   const [searchParams] = useSearchParams();
@@ -462,7 +463,7 @@ export default function VerificarAutorizacao() {
                       </div>
                       <div className="space-y-1 md:col-span-2">
                         <p className="text-sm text-muted-foreground">Objeto</p>
-                        <p className="font-semibold">{autorizacao.cotacao.processo?.objeto_resumido}</p>
+                        <p className="font-semibold">{stripHtml(autorizacao.cotacao.processo?.objeto_resumido || "")}</p>
                       </div>
                     </div>
                   </div>
