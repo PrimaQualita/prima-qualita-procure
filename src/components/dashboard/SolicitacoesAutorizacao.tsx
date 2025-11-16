@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, ExternalLink, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -89,46 +89,52 @@ export function SolicitacoesAutorizacao() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Solicitações de Autorização Pendentes</CardTitle>
-        <CardDescription>
+    <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
+      <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
+      <AlertTitle className="text-lg font-semibold text-yellow-900 dark:text-yellow-100">
+        Solicitações de Autorização Pendentes
+      </AlertTitle>
+      <AlertDescription>
+        <p className="text-yellow-800 dark:text-yellow-200 mb-4">
           Processos aguardando sua autorização para continuar
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+        </p>
         <div className="space-y-3">
           {solicitacoes.map((solicitacao) => (
             <div
               key={solicitacao.id}
-              className="flex items-center justify-between p-4 border rounded-lg bg-muted/50"
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border border-yellow-300 dark:border-yellow-700 rounded-lg bg-white dark:bg-yellow-900/20"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-semibold">Processo {solicitacao.processo_numero}</span>
-                  <Badge variant="outline">Pendente</Badge>
+                  <span className="font-semibold text-yellow-900 dark:text-yellow-100">
+                    Processo {solicitacao.processo_numero}
+                  </span>
+                  <Badge variant="outline" className="border-yellow-400 text-yellow-700 dark:text-yellow-300">
+                    Pendente
+                  </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-yellow-700 dark:text-yellow-300">
                   Solicitado por: {solicitacao.solicitante.nome_completo}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-yellow-600 dark:text-yellow-400">
                   {new Date(solicitacao.data_solicitacao).toLocaleString("pt-BR")}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   onClick={() => irParaCotacao(solicitacao.cotacao_id)}
                   variant="outline"
                   size="sm"
-                  title="Ver Processo"
+                  className="flex-1 sm:flex-none border-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900"
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Ver Processo
                 </Button>
                 <Button
                   onClick={() => atualizarStatus(solicitacao.id, "autorizada")}
                   disabled={loading}
                   size="sm"
-                  variant="default"
+                  className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white"
                 >
                   <CheckCircle className="h-4 w-4 mr-1" />
                   Autorizar
@@ -136,8 +142,9 @@ export function SolicitacoesAutorizacao() {
                 <Button
                   onClick={() => atualizarStatus(solicitacao.id, "rejeitada")}
                   disabled={loading}
-                  size="sm"
                   variant="destructive"
+                  size="sm"
+                  className="flex-1 sm:flex-none"
                 >
                   <XCircle className="h-4 w-4 mr-1" />
                   Rejeitar
@@ -146,7 +153,7 @@ export function SolicitacoesAutorizacao() {
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </AlertDescription>
+    </Alert>
   );
 }

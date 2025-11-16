@@ -437,6 +437,13 @@ const Dashboard = () => {
           </Alert>
         )}
         
+        {/* Solicitações de Autorização - Destaque no topo para Responsáveis Legais */}
+        {isResponsavelLegal && (
+          <div className="mb-6">
+            <SolicitacoesAutorizacao />
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Gráfico 1 - Pizza */}
           <Card>
@@ -525,9 +532,6 @@ const Dashboard = () => {
             </CardContent>
           </Card>
           
-          {/* Solicitações de Autorização - Apenas para Responsáveis Legais */}
-          {isResponsavelLegal && <SolicitacoesAutorizacao />}
-
           {/* Gráfico 2 - Pizza */}
           <Card>
             <CardHeader>
