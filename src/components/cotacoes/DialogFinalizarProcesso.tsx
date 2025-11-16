@@ -1894,7 +1894,7 @@ export function DialogFinalizarProcesso({
                 className="w-full"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Gerar Novo Relatório Final
+                Gerar Relatório Final
               </Button>
               
               {relatoriosFinais.length > 0 && (
@@ -1949,26 +1949,15 @@ export function DialogFinalizarProcesso({
             {/* Autorizações - Apenas Responsável Legal pode gerar */}
             {relatoriosFinais.length > 0 && (
               <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => gerarAutorizacao('inicio_processo')}
-                    disabled={loading || !isResponsavelLegal}
-                    className="flex-1"
-                    title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : ""}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Gerar Autorização de Início
-                  </Button>
-                  <Button
-                    onClick={() => gerarAutorizacao('autorizacao_pagamento')}
-                    disabled={loading || !isResponsavelLegal}
-                    className="flex-1"
-                    title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : ""}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Gerar Autorização de Pagamento
-                  </Button>
-                </div>
+                <Button
+                  onClick={() => gerarAutorizacao('inicio_processo')}
+                  disabled={loading || !isResponsavelLegal}
+                  className="w-full"
+                  title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : ""}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Gerar Autorização
+                </Button>
 
                 {autorizacoes.length > 0 && (
                   <div className="flex flex-col gap-2 mt-2">
@@ -1976,10 +1965,7 @@ export function DialogFinalizarProcesso({
                     {autorizacoes.map((aut) => (
                       <div key={aut.id} className="flex items-center gap-2 p-2 bg-muted rounded-md">
                         <div className="flex-1 text-sm">
-                          <div className="font-medium">
-                            {aut.tipo_autorizacao === 'inicio_processo' ? 'Início de Processo' : 'Autorização de Pagamento'}
-                          </div>
-                          <div className="text-muted-foreground">Protocolo: {aut.protocolo}</div>
+                          <div className="font-medium">Protocolo: {aut.protocolo}</div>
                           <div className="text-muted-foreground">
                             {new Date(aut.data_geracao).toLocaleString('pt-BR')}
                           </div>
