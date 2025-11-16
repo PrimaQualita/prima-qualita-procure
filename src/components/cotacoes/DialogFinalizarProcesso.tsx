@@ -946,6 +946,14 @@ export function DialogFinalizarProcesso({
     }
 
     try {
+      // Buscar informações do relatório antes de deletar
+      const { data: relatorioData } = await supabase
+        .from("relatorios_finais")
+        .select("nome_arquivo")
+        .eq("id", relatorioId)
+        .single();
+
+      // Deletar o registro do banco de dados
       const { error } = await supabase
         .from("relatorios_finais")
         .delete()
@@ -953,9 +961,20 @@ export function DialogFinalizarProcesso({
 
       if (error) throw error;
 
+      // Deletar o arquivo do storage se existir
+      if (relatorioData?.nome_arquivo) {
+        const { error: storageError } = await supabase.storage
+          .from("documents")
+          .remove([`relatorios/${relatorioData.nome_arquivo}`]);
+
+        if (storageError) {
+          console.error("Erro ao deletar arquivo do storage:", storageError);
+        }
+      }
+
       setRelatorioFinalUrl("");
       setRelatorioFinalId("");
-      toast.success("Relatório final deletado");
+      toast.success("Relatório final deletado com sucesso");
     } catch (error) {
       console.error("Erro ao deletar relatório final:", error);
       toast.error("Erro ao deletar relatório final");
