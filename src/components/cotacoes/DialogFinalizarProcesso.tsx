@@ -1991,7 +1991,7 @@ export function DialogFinalizarProcesso({
             </div>
             
             {/* Solicitação de Autorização - Qualquer usuário interno pode solicitar */}
-            {relatoriosFinais.length > 0 && !isResponsavelLegal && (
+            {relatoriosFinais.length > 0 && (
               <Button
                 onClick={enviarSolicitacaoAutorizacao}
                 disabled={loading}
