@@ -31,11 +31,13 @@ export default function VerificarPlanilha() {
     setResultado(null);
 
     try {
-      // @ts-ignore - Temporary ignore until types are updated
+      // SEMPRE PEGAR A PLANILHA MAIS RECENTE POR DATA DE GERAÇÃO
       const { data, error } = await supabase
         .from("planilhas_consolidadas")
         .select("*")
         .eq("protocolo", prot.trim())
+        .order("data_geracao", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error) throw error;
