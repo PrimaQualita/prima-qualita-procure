@@ -1284,6 +1284,21 @@ export function DialogFinalizarProcesso({
 
       if (insertError) throw insertError;
 
+      // Atualizar status da solicitação de autorização se houver
+      const { error: updateSolicitacaoError } = await supabase
+        .from("solicitacoes_autorizacao")
+        .update({
+          status: "autorizada",
+          data_resposta: new Date().toISOString()
+        })
+        .eq("cotacao_id", cotacaoId)
+        .eq("status", "pendente");
+
+      if (updateSolicitacaoError) {
+        console.error("Erro ao atualizar solicitação:", updateSolicitacaoError);
+        // Não lançar erro aqui, pois a autorização foi gerada com sucesso
+      }
+
       toast.success("Autorização gerada com sucesso!");
       await loadAutorizacoes();
     } catch (error) {

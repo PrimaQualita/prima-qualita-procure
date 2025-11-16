@@ -50,31 +50,32 @@ export function SolicitacoesAutorizacao() {
     }
   };
 
-  const atualizarStatus = async (id: string, cotacaoId: string, novoStatus: "autorizada" | "rejeitada") => {
+  const autorizarSolicitacao = (cotacaoId: string) => {
+    // Apenas redireciona sem atualizar o status
+    // O status será atualizado quando a autorização for gerada
+    toast.success("Redirecionando para gerar a autorização...");
+    navigate(`/cotacoes?openFinalizar=${cotacaoId}`);
+  };
+
+  const rejeitarSolicitacao = async (id: string, cotacaoId: string) => {
     try {
       setLoading(true);
 
       const { error } = await supabase
         .from("solicitacoes_autorizacao")
         .update({
-          status: novoStatus,
+          status: "rejeitada",
           data_resposta: new Date().toISOString()
         })
         .eq("id", id);
 
       if (error) throw error;
 
-      if (novoStatus === "autorizada") {
-        toast.success("Solicitação autorizada! Redirecionando para gerar a autorização...");
-        // Redirecionar para a página de cotações com o ID da cotação para abrir o dialog
-        navigate(`/cotacoes?openFinalizar=${cotacaoId}`);
-      } else {
-        toast.success("Solicitação rejeitada");
-        await loadSolicitacoes();
-      }
+      toast.success("Solicitação rejeitada");
+      await loadSolicitacoes();
     } catch (error) {
-      console.error("Erro ao atualizar solicitação:", error);
-      toast.error("Erro ao atualizar solicitação");
+      console.error("Erro ao rejeitar solicitação:", error);
+      toast.error("Erro ao rejeitar solicitação");
     } finally {
       setLoading(false);
     }
@@ -132,7 +133,7 @@ export function SolicitacoesAutorizacao() {
                   Ver Processo
                 </Button>
                 <Button
-                  onClick={() => atualizarStatus(solicitacao.id, solicitacao.cotacao_id, "autorizada")}
+                  onClick={() => autorizarSolicitacao(solicitacao.cotacao_id)}
                   disabled={loading}
                   size="sm"
                   className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white"
@@ -141,7 +142,7 @@ export function SolicitacoesAutorizacao() {
                   Autorizar
                 </Button>
                 <Button
-                  onClick={() => atualizarStatus(solicitacao.id, solicitacao.cotacao_id, "rejeitada")}
+                  onClick={() => rejeitarSolicitacao(solicitacao.id, solicitacao.cotacao_id)}
                   disabled={loading}
                   variant="destructive"
                   size="sm"
