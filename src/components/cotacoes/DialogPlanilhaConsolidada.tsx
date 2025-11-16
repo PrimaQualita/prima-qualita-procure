@@ -91,24 +91,23 @@ export function DialogPlanilhaConsolidada({
         setTipoProcesso(cotacaoData.processos_compras.tipo);
       }
 
-      // Buscar empresas reprovadas em análises anteriores para marcar, mas NÃO filtrar
-      const { data: analisesAnteriores } = await supabase
+      // Buscar APENAS a análise de compliance mais recente
+      const { data: analiseMaisRecente } = await supabase
         .from("analises_compliance" as any)
         .select("empresas_reprovadas")
-        .eq("cotacao_id", cotacaoId);
+        .eq("cotacao_id", cotacaoId)
+        .order("data_analise", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       const cnpjsReprovados = new Set<string>();
-      if (analisesAnteriores && analisesAnteriores.length > 0) {
-        analisesAnteriores.forEach((analise: any) => {
-          if (analise.empresas_reprovadas) {
-            analise.empresas_reprovadas.forEach((cnpj: string) => {
-              cnpjsReprovados.add(cnpj);
-            });
-          }
+      if (analiseMaisRecente?.empresas_reprovadas) {
+        analiseMaisRecente.empresas_reprovadas.forEach((cnpj: string) => {
+          cnpjsReprovados.add(cnpj);
         });
       }
 
-      console.log("CNPJs reprovados anteriormente (para referência):", Array.from(cnpjsReprovados));
+      console.log("CNPJs reprovados na análise mais recente:", Array.from(cnpjsReprovados));
 
       const { data: respostasData, error } = await supabase
         .from("cotacao_respostas_fornecedor")
@@ -157,12 +156,13 @@ export function DialogPlanilhaConsolidada({
       const respostasCompletas: RespostaConsolidada[] = [];
 
       for (const resposta of respostasData || []) {
-        // NÃO filtrar empresas reprovadas - incluir todas
         const cnpjFornecedor = resposta.fornecedor?.cnpj || "";
         const foiReprovada = cnpjsReprovados.has(cnpjFornecedor);
         
+        // FILTRAR empresas reprovadas na análise mais recente
         if (foiReprovada) {
-          console.log(`Empresa ${resposta.fornecedor?.razao_social} (${cnpjFornecedor}) foi reprovada anteriormente - incluída mas desmarcada por padrão`);
+          console.log(`Empresa ${resposta.fornecedor?.razao_social} (${cnpjFornecedor}) foi reprovada na análise mais recente - EXCLUÍDA da planilha`);
+          continue; // Pula esta empresa
         }
 
         const { data: itensData } = await supabase

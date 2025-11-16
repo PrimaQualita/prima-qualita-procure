@@ -85,11 +85,13 @@ const VerificarDocumento = () => {
         return;
       }
 
-      // 3. Planilhas Consolidadas
+      // 3. Planilhas Consolidadas (sempre pegar a mais recente)
       const { data: planilha, error: errorPlan } = await supabase
         .from('planilhas_consolidadas')
         .select('*')
         .eq('protocolo', prot)
+        .order('data_geracao', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       console.log('Planilha:', planilha, errorPlan);

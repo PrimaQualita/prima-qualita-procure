@@ -143,12 +143,12 @@ export function DialogRespostasCotacao({
     try {
       console.log('🔄 Carregando planilhas geradas para cotação:', cotacaoId);
       
-      // Buscar TODAS as planilhas ordenadas por data (mais recente primeiro)
+      // Buscar TODAS as planilhas ordenadas por data de geração (mais recente primeiro)
       const { data, error } = await supabase
         .from("planilhas_consolidadas")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .order("created_at", { ascending: false });
+        .order("data_geracao", { ascending: false });
       
       if (error) {
         console.error('❌ Erro ao carregar planilhas:', error);
