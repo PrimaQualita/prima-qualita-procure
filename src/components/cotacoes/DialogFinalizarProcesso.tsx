@@ -1172,7 +1172,7 @@ export function DialogFinalizarProcesso({
     }
   };
 
-  const gerarAutorizacao = async () => {
+  const gerarAutorizacao = async (tipo: 'inicio_processo' | 'autorizacao_pagamento') => {
     if (relatoriosFinais.length === 0) {
       toast.error("É necessário gerar o Relatório Final antes da autorização");
       return;
@@ -1270,12 +1270,12 @@ export function DialogFinalizarProcesso({
       // Salvar no banco
       const { data: { session: currentSession } } = await supabase.auth.getSession();
 
-      const { error: insertError } = await (supabase as any)
+      const { error: insertError } = await supabase
         .from("autorizacoes_processo")
         .insert({
           cotacao_id: cotacaoId,
           protocolo: resultadoAutorizacao.protocolo,
-          tipo_autorizacao: "compra_direta",
+          tipo_autorizacao: tipo,
           nome_arquivo: resultadoAutorizacao.fileName,
           url_arquivo: resultadoAutorizacao.url,
           usuario_gerador_id: currentSession!.user.id,
@@ -1284,8 +1284,7 @@ export function DialogFinalizarProcesso({
 
       if (insertError) throw insertError;
 
-      setAutorizacaoDiretaUrl(resultadoAutorizacao.url);
-      toast.success("Autorização gerada com sucesso!");
+      toast.success(`Autorização de ${tipo === 'inicio_processo' ? 'Início de Processo' : 'Pagamento'} gerada com sucesso!`);
       await loadAutorizacoes();
     } catch (error) {
       console.error("Erro ao gerar autorização:", error);
@@ -1946,6 +1945,85 @@ export function DialogFinalizarProcesso({
                 </div>
               )}
             </div>
+            
+            {/* Autorizações - Apenas Responsável Legal pode gerar */}
+            {relatoriosFinais.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => gerarAutorizacao('inicio_processo')}
+                    disabled={loading || !isResponsavelLegal}
+                    className="flex-1"
+                    title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : ""}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Gerar Autorização de Início
+                  </Button>
+                  <Button
+                    onClick={() => gerarAutorizacao('autorizacao_pagamento')}
+                    disabled={loading || !isResponsavelLegal}
+                    className="flex-1"
+                    title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : ""}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Gerar Autorização de Pagamento
+                  </Button>
+                </div>
+
+                {autorizacoes.length > 0 && (
+                  <div className="flex flex-col gap-2 mt-2">
+                    <Label className="text-sm font-semibold">Autorizações Geradas:</Label>
+                    {autorizacoes.map((aut) => (
+                      <div key={aut.id} className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                        <div className="flex-1 text-sm">
+                          <div className="font-medium">
+                            {aut.tipo_autorizacao === 'inicio_processo' ? 'Início de Processo' : 'Autorização de Pagamento'}
+                          </div>
+                          <div className="text-muted-foreground">Protocolo: {aut.protocolo}</div>
+                          <div className="text-muted-foreground">
+                            {new Date(aut.data_geracao).toLocaleString('pt-BR')}
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => window.open(aut.url_arquivo, '_blank')}
+                          variant="outline"
+                          size="icon"
+                          title="Ver Autorização"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = aut.url_arquivo;
+                            link.download = aut.nome_arquivo;
+                            link.click();
+                          }}
+                          variant="outline"
+                          size="icon"
+                          title="Baixar"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        {isResponsavelLegal && (
+                          <Button
+                            onClick={() => {
+                              setAutorizacaoParaExcluir(aut);
+                              setConfirmDeleteAutorizacaoOpen(true);
+                            }}
+                            variant="destructive"
+                            size="icon"
+                            title="Excluir Autorização"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Botões de Ação */}
             <div className="flex gap-3">
