@@ -97,16 +97,23 @@ const VerificarDocumento = () => {
       console.log('Planilha:', planilha, errorPlan);
 
       if (planilha) {
+        const detalhes: any = {
+          'Protocolo': planilha.protocolo,
+          'Data de Geração': format(new Date(planilha.data_geracao), 'dd/MM/yyyy HH:mm'),
+          'Arquivo': planilha.nome_arquivo,
+        };
+
+        // Mostrar fornecedores incluídos se existir
+        if (planilha.fornecedores_incluidos && Array.isArray(planilha.fornecedores_incluidos) && planilha.fornecedores_incluidos.length > 0) {
+          detalhes['Fornecedores Incluídos'] = planilha.fornecedores_incluidos.join(', ');
+        }
+
         setResultado({
           encontrado: true,
           tipo: 'Planilha Consolidada',
           icone: FileSpreadsheet,
           data: planilha,
-          detalhes: {
-            'Protocolo': planilha.protocolo,
-            'Data de Geração': format(new Date(planilha.data_geracao), 'dd/MM/yyyy HH:mm'),
-            'Arquivo': planilha.nome_arquivo,
-          }
+          detalhes
         });
         return;
       }

@@ -940,6 +940,9 @@ export function DialogPlanilhaConsolidada({
       // Registrar no banco de dados
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Coletar CNPJs dos fornecedores incluídos na planilha
+      const cnpjsIncluidos = respostasFiltradas.map(r => r.fornecedor.cnpj);
+      
       const { error: dbError } = await supabase
         .from("planilhas_consolidadas")
         .insert({
@@ -948,7 +951,8 @@ export function DialogPlanilhaConsolidada({
           url_arquivo: filePath,
           usuario_gerador_id: user?.id,
           data_geracao: new Date().toISOString(),
-          protocolo: protocoloDocumento
+          protocolo: protocoloDocumento,
+          fornecedores_incluidos: cnpjsIncluidos
         });
 
       if (dbError) throw dbError;

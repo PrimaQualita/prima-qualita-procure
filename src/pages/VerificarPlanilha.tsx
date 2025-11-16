@@ -168,6 +168,17 @@ export default function VerificarPlanilha() {
                   <p className="text-sm font-semibold text-gray-600">Arquivo</p>
                   <p className="text-sm break-all">{resultado.dados.nome_arquivo}</p>
                 </div>
+
+                {resultado.dados.fornecedores_incluidos && resultado.dados.fornecedores_incluidos.length > 0 && (
+                  <div className="pt-4 border-t border-green-200">
+                    <p className="text-sm font-semibold text-gray-600 mb-2">Fornecedores Incluídos nesta Planilha</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {resultado.dados.fornecedores_incluidos.map((cnpj: string, index: number) => (
+                        <li key={index} className="text-sm text-gray-700">{cnpj}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
