@@ -96,8 +96,7 @@ export function DialogFinalizarProcesso({
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState<string>("");
   const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState<string>("");
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
-  const [relatorioFinalUrl, setRelatorioFinalUrl] = useState<string>("");
-  const [relatorioFinalId, setRelatorioFinalId] = useState<string>("");
+  const [relatoriosFinais, setRelatoriosFinais] = useState<any[]>([]);
   const [motivoRejeicaoFornecedor, setMotivoRejeicaoFornecedor] = useState<Record<string, string>>({});
   const [dialogRejeicaoOpen, setDialogRejeicaoOpen] = useState(false);
   const [fornecedorParaRejeitar, setFornecedorParaRejeitar] = useState<string | null>(null);
@@ -667,15 +666,12 @@ export function DialogFinalizarProcesso({
       .from("relatorios_finais")
       .select("*")
       .eq("cotacao_id", cotacaoId)
-      .order("data_geracao", { ascending: false })
-      .limit(1)
-      .single();
+      .order("data_geracao", { ascending: false });
 
-    if (error && error.code !== 'PGRST116') {
-      console.error("Erro ao carregar relatório final:", error);
-    } else if (data) {
-      setRelatorioFinalUrl(data.url_arquivo);
-      setRelatorioFinalId(data.id);
+    if (error) {
+      console.error("Erro ao carregar relatórios finais:", error);
+    } else {
+      setRelatoriosFinais(data || []);
     }
   };
 
@@ -940,81 +936,50 @@ export function DialogFinalizarProcesso({
     }
   };
 
-  const deletarRelatorioFinal = async () => {
-    if (!confirm("Tem certeza que deseja deletar TODOS os relatórios finais? Será necessário gerar um novo.")) {
+  const deletarRelatorioFinal = async (relatorioId: string) => {
+    if (!confirm("Tem certeza que deseja deletar este relatório final?")) {
       return;
     }
 
     try {
-      // Buscar TODOS os relatórios finais dessa cotação
-      const { data: todosRelatorios } = await supabase
+      // Buscar informações do relatório antes de deletar
+      const { data: relatorioData } = await supabase
         .from("relatorios_finais")
-        .select("*")
-        .eq("cotacao_id", cotacaoId);
+        .select("nome_arquivo")
+        .eq("id", relatorioId)
+        .single();
 
-      if (!todosRelatorios || todosRelatorios.length === 0) {
-        toast.error("Nenhum relatório encontrado");
-        return;
-      }
-
-      // Deletar TODOS os arquivos do storage
-      const arquivosParaDeletar = todosRelatorios
-        .filter(r => r.nome_arquivo)
-        .map(r => `relatorios/${r.nome_arquivo}`);
-
-      if (arquivosParaDeletar.length > 0) {
+      // Deletar o arquivo do storage se existir
+      if (relatorioData?.nome_arquivo) {
         const { error: storageError } = await supabase.storage
           .from("documents")
-          .remove(arquivosParaDeletar);
+          .remove([`relatorios/${relatorioData.nome_arquivo}`]);
 
         if (storageError) {
-          console.error("Erro ao deletar arquivos do storage:", storageError);
+          console.error("Erro ao deletar arquivo do storage:", storageError);
         }
       }
 
-      // Deletar TODOS os registros do banco de dados
+      // Deletar o registro do banco de dados
       const { error } = await supabase
         .from("relatorios_finais")
         .delete()
-        .eq("cotacao_id", cotacaoId);
+        .eq("id", relatorioId);
 
       if (error) throw error;
 
-      setRelatorioFinalUrl("");
-      setRelatorioFinalId("");
-      toast.success(`${todosRelatorios.length} relatório(s) final(is) deletado(s) com sucesso`);
+      // Recarregar a lista de relatórios
+      await loadRelatorioFinal();
+      toast.success("Relatório final deletado com sucesso");
     } catch (error) {
-      console.error("Erro ao deletar relatórios finais:", error);
-      toast.error("Erro ao deletar relatórios finais");
+      console.error("Erro ao deletar relatório final:", error);
+      toast.error("Erro ao deletar relatório final");
     }
   };
 
   const gerarRelatorio = async () => {
     try {
       setLoading(true);
-
-      // DELETAR TODOS os relatórios finais anteriores dessa cotação
-      const { data: relatoriosAntigos } = await supabase
-        .from("relatorios_finais")
-        .select("*")
-        .eq("cotacao_id", cotacaoId);
-
-      if (relatoriosAntigos && relatoriosAntigos.length > 0) {
-        // Deletar arquivos do storage
-        const arquivosParaDeletar = relatoriosAntigos
-          .filter(r => r.nome_arquivo)
-          .map(r => `relatorios/${r.nome_arquivo}`);
-
-        if (arquivosParaDeletar.length > 0) {
-          await supabase.storage.from("documents").remove(arquivosParaDeletar);
-        }
-
-        // Deletar registros do banco
-        await supabase
-          .from("relatorios_finais")
-          .delete()
-          .eq("cotacao_id", cotacaoId);
-      }
       
       // Buscar processo_compra_id da cotação
       const { data: cotacaoData } = await supabase
@@ -1136,8 +1101,8 @@ export function DialogFinalizarProcesso({
 
       if (insertError) throw insertError;
 
-      setRelatorioFinalUrl(resultado.url);
-      setRelatorioFinalId(insertData.id);
+      // Recarregar a lista de relatórios
+      await loadRelatorioFinal();
       toast.success("Relatório Final gerado com sucesso!");
     } catch (error) {
       console.error("Erro ao gerar relatório:", error);
@@ -1148,7 +1113,7 @@ export function DialogFinalizarProcesso({
   };
 
   const gerarAutorizacao = async () => {
-    if (!relatorioFinalUrl) {
+    if (relatoriosFinais.length === 0) {
       toast.error("É necessário gerar o Relatório Final antes da autorização");
       return;
     }
@@ -1862,48 +1827,60 @@ export function DialogFinalizarProcesso({
 
         <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
           <div className="flex flex-col w-full gap-3">
-            {/* Relatório Final - Qualquer gestor/colaborador pode gerar e deletar */}
-            <div className="flex items-center gap-3">
-              {!relatorioFinalUrl ? (
-                <Button
-                  onClick={gerarRelatorio}
-                  disabled={loading || !todosDocumentosAprovados}
-                  className="flex-1"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Gerar Relatório Final
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    onClick={() => window.open(relatorioFinalUrl, '_blank')}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Visualizar Relatório Final
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = relatorioFinalUrl;
-                      link.download = 'relatorio-final.pdf';
-                      link.click();
-                    }}
-                    variant="outline"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar
-                  </Button>
-                  <Button
-                    onClick={() => deletarRelatorioFinal()}
-                    variant="destructive"
-                    size="icon"
-                    title="Excluir Relatório Final"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </>
+            {/* Relatórios Finais - Qualquer gestor/colaborador pode gerar e deletar */}
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={gerarRelatorio}
+                disabled={loading || !todosDocumentosAprovados}
+                className="w-full"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Gerar Novo Relatório Final
+              </Button>
+              
+              {relatoriosFinais.length > 0 && (
+                <div className="flex flex-col gap-2 mt-2">
+                  <Label className="text-sm font-semibold">Relatórios Finais Gerados:</Label>
+                  {relatoriosFinais.map((relatorio) => (
+                    <div key={relatorio.id} className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                      <div className="flex-1 text-sm">
+                        <div className="font-medium">Protocolo: {relatorio.protocolo}</div>
+                        <div className="text-muted-foreground">
+                          {new Date(relatorio.data_geracao).toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => window.open(relatorio.url_arquivo, '_blank')}
+                        variant="outline"
+                        size="icon"
+                        title="Ver Relatório"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = relatorio.url_arquivo;
+                          link.download = relatorio.nome_arquivo;
+                          link.click();
+                        }}
+                        variant="outline"
+                        size="icon"
+                        title="Baixar"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        onClick={() => deletarRelatorioFinal(relatorio.id)}
+                        variant="destructive"
+                        size="icon"
+                        title="Excluir"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
             
@@ -1912,9 +1889,9 @@ export function DialogFinalizarProcesso({
               {!autorizacaoDiretaUrl ? (
                 <Button
                   onClick={gerarAutorizacao}
-                  disabled={loading || !todosDocumentosAprovados || !relatorioFinalUrl || !isResponsavelLegal}
+                  disabled={loading || !todosDocumentosAprovados || relatoriosFinais.length === 0 || !isResponsavelLegal}
                   className="flex-1"
-                  title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : !relatorioFinalUrl ? "Gere o Relatório Final primeiro" : ""}
+                  title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : relatoriosFinais.length === 0 ? "Gere o Relatório Final primeiro" : ""}
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Gerar Autorização
