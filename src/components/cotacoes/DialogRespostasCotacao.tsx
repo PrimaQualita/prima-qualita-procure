@@ -441,26 +441,6 @@ export function DialogRespostasCotacao({
     }
   };
 
-  const handleNovaAnalise = async () => {
-    try {
-      // Resetar o status de respondido_compliance para que o compliance saiba que precisa fazer nova análise
-      const { error } = await supabase
-        .from('cotacoes_precos')
-        .update({ 
-          respondido_compliance: false,
-          data_resposta_compliance: null
-        })
-        .eq('id', cotacaoId);
-
-      if (error) throw error;
-
-      toast.success("Nova análise solicitada! O Compliance foi notificado.");
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Erro ao solicitar nova análise:', error);
-      toast.error("Erro ao solicitar nova análise");
-    }
-  };
 
   const loadRespostas = async () => {
     setLoading(true);
@@ -1380,15 +1360,6 @@ export function DialogRespostasCotacao({
                       )}
                     </div>
                   ))}
-
-                  {/* Botão para solicitar nova análise */}
-                  <Button
-                    onClick={handleNovaAnalise}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    Solicitar Nova Análise
-                  </Button>
                 </div>
               )}
 
