@@ -50,7 +50,7 @@ export function SolicitacoesAutorizacao() {
     }
   };
 
-  const atualizarStatus = async (id: string, novoStatus: "autorizada" | "rejeitada") => {
+  const atualizarStatus = async (id: string, cotacaoId: string, novoStatus: "autorizada" | "rejeitada") => {
     try {
       setLoading(true);
 
@@ -64,13 +64,14 @@ export function SolicitacoesAutorizacao() {
 
       if (error) throw error;
 
-      toast.success(
-        novoStatus === "autorizada" 
-          ? "Solicitação autorizada com sucesso!" 
-          : "Solicitação rejeitada"
-      );
-      
-      await loadSolicitacoes();
+      if (novoStatus === "autorizada") {
+        toast.success("Solicitação autorizada! Redirecionando para gerar a autorização...");
+        // Redirecionar para a página de cotações com o ID da cotação para abrir o dialog
+        navigate(`/cotacoes?openFinalizar=${cotacaoId}`);
+      } else {
+        toast.success("Solicitação rejeitada");
+        await loadSolicitacoes();
+      }
     } catch (error) {
       console.error("Erro ao atualizar solicitação:", error);
       toast.error("Erro ao atualizar solicitação");
@@ -131,7 +132,7 @@ export function SolicitacoesAutorizacao() {
                   Ver Processo
                 </Button>
                 <Button
-                  onClick={() => atualizarStatus(solicitacao.id, "autorizada")}
+                  onClick={() => atualizarStatus(solicitacao.id, solicitacao.cotacao_id, "autorizada")}
                   disabled={loading}
                   size="sm"
                   className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white"
@@ -140,7 +141,7 @@ export function SolicitacoesAutorizacao() {
                   Autorizar
                 </Button>
                 <Button
-                  onClick={() => atualizarStatus(solicitacao.id, "rejeitada")}
+                  onClick={() => atualizarStatus(solicitacao.id, solicitacao.cotacao_id, "rejeitada")}
                   disabled={loading}
                   variant="destructive"
                   size="sm"
