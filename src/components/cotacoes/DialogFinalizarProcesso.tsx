@@ -207,6 +207,18 @@ export function DialogFinalizarProcesso({
     try {
       console.log("🔄 Iniciando carregamento de fornecedores para cotação:", cotacaoId);
       
+      // PRIMEIRO: Buscar a ÚLTIMA planilha consolidada gerada
+      const { data: ultimaPlanilha } = await supabase
+        .from("planilhas_consolidadas")
+        .select("fornecedores_incluidos")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_geracao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      console.log("📋 Última planilha consolidada:", ultimaPlanilha);
+      console.log("👥 Fornecedores incluídos na última planilha:", ultimaPlanilha?.fornecedores_incluidos);
+
       // Buscar cotação com critério de julgamento
       const { data: cotacao, error: cotacaoError } = await supabase
         .from("cotacoes_precos")
@@ -218,8 +230,8 @@ export function DialogFinalizarProcesso({
 
       console.log("📊 Critério de julgamento:", cotacao?.criterio_julgamento);
 
-      // Buscar respostas dos fornecedores (incluindo rejeitados para análise)
-      const { data: respostas, error: respostasError } = await supabase
+      // Buscar respostas dos fornecedores
+      let query = supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
           id,
@@ -227,22 +239,40 @@ export function DialogFinalizarProcesso({
           valor_total_anual_ofertado,
           rejeitado,
           motivo_rejeicao,
-          fornecedores!inner(id, razao_social)
+          fornecedores!inner(id, razao_social, cnpj)
         `)
         .eq("cotacao_id", cotacaoId);
 
+      // SE EXISTE PLANILHA com fornecedores incluídos, filtrar apenas esses CNPJs
+      if (ultimaPlanilha?.fornecedores_incluidos && Array.isArray(ultimaPlanilha.fornecedores_incluidos) && ultimaPlanilha.fornecedores_incluidos.length > 0) {
+        console.log("🔍 FILTRANDO apenas fornecedores da última planilha:", ultimaPlanilha.fornecedores_incluidos);
+        // Não podemos filtrar por CNPJ diretamente na query de resposta, então buscaremos todos e filtraremos depois
+      }
+
+      const { data: respostas, error: respostasError } = await query;
+
       if (respostasError) throw respostasError;
 
-      console.log(`📝 Total de respostas encontradas: ${respostas?.length || 0}`);
-      console.log(`❌ Respostas rejeitadas: ${respostas?.filter(r => r.rejeitado).length || 0}`);
+      // FILTRAR respostas pelos CNPJs da última planilha
+      let respostasFiltradas = respostas || [];
+      if (ultimaPlanilha?.fornecedores_incluidos && Array.isArray(ultimaPlanilha.fornecedores_incluidos) && ultimaPlanilha.fornecedores_incluidos.length > 0) {
+        const cnpjsIncluidos = ultimaPlanilha.fornecedores_incluidos as string[];
+        respostasFiltradas = respostas?.filter(r => 
+          cnpjsIncluidos.includes(r.fornecedores.cnpj)
+        ) || [];
+        console.log(`✅ FILTRADO: ${respostas?.length || 0} respostas → ${respostasFiltradas.length} da última planilha`);
+      }
 
-      if (!respostas || respostas.length === 0) {
+      console.log(`📝 Total de respostas após filtro: ${respostasFiltradas.length}`);
+      console.log(`❌ Respostas rejeitadas: ${respostasFiltradas.filter(r => r.rejeitado).length || 0}`);
+
+      if (respostasFiltradas.length === 0) {
         setFornecedoresData([]);
         setLoading(false);
         return;
       }
 
-      // Buscar itens das respostas
+      // Buscar itens das respostas FILTRADAS
       const { data: itens, error: itensError } = await supabase
         .from("respostas_itens_fornecedor")
         .select(`
@@ -252,14 +282,14 @@ export function DialogFinalizarProcesso({
           valor_unitario_ofertado,
           itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade)
         `)
-        .in("cotacao_resposta_fornecedor_id", respostas.map(r => r.id));
+        .in("cotacao_resposta_fornecedor_id", respostasFiltradas.map(r => r.id));
 
       if (itensError) throw itensError;
 
       console.log(`📦 Total de itens de respostas: ${itens?.length || 0}`);
 
       const criterio = cotacao?.criterio_julgamento || "global";
-      const fornecedoresVencedores = await identificarVencedores(criterio, respostas, itens || []);
+      const fornecedoresVencedores = await identificarVencedores(criterio, respostasFiltradas, itens || []);
 
       console.log(`🏆 Fornecedores vencedores identificados: ${fornecedoresVencedores.length}`);
       fornecedoresVencedores.forEach(f => {
@@ -278,10 +308,10 @@ export function DialogFinalizarProcesso({
       // Carregar dados de cada fornecedor vencedor
       const fornecedoresComDados = await Promise.all(
         fornecedoresVencedores.map(async (forn) => {
-          const resposta = respostas.find(r => r.fornecedor_id === forn.id);
+          const resposta = respostasFiltradas.find(r => r.fornecedor_id === forn.id);
           const [docs, itensVenc, campos] = await Promise.all([
             loadDocumentosFornecedor(forn.id),
-            loadItensVencedores(forn.id, criterio, respostas, itens || []),
+            loadItensVencedores(forn.id, criterio, respostasFiltradas, itens || []),
             loadCamposFornecedor(forn.id)
           ]);
 
