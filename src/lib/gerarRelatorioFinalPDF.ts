@@ -271,7 +271,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   doc.text(`Hash de Verificação: ${hash}`, 25, yPos + 31);
   
   doc.setTextColor(0, 0, 255);
-  const urlVerificacao = window.location.origin + '/verificar-autorizacao';
+  const urlVerificacao = `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`;
   const linkTexto = `Verificar autenticidade em: ${urlVerificacao}`;
   const linkQuebrado = doc.splitTextToSize(linkTexto, 160);
   
@@ -280,7 +280,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
       linha,
       25,
       yPos + 38 + (index * 4),
-      { url: `${urlVerificacao}?protocolo=${protocolo}` }
+      { url: urlVerificacao }
     );
   });
   

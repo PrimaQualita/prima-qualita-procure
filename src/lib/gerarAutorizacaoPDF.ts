@@ -248,7 +248,7 @@ export const gerarAutorizacaoCompraDireta = async (
   // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
   const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
-  const linkCompleto = `${linkBase}/verificar-autorizacao`;
+  const linkCompleto = `${linkBase}/verificar-autorizacao?protocolo=${protocolo}`;
   const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
   doc.text(linkQuebrado, 25, yPos + 35);
   
@@ -415,10 +415,10 @@ export const gerarAutorizacaoSelecao = async (
   
   // Link quebrado em múltiplas linhas se necessário
   doc.setTextColor(0, 51, 102);
-  const linkBase = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
-  const linkCompleto = `${linkBase}/verificar-autorizacao`;
-  const linkQuebrado = doc.splitTextToSize(`Verificar em: ${linkCompleto}`, 165);
-  doc.text(linkQuebrado, 25, yPos + 35);
+  const linkBaseSelecao = typeof window !== 'undefined' ? window.location.origin : 'https://primaqualitasaude.org';
+  const linkCompletoSelecao = `${linkBaseSelecao}/verificar-autorizacao?protocolo=${protocolo}`;
+  const linkQuebradoSelecao = doc.splitTextToSize(`Verificar em: ${linkCompletoSelecao}`, 165);
+  doc.text(linkQuebradoSelecao, 25, yPos + 35);
   
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(0, 0, 0);
