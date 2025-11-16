@@ -441,6 +441,18 @@ export function DialogRespostasCotacao({
     }
   };
 
+  const handleNovaAnalise = async () => {
+    try {
+      // Não resetar o status, apenas permitir que uma nova análise seja criada
+      // O compliance poderá criar uma nova análise sem afetar as anteriores
+      toast.success("O Compliance pode agora criar uma nova análise!");
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Erro ao solicitar nova análise:', error);
+      toast.error("Erro ao solicitar nova análise");
+    }
+  };
+
   const loadRespostas = async () => {
     setLoading(true);
     try {
