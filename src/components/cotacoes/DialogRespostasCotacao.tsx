@@ -265,7 +265,7 @@ export function DialogRespostasCotacao({
 
   const handleEncaminhamentoGerado = () => {
     // Recarregar a lista de encaminhamentos após gerar um novo
-    loadEncaminhamentos();
+    loadEncaminhamento();
   };
 
   const gerarEncaminhamento = async () => {
