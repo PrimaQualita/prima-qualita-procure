@@ -112,9 +112,9 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   doc.text(`PROCESSO ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 10;
   
-  // Assunto
+  // Assunto - sanitizar HTML
   doc.setFont('helvetica', 'bold');
-  const textoLimpo = extractTextFromHTML(dados.objetoProcesso);
+  const textoLimpo = extractTextFromHTML(dados.objetoProcesso || '');
   const linhasAssunto = doc.splitTextToSize(`ASSUNTO: ${textoLimpo}`, 170);
   doc.text(linhasAssunto, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasAssunto.length * 3.5 + 5;

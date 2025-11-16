@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { gerarAutorizacaoCompraDireta } from "@/lib/gerarAutorizacaoPDF";
 import { gerarRelatorioFinal } from "@/lib/gerarRelatorioFinalPDF";
 import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { stripHtml } from "@/lib/htmlUtils";
 
 interface FornecedorVencedor {
   razaoSocial: string;
