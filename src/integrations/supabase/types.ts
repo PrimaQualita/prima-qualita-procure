@@ -1140,6 +1140,7 @@ export type Database = {
           cotacao_id: string
           created_at: string | null
           data_geracao: string
+          fornecedores_incluidos: Json | null
           id: string
           nome_arquivo: string
           protocolo: string | null
@@ -1150,6 +1151,7 @@ export type Database = {
           cotacao_id: string
           created_at?: string | null
           data_geracao?: string
+          fornecedores_incluidos?: Json | null
           id?: string
           nome_arquivo: string
           protocolo?: string | null
@@ -1160,6 +1162,7 @@ export type Database = {
           cotacao_id?: string
           created_at?: string | null
           data_geracao?: string
+          fornecedores_incluidos?: Json | null
           id?: string
           nome_arquivo?: string
           protocolo?: string | null
