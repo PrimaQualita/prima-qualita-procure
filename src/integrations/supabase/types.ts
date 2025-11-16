@@ -1648,6 +1648,57 @@ export type Database = {
           },
         ]
       }
+      solicitacoes_autorizacao: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          data_resposta: string | null
+          data_solicitacao: string
+          id: string
+          observacoes: string | null
+          processo_numero: string
+          solicitante_id: string
+          status: string
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          data_resposta?: string | null
+          data_solicitacao?: string
+          id?: string
+          observacoes?: string | null
+          processo_numero: string
+          solicitante_id: string
+          status?: string
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          data_resposta?: string | null
+          data_solicitacao?: string
+          id?: string
+          observacoes?: string | null
+          processo_numero?: string
+          solicitante_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitacoes_autorizacao_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitacoes_autorizacao_solicitante_id_fkey"
+            columns: ["solicitante_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
