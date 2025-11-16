@@ -940,50 +940,81 @@ export function DialogFinalizarProcesso({
     }
   };
 
-  const deletarRelatorioFinal = async (relatorioId: string) => {
-    if (!confirm("Tem certeza que deseja deletar este relatório final? Será necessário gerar um novo.")) {
+  const deletarRelatorioFinal = async () => {
+    if (!confirm("Tem certeza que deseja deletar TODOS os relatórios finais? Será necessário gerar um novo.")) {
       return;
     }
 
     try {
-      // Buscar informações do relatório antes de deletar
-      const { data: relatorioData } = await supabase
+      // Buscar TODOS os relatórios finais dessa cotação
+      const { data: todosRelatorios } = await supabase
         .from("relatorios_finais")
-        .select("nome_arquivo")
-        .eq("id", relatorioId)
-        .single();
+        .select("*")
+        .eq("cotacao_id", cotacaoId);
 
-      // Deletar o registro do banco de dados
-      const { error } = await supabase
-        .from("relatorios_finais")
-        .delete()
-        .eq("id", relatorioId);
+      if (!todosRelatorios || todosRelatorios.length === 0) {
+        toast.error("Nenhum relatório encontrado");
+        return;
+      }
 
-      if (error) throw error;
+      // Deletar TODOS os arquivos do storage
+      const arquivosParaDeletar = todosRelatorios
+        .filter(r => r.nome_arquivo)
+        .map(r => `relatorios/${r.nome_arquivo}`);
 
-      // Deletar o arquivo do storage se existir
-      if (relatorioData?.nome_arquivo) {
+      if (arquivosParaDeletar.length > 0) {
         const { error: storageError } = await supabase.storage
           .from("documents")
-          .remove([`relatorios/${relatorioData.nome_arquivo}`]);
+          .remove(arquivosParaDeletar);
 
         if (storageError) {
-          console.error("Erro ao deletar arquivo do storage:", storageError);
+          console.error("Erro ao deletar arquivos do storage:", storageError);
         }
       }
 
+      // Deletar TODOS os registros do banco de dados
+      const { error } = await supabase
+        .from("relatorios_finais")
+        .delete()
+        .eq("cotacao_id", cotacaoId);
+
+      if (error) throw error;
+
       setRelatorioFinalUrl("");
       setRelatorioFinalId("");
-      toast.success("Relatório final deletado com sucesso");
+      toast.success(`${todosRelatorios.length} relatório(s) final(is) deletado(s) com sucesso`);
     } catch (error) {
-      console.error("Erro ao deletar relatório final:", error);
-      toast.error("Erro ao deletar relatório final");
+      console.error("Erro ao deletar relatórios finais:", error);
+      toast.error("Erro ao deletar relatórios finais");
     }
   };
 
   const gerarRelatorio = async () => {
     try {
       setLoading(true);
+
+      // DELETAR TODOS os relatórios finais anteriores dessa cotação
+      const { data: relatoriosAntigos } = await supabase
+        .from("relatorios_finais")
+        .select("*")
+        .eq("cotacao_id", cotacaoId);
+
+      if (relatoriosAntigos && relatoriosAntigos.length > 0) {
+        // Deletar arquivos do storage
+        const arquivosParaDeletar = relatoriosAntigos
+          .filter(r => r.nome_arquivo)
+          .map(r => `relatorios/${r.nome_arquivo}`);
+
+        if (arquivosParaDeletar.length > 0) {
+          await supabase.storage.from("documents").remove(arquivosParaDeletar);
+        }
+
+        // Deletar registros do banco
+        await supabase
+          .from("relatorios_finais")
+          .delete()
+          .eq("cotacao_id", cotacaoId);
+      }
       
       // Buscar processo_compra_id da cotação
       const { data: cotacaoData } = await supabase
@@ -1865,7 +1896,7 @@ export function DialogFinalizarProcesso({
                     Baixar
                   </Button>
                   <Button
-                    onClick={() => deletarRelatorioFinal(relatorioFinalId)}
+                    onClick={() => deletarRelatorioFinal()}
                     variant="destructive"
                     size="icon"
                     title="Excluir Relatório Final"
