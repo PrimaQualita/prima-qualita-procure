@@ -325,9 +325,6 @@ export function DialogRespostasCotacao({
     }
   };
 
-  const handleEncaminhamentoGerado = () => {
-    loadEncaminhamentos();
-  };
 
   const excluirEncaminhamento = async () => {
     if (!encaminhamentoParaExcluir) return;
@@ -356,56 +353,6 @@ export function DialogRespostasCotacao({
     }
   };
 
-  const excluirAnaliseCompliance = async () => {
-    if (!analiseParaExcluir) return;
-    
-    try {
-      // Remover arquivo do storage
-      const fileName = analiseParaExcluir.url_documento?.split('/').pop();
-      if (fileName) {
-        const { error: storageError } = await supabase.storage
-          .from("documents")
-          .remove([`compliance/${fileName}`]);
-
-        if (storageError) console.error("Erro ao excluir arquivo:", storageError);
-      }
-
-      const { error: dbError } = await supabase
-        .from("analises_compliance")
-        .delete()
-        .eq("id", analiseParaExcluir.id);
-
-      if (dbError) throw dbError;
-
-      setAnaliseParaExcluir(null);
-      setConfirmDeleteAnaliseOpen(false);
-      loadAnaliseCompliance();
-      toast.success("Análise de compliance excluída com sucesso");
-    } catch (error: any) {
-      console.error("Erro ao excluir análise:", error);
-      toast.error("Erro ao excluir análise de compliance");
-    }
-  };
-
-  const handleNovaAnalise = async () => {
-    try {
-      // Resetar status para permitir nova análise
-      const { error } = await supabase
-        .from('cotacoes_precos')
-        .update({ 
-          respondido_compliance: false
-        })
-        .eq('id', cotacaoId);
-
-      if (error) throw error;
-
-      toast.success("Agora o Compliance pode fazer uma nova análise!");
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Erro ao solicitar nova análise:', error);
-      toast.error("Erro ao solicitar nova análise");
-    }
-  };
 
   const excluirAnexo = async () => {
     if (!anexoParaExcluir) return;
