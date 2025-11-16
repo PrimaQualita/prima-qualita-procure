@@ -183,12 +183,14 @@ export default function VerificarAutorizacao() {
         return;
       }
 
-      // 4. Planilhas Consolidadas
+      // 4. Planilhas Consolidadas (SEMPRE PEGAR A MAIS RECENTE)
       console.log('🔎 [VERIFICAÇÃO] Buscando em planilhas_consolidadas...');
       const { data: planData, error: planError } = await supabase
         .from('planilhas_consolidadas')
         .select('*')
         .eq('protocolo', protocoloLimpo)
+        .order('data_geracao', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       console.log('📋 [VERIFICAÇÃO] Resultado planilhas_consolidadas:', { 
