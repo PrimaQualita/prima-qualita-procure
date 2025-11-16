@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,6 +72,7 @@ interface ItemCotacao {
 
 const Cotacoes = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [loadingProcessos, setLoadingProcessos] = useState(false);
   const [loadingCotacoes, setLoadingCotacoes] = useState(false);
@@ -122,6 +123,15 @@ const Cotacoes = () => {
       await checkAuth();
       await loadContratos();
       setLoading(false);
+      
+      // Verificar se há parâmetro para abrir o dialog de finalização
+      const openFinalizarId = searchParams.get('openFinalizar');
+      if (openFinalizarId) {
+        // Carregar a cotação e abrir o dialog
+        await loadCotacaoByIdAndOpenDialog(openFinalizarId);
+        // Remover o parâmetro da URL
+        setSearchParams({});
+      }
     };
     init();
   }, []);
@@ -144,6 +154,65 @@ const Cotacoes = () => {
       setCriterioJulgamento(cotacaoSelecionada.criterio_julgamento);
     }
   }, [cotacaoSelecionada]);
+
+  const loadCotacaoByIdAndOpenDialog = async (cotacaoId: string) => {
+    try {
+      // Buscar a cotação pelo ID
+      const { data: cotacao, error: cotacaoError } = await supabase
+        .from("cotacoes_precos")
+        .select("*, processos_compras(*, contratos_gestao(*))")
+        .eq("id", cotacaoId)
+        .single();
+
+      if (cotacaoError) throw cotacaoError;
+      if (!cotacao) return;
+
+      // Buscar o contrato
+      const contrato = (cotacao as any).processos_compras.contratos_gestao;
+      const processo = (cotacao as any).processos_compras;
+
+      // Carregar a hierarquia: contrato -> processo -> cotação
+      setContratoSelecionado({
+        id: contrato.id,
+        nome_contrato: contrato.nome_contrato,
+        ente_federativo: contrato.ente_federativo,
+        status: contrato.status
+      });
+
+      // Aguardar um pouco para garantir que os processos foram carregados
+      setTimeout(() => {
+        setProcessoSelecionado({
+          id: processo.id,
+          numero_processo_interno: processo.numero_processo_interno,
+          objeto_resumido: processo.objeto_resumido,
+          valor_estimado_anual: processo.valor_estimado_anual,
+          requer_cotacao: processo.requer_cotacao,
+          requer_selecao: processo.requer_selecao,
+          tipo: processo.tipo,
+          criterio_julgamento: processo.criterio_julgamento
+        });
+
+        // Aguardar um pouco para garantir que as cotações foram carregadas
+        setTimeout(() => {
+          setCotacaoSelecionada({
+            id: cotacao.id,
+            processo_compra_id: cotacao.processo_compra_id,
+            titulo_cotacao: cotacao.titulo_cotacao,
+            descricao_cotacao: cotacao.descricao_cotacao,
+            status_cotacao: cotacao.status_cotacao,
+            data_limite_resposta: cotacao.data_limite_resposta,
+            criterio_julgamento: cotacao.criterio_julgamento as 'por_item' | 'global' | 'por_lote'
+          });
+
+          // Abrir o dialog
+          setDialogFinalizarOpen(true);
+        }, 300);
+      }, 300);
+    } catch (error) {
+      console.error("Erro ao carregar cotação:", error);
+      toast.error("Erro ao carregar cotação");
+    }
+  };
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
