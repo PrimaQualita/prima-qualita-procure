@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye } from "lucide-react";
+import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarAutorizacaoCompraDireta } from "@/lib/gerarAutorizacaoPDF";
@@ -1294,6 +1294,50 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const enviarSolicitacaoAutorizacao = async () => {
+    try {
+      setLoading(true);
+
+      // Buscar dados do processo
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select("processo_compra_id")
+        .eq("id", cotacaoId)
+        .single();
+
+      if (!cotacaoData) throw new Error("Cotação não encontrada");
+
+      const { data: processo } = await supabase
+        .from("processos_compras")
+        .select("numero_processo_interno")
+        .eq("id", cotacaoData.processo_compra_id)
+        .single();
+
+      if (!processo) throw new Error("Processo não encontrado");
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Criar solicitação
+      const { error } = await supabase
+        .from("solicitacoes_autorizacao")
+        .insert({
+          cotacao_id: cotacaoId,
+          processo_numero: processo.numero_processo_interno,
+          solicitante_id: user.id
+        });
+
+      if (error) throw error;
+
+      toast.success("Solicitação enviada ao Responsável Legal com sucesso!");
+    } catch (error) {
+      console.error("Erro ao enviar solicitação:", error);
+      toast.error("Erro ao enviar solicitação");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const rejeitarFornecedor = async () => {
     if (!fornecedorParaRejeitar) return;
     
@@ -1946,14 +1990,26 @@ export function DialogFinalizarProcesso({
               )}
             </div>
             
+            {/* Solicitação de Autorização - Qualquer usuário interno pode solicitar */}
+            {relatoriosFinais.length > 0 && !isResponsavelLegal && (
+              <Button
+                onClick={enviarSolicitacaoAutorizacao}
+                disabled={loading}
+                className="w-full"
+                variant="outline"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Enviar ao Responsável Legal
+              </Button>
+            )}
+            
             {/* Autorizações - Apenas Responsável Legal pode gerar */}
-            {relatoriosFinais.length > 0 && (
+            {relatoriosFinais.length > 0 && isResponsavelLegal && (
               <div className="flex flex-col gap-2">
                 <Button
                   onClick={gerarAutorizacao}
-                  disabled={loading || !isResponsavelLegal}
+                  disabled={loading}
                   className="w-full"
-                  title={!isResponsavelLegal ? "Apenas Responsáveis Legais podem gerar autorizações" : ""}
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Gerar Autorização

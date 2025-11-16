@@ -12,6 +12,7 @@ import { Download } from "lucide-react";
 import html2pdf from "html2pdf.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { SolicitacoesAutorizacao } from "@/components/dashboard/SolicitacoesAutorizacao";
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -19,6 +20,7 @@ const Dashboard = () => {
   const [contratos, setContratos] = useState<any[]>([]);
   const [processos, setProcessos] = useState<any[]>([]);
   const [isCompliance, setIsCompliance] = useState(false);
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [processosPendentesCompliance, setProcessosPendentesCompliance] = useState(0);
   
   // Filtros Gráfico 1 - Pizza
@@ -54,9 +56,13 @@ const Dashboard = () => {
         .eq("id", user.id)
         .single();
 
-      if (profileData && (profileData.compliance || profileData.responsavel_legal)) {
-        setIsCompliance(true);
-        loadProcessosPendentesCompliance();
+      if (profileData) {
+        setIsCompliance(profileData.compliance || false);
+        setIsResponsavelLegal(profileData.responsavel_legal || false);
+        
+        if (profileData.compliance || profileData.responsavel_legal) {
+          loadProcessosPendentesCompliance();
+        }
       }
     } catch (error) {
       console.error("Erro ao verificar perfil:", error);
@@ -518,6 +524,9 @@ const Dashboard = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+          
+          {/* Solicitações de Autorização - Apenas para Responsáveis Legais */}
+          {isResponsavelLegal && <SolicitacoesAutorizacao />}
 
           {/* Gráfico 2 - Pizza */}
           <Card>
