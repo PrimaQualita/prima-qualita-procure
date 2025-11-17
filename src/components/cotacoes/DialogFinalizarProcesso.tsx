@@ -769,6 +769,13 @@ export function DialogFinalizarProcesso({
       return false;
     }
 
+    // CRÍTICO: Se não há campos solicitados, NÃO pode estar aprovado
+    // (precisa haver análise e aprovação explícita)
+    if (campos.length === 0) {
+      console.log(`❌ Fornecedor sem análise de documentos (nenhum campo solicitado)`);
+      return false;
+    }
+
     // Verificar campos solicitados - devem estar todos aprovados
     const temCamposPendentes = campos.some(campo => 
       campo.status_solicitacao !== "aprovado"
@@ -1747,6 +1754,7 @@ export function DialogFinalizarProcesso({
                           <TableHeader>
                             <TableRow>
                               <TableHead>Tipo de Documento</TableHead>
+                              <TableHead>Arquivo</TableHead>
                               <TableHead>Validade</TableHead>
                               <TableHead>Status</TableHead>
                               <TableHead>Ações</TableHead>
@@ -1761,6 +1769,17 @@ export function DialogFinalizarProcesso({
                               return (
                                 <TableRow key={doc.id}>
                                   <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
+                                  <TableCell>
+                                    <a 
+                                      href={doc.url_arquivo} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                                    >
+                                      <FileText className="h-3 w-3" />
+                                      {doc.nome_arquivo}
+                                    </a>
+                                  </TableCell>
                                   <TableCell>
                                     {doc.data_validade ? new Date(doc.data_validade).toLocaleDateString('pt-BR') : 'N/A'}
                                   </TableCell>
