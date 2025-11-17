@@ -56,6 +56,7 @@ export default function Compliance() {
   const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoCompliance | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [analiseParaDeletar, setAnaliseParaDeletar] = useState<string | null>(null);
+  const [modoEdicao, setModoEdicao] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -200,8 +201,9 @@ export default function Compliance() {
     }
   };
 
-  const editarAnalise = async (processo: ProcessoCompliance) => {
+  const editarAnalise = async (processo: ProcessoCompliance, isEditMode: boolean = false) => {
     setProcessoSelecionado(processo);
+    setModoEdicao(isEditMode);
     setAnaliseDialogOpen(true);
   };
 
@@ -406,7 +408,7 @@ export default function Compliance() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => editarAnalise(processo)}
+                                  onClick={() => editarAnalise(processo, true)}
                                 >
                                   <Edit className="h-4 w-4 mr-2" />
                                   Editar Análise
@@ -414,7 +416,7 @@ export default function Compliance() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => editarAnalise(processo)}
+                                  onClick={() => editarAnalise(processo, false)}
                                 >
                                   <FileCheck className="h-4 w-4 mr-2" />
                                   Nova Análise (Novas Empresas)
@@ -432,7 +434,7 @@ export default function Compliance() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => editarAnalise(processo)}
+                                onClick={() => editarAnalise(processo, false)}
                               >
                                 <FileCheck className="h-4 w-4 mr-2" />
                                 Fazer Análise
@@ -462,6 +464,7 @@ export default function Compliance() {
             numeroProcesso={`${processoSelecionado.numero_processo_interno}/${processoSelecionado.ano_referencia}`}
             objetoDescricao={stripHtml(processoSelecionado.objeto_resumido)}
             criterioJulgamento={processoSelecionado.criterio_julgamento}
+            isEditMode={modoEdicao}
           />
         )}
 
