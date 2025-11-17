@@ -418,6 +418,9 @@ export function DialogPlanilhaConsolidada({
           </div>
       `;
 
+      // IMPORTANTE: Filtrar respostas pelas empresas selecionadas UMA VEZ, antes de qualquer uso
+      const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+
       if (tipoVisualizacao === "global") {
         // Visualização global - exibir todos os itens com marca por fornecedor (se Material)
         html += `
@@ -475,9 +478,6 @@ export function DialogPlanilhaConsolidada({
         `;
 
         let totalGeralEstimativa = 0;
-        
-        // IMPORTANTE: Filtrar respostas pelas empresas selecionadas UMA VEZ, antes do loop
-        const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
 
         todosItens.forEach((item: any) => {
           const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
@@ -555,7 +555,6 @@ export function DialogPlanilhaConsolidada({
       } else if (tipoVisualizacao === "lote" && criterioJulgamento === "por_lote") {
         // Agrupar itens por lote APENAS das empresas selecionadas
         const lotes = new Map<string, any[]>();
-        const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
         
         respostasFiltradas.forEach(resposta => {
           resposta.itens.forEach(item => {
@@ -727,8 +726,6 @@ export function DialogPlanilhaConsolidada({
 
         } else {
           // Visualização por item sem agrupamento por lote
-          // IMPORTANTE: Filtrar respostas pelas empresas selecionadas ANTES de gerar o HTML
-          const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
           
           html += `
             <table>
