@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { gerarAutorizacaoCompraDireta } from "@/lib/gerarAutorizacaoPDF";
 import { gerarRelatorioFinal } from "@/lib/gerarRelatorioFinalPDF";
 import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
+import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { stripHtml } from "@/lib/htmlUtils";
 
@@ -1644,6 +1645,27 @@ export function DialogFinalizarProcesso({
     try {
       setLoading(true);
 
+      // Buscar o número do processo
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno)
+        `)
+        .eq("id", cotacaoId)
+        .single();
+
+      if (!cotacaoData) {
+        throw new Error("Cotação não encontrada");
+      }
+
+      const numeroProcesso = cotacaoData.processos_compras.numero_processo_interno;
+
+      // Gerar PDF consolidado mesclando todos os documentos do processo
+      console.log("📄 Gerando processo completo mesclado...");
+      const processoCompleto = await gerarProcessoCompletoPDF(cotacaoId, numeroProcesso);
+      console.log("✅ Processo completo gerado:", processoCompleto.filename);
+
       // Salvar snapshots dos documentos dos fornecedores vencedores
       console.log("📸 Salvando snapshots dos documentos dos fornecedores vencedores...");
       
@@ -1686,7 +1708,7 @@ export function DialogFinalizarProcesso({
 
       if (error) throw error;
 
-      toast.success("Processo enviado para contratação! Documentos dos fornecedores arquivados permanentemente no processo.");
+      toast.success("Processo completo gerado e enviado para contratação! Todos os documentos foram mesclados.");
       onSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -2862,6 +2884,16 @@ export function DialogFinalizarProcesso({
               : ""
           }
           confirmText="Excluir Relatório"
+          cancelText="Cancelar"
+        />
+
+        <ConfirmDialog
+          open={confirmFinalizarOpen}
+          onOpenChange={setConfirmFinalizarOpen}
+          onConfirm={finalizarProcesso}
+          title="Finalizar Processo de Compra Direta"
+          description="Esta ação irá mesclar todos os documentos do processo (anexos, e-mails, propostas de fornecedores, planilha consolidada, relatório final e autorização) em um único PDF consolidado na ordem cronológica de criação. O processo será enviado para contratação. Deseja continuar?"
+          confirmText="Sim, Finalizar Processo"
           cancelText="Cancelar"
         />
       </DialogContent>
