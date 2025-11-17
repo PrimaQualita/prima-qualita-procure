@@ -1691,8 +1691,17 @@ export function DialogFinalizarProcesso({
                                           className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
                                           onClick={async () => {
                                             try {
-                                              const dataLimite = new Date();
-                                              dataLimite.setDate(dataLimite.getDate() + 7); // 7 dias de prazo
+                                              // Buscar a próxima ordem disponível
+                                              const { data: camposExistentes } = await supabase
+                                                .from('campos_documentos_finalizacao')
+                                                .select('ordem')
+                                                .eq('cotacao_id', cotacaoId)
+                                                .order('ordem', { ascending: false })
+                                                .limit(1);
+
+                                              const proximaOrdem = camposExistentes && camposExistentes.length > 0 
+                                                ? camposExistentes[0].ordem + 1 
+                                                : 1;
 
                                               const { error } = await supabase
                                                 .from('campos_documentos_finalizacao')
@@ -1702,6 +1711,7 @@ export function DialogFinalizarProcesso({
                                                   nome_campo: doc.tipo_documento,
                                                   descricao: `Documento vencido em ${format(new Date(doc.data_validade!), "dd/MM/yyyy", { locale: ptBR })}. Por favor, envie versão atualizada.`,
                                                   obrigatorio: true,
+                                                  ordem: proximaOrdem,
                                                   status_solicitacao: 'enviado',
                                                   data_solicitacao: new Date().toISOString(),
                                                 });
