@@ -58,6 +58,27 @@ export function DialogAnaliseCompliance({
 
   const loadFornecedoresPropostas = async () => {
     try {
+      // Buscar a última planilha consolidada gerada para essa cotação
+      const { data: planilha, error: planilhaError } = await supabase
+        .from("planilhas_consolidadas")
+        .select("fornecedores_incluidos")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_geracao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (planilhaError && planilhaError.code !== "PGRST116") throw planilhaError;
+
+      if (!planilha || !planilha.fornecedores_incluidos) {
+        console.log("Nenhuma planilha consolidada encontrada para esta cotação");
+        toast.error("É necessário gerar a planilha consolidada antes de fazer a análise de compliance");
+        setEmpresas([]);
+        return;
+      }
+
+      const fornecedoresIncluidos = planilha.fornecedores_incluidos as any[];
+      console.log("Fornecedores na planilha consolidada:", fornecedoresIncluidos);
+
       // Buscar análise mais recente para saber quais empresas já foram analisadas
       const { data: analiseRecente, error: analiseError } = await supabase
         .from("analises_compliance" as any)
@@ -71,53 +92,38 @@ export function DialogAnaliseCompliance({
 
       console.log("Análise recente encontrada:", analiseRecente);
 
-      // Buscar fornecedores com respostas, excluindo apenas os PERMANENTEMENTE rejeitados
-      const { data: respostas, error } = await supabase
-        .from("cotacao_respostas_fornecedor")
-        .select(`
-          *,
-          fornecedores (
-            razao_social,
-            cnpj
-          )
-        `)
-        .eq("cotacao_id", cotacaoId)
-        .eq("rejeitado", false);
-
-      if (error) throw error;
-
-      if (respostas && respostas.length > 0) {
-        const empresasData = respostas.map((resposta: any) => {
-          const razaoSocial = resposta.fornecedores?.razao_social || "";
-          const cnpj = resposta.fornecedores?.cnpj || "";
-          
-          // Se já existe análise, verificar se empresa estava aprovada ou reprovada
-          let aprovado = true; // Padrão: aprovado
-          
-          if (analiseRecente && analiseRecente.empresas) {
-            const empresas = analiseRecente.empresas as any[];
-            const empresaAnalisada = empresas.find(
-              (emp: any) => emp.cnpj === cnpj
-            );
-            
-            if (empresaAnalisada) {
-              aprovado = empresaAnalisada.aprovado; // Manter status anterior
-              console.log(`Empresa ${razaoSocial} tinha status: ${aprovado ? 'Aprovada' : 'Reprovada'}`);
-            }
-          }
-          
-          return {
-            razao_social: razaoSocial,
-            cnpj: cnpj,
-            aprovado: aprovado,
-          };
-        });
+      // Mapear empresas da planilha consolidada
+      const empresasData = fornecedoresIncluidos.map((fornecedor: any) => {
+        const razaoSocial = fornecedor.razao_social || "";
+        const cnpj = fornecedor.cnpj || "";
         
-        console.log(`Empresas carregadas para edição (incluindo reprovadas):`, empresasData);
-        setEmpresas(empresasData);
-      }
+        // Se já existe análise, verificar se empresa estava aprovada ou reprovada
+        let aprovado = true; // Padrão: aprovado
+        
+        if (analiseRecente && analiseRecente.empresas) {
+          const empresas = analiseRecente.empresas as any[];
+          const empresaAnalisada = empresas.find(
+            (emp: any) => emp.cnpj === cnpj
+          );
+          
+          if (empresaAnalisada) {
+            aprovado = empresaAnalisada.aprovado; // Manter status anterior
+            console.log(`Empresa ${razaoSocial} tinha status: ${aprovado ? 'Aprovada' : 'Reprovada'}`);
+          }
+        }
+        
+        return {
+          razao_social: razaoSocial,
+          cnpj: cnpj,
+          aprovado: aprovado,
+        };
+      });
+      
+      console.log(`Empresas carregadas da planilha consolidada:`, empresasData);
+      setEmpresas(empresasData);
     } catch (error: any) {
       console.error("Erro ao carregar fornecedores:", error);
+      toast.error("Erro ao carregar dados da planilha consolidada");
     }
   };
 
