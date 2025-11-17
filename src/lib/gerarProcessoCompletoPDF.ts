@@ -332,11 +332,21 @@ export const gerarProcessoCompletoPDF = async (
       const dataRelatorios = new Date(new Date(ultimaDataCronologica).getTime() + 2000).toISOString();
       
       relatorios.forEach(relatorio => {
+        // Extrair storage path da URL (pode ser signed URL ou public URL)
+        let storagePath = relatorio.url_arquivo;
+        if (storagePath.includes('/storage/v1/object/')) {
+          // É uma URL do Supabase Storage, extrair o path
+          const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
+          if (match) {
+            storagePath = `relatorios-finais/${match[1].split('?')[0]}`;
+          }
+        }
+        
         documentosOrdenados.push({
           tipo: "Relatório Final",
           data: dataRelatorios,
           nome: relatorio.nome_arquivo,
-          storagePath: relatorio.url_arquivo,
+          url: relatorio.url_arquivo, // Usar URL direta
           bucket: "processo-anexos"
         });
       });
@@ -352,7 +362,7 @@ export const gerarProcessoCompletoPDF = async (
           tipo: `Autorização (${aut.tipo_autorizacao})`,
           data: dataAutorizacoes,
           nome: aut.nome_arquivo,
-          storagePath: aut.url_arquivo,
+          url: aut.url_arquivo, // Usar URL direta (já é signed URL válida)
           bucket: "processo-anexos"
         });
       });

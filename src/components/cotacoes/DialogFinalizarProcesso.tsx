@@ -65,6 +65,7 @@ interface DocumentoExistente {
   tipo_documento: string;
   nome_arquivo: string;
   url_arquivo: string;
+  data_emissao: string | null;
   data_validade: string | null;
   em_vigor: boolean;
 }
@@ -1664,7 +1665,40 @@ export function DialogFinalizarProcesso({
       const numeroProcesso = cotacaoData.processos_compras.numero_processo_interno;
       const processoId = cotacaoData.processo_compra_id;
 
-      // Gerar PDF consolidado mesclando todos os documentos do processo
+      // PRIMEIRO: Salvar snapshots dos documentos dos fornecedores vencedores
+      console.log("📸 Salvando snapshots dos documentos dos fornecedores vencedores...");
+      
+      for (const fornecedorData of fornecedoresData) {
+        if (!fornecedorData.rejeitado && fornecedorData.documentosExistentes.length > 0) {
+          console.log(`📄 Salvando ${fornecedorData.documentosExistentes.length} documentos do fornecedor ${fornecedorData.fornecedor.razao_social}`);
+          
+          // Criar snapshots dos documentos existentes
+          const snapshots = fornecedorData.documentosExistentes.map(doc => ({
+            cotacao_id: cotacaoId,
+            fornecedor_id: fornecedorData.fornecedor.id,
+            tipo_documento: doc.tipo_documento,
+            nome_arquivo: doc.nome_arquivo,
+            url_arquivo: doc.url_arquivo,
+            data_emissao: doc.data_emissao,
+            data_validade: doc.data_validade,
+            em_vigor: doc.em_vigor,
+            data_snapshot: new Date().toISOString(),
+          }));
+
+          const { error: snapshotError } = await supabase
+            .from("documentos_processo_finalizado")
+            .insert(snapshots);
+
+          if (snapshotError) {
+            console.error("❌ Erro ao salvar snapshot de documentos:", snapshotError);
+            throw snapshotError;
+          }
+        }
+      }
+
+      console.log("✅ Snapshots dos documentos salvos com sucesso!");
+
+      // DEPOIS: Gerar PDF consolidado mesclando todos os documentos do processo
       console.log("📄 Gerando processo completo mesclado...");
       const processoCompleto = await gerarProcessoCompletoPDF(cotacaoId, numeroProcesso);
       console.log("✅ Processo completo gerado:", processoCompleto.filename);
@@ -1686,38 +1720,6 @@ export function DialogFinalizarProcesso({
         console.error("Erro ao salvar processo completo:", anexoError);
         throw anexoError;
       }
-
-      // Salvar snapshots dos documentos dos fornecedores vencedores
-      console.log("📸 Salvando snapshots dos documentos dos fornecedores vencedores...");
-      
-      for (const fornecedorData of fornecedoresData) {
-        if (!fornecedorData.rejeitado && fornecedorData.documentosExistentes.length > 0) {
-          console.log(`📄 Salvando ${fornecedorData.documentosExistentes.length} documentos do fornecedor ${fornecedorData.fornecedor.razao_social}`);
-          
-          // Criar snapshots dos documentos existentes
-          const snapshots = fornecedorData.documentosExistentes.map(doc => ({
-            cotacao_id: cotacaoId,
-            fornecedor_id: fornecedorData.fornecedor.id,
-            tipo_documento: doc.tipo_documento,
-            nome_arquivo: doc.nome_arquivo,
-            url_arquivo: doc.url_arquivo,
-            data_validade: doc.data_validade,
-            em_vigor: doc.em_vigor,
-            data_snapshot: new Date().toISOString(),
-          }));
-
-          const { error: snapshotError } = await supabase
-            .from("documentos_processo_finalizado")
-            .insert(snapshots);
-
-          if (snapshotError) {
-            console.error("❌ Erro ao salvar snapshot de documentos:", snapshotError);
-            throw snapshotError;
-          }
-        }
-      }
-
-      console.log("✅ Snapshots dos documentos salvos com sucesso!");
 
       const { error } = await supabase
         .from("cotacoes_precos")
