@@ -1665,7 +1665,19 @@ export function DialogFinalizarProcesso({
       const numeroProcesso = cotacaoData.processos_compras.numero_processo_interno;
       const processoId = cotacaoData.processo_compra_id;
 
-      // PRIMEIRO: Salvar snapshots dos documentos dos fornecedores vencedores
+      // PRIMEIRO: Limpar snapshots existentes desta cotação
+      console.log("🗑️ Limpando snapshots anteriores...");
+      const { error: deleteError } = await supabase
+        .from("documentos_processo_finalizado")
+        .delete()
+        .eq("cotacao_id", cotacaoId);
+
+      if (deleteError) {
+        console.error("❌ Erro ao limpar snapshots anteriores:", deleteError);
+        throw deleteError;
+      }
+
+      // DEPOIS: Salvar snapshots dos documentos dos fornecedores vencedores
       console.log("📸 Salvando snapshots dos documentos dos fornecedores vencedores...");
       
       for (const fornecedorData of fornecedoresData) {
