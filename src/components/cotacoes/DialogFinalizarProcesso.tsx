@@ -588,12 +588,15 @@ export function DialogFinalizarProcesso({
         "certificado_gestor"
       ];
 
+      // CRÍTICO: Buscar APENAS documentos válidos/mais recentes
       const { data, error } = await supabase
         .from("documentos_fornecedor")
         .select("*")
         .eq("fornecedor_id", fornecedorIdParaDocumentos)
         .in("tipo_documento", tiposDocumentos)
-        .order("tipo_documento");
+        .eq("em_vigor", true)  // Buscar apenas documentos em vigor
+        .order("tipo_documento")
+        .order("data_upload", { ascending: false });
 
       if (error) {
         console.error("❌ Erro ao carregar documentos:", error);
@@ -625,6 +628,8 @@ export function DialogFinalizarProcesso({
 
       const documentosOrdenados = tiposDocumentos
         .map(tipo => {
+          // Para cada tipo, encontrar o documento MAIS RECENTE em vigor
+          // Como já ordenamos por data_upload desc, o primeiro é o mais recente
           const doc = data?.find(d => d.tipo_documento === tipo);
           if (doc) {
             return {
@@ -636,7 +641,7 @@ export function DialogFinalizarProcesso({
         })
         .filter((doc): doc is any => doc !== undefined);
 
-      console.log(`📋 Documentos ordenados: ${documentosOrdenados.length}`);
+      console.log(`📋 Documentos ordenados (apenas mais recentes): ${documentosOrdenados.length}`);
 
       return documentosOrdenados as DocumentoExistente[];
     } catch (error) {
