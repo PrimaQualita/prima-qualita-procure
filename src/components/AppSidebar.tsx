@@ -110,11 +110,6 @@ export function AppSidebar({ isGestor, profile, isCompliance = false, isResponsa
       href: "/contratacoes-especificas",
     },
     {
-      title: "Contratos",
-      icon: FolderKanban,
-      href: "/contratos",
-    },
-    {
       title: "Cadastro de Usuários",
       icon: UserCog,
       href: "/usuarios",
