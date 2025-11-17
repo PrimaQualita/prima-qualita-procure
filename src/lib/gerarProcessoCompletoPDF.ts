@@ -320,7 +320,7 @@ export const gerarProcessoCompletoPDF = async (
           tipo: "Documento Fornecedor Aprovado",
           data: dataSnapshot,
           nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
-          storagePath: doc.url_arquivo,
+          url: doc.url_arquivo, // Usar URL direta do documento do fornecedor
           bucket: "processo-anexos"
         });
       });
