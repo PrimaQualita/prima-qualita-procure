@@ -487,7 +487,22 @@ export default function Fornecedores() {
         throw respostasError;
       }
 
-      // 4. Se o fornecedor tem user_id, deletar o usuário de autenticação
+      // 4. PRESERVAR propostas de cotação - NÃO deletar cotacao_respostas_fornecedor
+      // As propostas ficarão com fornecedor_id órfão mas serão exibidas corretamente
+      console.log("Propostas de cotação preservadas para fornecedor:", fornecedorParaExcluir);
+
+      // 5. Deletar o registro de fornecedor PRIMEIRO (antes do usuário auth)
+      const { error: deleteError } = await supabase
+        .from("fornecedores")
+        .delete()
+        .eq("id", fornecedorParaExcluir);
+
+      if (deleteError) {
+        console.error("Erro ao deletar fornecedor:", deleteError);
+        throw deleteError;
+      }
+
+      // 6. Se o fornecedor tinha user_id, deletar o usuário de autenticação POR ÚLTIMO
       if (fornecedorData?.user_id) {
         console.log("Chamando edge function para deletar usuário:", fornecedorData.user_id);
         
@@ -502,23 +517,12 @@ export default function Fornecedores() {
 
         if (authError) {
           console.error("Erro ao deletar usuário de autenticação:", authError);
-          toast.error("Erro ao excluir acesso do fornecedor. Tente novamente.");
-          return;
+          // Não retornar aqui - o fornecedor já foi deletado
+          toast.warning("Fornecedor excluído, mas erro ao remover acesso. Contate o suporte.");
         }
       }
 
-      // 5. Agora deletar o registro de fornecedor
-      const { error: deleteError } = await supabase
-        .from("fornecedores")
-        .delete()
-        .eq("id", fornecedorParaExcluir);
-
-      if (deleteError) {
-        console.error("Erro ao deletar fornecedor:", deleteError);
-        throw deleteError;
-      }
-
-      toast.success("Fornecedor excluído com sucesso!");
+      toast.success("Fornecedor excluído com sucesso! Propostas de cotação foram preservadas.");
       loadFornecedores();
     } catch (error: any) {
       console.error("Erro no processo de exclusão:", error);
