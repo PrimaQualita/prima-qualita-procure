@@ -243,6 +243,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   }
   
   // Parágrafo 3
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   const texto3 = 'A(s) empresa(s) encaminhou(aram) os documentos de habilitação que foram analisados, concluindo-se que ambas estavam habilitadas.';
   const linhas3 = doc.splitTextToSize(texto3, 170);
