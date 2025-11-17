@@ -193,13 +193,18 @@ export default function CadastroFornecedor() {
       const cnpjLimpo = formData.cnpj.replace(/\D/g, '');
       const { data: fornecedorCompleto } = await supabase
         .from('fornecedores')
-        .select('id')
+        .select('id, status_aprovacao')
         .eq('cnpj', cnpjLimpo)
         .not('user_id', 'is', null)
-        .single();
+        .maybeSingle();
 
       if (fornecedorCompleto) {
-        toast.error("Já existe um fornecedor cadastrado com este CNPJ");
+        const statusMsg = fornecedorCompleto.status_aprovacao === 'aprovado' 
+          ? 'aprovado' 
+          : fornecedorCompleto.status_aprovacao === 'pendente'
+          ? 'aguardando aprovação'
+          : 'reprovado';
+        toast.error(`Já existe um cadastro ${statusMsg} com este CNPJ. Se você esqueceu sua senha, entre em contato com o departamento de compras.`);
         return;
       }
 
