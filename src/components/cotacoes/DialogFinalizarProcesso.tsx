@@ -1060,6 +1060,71 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const handleAprovarDocumentosFornecedor = async (fornecedorId: string) => {
+    try {
+      const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
+      if (!fornecedorData) return;
+
+      // Verificar se tem documentos vencidos
+      const documentosVencidos = fornecedorData.documentosExistentes.filter(doc => !doc.em_vigor);
+      if (documentosVencidos.length > 0) {
+        toast.error("Não é possível aprovar fornecedor com documentos vencidos");
+        return;
+      }
+
+      // Aprovar todos os campos solicitados que estão em análise
+      const camposParaAprovar = fornecedorData.campos.filter(c => 
+        c.status_solicitacao === "em_analise" || c.status_solicitacao === "enviado"
+      );
+
+      if (camposParaAprovar.length > 0) {
+        const { error } = await supabase
+          .from("campos_documentos_finalizacao")
+          .update({
+            status_solicitacao: "aprovado",
+            data_aprovacao: new Date().toISOString()
+          })
+          .in("id", camposParaAprovar.map(c => c.id!));
+
+        if (error) throw error;
+      }
+
+      toast.success(`Documentos de ${fornecedorData.fornecedor.razao_social} aprovados com sucesso`);
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao aprovar documentos do fornecedor:", error);
+      toast.error("Erro ao aprovar documentos");
+    }
+  };
+
+  const handleReverterAprovacaoFornecedor = async (fornecedorId: string) => {
+    try {
+      const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
+      if (!fornecedorData) return;
+
+      // Reverter todos os campos aprovados para rejeitado
+      const camposAprovados = fornecedorData.campos.filter(c => c.status_solicitacao === "aprovado");
+
+      if (camposAprovados.length > 0) {
+        const { error } = await supabase
+          .from("campos_documentos_finalizacao")
+          .update({
+            status_solicitacao: "rejeitado",
+            data_aprovacao: null
+          })
+          .in("id", camposAprovados.map(c => c.id!));
+
+        if (error) throw error;
+      }
+
+      toast.success(`Aprovação de ${fornecedorData.fornecedor.razao_social} revertida com sucesso`);
+      await loadAllFornecedores();
+    } catch (error) {
+      console.error("Erro ao reverter aprovação do fornecedor:", error);
+      toast.error("Erro ao reverter aprovação");
+    }
+  };
+
   const enviarDocumentosParaFornecedor = async (fornecedorId: string) => {
     try {
       const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
@@ -1968,17 +2033,41 @@ export function DialogFinalizarProcesso({
                           ))}
                         </div>
                         
-                        {fornData.campos.filter(c => c.status_solicitacao === "em_analise").length > 0 && (
+                      </div>
+                    )}
+
+                    {/* Botões de Aprovação Geral do Fornecedor */}
+                    <div className="mt-6 p-4 bg-muted/10 rounded-lg border-2 border-muted">
+                      <div className="flex items-center justify-center gap-4">
+                        {todosDocumentosAprovados ? (
+                          <div className="flex flex-col items-center gap-3">
+                            <Badge variant="default" className="text-base px-4 py-2 bg-green-600">
+                              <CheckCircle className="h-5 w-5 mr-2" />
+                              Documentos Aprovados
+                            </Badge>
+                            <Button
+                              onClick={() => handleReverterAprovacaoFornecedor(fornData.fornecedor.id)}
+                              variant="outline"
+                              className="gap-2"
+                            >
+                              <AlertCircle className="h-4 w-4" />
+                              Reverter Aprovação
+                            </Button>
+                          </div>
+                        ) : (
                           <Button
-                            onClick={() => aprovarTodosDocumentosFornecedor(fornData.fornecedor.id)}
-                            className="mt-4"
+                            onClick={() => handleAprovarDocumentosFornecedor(fornData.fornecedor.id)}
+                            variant="default"
+                            size="lg"
+                            className="gap-2"
+                            disabled={fornData.documentosExistentes.some(doc => !doc.em_vigor)}
                           >
-                            <CheckCircle className="h-4 w-4 mr-2" />
+                            <CheckCircle className="h-5 w-5" />
                             Aprovar Documentos do Fornecedor
                           </Button>
                         )}
                       </div>
-                    )}
+                    </div>
 
                     {/* Solicitar Documentos Adicionais/Faltantes */}
                     <div className="border-t pt-4">
