@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send } from "lucide-react";
+import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Mail, Clock, XCircle, RefreshCw, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarAutorizacaoCompraDireta } from "@/lib/gerarAutorizacaoPDF";
@@ -54,6 +54,7 @@ interface DocumentoFinalizacao {
 interface Fornecedor {
   id: string;
   razao_social: string;
+  email: string;
 }
 
 interface DocumentoExistente {
@@ -290,7 +291,7 @@ export function DialogFinalizarProcesso({
           valor_total_anual_ofertado,
           rejeitado,
           motivo_rejeicao,
-          fornecedores!inner(id, razao_social, cnpj)
+          fornecedores!inner(id, razao_social, cnpj, email)
         `)
         .eq("cotacao_id", cotacaoId);
 
@@ -683,8 +684,11 @@ export function DialogFinalizarProcesso({
       return false;
     }
 
-    // Verificar documentos em cadastro - devem estar todos válidos
-    const temDocumentoVencido = docs.some(doc => !doc.em_vigor);
+    // Verificar documentos em cadastro - apenas documentos com validade devem ser verificados
+    // Documentos sem validade (Contrato Social, CNPJ, Inscrição) sempre são considerados válidos
+    const documentosComValidade = docs.filter(doc => doc.data_validade !== null);
+    const temDocumentoVencido = documentosComValidade.some(doc => !doc.em_vigor);
+    
     if (temDocumentoVencido) {
       console.log(`❌ Fornecedor tem documento(s) vencido(s)`);
       return false;
@@ -1583,51 +1587,123 @@ export function DialogFinalizarProcesso({
                   </CardHeader>
                   
                   <CardContent className="space-y-6">
-                    {/* Documentos Válidos em Cadastro */}
-                    <div>
-                      <h4 className="font-semibold text-lg mb-3">📄 Documentos Válidos em Cadastro</h4>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Tipo de Documento</TableHead>
-                            <TableHead>Validade</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Ações</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {fornData.documentosExistentes.map((doc) => {
-                            const hoje = new Date();
-                            const validade = doc.data_validade ? new Date(doc.data_validade) : null;
-                            const isValido = validade ? validade > hoje : false;
-
-                            return (
-                              <TableRow key={doc.id}>
-                                <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
-                                <TableCell>
-                                  {doc.data_validade ? new Date(doc.data_validade).toLocaleDateString('pt-BR') : 'N/A'}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={isValido ? "default" : "destructive"}>
-                                    {isValido ? "✓ Em vigor" : "✗ Vencido"}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => window.open(doc.url_arquivo, '_blank')}
-                                  >
-                                    <ExternalLink className="h-4 w-4 mr-1" />
-                                    Visualizar
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
+                    {/* Documentos Válidos em Cadastro ou Aviso de Cadastro Pendente */}
+                    {fornData.documentosExistentes.length === 0 ? (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                        <h3 className="font-semibold text-yellow-900 mb-3">⚠️ Fornecedor sem Cadastro Completo</h3>
+                        <p className="text-sm text-yellow-800 mb-4">
+                          Este fornecedor ainda não possui cadastro completo no sistema. 
+                          Envie um e-mail solicitando o cadastro com prazo para conclusão.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-yellow-100 hover:bg-yellow-200 text-yellow-900 border-yellow-300"
+                          onClick={() => {
+                            const linkCadastro = `${window.location.origin}/cadastro-fornecedor`;
+                            const prazo = new Date();
+                            prazo.setDate(prazo.getDate() + 7); // 7 dias de prazo
+                            const prazoFormatado = prazo.toLocaleDateString('pt-BR');
+                            
+                            const assunto = encodeURIComponent('Solicitação de Cadastro - Prima Qualitá');
+                            const corpo = encodeURIComponent(
+                              `Prezado(a) Fornecedor(a),\n\n` +
+                              `Solicitamos que complete seu cadastro em nosso sistema até ${prazoFormatado}.\n\n` +
+                              `Acesse o link abaixo para preencher o formulário de cadastro:\n` +
+                              `${linkCadastro}\n\n` +
+                              `O cadastro é necessário para prosseguimento do processo de contratação.\n\n` +
+                              `Atenciosamente,\n` +
+                              `Departamento de Compras\n` +
+                              `Prima Qualitá Saúde`
                             );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
+                            
+                            const mailtoLink = `mailto:${fornData.fornecedor.email}?subject=${assunto}&body=${corpo}`;
+                            window.location.href = mailtoLink;
+                            
+                            toast.success(`E-mail de solicitação de cadastro preparado para ${fornData.fornecedor.razao_social}`);
+                          }}
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          Enviar Solicitação de Cadastro por E-mail
+                        </Button>
+                        <div className="mt-3 p-3 bg-white rounded border border-yellow-200">
+                          <p className="text-xs text-gray-600 mb-1">Link de cadastro:</p>
+                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            {window.location.origin}/cadastro-fornecedor
+                          </code>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="font-semibold text-lg mb-3">📄 Documentos Válidos em Cadastro</h4>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Tipo de Documento</TableHead>
+                              <TableHead>Validade</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Ações</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {fornData.documentosExistentes.map((doc) => {
+                              const hoje = new Date();
+                              const validade = doc.data_validade ? new Date(doc.data_validade) : null;
+                              const isValido = validade ? validade > hoje : false;
+
+                              return (
+                                <TableRow key={doc.id}>
+                                  <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
+                                  <TableCell>
+                                    {doc.data_validade ? new Date(doc.data_validade).toLocaleDateString('pt-BR') : 'N/A'}
+                                  </TableCell>
+                                  <TableCell>
+                                    {doc.data_validade === null ? (
+                                      <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300">
+                                        N/A
+                                      </Badge>
+                                    ) : isValido ? (
+                                      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                                        ✓ Válido
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
+                                        ✗ Vencido
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => window.open(doc.url_arquivo, '_blank')}
+                                      >
+                                        <ExternalLink className="h-4 w-4 mr-1" />
+                                        Visualizar
+                                      </Button>
+                                      {doc.data_validade !== null && !isValido && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
+                                          onClick={() => {
+                                            toast.info("Funcionalidade de solicitar atualização em desenvolvimento");
+                                          }}
+                                        >
+                                          <Clock className="h-4 w-4 mr-1" />
+                                          Solicitar Atualização
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
 
                     {/* Documentos Solicitados */}
                     {fornData.campos.length > 0 && (
