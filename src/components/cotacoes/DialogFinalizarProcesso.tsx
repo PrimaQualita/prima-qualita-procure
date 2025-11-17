@@ -1851,15 +1851,39 @@ export function DialogFinalizarProcesso({
                                   </div>
                                 )}
                                 
-                                {campo.status_solicitacao === "aprovado" && (
+                                <div className="flex gap-2">
+                                  {campo.status_solicitacao === "aprovado" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => reverterAprovacaoDocumento(campo.id!)}
+                                    >
+                                      Reverter Aprovação
+                                    </Button>
+                                  )}
                                   <Button
                                     size="sm"
-                                    variant="outline"
-                                    onClick={() => reverterAprovacaoDocumento(campo.id!)}
+                                    variant="destructive"
+                                    onClick={async () => {
+                                      try {
+                                        const { error } = await supabase
+                                          .from("campos_documentos_finalizacao")
+                                          .delete()
+                                          .eq("id", campo.id!);
+
+                                        if (error) throw error;
+
+                                        toast.success("Solicitação excluída com sucesso");
+                                        await loadAllFornecedores();
+                                      } catch (error) {
+                                        console.error("Erro ao excluir solicitação:", error);
+                                        toast.error("Erro ao excluir solicitação");
+                                      }
+                                    }}
                                   >
-                                    Reverter Aprovação
+                                    <Trash2 className="h-4 w-4" />
                                   </Button>
-                                )}
+                                </div>
                               </div>
                             </Card>
                           ))}
