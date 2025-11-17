@@ -213,7 +213,40 @@ export default function CadastroFornecedor() {
         return;
       }
 
-      // VALIDAÇÃO 2: Cadastro e respostas de cotação são INDEPENDENTES
+      // VALIDAÇÃO 2: Limpar registros órfãos (fornecedores SEM user_id com este CNPJ)
+      // Isso pode acontecer se houve erro no processo de cadastro anterior
+      console.log('🧹 Verificando registros órfãos...');
+      const { data: fornecedoresOrfaos } = await supabase
+        .from('fornecedores')
+        .select('id')
+        .eq('cnpj', cnpjLimpo)
+        .is('user_id', null);
+
+      if (fornecedoresOrfaos && fornecedoresOrfaos.length > 0) {
+        console.log(`🗑️ Limpando ${fornecedoresOrfaos.length} registro(s) órfão(s)...`);
+        for (const orfao of fornecedoresOrfaos) {
+          // Deletar documentos órfãos
+          await supabase
+            .from('documentos_fornecedor')
+            .delete()
+            .eq('fornecedor_id', orfao.id);
+          
+          // Deletar respostas de due diligence órfãs
+          await supabase
+            .from('respostas_due_diligence_fornecedor')
+            .delete()
+            .eq('fornecedor_id', orfao.id);
+          
+          // Deletar o fornecedor órfão
+          await supabase
+            .from('fornecedores')
+            .delete()
+            .eq('id', orfao.id);
+        }
+        console.log('✅ Registros órfãos limpos com sucesso');
+      }
+
+      // VALIDAÇÃO 3: Cadastro e respostas de cotação são INDEPENDENTES
       // Sempre criar novo registro de fornecedor para cadastro completo
       console.log('✅ Nenhum cadastro completo encontrado - criando novo fornecedor');
 
