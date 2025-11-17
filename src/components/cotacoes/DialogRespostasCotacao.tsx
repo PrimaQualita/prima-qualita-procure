@@ -520,6 +520,7 @@ export function DialogRespostasCotacao({
           data_envio_resposta,
           usuario_gerador_id,
           comprovantes_urls,
+          fornecedor_id,
           fornecedores:fornecedor_id (
             razao_social,
             cnpj,
@@ -537,21 +538,44 @@ export function DialogRespostasCotacao({
 
       if (error) throw error;
 
+      // Buscar IDs de fornecedores órfãos (quando o JOIN retornou null)
+      const fornecedoresOrfaos = (data || [])
+        .filter((r: any) => !r.fornecedores && r.fornecedor_id)
+        .map((r: any) => r.fornecedor_id);
+
+      // Buscar dados dos fornecedores órfãos diretamente
+      let fornecedoresOrfaosData: any = {};
+      if (fornecedoresOrfaos.length > 0) {
+        const { data: fornecedoresReais } = await supabase
+          .from("fornecedores")
+          .select("id, razao_social, cnpj, endereco_comercial")
+          .in("id", fornecedoresOrfaos);
+        
+        fornecedoresReais?.forEach((f: any) => {
+          fornecedoresOrfaosData[f.id] = f;
+        });
+      }
+
       // Transformar dados
-      const respostasFormatadas = (data || []).map((r: any) => ({
-        id: r.id,
-        valor_total_anual_ofertado: r.valor_total_anual_ofertado,
-        observacoes_fornecedor: r.observacoes_fornecedor,
-        data_envio_resposta: r.data_envio_resposta,
-        usuario_gerador_id: r.usuario_gerador_id,
-        comprovantes_urls: r.comprovantes_urls || [],
-        fornecedor: {
-          razao_social: r.fornecedores?.razao_social || "N/A",
-          cnpj: r.fornecedores?.cnpj || "N/A",
-          endereco_comercial: r.fornecedores?.endereco_comercial || "",
-        },
-        anexos: r.anexos || [],
-      }));
+      const respostasFormatadas = (data || []).map((r: any) => {
+        // Tentar pegar do JOIN ou buscar diretamente
+        const fornecedorData = r.fornecedores || fornecedoresOrfaosData[r.fornecedor_id];
+        
+        return {
+          id: r.id,
+          valor_total_anual_ofertado: r.valor_total_anual_ofertado,
+          observacoes_fornecedor: r.observacoes_fornecedor,
+          data_envio_resposta: r.data_envio_resposta,
+          usuario_gerador_id: r.usuario_gerador_id,
+          comprovantes_urls: r.comprovantes_urls || [],
+          fornecedor: {
+            razao_social: fornecedorData?.razao_social || "N/A",
+            cnpj: fornecedorData?.cnpj || "N/A",
+            endereco_comercial: fornecedorData?.endereco_comercial || "",
+          },
+          anexos: r.anexos || [],
+        };
+      });
 
       setRespostas(respostasFormatadas);
     } catch (error) {
