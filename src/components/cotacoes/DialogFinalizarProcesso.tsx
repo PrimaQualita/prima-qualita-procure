@@ -1645,6 +1645,12 @@ export function DialogFinalizarProcesso({
       return;
     }
 
+    // Prevenir múltiplas execuções simultâneas
+    if (loading) {
+      console.log("⚠️ Processo já está sendo finalizado, ignorando chamada duplicada");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -1665,8 +1671,8 @@ export function DialogFinalizarProcesso({
       const numeroProcesso = cotacaoData.processos_compras.numero_processo_interno;
       const processoId = cotacaoData.processo_compra_id;
 
-      // PRIMEIRO: Limpar snapshots existentes desta cotação
-      console.log("🗑️ Limpando snapshots anteriores...");
+      // PRIMEIRO: Limpar TODOS os snapshots existentes desta cotação (incluindo duplicatas)
+      console.log("🗑️ Limpando TODOS os snapshots anteriores desta cotação...");
       const { error: deleteError } = await supabase
         .from("documentos_processo_finalizado")
         .delete()
@@ -1676,6 +1682,8 @@ export function DialogFinalizarProcesso({
         console.error("❌ Erro ao limpar snapshots anteriores:", deleteError);
         throw deleteError;
       }
+
+      console.log("✅ Snapshots anteriores limpos com sucesso!");
 
       // DEPOIS: Salvar snapshots dos documentos dos fornecedores vencedores
       console.log("📸 Salvando snapshots dos documentos dos fornecedores vencedores...");
