@@ -210,10 +210,10 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
         // Item número
         doc.text(item.numero.toString(), 102.5, yPos + (alturaLinha / 2) + 1, { align: 'center' });
         
-        // Marca
+        // Marca (centralizada)
         const offsetVerticalMarca = (alturaLinha - (marcaSplit.length * 4)) / 2 + 3;
         marcaSplit.forEach((linha: string, index: number) => {
-          doc.text(linha, 112, yPos + offsetVerticalMarca + (index * 4), { align: 'left', maxWidth: 28 });
+          doc.text(linha, 125, yPos + offsetVerticalMarca + (index * 4), { align: 'center', maxWidth: 28 });
         });
         
         // Valor unitário
