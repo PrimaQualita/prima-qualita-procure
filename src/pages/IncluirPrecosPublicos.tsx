@@ -164,7 +164,23 @@ const IncluirPrecosPublicos = () => {
         console.log(`Campos separados (${campos.length} campos):`, campos);
         
         // Template tem: Número Item, Valor Unitário, Marca
-        const [numItem, valor, marca] = campos;
+        let [numItem, valor, marca] = campos;
+        
+        // Se valor está vazio mas marca contém ponto-e-vírgula,
+        // significa que valor e marca estão juntos no campo marca
+        if ((!valor || valor === '') && marca && marca.includes(';')) {
+          console.log(`⚠️ Detectado formato alternativo com ponto-e-vírgula: "${marca}"`);
+          const partes = marca.split(';').map(p => p.trim()).filter(p => p !== '');
+          if (partes.length >= 2) {
+            valor = partes[0];
+            marca = partes[1];
+            console.log(`📌 Corrigido - valor: "${valor}", marca: "${marca}"`);
+          } else if (partes.length === 1) {
+            valor = partes[0];
+            marca = '';
+            console.log(`📌 Corrigido - valor: "${valor}", sem marca`);
+          }
+        }
         
         console.log(`🔍 Parsing - numItem: "${numItem}", valor: "${valor}", marca: "${marca}"`);
         
