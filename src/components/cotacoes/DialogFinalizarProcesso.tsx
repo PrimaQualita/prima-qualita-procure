@@ -1489,6 +1489,38 @@ export function DialogFinalizarProcesso({
     try {
       setLoading(true);
 
+      // Salvar snapshots dos documentos dos fornecedores vencedores
+      console.log("📸 Salvando snapshots dos documentos dos fornecedores vencedores...");
+      
+      for (const fornecedorData of fornecedoresData) {
+        if (!fornecedorData.rejeitado && fornecedorData.documentosExistentes.length > 0) {
+          console.log(`📄 Salvando ${fornecedorData.documentosExistentes.length} documentos do fornecedor ${fornecedorData.fornecedor.razao_social}`);
+          
+          // Criar snapshots dos documentos existentes
+          const snapshots = fornecedorData.documentosExistentes.map(doc => ({
+            cotacao_id: cotacaoId,
+            fornecedor_id: fornecedorData.fornecedor.id,
+            tipo_documento: doc.tipo_documento,
+            nome_arquivo: doc.nome_arquivo,
+            url_arquivo: doc.url_arquivo,
+            data_validade: doc.data_validade,
+            em_vigor: doc.em_vigor,
+            data_snapshot: new Date().toISOString(),
+          }));
+
+          const { error: snapshotError } = await supabase
+            .from("documentos_processo_finalizado")
+            .insert(snapshots);
+
+          if (snapshotError) {
+            console.error("❌ Erro ao salvar snapshot de documentos:", snapshotError);
+            throw snapshotError;
+          }
+        }
+      }
+
+      console.log("✅ Snapshots dos documentos salvos com sucesso!");
+
       const { error } = await supabase
         .from("cotacoes_precos")
         .update({
@@ -1499,7 +1531,7 @@ export function DialogFinalizarProcesso({
 
       if (error) throw error;
 
-      toast.success("Processo enviado para contratação!");
+      toast.success("Processo enviado para contratação! Documentos dos fornecedores arquivados permanentemente no processo.");
       onSuccess();
       onOpenChange(false);
     } catch (error) {
