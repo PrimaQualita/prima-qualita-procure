@@ -565,6 +565,35 @@ export function DialogFinalizarProcesso({
     try {
       console.log(`📄 Carregando documentos para fornecedor: ${fornecedorId}`);
       
+      // CRÍTICO: Buscar fornecedor cadastrado completo com mesmo CNPJ
+      // para pegar documentos atualizados do cadastro
+      const { data: fornecedorResposta } = await supabase
+        .from("fornecedores")
+        .select("cnpj")
+        .eq("id", fornecedorId)
+        .single();
+
+      let fornecedorIdParaDocumentos = fornecedorId;
+
+      if (fornecedorResposta?.cnpj) {
+        console.log(`🔍 Buscando fornecedor cadastrado com CNPJ: ${fornecedorResposta.cnpj}`);
+        
+        // Buscar fornecedor com cadastro completo (user_id não nulo)
+        const { data: fornecedorCadastrado } = await supabase
+          .from("fornecedores")
+          .select("id")
+          .eq("cnpj", fornecedorResposta.cnpj)
+          .not("user_id", "is", null)
+          .maybeSingle();
+
+        if (fornecedorCadastrado) {
+          console.log(`✅ Encontrado fornecedor cadastrado! Usando ID: ${fornecedorCadastrado.id}`);
+          fornecedorIdParaDocumentos = fornecedorCadastrado.id;
+        } else {
+          console.log(`ℹ️ Fornecedor não tem cadastro completo, usando ID da resposta`);
+        }
+      }
+      
       // Tipos de documentos conforme cadastrados no banco (em snake_case)
       const tiposDocumentos = [
         "contrato_social",
@@ -583,7 +612,7 @@ export function DialogFinalizarProcesso({
       const { data, error } = await supabase
         .from("documentos_fornecedor")
         .select("*")
-        .eq("fornecedor_id", fornecedorId)
+        .eq("fornecedor_id", fornecedorIdParaDocumentos)
         .in("tipo_documento", tiposDocumentos)
         .order("tipo_documento");
 
@@ -592,11 +621,11 @@ export function DialogFinalizarProcesso({
         throw error;
       }
 
-      console.log(`✅ Documentos carregados: ${data?.length || 0}`);
+      console.log(`✅ Documentos carregados: ${data?.length || 0} do fornecedor ${fornecedorIdParaDocumentos}`);
       console.log("Documentos encontrados:", data);
 
       if (!data || data.length === 0) {
-        console.warn(`⚠️ Nenhum documento encontrado para fornecedor ${fornecedorId}`);
+        console.warn(`⚠️ Nenhum documento encontrado para fornecedor ${fornecedorIdParaDocumentos}`);
         return [];
       }
 
