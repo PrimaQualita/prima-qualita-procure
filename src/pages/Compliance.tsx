@@ -214,26 +214,29 @@ export default function Compliance() {
     if (!analiseParaDeletar) return;
 
     try {
-      // Usar RPC ou SQL direto para deletar da tabela analises_compliance
+      console.log("Excluindo análise para cotação:", analiseParaDeletar);
+      
       const { error } = await supabase.rpc('delete_analise_compliance', {
         p_cotacao_id: analiseParaDeletar
       });
 
       if (error) {
-        // Se RPC não existir, tentar com query SQL direta
-        console.log("Tentando exclusão direta...");
-        throw error;
+        console.error("Erro RPC:", error);
+        toast.error(`Erro ao excluir: ${error.message}`);
+        return;
       }
 
       toast.success("Análise excluída com sucesso");
       setDeleteDialogOpen(false);
       setAnaliseParaDeletar(null);
       
-      // Recarregar todos os dados
-      loadData();
+      // Recarregar dados com delay para garantir propagação no banco
+      setTimeout(() => {
+        loadData();
+      }, 300);
     } catch (error: any) {
       console.error("Erro ao excluir análise:", error);
-      toast.error("Erro ao excluir análise. Tabela pode não existir.");
+      toast.error(`Erro ao excluir: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
