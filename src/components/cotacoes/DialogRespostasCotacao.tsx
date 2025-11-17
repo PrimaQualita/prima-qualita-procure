@@ -1346,7 +1346,17 @@ export function DialogRespostasCotacao({
                 <div className="mt-6 pt-6 border-t space-y-4">
                   <h3 className="text-lg font-semibold">Análises de Compliance</h3>
                   
-                  {analisesAnteriores.map((analise, index) => (
+                  {analisesAnteriores.map((analise, index) => {
+                    // Processar empresas desta análise específica
+                    const empresas = analise.empresas as any[];
+                    const aprovadas = empresas
+                      .filter((emp: any) => emp.aprovado === true)
+                      .map((emp: any) => emp.razao_social);
+                    const reprovadas = empresas
+                      .filter((emp: any) => emp.aprovado === false)
+                      .map((emp: any) => emp.razao_social);
+                    
+                    return (
                     <div key={analise.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
@@ -1368,6 +1378,30 @@ export function DialogRespostasCotacao({
                             </span>
                           </p>
                         </div>
+                      </div>
+                      
+                      {/* Lista de Empresas Aprovadas e Reprovadas */}
+                      <div className="grid grid-cols-2 gap-4 mt-3">
+                        {aprovadas.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-green-700">✓ Empresas Aprovadas:</p>
+                            <ul className="text-xs space-y-1">
+                              {aprovadas.map((empresa, idx) => (
+                                <li key={idx} className="text-green-600">• {empresa}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {reprovadas.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-red-700">✗ Empresas Reprovadas:</p>
+                            <ul className="text-xs space-y-1">
+                              {reprovadas.map((empresa, idx) => (
+                                <li key={idx} className="text-red-600">• {empresa}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                       
                       {analise.url_documento && (
@@ -1408,7 +1442,7 @@ export function DialogRespostasCotacao({
                         </div>
                       )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
 

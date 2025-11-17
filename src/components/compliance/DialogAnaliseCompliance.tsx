@@ -56,29 +56,20 @@ export function DialogAnaliseCompliance({
 
   const loadFornecedoresPropostas = async () => {
     try {
-      // Primeiro, buscar todas as empresas reprovadas em análises anteriores
-      const { data: analisesAnteriores, error: analisesError } = await supabase
+      // Buscar análise mais recente para saber quais empresas já foram analisadas
+      const { data: analiseRecente, error: analiseError } = await supabase
         .from("analises_compliance" as any)
-        .select("empresas_reprovadas")
-        .eq("cotacao_id", cotacaoId);
+        .select("empresas")
+        .eq("cotacao_id", cotacaoId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (analisesError && analisesError.code !== "PGRST116") throw analisesError;
+      if (analiseError && analiseError.code !== "PGRST116") throw analiseError;
 
-      // Montar set de CNPJs reprovados
-      const cnpjsReprovados = new Set<string>();
-      if (analisesAnteriores && analisesAnteriores.length > 0) {
-        analisesAnteriores.forEach((analise: any) => {
-          if (analise.empresas_reprovadas) {
-            analise.empresas_reprovadas.forEach((cnpj: string) => {
-              cnpjsReprovados.add(cnpj);
-            });
-          }
-        });
-      }
+      console.log("Análise recente encontrada:", analiseRecente);
 
-      console.log("CNPJs reprovados em análises anteriores:", Array.from(cnpjsReprovados));
-
-      // Buscar fornecedores com respostas, excluindo os rejeitados
+      // Buscar fornecedores com respostas, excluindo apenas os PERMANENTEMENTE rejeitados
       const { data: respostas, error } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -94,19 +85,33 @@ export function DialogAnaliseCompliance({
       if (error) throw error;
 
       if (respostas && respostas.length > 0) {
-        // Filtrar empresas que já foram reprovadas anteriormente
-        const empresasData = respostas
-          .filter((resposta: any) => {
-            const cnpj = resposta.fornecedores?.cnpj || "";
-            return !cnpjsReprovados.has(cnpj);
-          })
-          .map((resposta: any) => ({
-            razao_social: resposta.fornecedores?.razao_social || "",
-            cnpj: resposta.fornecedores?.cnpj || "",
-            aprovado: true,
-          }));
+        const empresasData = respostas.map((resposta: any) => {
+          const razaoSocial = resposta.fornecedores?.razao_social || "";
+          const cnpj = resposta.fornecedores?.cnpj || "";
+          
+          // Se já existe análise, verificar se empresa estava aprovada ou reprovada
+          let aprovado = true; // Padrão: aprovado
+          
+          if (analiseRecente && analiseRecente.empresas) {
+            const empresas = analiseRecente.empresas as any[];
+            const empresaAnalisada = empresas.find(
+              (emp: any) => emp.cnpj === cnpj
+            );
+            
+            if (empresaAnalisada) {
+              aprovado = empresaAnalisada.aprovado; // Manter status anterior
+              console.log(`Empresa ${razaoSocial} tinha status: ${aprovado ? 'Aprovada' : 'Reprovada'}`);
+            }
+          }
+          
+          return {
+            razao_social: razaoSocial,
+            cnpj: cnpj,
+            aprovado: aprovado,
+          };
+        });
         
-        console.log(`Empresas para análise (após filtrar ${cnpjsReprovados.size} reprovadas):`, empresasData);
+        console.log(`Empresas carregadas para edição (incluindo reprovadas):`, empresasData);
         setEmpresas(empresasData);
       }
     } catch (error: any) {
