@@ -272,18 +272,6 @@ export const gerarProcessoCompletoPDF = async (
     }
 
     console.log(`Relatórios finais encontrados: ${relatorios?.length || 0}`);
-    
-    if (relatorios && relatorios.length > 0) {
-      relatorios.forEach(relatorio => {
-        documentosOrdenados.push({
-          tipo: "Relatório Final",
-          data: relatorio.data_geracao,
-          nome: relatorio.nome_arquivo,
-          storagePath: relatorio.url_arquivo,
-          bucket: "processo-anexos"
-        });
-      });
-    }
 
     // 8. Buscar TODAS as autorizações
     const { data: autorizacoes, error: autorizacoesError } = await supabase
@@ -297,21 +285,20 @@ export const gerarProcessoCompletoPDF = async (
     }
 
     console.log(`Autorizações encontradas: ${autorizacoes?.length || 0}`);
-    
-    if (autorizacoes && autorizacoes.length > 0) {
-      autorizacoes.forEach(aut => {
-        documentosOrdenados.push({
-          tipo: `Autorização (${aut.tipo_autorizacao})`,
-          data: aut.data_geracao,
-          nome: aut.nome_arquivo,
-          storagePath: aut.url_arquivo,
-          bucket: "processo-anexos"
-        });
-      });
-    }
 
-    // 9. Buscar documentos dos fornecedores aprovados (snapshot)
-    // Estes documentos devem ser inseridos APÓS a última análise de compliance
+    // 9. Ordenar TODOS os documentos normais por data cronológica
+    documentosOrdenados.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+
+    console.log(`\n📅 Total de documentos cronológicos ordenados: ${documentosOrdenados.length}`);
+
+    // 10. Encontrar a data do último documento cronológico (geralmente última análise de compliance)
+    const ultimaDataCronologica = documentosOrdenados.length > 0
+      ? documentosOrdenados[documentosOrdenados.length - 1].data
+      : new Date().toISOString();
+
+    console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
+
+    // 11. Buscar e adicionar documentos dos fornecedores aprovados (snapshot) APÓS última data
     const { data: documentosSnapshot, error: snapshotError } = await supabase
       .from("documentos_processo_finalizado")
       .select("*")
@@ -322,16 +309,11 @@ export const gerarProcessoCompletoPDF = async (
       console.error("Erro ao buscar documentos snapshot:", snapshotError);
     }
 
-    console.log(`Documentos snapshot encontrados: ${documentosSnapshot?.length || 0}`);
+    console.log(`📄 Documentos snapshot encontrados: ${documentosSnapshot?.length || 0}`);
 
-    // 10. Encontrar a data da última análise de compliance para inserir os snapshots após ela
-    const ultimaAnaliseData = analises && analises.length > 0 
-      ? analises[analises.length - 1].data_analise || analises[analises.length - 1].created_at
-      : null;
-
-    if (documentosSnapshot && documentosSnapshot.length > 0 && ultimaAnaliseData) {
-      // Adicionar 1 segundo à última análise para garantir que os snapshots venham logo após
-      const dataSnapshot = new Date(new Date(ultimaAnaliseData).getTime() + 1000).toISOString();
+    if (documentosSnapshot && documentosSnapshot.length > 0) {
+      // Adicionar 1 segundo à última data para garantir que os snapshots venham logo após
+      const dataSnapshot = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
       
       documentosSnapshot.forEach(doc => {
         documentosOrdenados.push({
@@ -344,8 +326,37 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 11. Ordenar TODOS os documentos por data cronológica
-    documentosOrdenados.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+    // 12. Adicionar relatórios finais APÓS documentos dos fornecedores
+    if (relatorios && relatorios.length > 0) {
+      // Adicionar 2 segundos à última data
+      const dataRelatorios = new Date(new Date(ultimaDataCronologica).getTime() + 2000).toISOString();
+      
+      relatorios.forEach(relatorio => {
+        documentosOrdenados.push({
+          tipo: "Relatório Final",
+          data: dataRelatorios,
+          nome: relatorio.nome_arquivo,
+          storagePath: relatorio.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      });
+    }
+
+    // 13. Adicionar autorizações APÓS relatórios finais
+    if (autorizacoes && autorizacoes.length > 0) {
+      // Adicionar 3 segundos à última data
+      const dataAutorizacoes = new Date(new Date(ultimaDataCronologica).getTime() + 3000).toISOString();
+      
+      autorizacoes.forEach(aut => {
+        documentosOrdenados.push({
+          tipo: `Autorização (${aut.tipo_autorizacao})`,
+          data: dataAutorizacoes,
+          nome: aut.nome_arquivo,
+          storagePath: aut.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      });
+    }
 
     console.log(`\n📅 Total de documentos a serem mesclados em ordem cronológica: ${documentosOrdenados.length}`);
 
