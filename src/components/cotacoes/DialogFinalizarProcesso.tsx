@@ -29,7 +29,7 @@ import { stripHtml } from "@/lib/htmlUtils";
 interface FornecedorVencedor {
   razaoSocial: string;
   cnpj: string;
-  itensVencedores: Array<{ numero: number; valor: number }>;
+  itensVencedores: Array<{ numero: number; valor: number; marca?: string; valorUnitario?: number }>;
   valorTotal: number;
 }
 
@@ -1312,6 +1312,7 @@ export function DialogFinalizarProcesso({
           id,
           cotacao_resposta_fornecedor_id,
           valor_unitario_ofertado,
+          marca,
           itens_cotacao!inner(numero_item, quantidade, descricao)
         `)
         .in("cotacao_resposta_fornecedor_id", todasRespostas?.map(r => r.id) || []);
@@ -1322,7 +1323,7 @@ export function DialogFinalizarProcesso({
         const itensVencedores = fData.itensVencedores;
         
         let valorTotal = 0;
-        const itensVencedoresDetalhados: Array<{ numero: number; descricao: string; valor: number }> = [];
+        const itensVencedoresDetalhados: Array<{ numero: number; descricao: string; valor: number; marca?: string; valorUnitario?: number }> = [];
         
         itensVencedores.forEach(item => {
           const itemResposta = itensRespostas?.find(
@@ -1330,12 +1331,16 @@ export function DialogFinalizarProcesso({
                   ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item
           );
           if (itemResposta) {
-            const valorItem = Number(itemResposta.valor_unitario_ofertado) * Number(itemResposta.itens_cotacao.quantidade);
+            const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
+            const quantidade = Number(itemResposta.itens_cotacao.quantidade);
+            const valorItem = valorUnitario * quantidade;
             valorTotal += valorItem;
             itensVencedoresDetalhados.push({
               numero: item.itens_cotacao.numero_item,
               descricao: itemResposta.itens_cotacao.descricao,
-              valor: valorItem
+              valor: valorItem,
+              marca: itemResposta.marca || '-',
+              valorUnitario: valorUnitario
             });
           }
         });

@@ -12,7 +12,7 @@ interface RelatorioFinalResult {
 interface FornecedorVencedor {
   razaoSocial: string;
   cnpj: string;
-  itensVencedores: Array<{ numero: number; valor: number; descricao?: string }>;
+  itensVencedores: Array<{ numero: number; valor: number; descricao?: string; marca?: string; valorUnitario?: number }>;
   valorTotal: number;
 }
 
@@ -133,7 +133,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhas2.length * 3.5 + 5;
   
-  // Tabela de fornecedores vencedores (igual à autorização)
+  // Tabela de fornecedores vencedores com itens detalhados
   if (dados.fornecedoresVencedores && dados.fornecedoresVencedores.length > 0) {
     doc.setFontSize(10);
     
@@ -141,16 +141,20 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     doc.setFillColor(0, 51, 102);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 50, 8, 'FD');
-    doc.rect(70, yPos, 40, 8, 'FD');
+    doc.rect(20, yPos, 40, 8, 'FD');
+    doc.rect(60, yPos, 35, 8, 'FD');
+    doc.rect(95, yPos, 15, 8, 'FD');
     doc.rect(110, yPos, 30, 8, 'FD');
-    doc.rect(140, yPos, 50, 8, 'FD');
+    doc.rect(140, yPos, 25, 8, 'FD');
+    doc.rect(165, yPos, 25, 8, 'FD');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('Empresa', 45, yPos + 5, { align: 'center' });
-    doc.text('CNPJ', 90, yPos + 5, { align: 'center' });
-    doc.text('Itens Vencidos', 125, yPos + 5, { align: 'center' });
-    doc.text('Valor Total', 165, yPos + 5, { align: 'center' });
+    doc.text('Empresa', 40, yPos + 5, { align: 'center' });
+    doc.text('CNPJ', 77.5, yPos + 5, { align: 'center' });
+    doc.text('Item', 102.5, yPos + 5, { align: 'center' });
+    doc.text('Marca', 125, yPos + 5, { align: 'center' });
+    doc.text('Valor Unit.', 152.5, yPos + 5, { align: 'center' });
+    doc.text('Valor Total', 177.5, yPos + 5, { align: 'center' });
     yPos += 8;
     
     // Conteúdo da tabela
@@ -168,40 +172,69 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     };
     
     dados.fornecedoresVencedores.forEach((fornecedor) => {
-      const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 45);
-      const alturaLinha = Math.max(10, razaoSocialSplit.length * 4 + 4);
-      
-      doc.rect(20, yPos, 50, alturaLinha);
-      doc.rect(70, yPos, 40, alturaLinha);
-      doc.rect(110, yPos, 30, alturaLinha);
-      doc.rect(140, yPos, 50, alturaLinha);
-      
-      const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 4;
-      razaoSocialSplit.forEach((linha: string, index: number) => {
-        doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 46 });
+      // Para cada item vencedor do fornecedor, criar uma linha
+      fornecedor.itensVencedores.forEach((item, itemIndex) => {
+        const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 35);
+        const marcaSplit = doc.splitTextToSize(item.marca || '-', 28);
+        const alturaLinha = Math.max(8, Math.max(razaoSocialSplit.length, marcaSplit.length) * 4 + 2);
+        
+        // Verificar se precisa de nova página
+        if (yPos + alturaLinha > pageHeight - 30) {
+          doc.addPage();
+          yPos = 20;
+          adicionarLogoERodape();
+        }
+        
+        doc.rect(20, yPos, 40, alturaLinha);
+        doc.rect(60, yPos, 35, alturaLinha);
+        doc.rect(95, yPos, 15, alturaLinha);
+        doc.rect(110, yPos, 30, alturaLinha);
+        doc.rect(140, yPos, 25, alturaLinha);
+        doc.rect(165, yPos, 25, alturaLinha);
+        
+        // Mostrar empresa apenas na primeira linha de cada fornecedor
+        if (itemIndex === 0) {
+          const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
+          razaoSocialSplit.forEach((linha: string, index: number) => {
+            doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 36 });
+          });
+          
+          const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
+          const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 33);
+          const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
+          cnpjSplit.forEach((linha: string, index: number) => {
+            doc.text(linha, 62, yPos + offsetVerticalCNPJ + (index * 4), { align: 'left', maxWidth: 31 });
+          });
+        }
+        
+        // Item número
+        doc.text(item.numero.toString(), 102.5, yPos + (alturaLinha / 2) + 1, { align: 'center' });
+        
+        // Marca
+        const offsetVerticalMarca = (alturaLinha - (marcaSplit.length * 4)) / 2 + 3;
+        marcaSplit.forEach((linha: string, index: number) => {
+          doc.text(linha, 112, yPos + offsetVerticalMarca + (index * 4), { align: 'left', maxWidth: 28 });
+        });
+        
+        // Valor unitário
+        const valorUnitario = item.valorUnitario || 0;
+        doc.text(`R$ ${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 163, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+        
+        // Valor total do item
+        doc.text(`R$ ${item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+        
+        yPos += alturaLinha;
       });
       
-      const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
-      const offsetVerticalCNPJ = (alturaLinha - 4) / 2 + 4;
-      doc.text(cnpjFormatado, 72, yPos + offsetVerticalCNPJ);
-      
-      const itensText = fornecedor.itensVencedores.map(i => i.numero).join(', ');
-      const offsetVerticalItens = (alturaLinha - 4) / 2 + 4;
-      doc.text(itensText, 125, yPos + offsetVerticalItens, { align: 'center' });
-      
-      const offsetVerticalValor = (alturaLinha - 4) / 2 + 4;
-      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + offsetVerticalValor, { align: 'right' });
-      
       totalGeral += fornecedor.valorTotal;
-      yPos += alturaLinha;
     });
     
     // Linha de Total Geral
     doc.setFillColor(240, 240, 240);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 120, 8, 'FD');
-    doc.rect(140, yPos, 50, 8, 'FD');
+    doc.rect(20, yPos, 145, 8, 'FD');
+    doc.rect(165, yPos, 25, 8, 'FD');
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text('TOTAL GERAL', 22, yPos + 5);
