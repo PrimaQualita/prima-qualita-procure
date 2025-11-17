@@ -135,7 +135,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   
   // Tabela de fornecedores vencedores com itens detalhados
   if (dados.fornecedoresVencedores && dados.fornecedoresVencedores.length > 0) {
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     
     // Cabeçalho da tabela
     doc.setFillColor(0, 51, 102);
