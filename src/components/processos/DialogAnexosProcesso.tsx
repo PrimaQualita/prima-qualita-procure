@@ -37,6 +37,10 @@ const TIPOS_ANEXOS_OBRIGATORIOS = [
   { tipo: "termo_referencia", label: "Termo de Referência" },
 ];
 
+const TIPOS_ANEXOS_GERADOS = [
+  { tipo: "PROCESSO_COMPLETO", label: "Processo Completo Consolidado" },
+];
+
 export function DialogAnexosProcesso({
   open,
   onOpenChange,
@@ -196,78 +200,60 @@ export function DialogAnexosProcesso({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Seção de Processo Completo Consolidado */}
+          {TIPOS_ANEXOS_GERADOS.map(({ tipo, label }) => {
+            const anexo = getAnexoPorTipo(tipo);
+
+            if (!anexo) return null;
+
+            return (
+              <div key={tipo} className="border-2 border-primary rounded-lg p-4 bg-primary/5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="font-semibold text-base">{label}</Label>
+                    <Badge className="text-xs bg-primary">
+                      Gerado pelo Sistema
+                    </Badge>
+                  </div>
+                  <CheckCircle className="h-5 w-5 text-primary" />
+                </div>
+
+                <div className="flex items-center justify-between bg-background p-3 rounded">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{anexo.nome_arquivo}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Gerado em {new Date(anexo.data_upload).toLocaleString("pt-BR")}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDownload(anexo)}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(anexo)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Seção de Anexos Obrigatórios */}
           {TIPOS_ANEXOS_OBRIGATORIOS.map(({ tipo, label }) => {
             const anexo = getAnexoPorTipo(tipo);
             const isUploading = uploading === tipo;
 
             return (
               <div key={tipo} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Label className="font-medium">{label}</Label>
-                    <Badge variant="destructive" className="text-xs">
-                      Obrigatório
-                    </Badge>
-                  </div>
-                  {anexo ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-destructive" />
-                  )}
-                </div>
-
-                {anexo ? (
-                  <div className="flex items-center justify-between bg-muted p-3 rounded">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{anexo.nome_arquivo}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Enviado em {new Date(anexo.data_upload).toLocaleString("pt-BR")}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDownload(anexo)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(anexo)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <input
-                      type="file"
-                      id={`file-${tipo}`}
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleFileUpload(tipo, file);
-                      }}
-                      disabled={isUploading}
-                    />
-                    <label htmlFor={`file-${tipo}`}>
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        disabled={isUploading}
-                        asChild
-                      >
-                        <span>
-                          <FileUp className="mr-2 h-4 w-4" />
-                          {isUploading ? "Enviando..." : "Anexar Arquivo"}
-                        </span>
-                      </Button>
-                    </label>
-                  </div>
-                )}
+...
               </div>
             );
           })}
