@@ -159,11 +159,14 @@ const IncluirPrecosPublicos = () => {
         
         // Remove aspas extras que o Excel pode adicionar
         const cleanLine = line.replace(/"/g, '');
-        const campos = cleanLine.split(separador).map(campo => campo.trim()).filter(campo => campo !== '');
-        console.log(`Campos separados:`, campos);
+        // NÃO filtrar campos vazios para manter posição da marca
+        const campos = cleanLine.split(separador).map(campo => campo.trim());
+        console.log(`Campos separados (${campos.length} campos):`, campos);
         
-        // Template agora tem apenas: Número Item, Valor Unitário, Marca
+        // Template tem: Número Item, Valor Unitário, Marca
         const [numItem, valor, marca] = campos;
+        
+        console.log(`🔍 Parsing - numItem: "${numItem}", valor: "${valor}", marca: "${marca}"`);
         
         if (!numItem) {
           console.log(`Linha ${index + 2}: número do item vazio`);
@@ -176,17 +179,18 @@ const IncluirPrecosPublicos = () => {
         if (item && valor && valor !== '') {
           // Limpa e formata o valor (aceita tanto vírgula quanto ponto)
           const valorLimpo = valor.replace(/[^\d,.-]/g, '').replace('.', ',');
+          const marcaLimpa = marca && marca.trim() !== '' ? marca.trim() : '';
           
           novasRespostas[item.id] = {
             item_id: item.id,
             valor_unitario: valorLimpo,
-            marca: marca && marca !== '' ? marca.trim() : '',
+            marca: marcaLimpa,
           };
           
-          console.log(`Item ${numItem} importado - Valor: ${valorLimpo}, Marca: ${marca}`);
+          console.log(`✅ Item ${numItem} importado - Valor: "${valorLimpo}", Marca: "${marcaLimpa}"`);
           itensImportados++;
         } else {
-          console.log(`Item ${numItem} NÃO importado - item existe: ${!!item}, valor: ${valor}`);
+          console.log(`❌ Item ${numItem} NÃO importado - item existe: ${!!item}, valor: "${valor}"`);
         }
       });
       
