@@ -386,8 +386,21 @@ export function DialogFinalizarProcesso({
         })
       );
 
-      setFornecedoresData(fornecedoresComDados);
+      // Ordenar fornecedores pelo menor número de item que ganharam
+      const fornecedoresOrdenados = fornecedoresComDados.sort((a, b) => {
+        const menorItemA = Math.min(...a.itensVencedores.map(item => item.itens_cotacao.numero_item));
+        const menorItemB = Math.min(...b.itensVencedores.map(item => item.itens_cotacao.numero_item));
+        return menorItemA - menorItemB;
+      });
+
       console.log("✅ Carregamento de fornecedores concluído");
+      console.log('📊 Ordem final dos fornecedores:', fornecedoresOrdenados.map(f => ({
+        nome: f.fornecedor.razao_social,
+        menorItem: Math.min(...f.itensVencedores.map(item => item.itens_cotacao.numero_item)),
+        itens: f.itensVencedores.map(item => item.itens_cotacao.numero_item)
+      })));
+      
+      setFornecedoresData(fornecedoresOrdenados);
     } catch (error) {
       console.error("❌ Erro ao carregar fornecedores:", error);
       toast.error("Erro ao carregar fornecedores vencedores");
