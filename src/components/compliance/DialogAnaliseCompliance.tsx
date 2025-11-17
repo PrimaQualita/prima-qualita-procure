@@ -27,6 +27,7 @@ interface DialogAnaliseComplianceProps {
   numeroProcesso: string;
   objetoDescricao: string;
   criterioJulgamento: string;
+  isEditMode?: boolean;
 }
 
 export function DialogAnaliseCompliance({
@@ -37,6 +38,7 @@ export function DialogAnaliseCompliance({
   numeroProcesso,
   objetoDescricao,
   criterioJulgamento,
+  isEditMode = false,
 }: DialogAnaliseComplianceProps) {
   const [empresas, setEmpresas] = useState<EmpresaParaAnalise[]>([]);
   const [statusAprovacao, setStatusAprovacao] = useState<"aprovado" | "reprovado" | "pendente">("pendente");
@@ -121,7 +123,17 @@ export function DialogAnaliseCompliance({
 
   const loadExistingAnalise = async () => {
     try {
-      // Buscar a análise mais recente
+      // Só carregar análise existente se estiver em modo de edição
+      if (!isEditMode) {
+        console.log("Modo de criação - não carregando análise existente");
+        setAnaliseId(null);
+        setUrlDocumento(null);
+        setNomeArquivo(null);
+        setStatusAprovacao("pendente");
+        return;
+      }
+
+      // Buscar a análise mais recente para edição
       const { data, error } = await supabase
         .from("analises_compliance" as any)
         .select("*")
