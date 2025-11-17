@@ -133,13 +133,12 @@ export function DialogAnaliseCompliance({
       if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
-        // NÃO carregar análise existente - sempre criar nova
-        // Apenas armazenar para referência
-        console.log("Análise anterior encontrada, mas criando nova análise");
-        setAnaliseId(null);
-        setUrlDocumento(null);
-        setNomeArquivo(null);
-        setStatusAprovacao("pendente");
+        // Carregar análise existente para edição
+        console.log("Análise anterior encontrada, carregando para edição");
+        setAnaliseId(data.id);
+        setUrlDocumento(data.url_documento);
+        setNomeArquivo(data.nome_arquivo);
+        setStatusAprovacao(data.status_aprovacao || "pendente");
       }
     } catch (error: any) {
       console.error("Erro ao carregar análise:", error);
@@ -239,12 +238,23 @@ export function DialogAnaliseCompliance({
         nome_arquivo: uploadedFileName,
       };
 
-      // Sempre criar NOVA análise, nunca editar
-      const { error } = await supabase
-        .from("analises_compliance" as any)
-        .insert(analiseData);
+      // Se existe analiseId, fazer UPDATE, senão fazer INSERT
+      if (analiseId) {
+        const { error } = await supabase
+          .from("analises_compliance" as any)
+          .update(analiseData)
+          .eq("id", analiseId);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("Análise de Compliance atualizada com sucesso!");
+      } else {
+        const { error } = await supabase
+          .from("analises_compliance" as any)
+          .insert(analiseData);
+
+        if (error) throw error;
+        toast.success("Nova análise de Compliance criada com sucesso!");
+      }
 
       // Atualizar status da cotação
       await supabase
@@ -252,7 +262,6 @@ export function DialogAnaliseCompliance({
         .update({ respondido_compliance: true })
         .eq("id", cotacaoId);
 
-      toast.success("Nova análise de Compliance criada com sucesso!");
       onOpenChange(false);
     } catch (error: any) {
       console.error("Erro ao salvar análise:", error);
