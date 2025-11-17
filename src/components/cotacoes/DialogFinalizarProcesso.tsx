@@ -138,6 +138,53 @@ export function DialogFinalizarProcesso({
     }
   }, [open, cotacaoId]);
 
+  // Realtime: Atualizar automaticamente quando fornecedores ou documentos mudarem
+  useEffect(() => {
+    if (!open || !cotacaoId) return;
+
+    console.log('🔴 REALTIME: Configurando listeners para atualização automática');
+
+    const fornecedoresChannel = supabase
+      .channel('fornecedores-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'fornecedores'
+        },
+        (payload) => {
+          console.log('🔴 REALTIME: Fornecedor alterado:', payload);
+          // Recarregar dados quando fornecedor for atualizado (ex: cadastro completo)
+          loadAllFornecedores();
+        }
+      )
+      .subscribe();
+
+    const documentosChannel = supabase
+      .channel('documentos-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'documentos_fornecedor'
+        },
+        (payload) => {
+          console.log('🔴 REALTIME: Documento alterado:', payload);
+          // Recarregar dados quando documentos forem adicionados/atualizados
+          loadAllFornecedores();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔴 REALTIME: Removendo listeners');
+      supabase.removeChannel(fornecedoresChannel);
+      supabase.removeChannel(documentosChannel);
+    };
+  }, [open, cotacaoId]);
+
   const loadFornecedoresRejeitados = async () => {
     if (!cotacaoId) return;
 
