@@ -312,29 +312,23 @@ export const gerarProcessoCompletoPDF = async (
     console.log(`📄 Documentos snapshot encontrados: ${documentosSnapshot?.length || 0}`);
 
     if (documentosSnapshot && documentosSnapshot.length > 0) {
-      // Agrupar documentos por fornecedor para evitar duplicação
-      const documentosPorFornecedor = documentosSnapshot.reduce((acc, doc) => {
-        if (!acc[doc.fornecedor_id]) {
-          acc[doc.fornecedor_id] = [];
-        }
-        acc[doc.fornecedor_id].push(doc);
-        return acc;
-      }, {} as Record<string, typeof documentosSnapshot>);
-
       // Adicionar 1 segundo à última data para garantir que os snapshots venham logo após
       const dataSnapshot = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
       
-      // Adicionar documentos de cada fornecedor apenas uma vez
-      Object.values(documentosPorFornecedor).forEach(docsDoFornecedor => {
-        docsDoFornecedor.forEach(doc => {
+      // Usar Set para garantir que cada documento seja adicionado apenas uma vez baseado em seu ID único
+      const idsAdicionados = new Set<string>();
+      
+      documentosSnapshot.forEach(doc => {
+        if (!idsAdicionados.has(doc.id)) {
+          idsAdicionados.add(doc.id);
           documentosOrdenados.push({
             tipo: "Documento Fornecedor Aprovado",
             data: dataSnapshot,
             nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
-            url: doc.url_arquivo, // Usar URL direta do documento do fornecedor
+            url: doc.url_arquivo,
             bucket: "processo-anexos"
           });
-        });
+        }
       });
     }
 
