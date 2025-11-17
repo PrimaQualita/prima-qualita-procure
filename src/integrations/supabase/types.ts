@@ -681,6 +681,63 @@ export type Database = {
           },
         ]
       }
+      documentos_processo_finalizado: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          data_emissao: string | null
+          data_snapshot: string
+          data_validade: string | null
+          em_vigor: boolean | null
+          fornecedor_id: string
+          id: string
+          nome_arquivo: string
+          tipo_documento: string
+          url_arquivo: string
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          data_emissao?: string | null
+          data_snapshot?: string
+          data_validade?: string | null
+          em_vigor?: boolean | null
+          fornecedor_id: string
+          id?: string
+          nome_arquivo: string
+          tipo_documento: string
+          url_arquivo: string
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          data_emissao?: string | null
+          data_snapshot?: string
+          data_validade?: string | null
+          em_vigor?: boolean | null
+          fornecedor_id?: string
+          id?: string
+          nome_arquivo?: string
+          tipo_documento?: string
+          url_arquivo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_processo_finalizado_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_processo_finalizado_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emails_cotacao_anexados: {
         Row: {
           cotacao_id: string
