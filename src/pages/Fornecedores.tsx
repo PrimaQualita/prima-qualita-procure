@@ -465,7 +465,29 @@ export default function Fornecedores() {
 
       console.log("Fornecedor encontrado, user_id:", fornecedorData?.user_id);
 
-      // 2. Se o fornecedor tem user_id, deletar o usuário de autenticação PRIMEIRO
+      // 2. Deletar documentos do fornecedor
+      const { error: docError } = await supabase
+        .from("documentos_fornecedor")
+        .delete()
+        .eq("fornecedor_id", fornecedorParaExcluir);
+
+      if (docError) {
+        console.error("Erro ao deletar documentos:", docError);
+        throw docError;
+      }
+
+      // 3. Deletar respostas de due diligence
+      const { error: respostasError } = await supabase
+        .from("respostas_due_diligence_fornecedor")
+        .delete()
+        .eq("fornecedor_id", fornecedorParaExcluir);
+
+      if (respostasError) {
+        console.error("Erro ao deletar respostas due diligence:", respostasError);
+        throw respostasError;
+      }
+
+      // 4. Se o fornecedor tem user_id, deletar o usuário de autenticação
       if (fornecedorData?.user_id) {
         console.log("Chamando edge function para deletar usuário:", fornecedorData.user_id);
         
@@ -485,7 +507,7 @@ export default function Fornecedores() {
         }
       }
 
-      // 3. Agora deletar o registro de fornecedor
+      // 5. Agora deletar o registro de fornecedor
       const { error: deleteError } = await supabase
         .from("fornecedores")
         .delete()
