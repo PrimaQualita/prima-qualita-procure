@@ -400,10 +400,26 @@ export function DialogRespostasCotacao({
 
       if (dbError) throw dbError;
 
+      // Limpar aprovações de documentos quando a planilha é excluída
+      // Isso força nova verificação de documentos quando uma nova planilha for gerada
+      const { error: clearDocsError } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({ 
+          status_solicitacao: "pendente",
+          data_aprovacao: null 
+        })
+        .eq("cotacao_id", cotacaoId)
+        .in("status_solicitacao", ["aprovado", "em_analise"]);
+
+      if (clearDocsError) {
+        console.error("Erro ao limpar aprovações:", clearDocsError);
+        // Não lançar erro aqui, pois a exclusão da planilha foi bem-sucedida
+      }
+
       setPlanilhaParaExcluir(null);
       setConfirmDeletePlanilhaOpen(false);
       loadPlanilhaGerada();
-      toast.success("Planilha excluída com sucesso");
+      toast.success("Planilha excluída. As aprovações de documentos foram limpas para nova verificação.");
     } catch (error: any) {
       console.error("Erro ao excluir planilha:", error);
       toast.error("Erro ao excluir planilha");
