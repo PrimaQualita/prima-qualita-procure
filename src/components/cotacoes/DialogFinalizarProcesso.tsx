@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { format, differenceInDays, startOfDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Dialog,
@@ -1827,9 +1827,10 @@ export function DialogFinalizarProcesso({
                           </TableHeader>
                           <TableBody>
                             {fornData.documentosExistentes.map((doc) => {
-                              const hoje = new Date();
-                              const validade = doc.data_validade ? new Date(doc.data_validade) : null;
-                              const isValido = validade ? validade > hoje : false;
+                              const hoje = startOfDay(new Date());
+                              const validade = doc.data_validade ? startOfDay(parseISO(doc.data_validade)) : null;
+                              const diasRestantes = validade ? differenceInDays(validade, hoje) : null;
+                              const isValido = diasRestantes !== null && diasRestantes >= 0;
 
                               return (
                                 <TableRow key={doc.id}>
@@ -1853,13 +1854,17 @@ export function DialogFinalizarProcesso({
                                       <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300">
                                         N/A
                                       </Badge>
-                                    ) : isValido ? (
-                                      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                                        ✓ Válido
-                                      </Badge>
-                                    ) : (
+                                    ) : diasRestantes === null || diasRestantes < 0 ? (
                                       <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
                                         ✗ Vencido
+                                      </Badge>
+                                    ) : diasRestantes <= 30 ? (
+                                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                                        Vence em {diasRestantes} dias
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                                        ✓ Válido
                                       </Badge>
                                     )}
                                   </TableCell>
