@@ -144,6 +144,7 @@ export default function Fornecedores() {
       const { data, error } = await supabase
         .from("fornecedores")
         .select("*")
+        .not("user_id", "is", null) // Apenas fornecedores com cadastro completo (não incluir os que só enviaram proposta de cotação)
         .order("data_cadastro", { ascending: false });
 
       if (error) throw error;
