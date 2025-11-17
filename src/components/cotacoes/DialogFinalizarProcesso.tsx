@@ -502,18 +502,19 @@ export function DialogFinalizarProcesso({
     try {
       console.log(`📄 Carregando documentos para fornecedor: ${fornecedorId}`);
       
+      // Tipos de documentos conforme cadastrados no banco (em snake_case)
       const tiposDocumentos = [
-        "Contrato Social",
-        "CNPJ",
-        "Inscrição Municipal ou Estadual",
-        "CND Federal",
-        "CND Tributos Estaduais",
-        "CND Dívida Ativa Estadual",
-        "CND Tributos Municipais",
-        "CND Dívida Ativa Municipal",
-        "CRF FGTS",
-        "CNDT",
-        "Certificado de Fornecedor"
+        "contrato_social",
+        "cartao_cnpj",
+        "inscricao_estadual_municipal",
+        "cnd_federal",
+        "cnd_tributos_estaduais",
+        "cnd_divida_ativa_estadual",
+        "cnd_tributos_municipais",
+        "cnd_divida_ativa_municipal",
+        "crf_fgts",
+        "cndt",
+        "certificado_gestor"
       ];
 
       const { data, error } = await supabase
@@ -536,8 +537,32 @@ export function DialogFinalizarProcesso({
         return [];
       }
 
+      // Mapeamento de nomes para exibição
+      const nomesMapeados: Record<string, string> = {
+        "contrato_social": "Contrato Social",
+        "cartao_cnpj": "CNPJ",
+        "inscricao_estadual_municipal": "Inscrição Municipal ou Estadual",
+        "cnd_federal": "CND Federal",
+        "cnd_tributos_estaduais": "CND Tributos Estaduais",
+        "cnd_divida_ativa_estadual": "CND Dívida Ativa Estadual",
+        "cnd_tributos_municipais": "CND Tributos Municipais",
+        "cnd_divida_ativa_municipal": "CND Dívida Ativa Municipal",
+        "crf_fgts": "CRF FGTS",
+        "cndt": "CNDT",
+        "certificado_gestor": "Certificado de Fornecedor"
+      };
+
       const documentosOrdenados = tiposDocumentos
-        .map(tipo => data?.find(doc => doc.tipo_documento === tipo))
+        .map(tipo => {
+          const doc = data?.find(d => d.tipo_documento === tipo);
+          if (doc) {
+            return {
+              ...doc,
+              tipo_documento: nomesMapeados[tipo] || doc.tipo_documento
+            };
+          }
+          return undefined;
+        })
         .filter((doc): doc is any => doc !== undefined);
 
       console.log(`📋 Documentos ordenados: ${documentosOrdenados.length}`);
@@ -646,16 +671,37 @@ export function DialogFinalizarProcesso({
   };
 
   const verificarTodosDocumentosAprovados = (fornecedorId: string, docs: DocumentoExistente[], campos: CampoDocumento[]): boolean => {
-    // Verificar documentos em cadastro
-    const temDocumentoVencido = docs.some(doc => !doc.em_vigor);
-    if (temDocumentoVencido) return false;
+    console.log(`🔍 Verificando aprovação para fornecedor ${fornecedorId}:`, {
+      totalDocs: docs.length,
+      totalCampos: campos.length,
+      camposStatus: campos.map(c => ({ nome: c.nome_campo, status: c.status_solicitacao }))
+    });
 
-    // Verificar campos solicitados
+    // Se não tem documentos em cadastro, não pode estar aprovado
+    if (docs.length === 0) {
+      console.log(`❌ Fornecedor sem documentos em cadastro`);
+      return false;
+    }
+
+    // Verificar documentos em cadastro - devem estar todos válidos
+    const temDocumentoVencido = docs.some(doc => !doc.em_vigor);
+    if (temDocumentoVencido) {
+      console.log(`❌ Fornecedor tem documento(s) vencido(s)`);
+      return false;
+    }
+
+    // Verificar campos solicitados - devem estar todos aprovados
     const temCamposPendentes = campos.some(campo => 
       campo.status_solicitacao !== "aprovado"
     );
 
-    return !temCamposPendentes;
+    if (temCamposPendentes) {
+      console.log(`❌ Fornecedor tem campo(s) pendente(s)`);
+      return false;
+    }
+
+    console.log(`✅ Todos documentos aprovados`);
+    return true;
   };
 
   const loadDocumentosAprovados = async () => {
