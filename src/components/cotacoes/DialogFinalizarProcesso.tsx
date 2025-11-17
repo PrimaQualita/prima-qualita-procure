@@ -499,37 +499,54 @@ export function DialogFinalizarProcesso({
   };
 
   const loadDocumentosFornecedor = async (fornecedorId: string): Promise<DocumentoExistente[]> => {
-    const tiposDocumentos = [
-      "Contrato Social",
-      "CNPJ",
-      "Inscrição Municipal ou Estadual",
-      "CND Federal",
-      "CND Tributos Estaduais",
-      "CND Dívida Ativa Estadual",
-      "CND Tributos Municipais",
-      "CND Dívida Ativa Municipal",
-      "CRF FGTS",
-      "CNDT",
-      "Certificado de Fornecedor"
-    ];
+    try {
+      console.log(`📄 Carregando documentos para fornecedor: ${fornecedorId}`);
+      
+      const tiposDocumentos = [
+        "Contrato Social",
+        "CNPJ",
+        "Inscrição Municipal ou Estadual",
+        "CND Federal",
+        "CND Tributos Estaduais",
+        "CND Dívida Ativa Estadual",
+        "CND Tributos Municipais",
+        "CND Dívida Ativa Municipal",
+        "CRF FGTS",
+        "CNDT",
+        "Certificado de Fornecedor"
+      ];
 
-    const { data, error } = await supabase
-      .from("documentos_fornecedor")
-      .select("*")
-      .eq("fornecedor_id", fornecedorId)
-      .in("tipo_documento", tiposDocumentos)
-      .order("tipo_documento");
+      const { data, error } = await supabase
+        .from("documentos_fornecedor")
+        .select("*")
+        .eq("fornecedor_id", fornecedorId)
+        .in("tipo_documento", tiposDocumentos)
+        .order("tipo_documento");
 
-    if (error) {
-      console.error("Erro ao carregar documentos:", error);
+      if (error) {
+        console.error("❌ Erro ao carregar documentos:", error);
+        throw error;
+      }
+
+      console.log(`✅ Documentos carregados: ${data?.length || 0}`);
+      console.log("Documentos encontrados:", data);
+
+      if (!data || data.length === 0) {
+        console.warn(`⚠️ Nenhum documento encontrado para fornecedor ${fornecedorId}`);
+        return [];
+      }
+
+      const documentosOrdenados = tiposDocumentos
+        .map(tipo => data?.find(doc => doc.tipo_documento === tipo))
+        .filter((doc): doc is any => doc !== undefined);
+
+      console.log(`📋 Documentos ordenados: ${documentosOrdenados.length}`);
+
+      return documentosOrdenados as DocumentoExistente[];
+    } catch (error) {
+      console.error("❌ Erro crítico ao carregar documentos:", error);
       return [];
     }
-
-    const documentosOrdenados = tiposDocumentos
-      .map(tipo => data?.find(doc => doc.tipo_documento === tipo))
-      .filter((doc): doc is any => doc !== undefined);
-
-    return documentosOrdenados as DocumentoExistente[];
   };
 
   const loadItensVencedores = async (fornecedorId: string, criterio: string, respostas: any[], todosItens: any[]): Promise<any[]> => {
