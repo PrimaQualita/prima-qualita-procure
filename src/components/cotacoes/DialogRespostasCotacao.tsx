@@ -102,17 +102,43 @@ export function DialogRespostasCotacao({
       loadPlanilhaGerada();
       loadEncaminhamento();
       loadAnaliseCompliance();
+
+      // Listener realtime para atualizar quando análises são deletadas/criadas
+      const channel = supabase
+        .channel('analises-compliance-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'analises_compliance',
+            filter: `cotacao_id=eq.${cotacaoId}`
+          },
+          (payload) => {
+            console.log('Mudança em análise de compliance:', payload);
+            loadAnaliseCompliance();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [open, cotacaoId]);
 
   const loadAnaliseCompliance = async () => {
     try {
+      console.log('Carregando análises de compliance para cotação:', cotacaoId);
+      
       // Buscar TODAS as análises ordenadas por data
       const { data: analises } = await supabase
         .from("analises_compliance")
         .select("*")
         .eq("cotacao_id", cotacaoId)
         .order("created_at", { ascending: false });
+      
+      console.log('Análises encontradas:', analises?.length || 0);
       
       if (analises && analises.length > 0) {
         // A mais recente
@@ -133,6 +159,13 @@ export function DialogRespostasCotacao({
 
         // Guardar todas as análises (incluindo a mais recente)
         setAnalisesAnteriores(analises);
+      } else {
+        // Limpar estados quando não há análises
+        console.log('Nenhuma análise encontrada - limpando estados');
+        setAnaliseCompliance(null);
+        setEmpresasAprovadas([]);
+        setEmpresasReprovadas([]);
+        setAnalisesAnteriores([]);
       }
     } catch (error) {
       console.error("Erro ao carregar análise de compliance:", error);
