@@ -192,100 +192,196 @@ export const gerarProcessoCompletoPDF = async (
       console.log("⚠️ Nenhuma proposta de fornecedor encontrada");
     }
 
-    // 4. Buscar planilha consolidada
-    const { data: planilha, error: planilhaError } = await supabase
+    // 4. Buscar TODOS os documentos gerados em ordem cronológica
+    interface DocumentoOrdenado {
+      tipo: string;
+      data: string;
+      nome: string;
+      storagePath?: string;
+      url?: string;
+      bucket: string;
+    }
+    
+    const documentosOrdenados: DocumentoOrdenado[] = [];
+
+    // 4a. Buscar TODAS as planilhas consolidadas
+    const { data: planilhas, error: planilhasError } = await supabase
       .from("planilhas_consolidadas")
       .select("*")
       .eq("cotacao_id", cotacaoId)
-      .order("data_geracao", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("data_geracao", { ascending: true });
 
-    if (planilhaError) {
-      console.error("Erro ao buscar planilha:", planilhaError);
+    if (planilhasError) {
+      console.error("Erro ao buscar planilhas:", planilhasError);
     }
 
-    console.log(`Planilha consolidada: ${planilha ? planilha.nome_arquivo : 'não encontrada'}`);
-
-    if (planilha) {
-      console.log("📊 Mesclando planilha consolidada...");
-      try {
-        console.log(`  Buscando: ${planilha.nome_arquivo}`);
-        console.log(`  Storage path: ${planilha.url_arquivo}`);
-        
-        // Planilha é salva no bucket processo-anexos (privado), usar signed URL
-        const { data: signedUrlData, error: signedError } = await supabase.storage
-          .from('processo-anexos')
-          .createSignedUrl(planilha.url_arquivo, 60);
-        
-        if (signedError || !signedUrlData) {
-          console.error(`  ✗ Erro ao gerar URL assinada: ${signedError?.message}`);
-          throw signedError;
-        }
-        
-        console.log(`  Signed URL gerada com sucesso`);
-        
-        const response = await fetch(signedUrlData.signedUrl);
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-          copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`  ✓ Mesclado: ${planilha.nome_arquivo} (${copiedPages.length} páginas)`);
-        } else {
-          console.error(`  ✗ Erro HTTP ${response.status} ao buscar planilha`);
-        }
-      } catch (error) {
-        console.error(`  ✗ Erro ao mesclar planilha consolidada:`, error);
-      }
-    } else {
-      console.log("⚠️ Planilha consolidada não encontrada");
+    console.log(`Planilhas consolidadas encontradas: ${planilhas?.length || 0}`);
+    
+    if (planilhas && planilhas.length > 0) {
+      planilhas.forEach(planilha => {
+        documentosOrdenados.push({
+          tipo: "Planilha Consolidada",
+          data: planilha.data_geracao,
+          nome: planilha.nome_arquivo,
+          storagePath: planilha.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      });
     }
 
-    // 5. Buscar encaminhamento ao compliance
-    const { data: encaminhamento, error: encaminhamentoError } = await supabase
+    // 4b. Buscar TODOS os encaminhamentos ao compliance
+    const { data: encaminhamentos, error: encaminhamentosError } = await supabase
       .from("encaminhamentos_processo")
       .select("*")
       .eq("cotacao_id", cotacaoId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: true });
 
-    if (encaminhamentoError) {
-      console.error("Erro ao buscar encaminhamento:", encaminhamentoError);
+    if (encaminhamentosError) {
+      console.error("Erro ao buscar encaminhamentos:", encaminhamentosError);
     }
 
-    console.log(`Encaminhamento: ${encaminhamento ? encaminhamento.protocolo : 'não encontrado'}`);
+    console.log(`Encaminhamentos encontrados: ${encaminhamentos?.length || 0}`);
+    
+    if (encaminhamentos && encaminhamentos.length > 0) {
+      encaminhamentos.forEach(enc => {
+        documentosOrdenados.push({
+          tipo: "Encaminhamento ao Compliance",
+          data: enc.created_at,
+          nome: `Encaminhamento ${enc.protocolo}`,
+          storagePath: enc.storage_path,
+          bucket: "processo-anexos"
+        });
+      });
+    }
 
-    if (encaminhamento) {
-      console.log("📋 Mesclando documento de encaminhamento ao compliance...");
-      try {
-        console.log(`  Buscando: ${encaminhamento.protocolo}`);
-        
-        // Usar o storage_path do encaminhamento
-        const { data: signedUrlData, error: signedError } = await supabase.storage
-          .from('processo-anexos')
-          .createSignedUrl(encaminhamento.storage_path, 60);
-        
-        if (signedError || !signedUrlData) {
-          console.error(`  ✗ Erro ao gerar URL assinada para encaminhamento: ${signedError?.message}`);
-        } else {
-          const response = await fetch(signedUrlData.signedUrl);
-          if (response.ok) {
-            const arrayBuffer = await response.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-            copiedPages.forEach((page) => pdfFinal.addPage(page));
-            console.log(`  ✓ Mesclado: Encaminhamento ${encaminhamento.protocolo} (${copiedPages.length} páginas)`);
-          } else {
-            console.error(`  ✗ Erro HTTP ${response.status} ao buscar encaminhamento`);
-          }
+    // 4c. Buscar TODAS as análises de compliance
+    const { data: analises, error: analisesError } = await supabase
+      .from("analises_compliance")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_analise", { ascending: true });
+
+    if (analisesError) {
+      console.error("Erro ao buscar análises:", analisesError);
+    }
+
+    console.log(`Análises de compliance encontradas: ${analises?.length || 0}`);
+    
+    if (analises && analises.length > 0) {
+      analises.forEach(analise => {
+        if (analise.url_documento) {
+          documentosOrdenados.push({
+            tipo: "Análise de Compliance",
+            data: analise.data_analise || analise.created_at,
+            nome: analise.nome_arquivo || `Análise ${analise.protocolo}`,
+            url: analise.url_documento,
+            bucket: "documents"
+          });
         }
-      } catch (error) {
-        console.error(`  ✗ Erro ao mesclar documento de encaminhamento:`, error);
+      });
+    }
+
+    // 4d. Buscar TODOS os relatórios finais
+    const { data: relatorios, error: relatoriosError } = await supabase
+      .from("relatorios_finais")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_geracao", { ascending: true });
+
+    if (relatoriosError) {
+      console.error("Erro ao buscar relatórios:", relatoriosError);
+    }
+
+    console.log(`Relatórios finais encontrados: ${relatorios?.length || 0}`);
+    
+    if (relatorios && relatorios.length > 0) {
+      relatorios.forEach(relatorio => {
+        documentosOrdenados.push({
+          tipo: "Relatório Final",
+          data: relatorio.data_geracao,
+          nome: relatorio.nome_arquivo,
+          storagePath: relatorio.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      });
+    }
+
+    // 4e. Buscar TODAS as autorizações
+    const { data: autorizacoes, error: autorizacoesError } = await supabase
+      .from("autorizacoes_processo")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_geracao", { ascending: true });
+
+    if (autorizacoesError) {
+      console.error("Erro ao buscar autorizações:", autorizacoesError);
+    }
+
+    console.log(`Autorizações encontradas: ${autorizacoes?.length || 0}`);
+    
+    if (autorizacoes && autorizacoes.length > 0) {
+      autorizacoes.forEach(aut => {
+        documentosOrdenados.push({
+          tipo: `Autorização (${aut.tipo_autorizacao})`,
+          data: aut.data_geracao,
+          nome: aut.nome_arquivo,
+          storagePath: aut.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      });
+    }
+
+    // 5. Ordenar TODOS os documentos por data cronológica
+    documentosOrdenados.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+
+    console.log(`\n📅 Total de documentos a serem mesclados em ordem cronológica: ${documentosOrdenados.length}`);
+
+    // 6. Mesclar todos os documentos na ordem cronológica
+    if (documentosOrdenados.length > 0) {
+      console.log("📋 Mesclando documentos em ordem cronológica...\n");
+      
+      for (const doc of documentosOrdenados) {
+        try {
+          console.log(`  [${new Date(doc.data).toLocaleString('pt-BR')}] ${doc.tipo}: ${doc.nome}`);
+          
+          let pdfUrl: string | null = null;
+
+          // Se tem URL pública (análises), usar diretamente
+          if (doc.url) {
+            pdfUrl = doc.url;
+          }
+          // Se tem storage path, gerar signed URL
+          else if (doc.storagePath) {
+            const { data: signedUrlData, error: signedError } = await supabase.storage
+              .from(doc.bucket)
+              .createSignedUrl(doc.storagePath, 60);
+            
+            if (signedError || !signedUrlData) {
+              console.error(`    ✗ Erro ao gerar URL assinada: ${signedError?.message}`);
+              continue;
+            }
+            
+            pdfUrl = signedUrlData.signedUrl;
+          }
+
+          if (pdfUrl) {
+            const response = await fetch(pdfUrl);
+            if (response.ok) {
+              const arrayBuffer = await response.arrayBuffer();
+              const pdfDoc = await PDFDocument.load(arrayBuffer);
+              const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+              copiedPages.forEach((page) => pdfFinal.addPage(page));
+              console.log(`    ✓ Mesclado (${copiedPages.length} páginas)`);
+            } else {
+              console.error(`    ✗ Erro HTTP ${response.status}`);
+            }
+          }
+        } catch (error) {
+          console.error(`    ✗ Erro ao mesclar documento:`, error);
+        }
       }
     } else {
-      console.log("⚠️ Encaminhamento ao compliance não encontrado");
+      console.log("⚠️ Nenhum documento adicional encontrado para mesclar");
     }
 
     // Verificar se há páginas no PDF final
