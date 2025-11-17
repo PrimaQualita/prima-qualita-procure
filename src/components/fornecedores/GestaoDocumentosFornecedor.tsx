@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileText, Upload, ExternalLink, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { differenceInDays, startOfDay, parseISO } from "date-fns";
+import { differenceInDays, startOfDay, parseISO, format } from "date-fns";
 
 interface Documento {
   id: string;
@@ -313,7 +313,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
                     </TableCell>
                     <TableCell>
                       {doc?.data_validade 
-                        ? doc.data_validade.split('T')[0].split('-').reverse().join('/')
+                        ? format(parseISO(doc.data_validade), 'dd/MM/yyyy')
                         : docConfig.temValidade ? "-" : "Sem validade"}
                     </TableCell>
                     <TableCell>

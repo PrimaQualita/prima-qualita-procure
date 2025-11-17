@@ -1847,7 +1847,7 @@ export function DialogFinalizarProcesso({
                                     </a>
                                   </TableCell>
                                   <TableCell>
-                                    {doc.data_validade ? new Date(doc.data_validade).toLocaleDateString('pt-BR') : 'N/A'}
+                                    {doc.data_validade ? format(parseISO(doc.data_validade), 'dd/MM/yyyy') : 'N/A'}
                                   </TableCell>
                                   <TableCell>
                                     {doc.data_validade === null ? (
