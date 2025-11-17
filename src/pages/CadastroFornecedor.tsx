@@ -192,41 +192,30 @@ export default function CadastroFornecedor() {
       // VALIDAÇÃO 1: Verificar se já existe fornecedor completo com este CNPJ
       const cnpjLimpo = formData.cnpj.replace(/\D/g, '');
       
-      // Buscar qualquer fornecedor com este CNPJ (com ou sem user_id)
-      const { data: fornecedorExistente, error: checkError } = await supabase
+      // Buscar fornecedor com cadastro completo (user_id não nulo)
+      const { data: fornecedorCadastrado } = await supabase
         .from('fornecedores')
-        .select('id, user_id, status_aprovacao')
+        .select('id, status_aprovacao')
         .eq('cnpj', cnpjLimpo)
+        .not('user_id', 'is', null)
         .maybeSingle();
 
-      console.log('🔍 Fornecedor existente encontrado:', fornecedorExistente);
+      console.log('🔍 Fornecedor cadastrado encontrado:', fornecedorCadastrado);
 
-      // Se já existe fornecedor COM user_id (cadastro completo), bloquear
-      if (fornecedorExistente && fornecedorExistente.user_id) {
-        const statusMsg = fornecedorExistente.status_aprovacao === 'aprovado' 
+      // Se já existe fornecedor COM cadastro completo, bloquear
+      if (fornecedorCadastrado) {
+        const statusMsg = fornecedorCadastrado.status_aprovacao === 'aprovado' 
           ? 'aprovado' 
-          : fornecedorExistente.status_aprovacao === 'pendente'
+          : fornecedorCadastrado.status_aprovacao === 'pendente'
           ? 'aguardando aprovação'
           : 'reprovado';
         toast.error(`Já existe um cadastro ${statusMsg} com este CNPJ. Se você esqueceu sua senha, entre em contato com o departamento de compras.`);
         return;
       }
 
-      // VALIDAÇÃO 2: Se existe fornecedor SEM user_id (resposta de cotação), vamos ATUALIZAR ao invés de deletar
-      // Isso preserva as respostas de cotação já vinculadas
-      let fornecedorIdExistente: string | null = null;
-      if (fornecedorExistente && !fornecedorExistente.user_id) {
-        console.log('✅ Encontrado fornecedor SEM user_id - vamos atualizar este registro');
-        fornecedorIdExistente = fornecedorExistente.id;
-      } else {
-        // Se não existe fornecedor, limpar registros temporários por email
-        console.log('=== LIMPANDO REGISTROS TEMPORÁRIOS POR EMAIL ===');
-        await supabase
-          .from('fornecedores')
-          .delete()
-          .eq('email', formData.email)
-          .is('user_id', null);
-      }
+      // VALIDAÇÃO 2: Cadastro e respostas de cotação são INDEPENDENTES
+      // Sempre criar novo registro de fornecedor para cadastro completo
+      console.log('✅ Nenhum cadastro completo encontrado - criando novo fornecedor');
 
       // VALIDAÇÃO 3: Preparar dados antes de criar no Auth
       const enderecoCompleto = [
@@ -300,70 +289,32 @@ export default function CadastroFornecedor() {
       authUserId = authData.data.user.id;
       console.log('=== USUÁRIO CRIADO:', authUserId, '===');
 
-      // CRIAR OU ATUALIZAR FORNECEDOR NO BANCO
-      let fornecedorData;
-      
-      if (fornecedorIdExistente) {
-        console.log('=== ATUALIZANDO REGISTRO DE FORNECEDOR EXISTENTE ===');
-        const { data, error: fornecedorError } = await supabase
-          .from("fornecedores")
-          .update({
-            user_id: authUserId,
-            razao_social: formData.razao_social,
-            nome_fantasia: formData.nome_fantasia || null,
-            endereco_comercial: enderecoCompleto,
-            telefone: formData.telefone,
-            email: formData.email,
-            status_aprovacao: 'pendente',
-            ativo: false,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', fornecedorIdExistente)
-          .select()
-          .single();
+      // CRIAR FORNECEDOR NO BANCO
+      console.log('=== CRIANDO NOVO REGISTRO DE FORNECEDOR ===');
+      const { data: fornecedorData, error: fornecedorError } = await supabase
+        .from("fornecedores")
+        .insert([{
+          user_id: authUserId,
+          razao_social: formData.razao_social,
+          nome_fantasia: formData.nome_fantasia || null,
+          cnpj: cnpjLimpo,
+          endereco_comercial: enderecoCompleto,
+          telefone: formData.telefone,
+          email: formData.email,
+          status_aprovacao: 'pendente',
+          ativo: false
+        }])
+        .select()
+        .single();
 
-        if (fornecedorError) {
-          console.error('ERRO AO ATUALIZAR FORNECEDOR:', fornecedorError);
-          throw fornecedorError;
-        }
-        fornecedorData = data;
-        console.log('✅ Fornecedor atualizado - respostas de cotação preservadas');
-      } else {
-        console.log('=== CRIANDO NOVO REGISTRO DE FORNECEDOR ===');
-        const { data, error: fornecedorError } = await supabase
-          .from("fornecedores")
-          .insert([{
-            user_id: authUserId,
-            razao_social: formData.razao_social,
-            nome_fantasia: formData.nome_fantasia || null,
-            cnpj: cnpjLimpo,
-            endereco_comercial: enderecoCompleto,
-            telefone: formData.telefone,
-            email: formData.email,
-            status_aprovacao: 'pendente',
-            ativo: false
-          }])
-          .select()
-          .single();
-
-        if (fornecedorError) {
-          console.error('ERRO AO CRIAR FORNECEDOR:', fornecedorError);
-          throw fornecedorError;
-        }
-        fornecedorData = data;
+      if (fornecedorError) {
+        console.error('ERRO AO CRIAR FORNECEDOR:', fornecedorError);
+        throw fornecedorError;
       }
 
       // SALVAR RESPOSTAS DE DUE DILIGENCE
       console.log('=== SALVANDO RESPOSTAS DO QUESTIONÁRIO ===');
       if (Object.keys(respostas).length > 0) {
-        // Se estamos atualizando fornecedor existente, deletar respostas antigas primeiro
-        if (fornecedorIdExistente) {
-          await supabase
-            .from("respostas_due_diligence_fornecedor")
-            .delete()
-            .eq('fornecedor_id', fornecedorData.id);
-        }
-
         const respostasArray = Object.entries(respostas).map(([perguntaId, respostaTexto]) => ({
           fornecedor_id: fornecedorData.id,
           pergunta_id: perguntaId,
