@@ -1637,7 +1637,9 @@ export function DialogFinalizarProcesso({
   };
 
   const finalizarProcesso = async () => {
-    if (!autorizacaoDiretaUrl) {
+    // Verificar se existe autorização gerada
+    const autorizacaoCompraDireta = autorizacoes.find(a => a.tipo_autorizacao === 'compra_direta');
+    if (!autorizacaoCompraDireta) {
       toast.error("É necessário gerar a autorização antes de enviar para contratação");
       return;
     }
@@ -1660,11 +1662,30 @@ export function DialogFinalizarProcesso({
       }
 
       const numeroProcesso = cotacaoData.processos_compras.numero_processo_interno;
+      const processoId = cotacaoData.processo_compra_id;
 
       // Gerar PDF consolidado mesclando todos os documentos do processo
       console.log("📄 Gerando processo completo mesclado...");
       const processoCompleto = await gerarProcessoCompletoPDF(cotacaoId, numeroProcesso);
       console.log("✅ Processo completo gerado:", processoCompleto.filename);
+
+      // Salvar o processo completo como anexo do processo
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error: anexoError } = await supabase
+        .from("anexos_processo_compra")
+        .insert({
+          processo_compra_id: processoId,
+          tipo_anexo: "PROCESSO_COMPLETO",
+          nome_arquivo: processoCompleto.filename,
+          url_arquivo: processoCompleto.url,
+          usuario_upload_id: session?.user.id,
+          data_upload: new Date().toISOString()
+        });
+
+      if (anexoError) {
+        console.error("Erro ao salvar processo completo:", anexoError);
+        throw anexoError;
+      }
 
       // Salvar snapshots dos documentos dos fornecedores vencedores
       console.log("📸 Salvando snapshots dos documentos dos fornecedores vencedores...");
@@ -1708,12 +1729,12 @@ export function DialogFinalizarProcesso({
 
       if (error) throw error;
 
-      toast.success("Processo completo gerado e enviado para contratação! Todos os documentos foram mesclados.");
+      toast.success("Processo completo gerado e salvo! O PDF consolidado está disponível no menu Processos de Compras.");
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao finalizar processo:", error);
-      toast.error("Erro ao finalizar processo");
+      toast.error(error.message || "Erro ao finalizar processo");
     } finally {
       setLoading(false);
     }
