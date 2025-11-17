@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Dialog,
   DialogContent,
@@ -1687,8 +1689,31 @@ export function DialogFinalizarProcesso({
                                           variant="outline"
                                           size="sm"
                                           className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
-                                          onClick={() => {
-                                            toast.info("Funcionalidade de solicitar atualização em desenvolvimento");
+                                          onClick={async () => {
+                                            try {
+                                              const dataLimite = new Date();
+                                              dataLimite.setDate(dataLimite.getDate() + 7); // 7 dias de prazo
+
+                                              const { error } = await supabase
+                                                .from('campos_documentos_finalizacao')
+                                                .insert({
+                                                  cotacao_id: cotacaoId,
+                                                  fornecedor_id: fornData.fornecedor.id,
+                                                  nome_campo: doc.tipo_documento,
+                                                  descricao: `Documento vencido em ${format(new Date(doc.data_validade!), "dd/MM/yyyy", { locale: ptBR })}. Por favor, envie versão atualizada.`,
+                                                  obrigatorio: true,
+                                                  status_solicitacao: 'enviado',
+                                                  data_solicitacao: new Date().toISOString(),
+                                                });
+
+                                              if (error) throw error;
+
+                                              toast.success("Solicitação de atualização enviada com sucesso!");
+                                              await loadAllFornecedores();
+                                            } catch (error) {
+                                              console.error('Erro ao solicitar atualização:', error);
+                                              toast.error("Erro ao enviar solicitação de atualização");
+                                            }
                                           }}
                                         >
                                           <Clock className="h-4 w-4 mr-1" />
