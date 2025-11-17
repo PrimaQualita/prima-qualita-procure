@@ -123,7 +123,17 @@ export function DialogAnexosProcesso({
 
   const handleDownload = async (anexo: AnexoProcesso) => {
     try {
-      // Extrai o caminho relativo (pode ser URL completa antiga ou caminho relativo novo)
+      // Se for URL completa pública (processo completo consolidado), usar diretamente
+      if (anexo.url_arquivo.startsWith('http')) {
+        const link = document.createElement("a");
+        link.href = anexo.url_arquivo;
+        link.download = anexo.nome_arquivo;
+        link.target = "_blank";
+        link.click();
+        return;
+      }
+
+      // Para arquivos no bucket privado, gerar URL assinada
       let filePath = anexo.url_arquivo;
       
       // Se for URL completa antiga, extrair apenas o caminho relativo
@@ -237,6 +247,7 @@ export function DialogAnexosProcesso({
                       size="sm"
                       variant="ghost"
                       onClick={() => handleDelete(anexo)}
+                      title="Excluir documento"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
