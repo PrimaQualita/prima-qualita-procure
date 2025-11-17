@@ -961,6 +961,45 @@ export function DialogPlanilhaConsolidada({
 
       if (dbError) throw dbError;
 
+      // CRÍTICO: Invalidar todas as aprovações de documentos ao gerar nova planilha
+      console.log("🔄 Invalidando aprovações anteriores de documentos...");
+      
+      // PRIMEIRO: Buscar IDs dos campos antes de deletar
+      const { data: campos } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("id")
+        .eq("cotacao_id", cotacaoId);
+      
+      // SEGUNDO: Deletar documentos enviados pelos fornecedores
+      if (campos && campos.length > 0) {
+        const campoIds = campos.map(c => c.id);
+        const { error: deleteDocsError } = await supabase
+          .from("documentos_finalizacao_fornecedor")
+          .delete()
+          .in("campo_documento_id", campoIds);
+        
+        if (deleteDocsError) {
+          console.error("Erro ao limpar documentos enviados:", deleteDocsError);
+        } else {
+          console.log("✅ Documentos enviados por fornecedores invalidados");
+        }
+      }
+
+      // TERCEIRO: Deletar solicitações de documentos de finalizacao
+      const { error: deleteError } = await supabase
+        .from("campos_documentos_finalizacao")
+        .delete()
+        .eq("cotacao_id", cotacaoId);
+      
+      if (deleteError) {
+        console.error("Erro ao limpar aprovações:", deleteError);
+        toast.error("Atenção: Não foi possível limpar aprovações anteriores");
+      } else {
+        console.log("✅ Solicitações de documentos invalidadas");
+      }
+
+      console.log("✅ Todas as aprovações anteriores invalidadas com sucesso");
+
       toast.success("Planilha consolidada gerada com sucesso!");
       
       // Chamar callback se fornecido
