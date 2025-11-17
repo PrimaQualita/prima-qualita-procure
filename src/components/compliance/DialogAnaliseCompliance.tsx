@@ -76,8 +76,18 @@ export function DialogAnaliseCompliance({
         return;
       }
 
-      const fornecedoresIncluidos = planilha.fornecedores_incluidos as any[];
-      console.log("Fornecedores na planilha consolidada:", fornecedoresIncluidos);
+      const cnpjsIncluidos = planilha.fornecedores_incluidos as string[];
+      console.log("CNPJs na planilha consolidada:", cnpjsIncluidos);
+
+      // Buscar dados completos dos fornecedores usando os CNPJs
+      const { data: fornecedoresData, error: fornecedoresError } = await supabase
+        .from("fornecedores")
+        .select("razao_social, cnpj")
+        .in("cnpj", cnpjsIncluidos);
+
+      if (fornecedoresError) throw fornecedoresError;
+
+      console.log("Fornecedores encontrados:", fornecedoresData);
 
       // Buscar análise mais recente para saber quais empresas já foram analisadas
       const { data: analiseRecente, error: analiseError } = await supabase
@@ -93,7 +103,7 @@ export function DialogAnaliseCompliance({
       console.log("Análise recente encontrada:", analiseRecente);
 
       // Mapear empresas da planilha consolidada
-      const empresasData = fornecedoresIncluidos.map((fornecedor: any) => {
+      const empresasData = fornecedoresData?.map((fornecedor: any) => {
         const razaoSocial = fornecedor.razao_social || "";
         const cnpj = fornecedor.cnpj || "";
         
@@ -117,7 +127,7 @@ export function DialogAnaliseCompliance({
           cnpj: cnpj,
           aprovado: aprovado,
         };
-      });
+      }) || [];
       
       console.log(`Empresas carregadas da planilha consolidada:`, empresasData);
       setEmpresas(empresasData);
