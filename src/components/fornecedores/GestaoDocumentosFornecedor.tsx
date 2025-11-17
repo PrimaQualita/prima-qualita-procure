@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileText, Upload, ExternalLink, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, startOfDay } from "date-fns";
 
 interface Documento {
   id: string;
@@ -94,8 +94,8 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
       };
     }
 
-    const hoje = new Date();
-    const validade = new Date(dataValidade);
+    const hoje = startOfDay(new Date());
+    const validade = startOfDay(new Date(dataValidade));
     const diasRestantes = differenceInDays(validade, hoje);
 
     if (diasRestantes < 0) {
