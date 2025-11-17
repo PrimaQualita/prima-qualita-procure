@@ -389,15 +389,42 @@ export const gerarProcessoCompletoPDF = async (
           }
 
           if (pdfUrl) {
-            const response = await fetch(pdfUrl);
-            if (response.ok) {
-              const arrayBuffer = await response.arrayBuffer();
-              const pdfDoc = await PDFDocument.load(arrayBuffer);
-              const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-              copiedPages.forEach((page) => pdfFinal.addPage(page));
-              console.log(`    ✓ Mesclado (${copiedPages.length} páginas)`);
-            } else {
-              console.error(`    ✗ Erro HTTP ${response.status}`);
+            try {
+              const response = await fetch(pdfUrl);
+              if (response.ok) {
+                const arrayBuffer = await response.arrayBuffer();
+                const pdfDoc = await PDFDocument.load(arrayBuffer);
+                const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                copiedPages.forEach((page) => pdfFinal.addPage(page));
+                console.log(`    ✓ Mesclado (${copiedPages.length} páginas)`);
+              } else {
+                console.error(`    ✗ Erro HTTP ${response.status}`);
+              }
+            } catch (fetchError) {
+              console.error(`    ✗ Erro ao buscar arquivo:`, fetchError);
+              
+              // Se o storage path falhou, tentar buscar do bucket documents (para documentos públicos)
+              if (doc.storagePath && doc.bucket === 'processo-anexos') {
+                try {
+                  console.log(`    🔄 Tentando buscar do bucket documents...`);
+                  const { data: publicUrlData } = supabase.storage
+                    .from('documents')
+                    .getPublicUrl(doc.storagePath);
+                  
+                  if (publicUrlData?.publicUrl) {
+                    const retryResponse = await fetch(publicUrlData.publicUrl);
+                    if (retryResponse.ok) {
+                      const arrayBuffer = await retryResponse.arrayBuffer();
+                      const pdfDoc = await PDFDocument.load(arrayBuffer);
+                      const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                      copiedPages.forEach((page) => pdfFinal.addPage(page));
+                      console.log(`    ✓ Mesclado do bucket documents (${copiedPages.length} páginas)`);
+                    }
+                  }
+                } catch (retryError) {
+                  console.error(`    ✗ Também falhou ao buscar do bucket documents:`, retryError);
+                }
+              }
             }
           }
         } catch (error) {
