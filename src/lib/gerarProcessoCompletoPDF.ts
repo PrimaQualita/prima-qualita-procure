@@ -122,10 +122,23 @@ export const gerarProcessoCompletoPDF = async (
       console.log("⚠️ Nenhum e-mail encontrado");
     }
 
-    // 3. Buscar propostas dos fornecedores com seus anexos
+    // 3. Preparar array para ordenação cronológica de TODOS os documentos
+    interface DocumentoOrdenado {
+      tipo: string;
+      data: string;
+      nome: string;
+      storagePath?: string;
+      url?: string;
+      bucket: string;
+      fornecedor?: string;
+    }
+    
+    const documentosOrdenados: DocumentoOrdenado[] = [];
+
+    // 3a. Buscar propostas dos fornecedores e adicionar ao array cronológico
     const { data: respostas, error: respostasError } = await supabase
       .from("cotacao_respostas_fornecedor")
-      .select("id, fornecedores(razao_social)")
+      .select("id, data_envio_resposta, fornecedores(razao_social)")
       .eq("cotacao_id", cotacaoId)
       .order("data_envio_resposta", { ascending: true });
 
@@ -136,75 +149,41 @@ export const gerarProcessoCompletoPDF = async (
     console.log(`Respostas de fornecedores encontradas: ${respostas?.length || 0}`);
 
     if (respostas && respostas.length > 0) {
-      console.log(`📦 Mesclando propostas de ${respostas.length} fornecedores...`);
       for (const resposta of respostas) {
         const { data: anexosFornecedor, error: anexosFornError } = await supabase
           .from("anexos_cotacao_fornecedor")
           .select("*")
-          .eq("cotacao_resposta_fornecedor_id", resposta.id);
+          .eq("cotacao_resposta_fornecedor_id", resposta.id)
+          .order("data_upload", { ascending: true });
 
         if (anexosFornError) {
           console.error(`  Erro ao buscar anexos do fornecedor:`, anexosFornError);
         }
 
         const razaoSocial = (resposta.fornecedores as any)?.razao_social || 'Fornecedor';
-        console.log(`  Fornecedor: ${razaoSocial} - ${anexosFornecedor?.length || 0} documentos`);
 
         if (anexosFornecedor && anexosFornecedor.length > 0) {
           for (const anexo of anexosFornecedor) {
-            try {
-              // Verificar se é PDF
-              if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-                console.log(`    ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF. Apenas PDFs podem ser mesclados.`);
-                continue;
-              }
-              
-              console.log(`    Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
-              console.log(`    Storage path: ${anexo.url_arquivo}`);
-              
-              // url_arquivo já é o storage path
-              const { data: signedUrlData, error: signedError } = await supabase.storage
-                .from('processo-anexos')
-                .createSignedUrl(anexo.url_arquivo, 60);
-              
-              if (signedError || !signedUrlData) {
-                console.error(`    ✗ Erro ao gerar URL assinada: ${signedError?.message}`);
-                continue;
-              }
-              
-              const response = await fetch(signedUrlData.signedUrl);
-              if (response.ok) {
-                const arrayBuffer = await response.arrayBuffer();
-                const pdfDoc = await PDFDocument.load(arrayBuffer);
-                const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-                copiedPages.forEach((page) => pdfFinal.addPage(page));
-                console.log(`    ✓ Mesclado: ${anexo.tipo_anexo} (${copiedPages.length} páginas)`);
-              } else {
-                console.error(`    ✗ Erro HTTP ${response.status} ao buscar ${anexo.nome_arquivo}`);
-              }
-            } catch (error) {
-              console.error(`    ✗ Erro ao mesclar ${anexo.nome_arquivo}:`, error);
+            // Verificar se é PDF
+            if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+              console.log(`    ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF. Apenas PDFs podem ser mesclados.`);
+              continue;
             }
+            
+            documentosOrdenados.push({
+              tipo: "Proposta Fornecedor",
+              data: anexo.data_upload || resposta.data_envio_resposta,
+              nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
+              storagePath: anexo.url_arquivo,
+              bucket: "processo-anexos",
+              fornecedor: razaoSocial
+            });
           }
         }
       }
-    } else {
-      console.log("⚠️ Nenhuma proposta de fornecedor encontrada");
     }
 
-    // 4. Buscar TODOS os documentos gerados em ordem cronológica
-    interface DocumentoOrdenado {
-      tipo: string;
-      data: string;
-      nome: string;
-      storagePath?: string;
-      url?: string;
-      bucket: string;
-    }
-    
-    const documentosOrdenados: DocumentoOrdenado[] = [];
-
-    // 4a. Buscar TODAS as planilhas consolidadas
+    // 4. Buscar TODAS as planilhas consolidadas
     const { data: planilhas, error: planilhasError } = await supabase
       .from("planilhas_consolidadas")
       .select("*")
@@ -229,7 +208,7 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 4b. Buscar TODOS os encaminhamentos ao compliance
+    // 5. Buscar TODOS os encaminhamentos ao compliance
     const { data: encaminhamentos, error: encaminhamentosError } = await supabase
       .from("encaminhamentos_processo")
       .select("*")
@@ -254,7 +233,7 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 4c. Buscar TODAS as análises de compliance
+    // 6. Buscar TODAS as análises de compliance
     const { data: analises, error: analisesError } = await supabase
       .from("analises_compliance")
       .select("*")
@@ -281,7 +260,7 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 4d. Buscar TODOS os relatórios finais
+    // 7. Buscar TODOS os relatórios finais
     const { data: relatorios, error: relatoriosError } = await supabase
       .from("relatorios_finais")
       .select("*")
@@ -306,7 +285,7 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 4e. Buscar TODAS as autorizações
+    // 8. Buscar TODAS as autorizações
     const { data: autorizacoes, error: autorizacoesError } = await supabase
       .from("autorizacoes_processo")
       .select("*")
@@ -331,12 +310,46 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 5. Ordenar TODOS os documentos por data cronológica
+    // 9. Buscar documentos dos fornecedores aprovados (snapshot)
+    // Estes documentos devem ser inseridos APÓS a última análise de compliance
+    const { data: documentosSnapshot, error: snapshotError } = await supabase
+      .from("documentos_processo_finalizado")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_snapshot", { ascending: true });
+
+    if (snapshotError) {
+      console.error("Erro ao buscar documentos snapshot:", snapshotError);
+    }
+
+    console.log(`Documentos snapshot encontrados: ${documentosSnapshot?.length || 0}`);
+
+    // 10. Encontrar a data da última análise de compliance para inserir os snapshots após ela
+    const ultimaAnaliseData = analises && analises.length > 0 
+      ? analises[analises.length - 1].data_analise || analises[analises.length - 1].created_at
+      : null;
+
+    if (documentosSnapshot && documentosSnapshot.length > 0 && ultimaAnaliseData) {
+      // Adicionar 1 segundo à última análise para garantir que os snapshots venham logo após
+      const dataSnapshot = new Date(new Date(ultimaAnaliseData).getTime() + 1000).toISOString();
+      
+      documentosSnapshot.forEach(doc => {
+        documentosOrdenados.push({
+          tipo: "Documento Fornecedor Aprovado",
+          data: dataSnapshot,
+          nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
+          storagePath: doc.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      });
+    }
+
+    // 11. Ordenar TODOS os documentos por data cronológica
     documentosOrdenados.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
 
     console.log(`\n📅 Total de documentos a serem mesclados em ordem cronológica: ${documentosOrdenados.length}`);
 
-    // 6. Mesclar todos os documentos na ordem cronológica
+    // 12. Mesclar todos os documentos na ordem cronológica
     if (documentosOrdenados.length > 0) {
       console.log("📋 Mesclando documentos em ordem cronológica...\n");
       
