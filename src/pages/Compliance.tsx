@@ -401,22 +401,41 @@ export default function Compliance() {
                               <Download className="h-4 w-4 mr-2" />
                               Baixar Processo
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => editarAnalise(processo)}
-                            >
-                              <FileCheck className="h-4 w-4 mr-2" />
-                              {processo.tem_analise ? "Nova Análise (Novas Empresas)" : "Fazer Análise"}
-                            </Button>
-                            {processo.tem_analise && (
+                            {processo.tem_analise ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => editarAnalise(processo)}
+                                >
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Editar Análise
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => editarAnalise(processo)}
+                                >
+                                  <FileCheck className="h-4 w-4 mr-2" />
+                                  Nova Análise (Novas Empresas)
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => confirmarExclusaoAnalise(processo.cotacao_id)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Excluir
+                                </Button>
+                              </>
+                            ) : (
                               <Button
-                                variant="destructive"
+                                variant="outline"
                                 size="sm"
-                                onClick={() => confirmarExclusaoAnalise(processo.cotacao_id)}
+                                onClick={() => editarAnalise(processo)}
                               >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Excluir
+                                <FileCheck className="h-4 w-4 mr-2" />
+                                Fazer Análise
                               </Button>
                             )}
                           </div>
