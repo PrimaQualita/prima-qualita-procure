@@ -185,6 +185,8 @@ export default function CadastroFornecedor() {
 
     setLoading(true);
     let authUserId: string | null = null; // Rastrear se criamos usuário no Auth
+    let reutilizarFornecedorOrfao = false; // Se deve reutilizar registro órfão
+    let fornecedorOrfaoId: string | null = null; // ID do órfão a reutilizar
     
     try {
       console.log('=== INICIANDO CADASTRO - VALIDAÇÕES COMPLETAS ===');
@@ -213,42 +215,23 @@ export default function CadastroFornecedor() {
         return;
       }
 
-      // VALIDAÇÃO 2: Limpar registros órfãos (fornecedores SEM user_id com este CNPJ)
-      // Isso pode acontecer se houve erro no processo de cadastro anterior
-      console.log('🧹 Verificando registros órfãos...');
-      const { data: fornecedoresOrfaos } = await supabase
+      // VALIDAÇÃO 2: Verificar se há registro órfão (user_id = null) com este CNPJ
+      // Se houver, REUTILIZAR esse registro em vez de criar novo (preserva propostas de cotação)
+      console.log('🔍 Verificando registros órfãos para reutilização...');
+      const { data: fornecedorOrfao } = await supabase
         .from('fornecedores')
         .select('id')
         .eq('cnpj', cnpjLimpo)
-        .is('user_id', null);
+        .is('user_id', null)
+        .maybeSingle();
 
-      if (fornecedoresOrfaos && fornecedoresOrfaos.length > 0) {
-        console.log(`🗑️ Limpando ${fornecedoresOrfaos.length} registro(s) órfão(s)...`);
-        for (const orfao of fornecedoresOrfaos) {
-          // Deletar documentos órfãos
-          await supabase
-            .from('documentos_fornecedor')
-            .delete()
-            .eq('fornecedor_id', orfao.id);
-          
-          // Deletar respostas de due diligence órfãs
-          await supabase
-            .from('respostas_due_diligence_fornecedor')
-            .delete()
-            .eq('fornecedor_id', orfao.id);
-          
-          // Deletar o fornecedor órfão
-          await supabase
-            .from('fornecedores')
-            .delete()
-            .eq('id', orfao.id);
-        }
-        console.log('✅ Registros órfãos limpos com sucesso');
+      if (fornecedorOrfao) {
+        console.log('♻️ Registro órfão encontrado - reutilizando para preservar propostas de cotação');
+        reutilizarFornecedorOrfao = true;
+        fornecedorOrfaoId = fornecedorOrfao.id;
+      } else {
+        console.log('✅ Nenhum registro órfão - criando novo fornecedor');
       }
-
-      // VALIDAÇÃO 3: Cadastro e respostas de cotação são INDEPENDENTES
-      // Sempre criar novo registro de fornecedor para cadastro completo
-      console.log('✅ Nenhum cadastro completo encontrado - criando novo fornecedor');
 
       // VALIDAÇÃO 3: Preparar dados antes de criar no Auth
       const enderecoCompleto = [
@@ -322,27 +305,69 @@ export default function CadastroFornecedor() {
       authUserId = authData.data.user.id;
       console.log('=== USUÁRIO CRIADO:', authUserId, '===');
 
-      // CRIAR FORNECEDOR NO BANCO
-      console.log('=== CRIANDO NOVO REGISTRO DE FORNECEDOR ===');
-      const { data: fornecedorData, error: fornecedorError } = await supabase
-        .from("fornecedores")
-        .insert([{
-          user_id: authUserId,
-          razao_social: formData.razao_social,
-          nome_fantasia: formData.nome_fantasia || null,
-          cnpj: cnpjLimpo,
-          endereco_comercial: enderecoCompleto,
-          telefone: formData.telefone,
-          email: formData.email,
-          status_aprovacao: 'pendente',
-          ativo: false
-        }])
-        .select()
-        .single();
+      // CRIAR OU REUTILIZAR FORNECEDOR NO BANCO
+      let fornecedorData;
+      
+      if (reutilizarFornecedorOrfao && fornecedorOrfaoId) {
+        // REUTILIZAR registro órfão existente (preserva propostas de cotação)
+        console.log('=== ATUALIZANDO REGISTRO ÓRFÃO:', fornecedorOrfaoId, '===');
+        
+        // Limpar documentos e respostas antigas do órfão
+        await supabase.from('documentos_fornecedor').delete().eq('fornecedor_id', fornecedorOrfaoId);
+        await supabase.from('respostas_due_diligence_fornecedor').delete().eq('fornecedor_id', fornecedorOrfaoId);
 
-      if (fornecedorError) {
-        console.error('ERRO AO CRIAR FORNECEDOR:', fornecedorError);
-        throw fornecedorError;
+        // Atualizar o registro órfão com dados completos
+        const { data: fornecedorAtualizado, error: updateError } = await supabase
+          .from("fornecedores")
+          .update({
+            user_id: authUserId,
+            razao_social: formData.razao_social,
+            nome_fantasia: formData.nome_fantasia || null,
+            cnpj: cnpjLimpo,
+            endereco_comercial: enderecoCompleto,
+            telefone: formData.telefone,
+            email: formData.email,
+            status_aprovacao: 'pendente',
+            ativo: false,
+            data_cadastro: new Date().toISOString()
+          })
+          .eq('id', fornecedorOrfaoId)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('ERRO AO ATUALIZAR FORNECEDOR ÓRFÃO:', updateError);
+          throw updateError;
+        }
+        
+        fornecedorData = fornecedorAtualizado;
+        console.log('=== FORNECEDOR ÓRFÃO ATUALIZADO COM SUCESSO:', fornecedorData.id, '===');
+      } else {
+        // CRIAR novo registro de fornecedor
+        console.log('=== CRIANDO NOVO REGISTRO DE FORNECEDOR ===');
+        const { data: fornecedorNovo, error: fornecedorError } = await supabase
+          .from("fornecedores")
+          .insert([{
+            user_id: authUserId,
+            razao_social: formData.razao_social,
+            nome_fantasia: formData.nome_fantasia || null,
+            cnpj: cnpjLimpo,
+            endereco_comercial: enderecoCompleto,
+            telefone: formData.telefone,
+            email: formData.email,
+            status_aprovacao: 'pendente',
+            ativo: false
+          }])
+          .select()
+          .single();
+
+        if (fornecedorError) {
+          console.error('ERRO AO CRIAR FORNECEDOR:', fornecedorError);
+          throw fornecedorError;
+        }
+        
+        fornecedorData = fornecedorNovo;
+        console.log('=== FORNECEDOR CRIADO COM SUCESSO:', fornecedorData.id, '===');
       }
 
       // SALVAR RESPOSTAS DE DUE DILIGENCE
