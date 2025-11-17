@@ -19,7 +19,7 @@ interface AutorizacaoResult {
 interface FornecedorVencedor {
   razaoSocial: string;
   cnpj: string;
-  itensVencedores: Array<{ numero: number; valor: number }>;
+  itensVencedores: Array<{ numero: number; valor: number; marca?: string; valorUnitario?: number }>;
   valorTotal: number;
 }
 
@@ -127,29 +127,33 @@ export const gerarAutorizacaoCompraDireta = async (
   doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhas1.length * 6 + 2; // Reduzido para aproximar da tabela
   
-  // Tabela de fornecedores vencedores
+  // Tabela de fornecedores vencedores com itens detalhados
   console.log('[PDF] Verificando fornecedores vencedores para tabela:', fornecedoresVencedores);
   if (fornecedoresVencedores && fornecedoresVencedores.length > 0) {
     console.log('[PDF] Gerando tabela com', fornecedoresVencedores.length, 'fornecedores');
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     
     // Cabeçalho da tabela
     doc.setFillColor(0, 51, 102);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 50, 8, 'FD'); // Empresa - Fill + Draw (borda)
-    doc.rect(70, yPos, 40, 8, 'FD'); // CNPJ
-    doc.rect(110, yPos, 30, 8, 'FD'); // Itens Vencidos
-    doc.rect(140, yPos, 50, 8, 'FD'); // Valor Total
+    doc.rect(20, yPos, 40, 8, 'FD');
+    doc.rect(60, yPos, 35, 8, 'FD');
+    doc.rect(95, yPos, 15, 8, 'FD');
+    doc.rect(110, yPos, 30, 8, 'FD');
+    doc.rect(140, yPos, 25, 8, 'FD');
+    doc.rect(165, yPos, 25, 8, 'FD');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('Empresa', 45, yPos + 5, { align: 'center' });
-    doc.text('CNPJ', 90, yPos + 5, { align: 'center' });
-    doc.text('Itens Vencidos', 125, yPos + 5, { align: 'center' });
-    doc.text('Valor Total', 165, yPos + 5, { align: 'center' });
+    doc.text('Empresa', 40, yPos + 5, { align: 'center' });
+    doc.text('CNPJ', 77.5, yPos + 5, { align: 'center' });
+    doc.text('Item', 102.5, yPos + 5, { align: 'center' });
+    doc.text('Marca', 125, yPos + 5, { align: 'center' });
+    doc.text('Valor Unit.', 152.5, yPos + 5, { align: 'center' });
+    doc.text('Valor Total', 177.5, yPos + 5, { align: 'center' });
     yPos += 8;
     
-    // Conteúdo da tabela - uma linha por fornecedor
+    // Conteúdo da tabela
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
     
@@ -164,52 +168,76 @@ export const gerarAutorizacaoCompraDireta = async (
       return cnpj;
     };
     
-    fornecedoresVencedores.forEach((fornecedor) => {
-      // Calcular altura necessária baseada no texto da razão social
-      const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 45);
-      const alturaLinha = Math.max(10, razaoSocialSplit.length * 4 + 4);
-      
-      // Desenhar bordas das células
-      doc.rect(20, yPos, 50, alturaLinha); // Empresa
-      doc.rect(70, yPos, 40, alturaLinha); // CNPJ
-      doc.rect(110, yPos, 30, alturaLinha); // Itens Vencidos
-      doc.rect(140, yPos, 50, alturaLinha); // Valor Total
-      
-      // Empresa - justificada horizontalmente e centralizada verticalmente
-      const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 4;
-      razaoSocialSplit.forEach((linha: string, index: number) => {
-        doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 46 });
-      });
-      
-      // CNPJ - formatado e centralizado verticalmente
-      const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
-      const offsetVerticalCNPJ = (alturaLinha - 4) / 2 + 4;
-      doc.text(cnpjFormatado, 72, yPos + offsetVerticalCNPJ);
-      
-      // Itens Vencidos - centralizado horizontal e verticalmente
-      const itensText = fornecedor.itensVencedores.map(i => i.numero).join(', ');
-      const offsetVerticalItens = (alturaLinha - 4) / 2 + 4;
-      doc.text(itensText, 125, yPos + offsetVerticalItens, { align: 'center' });
-      
-      // Valor Total - alinhado à direita e centralizado verticalmente
-      const offsetVerticalValor = (alturaLinha - 4) / 2 + 4;
-      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + offsetVerticalValor, { align: 'right' });
+    for (const fornecedor of fornecedoresVencedores) {
+      // Para cada item vencedor do fornecedor, criar uma linha
+      for (let itemIndex = 0; itemIndex < fornecedor.itensVencedores.length; itemIndex++) {
+        const item = fornecedor.itensVencedores[itemIndex];
+        const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 35);
+        const marcaSplit = doc.splitTextToSize(item.marca || '-', 28);
+        const alturaLinha = Math.max(8, Math.max(razaoSocialSplit.length, marcaSplit.length) * 4 + 2);
+        
+        // Verificar se precisa de nova página
+        if (yPos + alturaLinha > pageHeight - 30) {
+          doc.addPage();
+          yPos = 20;
+          await adicionarLogoERodape(doc.getNumberOfPages());
+        }
+        
+        doc.rect(20, yPos, 40, alturaLinha);
+        doc.rect(60, yPos, 35, alturaLinha);
+        doc.rect(95, yPos, 15, alturaLinha);
+        doc.rect(110, yPos, 30, alturaLinha);
+        doc.rect(140, yPos, 25, alturaLinha);
+        doc.rect(165, yPos, 25, alturaLinha);
+        
+        // Mostrar empresa apenas na primeira linha de cada fornecedor
+        if (itemIndex === 0) {
+          const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
+          razaoSocialSplit.forEach((linha: string, index: number) => {
+            doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 36 });
+          });
+          
+          const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
+          const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 33);
+          const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
+          cnpjSplit.forEach((linha: string, index: number) => {
+            doc.text(linha, 62, yPos + offsetVerticalCNPJ + (index * 4), { align: 'left', maxWidth: 31 });
+          });
+        }
+        
+        // Item número
+        doc.text(item.numero.toString(), 102.5, yPos + (alturaLinha / 2) + 1, { align: 'center' });
+        
+        // Marca (centralizada)
+        const offsetVerticalMarca = (alturaLinha - (marcaSplit.length * 4)) / 2 + 3;
+        marcaSplit.forEach((linha: string, index: number) => {
+          doc.text(linha, 125, yPos + offsetVerticalMarca + (index * 4), { align: 'center', maxWidth: 28 });
+        });
+        
+        // Valor unitário
+        const valorUnitario = item.valorUnitario || 0;
+        doc.text(`R$ ${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 163, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+        
+        // Valor total do item
+        doc.text(`R$ ${item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+        
+        yPos += alturaLinha;
+      }
       
       totalGeral += fornecedor.valorTotal;
-      yPos += alturaLinha;
-    });
+    }
     
-    // Linha de Total Geral - mesclada até terceira coluna
+    // Linha de Total Geral
     doc.setFillColor(240, 240, 240);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 120, 8, 'FD'); // Mesclada: Empresa + CNPJ + Itens Vencidos
-    doc.rect(140, yPos, 50, 8, 'FD'); // Valor Total
+    doc.rect(20, yPos, 145, 8, 'FD');
+    doc.rect(165, yPos, 25, 8, 'FD');
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text('TOTAL GERAL', 22, yPos + 5);
     doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + 5, { align: 'right' });
-    yPos += 16; // Aumentado para afastar do próximo texto
+    yPos += 16;
     
     console.log('[PDF] Tabela gerada com sucesso. Total geral:', totalGeral);
   } else {
@@ -217,6 +245,7 @@ export const gerarAutorizacaoCompraDireta = async (
   }
   
   // Encaminhamento
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   const texto2 = 'Encaminha-se ao Departamento Financeiro, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);

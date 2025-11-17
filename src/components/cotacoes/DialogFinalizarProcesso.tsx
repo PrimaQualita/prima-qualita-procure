@@ -1440,6 +1440,7 @@ export function DialogFinalizarProcesso({
           id,
           cotacao_resposta_fornecedor_id,
           valor_unitario_ofertado,
+          marca,
           itens_cotacao!inner(numero_item, quantidade)
         `)
         .in("cotacao_resposta_fornecedor_id", respostas?.map(r => r.id) || []);
@@ -1453,7 +1454,7 @@ export function DialogFinalizarProcesso({
         const itensNumeros = itensVencedores.map(i => i.itens_cotacao.numero_item).sort((a, b) => a - b);
         
         let valorTotal = 0;
-        const itensVencedoresComValor: Array<{ numero: number; valor: number }> = [];
+        const itensVencedoresComValor: Array<{ numero: number; valor: number; marca?: string; valorUnitario?: number }> = [];
         
         itensVencedores.forEach(item => {
           const itemResposta = itensRespostas?.find(
@@ -1461,11 +1462,15 @@ export function DialogFinalizarProcesso({
                   ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item
           );
           if (itemResposta) {
-            const valorItem = Number(itemResposta.valor_unitario_ofertado) * Number(itemResposta.itens_cotacao.quantidade);
+            const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
+            const quantidade = Number(itemResposta.itens_cotacao.quantidade);
+            const valorItem = valorUnitario * quantidade;
             valorTotal += valorItem;
             itensVencedoresComValor.push({
               numero: item.itens_cotacao.numero_item,
-              valor: valorItem
+              valor: valorItem,
+              marca: itemResposta.marca || '-',
+              valorUnitario: valorUnitario
             });
           }
         });
