@@ -332,6 +332,43 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
+    // 11.1. Buscar e adicionar documentos faltantes/adicionais enviados pelos fornecedores
+    const { data: documentosFaltantes, error: faltantesError } = await supabase
+      .from("documentos_finalizacao_fornecedor")
+      .select(`
+        *,
+        campos_documentos_finalizacao!inner(
+          cotacao_id,
+          fornecedor_id,
+          status_solicitacao,
+          data_aprovacao
+        )
+      `)
+      .eq("campos_documentos_finalizacao.cotacao_id", cotacaoId)
+      .eq("campos_documentos_finalizacao.status_solicitacao", "aprovado")
+      .order("data_upload", { ascending: true });
+
+    if (faltantesError) {
+      console.error("Erro ao buscar documentos faltantes:", faltantesError);
+    }
+
+    console.log(`📄 Documentos faltantes/adicionais encontrados: ${documentosFaltantes?.length || 0}`);
+
+    if (documentosFaltantes && documentosFaltantes.length > 0) {
+      // Adicionar logo após os documentos snapshot (mesma data base + 500ms)
+      const dataFaltantes = new Date(new Date(ultimaDataCronologica).getTime() + 1500).toISOString();
+      
+      documentosFaltantes.forEach(doc => {
+        documentosOrdenados.push({
+          tipo: "Documento Faltante/Adicional",
+          data: dataFaltantes,
+          nome: doc.nome_arquivo,
+          url: doc.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      });
+    }
+
     // 12. Adicionar relatórios finais APÓS documentos dos fornecedores
     if (relatorios && relatorios.length > 0) {
       // Adicionar 2 segundos à última data
