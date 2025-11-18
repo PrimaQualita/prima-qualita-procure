@@ -318,18 +318,22 @@ export async function gerarPropostaFornecedorPDF(
     const ultimaPagina = pdfFinal.getPage(pdfFinal.getPageCount() - 1);
     const { height } = ultimaPagina.getSize();
     
-    // Se y atual for maior que 220, não há espaço suficiente - adicionar nova página
+    // CRÍTICO: y está em coordenadas jsPDF (0=topo), height em PDF-lib (0=base)
+    // Converter y para coordenadas PDF-lib: yPdfLib = height - y
+    const yAtualPdfLib = height - y;
+    
+    // Se restam menos de 100 pontos na página, adicionar nova página
     let paginaCert;
     let yPosCert;
     
-    if (y > height - 100) {
+    if (yAtualPdfLib < 100) {
       // Criar nova página para certificação
       paginaCert = pdfFinal.addPage();
       yPosCert = height - 40;
     } else {
       // Usar a última página
       paginaCert = ultimaPagina;
-      yPosCert = y + 10;
+      yPosCert = yAtualPdfLib - 10;
     }
 
     const { width } = paginaCert.getSize();
