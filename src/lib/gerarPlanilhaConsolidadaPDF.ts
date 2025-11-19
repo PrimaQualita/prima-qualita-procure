@@ -88,7 +88,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setFont('helvetica', 'normal');
   doc.text(processo.numero, pageWidth / 2, 18, { align: 'center' });
   
-  const objetoDecodificado = decodeHtmlEntities(processo.objeto);
+  const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<\/?p>/g, '');
   doc.setFontSize(10);
   doc.text(objetoDecodificado, pageWidth / 2, 24, { align: 'center' });
 
@@ -118,10 +118,11 @@ export async function gerarPlanilhaConsolidadaPDF(
     { header: 'Unid.', dataKey: 'unidade', width: 15 }
   ];
 
-  // Calcular largura disponível para fornecedores + estimativa
+  // Calcular largura disponível para fornecedores + estimativa (todas com mesma largura)
   const larguraFixa = 12 + 40 + 12 + 15; // Item + Descrição + Qtd + Unid
-  const larguraDisponivel = larguraUtil - larguraFixa - 25; // 25 para coluna Estimativa
-  const larguraPorFornecedor = larguraDisponivel / respostas.length;
+  const larguraDisponivel = larguraUtil - larguraFixa;
+  const numColunasDinamicas = respostas.length + 1; // +1 para estimativa
+  const larguraPorColuna = larguraDisponivel / numColunasDinamicas;
 
   // Adicionar colunas de fornecedores
   respostas.forEach((resposta) => {
@@ -134,15 +135,15 @@ export async function gerarPlanilhaConsolidadaPDF(
     colunas.push({
       header: headerText,
       dataKey: `fornecedor_${resposta.fornecedor.cnpj}`,
-      width: larguraPorFornecedor
+      width: larguraPorColuna
     });
   });
 
-  // Adicionar coluna Estimativa
+  // Adicionar coluna Estimativa com mesma largura
   colunas.push({
     header: 'Estimativa',
     dataKey: 'estimativa',
-    width: 25
+    width: larguraPorColuna
   });
 
   // Preparar linhas de dados
@@ -235,7 +236,8 @@ export async function gerarPlanilhaConsolidadaPDF(
       lineColor: [0, 0, 0],
       cellPadding: 2,
       halign: 'center',
-      valign: 'middle'
+      valign: 'middle',
+      minCellHeight: 8
     },
     columnStyles: {
       0: { halign: 'center', cellWidth: 12 },
@@ -249,11 +251,20 @@ export async function gerarPlanilhaConsolidadaPDF(
       // Garantir que todo texto seja preto
       data.cell.styles.textColor = [0, 0, 0];
       
-      // Destacar linha de totais
+      // Destacar linha de totais e mesclar primeiras colunas
       if (data.row.index === linhas.length - 1) {
         data.cell.styles.fillColor = [226, 232, 240];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 9;
+        
+        // Mesclar as 4 primeiras colunas (Item, Descrição, Qtd, Unid) na linha de total
+        if (data.column.index === 0) {
+          data.cell.colSpan = 4;
+          data.cell.styles.halign = 'left';
+        } else if (data.column.index >= 1 && data.column.index <= 3) {
+          // Ocultar células mescladas
+          data.cell.text = [];
+        }
       }
     }
   });
