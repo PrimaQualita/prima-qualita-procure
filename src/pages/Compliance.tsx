@@ -228,6 +228,18 @@ export default function Compliance() {
         return;
       }
 
+      // Resetar status de compliance quando análise é deletada
+      const { error: updateError } = await supabase
+        .from("cotacoes_precos")
+        .update({
+          respondido_compliance: false,
+          enviado_compliance: false,
+          data_resposta_compliance: null
+        })
+        .eq("id", analiseParaDeletar);
+
+      if (updateError) throw updateError;
+
       toast.success("Análise excluída com sucesso");
       setDeleteDialogOpen(false);
       setAnaliseParaDeletar(null);
