@@ -479,6 +479,18 @@ export function DialogRespostasCotacao({
 
       if (dbError) throw dbError;
 
+      // Resetar status de compliance quando análise é deletada
+      const { error: updateError } = await supabase
+        .from("cotacoes_precos")
+        .update({
+          respondido_compliance: false,
+          enviado_compliance: false,
+          data_resposta_compliance: null
+        })
+        .eq("id", cotacaoId);
+
+      if (updateError) throw updateError;
+
       setAnaliseParaExcluir(null);
       setConfirmDeleteAnaliseOpen(false);
       loadAnaliseCompliance();
