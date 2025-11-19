@@ -682,13 +682,18 @@ export function DialogFinalizarProcesso({
 
   const loadItensVencedores = async (fornecedorId: string, criterio: string, respostas: any[], todosItens: any[]): Promise<any[]> => {
     const resposta = respostas.find(r => r.fornecedor_id === fornecedorId);
-    if (!resposta) return [];
+    if (!resposta) {
+      console.log(`❌ [loadItensVencedores] Resposta não encontrada para fornecedor ${fornecedorId}`);
+      return [];
+    }
 
     const itensDoFornecedor = todosItens.filter(i => i.cotacao_resposta_fornecedor_id === resposta.id);
     const itensVencidos: any[] = [];
 
     console.log(`🔍 [loadItensVencedores] Fornecedor ID: ${fornecedorId}`);
-    console.log(`  → Itens do fornecedor: ${itensDoFornecedor.length}`);
+    console.log(`  → Resposta ID: ${resposta.id}`);
+    console.log(`  → Total de itens recebidos (todosItens): ${todosItens.length}`);
+    console.log(`  → Itens deste fornecedor: ${itensDoFornecedor.length}`);
 
     // Buscar fornecedores com rejeição revertida
     const { data: rejeicoesRevertidas } = await supabase
@@ -701,12 +706,14 @@ export function DialogFinalizarProcesso({
 
     // Filtrar respostas não rejeitadas OU rejeitadas mas revertidas
     const respostasNaoRejeitadas = respostas.filter(r => !r.rejeitado || fornecedoresRevertidos.has(r.fornecedor_id));
+    console.log(`  → Total de respostas não rejeitadas: ${respostasNaoRejeitadas.length}`);
+    
     const itensNaoRejeitados = todosItens.filter(item => {
       const resp = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
       return resp && (!resp.rejeitado || fornecedoresRevertidos.has(resp.fornecedor_id));
     });
 
-    console.log(`  → Itens não rejeitados (todos fornecedores): ${itensNaoRejeitados.length}`);
+    console.log(`  → Itens não rejeitados (TODOS os fornecedores válidos): ${itensNaoRejeitados.length}`);
     console.log(`  → Critério: ${criterio}`);
 
     if (criterio === "global") {
