@@ -17,7 +17,7 @@ import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
 import { DialogLote } from "@/components/cotacoes/DialogLote";
 import { DialogFinalizarProcesso } from "@/components/cotacoes/DialogFinalizarProcesso";
-import { DialogRespostasCotacao } from "@/components/cotacoes/DialogRespostasCotacao";
+
 import { DialogImportarItens } from "@/components/cotacoes/DialogImportarItens";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -92,7 +92,7 @@ const Cotacoes = () => {
   const [dialogEnviarOpen, setDialogEnviarOpen] = useState(false);
   const [dialogLoteOpen, setDialogLoteOpen] = useState(false);
   const [dialogFinalizarOpen, setDialogFinalizarOpen] = useState(false);
-  const [dialogRespostasOpen, setDialogRespostasOpen] = useState(false);
+  
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
   const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
@@ -1055,7 +1055,7 @@ const Cotacoes = () => {
                     </Button>
                     <Button 
                       variant="secondary"
-                      onClick={() => setDialogRespostasOpen(true)}
+                      onClick={() => navigate(`/respostas-cotacao?cotacao=${cotacaoSelecionada?.id}`)}
                       size="sm"
                     >
                       Ver Respostas
@@ -1806,17 +1806,6 @@ const Cotacoes = () => {
         />
       )}
 
-      {/* Dialog Respostas Cotação */}
-      {cotacaoSelecionada && (
-        <DialogRespostasCotacao
-          open={dialogRespostasOpen}
-          onOpenChange={setDialogRespostasOpen}
-          cotacaoId={cotacaoSelecionada.id}
-          tituloCotacao={cotacaoSelecionada.titulo_cotacao}
-          criterioJulgamento={criterioJulgamento}
-          requerSelecao={processoSelecionado?.requer_selecao || false}
-        />
-      )}
 
       {/* Dialog Importar Itens */}
       {cotacaoSelecionada && (
