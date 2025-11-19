@@ -404,9 +404,13 @@ export default function RespostasCotacao() {
 
       if (anexoError) {
         console.error("Erro ao criar registro de anexo:", anexoError);
+        throw anexoError;
       }
 
-      // Buscar o arquivo do storage
+      // Recarregar dados para atualizar interface ANTES de abrir
+      await loadRespostas();
+      
+      // Buscar o arquivo do storage e abrir em nova guia
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('processo-anexos')
         .download(resultado.url);
@@ -416,8 +420,6 @@ export default function RespostasCotacao() {
       const pdfUrl = URL.createObjectURL(fileData);
       window.open(pdfUrl, '_blank');
       
-      // Recarregar dados para atualizar interface
-      await carregarDados();
       toast.success("Proposta gerada com sucesso!");
     } catch (error) {
       console.error("Erro ao visualizar proposta:", error);
