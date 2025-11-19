@@ -299,12 +299,16 @@ export default function RespostasCotacao() {
     if (!analiseParaExcluir) return;
     
     try {
+      console.log("🗑️ [RespostasCotacao] Excluindo análise para cotação:", cotacaoId);
+      
       const { error: dbError } = await supabase
         .from("analises_compliance")
         .delete()
         .eq("id", analiseParaExcluir.id);
 
       if (dbError) throw dbError;
+
+      console.log("✅ [RespostasCotacao] Análise deletada, resetando status...");
 
       // Resetar status de compliance quando análise é deletada
       const { error: updateError } = await supabase
@@ -316,14 +320,19 @@ export default function RespostasCotacao() {
         })
         .eq("id", cotacaoId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("❌ [RespostasCotacao] Erro ao resetar status:", updateError);
+        throw updateError;
+      }
+
+      console.log("✅ [RespostasCotacao] Status resetado com sucesso, cotacao_id:", cotacaoId);
 
       setAnaliseParaExcluir(null);
       setConfirmDeleteAnaliseOpen(false);
       toast.success("Análise excluída com sucesso");
       loadAnaliseCompliance();
     } catch (error: any) {
-      console.error("Erro ao excluir análise:", error);
+      console.error("❌ [RespostasCotacao] Erro ao excluir análise:", error);
       toast.error("Erro ao excluir análise");
     }
   };
@@ -337,6 +346,8 @@ export default function RespostasCotacao() {
         return;
       }
 
+      console.log("📤 [RespostasCotacao] Enviando ao compliance, cotacao_id:", cotacaoId);
+
       const { error } = await supabase
         .from("cotacoes_precos")
         .update({ 
@@ -346,11 +357,16 @@ export default function RespostasCotacao() {
         })
         .eq("id", cotacaoId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ [RespostasCotacao] Erro ao enviar:", error);
+        throw error;
+      }
+
+      console.log("✅ [RespostasCotacao] Enviado com sucesso, status resetado para pendente");
 
       toast.success("Processo enviado ao Compliance com sucesso!");
     } catch (error) {
-      console.error("Erro ao enviar ao compliance:", error);
+      console.error("❌ [RespostasCotacao] Erro ao enviar ao compliance:", error);
       toast.error("Erro ao enviar ao Compliance");
     } finally {
       setEnviandoCompliance(false);
