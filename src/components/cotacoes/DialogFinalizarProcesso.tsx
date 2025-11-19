@@ -906,11 +906,11 @@ export function DialogFinalizarProcesso({
       return false;
     }
 
-    // CRÍTICO: Se não há campos solicitados, NÃO pode estar aprovado
-    // (precisa haver análise e aprovação explícita)
+    // Se não há campos solicitados, verificar aprovação no JSON documentos_aprovados
     if (campos.length === 0) {
-      console.log(`❌ Fornecedor sem análise de documentos (nenhum campo solicitado)`);
-      return false;
+      const aprovado = documentosAprovados[fornecedorId] === true;
+      console.log(`${aprovado ? '✅' : '❌'} Fornecedor sem campos solicitados - aprovação manual: ${aprovado}`);
+      return aprovado;
     }
 
     // Verificar campos solicitados - devem estar todos aprovados
@@ -1224,6 +1224,17 @@ export function DialogFinalizarProcesso({
           .in("id", camposParaAprovar.map(c => c.id!));
 
         if (error) throw error;
+      } else {
+        // Se não há campos para aprovar, salvar aprovação no JSON documentos_aprovados
+        const novosDocumentosAprovados = { ...documentosAprovados, [fornecedorId]: true };
+        
+        const { error } = await supabase
+          .from("cotacoes_precos")
+          .update({ documentos_aprovados: novosDocumentosAprovados })
+          .eq("id", cotacaoId);
+
+        if (error) throw error;
+        setDocumentosAprovados(novosDocumentosAprovados);
       }
 
       toast.success(`Documentos de ${fornecedorData.fornecedor.razao_social} aprovados com sucesso`);
