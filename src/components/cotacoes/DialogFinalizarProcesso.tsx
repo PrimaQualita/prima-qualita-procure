@@ -395,8 +395,8 @@ export function DialogFinalizarProcesso({
             primeiroItemCompleto: itensVenc[0] || null
           });
 
-          // CRÍTICO: Usar verificação com dados do estado atualizado
-          const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
+          // CRÍTICO: Usar dados FRESCOS do banco, não do estado React
+          const todosAprovados = verificarTodosDocumentosAprovadosComDados(forn.id, docs, campos, documentosAprovadosAtualizados);
 
           return {
             fornecedor: forn,
