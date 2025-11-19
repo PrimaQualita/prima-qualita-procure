@@ -70,6 +70,17 @@ export async function identificarVencedoresPorCriterio(
   
   const fornecedoresPlanilha = planilha.fornecedores_incluidos as unknown as FornecedorPlanilha[];
   console.log(`  → Total de fornecedores na planilha: ${fornecedoresPlanilha?.length || 0}`);
+  
+  // DEBUG: Ver estrutura da planilha
+  if (fornecedoresPlanilha && fornecedoresPlanilha.length > 0) {
+    console.log(`  📊 ESTRUTURA DA PLANILHA (primeiro fornecedor):`, {
+      fornecedor_id: fornecedoresPlanilha[0].fornecedor_id,
+      razao_social: fornecedoresPlanilha[0].razao_social,
+      totalItens: fornecedoresPlanilha[0].itens?.length || 0,
+      primeiroItem: fornecedoresPlanilha[0].itens?.[0],
+      estruturaCompleta: fornecedoresPlanilha[0]
+    });
+  }
 
   if (!fornecedoresPlanilha || fornecedoresPlanilha.length === 0) {
     return [];
@@ -88,17 +99,29 @@ export async function identificarVencedoresPorCriterio(
 
   // Para cada fornecedor na planilha
   fornecedoresPlanilha.forEach(fornecedorPlanilha => {
+    console.log(`  🔍 Analisando fornecedor: ${fornecedorPlanilha.razao_social}`);
+    console.log(`    → Total de itens deste fornecedor: ${fornecedorPlanilha.itens?.length || 0}`);
+    
     // Verificar se o fornecedor foi rejeitado e não foi revertido
     const resposta = respostas.find(r => r.fornecedor_id === fornecedorPlanilha.fornecedor_id);
     const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(fornecedorPlanilha.fornecedor_id);
+    
+    console.log(`    → Está rejeitado? ${estaRejeitado}`);
     
     if (estaRejeitado) {
       console.log(`  ⏭️ Pulando fornecedor rejeitado: ${fornecedorPlanilha.razao_social}`);
       return;
     }
 
+    // DEBUG: Ver estrutura dos itens
+    if (fornecedorPlanilha.itens && fornecedorPlanilha.itens.length > 0) {
+      console.log(`    → Estrutura do primeiro item:`, fornecedorPlanilha.itens[0]);
+    }
+
     // Verificar se tem itens vencedores
     const itensVencedores = fornecedorPlanilha.itens?.filter(item => item.eh_vencedor === true) || [];
+    
+    console.log(`    → Itens com eh_vencedor=true: ${itensVencedores.length}`);
     
     if (itensVencedores.length > 0) {
       fornecedoresVencedoresSet.add(fornecedorPlanilha.fornecedor_id);
