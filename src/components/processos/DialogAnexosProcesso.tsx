@@ -6,6 +6,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +61,7 @@ export function DialogAnexosProcesso({
   const [anexos, setAnexos] = useState<AnexoProcesso[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [anexoToDelete, setAnexoToDelete] = useState<AnexoProcesso | null>(null);
 
   useEffect(() => {
     if (open && processoId) {
@@ -167,10 +178,11 @@ export function DialogAnexosProcesso({
     }
   };
 
-  const handleDelete = async (anexo: AnexoProcesso) => {
-    if (!confirm("Deseja realmente excluir este anexo?")) return;
+  const confirmDelete = async () => {
+    if (!anexoToDelete) return;
 
     try {
+      const anexo = anexoToDelete;
       // Extrai o caminho relativo (pode ser URL completa antiga ou caminho relativo novo)
       let filePath = anexo.url_arquivo;
       
@@ -195,9 +207,11 @@ export function DialogAnexosProcesso({
       if (error) throw error;
 
       toast({ title: "Anexo excluído com sucesso!" });
+      setAnexoToDelete(null);
       await loadAnexos();
     } catch (error: any) {
       console.error("Erro ao excluir anexo:", error);
+      setAnexoToDelete(null);
       toast({
         title: "Erro ao excluir anexo",
         description: error.message,
@@ -269,7 +283,7 @@ export function DialogAnexosProcesso({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleDelete(anexo)}
+                      onClick={() => setAnexoToDelete(anexo)}
                       title="Excluir documento"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -316,7 +330,7 @@ export function DialogAnexosProcesso({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => handleDelete(anexo)}
+                        onClick={() => setAnexoToDelete(anexo)}
                         title="Excluir anexo"
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -359,6 +373,27 @@ export function DialogAnexosProcesso({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Diálogo de confirmação de exclusão */}
+      <AlertDialog open={!!anexoToDelete} onOpenChange={(open) => !open && setAnexoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir anexo</AlertDialogTitle>
+            <AlertDialogDescription className="break-words">
+              Deseja realmente excluir o arquivo{" "}
+              <strong className="text-foreground">{anexoToDelete?.nome_arquivo}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAnexoToDelete(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
