@@ -307,7 +307,7 @@ export function DialogFinalizarProcesso({
         return;
       }
 
-      // Buscar itens de TODAS as respostas
+      // Buscar itens de TODAS as respostas (remover limite de 1000)
       const { data: itens, error: itensError } = await supabase
         .from("respostas_itens_fornecedor")
         .select(`
@@ -317,7 +317,8 @@ export function DialogFinalizarProcesso({
           valor_unitario_ofertado,
           itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade)
         `)
-        .in("cotacao_resposta_fornecedor_id", respostas.map(r => r.id));
+        .in("cotacao_resposta_fornecedor_id", respostas.map(r => r.id))
+        .limit(100000); // Permitir buscar TODOS os itens mesmo em processos grandes
 
       if (itensError) throw itensError;
 
