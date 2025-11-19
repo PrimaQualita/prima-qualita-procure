@@ -298,12 +298,13 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
 
-    // 11. Buscar e adicionar documentos dos fornecedores aprovados (snapshot) APÓS última data
+    // 11. Buscar documentos dos fornecedores aprovados (snapshot e faltantes) organizados POR FORNECEDOR
     const { data: documentosSnapshot, error: snapshotError } = await supabase
       .from("documentos_processo_finalizado")
       .select("*")
       .eq("cotacao_id", cotacaoId)
-      .order("data_snapshot", { ascending: true });
+      .order("fornecedor_id", { ascending: true })
+      .order("tipo_documento", { ascending: true });
 
     if (snapshotError) {
       console.error("Erro ao buscar documentos snapshot:", snapshotError);
@@ -311,38 +312,19 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`📄 Documentos snapshot encontrados: ${documentosSnapshot?.length || 0}`);
 
-    if (documentosSnapshot && documentosSnapshot.length > 0) {
-      // Adicionar 1 segundo à última data para garantir que os snapshots venham logo após
-      const dataSnapshot = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
-      
-      // Usar Set para garantir que cada documento seja adicionado apenas uma vez baseado em seu ID único
-      const idsAdicionados = new Set<string>();
-      
-      documentosSnapshot.forEach(doc => {
-        if (!idsAdicionados.has(doc.id)) {
-          idsAdicionados.add(doc.id);
-          documentosOrdenados.push({
-            tipo: "Documento Fornecedor Aprovado",
-            data: dataSnapshot,
-            nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
-            url: doc.url_arquivo,
-            bucket: "processo-anexos"
-          });
-        }
-      });
-    }
-
-    // 11.5. Buscar e adicionar documentos faltantes/adicionais dos fornecedores APÓS documentos snapshot
+    // Buscar documentos faltantes/adicionais
     const { data: documentosFaltantes, error: faltantesError } = await supabase
       .from("documentos_finalizacao_fornecedor")
       .select(`
         *,
         campos_documentos_finalizacao!inner(
           cotacao_id,
-          nome_campo
+          nome_campo,
+          fornecedor_id
         )
       `)
       .eq("campos_documentos_finalizacao.cotacao_id", cotacaoId)
+      .order("fornecedor_id", { ascending: true })
       .order("data_upload", { ascending: true });
 
     if (faltantesError) {
@@ -351,26 +333,63 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`📄 Documentos faltantes/adicionais encontrados: ${documentosFaltantes?.length || 0}`);
 
-    if (documentosFaltantes && documentosFaltantes.length > 0) {
-      // Adicionar 1.5 segundos à última data (entre snapshot e relatórios)
-      const dataFaltantes = new Date(new Date(ultimaDataCronologica).getTime() + 1500).toISOString();
+    // Organizar documentos por fornecedor
+    const fornecedoresUnicos = new Set<string>();
+    documentosSnapshot?.forEach(doc => fornecedoresUnicos.add(doc.fornecedor_id));
+    documentosFaltantes?.forEach(doc => fornecedoresUnicos.add(doc.fornecedor_id));
+
+    const fornecedoresOrdenados = Array.from(fornecedoresUnicos).sort();
+    console.log(`👥 Fornecedores com documentos: ${fornecedoresOrdenados.length}`);
+
+    // Adicionar documentos organizados por fornecedor
+    let incrementoTempo = 1000; // Inicia em +1 segundo da última data cronológica
+    const idsAdicionados = new Set<string>();
+
+    fornecedoresOrdenados.forEach((fornecedorId, index) => {
+      console.log(`\n📋 Processando fornecedor ${index + 1}/${fornecedoresOrdenados.length}: ${fornecedorId}`);
       
-      // Usar Set para evitar duplicação
-      const idsFaltantesAdicionados = new Set<string>();
+      // Data específica para este fornecedor
+      const dataFornecedor = new Date(new Date(ultimaDataCronologica).getTime() + incrementoTempo).toISOString();
       
-      documentosFaltantes.forEach(doc => {
-        if (!idsFaltantesAdicionados.has(doc.id)) {
-          idsFaltantesAdicionados.add(doc.id);
+      // 1. Adicionar documentos de cadastro (snapshot) deste fornecedor
+      const docsSnapshot = documentosSnapshot?.filter(doc => doc.fornecedor_id === fornecedorId) || [];
+      console.log(`  📄 Documentos de cadastro: ${docsSnapshot.length}`);
+      
+      docsSnapshot.forEach(doc => {
+        if (!idsAdicionados.has(doc.id)) {
+          idsAdicionados.add(doc.id);
           documentosOrdenados.push({
-            tipo: "Documento Faltante/Adicional",
-            data: dataFaltantes,
-            nome: `${doc.campos_documentos_finalizacao.nome_campo} - ${doc.nome_arquivo}`,
+            tipo: "Documento Fornecedor Aprovado",
+            data: dataFornecedor,
+            nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
             url: doc.url_arquivo,
-            bucket: "processo-anexos"
+            bucket: "processo-anexos",
+            fornecedor: fornecedorId
           });
         }
       });
-    }
+
+      // 2. Adicionar documentos faltantes/adicionais deste fornecedor
+      const docsFaltantes = documentosFaltantes?.filter(doc => doc.fornecedor_id === fornecedorId) || [];
+      console.log(`  📎 Documentos faltantes/adicionais: ${docsFaltantes.length}`);
+      
+      docsFaltantes.forEach(doc => {
+        if (!idsAdicionados.has(doc.id)) {
+          idsAdicionados.add(doc.id);
+          documentosOrdenados.push({
+            tipo: "Documento Faltante/Adicional",
+            data: dataFornecedor,
+            nome: `${doc.campos_documentos_finalizacao.nome_campo} - ${doc.nome_arquivo}`,
+            url: doc.url_arquivo,
+            bucket: "processo-anexos",
+            fornecedor: fornecedorId
+          });
+        }
+      });
+
+      // Incrementar tempo para próximo fornecedor
+      incrementoTempo += 100; // +100ms entre fornecedores para manter ordem
+    });
 
     // 12. Adicionar relatórios finais APÓS documentos dos fornecedores
     if (relatorios && relatorios.length > 0) {

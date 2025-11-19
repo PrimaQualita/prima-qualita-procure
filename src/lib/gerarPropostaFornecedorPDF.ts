@@ -83,8 +83,7 @@ export async function gerarPropostaFornecedorPDF(
           unidade
         )
       `)
-      .eq('cotacao_resposta_fornecedor_id', respostaId)
-      .order('itens_cotacao(numero_item)', { ascending: true });
+      .eq('cotacao_resposta_fornecedor_id', respostaId);
 
     console.log('📊 Resultado da busca:', {
       encontrou: itens?.length || 0,
@@ -103,7 +102,14 @@ export async function gerarPropostaFornecedorPDF(
       throw new Error('Nenhum item encontrado para esta proposta');
     }
 
-    console.log('✅ Itens carregados para PDF:', itens.length);
+    // Ordenar itens por numero_item no JavaScript
+    const itensOrdenados = itens.sort((a: any, b: any) => {
+      const numeroA = a.itens_cotacao?.numero_item || 0;
+      const numeroB = b.itens_cotacao?.numero_item || 0;
+      return numeroA - numeroB;
+    });
+
+    console.log('✅ Itens carregados e ordenados para PDF:', itensOrdenados.length);
 
     const dataGeracao = new Date().toLocaleString('pt-BR');
 
@@ -201,7 +207,7 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
 
-    for (const item of itens) {
+    for (const item of itensOrdenados) {
       if (y > 260) {
         doc.addPage();
         y = 20;
