@@ -70,41 +70,41 @@ export async function gerarPlanilhaConsolidadaPDF(
   
   let y = 20;
 
-  // Cabeçalho com cores do sistema
-  doc.setFillColor(37, 99, 235); // primary color
-  doc.rect(0, 0, pageWidth, 35, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
+  // Cabeçalho com cores do sistema - REMOVER para economia de espaço em PDFs grandes
+  y = 20;
+
+  // Informações da Cotação
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('PLANILHA CONSOLIDADA DE PROPOSTAS', pageWidth / 2, 15, { align: 'center' });
+  doc.text('PLANILHA CONSOLIDADA DE PROPOSTAS', pageWidth / 2, y, { align: 'center' });
+  y += 7;
   
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text(processo.numero, pageWidth / 2, 23, { align: 'center' });
+  doc.text(`Processo: ${processo.numero}`, pageWidth / 2, y, { align: 'center' });
+  y += 6;
   
   // Decodificar o objeto antes de exibir
   const objetoDecodificado = decodeHtmlEntities(processo.objeto);
   const objetoLinhas = doc.splitTextToSize(objetoDecodificado, larguraUtil);
   objetoLinhas.forEach((linha: string, index: number) => {
-    doc.text(linha, pageWidth / 2, 30 + (index * 5), { align: 'center' });
+    doc.text(linha, pageWidth / 2, y + (index * 5), { align: 'center' });
   });
 
-  y = 50;
+  y += (objetoLinhas.length * 5) + 8;
 
-  // Informações da Cotação
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(12);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text('Cotação:', margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
   doc.text(cotacao.titulo_cotacao, margemEsquerda + 25, y);
   
-  y += 7;
+  y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.text('Data de Geração:', margemEsquerda, y);
+  doc.text('Data:', margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(new Date().toLocaleString('pt-BR'), margemEsquerda + 40, y);
+  doc.text(new Date().toLocaleDateString('pt-BR'), margemEsquerda + 25, y);
 
   y += 10;
 
@@ -128,6 +128,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   // Preparar linhas
   const linhas: any[] = [];
   
+  console.log(`📊 Gerando planilha com ${itens.length} itens e ${respostas.length} fornecedores`);
+  
   itens.forEach(item => {
     const linha: any = {
       item: item.numero_item.toString(),
@@ -145,6 +147,8 @@ export async function gerarPlanilhaConsolidadaPDF(
 
     linhas.push(linha);
   });
+
+  console.log(`📋 Total de linhas preparadas: ${linhas.length}`);
 
   // Adicionar linha de totais
   const linhaTotais: any = {

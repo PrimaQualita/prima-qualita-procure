@@ -275,6 +275,12 @@ export function DialogRespostasCotacao({
     try {
       setEnviandoCompliance(true);
       
+      // CRÍTICO: Verificar se existe planilha consolidada antes de permitir envio
+      if (planilhasAnteriores.length === 0) {
+        toast.error("É necessário gerar a Planilha Consolidada antes de enviar ao Compliance");
+        return;
+      }
+      
       const { error } = await supabase
         .from('cotacoes_precos')
         .update({ 
