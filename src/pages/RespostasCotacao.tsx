@@ -867,7 +867,6 @@ export default function RespostasCotacao() {
                 <Button
                   onClick={enviarAoCompliance}
                   disabled={enviandoCompliance}
-                  variant="secondary"
                   className="w-full"
                 >
                   <Send className="mr-2 h-4 w-4" />
