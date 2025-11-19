@@ -281,10 +281,16 @@ export function DialogFinalizarProcesso({
       if (cotacaoError) throw cotacaoError;
 
       console.log("📊 Critério de julgamento:", cotacao?.criterio_julgamento);
-      console.log("📋 Documentos aprovados do banco (FRESH):", cotacao?.documentos_aprovados);
+      console.log("📋 Documentos aprovados RAW do banco:", JSON.stringify(cotacao?.documentos_aprovados));
       
-      // CRÍTICO: Atualizar o estado com dados frescos do banco
-      const documentosAprovadosAtualizados = (cotacao?.documentos_aprovados as Record<string, boolean>) || {};
+      // CRÍTICO: Atualizar o estado com dados frescos do banco - tratar null explicitamente
+      const docsAprovadosRaw = cotacao?.documentos_aprovados;
+      const documentosAprovadosAtualizados: Record<string, boolean> = 
+        docsAprovadosRaw && typeof docsAprovadosRaw === 'object' 
+          ? (docsAprovadosRaw as Record<string, boolean>)
+          : {};
+      
+      console.log("📋 Documentos aprovados PROCESSADOS:", JSON.stringify(documentosAprovadosAtualizados));
       setDocumentosAprovados(documentosAprovadosAtualizados);
 
       // Buscar TODAS as respostas dos fornecedores (SEM FILTRO)
@@ -1246,12 +1252,19 @@ export function DialogFinalizarProcesso({
         // Se não há campos para aprovar, salvar aprovação no JSON documentos_aprovados
         const novosDocumentosAprovados = { ...documentosAprovados, [fornecedorId]: true };
         
+        console.log("💾 Salvando aprovação no banco:", JSON.stringify(novosDocumentosAprovados));
+        
         const { error } = await supabase
           .from("cotacoes_precos")
           .update({ documentos_aprovados: novosDocumentosAprovados })
           .eq("id", cotacaoId);
 
-        if (error) throw error;
+        if (error) {
+          console.error("❌ Erro ao salvar aprovação:", error);
+          throw error;
+        }
+        
+        console.log("✅ Aprovação salva com sucesso no banco");
         setDocumentosAprovados(novosDocumentosAprovados);
       }
 
