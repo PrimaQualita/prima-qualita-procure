@@ -1451,7 +1451,7 @@ const Cotacoes = () => {
                     {processoSelecionado?.requer_selecao === false && (
                       <div className="flex justify-end pt-2">
                         <Button 
-                          onClick={() => setDialogFinalizarOpen(true)}
+                          onClick={() => navigate(`/verificar-documentacao?cotacao=${cotacaoSelecionada?.id}&contrato=${contratoSelecionado?.id}&processo=${processoSelecionado?.id}`)}
                           disabled={itens.length === 0}
                           size="lg"
                           className="md:w-auto w-full"
