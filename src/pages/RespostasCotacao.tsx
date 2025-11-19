@@ -306,6 +306,18 @@ export default function RespostasCotacao() {
 
       if (dbError) throw dbError;
 
+      // Resetar status de compliance quando análise é deletada
+      const { error: updateError } = await supabase
+        .from("cotacoes_precos")
+        .update({
+          respondido_compliance: false,
+          enviado_compliance: false,
+          data_resposta_compliance: null
+        })
+        .eq("id", cotacaoId);
+
+      if (updateError) throw updateError;
+
       setAnaliseParaExcluir(null);
       setConfirmDeleteAnaliseOpen(false);
       toast.success("Análise excluída com sucesso");
@@ -329,6 +341,7 @@ export default function RespostasCotacao() {
         .from("cotacoes_precos")
         .update({ 
           enviado_compliance: true,
+          respondido_compliance: false, // Resetar para permitir novo parecer
           data_envio_compliance: new Date().toISOString()
         })
         .eq("id", cotacaoId);
