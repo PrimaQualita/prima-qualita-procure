@@ -434,12 +434,18 @@ export function DialogFinalizarProcesso({
         itens: f.itensVencedores.map(item => item.itens_cotacao.numero_item)
       })));
       
+      console.log(`🔵 SETANDO fornecedoresData com ${fornecedoresOrdenados.length} fornecedores`);
       setFornecedoresData(fornecedoresOrdenados);
+      
+      // Aguardar um momento para garantir que o estado foi atualizado
+      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error("❌ Erro ao carregar fornecedores:", error);
       toast.error("Erro ao carregar fornecedores vencedores");
+      setFornecedoresData([]);
     } finally {
       setLoading(false);
+      console.log(`🔵 Loading finalizado. FornecedoresData.length: ${fornecedoresData.length}`);
     }
   };
 
@@ -2027,6 +2033,8 @@ export function DialogFinalizarProcesso({
 
   const todosDocumentosAprovados = fornecedoresData.every(f => f.todosDocumentosAprovados);
 
+  console.log(`🖥️ RENDERIZANDO Dialog - fornecedoresData.length: ${fornecedoresData.length}, loading: ${loading}`);
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0">
