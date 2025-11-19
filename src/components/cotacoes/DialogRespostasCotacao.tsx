@@ -479,6 +479,8 @@ export function DialogRespostasCotacao({
 
       if (dbError) throw dbError;
 
+      console.log("✅ [DialogRespostasCotacao] Análise deletada, resetando status...");
+
       // Resetar status de compliance quando análise é deletada
       const { error: updateError } = await supabase
         .from("cotacoes_precos")
@@ -489,7 +491,12 @@ export function DialogRespostasCotacao({
         })
         .eq("id", cotacaoId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("❌ [DialogRespostasCotacao] Erro ao resetar status:", updateError);
+        throw updateError;
+      }
+
+      console.log("✅ [DialogRespostasCotacao] Status resetado, cotacao_id:", cotacaoId);
 
       setAnaliseParaExcluir(null);
       setConfirmDeleteAnaliseOpen(false);

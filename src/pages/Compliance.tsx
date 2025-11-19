@@ -60,10 +60,24 @@ export default function Compliance() {
 
   useEffect(() => {
     loadData();
+    
+    // Recarregar quando a página recebe foco (volta de outra página)
+    const handleFocus = () => {
+      console.log("🔄 Compliance: Página recebeu foco, recarregando dados...");
+      loadData();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   const loadData = async () => {
     try {
+      console.log("📊 [Compliance] Iniciando carregamento de dados...");
+      
       // Buscar todos os contratos
       const { data: contratosData, error: contratosError } = await supabase
         .from("contratos_gestao")
@@ -93,6 +107,8 @@ export default function Compliance() {
 
       if (processosError) throw processosError;
 
+      console.log("📋 [Compliance] Processos carregados:", processosData?.length || 0);
+
       // Buscar IDs de cotações que têm análise
       // Como a tabela pode não existir no schema, vamos tentar e capturar erro
       let cotacoesComAnalise = new Set<string>();
@@ -106,9 +122,10 @@ export default function Compliance() {
           analisesData.forEach((analise: any) => {
             cotacoesComAnalise.add(analise.cotacao_id);
           });
+          console.log("✅ [Compliance] Análises encontradas:", cotacoesComAnalise.size);
         }
       } catch (e) {
-        console.log("Tabela analises_compliance não disponível ou erro ao buscar");
+        console.log("⚠️ [Compliance] Tabela analises_compliance não disponível ou erro ao buscar");
       }
 
       // Agrupar processos por contrato
@@ -122,7 +139,7 @@ export default function Compliance() {
             processosAgrupados[contratoId] = [];
           }
           
-          processosAgrupados[contratoId].push({
+          const processoCompliance = {
             id: processo.id,
             numero_processo_interno: processo.numero_processo_interno,
             objeto_resumido: processo.objeto_resumido,
@@ -133,14 +150,24 @@ export default function Compliance() {
             respondido_compliance: cotacao.respondido_compliance,
             ano_referencia: processo.ano_referencia,
             tem_analise: cotacoesComAnalise.has(cotacao.id),
+          };
+          
+          console.log(`  📄 Processo ${processo.numero_processo_interno}:`, {
+            cotacao_id: cotacao.id,
+            respondido: cotacao.respondido_compliance,
+            tem_analise: processoCompliance.tem_analise
           });
+          
+          processosAgrupados[contratoId].push(processoCompliance);
         });
       });
 
       setContratos(contratosData || []);
       setProcessos(processosAgrupados);
+      
+      console.log("✅ [Compliance] Carregamento concluído");
     } catch (error: any) {
-      console.error("Erro ao carregar processos:", error);
+      console.error("❌ [Compliance] Erro ao carregar processos:", error);
       toast.error("Erro ao carregar processos de compliance");
     } finally {
       setLoading(false);
@@ -216,17 +243,19 @@ export default function Compliance() {
     if (!analiseParaDeletar) return;
 
     try {
-      console.log("Excluindo análise para cotação:", analiseParaDeletar);
+      console.log("🗑️ [Compliance] Excluindo análise para cotação:", analiseParaDeletar);
       
       const { error } = await supabase.rpc('delete_analise_compliance', {
         p_cotacao_id: analiseParaDeletar
       });
 
       if (error) {
-        console.error("Erro RPC:", error);
+        console.error("❌ [Compliance] Erro RPC:", error);
         toast.error(`Erro ao excluir: ${error.message}`);
         return;
       }
+
+      console.log("✅ [Compliance] Análise deletada, resetando status...");
 
       // Resetar status de compliance quando análise é deletada
       const { error: updateError } = await supabase
@@ -238,7 +267,12 @@ export default function Compliance() {
         })
         .eq("id", analiseParaDeletar);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("❌ [Compliance] Erro ao resetar status:", updateError);
+        throw updateError;
+      }
+
+      console.log("✅ [Compliance] Status resetado com sucesso");
 
       toast.success("Análise excluída com sucesso");
       setDeleteDialogOpen(false);
@@ -246,10 +280,11 @@ export default function Compliance() {
       
       // Recarregar dados com delay para garantir propagação no banco
       setTimeout(() => {
+        console.log("🔄 [Compliance] Recarregando dados após exclusão...");
         loadData();
       }, 300);
     } catch (error: any) {
-      console.error("Erro ao excluir análise:", error);
+      console.error("❌ [Compliance] Erro ao excluir análise:", error);
       toast.error(`Erro ao excluir: ${error.message || 'Erro desconhecido'}`);
     }
   };
