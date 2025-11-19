@@ -722,58 +722,81 @@ export default function RespostasCotacao() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2 justify-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleVisualizarProposta(resposta.id)}
-                          disabled={gerandoPDF === resposta.id}
-                        >
-                          {gerandoPDF === resposta.id ? (
-                            <span className="flex items-center gap-2">
-                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                              Gerando...
-                            </span>
-                          ) : (
-                            <>
-                              <Eye className="h-4 w-4 mr-1" />
-                              Ver
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleBaixarProposta(resposta.id)}
-                          disabled={gerandoPDF === resposta.id}
-                        >
-                          {gerandoPDF === resposta.id ? (
-                            <span className="flex items-center gap-2">
-                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                            </span>
-                          ) : (
-                            <>
-                              <Download className="h-4 w-4 mr-1" />
-                              Baixar
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setRespostaSelecionada(resposta);
-                            setEmailCorrecaoOpen(true);
-                          }}
-                        >
-                          <Mail className="h-4 w-4 text-blue-600" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeletarResposta(resposta.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {resposta.usuario_gerador_id ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleVisualizarProposta(resposta.id)}
+                              disabled={gerandoPDF === resposta.id}
+                            >
+                              {gerandoPDF === resposta.id ? (
+                                <span className="flex items-center gap-2">
+                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                  Gerando...
+                                </span>
+                              ) : (
+                                <>
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  Ver
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleBaixarProposta(resposta.id)}
+                              disabled={gerandoPDF === resposta.id}
+                            >
+                              {gerandoPDF === resposta.id ? (
+                                <span className="flex items-center gap-2">
+                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                </span>
+                              ) : (
+                                <>
+                                  <Download className="h-4 w-4 mr-1" />
+                                  Baixar
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setRespostaSelecionada(resposta);
+                                setEmailCorrecaoOpen(true);
+                              }}
+                            >
+                              <Mail className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeletarResposta(resposta.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleVisualizarProposta(resposta.id)}
+                            disabled={gerandoPDF === resposta.id}
+                          >
+                            {gerandoPDF === resposta.id ? (
+                              <span className="flex items-center gap-2">
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                Gerando...
+                              </span>
+                            ) : (
+                              <>
+                                <FileText className="h-4 w-4 mr-1" />
+                                Gerar Proposta
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
