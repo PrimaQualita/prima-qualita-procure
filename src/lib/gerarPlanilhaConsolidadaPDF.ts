@@ -76,8 +76,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   
   let y = 20;
 
-  // Cabeçalho verde
-  doc.setFillColor(26, 135, 117); // Verde escuro (teal-700)
+  // Cabeçalho verde-água (paleta Prima Qualitá)
+  doc.setFillColor(23, 134, 117); // Verde-água escuro (hsl 174, 72%, 36%)
   doc.rect(0, 0, pageWidth, 30, 'F');
   
   doc.setTextColor(255, 255, 255);
@@ -245,7 +245,7 @@ export async function gerarPlanilhaConsolidadaPDF(
     body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
     theme: 'plain', // Sem bordas
     headStyles: {
-      fillColor: [26, 135, 117], // Verde escuro (teal-700)
+      fillColor: [23, 134, 117], // Verde-água escuro (paleta Prima Qualitá)
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 8,
@@ -265,7 +265,7 @@ export async function gerarPlanilhaConsolidadaPDF(
       minCellHeight: 8
     },
     alternateRowStyles: {
-      fillColor: [204, 241, 235] // Verde claro (teal-100)
+      fillColor: [187, 226, 236] // Azul claro (paleta Prima Qualitá)
     },
     columnStyles: (() => {
       const styles: any = {
