@@ -983,12 +983,54 @@ export function DialogPlanilhaConsolidada({
       // Registrar no banco de dados
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Coletar CNPJs dos fornecedores incluídos na planilha (empresas selecionadas)
-      const cnpjsIncluidos = respostas
-        .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social))
-        .map(r => r.fornecedor.cnpj);
+      // Buscar IDs dos fornecedores das respostas
+      const { data: respostasCompletas } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select("id, fornecedor_id, fornecedores!inner(id, razao_social, cnpj, email)")
+        .eq("cotacao_id", cotacaoId);
       
-      console.log("💾 Salvando planilha com fornecedores incluídos:", cnpjsIncluidos);
+      // Criar estrutura completa de fornecedores com seus itens e vencedores
+      const fornecedoresIncluidos = respostas
+        .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social))
+        .map(resposta => {
+          // Buscar o fornecedor_id da resposta completa
+          const respostaCompleta = respostasCompletas?.find(rc => 
+            (rc.fornecedores as any).cnpj === resposta.fornecedor.cnpj
+          );
+          
+          // Para cada item do fornecedor, verificar se ele é vencedor
+          const itensComVencedor = resposta.itens.map(item => {
+            // Buscar todos os valores deste item entre os fornecedores selecionados
+            const valoresDoItem: number[] = [];
+            respostasFiltradas.forEach(r => {
+              const itemEncontrado = r.itens.find(i => i.numero_item === item.numero_item);
+              if (itemEncontrado) {
+                valoresDoItem.push(Number(itemEncontrado.valor_unitario_ofertado));
+              }
+            });
+            
+            // Identificar o menor valor
+            const menorValor = Math.min(...valoresDoItem);
+            const ehVencedor = Math.abs(Number(item.valor_unitario_ofertado) - menorValor) < 0.001;
+            
+            return {
+              numero_item: item.numero_item,
+              valor_unitario: Number(item.valor_unitario_ofertado),
+              eh_vencedor: ehVencedor
+            };
+          });
+          
+          return {
+            fornecedor_id: respostaCompleta?.fornecedor_id || '',
+            razao_social: resposta.fornecedor.razao_social,
+            cnpj: resposta.fornecedor.cnpj,
+            email: resposta.fornecedor.email,
+            itens: itensComVencedor
+          };
+        });
+      
+      console.log("💾 Salvando planilha com estrutura completa:", fornecedoresIncluidos.length, "fornecedores");
+      console.log("   Exemplo do primeiro fornecedor:", fornecedoresIncluidos[0]);
       
       const { error: dbError } = await supabase
         .from("planilhas_consolidadas")
@@ -999,7 +1041,7 @@ export function DialogPlanilhaConsolidada({
           usuario_gerador_id: user?.id,
           data_geracao: new Date().toISOString(),
           protocolo: protocoloDocumento,
-          fornecedores_incluidos: cnpjsIncluidos
+          fornecedores_incluidos: fornecedoresIncluidos
         });
 
       if (dbError) throw dbError;
