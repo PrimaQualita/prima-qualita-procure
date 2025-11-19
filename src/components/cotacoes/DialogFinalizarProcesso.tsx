@@ -1710,33 +1710,51 @@ export function DialogFinalizarProcesso({
 
       console.log(`🔍 [Autorização] Buscando itens de ${respostas?.length || 0} fornecedores...`);
 
-      // Buscar TODOS os itens em lotes de 1000 (escala automaticamente)
-      const respostaIds = respostas?.map(r => r.id) || [];
+      // Buscar TODOS os itens POR FORNECEDOR em lotes de 1000 (escala automaticamente)
       const itensRespostas: any[] = [];
       const BATCH_SIZE = 1000;
       
-      for (let i = 0; i < respostaIds.length; i += BATCH_SIZE) {
-        const batchIds = respostaIds.slice(i, i + BATCH_SIZE);
-        console.log(`📦 [Autorização] Buscando lote ${Math.floor(i / BATCH_SIZE) + 1} de ${Math.ceil(respostaIds.length / BATCH_SIZE)} (${batchIds.length} fornecedores)`);
+      for (let i = 0; i < (respostas?.length || 0); i++) {
+        const resposta = respostas![i];
+        const fornecedorNome = resposta.fornecedores?.razao_social || `Fornecedor ${i + 1}`;
         
-        const { data: batchData } = await supabase
-          .from("respostas_itens_fornecedor")
-          .select(`
-            id,
-            cotacao_resposta_fornecedor_id,
-            valor_unitario_ofertado,
-            marca,
-            itens_cotacao!inner(numero_item, quantidade)
-          `)
-          .in("cotacao_resposta_fornecedor_id", batchIds);
+        console.log(`📦 [Autorização] Fornecedor ${i + 1}/${respostas!.length}: ${fornecedorNome}`);
         
-        if (batchData) {
-          itensRespostas.push(...batchData);
-          console.log(`✅ [Autorização] Lote ${Math.floor(i / BATCH_SIZE) + 1}: ${batchData.length} itens carregados`);
+        let offset = 0;
+        let hasMore = true;
+        let fornecedorItens = 0;
+        
+        while (hasMore) {
+          const { data: batch, error: batchError } = await supabase
+            .from("respostas_itens_fornecedor")
+            .select(`
+              id,
+              cotacao_resposta_fornecedor_id,
+              valor_unitario_ofertado,
+              marca,
+              itens_cotacao!inner(numero_item, quantidade)
+            `)
+            .eq("cotacao_resposta_fornecedor_id", resposta.id)
+            .range(offset, offset + BATCH_SIZE - 1);
+          
+          if (batchError) {
+            console.error(`❌ [Autorização] Erro ao buscar itens do fornecedor ${fornecedorNome}:`, batchError);
+            throw batchError;
+          }
+          
+          if (batch && batch.length > 0) {
+            itensRespostas.push(...batch);
+            fornecedorItens += batch.length;
+          }
+          
+          hasMore = batch && batch.length === BATCH_SIZE;
+          offset += BATCH_SIZE;
         }
+        
+        console.log(`✅ [Autorização] ${fornecedorNome}: ${fornecedorItens} itens carregados`);
       }
       
-      console.log(`✅ [Autorização] TOTAL de itens carregados: ${itensRespostas.length}`);
+      console.log(`✅ [Autorização] TOTAL GERAL: ${itensRespostas.length} itens de ${respostas?.length || 0} fornecedores`);
 
       // Filtrar apenas fornecedores não rejeitados
       const fornecedoresNaoRejeitados = fornecedoresData.filter(f => !f.rejeitado);
