@@ -401,7 +401,7 @@ const IncluirPrecosPublicos = () => {
       toast.success("Preços públicos incluídos com sucesso!");
       
       setTimeout(() => {
-        navigate("/cotacoes");
+        navigate(-1);
       }, 1500);
 
     } catch (error: any) {
@@ -660,7 +660,7 @@ const IncluirPrecosPublicos = () => {
             <div className="flex justify-end gap-4">
               <Button
                 variant="outline"
-                onClick={() => navigate("/cotacoes")}
+                onClick={() => navigate(-1)}
                 disabled={enviando}
               >
                 Cancelar
