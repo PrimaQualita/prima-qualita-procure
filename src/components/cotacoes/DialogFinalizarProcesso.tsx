@@ -26,6 +26,7 @@ import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
 import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { stripHtml } from "@/lib/htmlUtils";
+import { identificarVencedoresPorCriterio, carregarItensVencedoresPorFornecedor } from "@/lib/identificadorVencedores";
 
 interface FornecedorVencedor {
   razaoSocial: string;
@@ -325,7 +326,7 @@ export function DialogFinalizarProcesso({
       const criterio = cotacao?.criterio_julgamento || "global";
       
       // CRÍTICO: Identificar vencedores baseado em TODAS as respostas
-      const fornecedoresVencedores = await identificarVencedores(criterio, respostas, itens || []);
+      const fornecedoresVencedores = await identificarVencedoresPorCriterio(criterio, cotacaoId, respostas, itens || []);
 
       console.log(`🏆 Fornecedores vencedores identificados: ${fornecedoresVencedores.length}`);
       fornecedoresVencedores.forEach(f => {
@@ -347,7 +348,7 @@ export function DialogFinalizarProcesso({
           const resposta = respostas.find(r => r.fornecedor_id === forn.id);
           const [docs, itensVenc, campos] = await Promise.all([
             loadDocumentosFornecedor(forn.id),
-            loadItensVencedores(forn.id, criterio, respostas, itens || []),
+            carregarItensVencedoresPorFornecedor(forn.id, criterio, cotacaoId, respostas, itens || []),
             loadCamposFornecedor(forn.id)
           ]);
 
