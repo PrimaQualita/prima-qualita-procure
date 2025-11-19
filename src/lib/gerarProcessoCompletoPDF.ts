@@ -148,46 +148,9 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`Respostas de fornecedores encontradas: ${respostas?.length || 0}`);
 
-    if (respostas && respostas.length > 0) {
-      for (const resposta of respostas) {
-        const { data: anexosFornecedor, error: anexosFornError } = await supabase
-          .from("anexos_cotacao_fornecedor")
-          .select("*")
-          .eq("cotacao_resposta_fornecedor_id", resposta.id)
-          .order("data_upload", { ascending: true });
-
-        if (anexosFornError) {
-          console.error(`  Erro ao buscar anexos do fornecedor:`, anexosFornError);
-        }
-
-        const razaoSocial = (resposta.fornecedores as any)?.razao_social || 'Fornecedor';
-
-        if (anexosFornecedor && anexosFornecedor.length > 0) {
-          for (const anexo of anexosFornecedor) {
-            // Verificar se é PDF
-            if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-              console.log(`    ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF. Apenas PDFs podem ser mesclados.`);
-              continue;
-            }
-            
-            // Evitar duplicação: pular se for Preços Públicos (será adicionado depois com documentos dos fornecedores)
-            if (razaoSocial.toLowerCase().includes('preços públicos') || razaoSocial.toLowerCase().includes('precos publicos')) {
-              console.log(`    ⏭️ Pulando ${razaoSocial} (será incluído com fornecedores vencedores)`);
-              continue;
-            }
-            
-            documentosOrdenados.push({
-              tipo: "Proposta Fornecedor",
-              data: anexo.data_upload || resposta.data_envio_resposta,
-              nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
-              storagePath: anexo.url_arquivo,
-              bucket: "processo-anexos",
-              fornecedor: razaoSocial
-            });
-          }
-        }
-      }
-    }
+    // NOTA: Todas as propostas de fornecedores (incluindo Preços Públicos) serão adicionadas
+    // depois, na seção de documentos de fornecedores vencedores, para evitar duplicação
+    console.log("⏭️ Pulando seção de propostas - serão incluídas com documentos dos vencedores");
 
     // 4. Buscar TODAS as planilhas consolidadas
     const { data: planilhas, error: planilhasError } = await supabase
