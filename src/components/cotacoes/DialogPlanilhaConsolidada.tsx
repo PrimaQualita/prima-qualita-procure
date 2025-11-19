@@ -400,18 +400,19 @@ export function DialogPlanilhaConsolidada({
       });
       
       // Gerar PDF usando jsPDF + autoTable (alta resolução)
-      // Determinar critério de estimativa baseado no critério de julgamento ou configuração
-      let criterioEstimativa: 'menor' | 'media' | 'mediana' = 'menor';
+      // Montar mapeamento de critérios por item
+      const criteriosPorItemNumero: Record<number, 'menor' | 'media' | 'mediana'> = {};
       
-      if (tipoVisualizacao === 'global') {
-        criterioEstimativa = calculoGlobal;
-      } else if (tipoVisualizacao === 'lote' && Object.keys(calculosPorLote).length > 0) {
-        // Usar o primeiro critério de lote como padrão (pode ser refinado)
-        criterioEstimativa = Object.values(calculosPorLote)[0] || 'menor';
-      } else if (Object.keys(calculosPorItem).length > 0) {
-        // Usar o primeiro critério de item como padrão (pode ser refinado)
-        criterioEstimativa = Object.values(calculosPorItem)[0] || 'menor';
-      }
+      // Converter o mapeamento string->critério para número->critério
+      Object.entries(calculosPorItem).forEach(([chaveItem, criterio]) => {
+        // A chave pode estar no formato "item_N" ou apenas "N"
+        const numeroItem = parseInt(chaveItem.replace('item_', ''));
+        if (!isNaN(numeroItem)) {
+          criteriosPorItemNumero[numeroItem] = criterio;
+        }
+      });
+      
+      console.log('📊 Critérios de cálculo por item:', criteriosPorItemNumero);
       
       const pdfBlob = await gerarPlanilhaConsolidadaPDF(
         processo,
@@ -419,7 +420,7 @@ export function DialogPlanilhaConsolidada({
         itensFormatados,
         respostasFormatadas,
         dadosProtocolo,
-        criterioEstimativa
+        criteriosPorItemNumero
       );
       
       toast.info("💾 Salvando planilha", {

@@ -58,7 +58,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   itens: ItemCotacao[],
   respostas: RespostaFornecedor[],
   dadosProtocolo: DadosProtocolo,
-  criterioEstimativa: 'menor' | 'media' | 'mediana' = 'menor'
+  calculosPorItem: Record<number, 'menor' | 'media' | 'mediana'> = {}
 ): Promise<Blob> {
   const doc = new jsPDF({ 
     orientation: 'landscape',
@@ -183,13 +183,15 @@ export async function gerarPlanilhaConsolidadaPDF(
       }
     });
 
-    // Calcular estimativa baseado no critério escolhido
+    // Calcular estimativa baseado no critério específico do item
     if (valoresItem.length > 0) {
+      // Buscar critério específico deste item, ou usar 'menor' como padrão
+      const criterioItem = calculosPorItem[item.numero_item] || 'menor';
       let valorEstimativa: number;
       
-      if (criterioEstimativa === 'menor') {
+      if (criterioItem === 'menor') {
         valorEstimativa = Math.min(...valoresItem);
-      } else if (criterioEstimativa === 'media') {
+      } else if (criterioItem === 'media') {
         valorEstimativa = valoresItem.reduce((a, b) => a + b, 0) / valoresItem.length;
       } else { // mediana
         const sorted = [...valoresItem].sort((a, b) => a - b);
