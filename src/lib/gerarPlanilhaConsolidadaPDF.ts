@@ -160,7 +160,7 @@ export async function gerarPlanilhaConsolidadaPDF(
 
   linhas.push(linhaTotais);
 
-  // Gerar tabela
+  // Gerar tabela com proteção contra overflow de muitos itens
   autoTable(doc, {
     startY: y,
     head: [colunas.map(c => c.header)],
@@ -175,7 +175,8 @@ export async function gerarPlanilhaConsolidadaPDF(
     },
     bodyStyles: {
       fontSize: 8,
-      textColor: [0, 0, 0]
+      textColor: [0, 0, 0],
+      minCellHeight: 6
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252] // muted background
@@ -186,7 +187,10 @@ export async function gerarPlanilhaConsolidadaPDF(
       2: { cellWidth: 15, halign: 'center' },
       3: { cellWidth: 15, halign: 'center' }
     },
-    margin: { left: margemEsquerda, right: margemDireita },
+    margin: { left: margemEsquerda, right: margemDireita, top: 20, bottom: 30 },
+    showHead: 'everyPage',
+    pageBreak: 'auto',
+    rowPageBreak: 'avoid',
     didParseCell: function(data) {
       // Destacar linha de totais
       if (data.row.index === linhas.length - 1) {
@@ -194,6 +198,33 @@ export async function gerarPlanilhaConsolidadaPDF(
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 9;
       }
+    },
+    didDrawPage: function(data) {
+      // Rodapé em todas as páginas
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text(
+        'Prima Qualitá Saúde',
+        pageWidth / 2,
+        pageHeight - 15,
+        { align: 'center' }
+      );
+      doc.text(
+        'Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040',
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: 'center' }
+      );
+      
+      // Número da página
+      doc.text(
+        `Página ${data.pageNumber} de ${pageCount}`,
+        pageWidth / 2,
+        pageHeight - 5,
+        { align: 'center' }
+      );
     }
   });
 
