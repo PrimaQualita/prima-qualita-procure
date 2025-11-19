@@ -307,43 +307,46 @@ export function DialogFinalizarProcesso({
         return;
       }
 
-      // Buscar itens de TODAS as respostas (remover limite de 1000)
-      console.log(`📤 Buscando itens para ${respostas.length} respostas:`, respostas.map(r => ({
-        id: r.id,
-        fornecedor: r.fornecedores.razao_social
-      })));
+      // CRÍTICO: Buscar itens de TODAS as respostas em chunks para evitar limite de 1000
+      console.log(`📤 Buscando itens para ${respostas.length} respostas`);
       
-      const { data: itens, error: itensError } = await supabase
-        .from("respostas_itens_fornecedor")
-        .select(`
-          id,
-          cotacao_resposta_fornecedor_id,
-          item_cotacao_id,
-          valor_unitario_ofertado,
-          itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade)
-        `)
-        .in("cotacao_resposta_fornecedor_id", respostas.map(r => r.id))
-        .limit(100000); // Permitir buscar TODOS os itens mesmo em processos grandes
+      // Buscar itens em lotes por fornecedor para garantir que pega todos
+      const todosItensArray = [];
+      for (const resposta of respostas) {
+        let offset = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const { data: itensFornecedor, error: itensError } = await supabase
+            .from("respostas_itens_fornecedor")
+            .select(`
+              id,
+              cotacao_resposta_fornecedor_id,
+              item_cotacao_id,
+              valor_unitario_ofertado,
+              itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade)
+            `)
+            .eq("cotacao_resposta_fornecedor_id", resposta.id)
+            .range(offset, offset + 999);
 
-      if (itensError) {
-        console.error(`❌ Erro ao buscar itens:`, itensError);
-        throw itensError;
+          if (itensError) {
+            console.error(`❌ Erro ao buscar itens do fornecedor ${resposta.fornecedores.razao_social}:`, itensError);
+            throw itensError;
+          }
+
+          if (itensFornecedor && itensFornecedor.length > 0) {
+            todosItensArray.push(...itensFornecedor);
+            console.log(`  ✅ ${resposta.fornecedores.razao_social}: ${itensFornecedor.length} itens (offset ${offset})`);
+          }
+
+          // Se retornou menos que 1000, não tem mais
+          hasMore = itensFornecedor && itensFornecedor.length === 1000;
+          offset += 1000;
+        }
       }
 
-      console.log(`📦 Total de itens de respostas: ${itens?.length || 0}`);
-      
-      // DEBUG: Contar itens por fornecedor
-      if (itens && itens.length > 0) {
-        const itensPorFornecedor = respostas.map(r => {
-          const count = itens.filter(i => i.cotacao_resposta_fornecedor_id === r.id).length;
-          return {
-            fornecedor: r.fornecedores.razao_social,
-            resposta_id: r.id,
-            total_itens: count
-          };
-        });
-        console.log(`📊 Itens por fornecedor:`, itensPorFornecedor);
-      }
+      const itens = todosItensArray;
+      console.log(`📦 TOTAL de itens carregados: ${itens.length}`);
 
       const criterio = cotacao?.criterio_julgamento || "global";
       
