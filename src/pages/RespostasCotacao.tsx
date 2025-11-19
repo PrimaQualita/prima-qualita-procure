@@ -537,7 +537,11 @@ export default function RespostasCotacao() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            const contratoId = searchParams.get('contrato');
+            const processoId = searchParams.get('processo');
+            navigate(`/cotacoes?contrato=${contratoId}&processo=${processoId}&cotacao=${cotacaoId}`);
+          }}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Voltar

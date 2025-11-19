@@ -401,7 +401,9 @@ const IncluirPrecosPublicos = () => {
       toast.success("Preços públicos incluídos com sucesso!");
       
       setTimeout(() => {
-        navigate(-1);
+        const contratoId = searchParams.get('contrato');
+        const processoId = searchParams.get('processo');
+        navigate(`/cotacoes?contrato=${contratoId}&processo=${processoId}&cotacao=${cotacaoIdParam}`);
       }, 1500);
 
     } catch (error: any) {
@@ -660,7 +662,11 @@ const IncluirPrecosPublicos = () => {
             <div className="flex justify-end gap-4">
               <Button
                 variant="outline"
-                onClick={() => navigate(-1)}
+                onClick={() => {
+                  const contratoId = searchParams.get('contrato');
+                  const processoId = searchParams.get('processo');
+                  navigate(`/cotacoes?contrato=${contratoId}&processo=${processoId}&cotacao=${cotacaoIdParam}`);
+                }}
                 disabled={enviando}
               >
                 Cancelar
