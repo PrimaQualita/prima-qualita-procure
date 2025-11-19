@@ -57,6 +57,7 @@ export function DialogPlanilhaConsolidada({
 }: DialogPlanilhaConsolidadaProps) {
   const [respostas, setRespostas] = useState<RespostaConsolidada[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPlanilha, setLoadingPlanilha] = useState(false);
   // Usa automaticamente o critério de julgamento da cotação
   const tipoVisualizacao = criterioJulgamento === "por_lote" ? "lote" : criterioJulgamento === "global" ? "global" : "item";
   const [calculosPorItem, setCalculosPorItem] = useState<Record<string, "media" | "mediana" | "menor">>({});
@@ -277,8 +278,7 @@ export function DialogPlanilhaConsolidada({
       setLoadingPlanilha(true);
       
       // Feedback visual inicial
-      toast({
-        title: "📄 Preparando planilha",
+      toast.info("📄 Preparando planilha", {
         description: "Coletando dados da cotação...",
       });
       
@@ -903,8 +903,7 @@ export function DialogPlanilhaConsolidada({
       `;
 
       // Feedback: Dados coletados
-      toast({
-        title: "🎨 Preparando layout",
+      toast.info("🎨 Preparando layout", {
         description: `Processando ${todosItens.length} itens...`,
       });
       
@@ -915,8 +914,7 @@ export function DialogPlanilhaConsolidada({
       console.log(`📄 Gerando planilha com ${todosItens.length} itens usando html2pdf.js`);
       
       // Feedback: Gerando PDF
-      toast({
-        title: "📑 Gerando PDF",
+      toast.info("📑 Gerando PDF", {
         description: "Isso pode levar alguns segundos...",
       });
       
@@ -967,8 +965,7 @@ export function DialogPlanilhaConsolidada({
       const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
 
       // Feedback: PDF gerado
-      toast({
-        title: "💾 Salvando planilha",
+      toast.info("💾 Salvando planilha", {
         description: "Armazenando arquivo...",
       });
 
@@ -1048,8 +1045,7 @@ export function DialogPlanilhaConsolidada({
 
       console.log("✅ Todas as aprovações anteriores invalidadas com sucesso");
 
-      toast({
-        title: "✅ Planilha gerada com sucesso!",
+      toast.success("✅ Planilha gerada com sucesso!", {
         description: `${todosItens.length} itens processados. Protocolo: ${protocoloDocumento.substring(0, 19)}...`,
       });
       
@@ -1062,10 +1058,8 @@ export function DialogPlanilhaConsolidada({
       onOpenChange(false);
     } catch (error) {
       console.error("Erro ao gerar planilha:", error);
-      toast({
-        title: "Erro ao gerar planilha",
+      toast.error("Erro ao gerar planilha", {
         description: "Por favor, tente novamente.",
-        variant: "destructive"
       });
     } finally {
       setLoadingPlanilha(false);
