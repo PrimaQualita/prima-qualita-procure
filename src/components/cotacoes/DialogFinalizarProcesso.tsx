@@ -402,6 +402,10 @@ export function DialogFinalizarProcesso({
   };
 
   const identificarVencedores = async (criterio: string, respostas: any[], itens: any[]): Promise<Fornecedor[]> => {
+    console.log(`🏆 [identificarVencedores] Iniciando identificação com critério: ${criterio}`);
+    console.log(`  → Total de respostas: ${respostas.length}`);
+    console.log(`  → Total de itens: ${itens.length}`);
+    
     const fornecedoresVencedores = new Set<string>();
     const fornecedoresRejeitados = new Set<string>();
 
@@ -423,16 +427,26 @@ export function DialogFinalizarProcesso({
 
     // Filtrar respostas não rejeitadas OU rejeitadas mas revertidas
     const respostasValidas = respostas.filter(r => !r.rejeitado || fornecedoresRevertidos.has(r.fornecedor_id));
+    console.log(`  → Respostas válidas (não rejeitadas): ${respostasValidas.length}`);
 
     if (criterio === "global") {
+      // MENOR VALOR GLOBAL: Vencedor único com menor valor total geral
+      console.log(`  📊 Aplicando critério GLOBAL`);
       if (respostasValidas.length > 0) {
         const menorValor = Math.min(...respostasValidas.map(r => Number(r.valor_total_anual_ofertado)));
-        const vencedor = respostasValidas.find(r => Number(r.valor_total_anual_ofertado) === menorValor);
-        if (vencedor) fornecedoresVencedores.add(vencedor.fornecedor_id);
+        const vencedor = respostasValidas.find(r => Math.abs(Number(r.valor_total_anual_ofertado) - menorValor) < 0.01);
+        if (vencedor) {
+          console.log(`  ✅ Vencedor global: ${vencedor.fornecedores?.razao_social} com R$ ${menorValor.toFixed(2)}`);
+          fornecedoresVencedores.add(vencedor.fornecedor_id);
+        }
       }
     } else if (criterio === "item" || criterio === "por_item") {
+      // MENOR VALOR POR ITEM: Vencedor por item, podendo ter vários vencedores
+      console.log(`  📊 Aplicando critério POR ITEM`);
       if (itens.length > 0) {
         const itensPorNumero: Record<number, any[]> = {};
+        
+        // Agrupar itens por número
         itens.forEach(item => {
           const resposta = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
           // Incluir se não foi rejeitado OU se foi rejeitado mas revertido
@@ -443,22 +457,30 @@ export function DialogFinalizarProcesso({
           }
         });
 
-        Object.values(itensPorNumero).forEach(itensDoNumero => {
+        // Para cada item, encontrar o menor valor
+        Object.entries(itensPorNumero).forEach(([numItem, itensDoNumero]) => {
           if (itensDoNumero.length > 0) {
             const menorValor = Math.min(...itensDoNumero.map(i => Number(i.valor_unitario_ofertado)));
-            const vencedor = itensDoNumero.find(i => Number(i.valor_unitario_ofertado) === menorValor);
-            if (vencedor) {
+            const vencedores = itensDoNumero.filter(i => Math.abs(Number(i.valor_unitario_ofertado) - menorValor) < 0.01);
+            
+            console.log(`    Item ${numItem}: Menor valor R$ ${menorValor.toFixed(2)}`);
+            
+            vencedores.forEach(vencedor => {
               const resposta = respostas.find(r => r.id === vencedor.cotacao_resposta_fornecedor_id);
               if (resposta && (!resposta.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id))) {
+                console.log(`      ✅ Vencedor: ${resposta.fornecedores?.razao_social}`);
                 fornecedoresVencedores.add(resposta.fornecedor_id);
               }
-            }
+            });
           }
         });
       }
     } else if (criterio === "lote" || criterio === "por_lote") {
+      // MENOR VALOR POR LOTE: Vencedor por lote, podendo ter vários vencedores
+      console.log(`  📊 Aplicando critério POR LOTE`);
       if (itens.length > 0) {
         const itensPorLote: Record<string, Record<string, any[]>> = {};
+        
         itens.forEach(item => {
           const resposta = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
           // Incluir se não foi rejeitado OU se foi rejeitado mas revertido
@@ -472,7 +494,7 @@ export function DialogFinalizarProcesso({
           }
         });
 
-        Object.values(itensPorLote).forEach(respostasPorLote => {
+        Object.entries(itensPorLote).forEach(([loteId, respostasPorLote]) => {
           const totaisPorResposta = Object.entries(respostasPorLote).map(([respostaId, itensLote]) => {
             const total = itensLote.reduce((sum, item) => {
               return sum + (Number(item.valor_unitario_ofertado) * Number(item.itens_cotacao.quantidade));
@@ -482,17 +504,59 @@ export function DialogFinalizarProcesso({
 
           if (totaisPorResposta.length > 0) {
             const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
-            const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
+            const vencedor = totaisPorResposta.find(r => Math.abs(r.total - menorTotal) < 0.01);
+            
+            console.log(`    Lote ${loteId}: Menor total R$ ${menorTotal.toFixed(2)}`);
+            
             if (vencedor) {
               const resposta = respostas.find(r => r.id === vencedor.respostaId);
               if (resposta && (!resposta.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id))) {
+                console.log(`      ✅ Vencedor: ${resposta.fornecedores?.razao_social}`);
                 fornecedoresVencedores.add(resposta.fornecedor_id);
               }
             }
           }
         });
       }
+    } else if (criterio === "desconto") {
+      // MAIOR PERCENTUAL DE DESCONTO: Vencedor por item com maior desconto
+      console.log(`  📊 Aplicando critério MAIOR PERCENTUAL DE DESCONTO`);
+      if (itens.length > 0) {
+        const itensPorNumero: Record<number, any[]> = {};
+        
+        // Agrupar itens por número
+        itens.forEach(item => {
+          const resposta = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
+          // Incluir se não foi rejeitado OU se foi rejeitado mas revertido
+          if (!resposta?.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id)) {
+            const numItem = item.itens_cotacao.numero_item;
+            if (!itensPorNumero[numItem]) itensPorNumero[numItem] = [];
+            itensPorNumero[numItem].push(item);
+          }
+        });
+
+        // Para cada item, encontrar o maior percentual de desconto
+        Object.entries(itensPorNumero).forEach(([numItem, itensDoNumero]) => {
+          if (itensDoNumero.length > 0) {
+            const maiorDesconto = Math.max(...itensDoNumero.map(i => Number(i.percentual_desconto || 0)));
+            const vencedores = itensDoNumero.filter(i => Math.abs(Number(i.percentual_desconto || 0) - maiorDesconto) < 0.01);
+            
+            console.log(`    Item ${numItem}: Maior desconto ${maiorDesconto.toFixed(2)}%`);
+            
+            vencedores.forEach(vencedor => {
+              const resposta = respostas.find(r => r.id === vencedor.cotacao_resposta_fornecedor_id);
+              if (resposta && (!resposta.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id))) {
+                console.log(`      ✅ Vencedor: ${resposta.fornecedores?.razao_social}`);
+                fornecedoresVencedores.add(resposta.fornecedor_id);
+              }
+            });
+          }
+        });
+      }
     }
+
+    console.log(`  🏆 Total de fornecedores vencedores identificados: ${fornecedoresVencedores.size}`);
+
 
     return Array.from(fornecedoresVencedores)
       .map(fornecedorId => {
@@ -687,11 +751,15 @@ export function DialogFinalizarProcesso({
       console.log(`  ✅ Total de itens vencidos por este fornecedor: ${itensVencidos.length}`);
     } else if (criterio === "lote" || criterio === "por_lote") {
       // Por lote, verificar lote a lote quem tem menor valor total do lote
+      console.log(`  ⚡ Analisando critério POR LOTE`);
+      
       const loteIds = [...new Set(itensDoFornecedor.map(i => i.itens_cotacao.lote_id).filter(Boolean))];
       
       loteIds.forEach(loteId => {
         const itensDoLote = itensNaoRejeitados.filter(i => i.itens_cotacao.lote_id === loteId);
         const respostasPorLote: Record<string, any[]> = {};
+        
+        console.log(`    📌 Lote ${loteId}:`);
         
         itensDoLote.forEach(item => {
           const respostaId = item.cotacao_resposta_fornecedor_id;
@@ -704,12 +772,54 @@ export function DialogFinalizarProcesso({
           return { respostaId, total };
         });
 
+        console.log(`      → Total de propostas para este lote: ${totaisPorResposta.length}`);
+
         const menorTotal = Math.min(...totaisPorResposta.map(r => r.total));
-        const vencedor = totaisPorResposta.find(r => r.total === menorTotal);
+        const vencedor = totaisPorResposta.find(r => Math.abs(r.total - menorTotal) < 0.01);
+        
+        console.log(`      → Menor total: R$ ${menorTotal.toFixed(2)}`);
+        console.log(`      → Este fornecedor é vencedor? ${vencedor?.respostaId === resposta.id ? '✅ SIM' : '❌ NÃO'}`);
+        
         if (vencedor?.respostaId === resposta.id) {
           itensVencidos.push(...itensDoFornecedor.filter(i => i.itens_cotacao.lote_id === loteId));
         }
       });
+      
+      console.log(`  ✅ Total de itens vencidos por este fornecedor: ${itensVencidos.length}`);
+    } else if (criterio === "desconto") {
+      // Por desconto, verificar item a item quem tem maior percentual
+      console.log(`  ⚡ Analisando critério MAIOR PERCENTUAL DE DESCONTO`);
+      
+      itensDoFornecedor.forEach(itemFornecedor => {
+        const numeroItem = itemFornecedor.itens_cotacao.numero_item;
+        const descontoFornecedor = Number(itemFornecedor.percentual_desconto || 0);
+        
+        // Pegar TODOS os itens com mesmo número (de TODOS os fornecedores não rejeitados)
+        const itensComMesmoNumero = itensNaoRejeitados.filter(i => i.itens_cotacao.numero_item === numeroItem);
+        
+        console.log(`    📌 Item ${numeroItem}:`);
+        console.log(`      → Desconto deste fornecedor: ${descontoFornecedor.toFixed(2)}%`);
+        console.log(`      → Total de propostas para este item: ${itensComMesmoNumero.length}`);
+        
+        if (itensComMesmoNumero.length > 0) {
+          // Calcular maior desconto entre TODAS as propostas deste item
+          const descontosDoItem = itensComMesmoNumero.map(i => Number(i.percentual_desconto || 0));
+          const maiorDesconto = Math.max(...descontosDoItem);
+          
+          console.log(`      → Descontos de todos os fornecedores:`, descontosDoItem.map(v => `${v.toFixed(2)}%`));
+          console.log(`      → Maior desconto identificado: ${maiorDesconto.toFixed(2)}%`);
+          
+          // Verificar se ESTE fornecedor tem o maior desconto
+          const ehVencedor = Math.abs(descontoFornecedor - maiorDesconto) < 0.01;
+          console.log(`      → Este fornecedor é vencedor? ${ehVencedor ? '✅ SIM' : '❌ NÃO'}`);
+          
+          if (ehVencedor) {
+            itensVencidos.push(itemFornecedor);
+          }
+        }
+      });
+      
+      console.log(`  ✅ Total de itens vencidos por este fornecedor: ${itensVencidos.length}`);
     }
 
     return itensVencidos.sort((a, b) => a.itens_cotacao.numero_item - b.itens_cotacao.numero_item);
