@@ -2,12 +2,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1034,14 +1033,12 @@ export function DialogRespostasCotacao({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Respostas Recebidas</DialogTitle>
-          <DialogDescription>
-            Cotação: {tituloCotacao}
-          </DialogDescription>
-        </DialogHeader>
+      <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[96vh]">
+        <DrawerHeader>
+          <DrawerTitle>Respostas Recebidas - {tituloCotacao}</DrawerTitle>
+        </DrawerHeader>
+        <div className="overflow-y-auto px-6 pb-6">
 
         {loading ? (
           <div className="py-8 text-center text-muted-foreground">
@@ -1472,8 +1469,9 @@ export function DialogRespostasCotacao({
 
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+        </div>
+      </DrawerContent>
+    </Drawer>
 
       <AlertDialog open={emailCorrecaoOpen} onOpenChange={setEmailCorrecaoOpen}>
         <AlertDialogContent className="max-w-2xl">
