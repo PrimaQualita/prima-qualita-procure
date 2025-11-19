@@ -24,6 +24,7 @@ import {
 import { FileText, Upload, ExternalLink, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays, startOfDay, parseISO, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Documento {
   id: string;
@@ -33,6 +34,9 @@ interface Documento {
   data_validade: string | null;
   data_upload: string;
   em_vigor: boolean;
+  atualizacao_solicitada?: boolean;
+  data_solicitacao_atualizacao?: string;
+  motivo_solicitacao_atualizacao?: string;
 }
 
 interface Props {
@@ -231,7 +235,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         ? `${dataValidadeCertificado}T00:00:00.000Z`
         : null;
 
-      // 4. Inserir novo documento
+      // 4. Inserir novo documento (resetando flags de atualização solicitada)
       const { error: insertError } = await supabase
         .from("documentos_fornecedor")
         .insert({
@@ -240,7 +244,10 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
           nome_arquivo: novoArquivo.name,
           url_arquivo: publicUrl,
           data_validade: dataValidadeISO,
-          em_vigor: true
+          em_vigor: true,
+          atualizacao_solicitada: false,
+          data_solicitacao_atualizacao: null,
+          motivo_solicitacao_atualizacao: null
         });
 
       if (insertError) throw insertError;
@@ -268,8 +275,55 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
     return <div className="text-center py-8">Carregando documentos...</div>;
   }
 
+  // Verificar se há documentos com atualização solicitada
+  const documentosComAtualizacaoSolicitada = documentos.filter(d => d.atualizacao_solicitada && d.em_vigor);
+
   return (
     <div className="space-y-6">
+      {/* Alerta de Documentos Pendentes de Atualização */}
+      {documentosComAtualizacaoSolicitada.length > 0 && (
+        <Card className="border-orange-500 bg-orange-50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-600" />
+              <CardTitle className="text-orange-900">Atualização de Documentos Solicitada</CardTitle>
+            </div>
+            <CardDescription className="text-orange-800">
+              Os documentos abaixo foram solicitados para atualização pelo departamento de compras.
+              Por favor, atualize-os o quanto antes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {documentosComAtualizacaoSolicitada.map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{getTipoDocumentoLabel(doc.tipo_documento)}</p>
+                    {doc.motivo_solicitacao_atualizacao && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Motivo: {doc.motivo_solicitacao_atualizacao}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Solicitado em: {format(new Date(doc.data_solicitacao_atualizacao!), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleAbrirDialogAtualizar(doc.tipo_documento)}
+                    className="ml-4"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Atualizar Agora
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Meus Documentos e Certidões</CardTitle>
