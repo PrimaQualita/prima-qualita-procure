@@ -400,12 +400,26 @@ export function DialogPlanilhaConsolidada({
       });
       
       // Gerar PDF usando jsPDF + autoTable (alta resolução)
+      // Determinar critério de estimativa baseado no critério de julgamento ou configuração
+      let criterioEstimativa: 'menor' | 'media' | 'mediana' = 'menor';
+      
+      if (tipoVisualizacao === 'global') {
+        criterioEstimativa = calculoGlobal;
+      } else if (tipoVisualizacao === 'lote' && Object.keys(calculosPorLote).length > 0) {
+        // Usar o primeiro critério de lote como padrão (pode ser refinado)
+        criterioEstimativa = Object.values(calculosPorLote)[0] || 'menor';
+      } else if (Object.keys(calculosPorItem).length > 0) {
+        // Usar o primeiro critério de item como padrão (pode ser refinado)
+        criterioEstimativa = Object.values(calculosPorItem)[0] || 'menor';
+      }
+      
       const pdfBlob = await gerarPlanilhaConsolidadaPDF(
         processo,
         cotacao,
         itensFormatados,
         respostasFormatadas,
-        dadosProtocolo
+        dadosProtocolo,
+        criterioEstimativa
       );
       
       toast.info("💾 Salvando planilha", {
