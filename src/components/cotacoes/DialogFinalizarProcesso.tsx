@@ -2313,7 +2313,7 @@ export function DialogFinalizarProcesso({
                     {/* Botões de Aprovação Geral do Fornecedor */}
                     <div className="mt-6 p-4 bg-muted/10 rounded-lg border-2 border-muted">
                       <div className="flex items-center justify-center gap-4">
-                        {todosDocumentosAprovados ? (
+                        {fornData.todosDocumentosAprovados ? (
                           <div className="flex flex-col items-center gap-3">
                             <Badge variant="default" className="text-base px-4 py-2 bg-green-600">
                               <CheckCircle className="h-5 w-5 mr-2" />
