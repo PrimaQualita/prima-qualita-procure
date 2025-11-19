@@ -276,7 +276,7 @@ export function DialogRespostasCotacao({
       setEnviandoCompliance(true);
       
       // CRÍTICO: Verificar se existe encaminhamento antes de permitir envio
-      if (encaminhamentosAnteriores.length === 0) {
+      if (encaminhamentos.length === 0) {
         toast.error("É necessário gerar o Encaminhamento antes de enviar ao Compliance");
         return;
       }
@@ -1372,7 +1372,7 @@ export function DialogRespostasCotacao({
                       </Button>
                       <Button
                         onClick={enviarAoCompliance}
-                        disabled={enviandoCompliance || encaminhamentosAnteriores.length === 0}
+                        disabled={enviandoCompliance || encaminhamentos.length === 0}
                         className="flex-1"
                       >
                         <Send className="mr-2 h-4 w-4" />
