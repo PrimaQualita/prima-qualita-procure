@@ -76,8 +76,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   
   let y = 20;
 
-  // Cabeçalho azul
-  doc.setFillColor(37, 99, 235);
+  // Cabeçalho verde
+  doc.setFillColor(26, 135, 117); // Verde escuro (teal-700)
   doc.rect(0, 0, pageWidth, 30, 'F');
   
   doc.setTextColor(255, 255, 255);
@@ -107,14 +107,14 @@ export async function gerarPlanilhaConsolidadaPDF(
   const larguraCotacao = doc.getTextWidth(textoCotacao);
   doc.text(cotacao.titulo_cotacao, margemEsquerda + larguraCotacao, y);
   
-  y += 5;
+  y += 7; // Mais espaço entre as linhas
   doc.setFont('helvetica', 'bold');
   doc.text(textoData, margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
   const larguraData = doc.getTextWidth(textoData);
   doc.text(new Date().toLocaleString('pt-BR'), margemEsquerda + larguraData, y);
 
-  y += 8;
+  y += 10; // Mais espaço antes da tabela
 
   // Preparar colunas da tabela
   const colunas: any[] = [
@@ -243,28 +243,29 @@ export async function gerarPlanilhaConsolidadaPDF(
     startY: y,
     head: [colunas.map(c => c.header)],
     body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
-    theme: 'grid',
+    theme: 'plain', // Sem bordas
     headStyles: {
-      fillColor: [37, 99, 235],
+      fillColor: [26, 135, 117], // Verde escuro (teal-700)
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 8,
       halign: 'center',
       valign: 'middle',
-      lineWidth: 0.5,
-      lineColor: [0, 0, 0],
+      lineWidth: 0,
       cellPadding: 2,
       minCellHeight: 15
     },
     bodyStyles: {
       fontSize: 8,
       textColor: [0, 0, 0],
-      lineWidth: 0.5,
-      lineColor: [0, 0, 0],
+      lineWidth: 0, // Sem bordas
       cellPadding: 2,
       halign: 'center',
       valign: 'middle',
       minCellHeight: 8
+    },
+    alternateRowStyles: {
+      fillColor: [204, 241, 235] // Verde claro (teal-100)
     },
     columnStyles: (() => {
       const styles: any = {
