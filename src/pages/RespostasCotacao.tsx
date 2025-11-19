@@ -24,7 +24,6 @@ import {
 import { stripHtml } from "@/lib/htmlUtils";
 import { DialogPlanilhaConsolidada } from "@/components/cotacoes/DialogPlanilhaConsolidada";
 import { v4 as uuidv4 } from 'uuid';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ItemResposta {
   numero_item: number;
@@ -79,6 +78,14 @@ export default function RespostasCotacao() {
   const [analisesAnteriores, setAnalisesAnteriores] = useState<any[]>([]);
   const [empresasAprovadas, setEmpresasAprovadas] = useState<string[]>([]);
   const [empresasReprovadas, setEmpresasReprovadas] = useState<string[]>([]);
+  const [anexoParaExcluir, setAnexoParaExcluir] = useState<any>(null);
+  const [confirmDeleteAnexoOpen, setConfirmDeleteAnexoOpen] = useState(false);
+  const [planilhaParaExcluir, setPlanilhaParaExcluir] = useState<any>(null);
+  const [confirmDeletePlanilhaOpen, setConfirmDeletePlanilhaOpen] = useState(false);
+  const [encaminhamentoParaExcluir, setEncaminhamentoParaExcluir] = useState<any>(null);
+  const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
+  const [analiseParaExcluir, setAnaliseParaExcluir] = useState<any>(null);
+  const [confirmDeleteAnaliseOpen, setConfirmDeleteAnaliseOpen] = useState(false);
 
   // Definir funções auxiliares ANTES do useEffect
   const loadAnaliseCompliance = async () => {
@@ -146,6 +153,245 @@ export default function RespostasCotacao() {
       setEncaminhamentos(data || []);
     } catch (error) {
       console.error("Erro ao carregar encaminhamentos:", error);
+    }
+  };
+
+  const gerarEncaminhamento = async () => {
+    try {
+      setGerandoEncaminhamento(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { data: perfil } = await supabase
+        .from("profiles")
+        .select("nome_completo, cpf")
+        .eq("id", user.id)
+        .single();
+
+      if (!perfil) throw new Error("Perfil não encontrado");
+
+      const resultado = await gerarEncaminhamentoPDF(
+        processoNumero,
+        processoObjeto,
+        perfil.nome_completo,
+        perfil.cpf
+      );
+
+      const { error: dbError } = await supabase
+        .from('encaminhamentos_processo')
+        .insert({
+          cotacao_id: cotacaoId,
+          processo_numero: processoNumero,
+          protocolo: resultado.protocolo,
+          storage_path: resultado.storagePath,
+          url: resultado.url,
+          gerado_por: user.id
+        });
+
+      if (dbError) throw dbError;
+
+      toast.success("Encaminhamento gerado com sucesso!");
+      loadEncaminhamento();
+    } catch (error) {
+      console.error('Erro ao gerar encaminhamento:', error);
+      toast.error("Erro ao gerar encaminhamento");
+    } finally {
+      setGerandoEncaminhamento(false);
+    }
+  };
+
+  const excluirEncaminhamento = async () => {
+    if (!encaminhamentoParaExcluir) return;
+    
+    try {
+      const { error: storageError } = await supabase.storage
+        .from("processo-anexos")
+        .remove([encaminhamentoParaExcluir.storage_path]);
+
+      if (storageError) throw storageError;
+
+      const { error: dbError } = await supabase
+        .from("encaminhamentos_processo")
+        .delete()
+        .eq("id", encaminhamentoParaExcluir.id);
+
+      if (dbError) throw dbError;
+
+      setEncaminhamentoParaExcluir(null);
+      setConfirmDeleteEncaminhamentoOpen(false);
+      loadEncaminhamento();
+      toast.success("Encaminhamento excluído com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao excluir encaminhamento:", error);
+      toast.error("Erro ao excluir encaminhamento");
+    }
+  };
+
+  const excluirAnexo = async () => {
+    if (!anexoParaExcluir) return;
+    
+    try {
+      await supabase.storage
+        .from('processo-anexos')
+        .remove([anexoParaExcluir.url_arquivo]);
+      
+      const { error } = await supabase
+        .from('anexos_cotacao_fornecedor')
+        .delete()
+        .eq('id', anexoParaExcluir.id);
+      
+      if (error) throw error;
+      
+      setConfirmDeleteAnexoOpen(false);
+      setAnexoParaExcluir(null);
+      toast.success('Anexo excluído com sucesso');
+      loadRespostas();
+    } catch (error) {
+      console.error('Erro ao excluir anexo:', error);
+      toast.error('Erro ao excluir anexo');
+    }
+  };
+  
+  const excluirPlanilha = async () => {
+    if (!planilhaParaExcluir) return;
+    
+    try {
+      const filePath = planilhaParaExcluir.url_arquivo;
+
+      const { error: storageError } = await supabase.storage
+        .from("processo-anexos")
+        .remove([filePath]);
+
+      if (storageError) throw storageError;
+
+      const { error: dbError } = await supabase
+        .from("planilhas_consolidadas")
+        .delete()
+        .eq("id", planilhaParaExcluir.id);
+
+      if (dbError) throw dbError;
+
+      const { error: clearDocsError } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({ 
+          status_solicitacao: "pendente",
+          data_aprovacao: null 
+        })
+        .eq("cotacao_id", cotacaoId)
+        .in("status_solicitacao", ["aprovado", "em_analise"]);
+
+      if (clearDocsError) {
+        console.error("Erro ao limpar aprovações:", clearDocsError);
+      }
+
+      setPlanilhaParaExcluir(null);
+      setConfirmDeletePlanilhaOpen(false);
+      loadPlanilhaGerada();
+      toast.success("Planilha excluída com sucesso");
+    } catch (error) {
+      console.error("Erro ao excluir planilha:", error);
+      toast.error("Erro ao excluir planilha");
+    }
+  };
+
+  const excluirAnalise = async () => {
+    if (!analiseParaExcluir) return;
+    
+    try {
+      const { error: dbError } = await supabase
+        .from("analises_compliance")
+        .delete()
+        .eq("id", analiseParaExcluir.id);
+
+      if (dbError) throw dbError;
+
+      setAnaliseParaExcluir(null);
+      setConfirmDeleteAnaliseOpen(false);
+      toast.success("Análise excluída com sucesso");
+      loadAnaliseCompliance();
+    } catch (error: any) {
+      console.error("Erro ao excluir análise:", error);
+      toast.error("Erro ao excluir análise");
+    }
+  };
+
+  const enviarAoCompliance = async () => {
+    try {
+      setEnviandoCompliance(true);
+      
+      if (planilhasAnteriores.length === 0) {
+        toast.error("É necessário gerar a planilha consolidada antes de enviar ao compliance");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("cotacoes_precos")
+        .update({ 
+          enviado_compliance: true,
+          data_envio_compliance: new Date().toISOString()
+        })
+        .eq("id", cotacaoId);
+
+      if (error) throw error;
+
+      toast.success("Processo enviado ao Compliance com sucesso!");
+    } catch (error) {
+      console.error("Erro ao enviar ao compliance:", error);
+      toast.error("Erro ao enviar ao Compliance");
+    } finally {
+      setEnviandoCompliance(false);
+    }
+  };
+
+  const handleVisualizarProposta = async (respostaId: string) => {
+    try {
+      setGerandoPDF(respostaId);
+      const pdfBlob = await gerarPropostaFornecedorPDF(respostaId);
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+    } catch (error) {
+      console.error("Erro ao visualizar proposta:", error);
+      toast.error("Erro ao visualizar proposta");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
+  const handleBaixarProposta = async (respostaId: string) => {
+    try {
+      setGerandoPDF(respostaId);
+      const pdfBlob = await gerarPropostaFornecedorPDF(respostaId);
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = `proposta_${respostaId}.pdf`;
+      link.click();
+      toast.success("Proposta baixada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao baixar proposta:", error);
+      toast.error("Erro ao baixar proposta");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
+  const handleDeletarResposta = async (respostaId: string) => {
+    if (!confirm("Tem certeza que deseja excluir esta resposta?")) return;
+    
+    try {
+      const { error } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .delete()
+        .eq("id", respostaId);
+
+      if (error) throw error;
+
+      toast.success("Resposta excluída com sucesso!");
+      loadRespostas();
+    } catch (error) {
+      console.error("Erro ao excluir resposta:", error);
+      toast.error("Erro ao excluir resposta");
     }
   };
 
@@ -305,33 +551,533 @@ export default function RespostasCotacao() {
       </div>
 
       {loading ? (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            Carregando respostas...
-          </CardContent>
-        </Card>
+        <div className="py-8 text-center text-muted-foreground">
+          Carregando respostas...
+        </div>
       ) : respostas.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            Nenhuma resposta recebida ainda
-          </CardContent>
-        </Card>
+        <div className="py-8 text-center text-muted-foreground">
+          Nenhuma resposta recebida ainda
+        </div>
       ) : (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                Total de respostas: <strong>{respostas.length}</strong>
-              </CardTitle>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Total de respostas: <strong>{respostas.length}</strong>
             </div>
-          </CardHeader>
-          <CardContent>
-            {/* Copiar toda a tabela e lógica de exibição do DialogRespostasCotacao */}
-          </CardContent>
-        </Card>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fornecedor</TableHead>
+                <TableHead>CNPJ</TableHead>
+                <TableHead className="text-right">Valor Total Ofertado</TableHead>
+                <TableHead>Data Envio</TableHead>
+                <TableHead>Observações</TableHead>
+                <TableHead>Proposta PDF</TableHead>
+                <TableHead className="text-center">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {respostas.map((resposta) => {
+                const isMenorValor = resposta.valor_total_anual_ofertado === menorValor;
+                
+                return (
+                  <TableRow key={resposta.id} className={isMenorValor ? "bg-green-50 dark:bg-green-950" : ""}>
+                    <TableCell className="font-medium">
+                      {resposta.fornecedor.razao_social}
+                      {isMenorValor && (
+                        <Badge className="ml-2 bg-green-600">Menor Preço</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>{formatarCNPJ(resposta.fornecedor.cnpj)}</TableCell>
+                    <TableCell className="text-right font-semibold">
+                      R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatarData(resposta.data_envio_resposta)}
+                    </TableCell>
+                    <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
+                      {resposta.observacoes_fornecedor || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {resposta.anexos && resposta.anexos.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {resposta.anexos.map((anexo) => (
+                            <div key={anexo.id} className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm truncate max-w-[150px]" title={anexo.nome_arquivo}>
+                                {anexo.nome_arquivo}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  const { data } = await supabase.storage
+                                    .from('processo-anexos')
+                                    .createSignedUrl(anexo.url_arquivo, 3600);
+                                  if (data?.signedUrl) {
+                                    window.open(data.signedUrl, '_blank');
+                                  }
+                                }}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setAnexoParaExcluir(anexo);
+                                  setConfirmDeleteAnexoOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2 justify-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleVisualizarProposta(resposta.id)}
+                          disabled={gerandoPDF === resposta.id}
+                        >
+                          {gerandoPDF === resposta.id ? (
+                            <span className="flex items-center gap-2">
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                              Gerando...
+                            </span>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Ver
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleBaixarProposta(resposta.id)}
+                          disabled={gerandoPDF === resposta.id}
+                        >
+                          {gerandoPDF === resposta.id ? (
+                            <span className="flex items-center gap-2">
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            </span>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4 mr-1" />
+                              Baixar
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setRespostaSelecionada(resposta);
+                            setEmailCorrecaoOpen(true);
+                          }}
+                        >
+                          <Mail className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeletarResposta(resposta.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+
+          {/* ========== 2. PLANILHA CONSOLIDADA (só aparece se tiver respostas) ========== */}
+          <div className="mt-6 pt-6 border-t space-y-4">
+            <h3 className="text-lg font-semibold">Planilha Consolidada</h3>
+            
+            {/* Planilhas Anteriores */}
+            {planilhasAnteriores.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Planilhas Geradas:</p>
+                {planilhasAnteriores.map((planilha) => (
+                  <div key={planilha.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium">Protocolo: {planilha.protocolo}</span>
+                        <div className="text-xs text-muted-foreground">
+                          Planilha Gerada em {new Date(planilha.data_geracao).toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const { data } = await supabase.storage
+                            .from('processo-anexos')
+                            .createSignedUrl(planilha.url_arquivo, 3600);
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, '_blank');
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const { data, error } = await supabase.storage
+                            .from('processo-anexos')
+                            .download(planilha.url_arquivo);
+                          if (error) throw error;
+                          const blob = new Blob([data], { type: 'application/pdf' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = planilha.nome_arquivo;
+                          a.click();
+                        }}
+                        className="flex-1"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Baixar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setPlanilhaParaExcluir(planilha);
+                          setConfirmDeletePlanilhaOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Botão para gerar nova planilha */}
+            <Button 
+              onClick={() => setPlanilhaConsolidadaOpen(true)}
+              disabled={gerandoPlanilha}
+              className="w-full"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Você poderá escolher o método de cálculo (menor preço, média, mediana)
+            </p>
+          </div>
+
+          {/* ========== 3. ENCAMINHAMENTOS (só aparece se tiver planilha ou encaminhamentos) ========== */}
+          {(planilhasAnteriores.length > 0 || encaminhamentos.length > 0) && (
+            <div className="mt-6 pt-6 border-t space-y-4">
+              <h3 className="text-lg font-semibold">Encaminhamentos</h3>
+              
+              {/* Encaminhamentos Anteriores */}
+              {encaminhamentos.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">Encaminhamentos Gerados:</p>
+                  {encaminhamentos.map((enc) => (
+                    <div key={enc.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-medium">Protocolo: {enc.protocolo}</span>
+                          <div className="text-xs text-muted-foreground">
+                            Gerado em {new Date(enc.created_at).toLocaleString('pt-BR')}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(enc.url, '_blank')}
+                          className="flex-1"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Visualizar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = enc.url;
+                            link.download = `encaminhamento_${enc.protocolo}.pdf`;
+                            link.click();
+                          }}
+                          className="flex-1"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Baixar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setEncaminhamentoParaExcluir(enc);
+                            setConfirmDeleteEncaminhamentoOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Botão Gerar Encaminhamento */}
+              {planilhasAnteriores.length > 0 && (
+                <Button
+                  onClick={gerarEncaminhamento}
+                  disabled={gerandoEncaminhamento}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
+                </Button>
+              )}
+
+              {/* Botão Enviar ao Compliance */}
+              {planilhasAnteriores.length > 0 && (
+                <Button
+                  onClick={enviarAoCompliance}
+                  disabled={enviandoCompliance}
+                  variant="secondary"
+                  className="w-full"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* ========== 4. ANÁLISES DE COMPLIANCE (só aparece se foi enviado ao compliance) ========== */}
+          {analisesAnteriores.length > 0 && (
+            <div className="mt-6 pt-6 border-t space-y-4">
+              <h3 className="text-lg font-semibold">Análises de Compliance</h3>
+              {analisesAnteriores.map((analise) => {
+                const empresas = analise.empresas as any[];
+                const aprovadas = empresas
+                  .filter((emp: any) => emp.aprovado === true)
+                  .map((emp: any) => emp.razao_social);
+                const reprovadas = empresas
+                  .filter((emp: any) => emp.aprovado === false)
+                  .map((emp: any) => emp.razao_social);
+
+                return (
+                  <div key={analise.id} className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">Protocolo: {analise.protocolo}</span>
+                          <Badge variant={analise.status_aprovacao === 'aprovado' ? 'default' : 'destructive'}>
+                            {analise.status_aprovacao === 'aprovado' ? 'Aprovado' : 'Reprovado'}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Análise realizada em {new Date(analise.data_analise || analise.created_at).toLocaleString('pt-BR')}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          <strong>Conclusão:</strong> {stripHtml(analise.conclusao || '')}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Lista de Empresas Aprovadas e Reprovadas */}
+                    <div className="grid grid-cols-2 gap-4 mt-3">
+                      {aprovadas.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-green-700">✓ Empresas Aprovadas:</p>
+                          <ul className="text-xs space-y-1">
+                            {aprovadas.map((empresa, idx) => (
+                              <li key={idx} className="text-green-600">• {empresa}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {reprovadas.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-red-700">✗ Empresas Reprovadas:</p>
+                          <ul className="text-xs space-y-1">
+                            {reprovadas.map((empresa, idx) => (
+                              <li key={idx} className="text-red-600">• {empresa}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {analise.url_documento && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(analise.url_documento, '_blank')}
+                          className="flex-1"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Visualizar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = analise.url_documento;
+                            link.download = analise.nome_arquivo || 'analise_compliance.pdf';
+                            link.click();
+                          }}
+                          className="flex-1"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Baixar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setAnaliseParaExcluir(analise);
+                            setConfirmDeleteAnaliseOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Copiar todos os AlertDialogs do DialogRespostasCotacao */}
+      {/* Alert Dialogs */}
+      <AlertDialog open={emailCorrecaoOpen} onOpenChange={setEmailCorrecaoOpen}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Solicitar Correção de Proposta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Fornecedor: {respostaSelecionada?.fornecedor.razao_social}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Texto do E-mail</Label>
+              <Textarea
+                value={emailTexto}
+                onChange={(e) => setEmailTexto(e.target.value)}
+                placeholder="Digite o texto do e-mail solicitando correções..."
+                rows={6}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              toast.success("E-mail de correção enviado!");
+              setEmailCorrecaoOpen(false);
+              setEmailTexto("");
+            }}>
+              Enviar E-mail
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeleteAnexoOpen} onOpenChange={setConfirmDeleteAnexoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Anexo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este anexo? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirAnexo} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeletePlanilhaOpen} onOpenChange={setConfirmDeletePlanilhaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Planilha Consolidada</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta planilha? Esta ação não pode ser desfeita e todas as aprovações de documentos serão resetadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirPlanilha} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeleteEncaminhamentoOpen} onOpenChange={setConfirmDeleteEncaminhamentoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Encaminhamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este encaminhamento? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirEncaminhamento} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeleteAnaliseOpen} onOpenChange={setConfirmDeleteAnaliseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Análise de Compliance</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta análise? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirAnalise} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       <DialogPlanilhaConsolidada
         open={planilhaConsolidadaOpen}
