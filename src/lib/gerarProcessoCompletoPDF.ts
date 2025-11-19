@@ -302,69 +302,50 @@ export const gerarProcessoCompletoPDF = async (
     // Esta seção é adicionada APÓS todos os documentos cronológicos e ANTES dos relatórios/autorizações
     console.log("\n🏆 === PREPARANDO DOCUMENTOS DOS FORNECEDORES VENCEDORES ===");
     
-    const { data: documentosSnapshot, error: snapshotError } = await supabase
+    // Buscar apenas fornecedores vencedores únicos (DISTINCT)
+    const { data: fornecedoresVencedores, error: fornecedoresError } = await supabase
       .from("documentos_processo_finalizado")
-      .select("*")
-      .eq("cotacao_id", cotacaoId)
-      .order("fornecedor_id", { ascending: true })
-      .order("tipo_documento", { ascending: true });
-
-    if (snapshotError) {
-      console.error("Erro ao buscar documentos snapshot:", snapshotError);
-    }
-
-    console.log(`📄 Documentos snapshot encontrados: ${documentosSnapshot?.length || 0}`);
-
-    const { data: documentosFaltantes, error: faltantesError } = await supabase
-      .from("documentos_finalizacao_fornecedor")
-      .select(`
-        *,
-        campos_documentos_finalizacao!inner(
-          cotacao_id,
-          nome_campo,
-          fornecedor_id
-        )
-      `)
-      .eq("campos_documentos_finalizacao.cotacao_id", cotacaoId)
-      .order("fornecedor_id", { ascending: true })
-      .order("data_upload", { ascending: true });
-
-    if (faltantesError) {
-      console.error("Erro ao buscar documentos faltantes:", faltantesError);
-    }
-
-    console.log(`📄 Documentos faltantes/adicionais encontrados: ${documentosFaltantes?.length || 0}`);
-
-    // Identificar fornecedores únicos que possuem documentos
-    const fornecedoresUnicos = new Set<string>();
-    documentosSnapshot?.forEach(doc => fornecedoresUnicos.add(doc.fornecedor_id));
-    documentosFaltantes?.forEach(doc => fornecedoresUnicos.add(doc.fornecedor_id));
-
-    const fornecedoresOrdenados = Array.from(fornecedoresUnicos).sort();
-    console.log(`👥 Fornecedores com documentos: ${fornecedoresOrdenados.length}`);
-
-    // CRIAR ARRAY SEPARADO para documentos dos fornecedores
-    const documentosFornecedores: DocumentoOrdenado[] = [];
-    const idsProcessados = new Set<string>();
+      .select("fornecedor_id")
+      .eq("cotacao_id", cotacaoId);
     
+    if (fornecedoresError) {
+      console.error("Erro ao buscar fornecedores vencedores:", fornecedoresError);
+    }
+
+    // Extrair IDs únicos de fornecedores
+    const fornecedoresUnicos = [...new Set(fornecedoresVencedores?.map(f => f.fornecedor_id) || [])].sort();
+    console.log(`👥 Fornecedores vencedores únicos: ${fornecedoresUnicos.length}`);
+
     // Data base para documentos de fornecedores (após última data cronológica)
     let dataBaseFornecedores = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
 
-    fornecedoresOrdenados.forEach((fornecedorId, index) => {
-      console.log(`\n📋 Processando fornecedor ${index + 1}/${fornecedoresOrdenados.length}: ${fornecedorId}`);
+    // Processar cada fornecedor vencedor
+    for (let index = 0; index < fornecedoresUnicos.length; index++) {
+      const fornecedorId = fornecedoresUnicos[index];
+      console.log(`\n📋 Processando fornecedor ${index + 1}/${fornecedoresUnicos.length}: ${fornecedorId}`);
       
-      // Data específica para este fornecedor (incrementando 100ms por fornecedor)
+      // Data específica para este fornecedor
       const dataFornecedor = new Date(new Date(dataBaseFornecedores).getTime() + (index * 100)).toISOString();
       
-      // 1. Documentos de cadastro (snapshot) - NA ORDEM ORIGINAL
-      const docsSnapshot = documentosSnapshot?.filter(doc => doc.fornecedor_id === fornecedorId) || [];
-      console.log(`  📄 Documentos de cadastro: ${docsSnapshot.length}`);
+      // 1. Buscar documentos de cadastro (snapshot) deste fornecedor
+      const { data: docsSnapshot, error: snapshotError } = await supabase
+        .from("documentos_processo_finalizado")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .eq("fornecedor_id", fornecedorId)
+        .order("tipo_documento", { ascending: true });
+
+      if (snapshotError) {
+        console.error(`  ❌ Erro ao buscar documentos snapshot:`, snapshotError);
+        continue;
+      }
+
+      console.log(`  📄 Documentos de cadastro: ${docsSnapshot?.length || 0}`);
       
-      docsSnapshot.forEach(doc => {
-        const docId = `snapshot-${doc.id}`;
-        if (!idsProcessados.has(docId)) {
-          idsProcessados.add(docId);
-          documentosFornecedores.push({
+      // Adicionar documentos de cadastro
+      if (docsSnapshot && docsSnapshot.length > 0) {
+        for (const doc of docsSnapshot) {
+          documentosOrdenados.push({
             tipo: "Documento Fornecedor",
             data: dataFornecedor,
             nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
@@ -373,32 +354,50 @@ export const gerarProcessoCompletoPDF = async (
             fornecedor: fornecedorId
           });
         }
-      });
+      }
 
-      // 2. Documentos faltantes/adicionais - LOGO APÓS OS DE CADASTRO
-      const docsFaltantes = documentosFaltantes?.filter(doc => doc.fornecedor_id === fornecedorId) || [];
-      console.log(`  📎 Documentos faltantes/adicionais: ${docsFaltantes.length}`);
+      // 2. Buscar documentos faltantes/adicionais deste fornecedor
+      const { data: docsFaltantes, error: faltantesError } = await supabase
+        .from("documentos_finalizacao_fornecedor")
+        .select(`
+          *,
+          campos_documentos_finalizacao!inner(
+            nome_campo
+          )
+        `)
+        .eq("fornecedor_id", fornecedorId)
+        .order("data_upload", { ascending: true });
+
+      if (faltantesError) {
+        console.error(`  ❌ Erro ao buscar documentos faltantes:`, faltantesError);
+        continue;
+      }
+
+      // Filtrar apenas documentos relacionados a esta cotação
+      const docsFaltantesFiltrados = docsFaltantes?.filter(doc => {
+        const campo = doc.campos_documentos_finalizacao as any;
+        return campo?.cotacao_id === cotacaoId;
+      }) || [];
+
+      console.log(`  📎 Documentos faltantes/adicionais: ${docsFaltantesFiltrados.length}`);
       
-      docsFaltantes.forEach(doc => {
-        const docId = `faltante-${doc.id}`;
-        if (!idsProcessados.has(docId)) {
-          idsProcessados.add(docId);
-          documentosFornecedores.push({
+      // Adicionar documentos faltantes
+      if (docsFaltantesFiltrados.length > 0) {
+        for (const doc of docsFaltantesFiltrados) {
+          const campo = doc.campos_documentos_finalizacao as any;
+          documentosOrdenados.push({
             tipo: "Documento Adicional",
             data: dataFornecedor,
-            nome: `${doc.campos_documentos_finalizacao.nome_campo} - ${doc.nome_arquivo}`,
+            nome: `${campo?.nome_campo || 'Documento'} - ${doc.nome_arquivo}`,
             url: doc.url_arquivo,
             bucket: "processo-anexos",
             fornecedor: fornecedorId
           });
         }
-      });
-    });
+      }
+    }
 
-    console.log(`\n✅ Total de documentos de fornecedores preparados: ${documentosFornecedores.length}`);
-    
-    // ADICIONAR documentos de fornecedores AO ARRAY PRINCIPAL
-    documentosFornecedores.forEach(doc => documentosOrdenados.push(doc));
+    console.log(`\n✅ Total de documentos no array final: ${documentosOrdenados.length}`);
 
     // 12. Adicionar relatórios finais APÓS documentos dos fornecedores
     if (relatorios && relatorios.length > 0) {

@@ -87,9 +87,17 @@ export async function gerarPropostaFornecedorPDF(
 
     console.log('📊 Resultado da busca:', {
       encontrou: itens?.length || 0,
-      erro: itensError,
-      itens: itens
+      erro: itensError
     });
+    
+    // DEBUG: Log detalhado dos primeiros itens
+    if (itens && itens.length > 0) {
+      console.log('🔍 DEBUG - Primeiros 3 itens recebidos:');
+      itens.slice(0, 3).forEach((item: any, idx: number) => {
+        const itemCot = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
+        console.log(`  Item ${idx}: numero_item=${itemCot?.numero_item}, tipo=${typeof itemCot}, isArray=${Array.isArray(item.itens_cotacao)}`);
+      });
+    }
 
     if (itensError) {
       console.error('❌ Erro ao buscar itens:', itensError);
@@ -102,17 +110,23 @@ export async function gerarPropostaFornecedorPDF(
       throw new Error('Nenhum item encontrado para esta proposta');
     }
 
-    // Ordenar itens por numero_item no JavaScript
-    // CRÍTICO: Garantir que itens_cotacao seja sempre objeto, não array
+    // Ordenar itens por numero_item no JavaScript de forma mais robusta
     const itensOrdenados = itens.sort((a: any, b: any) => {
+      // Garantir que sempre pegamos o objeto correto
       const itemA = Array.isArray(a.itens_cotacao) ? a.itens_cotacao[0] : a.itens_cotacao;
       const itemB = Array.isArray(b.itens_cotacao) ? b.itens_cotacao[0] : b.itens_cotacao;
-      const numeroA = itemA?.numero_item || 0;
-      const numeroB = itemB?.numero_item || 0;
+      
+      // Extrair números de forma segura
+      const numeroA = (itemA && typeof itemA === 'object') ? (itemA.numero_item || 0) : 0;
+      const numeroB = (itemB && typeof itemB === 'object') ? (itemB.numero_item || 0) : 0;
+      
       return numeroA - numeroB;
     });
 
-    console.log('✅ Itens carregados e ordenados para PDF:', itensOrdenados.length);
+    console.log('✅ Itens ordenados. Primeiros 5 números:', itensOrdenados.slice(0, 5).map((i: any) => {
+      const item = Array.isArray(i.itens_cotacao) ? i.itens_cotacao[0] : i.itens_cotacao;
+      return item?.numero_item;
+    }));
 
     const dataGeracao = new Date().toLocaleString('pt-BR');
 
