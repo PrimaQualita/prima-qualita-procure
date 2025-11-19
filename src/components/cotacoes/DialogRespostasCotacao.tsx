@@ -275,26 +275,21 @@ export function DialogRespostasCotacao({
     try {
       setEnviandoCompliance(true);
       
-      // CRÍTICO: Verificar se existe encaminhamento antes de permitir envio
-      if (encaminhamentos.length === 0) {
-        toast.error("É necessário gerar o Encaminhamento antes de enviar ao Compliance");
-        return;
-      }
-      
       const { error } = await supabase
         .from('cotacoes_precos')
-        .update({
+        .update({ 
           enviado_compliance: true,
+          respondido_compliance: false, // Resetar para permitir novo parecer
           data_envio_compliance: new Date().toISOString()
         })
         .eq('id', cotacaoId);
 
       if (error) throw error;
 
-      toast.success("Processo enviado ao Compliance com sucesso!");
+      toast.success("Enviado ao Compliance com sucesso! Um novo parecer poderá ser realizado.");
       onOpenChange(false);
     } catch (error) {
-      console.error("Erro ao enviar ao compliance:", error);
+      console.error('Erro ao enviar ao Compliance:', error);
       toast.error("Erro ao enviar ao Compliance");
     } finally {
       setEnviandoCompliance(false);
@@ -380,19 +375,6 @@ export function DialogRespostasCotacao({
         .eq("id", encaminhamentoParaExcluir.id);
 
       if (dbError) throw dbError;
-
-      // CRÍTICO: Se apagar encaminhamento, excluir envio ao Compliance automaticamente
-      const { error: complianceError } = await supabase
-        .from('cotacoes_precos')
-        .update({
-          enviado_compliance: false,
-          data_envio_compliance: null
-        })
-        .eq('id', cotacaoId);
-
-      if (complianceError) {
-        console.error("Erro ao excluir envio ao compliance:", complianceError);
-      }
 
       setEncaminhamentoParaExcluir(null);
       setConfirmDeleteEncaminhamentoOpen(false);
@@ -1372,7 +1354,7 @@ export function DialogRespostasCotacao({
                       </Button>
                       <Button
                         onClick={enviarAoCompliance}
-                        disabled={enviandoCompliance || encaminhamentos.length === 0}
+                        disabled={enviandoCompliance}
                         className="flex-1"
                       >
                         <Send className="mr-2 h-4 w-4" />

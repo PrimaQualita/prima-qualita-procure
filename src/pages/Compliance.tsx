@@ -89,8 +89,7 @@ export default function Compliance() {
             respondido_compliance
           )
         `)
-        .eq("cotacoes_precos.enviado_compliance", true)
-        .not("cotacoes_precos.data_envio_compliance", "is", null);
+        .eq("cotacoes_precos.enviado_compliance", true);
 
       if (processosError) throw processosError;
 

@@ -50,21 +50,12 @@ const decodeHtmlEntities = (text: string): string => {
 };
 
 export async function gerarPlanilhaConsolidadaPDF(
-  processo: { numero: string; objeto: string; tipo: string; criterio_julgamento: string },
+  processo: { numero: string; objeto: string },
   cotacao: { titulo_cotacao: string },
   itens: ItemCotacao[],
   respostas: RespostaFornecedor[],
   dadosProtocolo: DadosProtocolo
 ): Promise<Blob> {
-  console.log('🚀 INICIANDO GERAÇÃO DA PLANILHA CONSOLIDADA');
-  console.log('📊 Dados recebidos:', {
-    processo: processo.numero,
-    cotacao: cotacao.titulo_cotacao,
-    totalItens: itens.length,
-    totalRespostas: respostas.length,
-    fornecedores: respostas.map(r => r.fornecedor.razao_social)
-  });
-
   const doc = new jsPDF({ 
     orientation: 'landscape',
     unit: 'mm',
@@ -78,84 +69,45 @@ export async function gerarPlanilhaConsolidadaPDF(
   const larguraUtil = pageWidth - margemEsquerda - margemDireita;
   
   let y = 20;
-  
-  console.log('📄 Dimensões do documento:', { pageWidth, pageHeight, larguraUtil });
 
-  // Informações da Cotação
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(14);
+  // Cabeçalho com cores do sistema
+  doc.setFillColor(37, 99, 235); // primary color
+  doc.rect(0, 0, pageWidth, 35, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('PLANILHA CONSOLIDADA DE PROPOSTAS', pageWidth / 2, y, { align: 'center' });
-  y += 7;
+  doc.text('PLANILHA CONSOLIDADA DE PROPOSTAS', pageWidth / 2, 15, { align: 'center' });
   
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Processo: ${processo.numero}`, pageWidth / 2, y, { align: 'center' });
-  y += 6;
+  doc.text(processo.numero, pageWidth / 2, 23, { align: 'center' });
   
   // Decodificar o objeto antes de exibir
   const objetoDecodificado = decodeHtmlEntities(processo.objeto);
   const objetoLinhas = doc.splitTextToSize(objetoDecodificado, larguraUtil);
   objetoLinhas.forEach((linha: string, index: number) => {
-    doc.text(linha, pageWidth / 2, y + (index * 5), { align: 'center' });
+    doc.text(linha, pageWidth / 2, 30 + (index * 5), { align: 'center' });
   });
 
-  y += (objetoLinhas.length * 5) + 8;
+  y = 50;
 
-  doc.setFontSize(10);
+  // Informações da Cotação
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('Cotação:', margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
   doc.text(cotacao.titulo_cotacao, margemEsquerda + 25, y);
   
-  y += 6;
+  y += 7;
   doc.setFont('helvetica', 'bold');
-  doc.text('Data:', margemEsquerda, y);
+  doc.text('Data de Geração:', margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(new Date().toLocaleDateString('pt-BR'), margemEsquerda + 25, y);
+  doc.text(new Date().toLocaleString('pt-BR'), margemEsquerda + 40, y);
 
   y += 10;
 
-  // Logo Prima Qualitá
-  const logoPath = '/src/assets/prima-qualita-logo-horizontal.png';
-  try {
-    const logoImg = new Image();
-    logoImg.src = logoPath;
-    await new Promise((resolve) => {
-      logoImg.onload = resolve;
-      logoImg.onerror = resolve;
-    });
-    if (logoImg.complete && logoImg.naturalWidth > 0) {
-      doc.addImage(logoImg, 'PNG', pageWidth / 2 - 40, y - 5, 80, 15);
-      y += 18;
-    }
-  } catch (error) {
-    console.log('Logo não carregado, continuando sem logo');
-  }
-
-  // Critério de Julgamento em caixa
-  doc.setFillColor(200, 220, 240);
-  doc.rect(margemEsquerda, y, 80, 10, 'F');
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.3);
-  doc.rect(margemEsquerda, y, 80, 10, 'S');
-  
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  const criterioTexto = processo.criterio_julgamento === 'global' 
-    ? 'Menor Valor Global' 
-    : processo.criterio_julgamento === 'por_item' 
-    ? 'Menor Valor por Item' 
-    : 'Menor Valor por Lote';
-  doc.text(`Critério de Julgamento: ${criterioTexto}`, margemEsquerda + 40, y + 6.5, { align: 'center' });
-  
-  y += 15;
-
-  console.log('🔧 Preparando dados da tabela...');
-  
-  const isMaterial = processo.tipo === 'material';
-  
   // Preparar dados da tabela
   const colunas = [
     { header: 'Item', dataKey: 'item' },
@@ -164,50 +116,17 @@ export async function gerarPlanilhaConsolidadaPDF(
     { header: 'Unid.', dataKey: 'unidade' }
   ];
 
-  // Adicionar colunas de fornecedores
+  // Adicionar colunas de fornecedores com CNPJ e Email
   respostas.forEach((resposta, index) => {
     const headerText = `${resposta.fornecedor.razao_social}\nCNPJ: ${resposta.fornecedor.cnpj}${resposta.fornecedor.email ? '\n' + resposta.fornecedor.email : ''}`;
-    
-    if (isMaterial) {
-      // Para material: duas colunas (Marca e Valor)
-      colunas.push({
-        header: `${headerText}\nMarca`,
-        dataKey: `fornecedor_${index}_marca`
-      });
-      colunas.push({
-        header: `${headerText}\nValor`,
-        dataKey: `fornecedor_${index}_valor`
-      });
-    } else {
-      // Para outros: apenas uma coluna de valor
-      colunas.push({
-        header: headerText,
-        dataKey: `fornecedor_${index}`
-      });
-    }
-  });
-
-  console.log(`📋 Total de colunas: ${colunas.length}`);
-
-  // Identificar menores valores por item
-  const menoresValores: { [key: number]: number } = {};
-  itens.forEach(item => {
-    const valores = respostas
-      .map(r => {
-        const respostaItem = r.itens.find(i => i.numero_item === item.numero_item);
-        return respostaItem ? respostaItem.valor_unitario_ofertado : Infinity;
-      })
-      .filter(v => v !== Infinity);
-    
-    if (valores.length > 0) {
-      menoresValores[item.numero_item] = Math.min(...valores);
-    }
+    colunas.push({
+      header: headerText,
+      dataKey: `fornecedor_${index}`
+    });
   });
 
   // Preparar linhas
   const linhas: any[] = [];
-  
-  console.log(`📊 Gerando planilha com ${itens.length} itens e ${respostas.length} fornecedores`);
   
   itens.forEach(item => {
     const linha: any = {
@@ -219,23 +138,13 @@ export async function gerarPlanilhaConsolidadaPDF(
 
     respostas.forEach((resposta, index) => {
       const respostaItem = resposta.itens.find(i => i.numero_item === item.numero_item);
-      
-      if (isMaterial) {
-        linha[`fornecedor_${index}_marca`] = respostaItem?.marca || '-';
-        linha[`fornecedor_${index}_valor`] = respostaItem 
-          ? formatarMoeda(respostaItem.valor_unitario_ofertado)
-          : '-';
-      } else {
-        linha[`fornecedor_${index}`] = respostaItem 
-          ? formatarMoeda(respostaItem.valor_unitario_ofertado)
-          : '-';
-      }
+      linha[`fornecedor_${index}`] = respostaItem 
+        ? formatarMoeda(respostaItem.valor_unitario_ofertado)
+        : '-';
     });
 
     linhas.push(linha);
   });
-
-  console.log(`📋 Total de linhas preparadas: ${linhas.length}`);
 
   // Adicionar linha de totais
   const linhaTotais: any = {
@@ -246,132 +155,58 @@ export async function gerarPlanilhaConsolidadaPDF(
   };
 
   respostas.forEach((resposta, index) => {
-    if (isMaterial) {
-      linhaTotais[`fornecedor_${index}_marca`] = '';
-      linhaTotais[`fornecedor_${index}_valor`] = formatarMoeda(resposta.valor_total);
-    } else {
-      linhaTotais[`fornecedor_${index}`] = formatarMoeda(resposta.valor_total);
-    }
+    linhaTotais[`fornecedor_${index}`] = formatarMoeda(resposta.valor_total);
   });
 
   linhas.push(linhaTotais);
 
-  console.log('✅ Dados da tabela preparados com sucesso');
-  console.log('🎨 Iniciando renderização da tabela com autoTable...');
-
-
-
-  // Gerar tabela com suporte para grande volume de dados
-  try {
-    autoTable(doc, {
-      startY: y,
-      head: [colunas.map(c => c.header)],
-      body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
-      theme: 'grid',
-      headStyles: {
-        fillColor: [37, 99, 235],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize: 8,
-        halign: 'center',
-        cellPadding: 2
-      },
-      bodyStyles: {
-        fontSize: 7,
-        textColor: [0, 0, 0],
-        minCellHeight: 5,
-        cellPadding: 1.5
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252]
-      },
-      columnStyles: {
-        0: { cellWidth: 12, halign: 'center' },
-        1: { cellWidth: 55 },
-        2: { cellWidth: 12, halign: 'center' },
-        3: { cellWidth: 12, halign: 'center' }
-      },
-      margin: { left: margemEsquerda, right: margemDireita, top: 20, bottom: 30 },
-      showHead: 'everyPage',
-      pageBreak: 'auto',
-      rowPageBreak: 'avoid',
-      tableWidth: 'auto',
-      didParseCell: function(data) {
-        // Destacar linha de totais
-        if (data.row.index === linhas.length - 1) {
-          data.cell.styles.fillColor = [226, 232, 240];
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fontSize = 8;
-        }
-        
-        // Destacar menores valores (vencedores)
-        if (data.row.index < linhas.length - 1) {
-          const linha = linhas[data.row.index];
-          const numeroItem = parseInt(linha.item);
-          const menorValor = menoresValores[numeroItem];
-          
-          respostas.forEach((resposta, index) => {
-            const respostaItem = resposta.itens.find(i => i.numero_item === numeroItem);
-            if (respostaItem && respostaItem.valor_unitario_ofertado === menorValor) {
-              const colKey = isMaterial ? `fornecedor_${index}_valor` : `fornecedor_${index}`;
-              if (data.cell.raw === linha[colKey]) {
-                data.cell.styles.fillColor = [144, 238, 144];
-                data.cell.styles.fontStyle = 'bold';
-              }
-            }
-          });
-        }
-      },
-      didDrawPage: function(data) {
-        // Rodapé em todas as páginas
-        const pageCount = (doc as any).internal.getNumberOfPages();
-        
-        doc.setFontSize(8);
-        doc.setTextColor(100);
-        doc.text(
-          'Prima Qualitá Saúde',
-          pageWidth / 2,
-          pageHeight - 15,
-          { align: 'center' }
-        );
-        doc.text(
-          'Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040',
-          pageWidth / 2,
-          pageHeight - 10,
-          { align: 'center' }
-        );
-        
-        // Número da página
-        doc.text(
-          `Página ${data.pageNumber} de ${pageCount}`,
-          pageWidth / 2,
-          pageHeight - 5,
-          { align: 'center' }
-        );
+  // Gerar tabela
+  autoTable(doc, {
+    startY: y,
+    head: [colunas.map(c => c.header)],
+    body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
+    theme: 'grid',
+    headStyles: {
+      fillColor: [37, 99, 235], // primary color
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 9,
+      halign: 'center'
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [0, 0, 0]
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252] // muted background
+    },
+    columnStyles: {
+      0: { cellWidth: 15, halign: 'center' },
+      1: { cellWidth: 60 },
+      2: { cellWidth: 15, halign: 'center' },
+      3: { cellWidth: 15, halign: 'center' }
+    },
+    margin: { left: margemEsquerda, right: margemDireita },
+    didParseCell: function(data) {
+      // Destacar linha de totais
+      if (data.row.index === linhas.length - 1) {
+        data.cell.styles.fillColor = [226, 232, 240]; // secondary color
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 9;
       }
-    });
-    
-    console.log('✅ Tabela renderizada com sucesso!');
-  } catch (error) {
-    console.error('❌ ERRO ao renderizar tabela:', error);
-    throw error;
-  }
+    }
+  });
 
   // Pegar a posição Y após a tabela
   const finalY = (doc as any).lastAutoTable.finalY;
-  
-  console.log(`📍 Tabela finalizada na posição Y: ${finalY}`);
 
   // Verificar se precisa de nova página para certificação
   let y2 = finalY + 15;
   if (y2 > pageHeight - 50) {
     doc.addPage();
     y2 = 20;
-    console.log('📄 Nova página adicionada para certificação');
   }
 
-  console.log('🔐 Gerando certificação digital...');
-  
   // Gerar hash do conteúdo
   const conteudoParaHash = JSON.stringify({
     processo: processo.numero,
@@ -387,9 +222,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   const hash = await gerarHashDocumento(conteudoParaHash);
   const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${dadosProtocolo.protocolo}`;
 
-  console.log(`🔐 Hash gerado: ${hash.substring(0, 20)}...`);
-
-  // Certificação digital
+  // Certificação simplificada
   doc.setFillColor(245, 245, 245);
   doc.rect(margemEsquerda, y2, larguraUtil, 35, 'F');
   doc.setDrawColor(0, 0, 0);
@@ -419,10 +252,5 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setFontSize(8);
   doc.text(`Verifique em: ${linkVerificacao}`, margemEsquerda + 3, y2);
 
-  console.log(`✅ PDF gerado com sucesso - Total de páginas: ${(doc as any).internal.getNumberOfPages()}`);
-  
-  const blob = doc.output('blob');
-  console.log(`📦 Blob gerado com tamanho: ${(blob.size / 1024).toFixed(2)} KB`);
-
-  return blob;
+  return doc.output('blob');
 }

@@ -60,12 +60,10 @@ export function DialogAnexosProcesso({
 
   const loadAnexos = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from("anexos_processo_compra")
         .select("*")
-        .eq("processo_compra_id", processoId)
-        .order("data_upload", { ascending: true });
+        .eq("processo_compra_id", processoId);
 
       if (error) throw error;
       setAnexos(data || []);
@@ -75,8 +73,6 @@ export function DialogAnexosProcesso({
         description: error.message,
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -268,64 +264,7 @@ export function DialogAnexosProcesso({
 
             return (
               <div key={tipo} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="font-semibold">{label}</Label>
-                  {anexo ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-destructive" />
-                  )}
-                </div>
-
-                {anexo ? (
-                  <div className="flex items-center justify-between bg-secondary/20 p-3 rounded">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{anexo.nome_arquivo}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Enviado em {new Date(anexo.data_upload).toLocaleString("pt-BR")}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDownload(anexo)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(anexo)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      id={`upload-${tipo}`}
-                      className="hidden"
-                      accept=".pdf"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleFileUpload(tipo, file);
-                      }}
-                      disabled={isUploading}
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => document.getElementById(`upload-${tipo}`)?.click()}
-                      disabled={isUploading}
-                    >
-                      <FileUp className="h-4 w-4 mr-2" />
-                      {isUploading ? "Enviando..." : "Anexar PDF"}
-                    </Button>
-                  </div>
-                )}
+...
               </div>
             );
           })}

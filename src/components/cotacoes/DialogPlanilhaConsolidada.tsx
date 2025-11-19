@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
-import { gerarPlanilhaConsolidadaPDF } from "@/lib/gerarPlanilhaConsolidadaPDF";
+import html2pdf from "html2pdf.js";
 import {
   Dialog,
   DialogContent,
@@ -274,93 +274,652 @@ export function DialogPlanilhaConsolidada({
 
   const gerarPlanilha = async () => {
     try {
-      console.log('🚀 Iniciando geração da planilha consolidada...');
+      // Gerar protocolo numérico no formato XXXX-XXXX-XXXX-XXXX
+      const timestamp = new Date().getTime();
+      const protocoloNumerico = timestamp.toString().padStart(16, '0');
+      const protocoloDocumento = protocoloNumerico.match(/.{1,4}/g)?.join('-') || protocoloNumerico;
       
-      // Buscar dados do processo e da cotação
-      const { data: cotacaoData } = await supabase
-        .from('cotacoes_precos')
-        .select(`
-          id,
-          titulo_cotacao,
-          processos_compras!inner (
-            numero_processo_interno,
-            objeto_resumido
-          )
-        `)
-        .eq('id', cotacaoId)
-        .single();
-
-      if (!cotacaoData) {
-        throw new Error('Cotação não encontrada');
-      }
-
-      // Buscar dados do usuário
-      const { data: userData } = await supabase.auth.getUser();
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('nome_completo, cpf')
-        .eq('id', userData.user!.id)
-        .single();
-
-      if (!profileData) {
-        throw new Error('Perfil do usuário não encontrado');
-      }
-
-      // Gerar protocolo único
-      const protocolo = uuidv4();
-
-      // Preparar dados dos itens
-      const itensFormatados = todosItens.map(item => ({
-        numero_item: item.numero_item,
-        descricao: stripHtml(item.descricao),
-        quantidade: item.quantidade,
-        unidade: item.unidade,
-        lote_numero: item.lote?.numero_lote,
-        lote_descricao: item.lote?.descricao_lote
-      }));
-
-      // Preparar dados das respostas (apenas fornecedores selecionados)
-      const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.cnpj));
-      const respostasFormatadas = respostasFiltradas.map(resposta => ({
-        fornecedor: {
-          razao_social: resposta.fornecedor.razao_social,
-          cnpj: resposta.fornecedor.cnpj,
-          email: resposta.fornecedor.email
-        },
-        itens: resposta.itens.map(item => ({
-          numero_item: item.numero_item,
-          valor_unitario_ofertado: item.valor_unitario_ofertado,
-          marca: item.marca
-        })),
-        valor_total: resposta.valor_total
-      }));
-
-      console.log('📊 Gerando PDF com:', {
-        itens: itensFormatados.length,
-        respostas: respostasFormatadas.length
-      });
-
-      // Gerar o PDF usando a função correta
-      const pdfBlob = await gerarPlanilhaConsolidadaPDF(
-        {
-          numero: cotacaoData.processos_compras.numero_processo_interno,
-          objeto: cotacaoData.processos_compras.objeto_resumido,
-          tipo: cotacaoData.processos_compras.tipo,
-          criterio_julgamento: cotacaoData.processos_compras.criterio_julgamento
-        },
-        {
-          titulo_cotacao: cotacaoData.titulo_cotacao
-        },
-        itensFormatados,
-        respostasFormatadas,
-        {
-          protocolo,
-          usuario: {
-            nome_completo: profileData.nome_completo,
-            cpf: profileData.cpf
+      const dataHoraGeracao = new Date();
+      const hashVerificacao = protocoloDocumento.replace(/-/g, '').substring(0, 32).toUpperCase();
+      
+      // Buscar informações do usuário que está gerando
+      let usuarioNome = 'Sistema';
+      let usuarioEmail = '';
+      
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          console.error('Erro ao buscar usuário:', userError);
+        } else if (userData?.user?.id) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('nome_completo, email')
+            .eq('id', userData.user.id)
+            .single();
+          
+          if (profileError) {
+            console.error('Erro ao buscar perfil:', profileError);
+          } else if (profileData) {
+            usuarioNome = profileData.nome_completo || 'Sistema';
+            usuarioEmail = profileData.email || '';
           }
         }
-      );
+      } catch (error) {
+        console.error('Erro na autenticação:', error);
+      }
+      
+      // Converter logo para base64
+      const logoPath = '/src/assets/prima-qualita-logo-horizontal.png';
+      let logoBase64 = '';
+      try {
+        const response = await fetch(logoPath);
+        const blob = await response.blob();
+        logoBase64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.error("Erro ao carregar logo:", error);
+      }
+
+      let html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Planilha Consolidada</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; padding: 15px; }
+            .logo-container { text-align: center; margin-bottom: 15px; }
+            .logo-container img { max-width: 180px; height: auto; }
+            h1 { 
+              color: #0ea5e9; 
+              font-size: 20px; 
+              margin-bottom: 15px; 
+              text-align: center;
+              font-weight: bold;
+            }
+            .criterio-badge { 
+              display: inline-block;
+              padding: 6px 16px; 
+              background-color: #0ea5e9; 
+              color: white; 
+              border-radius: 4px; 
+              font-size: 13px; 
+              margin-bottom: 15px;
+            }
+            h2 { color: #0284c7; font-size: 16px; margin-top: 20px; margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
+            th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; vertical-align: middle; }
+            th { background-color: #0ea5e9; color: white; font-weight: bold; text-align: center; font-size: 10px; }
+            .text-right { text-align: right; }
+            .total { background-color: #f0f9ff; font-weight: bold; }
+            .estimativa { background-color: #fef3c7; font-weight: bold; }
+            .lote-header { background-color: #0284c7; color: white; font-size: 14px; padding: 8px; margin-top: 15px; }
+            .col-item { width: 35px; text-align: center; }
+            .col-qtd { width: 45px; text-align: center; }
+            .col-unid { width: 60px; text-align: center; }
+            .col-descricao { width: 250px; word-wrap: break-word; }
+            .empresa { 
+              width: 130px;
+              word-wrap: break-word; 
+              word-break: break-word;
+              font-size: 9px;
+              line-height: 1.2;
+            }
+            .col-estimativa { width: 90px; }
+            th.empresa { white-space: normal; line-height: 1.1; }
+            .certificacao-digital {
+              margin-top: 25px;
+              padding: 12px;
+              border: 1px solid #0ea5e9;
+              border-radius: 4px;
+              background-color: #f0f9ff;
+              font-size: 8px;
+              page-break-inside: avoid;
+            }
+            .certificacao-digital h3 {
+              color: #0284c7;
+              font-size: 10px;
+              margin-bottom: 8px;
+              font-weight: bold;
+            }
+            .certificacao-digital .info-item {
+              margin: 4px 0;
+              font-size: 8px;
+            }
+            .certificacao-digital .info-label {
+              font-weight: bold;
+              color: #0369a1;
+            }
+            .certificacao-digital .hash {
+              font-family: 'Courier New', monospace;
+              background-color: #e0f2fe;
+              padding: 2px 3px;
+              border-radius: 2px;
+              word-break: break-all;
+              font-size: 7px;
+            }
+            .certificacao-digital .link-verificacao {
+              color: #0284c7;
+              text-decoration: underline;
+              font-size: 8px;
+            }
+          </style>
+        </head>
+        <body>
+          ${logoBase64 ? `<div class="logo-container"><img src="${logoBase64}" alt="Prima Qualitá Saúde" /></div>` : ''}
+          <h1>PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO</h1>
+          <div class="criterio-badge">
+            Critério de Julgamento: ${tipoVisualizacao === "item" ? "Menor Valor por Item" : tipoVisualizacao === "lote" ? "Menor Valor por Lote" : "Menor Valor Global"}
+          </div>
+      `;
+
+      // IMPORTANTE: Filtrar respostas pelas empresas selecionadas UMA VEZ, antes de qualquer uso
+      const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+
+      if (tipoVisualizacao === "global") {
+        // Visualização global - exibir todos os itens com marca por fornecedor (se Material)
+        html += `
+          <table>
+            <thead>`;
+        
+        if (tipoProcesso === "material") {
+          // Cabeçalho de duas linhas para Material
+          html += `
+              <tr>
+                <th class="col-item" rowspan="2">Item</th>
+              <th class="col-descricao" rowspan="2">Descrição</th>
+              <th class="col-qtd" rowspan="2">Qtd</th>
+              <th class="col-unid" rowspan="2">Unid</th>
+              ${respostasFiltradas.map(r => {
+                  const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
+                  const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
+                  return `
+                  <th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 8px; text-align: center; vertical-align: middle;">
+                    <div style="margin-bottom: 4px;">${r.fornecedor.razao_social}</div>
+                    ${!isPrecosPublicos ? `<div style="font-weight: normal; margin-bottom: 3px; font-size: 9px;">${cnpjFormatado}</div>` : ''}
+                    ${!isPrecosPublicos ? `<div style="font-weight: normal; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}
+                  </th>
+                `;
+                }).join("")}
+              <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+            </tr>
+            <tr>
+              ${respostasFiltradas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+              </tr>`;
+        } else {
+          // Cabeçalho de uma linha para outros tipos
+          html += `
+              <tr>
+                <th class="col-item">Item</th>
+                <th class="col-descricao">Descrição</th>
+                <th class="col-qtd">Qtd</th>
+                <th class="col-unid">Unid</th>
+                ${respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social)).map(r => {
+                  const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
+                  return `
+                  <th class="text-right empresa" style="font-size: 10px; padding: 4px;">
+                    <div>${r.fornecedor.razao_social}</div>
+                    ${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px;">CNPJ: ${r.fornecedor.cnpj}</div>` : ''}
+                    ${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px;">${r.fornecedor.email}</div>` : ''}
+                  </th>
+                `}).join("")}
+                <th class="text-right col-estimativa">Estimativa</th>
+              </tr>`;
+        }
+        
+        html += `
+            </thead>
+            <tbody>
+        `;
+
+        let totalGeralEstimativa = 0;
+
+        todosItens.forEach((item: any) => {
+          const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
+          const tipoCalculoItem = calculosPorItem[chaveItem] || calculoGlobal;
+          
+          const valores: number[] = [];
+          
+          respostasFiltradas.forEach(resposta => {
+            const itemResposta = resposta.itens.find((i: any) => 
+              i.numero_item === item.numero_item
+            );
+            if (itemResposta) {
+              valores.push(Number(itemResposta.valor_unitario_ofertado));
+            }
+          });
+
+          const stats = calcularEstatisticas(valores);
+          const valorEstimativa = stats[tipoCalculoItem];
+          const totalItemEstimativa = Math.round(valorEstimativa * Number(item.quantidade) * 100) / 100;
+          totalGeralEstimativa += totalItemEstimativa;
+
+          html += `
+            <tr>
+              <td class="col-item">${item.numero_item}</td>
+              <td class="col-descricao">${stripHtml(item.descricao)}</td>
+              <td class="col-qtd">${Number(item.quantidade).toLocaleString("pt-BR")}</td>
+              <td class="col-unid">${item.unidade}</td>
+          `;
+
+          
+          respostasFiltradas.forEach(resposta => {
+            const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
+            const valorTotal = itemResposta 
+              ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
+              : 0;
+            
+            if (tipoProcesso === "material") {
+              // Marca + Valor para tipo Material
+              html += `
+                <td class="col-unid">${itemResposta?.marca || "-"}</td>
+                <td class="text-right">
+                  ${itemResposta 
+                    ? `${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
+                    : "-"}
+                </td>
+              `;
+            } else {
+              // Apenas Valor para outros tipos
+              html += `
+                <td class="text-right">
+                  ${itemResposta 
+                    ? `${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
+                    : "-"}
+                </td>
+              `;
+            }
+          });
+
+          html += `
+              <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${totalItemEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small></td>
+            </tr>
+          `;
+        });
+
+        const colspanTotal = tipoProcesso === "material" ? (4 + (respostasFiltradas.length * 2)) : (4 + respostasFiltradas.length);
+        html += `
+              <tr class="total">
+                <td colspan="${colspanTotal}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+                <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        `;
+
+      } else if (tipoVisualizacao === "lote" && criterioJulgamento === "por_lote") {
+        // Agrupar itens por lote APENAS das empresas selecionadas
+        const lotes = new Map<string, any[]>();
+        
+        respostasFiltradas.forEach(resposta => {
+          resposta.itens.forEach(item => {
+            if (item.lote_id) {
+              if (!lotes.has(item.lote_id)) {
+                lotes.set(item.lote_id, []);
+              }
+              lotes.get(item.lote_id)!.push({
+                ...item,
+                fornecedor: resposta.fornecedor.razao_social,
+              });
+            }
+          });
+        });
+
+        // Gerar tabela para cada lote
+        lotes.forEach((itensDoLote, loteId) => {
+          const primeiroItem = itensDoLote[0];
+          const tipoCalculoLote = calculosPorLote[loteId] || "menor";
+          
+          html += `
+            <div class="lote-header">
+              LOTE ${primeiroItem.lote_numero} - ${primeiroItem.lote_descricao} (Cálculo: ${tipoCalculoLote === "menor" ? "Menor Preço" : tipoCalculoLote === "media" ? "Média" : "Mediana"})
+            </div>
+            <table>
+              <thead>`;
+            
+            if (tipoProcesso === "material") {
+              // Cabeçalho de duas linhas para Material
+              html += `
+                <tr>
+                  <th class="col-item" rowspan="2">Item</th>
+              <th class="col-descricao" rowspan="2">Descrição</th>
+              <th class="col-qtd" rowspan="2">Qtd</th>
+              <th class="col-unid" rowspan="2">Unid</th>
+              ${respostasFiltradas.map(r => {
+                    const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
+                    const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
+                    return `
+                    <th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 8px; text-align: center; vertical-align: middle;">
+                      <div style="margin-bottom: 4px;">${r.fornecedor.razao_social}</div>
+                      ${!isPrecosPublicos ? `<div style="font-weight: normal; margin-bottom: 3px; font-size: 9px;">${cnpjFormatado}</div>` : ''}
+                      ${!isPrecosPublicos ? `<div style="font-weight: normal; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}
+                    </th>
+                  `;
+                  }).join("")}
+              <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+            </tr>
+            <tr>
+              ${respostasFiltradas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+                </tr>`;
+            } else {
+              // Cabeçalho de uma linha para outros tipos
+              html += `
+                <tr>
+                  <th class="col-item">Item</th>
+              <th class="col-descricao">Descrição</th>
+              <th class="col-qtd">Qtd</th>
+              <th class="col-unid">Unid</th>
+              ${respostasFiltradas.map(r => {
+                      const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
+                      const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
+                      return `<th class="text-right empresa" style="font-size: 10px; padding: 8px; text-align: center; vertical-align: middle;"><div style="margin-bottom: 4px;">${r.fornecedor.razao_social}</div>${!isPrecosPublicos ? `<div style="font-weight: normal; margin-bottom: 3px; font-size: 9px;">${cnpjFormatado}</div>` : ''}${!isPrecosPublicos ? `<div style="font-weight: normal; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}</th>`;
+                    }).join("")}
+                    <th class="text-right col-estimativa">Estimativa</th>
+                  </tr>`;
+              }
+              
+              html += `
+                  </thead>
+                  <tbody>
+              `;
+
+              let totalLoteEstimativa = 0;
+
+              itensDoLote.forEach((item: any) => {
+                const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
+                const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
+                
+                const valores: number[] = [];
+                respostasFiltradas.forEach(resposta => {
+                  // Buscar item pela combinação de lote_id E numero_item para evitar duplicação
+                  const itemResposta = resposta.itens.find((i: any) => 
+                    i.numero_item === item.numero_item && 
+                    (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
+                  );
+                  if (itemResposta) {
+                    valores.push(Number(itemResposta.valor_unitario_ofertado));
+                  }
+                });
+
+                const stats = calcularEstatisticas(valores);
+                const valorEstimativa = stats[tipoCalculoItem];
+                const totalItemEstimativa = Math.round(valorEstimativa * Number(item.quantidade) * 100) / 100;
+                totalLoteEstimativa += totalItemEstimativa;
+
+                html += `
+                  <tr>
+                    <td class="col-item">${item.numero_item}</td>
+                    <td class="col-descricao">${stripHtml(item.descricao)}</td>
+                    <td class="col-qtd">${Number(item.quantidade).toLocaleString("pt-BR")}</td>
+                    <td class="col-unid">${item.unidade}</td>
+                `;
+
+                respostasFiltradas.forEach(resposta => {
+                  const itemResposta = resposta.itens.find((i: any) => 
+                    i.numero_item === item.numero_item && 
+                    (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
+                  );
+                  const valorTotal = itemResposta
+                    ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
+                    : 0;
+                  
+                  if (tipoProcesso === "material") {
+                    // Marca + Valor para tipo Material
+                    html += `
+                      <td class="col-unid">${itemResposta?.marca || "-"}</td>
+                      <td class="text-right">
+                        ${itemResposta 
+                          ? `${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
+                          : "-"}
+                      </td>
+                    `;
+                  } else {
+                    // Apenas Valor para outros tipos
+                    html += `
+                      <td class="text-right">
+                        ${itemResposta 
+                          ? `${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
+                          : "-"}
+                      </td>
+                    `;
+                  }
+                });
+
+                html += `
+                    <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${totalItemEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small></td>
+                  </tr>
+                `;
+              });
+
+              totalGeralEstimativa += totalLoteEstimativa;
+
+              if (loteInfo) {
+              html += `
+                <tr class="total">
+                  <td colspan="${4 + (tipoProcesso === "material" ? respostasFiltradas.length * 2 : respostasFiltradas.length)}"><strong>TOTAL DO LOTE ${loteInfo.numero}</strong></td>
+                  <td class="text-right"><strong>${totalLoteEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+                </tr>
+              `;
+              }
+
+              html += `
+                  </tbody>
+                </table>
+              `;
+            });
+
+          html += `
+            <table>
+              <tbody>
+                <tr class="total">
+                  <td colspan="${4 + (tipoProcesso === "material" ? respostasFiltradas.length * 2 : respostasFiltradas.length)}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+                  <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          `;
+
+        } else {
+          // Visualização por item sem agrupamento por lote
+          
+          html += `
+            <table>
+              <thead>`;
+          
+          if (tipoProcesso === "material") {
+            // Cabeçalho de duas linhas para Material
+            html += `
+              <tr>
+                <th class="col-item" rowspan="2">Item</th>
+                <th class="col-descricao" rowspan="2">Descrição</th>
+                <th class="col-qtd" rowspan="2">Qtd</th>
+              <th class="col-unid" rowspan="2">Unid</th>
+              ${respostasFiltradas.map(r => {
+                const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
+                const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
+                return `<th class="text-right empresa" colspan="2" style="font-size: 10px; padding: 8px; text-align: center; vertical-align: middle;"><div style="margin-bottom: 4px;">${r.fornecedor.razao_social}</div>${!isPrecosPublicos ? `<div style="font-weight: normal; margin-bottom: 3px; font-size: 9px;">${cnpjFormatado}</div>` : ''}${!isPrecosPublicos ? `<div style="font-weight: normal; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}</th>`;
+              }).join("")}
+              <th class="text-right col-estimativa" rowspan="2">Estimativa</th>
+            </tr>
+            <tr>
+              ${respostasFiltradas.map(() => `<th class="col-unid">Marca</th><th class="text-right empresa">Valor Unitário</th>`).join("")}
+            </tr>`;
+          } else {
+            // Cabeçalho de uma linha para outros tipos
+            html += `
+              <tr>
+                <th class="col-item">Item</th>
+                <th class="col-descricao">Descrição</th>
+                <th class="col-qtd">Qtd</th>
+              <th class="col-unid">Unid</th>
+              ${respostasFiltradas.map(r => {
+                const isPrecosPublicos = r.fornecedor.cnpj === '00000000000000';
+                const cnpjFormatado = !isPrecosPublicos ? (r.fornecedor.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '') : '';
+                return `<th class="text-right empresa" style="font-size: 10px; padding: 4px;"><div>${r.fornecedor.razao_social}</div>${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${cnpjFormatado}</div>` : ''}${!isPrecosPublicos ? `<div style="font-weight: normal; margin-top: 2px; font-size: 9px;">${r.fornecedor.email || ''}</div>` : ''}</th>`;
+              }).join("")}
+              <th class="text-right col-estimativa">Estimativa</th>
+            </tr>`;
+          }
+          
+          html += `
+              </thead>
+              <tbody>
+          `;
+
+          let totalGeralEstimativa = 0;
+
+          todosItens.forEach((item: any) => {
+            const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
+            const tipoCalculoItem = calculosPorItem[chaveItem] || "menor";
+            
+            const valores: number[] = [];
+            
+            respostasFiltradas.forEach(resposta => {
+              const itemResposta = resposta.itens.find((i: any) => 
+                i.numero_item === item.numero_item && 
+                (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
+              );
+              if (itemResposta) {
+                valores.push(Number(itemResposta.valor_unitario_ofertado));
+              }
+            });
+
+            const stats = calcularEstatisticas(valores);
+            const valorEstimativa = stats[tipoCalculoItem];
+            const totalItemEstimativa = Math.round(valorEstimativa * Number(item.quantidade) * 100) / 100;
+            totalGeralEstimativa += totalItemEstimativa;
+
+            html += `
+              <tr>
+                <td class="col-item">${item.numero_item}</td>
+                <td class="col-descricao">${stripHtml(item.descricao)}</td>
+                <td class="col-qtd">${Number(item.quantidade).toLocaleString("pt-BR")}</td>
+                <td class="col-unid">${item.unidade}</td>
+            `;
+
+            respostasFiltradas.forEach(resposta => {
+              const itemResposta = resposta.itens.find((i: any) => 
+                i.numero_item === item.numero_item && 
+                (i.lote_id === item.lote_id || (!i.lote_id && !item.lote_id))
+              );
+              const valorTotal = itemResposta 
+                ? Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100
+                : 0;
+              
+              if (tipoProcesso === "material") {
+                // Marca + Valor para tipo Material
+                html += `
+                  <td class="col-unid">${itemResposta?.marca || "-"}</td>
+                  <td class="text-right">
+                    ${itemResposta 
+                      ? `${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
+                      : "-"}
+                  </td>
+                `;
+              } else {
+                // Apenas Valor para outros tipos
+                html += `
+                  <td class="text-right">
+                    ${itemResposta 
+                      ? `${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small>` 
+                      : "-"}
+                  </td>
+                `;
+              }
+            });
+
+            html += `
+                <td class="text-right estimativa">${valorEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br/><small>(Total: ${totalItemEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</small></td>
+              </tr>
+            `;
+          });
+
+          html += `
+            <tr class="total">
+              <td colspan="${4 + (tipoProcesso === "material" ? respostasFiltradas.length * 2 : respostasFiltradas.length)}"><strong>VALOR TOTAL ESTIMADO</strong></td>
+              <td class="text-right"><strong>${totalGeralEstimativa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+      }
+
+      // Adicionar certificação digital no final do documento
+      const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${protocoloDocumento}`;
+      
+      html += `
+          <div class="certificacao-digital" style="
+            border: 2px solid #000;
+            background-color: #f5f5f5;
+            padding: 16px;
+            margin: 20px 15px;
+            page-break-inside: avoid;
+          ">
+            <h3 style="
+              color: #00008B;
+              font-size: 12px;
+              font-weight: bold;
+              text-align: center;
+              margin: 0 0 10px 0;
+              padding: 0;
+            ">CERTIFICAÇÃO DIGITAL</h3>
+            
+            <div style="font-size: 10px; line-height: 1.6; color: #000;">
+              <div style="margin-bottom: 5px;">
+                <strong>Responsável:</strong> ${usuarioNome}
+              </div>
+              <div style="margin-bottom: 8px;">
+                <strong>Protocolo:</strong> ${protocoloDocumento}
+              </div>
+              <div style="margin-bottom: 5px; font-weight: bold;">
+                Verificar autenticidade em:
+              </div>
+              <div style="margin-bottom: 8px; word-break: break-all;">
+                <a href="${linkVerificacao}" style="color: #0000FF; font-size: 9px;">${linkVerificacao}</a>
+              </div>
+              <div style="color: #505050; font-size: 8px; margin-top: 4px;">
+                Este documento possui certificação digital conforme Lei 14.063/2020
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Gerar PDF usando html2pdf.js
+      const element = document.createElement('div');
+      element.innerHTML = html;
+
+      const opt = {
+        margin: [5, 5, 5, 5],
+        filename: `planilha_consolidada_${cotacaoId}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          logging: false,
+          scrollY: 0,
+          scrollX: 0
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'landscape',
+          compress: true
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css', 'legacy']
+        }
+      };
+
+      // @ts-ignore
+      const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
 
       // Salvar no storage
       const nomeArquivo = `planilha_consolidada_${cotacaoId}_${Date.now()}.pdf`;
@@ -393,7 +952,7 @@ export function DialogPlanilhaConsolidada({
           url_arquivo: filePath,
           usuario_gerador_id: user?.id,
           data_geracao: new Date().toISOString(),
-          protocolo: protocolo,
+          protocolo: protocoloDocumento,
           fornecedores_incluidos: cnpjsIncluidos
         });
 
