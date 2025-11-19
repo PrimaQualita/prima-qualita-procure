@@ -148,9 +148,40 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`Respostas de fornecedores encontradas: ${respostas?.length || 0}`);
 
-    // NOTA: Todas as propostas de fornecedores (incluindo Preços Públicos) serão adicionadas
-    // depois, na seção de documentos de fornecedores vencedores, para evitar duplicação
-    console.log("⏭️ Pulando seção de propostas - serão incluídas com documentos dos vencedores");
+    if (respostas && respostas.length > 0) {
+      for (const resposta of respostas) {
+        const { data: anexosFornecedor, error: anexosFornError } = await supabase
+          .from("anexos_cotacao_fornecedor")
+          .select("*")
+          .eq("cotacao_resposta_fornecedor_id", resposta.id)
+          .order("data_upload", { ascending: true });
+
+        if (anexosFornError) {
+          console.error(`  Erro ao buscar anexos do fornecedor:`, anexosFornError);
+        }
+
+        const razaoSocial = (resposta.fornecedores as any)?.razao_social || 'Fornecedor';
+
+        if (anexosFornecedor && anexosFornecedor.length > 0) {
+          for (const anexo of anexosFornecedor) {
+            // Verificar se é PDF
+            if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+              console.log(`    ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF. Apenas PDFs podem ser mesclados.`);
+              continue;
+            }
+            
+            documentosOrdenados.push({
+              tipo: "Proposta Fornecedor",
+              data: anexo.data_upload || resposta.data_envio_resposta,
+              nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
+              storagePath: anexo.url_arquivo,
+              bucket: "processo-anexos",
+              fornecedor: razaoSocial
+            });
+          }
+        }
+      }
+    }
 
     // 4. Buscar TODAS as planilhas consolidadas
     const { data: planilhas, error: planilhasError } = await supabase
@@ -457,11 +488,20 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    console.log(`\n📅 Total de documentos a serem mesclados em ordem cronológica: ${documentosOrdenados.length}`);
+    console.log(`\n📅 Total de documentos a serem mesclados: ${documentosOrdenados.length}`);
+
+    // Ordenar TODOS os documentos por data crescente (do mais antigo para o mais recente)
+    documentosOrdenados.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+    
+    console.log("📋 Ordem de mesclagem (cronológica crescente):");
+    documentosOrdenados.forEach((doc, index) => {
+      console.log(`  ${index + 1}. [${new Date(doc.data).toLocaleString('pt-BR')}] ${doc.tipo}: ${doc.nome}`);
+    });
+    console.log("");
 
     // 12. Mesclar todos os documentos na ordem cronológica
     if (documentosOrdenados.length > 0) {
-      console.log("📋 Mesclando documentos em ordem cronológica...\n");
+      console.log("🔄 Iniciando mesclagem...\n");
       
       for (const doc of documentosOrdenados) {
         try {
