@@ -1270,6 +1270,9 @@ export function DialogFinalizarProcesso({
 
       toast.success(`Documentos de ${fornecedorData.fornecedor.razao_social} aprovados com sucesso`);
       
+      // CRÍTICO: Aguardar um momento e recarregar dados frescos do banco
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Recarregar dados para refletir mudança na UI
       await loadAllFornecedores();
     } catch (error) {
