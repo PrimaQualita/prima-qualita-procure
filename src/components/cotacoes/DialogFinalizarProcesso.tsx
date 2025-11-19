@@ -272,7 +272,8 @@ export function DialogFinalizarProcesso({
   const loadAllFornecedores = async () => {
     setLoading(true);
     try {
-      console.log("🔄 Iniciando carregamento de fornecedores para cotação:", cotacaoId);
+      console.log("🔄 [VERSION 2.0] Iniciando carregamento DIRETO de fornecedores (SEM FILTRO) para cotação:", cotacaoId);
+      console.log("🔄 Timestamp:", new Date().toISOString());
       
       // CRÍTICO: Buscar cotação com critério de julgamento E documentos_aprovados atualizados
       const { data: cotacao, error: cotacaoError } = await supabase
@@ -298,6 +299,7 @@ export function DialogFinalizarProcesso({
 
       // Buscar TODAS as respostas dos fornecedores (SEM FILTRO)
       // CRÍTICO: Não usar filtro da planilha consolidada - ela não determina vencedores
+      console.log("🔍 Buscando TODAS as respostas da cotação (sem filtro por planilha)");
       const { data: respostas, error: respostasError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -312,7 +314,8 @@ export function DialogFinalizarProcesso({
 
       if (respostasError) throw respostasError;
 
-      console.log(`📝 Total de respostas: ${respostas?.length || 0}`);
+      console.log(`📝 Total de respostas no DB: ${respostas?.length || 0}`);
+      console.log(`📝 Fornecedores encontrados:`, respostas?.map(r => r.fornecedores.razao_social));
 
       if (!respostas || respostas.length === 0) {
         console.log("❌ NENHUMA RESPOSTA encontrada!");
