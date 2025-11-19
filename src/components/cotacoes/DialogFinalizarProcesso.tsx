@@ -1238,6 +1238,9 @@ export function DialogFinalizarProcesso({
       }
 
       toast.success(`Documentos de ${fornecedorData.fornecedor.razao_social} aprovados com sucesso`);
+      
+      // Recarregar dados para refletir mudança na UI
+      await loadAllFornecedores();
       await loadAllFornecedores();
     } catch (error) {
       console.error("Erro ao aprovar documentos do fornecedor:", error);
