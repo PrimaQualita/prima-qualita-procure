@@ -57,7 +57,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   cotacao: { titulo_cotacao: string },
   itens: ItemCotacao[],
   respostas: RespostaFornecedor[],
-  dadosProtocolo: DadosProtocolo
+  dadosProtocolo: DadosProtocolo,
+  criterioEstimativa: 'menor' | 'media' | 'mediana' = 'menor'
 ): Promise<Blob> {
   const doc = new jsPDF({ 
     orientation: 'landscape',
@@ -182,11 +183,24 @@ export async function gerarPlanilhaConsolidadaPDF(
       }
     });
 
-    // Calcular estimativa (usando menor preço como padrão)
+    // Calcular estimativa baseado no critério escolhido
     if (valoresItem.length > 0) {
-      const menorPreco = Math.min(...valoresItem);
-      const valorTotalEstimativa = menorPreco * item.quantidade;
-      linha.estimativa = `${formatarMoeda(menorPreco)}\n(Total: ${formatarMoeda(valorTotalEstimativa)})`;
+      let valorEstimativa: number;
+      
+      if (criterioEstimativa === 'menor') {
+        valorEstimativa = Math.min(...valoresItem);
+      } else if (criterioEstimativa === 'media') {
+        valorEstimativa = valoresItem.reduce((a, b) => a + b, 0) / valoresItem.length;
+      } else { // mediana
+        const sorted = [...valoresItem].sort((a, b) => a - b);
+        const middle = Math.floor(sorted.length / 2);
+        valorEstimativa = sorted.length % 2 === 0 
+          ? (sorted[middle - 1] + sorted[middle]) / 2 
+          : sorted[middle];
+      }
+      
+      const valorTotalEstimativa = valorEstimativa * item.quantidade;
+      linha.estimativa = `${formatarMoeda(valorEstimativa)}\n(Total: ${formatarMoeda(valorTotalEstimativa)})`;
       totalGeralEstimativa += valorTotalEstimativa;
     } else {
       linha.estimativa = '-';
@@ -197,8 +211,8 @@ export async function gerarPlanilhaConsolidadaPDF(
 
   // Adicionar linha de TOTAL GERAL
   const linhaTotalGeral: any = {
-    item: '',
-    descricao: 'VALOR TOTAL',
+    item: 'VALOR TOTAL',
+    descricao: '',
     quantidade: '',
     unidade: ''
   };
@@ -239,12 +253,21 @@ export async function gerarPlanilhaConsolidadaPDF(
       valign: 'middle',
       minCellHeight: 8
     },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 12 },
-      1: { halign: 'left', cellWidth: 40 },
-      2: { halign: 'center', cellWidth: 12 },
-      3: { halign: 'center', cellWidth: 15 }
-    },
+    columnStyles: (() => {
+      const styles: any = {
+        0: { halign: 'center', cellWidth: 12 },
+        1: { halign: 'left', cellWidth: 40 },
+        2: { halign: 'center', cellWidth: 12 },
+        3: { halign: 'center', cellWidth: 15 }
+      };
+      
+      // Definir largura igual para todas as colunas de fornecedores e estimativa
+      for (let i = 4; i < colunas.length; i++) {
+        styles[i] = { halign: 'center', cellWidth: larguraPorColuna };
+      }
+      
+      return styles;
+    })(),
     margin: { left: margemEsquerda, right: margemDireita },
     tableWidth: 'auto',
     didParseCell: function(data) {
@@ -257,13 +280,14 @@ export async function gerarPlanilhaConsolidadaPDF(
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 9;
         
-        // Mesclar as 4 primeiras colunas (Item, Descrição, Qtd, Unid) na linha de total
+        // Mesclar as 4 primeiras colunas na linha de total
         if (data.column.index === 0) {
           data.cell.colSpan = 4;
           data.cell.styles.halign = 'left';
+          data.cell.styles.cellPadding = { left: 3 };
         } else if (data.column.index >= 1 && data.column.index <= 3) {
-          // Ocultar células mescladas
-          data.cell.text = [];
+          // Ocultar conteúdo das células mescladas (mas a célula ainda existe)
+          data.cell.text = [''];
         }
       }
     }
