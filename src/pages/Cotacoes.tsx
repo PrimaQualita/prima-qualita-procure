@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -512,17 +512,21 @@ const Cotacoes = () => {
   };
 
   const loadItens = async (cotacaoId: string) => {
-    const { data, error } = await supabase
-      .from("itens_cotacao")
-      .select("*")
-      .eq("cotacao_id", cotacaoId)
-      .order("numero_item", { ascending: true });
+    setLoadingItens(true);
+    try {
+      const { data, error } = await supabase
+        .from("itens_cotacao")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("numero_item", { ascending: true });
 
-    if (error) {
+      if (error) throw error;
+      setItens(data || []);
+    } catch (error) {
       toast.error("Erro ao carregar itens");
       console.error(error);
-    } else {
-      setItens(data || []);
+    } finally {
+      setLoadingItens(false);
     }
   };
 
@@ -629,32 +633,34 @@ const Cotacoes = () => {
   const handleDeleteSelectedItems = async () => {
     if (!cotacaoSelecionada || itensSelecionados.size === 0) return;
 
+    setLoadingItens(true);
     try {
       const idsArray = Array.from(itensSelecionados);
 
-      // Deletar respostas de fornecedores dos itens selecionados
-      const { error: respostasError } = await supabase
-        .from("respostas_itens_fornecedor")
-        .delete()
-        .in("item_cotacao_id", idsArray);
+      // Deletar respostas de fornecedores e itens em paralelo
+      const [respostasResult, itensResult] = await Promise.all([
+        supabase
+          .from("respostas_itens_fornecedor")
+          .delete()
+          .in("item_cotacao_id", idsArray),
+        supabase
+          .from("itens_cotacao")
+          .delete()
+          .in("id", idsArray)
+      ]);
 
-      if (respostasError) throw respostasError;
-
-      // Deletar itens selecionados
-      const { error } = await supabase
-        .from("itens_cotacao")
-        .delete()
-        .in("id", idsArray);
-
-      if (error) throw error;
+      if (respostasResult.error) throw respostasResult.error;
+      if (itensResult.error) throw itensResult.error;
 
       toast.success(`${itensSelecionados.size} ${itensSelecionados.size === 1 ? 'item excluído' : 'itens excluídos'} com sucesso`);
       setItensSelecionados(new Set());
       await renumerarItens();
-      loadItens(cotacaoSelecionada.id);
+      await loadItens(cotacaoSelecionada.id);
     } catch (error) {
       toast.error("Erro ao excluir itens selecionados");
       console.error(error);
+    } finally {
+      setLoadingItens(false);
     }
   };
 
@@ -1521,11 +1527,15 @@ const Cotacoes = () => {
                   {criterioJulgamento === 'por_lote' && lotes.length > 0 ? (
                   // Exibição por lote
                   <div className="space-y-6">
-                    {lotes.map((lote) => {
-                      const itensDoLote = itens.filter(item => item.lote_id === lote.id).sort((a, b) => a.numero_item - b.numero_item);
-                      const totalLote = itensDoLote.reduce((acc, item) => {
-                        return acc + (item.quantidade * item.valor_unitario_estimado);
-                      }, 0);
+                    {loadingItens ? (
+                      <div className="space-y-4">
+                        <Skeleton className="h-8 w-full" />
+                        <Skeleton className="h-64 w-full" />
+                      </div>
+                    ) : (
+                      lotes.map((lote) => {
+                        const itensDoLote = itens.filter(item => item.lote_id === lote.id).sort((a, b) => a.numero_item - b.numero_item);
+                        const totalLote = itensDoLote.reduce((acc, item) => acc + (item.quantidade * item.valor_unitario_estimado), 0);
 
                       return (
                         <div key={lote.id} className="border rounded-lg overflow-hidden">
@@ -1654,7 +1664,7 @@ const Cotacoes = () => {
                           </Table>
                         </div>
                       );
-                    })}
+                    }))}
                     <div className="bg-primary text-primary-foreground px-6 py-4 rounded-lg flex justify-between items-center">
                       <span className="text-lg font-semibold">TOTAL GERAL:</span>
                       <span className="text-2xl font-bold">
@@ -1692,8 +1702,24 @@ const Cotacoes = () => {
                         <TableHead className="w-32 text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
-                      {itens.length === 0 ? (
+                      <TableBody>
+                        {loadingItens ? (
+                          Array.from({ length: 5 }).map((_, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                              {processoSelecionado?.tipo === "material" && (
+                                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                              )}
+                              <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                            </TableRow>
+                          ))
+                        ) : itens.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={processoSelecionado?.tipo === "material" ? 9 : 8} className="text-center text-muted-foreground">
                             Nenhum item cadastrado
