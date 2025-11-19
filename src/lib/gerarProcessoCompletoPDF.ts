@@ -302,18 +302,28 @@ export const gerarProcessoCompletoPDF = async (
     // Esta seção é adicionada APÓS todos os documentos cronológicos e ANTES dos relatórios/autorizações
     console.log("\n🏆 === PREPARANDO DOCUMENTOS DOS FORNECEDORES VENCEDORES ===");
     
-    // Buscar apenas fornecedores vencedores únicos (DISTINCT)
-    const { data: fornecedoresVencedores, error: fornecedoresError } = await supabase
-      .from("documentos_processo_finalizado")
-      .select("fornecedor_id")
-      .eq("cotacao_id", cotacaoId);
+    // Buscar fornecedores vencedores da PLANILHA CONSOLIDADA mais recente
+    const { data: planilhaMaisRecente, error: planilhaError } = await supabase
+      .from("planilhas_consolidadas")
+      .select("fornecedores_incluidos")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_geracao", { ascending: false })
+      .limit(1)
+      .single();
     
-    if (fornecedoresError) {
-      console.error("Erro ao buscar fornecedores vencedores:", fornecedoresError);
+    if (planilhaError) {
+      console.error("Erro ao buscar planilha consolidada:", planilhaError);
     }
 
-    // Extrair IDs únicos de fornecedores
-    const fornecedoresUnicos = [...new Set(fornecedoresVencedores?.map(f => f.fornecedor_id) || [])].sort();
+    // Extrair IDs únicos de fornecedores vencedores da planilha
+    const fornecedoresData = planilhaMaisRecente?.fornecedores_incluidos || [];
+    const fornecedoresUnicos = Array.from(
+      new Set(
+        fornecedoresData
+          .filter((f: any) => f.itens?.some((item: any) => item.eh_vencedor))
+          .map((f: any) => f.fornecedor_id)
+      )
+    ).sort();
     console.log(`👥 Fornecedores vencedores únicos: ${fornecedoresUnicos.length}`);
 
     // Data base para documentos de fornecedores (após última data cronológica)
@@ -327,13 +337,12 @@ export const gerarProcessoCompletoPDF = async (
       // Data específica para este fornecedor
       const dataFornecedor = new Date(new Date(dataBaseFornecedores).getTime() + (index * 100)).toISOString();
       
-      // 1. Buscar documentos de cadastro (snapshot) deste fornecedor - APENAS A VERSÃO MAIS RECENTE
+      // 1. Buscar documentos de cadastro (snapshot) deste fornecedor - APENAS VERSÃO MAIS RECENTE (DISTINCT)
       const { data: docsSnapshot, error: snapshotError } = await supabase
         .from("documentos_processo_finalizado")
         .select("*")
         .eq("cotacao_id", cotacaoId)
         .eq("fornecedor_id", fornecedorId)
-        .order("tipo_documento", { ascending: true })
         .order("data_snapshot", { ascending: false });
 
       if (snapshotError) {
@@ -341,23 +350,55 @@ export const gerarProcessoCompletoPDF = async (
         continue;
       }
 
-      console.log(`  📄 Documentos de cadastro: ${docsSnapshot?.length || 0}`);
-      
-      // Adicionar documentos de cadastro
-      if (docsSnapshot && docsSnapshot.length > 0) {
-        for (const doc of docsSnapshot) {
-          documentosOrdenados.push({
-            tipo: "Documento Fornecedor",
-            data: dataFornecedor,
-            nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
-            url: doc.url_arquivo,
-            bucket: "processo-anexos",
-            fornecedor: fornecedorId
-          });
+      // Remover duplicatas mantendo apenas a versão mais recente de cada tipo
+      const docsUnicos = docsSnapshot?.reduce((acc, doc) => {
+        if (!acc.find((d: any) => d.tipo_documento === doc.tipo_documento)) {
+          acc.push(doc);
         }
+        return acc;
+      }, [] as any[]) || [];
+
+      console.log(`  📄 Documentos de cadastro: ${docsUnicos.length}`);
+      
+      // Ordenação customizada dos documentos
+      const ordemDocumentos = [
+        "Contrato Social",
+        "CNPJ",
+        "Inscrição Municipal ou Estadual",
+        "CND Federal",
+        "CND Tributos Estaduais",
+        "CND Dívida Ativa Estadual",
+        "CND Tributos Municipais",
+        "CND Dívida Ativa Municipal",
+        "CRF FGTS",
+        "CNDT",
+        "Certificado de Fornecedor"
+      ];
+
+      const docsOrdenados = docsUnicos.sort((a, b) => {
+        const indexA = ordemDocumentos.indexOf(a.tipo_documento);
+        const indexB = ordemDocumentos.indexOf(b.tipo_documento);
+        
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        
+        return indexA - indexB;
+      });
+      
+      // Adicionar documentos de cadastro na ordem correta
+      for (const doc of docsOrdenados) {
+        documentosOrdenados.push({
+          tipo: "Documento Fornecedor",
+          data: dataFornecedor,
+          nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
+          url: doc.url_arquivo,
+          bucket: "processo-anexos",
+          fornecedor: fornecedorId
+        });
       }
 
-      // 2. Buscar documentos faltantes/adicionais deste fornecedor
+      // 2. Buscar documentos faltantes/adicionais deste fornecedor (ordem de upload)
       const { data: docsFaltantes, error: faltantesError } = await supabase
         .from("documentos_finalizacao_fornecedor")
         .select(`
@@ -383,19 +424,17 @@ export const gerarProcessoCompletoPDF = async (
 
       console.log(`  📎 Documentos faltantes/adicionais: ${docsFaltantesFiltrados.length}`);
       
-      // Adicionar documentos faltantes
-      if (docsFaltantesFiltrados.length > 0) {
-        for (const doc of docsFaltantesFiltrados) {
-          const campo = doc.campos_documentos_finalizacao as any;
-          documentosOrdenados.push({
-            tipo: "Documento Adicional",
-            data: dataFornecedor,
-            nome: `${campo?.nome_campo || 'Documento'} - ${doc.nome_arquivo}`,
-            url: doc.url_arquivo,
-            bucket: "processo-anexos",
-            fornecedor: fornecedorId
-          });
-        }
+      // Adicionar documentos faltantes na ordem de upload
+      for (const doc of docsFaltantesFiltrados) {
+        const campo = doc.campos_documentos_finalizacao as any;
+        documentosOrdenados.push({
+          tipo: "Documento Adicional",
+          data: dataFornecedor,
+          nome: `${campo?.nome_campo || 'Documento'} - ${doc.nome_arquivo}`,
+          url: doc.url_arquivo,
+          bucket: "processo-anexos",
+          fornecedor: fornecedorId
+        });
       }
     }
 
