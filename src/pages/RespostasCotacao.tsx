@@ -722,7 +722,7 @@ export default function RespostasCotacao() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2 justify-center">
-                        {resposta.usuario_gerador_id ? (
+                        {resposta.anexos && resposta.anexos.length > 0 ? (
                           <>
                             <Button
                               variant="outline"
