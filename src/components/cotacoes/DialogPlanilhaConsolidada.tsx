@@ -274,6 +274,17 @@ export function DialogPlanilhaConsolidada({
 
   const gerarPlanilha = async () => {
     try {
+      setLoadingPlanilha(true);
+      
+      // Feedback visual inicial
+      toast({
+        title: "📄 Preparando planilha",
+        description: "Coletando dados da cotação...",
+      });
+      
+      // Dar tempo para UI atualizar
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Gerar protocolo numérico no formato XXXX-XXXX-XXXX-XXXX
       const timestamp = new Date().getTime();
       const protocoloNumerico = timestamp.toString().padStart(16, '0');
@@ -891,13 +902,28 @@ export function DialogPlanilhaConsolidada({
         </html>
       `;
 
+      // Feedback: Dados coletados
+      toast({
+        title: "🎨 Preparando layout",
+        description: `Processando ${todosItens.length} itens...`,
+      });
+      
+      // Dar tempo para UI atualizar
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Gerar PDF usando html2pdf.js com otimizações para grandes volumes
       console.log(`📄 Gerando planilha com ${todosItens.length} itens usando html2pdf.js`);
+      
+      // Feedback: Gerando PDF
+      toast({
+        title: "📑 Gerando PDF",
+        description: "Isso pode levar alguns segundos...",
+      });
       
       const element = document.createElement('div');
       element.innerHTML = html;
 
-      // Ajustar configurações baseado no volume de itens
+      // Ajustar configurações baseado no volume de itens - MELHOR QUALIDADE
       const isGrandeVolume = todosItens.length > 500;
       const isMuitoGrandeVolume = todosItens.length > 800;
       
@@ -906,10 +932,10 @@ export function DialogPlanilhaConsolidada({
         filename: `planilha_consolidada_${cotacaoId}.pdf`,
         image: { 
           type: 'jpeg', 
-          quality: isMuitoGrandeVolume ? 0.75 : (isGrandeVolume ? 0.85 : 0.95)
+          quality: isMuitoGrandeVolume ? 0.85 : (isGrandeVolume ? 0.90 : 0.95) // Aumentado qualidade
         },
         html2canvas: { 
-          scale: isMuitoGrandeVolume ? 1.2 : (isGrandeVolume ? 1.5 : 2),
+          scale: isMuitoGrandeVolume ? 1.3 : (isGrandeVolume ? 1.6 : 2), // Aumentado scale
           useCORS: true,
           letterRendering: true,
           logging: false,
@@ -917,7 +943,7 @@ export function DialogPlanilhaConsolidada({
           scrollX: 0,
           windowWidth: 1920,
           windowHeight: 1080,
-          async: true, // Processar de forma assíncrona para não travar
+          async: true,
           allowTaint: false,
           removeContainer: true
         },
@@ -939,6 +965,12 @@ export function DialogPlanilhaConsolidada({
 
       // @ts-ignore
       const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
+
+      // Feedback: PDF gerado
+      toast({
+        title: "💾 Salvando planilha",
+        description: "Armazenando arquivo...",
+      });
 
       // Salvar no storage
       const nomeArquivo = `planilha_consolidada_${cotacaoId}_${Date.now()}.pdf`;
@@ -1016,7 +1048,10 @@ export function DialogPlanilhaConsolidada({
 
       console.log("✅ Todas as aprovações anteriores invalidadas com sucesso");
 
-      toast.success("Planilha consolidada gerada com sucesso!");
+      toast({
+        title: "✅ Planilha gerada com sucesso!",
+        description: `${todosItens.length} itens processados. Protocolo: ${protocoloDocumento.substring(0, 19)}...`,
+      });
       
       // Chamar callback se fornecido
       if (onPlanilhaGerada) {
@@ -1027,7 +1062,13 @@ export function DialogPlanilhaConsolidada({
       onOpenChange(false);
     } catch (error) {
       console.error("Erro ao gerar planilha:", error);
-      toast.error("Erro ao gerar planilha consolidada");
+      toast({
+        title: "Erro ao gerar planilha",
+        description: "Por favor, tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingPlanilha(false);
     }
   };
 
