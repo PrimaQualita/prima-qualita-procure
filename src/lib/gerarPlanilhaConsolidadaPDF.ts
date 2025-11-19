@@ -59,7 +59,9 @@ export async function gerarPlanilhaConsolidadaPDF(
   const doc = new jsPDF({ 
     orientation: 'landscape',
     unit: 'mm',
-    format: 'a4'
+    format: 'a4',
+    compress: true,
+    precision: 16
   });
 
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -171,20 +173,26 @@ export async function gerarPlanilhaConsolidadaPDF(
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 9,
-      halign: 'center'
+      halign: 'center',
+      valign: 'middle',
+      lineWidth: 0.1,
+      lineColor: [200, 200, 200]
     },
     bodyStyles: {
       fontSize: 8,
-      textColor: [0, 0, 0]
+      textColor: [0, 0, 0],
+      lineWidth: 0.1,
+      lineColor: [200, 200, 200],
+      cellPadding: 2
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252] // muted background
     },
     columnStyles: {
-      0: { cellWidth: 15, halign: 'center' },
-      1: { cellWidth: 60 },
-      2: { cellWidth: 15, halign: 'center' },
-      3: { cellWidth: 15, halign: 'center' }
+      0: { cellWidth: 15, halign: 'center', valign: 'middle' },
+      1: { cellWidth: 60, valign: 'middle' },
+      2: { cellWidth: 15, halign: 'center', valign: 'middle' },
+      3: { cellWidth: 15, halign: 'center', valign: 'middle' }
     },
     margin: { left: margemEsquerda, right: margemDireita },
     didParseCell: function(data) {
