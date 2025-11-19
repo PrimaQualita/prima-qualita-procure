@@ -309,10 +309,16 @@ export const gerarProcessoCompletoPDF = async (
       .eq("cotacao_id", cotacaoId)
       .order("data_geracao", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
     
     if (planilhaError) {
-      console.error("Erro ao buscar planilha consolidada:", planilhaError);
+      console.error("❌ Erro ao buscar planilha consolidada:", planilhaError);
+      throw new Error("Erro ao buscar planilha consolidada");
+    }
+
+    if (!planilhaMaisRecente) {
+      console.error("❌ Nenhuma planilha consolidada encontrada para esta cotação");
+      throw new Error("É necessário gerar a planilha consolidada antes de finalizar o processo");
     }
 
     // Extrair IDs únicos de fornecedores vencedores da planilha
