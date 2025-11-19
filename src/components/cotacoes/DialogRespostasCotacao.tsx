@@ -287,7 +287,7 @@ export function DialogRespostasCotacao({
           enviado_compliance: true,
           data_envio_compliance: new Date().toISOString()
         })
-        .eq('id', cotacao.id);
+        .eq('id', cotacaoId);
 
       if (error) throw error;
 
