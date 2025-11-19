@@ -116,6 +116,8 @@ interface RespostaItem {
     valor_unitario_ofertado: number;
     marca_ofertada: string;
     valor_display?: string;
+    percentual_desconto?: number;
+    percentual_desconto_display?: string;
   };
 }
 
@@ -232,6 +234,8 @@ const RespostaCotacao = () => {
           valor_unitario_ofertado: 0,
           valor_display: "",
           marca_ofertada: "",
+          percentual_desconto: 0,
+          percentual_desconto_display: "",
         };
       });
       setRespostas(respostasIniciais);
@@ -792,11 +796,17 @@ const RespostaCotacao = () => {
                   <TableHead>Descrição</TableHead>
                   <TableHead className="text-center">Qtd</TableHead>
                   <TableHead className="text-center">Unid.</TableHead>
-                  {processoCompra?.tipo === "material" && (
+                  {processoCompra?.tipo === "material" && processoCompra?.criterio_julgamento !== "desconto" && (
                     <TableHead className="text-center">Marca *</TableHead>
                   )}
-                  <TableHead className="text-center">Valor Unitário (R$) *</TableHead>
-                  <TableHead className="text-right">Valor Total</TableHead>
+                  {processoCompra?.criterio_julgamento === "desconto" ? (
+                    <TableHead className="text-center">Percentual de Desconto Ofertado (%) *</TableHead>
+                  ) : (
+                    <>
+                      <TableHead className="text-center">Valor Unitário (R$) *</TableHead>
+                      <TableHead className="text-right">Valor Total</TableHead>
+                    </>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -806,71 +816,109 @@ const RespostaCotacao = () => {
                     <TableCell>{item.descricao}</TableCell>
                     <TableCell className="text-center">{item.quantidade}</TableCell>
                     <TableCell className="text-center">{item.unidade}</TableCell>
-                    {processoCompra?.tipo === "material" && (
+                    
+                    {processoCompra?.criterio_julgamento === "desconto" ? (
+                      // Modo Percentual de Desconto
                       <TableCell>
                         <Input
                           type="text"
-                          placeholder="Informe a marca"
-                          value={respostas[item.id]?.marca_ofertada || ""}
-                          onChange={(e) =>
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          value={
+                            respostas[item.id]?.percentual_desconto_display !== undefined
+                              ? respostas[item.id].percentual_desconto_display
+                              : respostas[item.id]?.percentual_desconto
+                              ? respostas[item.id].percentual_desconto
+                                  .toFixed(2)
+                                  .replace('.', ',')
+                              : ""
+                          }
+                          onChange={(e) => {
+                            const input = e.target.value;
+                            const valorLimpo = input.replace(/[^\d,]/g, '');
+                            
                             setRespostas({
                               ...respostas,
                               [item.id]: {
                                 ...respostas[item.id],
-                                marca_ofertada: e.target.value,
+                                percentual_desconto_display: valorLimpo,
+                                percentual_desconto: parseFloat(valorLimpo.replace(',', '.')) || 0,
                               },
-                            })
-                          }
+                            });
+                          }}
                         />
                       </TableCell>
+                    ) : (
+                      // Modo Valor Unitário
+                      <>
+                        {processoCompra?.tipo === "material" && (
+                          <TableCell>
+                            <Input
+                              type="text"
+                              placeholder="Informe a marca"
+                              value={respostas[item.id]?.marca_ofertada || ""}
+                              onChange={(e) =>
+                                setRespostas({
+                                  ...respostas,
+                                  [item.id]: {
+                                    ...respostas[item.id],
+                                    marca_ofertada: e.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={
+                              respostas[item.id]?.valor_display !== undefined
+                                ? respostas[item.id].valor_display
+                                : respostas[item.id]?.valor_unitario_ofertado
+                                ? respostas[item.id].valor_unitario_ofertado
+                                    .toFixed(2)
+                                    .replace('.', ',')
+                                : ""
+                            }
+                            onChange={(e) => {
+                              const input = e.target.value;
+                              const valorLimpo = input.replace(/[^\d,]/g, '');
+                              
+                              setRespostas({
+                                ...respostas,
+                                [item.id]: {
+                                  ...respostas[item.id],
+                                  valor_display: valorLimpo,
+                                  valor_unitario_ofertado: parseFloat(valorLimpo.replace(',', '.')) || 0,
+                                },
+                              });
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          R${" "}
+                          {(
+                            item.quantidade *
+                            (respostas[item.id]?.valor_unitario_ofertado || 0)
+                          ).toFixed(2)}
+                        </TableCell>
+                      </>
                     )}
-                    <TableCell>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="0,00"
-                        value={
-                          respostas[item.id]?.valor_display !== undefined
-                            ? respostas[item.id].valor_display
-                            : respostas[item.id]?.valor_unitario_ofertado
-                            ? respostas[item.id].valor_unitario_ofertado
-                                .toFixed(2)
-                                .replace('.', ',')
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const input = e.target.value;
-                          // Permite apenas números, vírgula e um ponto decimal
-                          const valorLimpo = input.replace(/[^\d,]/g, '');
-                          
-                          setRespostas({
-                            ...respostas,
-                            [item.id]: {
-                              ...respostas[item.id],
-                              valor_display: valorLimpo,
-                              valor_unitario_ofertado: parseFloat(valorLimpo.replace(',', '.')) || 0,
-                            },
-                          });
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      R${" "}
-                      {(
-                        item.quantidade *
-                        (respostas[item.id]?.valor_unitario_ofertado || 0)
-                      ).toFixed(2)}
-                    </TableCell>
                   </TableRow>
                 ))}
-                <TableRow className="font-bold bg-muted/50">
-                  <TableCell colSpan={processoCompra?.tipo === "material" ? 6 : 5} className="text-right">
-                    TOTAL GERAL:
-                  </TableCell>
-                  <TableCell className="text-right">
-                    R$ {calcularValorTotal().toFixed(2)}
-                  </TableCell>
-                </TableRow>
+                {processoCompra?.criterio_julgamento !== "desconto" && (
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell colSpan={processoCompra?.tipo === "material" ? 6 : 5} className="text-right">
+                      TOTAL GERAL:
+                    </TableCell>
+                    <TableCell className="text-right">
+                      R$ {calcularValorTotal().toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

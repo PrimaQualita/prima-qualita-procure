@@ -25,6 +25,7 @@ interface RespostaItem {
   item_id: string;
   valor_unitario: string;
   marca: string;
+  percentual_desconto?: string;
 }
 
 
@@ -81,6 +82,7 @@ const IncluirPrecosPublicos = () => {
           item_id: item.id,
           valor_unitario: "",
           marca: "",
+          percentual_desconto: "",
         };
       });
       setRespostas(respostasIniciais);
@@ -506,9 +508,15 @@ const IncluirPrecosPublicos = () => {
                       <TableHead className="w-24 text-center">Descrição</TableHead>
                       <TableHead className="w-20 text-center">Qtd</TableHead>
                       <TableHead className="w-20 text-center">Unid</TableHead>
-                      <TableHead className="w-48 text-center">Valor Unit. (R$) *</TableHead>
-                      <TableHead className="w-32 text-center">Marca</TableHead>
-                      <TableHead className="w-48 text-center">Vlr Total</TableHead>
+                      {processoCompra?.criterio_julgamento === "desconto" ? (
+                        <TableHead className="w-48 text-center">Percentual de Desconto (%) *</TableHead>
+                      ) : (
+                        <>
+                          <TableHead className="w-48 text-center">Valor Unit. (R$) *</TableHead>
+                          <TableHead className="w-32 text-center">Marca</TableHead>
+                          <TableHead className="w-48 text-center">Vlr Total</TableHead>
+                        </>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -525,57 +533,82 @@ const IncluirPrecosPublicos = () => {
                           <TableCell>{item.descricao}</TableCell>
                           <TableCell className="text-center">{item.quantidade}</TableCell>
                           <TableCell className="text-center">{item.unidade}</TableCell>
-                          <TableCell>
-                            <Input
-                              type="text"
-                              value={resposta?.valor_unitario || ""}
-                              onChange={(e) => {
-                                const valor = e.target.value.replace(/[^0-9,]/g, "");
-                                setRespostas({
-                                  ...respostas,
-                                  [item.id]: { ...resposta, valor_unitario: valor },
-                                });
-                              }}
-                              placeholder="0,00"
-                              className="text-right"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="text"
-                              value={resposta?.marca || ""}
-                              onChange={(e) => {
-                                setRespostas({
-                                  ...respostas,
-                                  [item.id]: { ...resposta, marca: e.target.value },
-                                });
-                              }}
-                              placeholder="Marca (opcional)"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            {!isNaN(valorTotal) && valorTotal > 0
-                              ? `R$ ${valorTotal.toLocaleString("pt-BR", {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}`
-                              : "R$ 0,00"}
-                          </TableCell>
+                          
+                          {processoCompra?.criterio_julgamento === "desconto" ? (
+                            // Modo Percentual de Desconto
+                            <TableCell>
+                              <Input
+                                type="text"
+                                value={resposta?.percentual_desconto || ""}
+                                onChange={(e) => {
+                                  const valor = e.target.value.replace(/[^0-9,]/g, "");
+                                  setRespostas({
+                                    ...respostas,
+                                    [item.id]: { ...resposta, percentual_desconto: valor },
+                                  });
+                                }}
+                                placeholder="0,00"
+                                className="text-right"
+                              />
+                            </TableCell>
+                          ) : (
+                            // Modo Valor Unitário
+                            <>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  value={resposta?.valor_unitario || ""}
+                                  onChange={(e) => {
+                                    const valor = e.target.value.replace(/[^0-9,]/g, "");
+                                    setRespostas({
+                                      ...respostas,
+                                      [item.id]: { ...resposta, valor_unitario: valor },
+                                    });
+                                  }}
+                                  placeholder="0,00"
+                                  className="text-right"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  value={resposta?.marca || ""}
+                                  onChange={(e) => {
+                                    setRespostas({
+                                      ...respostas,
+                                      [item.id]: { ...resposta, marca: e.target.value },
+                                    });
+                                  }}
+                                  placeholder="Marca (opcional)"
+                                />
+                              </TableCell>
+                              <TableCell className="text-right font-semibold">
+                                {!isNaN(valorTotal) && valorTotal > 0
+                                  ? `R$ ${valorTotal.toLocaleString("pt-BR", {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}`
+                                  : "R$ 0,00"}
+                              </TableCell>
+                            </>
+                          )}
                         </TableRow>
                       );
                     })}
-                    <TableRow className="bg-muted/50 font-bold">
-                      <TableCell colSpan={6} className="text-right">
-                        VALOR TOTAL:
-                      </TableCell>
-                      <TableCell className="text-right text-lg">
-                        R${" "}
-                        {calcularValorTotal().toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </TableCell>
-                    </TableRow>
+                    {processoCompra?.criterio_julgamento !== "desconto" && (
+                      <TableRow className="bg-muted/50 font-bold">
+                        <TableCell colSpan={6} className="text-right">
+                          VALOR TOTAL:
+                        </TableCell>
+                        <TableCell className="text-right text-lg">
+                          R${" "}
+                          {calcularValorTotal().toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
