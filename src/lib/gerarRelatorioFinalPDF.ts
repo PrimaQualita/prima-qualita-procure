@@ -178,8 +178,8 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
       const itensSplit = doc.splitTextToSize(numerosItens, 28);
       const alturaLinha = Math.max(8, Math.max(razaoSocialSplit.length, itensSplit.length) * 4 + 2);
       
-      // Verificar se precisa de nova página
-      if (yPos + alturaLinha > pageHeight - 30) {
+      // Verificar se precisa de nova página (margem reduzida para 23mm)
+      if (yPos + alturaLinha > pageHeight - 23) {
         doc.addPage();
         yPos = 20;
         adicionarLogoERodape();
@@ -235,11 +235,26 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   doc.setFont('helvetica', 'normal');
   const texto3 = 'A(s) empresa(s) encaminhou(aram) os documentos de habilitação que foram analisados, concluindo-se que ambas estavam habilitadas.';
   const linhas3 = doc.splitTextToSize(texto3, 170);
+  
+  // Verificar espaço antes de adicionar
+  if (yPos + (linhas3.length * 3.5 + 5) > pageHeight - 23) {
+    doc.addPage();
+    yPos = 20;
+    await adicionarLogoERodape();
+  }
+  
   doc.text(linhas3, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhas3.length * 3.5 + 5;
   
   // Observações sobre fornecedores rejeitados
   if (dados.fornecedoresRejeitados && dados.fornecedoresRejeitados.length > 0) {
+    // Verificar espaço para o título
+    if (yPos + 7 > pageHeight - 23) {
+      doc.addPage();
+      yPos = 20;
+      await adicionarLogoERodape();
+    }
+    
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(139, 0, 0); // Vermelho escuro
     doc.text('OBSERVAÇÕES - FORNECEDORES INABILITADOS/REJEITADOS:', 20, yPos);
@@ -251,6 +266,14 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     dados.fornecedoresRejeitados.forEach((fornRej) => {
       const textoRejeicao = `A Empresa ${fornRej.razaoSocial} foi Inabilitada/Rejeitada por conta: ${fornRej.motivoRejeicao}`;
       const linhasRejeicao = doc.splitTextToSize(textoRejeicao, 170);
+      
+      // Verificar espaço antes de adicionar cada rejeição
+      if (yPos + (linhasRejeicao.length * 3.5 + 4) > pageHeight - 23) {
+        doc.addPage();
+        yPos = 20;
+        adicionarLogoERodape();
+      }
+      
       doc.text(linhasRejeicao, 20, yPos, { align: 'justify', maxWidth: 170 });
       yPos += linhasRejeicao.length * 3.5 + 4;
     });
@@ -261,16 +284,39 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   // Parágrafo 4
   const texto4 = 'Tendo em vista que o valor cotado está abaixo do estipulado no Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, verifica-se possibilidade de contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES.';
   const linhas4 = doc.splitTextToSize(texto4, 170);
+  
+  // Verificar espaço antes de adicionar
+  if (yPos + (linhas4.length * 3.5 + 5) > pageHeight - 23) {
+    doc.addPage();
+    yPos = 20;
+    await adicionarLogoERodape();
+  }
+  
   doc.text(linhas4, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhas4.length * 3.5 + 5;
   
   // Parágrafo 5
   const texto5 = 'Sendo assim, encaminha-se ao Responsável Legal para autorização do procedimento.';
   const linhas5 = doc.splitTextToSize(texto5, 170);
-  doc.text(linhas5, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas5.length * 3.5 + 4; // Espaçamento de 1,15 (aproximadamente 4mm)
   
-  // Certificação Digital (sempre na primeira página)
+  // Verificar espaço antes de adicionar
+  if (yPos + (linhas5.length * 3.5 + 4) > pageHeight - 23) {
+    doc.addPage();
+    yPos = 20;
+    await adicionarLogoERodape();
+  }
+  
+  doc.text(linhas5, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhas5.length * 3.5 + 4;
+  
+  // Certificação Digital
+  // Verificar espaço para certificação (50mm de altura)
+  if (yPos + 50 > pageHeight - 23) {
+    doc.addPage();
+    yPos = 20;
+    await adicionarLogoERodape();
+  }
+  
   doc.setFillColor(245, 245, 245);
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.5);
