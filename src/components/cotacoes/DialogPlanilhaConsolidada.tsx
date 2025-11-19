@@ -401,18 +401,35 @@ export function DialogPlanilhaConsolidada({
       
       // Gerar PDF usando jsPDF + autoTable (alta resolução)
       // Montar mapeamento de critérios por item
+      console.log('📋 calculosPorItem ORIGINAL:', calculosPorItem);
+      console.log('📋 Todas as chaves:', Object.keys(calculosPorItem));
+      
       const criteriosPorItemNumero: Record<number, 'menor' | 'media' | 'mediana'> = {};
       
       // Converter o mapeamento string->critério para número->critério
       Object.entries(calculosPorItem).forEach(([chaveItem, criterio]) => {
-        // A chave pode estar no formato "item_N" ou apenas "N"
-        const numeroItem = parseInt(chaveItem.replace('item_', ''));
+        console.log(`   Processando: chave="${chaveItem}", critério="${criterio}"`);
+        
+        // A chave pode estar no formato "item_N" ou apenas "N" ou ainda "N" como string
+        let numeroItem: number;
+        
+        if (chaveItem.includes('item_')) {
+          numeroItem = parseInt(chaveItem.replace('item_', ''));
+        } else {
+          numeroItem = parseInt(chaveItem);
+        }
+        
+        console.log(`   → Número extraído: ${numeroItem}`);
+        
         if (!isNaN(numeroItem)) {
           criteriosPorItemNumero[numeroItem] = criterio;
+          console.log(`   ✅ Mapeado: Item ${numeroItem} = ${criterio}`);
+        } else {
+          console.warn(`   ⚠️ Não foi possível extrair número de: ${chaveItem}`);
         }
       });
       
-      console.log('📊 Critérios de cálculo por item:', criteriosPorItemNumero);
+      console.log('📊 Critérios finais por item (número):', criteriosPorItemNumero);
       
       const pdfBlob = await gerarPlanilhaConsolidadaPDF(
         processo,
