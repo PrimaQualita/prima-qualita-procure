@@ -76,18 +76,22 @@ export function DialogAnaliseCompliance({
         return;
       }
 
-      const cnpjsIncluidos = planilha.fornecedores_incluidos as string[];
-      console.log("CNPJs na planilha consolidada:", cnpjsIncluidos);
+      // A estrutura agora contém objetos com razao_social, cnpj, email, itens
+      const fornecedoresIncluidos = planilha.fornecedores_incluidos as Array<{
+        razao_social: string;
+        cnpj: string;
+        email: string;
+        fornecedor_id: string;
+        itens: any[];
+      }>;
 
-      // Buscar dados completos dos fornecedores usando os CNPJs
-      const { data: fornecedoresData, error: fornecedoresError } = await supabase
-        .from("fornecedores")
-        .select("razao_social, cnpj")
-        .in("cnpj", cnpjsIncluidos);
+      console.log("Fornecedores na planilha consolidada:", fornecedoresIncluidos);
 
-      if (fornecedoresError) throw fornecedoresError;
-
-      console.log("Fornecedores encontrados:", fornecedoresData);
+      if (!fornecedoresIncluidos || fornecedoresIncluidos.length === 0) {
+        console.log("Nenhum fornecedor encontrado na planilha consolidada");
+        setEmpresas([]);
+        return;
+      }
 
       // Buscar análise mais recente para saber quais empresas já foram analisadas
       const { data: analiseRecente, error: analiseError } = await supabase
@@ -102,8 +106,8 @@ export function DialogAnaliseCompliance({
 
       console.log("Análise recente encontrada:", analiseRecente);
 
-      // Mapear empresas da planilha consolidada
-      const empresasData = fornecedoresData?.map((fornecedor: any) => {
+      // Mapear empresas da planilha consolidada (agora já temos razão social e CNPJ diretamente)
+      const empresasData = fornecedoresIncluidos.map((fornecedor) => {
         const razaoSocial = fornecedor.razao_social || "";
         const cnpj = fornecedor.cnpj || "";
         
@@ -127,7 +131,7 @@ export function DialogAnaliseCompliance({
           cnpj: cnpj,
           aprovado: aprovado,
         };
-      }) || [];
+      });
       
       console.log(`Empresas carregadas da planilha consolidada:`, empresasData);
       setEmpresas(empresasData);
