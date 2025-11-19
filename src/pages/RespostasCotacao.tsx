@@ -80,6 +80,75 @@ export default function RespostasCotacao() {
   const [empresasAprovadas, setEmpresasAprovadas] = useState<string[]>([]);
   const [empresasReprovadas, setEmpresasReprovadas] = useState<string[]>([]);
 
+  // Definir funções auxiliares ANTES do useEffect
+  const loadAnaliseCompliance = async () => {
+    try {
+      const { data: analises } = await supabase
+        .from("analises_compliance")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("created_at", { ascending: false });
+      
+      if (analises && analises.length > 0) {
+        const maisRecente = analises[0];
+        setAnaliseCompliance(maisRecente);
+        
+        const empresas = maisRecente.empresas as any[];
+        const aprovadas = empresas
+          .filter((emp: any) => emp.aprovado === true)
+          .map((emp: any) => emp.razao_social);
+        const reprovadas = empresas
+          .filter((emp: any) => emp.aprovado === false)
+          .map((emp: any) => emp.razao_social);
+        
+        setEmpresasAprovadas(aprovadas);
+        setEmpresasReprovadas(reprovadas);
+        setAnalisesAnteriores(analises);
+      } else {
+        setAnaliseCompliance(null);
+        setEmpresasAprovadas([]);
+        setEmpresasReprovadas([]);
+        setAnalisesAnteriores([]);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar análise de compliance:", error);
+    }
+  };
+
+  const loadPlanilhaGerada = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("planilhas_consolidadas")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_geracao", { ascending: false });
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setPlanilhasAnteriores(data);
+      } else {
+        setPlanilhasAnteriores([]);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar planilhas:", error);
+    }
+  };
+
+  const loadEncaminhamento = async () => {
+    try {
+      const { data } = await supabase
+        .from("encaminhamentos_processo")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("created_at", { ascending: false});
+      
+      setEncaminhamentos(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar encaminhamentos:", error);
+    }
+  };
+
   useEffect(() => {
     if (cotacaoId) {
       loadRespostas();
@@ -131,8 +200,57 @@ export default function RespostasCotacao() {
       setProcessoNumero(cotacaoData.processos_compras.numero_processo_interno);
       setProcessoObjeto(cotacaoData.processos_compras.objeto_resumido);
 
-      // ... resto da lógica de loadRespostas do DialogRespostasCotacao
-      // (copiar toda a implementação)
+      // Buscar todas as respostas da cotação com fornecedores
+      const { data: respostasData, error: respostasError } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          *,
+          fornecedores(razao_social, cnpj, endereco_comercial),
+          anexos_cotacao_fornecedor(id, nome_arquivo, url_arquivo, tipo_anexo)
+        `)
+        .eq("cotacao_id", cotacaoId)
+        .order("data_envio_resposta", { ascending: false });
+
+      if (respostasError) throw respostasError;
+
+      const fornecedorIds = respostasData
+        .filter((r: any) => !r.fornecedores)
+        .map((r: any) => r.fornecedor_id);
+
+      let fornecedoresOrfaosData: any = {};
+
+      if (fornecedorIds.length > 0) {
+        const { data: fornecedoresOrfaos } = await supabase
+          .from("fornecedores")
+          .select("id, razao_social, cnpj, endereco_comercial")
+          .in("id", fornecedorIds);
+
+        fornecedoresOrfaosData = (fornecedoresOrfaos || []).reduce((acc: any, f: any) => {
+          acc[f.id] = f;
+          return acc;
+        }, {});
+      }
+
+      const respostasFormatadas = respostasData.map((r: any) => {
+        const fornecedorData = r.fornecedores || fornecedoresOrfaosData[r.fornecedor_id];
+        
+        return {
+          id: r.id,
+          valor_total_anual_ofertado: r.valor_total_anual_ofertado,
+          observacoes_fornecedor: r.observacoes_fornecedor,
+          data_envio_resposta: r.data_envio_resposta,
+          usuario_gerador_id: r.usuario_gerador_id,
+          comprovantes_urls: r.comprovantes_urls || [],
+          fornecedor: {
+            razao_social: fornecedorData?.razao_social || "N/A",
+            cnpj: fornecedorData?.cnpj || "N/A",
+            endereco_comercial: fornecedorData?.endereco_comercial || "",
+          },
+          anexos: r.anexos_cotacao_fornecedor || [],
+        };
+      });
+
+      setRespostas(respostasFormatadas);
 
     } catch (error) {
       console.error("Erro ao carregar respostas:", error);
@@ -142,8 +260,15 @@ export default function RespostasCotacao() {
     }
   };
 
-  // ... copiar todas as outras funções do DialogRespostasCotacao
-  // (gerarESalvarPDFProposta, loadPlanilhaGerada, etc.)
+  const formatarData = (data: string) => {
+    return new Date(data).toLocaleDateString("pt-BR");
+  };
+
+  const formatarCNPJ = (cnpj: string) => {
+    return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  };
+
+  const menorValor = respostas.length > 0 ? Math.min(...respostas.map(r => r.valor_total_anual_ofertado)) : 0;
 
   if (!cotacaoId) {
     return (
