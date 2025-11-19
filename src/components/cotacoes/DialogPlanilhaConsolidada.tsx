@@ -921,7 +921,7 @@ export function DialogPlanilhaConsolidada({
       const element = document.createElement('div');
       element.innerHTML = html;
 
-      // Ajustar configurações baseado no volume de itens - MELHOR QUALIDADE
+      // Ajustar configurações baseado no volume de itens - MÁXIMA QUALIDADE
       const isGrandeVolume = todosItens.length > 500;
       const isMuitoGrandeVolume = todosItens.length > 800;
       
@@ -930,10 +930,10 @@ export function DialogPlanilhaConsolidada({
         filename: `planilha_consolidada_${cotacaoId}.pdf`,
         image: { 
           type: 'jpeg', 
-          quality: isMuitoGrandeVolume ? 0.85 : (isGrandeVolume ? 0.90 : 0.95) // Aumentado qualidade
+          quality: 0.98 // Qualidade máxima para texto nítido
         },
         html2canvas: { 
-          scale: isMuitoGrandeVolume ? 1.3 : (isGrandeVolume ? 1.6 : 2), // Aumentado scale
+          scale: isMuitoGrandeVolume ? 2 : (isGrandeVolume ? 2.5 : 3), // Scale alto para melhor resolução
           useCORS: true,
           letterRendering: true,
           logging: false,
@@ -943,13 +943,14 @@ export function DialogPlanilhaConsolidada({
           windowHeight: 1080,
           async: true,
           allowTaint: false,
-          removeContainer: true
+          removeContainer: true,
+          dpi: 300 // DPI alto para textos nítidos
         },
         jsPDF: { 
           unit: 'mm', 
           format: 'a4', 
           orientation: 'landscape',
-          compress: true,
+          compress: false, // Desabilita compressão para manter qualidade
           putOnlyUsedFonts: true
         },
         pagebreak: { 
