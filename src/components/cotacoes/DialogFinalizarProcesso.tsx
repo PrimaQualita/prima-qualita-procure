@@ -2154,34 +2154,22 @@ export function DialogFinalizarProcesso({
                                           className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
                                           onClick={async () => {
                                             try {
-                                              // Buscar a próxima ordem disponível
-                                              const { data: camposExistentes } = await supabase
-                                                .from('campos_documentos_finalizacao')
-                                                .select('ordem')
-                                                .eq('cotacao_id', cotacaoId)
-                                                .order('ordem', { ascending: false })
-                                                .limit(1);
+                                              const motivo = prompt(`Informe o motivo da solicitação de atualização do documento "${doc.tipo_documento}":`);
+                                              if (!motivo) return;
 
-                                              const proximaOrdem = camposExistentes && camposExistentes.length > 0 
-                                                ? camposExistentes[0].ordem + 1 
-                                                : 1;
-
+                                              // Marcar documento de cadastro como "atualização solicitada"
                                               const { error } = await supabase
-                                                .from('campos_documentos_finalizacao')
-                                                .insert({
-                                                  cotacao_id: cotacaoId,
-                                                  fornecedor_id: fornData.fornecedor.id,
-                                                  nome_campo: doc.tipo_documento,
-                                                  descricao: `Documento vencido em ${format(new Date(doc.data_validade!), "dd/MM/yyyy", { locale: ptBR })}. Por favor, envie versão atualizada.`,
-                                                  obrigatorio: true,
-                                                  ordem: proximaOrdem,
-                                                  status_solicitacao: 'enviado',
-                                                  data_solicitacao: new Date().toISOString(),
-                                                });
+                                                .from('documentos_fornecedor')
+                                                .update({
+                                                  atualizacao_solicitada: true,
+                                                  data_solicitacao_atualizacao: new Date().toISOString(),
+                                                  motivo_solicitacao_atualizacao: motivo.trim()
+                                                })
+                                                .eq('id', doc.id);
 
                                               if (error) throw error;
 
-                                              toast.success("Solicitação de atualização enviada com sucesso!");
+                                              toast.success("Solicitação de atualização enviada para o fornecedor");
                                               await loadAllFornecedores();
                                             } catch (error) {
                                               console.error('Erro ao solicitar atualização:', error);

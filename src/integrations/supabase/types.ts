@@ -636,37 +636,46 @@ export type Database = {
       }
       documentos_fornecedor: {
         Row: {
+          atualizacao_solicitada: boolean | null
           created_at: string | null
           data_emissao: string | null
+          data_solicitacao_atualizacao: string | null
           data_upload: string | null
           data_validade: string | null
           em_vigor: boolean | null
           fornecedor_id: string
           id: string
+          motivo_solicitacao_atualizacao: string | null
           nome_arquivo: string
           tipo_documento: string
           url_arquivo: string
         }
         Insert: {
+          atualizacao_solicitada?: boolean | null
           created_at?: string | null
           data_emissao?: string | null
+          data_solicitacao_atualizacao?: string | null
           data_upload?: string | null
           data_validade?: string | null
           em_vigor?: boolean | null
           fornecedor_id: string
           id?: string
+          motivo_solicitacao_atualizacao?: string | null
           nome_arquivo: string
           tipo_documento: string
           url_arquivo: string
         }
         Update: {
+          atualizacao_solicitada?: boolean | null
           created_at?: string | null
           data_emissao?: string | null
+          data_solicitacao_atualizacao?: string | null
           data_upload?: string | null
           data_validade?: string | null
           em_vigor?: boolean | null
           fornecedor_id?: string
           id?: string
+          motivo_solicitacao_atualizacao?: string | null
           nome_arquivo?: string
           tipo_documento?: string
           url_arquivo?: string
