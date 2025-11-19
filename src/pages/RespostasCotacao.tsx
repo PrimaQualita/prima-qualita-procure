@@ -772,7 +772,13 @@ export default function RespostasCotacao() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeletarResposta(resposta.id)}
+                              onClick={async () => {
+                                if (confirm("Tem certeza que deseja excluir esta proposta? Esta ação não pode ser desfeita.")) {
+                                  await handleDeletarResposta(resposta.id);
+                                  // Recarregar dados após exclusão para mostrar botão "Gerar Proposta"
+                                  carregarDados();
+                                }
+                              }}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
