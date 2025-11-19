@@ -22,6 +22,7 @@ import PerguntasDueDiligence from "./pages/PerguntasDueDiligence";
 import LimpezaUsuarioOrfao from "./pages/LimpezaUsuarioOrfao";
 import PortalFornecedor from "./pages/PortalFornecedor";
 import RespostaCotacao from "./pages/RespostaCotacao";
+import RespostasCotacao from "./pages/RespostasCotacao";
 import IncluirPrecosPublicos from "./pages/IncluirPrecosPublicos";
 import VerificarProposta from "./pages/VerificarProposta";
 import VerificarAutorizacao from "./pages/VerificarAutorizacao";
@@ -53,6 +54,7 @@ const App = () => (
           <Route path="/limpeza-usuario-orfao" element={<LimpezaUsuarioOrfao />} />
           <Route path="/portal-fornecedor" element={<PortalFornecedor />} />
           <Route path="/resposta-cotacao" element={<RespostaCotacao />} />
+          <Route path="/respostas-cotacao" element={<RespostasCotacao />} />
           <Route path="/incluir-precos-publicos" element={<IncluirPrecosPublicos />} />
           <Route path="/verificar-proposta" element={<VerificarProposta />} />
           <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
