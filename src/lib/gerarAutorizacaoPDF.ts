@@ -183,12 +183,12 @@ export const gerarAutorizacaoCompraDireta = async (
         doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 76 });
       });
       
-      // CNPJ
+      // CNPJ (centralizado)
       const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
       const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 48);
       const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
       cnpjSplit.forEach((linha: string, index: number) => {
-        doc.text(linha, 102, yPos + offsetVerticalCNPJ + (index * 4), { align: 'left', maxWidth: 46 });
+        doc.text(linha, 125, yPos + offsetVerticalCNPJ + (index * 4), { align: 'center', maxWidth: 48 });
       });
       
       // Valor total do fornecedor
