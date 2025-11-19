@@ -376,8 +376,30 @@ export default function RespostasCotacao() {
   const handleVisualizarProposta = async (respostaId: string) => {
     try {
       setGerandoPDF(respostaId);
-      const pdfBlob = await gerarPropostaFornecedorPDF(respostaId);
-      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Buscar dados da resposta
+      const resposta = respostas.find(r => r.id === respostaId);
+      if (!resposta) {
+        toast.error("Resposta não encontrada");
+        return;
+      }
+
+      const resultado = await gerarPropostaFornecedorPDF(
+        respostaId,
+        resposta.fornecedor,
+        resposta.valor_total_anual_ofertado,
+        resposta.observacoes_fornecedor,
+        cotacao.titulo_cotacao
+      );
+
+      // Buscar o arquivo do storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('processo-anexos')
+        .download(resultado.url);
+
+      if (downloadError) throw downloadError;
+
+      const pdfUrl = URL.createObjectURL(fileData);
       window.open(pdfUrl, '_blank');
     } catch (error) {
       console.error("Erro ao visualizar proposta:", error);
@@ -390,11 +412,33 @@ export default function RespostasCotacao() {
   const handleBaixarProposta = async (respostaId: string) => {
     try {
       setGerandoPDF(respostaId);
-      const pdfBlob = await gerarPropostaFornecedorPDF(respostaId);
-      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Buscar dados da resposta
+      const resposta = respostas.find(r => r.id === respostaId);
+      if (!resposta) {
+        toast.error("Resposta não encontrada");
+        return;
+      }
+
+      const resultado = await gerarPropostaFornecedorPDF(
+        respostaId,
+        resposta.fornecedor,
+        resposta.valor_total_anual_ofertado,
+        resposta.observacoes_fornecedor,
+        cotacao.titulo_cotacao
+      );
+
+      // Buscar o arquivo do storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('processo-anexos')
+        .download(resultado.url);
+
+      if (downloadError) throw downloadError;
+
+      const pdfUrl = URL.createObjectURL(fileData);
       const link = document.createElement('a');
       link.href = pdfUrl;
-      link.download = `proposta_${respostaId}.pdf`;
+      link.download = resultado.nome;
       link.click();
       toast.success("Proposta baixada com sucesso!");
     } catch (error) {
