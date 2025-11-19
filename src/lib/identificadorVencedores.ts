@@ -200,9 +200,34 @@ export async function carregarItensVencedoresPorFornecedor(
     return [];
   }
 
+  console.log(`  ✅ Resposta encontrada - ID: ${resposta.id}`);
+  console.log(`  📦 Total de itens disponíveis para filtrar: ${todosItens.length}`);
+  
+  // DEBUG: Ver estrutura dos itens disponíveis
+  if (todosItens.length > 0) {
+    console.log(`  📋 Exemplo de item disponível:`, {
+      id: todosItens[0].id,
+      cotacao_resposta_fornecedor_id: todosItens[0].cotacao_resposta_fornecedor_id,
+      numero_item: todosItens[0].itens_cotacao?.numero_item
+    });
+  }
+
   const itensVencidos = todosItens.filter(item => {
     const pertenceAoFornecedor = item.cotacao_resposta_fornecedor_id === resposta.id;
     const ehVencedor = numerosItensVencidos.includes(item.itens_cotacao.numero_item);
+    
+    // DEBUG dos primeiros 3 itens
+    if (todosItens.indexOf(item) < 3) {
+      console.log(`    🔍 Item ${item.itens_cotacao?.numero_item}:`, {
+        pertenceAoFornecedor,
+        ehVencedor,
+        resposta_id_item: item.cotacao_resposta_fornecedor_id,
+        resposta_id_esperado: resposta.id,
+        numero_item: item.itens_cotacao.numero_item,
+        esta_na_lista: numerosItensVencidos.includes(item.itens_cotacao.numero_item)
+      });
+    }
+    
     return pertenceAoFornecedor && ehVencedor;
   });
 
