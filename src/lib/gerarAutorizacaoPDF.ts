@@ -133,24 +133,18 @@ export const gerarAutorizacaoCompraDireta = async (
     console.log('[PDF] Gerando tabela com', fornecedoresVencedores.length, 'fornecedores');
     doc.setFontSize(8);
     
-    // Cabeçalho da tabela
+    // Cabeçalho da tabela (apenas Empresa, CNPJ e Valor Total)
     doc.setFillColor(0, 51, 102);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 40, 8, 'FD');
-    doc.rect(60, yPos, 35, 8, 'FD');
-    doc.rect(95, yPos, 15, 8, 'FD');
-    doc.rect(110, yPos, 30, 8, 'FD');
-    doc.rect(140, yPos, 25, 8, 'FD');
-    doc.rect(165, yPos, 25, 8, 'FD');
+    doc.rect(20, yPos, 80, 8, 'FD');
+    doc.rect(100, yPos, 50, 8, 'FD');
+    doc.rect(150, yPos, 40, 8, 'FD');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('Empresa', 40, yPos + 5, { align: 'center' });
-    doc.text('CNPJ', 77.5, yPos + 5, { align: 'center' });
-    doc.text('Item', 102.5, yPos + 5, { align: 'center' });
-    doc.text('Marca', 125, yPos + 5, { align: 'center' });
-    doc.text('Valor Unit.', 152.5, yPos + 5, { align: 'center' });
-    doc.text('Valor Total', 177.5, yPos + 5, { align: 'center' });
+    doc.text('Empresa', 60, yPos + 5, { align: 'center' });
+    doc.text('CNPJ', 125, yPos + 5, { align: 'center' });
+    doc.text('Valor Total', 170, yPos + 5, { align: 'center' });
     yPos += 8;
     
     // Conteúdo da tabela
@@ -169,61 +163,38 @@ export const gerarAutorizacaoCompraDireta = async (
     };
     
     for (const fornecedor of fornecedoresVencedores) {
-      // Para cada item vencedor do fornecedor, criar uma linha
-      for (let itemIndex = 0; itemIndex < fornecedor.itensVencedores.length; itemIndex++) {
-        const item = fornecedor.itensVencedores[itemIndex];
-        const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 35);
-        const marcaSplit = doc.splitTextToSize(item.marca || '-', 28);
-        const alturaLinha = Math.max(8, Math.max(razaoSocialSplit.length, marcaSplit.length) * 4 + 2);
-        
-        // Verificar se precisa de nova página
-        if (yPos + alturaLinha > pageHeight - 30) {
-          doc.addPage();
-          yPos = 20;
-          await adicionarLogoERodape(doc.getNumberOfPages());
-        }
-        
-        doc.rect(20, yPos, 40, alturaLinha);
-        doc.rect(60, yPos, 35, alturaLinha);
-        doc.rect(95, yPos, 15, alturaLinha);
-        doc.rect(110, yPos, 30, alturaLinha);
-        doc.rect(140, yPos, 25, alturaLinha);
-        doc.rect(165, yPos, 25, alturaLinha);
-        
-        // Mostrar empresa apenas na primeira linha de cada fornecedor
-        if (itemIndex === 0) {
-          const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
-          razaoSocialSplit.forEach((linha: string, index: number) => {
-            doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 36 });
-          });
-          
-          const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
-          const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 33);
-          const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
-          cnpjSplit.forEach((linha: string, index: number) => {
-            doc.text(linha, 62, yPos + offsetVerticalCNPJ + (index * 4), { align: 'left', maxWidth: 31 });
-          });
-        }
-        
-        // Item número
-        doc.text(item.numero.toString(), 102.5, yPos + (alturaLinha / 2) + 1, { align: 'center' });
-        
-        // Marca (centralizada)
-        const offsetVerticalMarca = (alturaLinha - (marcaSplit.length * 4)) / 2 + 3;
-        marcaSplit.forEach((linha: string, index: number) => {
-          doc.text(linha, 125, yPos + offsetVerticalMarca + (index * 4), { align: 'center', maxWidth: 28 });
-        });
-        
-        // Valor unitário
-        const valorUnitario = item.valorUnitario || 0;
-        doc.text(`R$ ${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 163, yPos + (alturaLinha / 2) + 1, { align: 'right' });
-        
-        // Valor total do item
-        doc.text(`R$ ${item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + (alturaLinha / 2) + 1, { align: 'right' });
-        
-        yPos += alturaLinha;
+      const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 75);
+      const alturaLinha = Math.max(8, razaoSocialSplit.length * 4 + 2);
+      
+      // Verificar se precisa de nova página
+      if (yPos + alturaLinha > pageHeight - 30) {
+        doc.addPage();
+        yPos = 20;
+        await adicionarLogoERodape(doc.getNumberOfPages());
       }
       
+      doc.rect(20, yPos, 80, alturaLinha);
+      doc.rect(100, yPos, 50, alturaLinha);
+      doc.rect(150, yPos, 40, alturaLinha);
+      
+      // Razão social
+      const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
+      razaoSocialSplit.forEach((linha: string, index: number) => {
+        doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 76 });
+      });
+      
+      // CNPJ
+      const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
+      const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 48);
+      const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
+      cnpjSplit.forEach((linha: string, index: number) => {
+        doc.text(linha, 102, yPos + offsetVerticalCNPJ + (index * 4), { align: 'left', maxWidth: 46 });
+      });
+      
+      // Valor total do fornecedor
+      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+      
+      yPos += alturaLinha;
       totalGeral += fornecedor.valorTotal;
     }
     
@@ -231,12 +202,12 @@ export const gerarAutorizacaoCompraDireta = async (
     doc.setFillColor(240, 240, 240);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 145, 8, 'FD');
-    doc.rect(165, yPos, 25, 8, 'FD');
+    doc.rect(20, yPos, 130, 8, 'FD');
+    doc.rect(150, yPos, 40, 8, 'FD');
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text('TOTAL GERAL', 22, yPos + 5);
-    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + 5, { align: 'right' });
+    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + 5, { align: 'right' });
     yPos += 16;
     
     console.log('[PDF] Tabela gerada com sucesso. Total geral:', totalGeral);
