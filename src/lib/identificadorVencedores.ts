@@ -207,6 +207,12 @@ export async function carregarItensVencedoresPorFornecedor(
   });
 
   console.log(`  ✅ Total de itens vencidos carregados: ${itensVencidos.length}`);
+  if (itensVencidos.length > 0) {
+    console.log(`  📋 Estrutura do primeiro item vencido:`, itensVencidos[0]);
+    console.log(`  📊 Números dos itens vencidos (primeiros 10):`, 
+      itensVencidos.slice(0, 10).map(i => i.itens_cotacao?.numero_item)
+    );
+  }
 
   return itensVencidos;
 }
