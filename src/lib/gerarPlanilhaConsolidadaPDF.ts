@@ -70,9 +70,6 @@ export async function gerarPlanilhaConsolidadaPDF(
   
   let y = 20;
 
-  // Cabeçalho com cores do sistema - REMOVER para economia de espaço em PDFs grandes
-  y = 20;
-
   // Informações da Cotação
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(14);
@@ -164,43 +161,46 @@ export async function gerarPlanilhaConsolidadaPDF(
 
   linhas.push(linhaTotais);
 
-  // Gerar tabela com proteção contra overflow de muitos itens
+  // Gerar tabela com suporte para grande volume de dados
   autoTable(doc, {
     startY: y,
     head: [colunas.map(c => c.header)],
     body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
     theme: 'grid',
     headStyles: {
-      fillColor: [37, 99, 235], // primary color
+      fillColor: [37, 99, 235],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 9,
-      halign: 'center'
+      fontSize: 8,
+      halign: 'center',
+      cellPadding: 2
     },
     bodyStyles: {
-      fontSize: 8,
+      fontSize: 7,
       textColor: [0, 0, 0],
-      minCellHeight: 6
+      minCellHeight: 5,
+      cellPadding: 1.5
     },
     alternateRowStyles: {
-      fillColor: [248, 250, 252] // muted background
+      fillColor: [248, 250, 252]
     },
     columnStyles: {
-      0: { cellWidth: 15, halign: 'center' },
-      1: { cellWidth: 60 },
-      2: { cellWidth: 15, halign: 'center' },
-      3: { cellWidth: 15, halign: 'center' }
+      0: { cellWidth: 12, halign: 'center' },
+      1: { cellWidth: 55 },
+      2: { cellWidth: 12, halign: 'center' },
+      3: { cellWidth: 12, halign: 'center' }
     },
     margin: { left: margemEsquerda, right: margemDireita, top: 20, bottom: 30 },
     showHead: 'everyPage',
     pageBreak: 'auto',
     rowPageBreak: 'avoid',
+    tableWidth: 'auto',
     didParseCell: function(data) {
       // Destacar linha de totais
       if (data.row.index === linhas.length - 1) {
-        data.cell.styles.fillColor = [226, 232, 240]; // secondary color
+        data.cell.styles.fillColor = [226, 232, 240];
         data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 9;
+        data.cell.styles.fontSize = 8;
       }
     },
     didDrawPage: function(data) {
@@ -257,7 +257,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   const hash = await gerarHashDocumento(conteudoParaHash);
   const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${dadosProtocolo.protocolo}`;
 
-  // Certificação simplificada
+  // Certificação digital
   doc.setFillColor(245, 245, 245);
   doc.rect(margemEsquerda, y2, larguraUtil, 35, 'F');
   doc.setDrawColor(0, 0, 0);
@@ -286,6 +286,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(8);
   doc.text(`Verifique em: ${linkVerificacao}`, margemEsquerda + 3, y2);
+
+  console.log(`✅ PDF gerado com sucesso - Total de páginas: ${(doc as any).internal.getNumberOfPages()}`);
 
   return doc.output('blob');
 }
