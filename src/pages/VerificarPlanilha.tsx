@@ -175,8 +175,10 @@ export default function VerificarPlanilha() {
                   <div className="pt-4 border-t border-green-200">
                     <p className="text-sm font-semibold text-gray-600 mb-2">Fornecedores Incluídos nesta Planilha</p>
                     <ul className="list-disc list-inside space-y-1">
-                      {resultado.dados.fornecedores_incluidos.map((cnpj: string, index: number) => (
-                        <li key={index} className="text-sm text-gray-700">{cnpj}</li>
+                      {resultado.dados.fornecedores_incluidos.map((fornecedor: any, index: number) => (
+                        <li key={index} className="text-sm text-gray-700">
+                          {typeof fornecedor === 'string' ? fornecedor : fornecedor.razao_social || fornecedor.cnpj}
+                        </li>
                       ))}
                     </ul>
                   </div>
