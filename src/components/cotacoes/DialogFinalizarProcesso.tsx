@@ -1536,30 +1536,44 @@ export function DialogFinalizarProcesso({
           motivoRejeicao: r.motivo_rejeicao || "Não especificado"
         }));
 
-      const { data: itensRespostas } = await supabase
-        .from("respostas_itens_fornecedor")
-        .select(`
-          id,
-          cotacao_resposta_fornecedor_id,
-          valor_unitario_ofertado,
-          marca,
-          itens_cotacao!inner(numero_item, quantidade, descricao)
-        `)
-        .in("cotacao_resposta_fornecedor_id", todasRespostas?.map(r => r.id) || []);
-
-      console.log(`📊 [Relatório Final] Processando ${fornecedoresData.length} fornecedores`);
-      console.log(`📊 [Relatório Final] Total de itens respostas disponíveis: ${itensRespostas?.length || 0}`);
+      // CRÍTICO: Buscar TODOS os itens em chunks para evitar limite de 1000
+      console.log(`📤 [Relatório Final] Buscando itens para ${todasRespostas?.length || 0} respostas`);
       
-      // DEBUG: Verificar estrutura completa de fornecedoresData
-      fornecedoresData.forEach((f, idx) => {
-        console.log(`📋 Fornecedor ${idx + 1}: ${f.fornecedor.razao_social}`);
-        console.log(`   → Rejeitado: ${f.rejeitado}`);
-        console.log(`   → Itens vencedores no fData: ${f.itensVencedores.length}`);
-        console.log(`   → Resposta ID: ${f.respostaId}`);
-        if (f.itensVencedores.length > 0) {
-          console.log(`   → Estrutura primeiro item:`, f.itensVencedores[0]);
+      const todosItensRespostas = [];
+      for (const resposta of todasRespostas || []) {
+        let offset = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const { data: itensFornecedor, error: itensError } = await supabase
+            .from("respostas_itens_fornecedor")
+            .select(`
+              id,
+              cotacao_resposta_fornecedor_id,
+              valor_unitario_ofertado,
+              marca,
+              itens_cotacao!inner(numero_item, quantidade, descricao)
+            `)
+            .eq("cotacao_resposta_fornecedor_id", resposta.id)
+            .range(offset, offset + 999);
+
+          if (itensError) {
+            console.error(`❌ Erro ao buscar itens:`, itensError);
+            throw itensError;
+          }
+
+          if (itensFornecedor && itensFornecedor.length > 0) {
+            todosItensRespostas.push(...itensFornecedor);
+          }
+
+          hasMore = itensFornecedor && itensFornecedor.length === 1000;
+          offset += 1000;
         }
-      });
+      }
+      
+      const itensRespostas = todosItensRespostas;
+      console.log(`📊 [Relatório Final] TOTAL de itens respostas carregados: ${itensRespostas.length}`);
+      console.log(`📊 [Relatório Final] Processando ${fornecedoresData.length} fornecedores`);
 
       // CRÍTICO: Usar fornecedoresData que já vem com itens vencedores identificados corretamente
       const fornecedoresVencedores = fornecedoresData
@@ -1568,36 +1582,20 @@ export function DialogFinalizarProcesso({
           const resposta = todasRespostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
           const itensVencedores = fData.itensVencedores;
           
-          console.log(`\n🔍 [Relatório Final] Processando fornecedor: ${fData.fornecedor.razao_social}`);
-          console.log(`   → Total de itens vencedores em fData: ${itensVencedores.length}`);
-          console.log(`   → Resposta ID (fData): ${fData.respostaId}`);
-          console.log(`   → Resposta ID (encontrada): ${resposta?.id}`);
-          console.log(`   → Match de resposta: ${fData.respostaId === resposta?.id}`);
-          
-          if (itensVencedores.length > 0) {
-            console.log(`   → Números dos itens: ${itensVencedores.map(i => i.itens_cotacao?.numero_item).join(', ')}`);
-          }
-          
           let valorTotal = 0;
           const itensVencedoresDetalhados: Array<{ numero: number; descricao: string; valor: number; marca?: string; valorUnitario?: number }> = [];
           
-          itensVencedores.forEach((item, itemIdx) => {
-            console.log(`\n     🔍 Buscando item ${itemIdx + 1}/${itensVencedores.length}: #${item.itens_cotacao?.numero_item}`);
-            
+          itensVencedores.forEach((item) => {
             // Buscar com o respostaId de fData diretamente
             const itemResposta = itensRespostas?.find(
               ir => ir.cotacao_resposta_fornecedor_id === fData.respostaId && 
                     ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item
             );
             
-            console.log(`       → Item encontrado em itensRespostas: ${!!itemResposta}`);
-            
             if (itemResposta) {
               const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
               const quantidade = Number(itemResposta.itens_cotacao.quantidade);
               const valorItem = valorUnitario * quantidade;
-              
-              console.log(`       ✅ Valores: unitário=${valorUnitario}, qtd=${quantidade}, total=${valorItem}`);
               
               valorTotal += valorItem;
               itensVencedoresDetalhados.push({
@@ -1607,20 +1605,8 @@ export function DialogFinalizarProcesso({
                 marca: itemResposta.marca || '-',
                 valorUnitario: valorUnitario
               });
-            } else {
-              console.log(`       ❌ Item NÃO encontrado - Procurando por resposta_id: ${fData.respostaId}, numero_item: ${item.itens_cotacao.numero_item}`);
-              
-              // DEBUG: Listar todos os itens desta resposta
-              const itensDaResposta = itensRespostas?.filter(ir => ir.cotacao_resposta_fornecedor_id === fData.respostaId);
-              console.log(`       → Total de itens desta resposta no banco: ${itensDaResposta?.length || 0}`);
-              if (itensDaResposta && itensDaResposta.length > 0) {
-                console.log(`       → Números disponíveis:`, itensDaResposta.map(i => i.itens_cotacao.numero_item));
-              }
             }
           });
-
-          console.log(`\n   ✅ Itens detalhados montados: ${itensVencedoresDetalhados.length}`);
-          console.log(`   💰 Valor total calculado: R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
 
           return {
             razaoSocial: fData.fornecedor.razao_social,
@@ -1630,10 +1616,7 @@ export function DialogFinalizarProcesso({
           };
         });
 
-      console.log(`📊 [Relatório Final] Total de fornecedores no relatório: ${fornecedoresVencedores.length}`);
-      fornecedoresVencedores.forEach((f, i) => {
-        console.log(`   ${i+1}. ${f.razaoSocial}: ${f.itensVencedores.length} itens vencedores - Total: R$ ${f.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})})`);
-      });
+      console.log(`✅ [Relatório Final] ${fornecedoresVencedores.length} fornecedores processados com valores calculados`);
 
       const resultado = await gerarRelatorioFinal({
         numeroProcesso: processo.numero_processo_interno,
