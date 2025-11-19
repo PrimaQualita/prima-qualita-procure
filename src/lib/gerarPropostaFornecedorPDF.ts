@@ -67,7 +67,7 @@ export async function gerarPropostaFornecedorPDF(
     comprovantes.forEach((arquivo, index) => {
       console.log(`  ${index + 1}. ${arquivo.name} (${arquivo.type}, ${arquivo.size} bytes)`);
     });
-    // Buscar itens da resposta
+    // Buscar itens da resposta COM ordenação pelo Supabase
     console.log('🔍 Buscando itens para resposta ID:', respostaId);
     
     const { data: itens, error: itensError } = await supabaseAnon
@@ -83,7 +83,8 @@ export async function gerarPropostaFornecedorPDF(
           unidade
         )
       `)
-      .eq('cotacao_resposta_fornecedor_id', respostaId);
+      .eq('cotacao_resposta_fornecedor_id', respostaId)
+      .order('itens_cotacao(numero_item)', { ascending: true });
 
     console.log('📊 Resultado da busca:', {
       encontrou: itens?.length || 0,
