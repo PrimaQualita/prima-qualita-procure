@@ -103,9 +103,12 @@ export async function gerarPropostaFornecedorPDF(
     }
 
     // Ordenar itens por numero_item no JavaScript
+    // CRÍTICO: Garantir que itens_cotacao seja sempre objeto, não array
     const itensOrdenados = itens.sort((a: any, b: any) => {
-      const numeroA = a.itens_cotacao?.numero_item || 0;
-      const numeroB = b.itens_cotacao?.numero_item || 0;
+      const itemA = Array.isArray(a.itens_cotacao) ? a.itens_cotacao[0] : a.itens_cotacao;
+      const itemB = Array.isArray(b.itens_cotacao) ? b.itens_cotacao[0] : b.itens_cotacao;
+      const numeroA = itemA?.numero_item || 0;
+      const numeroB = itemB?.numero_item || 0;
       return numeroA - numeroB;
     });
 
