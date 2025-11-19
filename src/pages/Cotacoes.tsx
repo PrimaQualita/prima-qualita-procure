@@ -132,6 +132,71 @@ const Cotacoes = () => {
         // Remover o parâmetro da URL
         setSearchParams({});
       }
+      
+      // Verificar se há parâmetros para restaurar o estado da navegação
+      const contratoId = searchParams.get('contrato');
+      const processoId = searchParams.get('processo');
+      const cotacaoId = searchParams.get('cotacao');
+      
+      if (contratoId && processoId && cotacaoId) {
+        // Buscar e restaurar o contrato
+        const { data: contratoData } = await supabase
+          .from("contratos_gestao")
+          .select("*")
+          .eq("id", contratoId)
+          .single();
+        
+        if (contratoData) {
+          setContratoSelecionado({
+            id: contratoData.id,
+            nome_contrato: contratoData.nome_contrato,
+            ente_federativo: contratoData.ente_federativo,
+            status: contratoData.status
+          });
+          
+          // Buscar e restaurar o processo
+          const { data: processoData } = await supabase
+            .from("processos_compras")
+            .select("*")
+            .eq("id", processoId)
+            .single();
+          
+          if (processoData) {
+            setProcessoSelecionado({
+              id: processoData.id,
+              numero_processo_interno: processoData.numero_processo_interno,
+              objeto_resumido: processoData.objeto_resumido,
+              valor_estimado_anual: processoData.valor_estimado_anual,
+              requer_cotacao: processoData.requer_cotacao,
+              requer_selecao: processoData.requer_selecao,
+              tipo: processoData.tipo,
+              criterio_julgamento: processoData.criterio_julgamento
+            });
+            
+            // Buscar e restaurar a cotação
+            const { data: cotacaoData } = await supabase
+              .from("cotacoes_precos")
+              .select("*")
+              .eq("id", cotacaoId)
+              .single();
+            
+            if (cotacaoData) {
+              setCotacaoSelecionada({
+                id: cotacaoData.id,
+                processo_compra_id: cotacaoData.processo_compra_id,
+                titulo_cotacao: cotacaoData.titulo_cotacao,
+                descricao_cotacao: cotacaoData.descricao_cotacao,
+                data_limite_resposta: cotacaoData.data_limite_resposta,
+                status_cotacao: cotacaoData.status_cotacao,
+                criterio_julgamento: cotacaoData.criterio_julgamento as "global" | "por_item" | "por_lote"
+              });
+            }
+          }
+        }
+        
+        // Remover os parâmetros da URL
+        setSearchParams({});
+      }
     };
     init();
   }, []);
@@ -1055,14 +1120,14 @@ const Cotacoes = () => {
                     </Button>
                     <Button 
                       variant="secondary"
-                      onClick={() => navigate(`/respostas-cotacao?cotacao=${cotacaoSelecionada?.id}`)}
+                      onClick={() => navigate(`/respostas-cotacao?cotacao=${cotacaoSelecionada?.id}&contrato=${contratoSelecionado?.id}&processo=${processoSelecionado?.id}`)}
                       size="sm"
                     >
                       Ver Respostas
                     </Button>
                     <Button 
                       variant="outline"
-                      onClick={() => navigate(`/incluir-precos-publicos?cotacao=${cotacaoSelecionada?.id}`)}
+                      onClick={() => navigate(`/incluir-precos-publicos?cotacao=${cotacaoSelecionada?.id}&contrato=${contratoSelecionado?.id}&processo=${processoSelecionado?.id}`)}
                       disabled={itens.length === 0}
                       size="sm"
                     >
