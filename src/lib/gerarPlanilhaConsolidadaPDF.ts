@@ -76,8 +76,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   
   let y = 20;
 
-  // Cabeçalho azul (paleta Prima Qualitá)
-  doc.setFillColor(28, 142, 196); // Azul do logo (hsl 195, 77%, 48%)
+  // Cabeçalho azul claro (paleta Prima Qualitá)
+  doc.setFillColor(120, 190, 225); // Azul claro do logo
   doc.rect(0, 0, pageWidth, 30, 'F');
   
   doc.setTextColor(255, 255, 255);
@@ -245,7 +245,7 @@ export async function gerarPlanilhaConsolidadaPDF(
     body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
     theme: 'plain', // Sem bordas
     headStyles: {
-      fillColor: [28, 142, 196], // Azul do logo (paleta Prima Qualitá)
+      fillColor: [120, 190, 225], // Azul claro do logo (paleta Prima Qualitá)
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 8,
