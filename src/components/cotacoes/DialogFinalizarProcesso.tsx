@@ -281,6 +281,11 @@ export function DialogFinalizarProcesso({
       if (cotacaoError) throw cotacaoError;
 
       console.log("📊 Critério de julgamento:", cotacao?.criterio_julgamento);
+      console.log("📋 Documentos aprovados do banco (FRESH):", cotacao?.documentos_aprovados);
+      
+      // CRÍTICO: Atualizar o estado com dados frescos do banco
+      const documentosAprovadosAtualizados = (cotacao?.documentos_aprovados as Record<string, boolean>) || {};
+      setDocumentosAprovados(documentosAprovadosAtualizados);
 
       // Buscar TODAS as respostas dos fornecedores (SEM FILTRO)
       // CRÍTICO: Não usar filtro da planilha consolidada - ela não determina vencedores
@@ -367,10 +372,6 @@ export function DialogFinalizarProcesso({
 
       const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
 
-      // CRÍTICO: Usar documentos_aprovados do banco (sempre atualizados), não do estado React
-      const documentosAprovadosAtualizados = (cotacao?.documentos_aprovados as Record<string, boolean>) || {};
-      console.log("📋 Documentos aprovados do banco:", documentosAprovadosAtualizados);
-
       // Carregar dados de cada fornecedor vencedor
       const fornecedoresComDados = await Promise.all(
         fornecedoresVencedores.map(async (forn) => {
@@ -394,8 +395,8 @@ export function DialogFinalizarProcesso({
             primeiroItemCompleto: itensVenc[0] || null
           });
 
-          // CRÍTICO: Usar verificação com dados atualizados do banco
-          const todosAprovados = verificarTodosDocumentosAprovadosComDados(forn.id, docs, campos, documentosAprovadosAtualizados);
+          // CRÍTICO: Usar verificação com dados do estado atualizado
+          const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
 
           return {
             fornecedor: forn,
@@ -1257,7 +1258,6 @@ export function DialogFinalizarProcesso({
       toast.success(`Documentos de ${fornecedorData.fornecedor.razao_social} aprovados com sucesso`);
       
       // Recarregar dados para refletir mudança na UI
-      await loadDocumentosAprovados();
       await loadAllFornecedores();
     } catch (error) {
       console.error("Erro ao aprovar documentos do fornecedor:", error);
@@ -1298,7 +1298,6 @@ export function DialogFinalizarProcesso({
       }
 
       toast.success(`Aprovação de ${fornecedorData.fornecedor.razao_social} revertida com sucesso`);
-      await loadDocumentosAprovados();
       await loadAllFornecedores();
     } catch (error) {
       console.error("Erro ao reverter aprovação do fornecedor:", error);
