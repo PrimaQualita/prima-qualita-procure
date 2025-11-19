@@ -270,37 +270,6 @@ export function DialogFinalizarProcesso({
     try {
       console.log("🔄 Iniciando carregamento de fornecedores para cotação:", cotacaoId);
       
-      // CRÍTICO: Buscar a ÚLTIMA planilha consolidada gerada
-      const { data: ultimaPlanilha } = await supabase
-        .from("planilhas_consolidadas")
-        .select("fornecedores_incluidos, data_geracao")
-        .eq("cotacao_id", cotacaoId)
-        .order("data_geracao", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      console.log("📋 ========== ÚLTIMA PLANILHA CONSOLIDADA ==========");
-      console.log("Data geração:", ultimaPlanilha?.data_geracao);
-      console.log("Fornecedores incluídos (raw):", ultimaPlanilha?.fornecedores_incluidos);
-      console.log("É array?:", Array.isArray(ultimaPlanilha?.fornecedores_incluidos));
-      console.log("Tamanho:", ultimaPlanilha?.fornecedores_incluidos ? (ultimaPlanilha.fornecedores_incluidos as any[]).length : 0);
-
-      // REGRA CRÍTICA: SÓ mostrar fornecedores se houver planilha consolidada válida
-      let cnpjsPermitidos: string[] = [];
-      
-      if (!ultimaPlanilha || !ultimaPlanilha.fornecedores_incluidos || !Array.isArray(ultimaPlanilha.fornecedores_incluidos) || ultimaPlanilha.fornecedores_incluidos.length === 0) {
-        console.log("❌ SEM PLANILHA CONSOLIDADA VÁLIDA - Nenhum fornecedor será exibido");
-        console.log("⚠️ É necessário gerar nova planilha consolidada para ver fornecedores");
-        console.log("================================================");
-        setFornecedoresData([]);
-        setLoading(false);
-        return;
-      }
-
-      cnpjsPermitidos = ultimaPlanilha.fornecedores_incluidos as string[];
-      console.log("✅ Usando CNPJs da última planilha consolidada:", cnpjsPermitidos);
-      console.log("================================================");
-
       // Buscar cotação com critério de julgamento
       const { data: cotacao, error: cotacaoError } = await supabase
         .from("cotacoes_precos")
@@ -312,7 +281,8 @@ export function DialogFinalizarProcesso({
 
       console.log("📊 Critério de julgamento:", cotacao?.criterio_julgamento);
 
-      // Buscar respostas dos fornecedores
+      // Buscar TODAS as respostas dos fornecedores (SEM FILTRO)
+      // CRÍTICO: Não usar filtro da planilha consolidada - ela não determina vencedores
       const { data: respostas, error: respostasError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -327,24 +297,16 @@ export function DialogFinalizarProcesso({
 
       if (respostasError) throw respostasError;
 
-      console.log(`📝 Total de respostas no DB: ${respostas?.length || 0}`);
+      console.log(`📝 Total de respostas: ${respostas?.length || 0}`);
 
-      // FILTRAR respostas pelos CNPJs permitidos
-      const respostasFiltradas = cnpjsPermitidos.length > 0
-        ? respostas?.filter(r => cnpjsPermitidos.includes(r.fornecedores.cnpj)) || []
-        : respostas || [];
-
-      console.log(`✅ RESULTADO DO FILTRO: ${respostas?.length || 0} → ${respostasFiltradas.length} fornecedores`);
-      console.log("Fornecedores após filtro:", respostasFiltradas.map(r => `${r.fornecedores.razao_social} (${r.fornecedores.cnpj})`));
-
-      if (respostasFiltradas.length === 0) {
-        console.log("❌ NENHUM FORNECEDOR após filtro!");
+      if (!respostas || respostas.length === 0) {
+        console.log("❌ NENHUMA RESPOSTA encontrada!");
         setFornecedoresData([]);
         setLoading(false);
         return;
       }
 
-      // Buscar itens das respostas FILTRADAS
+      // Buscar itens de TODAS as respostas
       const { data: itens, error: itensError } = await supabase
         .from("respostas_itens_fornecedor")
         .select(`
@@ -354,14 +316,16 @@ export function DialogFinalizarProcesso({
           valor_unitario_ofertado,
           itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade)
         `)
-        .in("cotacao_resposta_fornecedor_id", respostasFiltradas.map(r => r.id));
+        .in("cotacao_resposta_fornecedor_id", respostas.map(r => r.id));
 
       if (itensError) throw itensError;
 
       console.log(`📦 Total de itens de respostas: ${itens?.length || 0}`);
 
       const criterio = cotacao?.criterio_julgamento || "global";
-      const fornecedoresVencedores = await identificarVencedores(criterio, respostasFiltradas, itens || []);
+      
+      // CRÍTICO: Identificar vencedores baseado em TODAS as respostas
+      const fornecedoresVencedores = await identificarVencedores(criterio, respostas, itens || []);
 
       console.log(`🏆 Fornecedores vencedores identificados: ${fornecedoresVencedores.length}`);
       fornecedoresVencedores.forEach(f => {
@@ -380,10 +344,10 @@ export function DialogFinalizarProcesso({
       // Carregar dados de cada fornecedor vencedor
       const fornecedoresComDados = await Promise.all(
         fornecedoresVencedores.map(async (forn) => {
-          const resposta = respostasFiltradas.find(r => r.fornecedor_id === forn.id);
+          const resposta = respostas.find(r => r.fornecedor_id === forn.id);
           const [docs, itensVenc, campos] = await Promise.all([
             loadDocumentosFornecedor(forn.id),
-            loadItensVencedores(forn.id, criterio, respostasFiltradas, itens || []),
+            loadItensVencedores(forn.id, criterio, respostas, itens || []),
             loadCamposFornecedor(forn.id)
           ]);
 
@@ -659,6 +623,9 @@ export function DialogFinalizarProcesso({
     const itensDoFornecedor = todosItens.filter(i => i.cotacao_resposta_fornecedor_id === resposta.id);
     const itensVencidos: any[] = [];
 
+    console.log(`🔍 [loadItensVencedores] Fornecedor ID: ${fornecedorId}`);
+    console.log(`  → Itens do fornecedor: ${itensDoFornecedor.length}`);
+
     // Buscar fornecedores com rejeição revertida
     const { data: rejeicoesRevertidas } = await supabase
       .from('fornecedores_rejeitados_cotacao')
@@ -675,6 +642,9 @@ export function DialogFinalizarProcesso({
       return resp && (!resp.rejeitado || fornecedoresRevertidos.has(resp.fornecedor_id));
     });
 
+    console.log(`  → Itens não rejeitados (todos fornecedores): ${itensNaoRejeitados.length}`);
+    console.log(`  → Critério: ${criterio}`);
+
     if (criterio === "global") {
       // No global, se este fornecedor tem menor valor total, todos os itens são vencedores
       const menorValor = Math.min(...respostasNaoRejeitadas.map(r => Number(r.valor_total_anual_ofertado)));
@@ -683,17 +653,38 @@ export function DialogFinalizarProcesso({
       }
     } else if (criterio === "item" || criterio === "por_item") {
       // Por item, verificar item a item quem tem menor valor
+      console.log(`  ⚡ Analisando critério POR ITEM`);
+      
       itensDoFornecedor.forEach(itemFornecedor => {
         const numeroItem = itemFornecedor.itens_cotacao.numero_item;
+        const valorFornecedor = Number(itemFornecedor.valor_unitario_ofertado);
+        
+        // Pegar TODOS os itens com mesmo número (de TODOS os fornecedores não rejeitados)
         const itensComMesmoNumero = itensNaoRejeitados.filter(i => i.itens_cotacao.numero_item === numeroItem);
         
+        console.log(`    📌 Item ${numeroItem}:`);
+        console.log(`      → Valor deste fornecedor: R$ ${valorFornecedor.toFixed(2)}`);
+        console.log(`      → Total de propostas para este item: ${itensComMesmoNumero.length}`);
+        
         if (itensComMesmoNumero.length > 0) {
-          const menorValor = Math.min(...itensComMesmoNumero.map(i => Number(i.valor_unitario_ofertado)));
-          if (Number(itemFornecedor.valor_unitario_ofertado) === menorValor) {
+          // Calcular menor valor entre TODAS as propostas deste item
+          const valoresDoItem = itensComMesmoNumero.map(i => Number(i.valor_unitario_ofertado));
+          const menorValor = Math.min(...valoresDoItem);
+          
+          console.log(`      → Valores de todos os fornecedores:`, valoresDoItem.map(v => `R$ ${v.toFixed(2)}`));
+          console.log(`      → Menor valor identificado: R$ ${menorValor.toFixed(2)}`);
+          
+          // Verificar se ESTE fornecedor tem o menor valor
+          const ehVencedor = Math.abs(valorFornecedor - menorValor) < 0.001; // Tolerância para erro de ponto flutuante
+          console.log(`      → Este fornecedor é vencedor? ${ehVencedor ? '✅ SIM' : '❌ NÃO'}`);
+          
+          if (ehVencedor) {
             itensVencidos.push(itemFornecedor);
           }
         }
       });
+      
+      console.log(`  ✅ Total de itens vencidos por este fornecedor: ${itensVencidos.length}`);
     } else if (criterio === "lote" || criterio === "por_lote") {
       // Por lote, verificar lote a lote quem tem menor valor total do lote
       const loteIds = [...new Set(itensDoFornecedor.map(i => i.itens_cotacao.lote_id).filter(Boolean))];
