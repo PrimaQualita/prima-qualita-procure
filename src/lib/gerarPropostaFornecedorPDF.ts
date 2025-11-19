@@ -83,7 +83,8 @@ export async function gerarPropostaFornecedorPDF(
           unidade
         )
       `)
-      .eq('cotacao_resposta_fornecedor_id', respostaId);
+      .eq('cotacao_resposta_fornecedor_id', respostaId)
+      .order('itens_cotacao(numero_item)', { ascending: true });
 
     console.log('📊 Resultado da busca:', {
       encontrou: itens?.length || 0,
