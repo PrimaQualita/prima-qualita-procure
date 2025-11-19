@@ -361,7 +361,8 @@ export function DialogFinalizarProcesso({
             foiRevertido,
             estaRejeitado,
             itensVencedores: itensVenc.length,
-            numeros: itensVenc.map(i => i.itens_cotacao?.numero_item)
+            numeros: itensVenc.map(i => i.itens_cotacao?.numero_item),
+            primeiroItemCompleto: itensVenc[0] || null
           });
 
           const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
