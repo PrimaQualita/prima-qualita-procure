@@ -2037,15 +2037,21 @@ export function DialogFinalizarProcesso({
   const todosDocumentosAprovados = fornecedoresData.every(f => f.todosDocumentosAprovados);
 
   console.log(`🖥️ RENDERIZANDO Dialog - fornecedoresData.length: ${fornecedoresData.length}, loading: ${loading}`);
+  console.log(`🖥️ VERSION 2.0 - SEM FILTRO POR PLANILHA`);
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
-          <DialogTitle>Verificar Documentação - Compra Direta</DialogTitle>
-          <DialogDescription>
-            Revise os documentos de cada fornecedor vencedor e solicite documentos adicionais se necessário
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Verificar Documentação - Compra Direta</DialogTitle>
+              <DialogDescription>
+                Revise os documentos de cada fornecedor vencedor e solicite documentos adicionais se necessário
+              </DialogDescription>
+            </div>
+            <Badge variant="outline" className="text-xs shrink-0">v2.0</Badge>
+          </div>
         </DialogHeader>
 
         <ScrollArea className="flex-1 px-6">
