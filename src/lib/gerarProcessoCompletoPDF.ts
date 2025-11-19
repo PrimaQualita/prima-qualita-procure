@@ -362,7 +362,8 @@ export const gerarProcessoCompletoPDF = async (
         .select(`
           *,
           campos_documentos_finalizacao!inner(
-            nome_campo
+            nome_campo,
+            cotacao_id
           )
         `)
         .eq("fornecedor_id", fornecedorId)
