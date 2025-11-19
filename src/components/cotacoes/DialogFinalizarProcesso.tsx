@@ -1552,6 +1552,10 @@ export function DialogFinalizarProcesso({
         const resposta = todasRespostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
         const itensVencedores = fData.itensVencedores;
         
+        console.log(`🔍 [Relatório Final] Processando fornecedor: ${fData.fornecedor.razao_social}`);
+        console.log(`   → Total de itens vencedores: ${itensVencedores.length}`);
+        console.log(`   → Números dos itens: ${itensVencedores.map(i => i.itens_cotacao?.numero_item).join(', ')}`);
+        
         let valorTotal = 0;
         const itensVencedoresDetalhados: Array<{ numero: number; descricao: string; valor: number; marca?: string; valorUnitario?: number }> = [];
         
@@ -1560,6 +1564,9 @@ export function DialogFinalizarProcesso({
             ir => ir.cotacao_resposta_fornecedor_id === resposta?.id && 
                   ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item
           );
+          
+          console.log(`   → Item ${item.itens_cotacao.numero_item}: ${itemResposta ? 'ENCONTRADO' : 'NÃO ENCONTRADO'}`);
+          
           if (itemResposta) {
             const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
             const quantidade = Number(itemResposta.itens_cotacao.quantidade);
@@ -1575,12 +1582,20 @@ export function DialogFinalizarProcesso({
           }
         });
 
+        console.log(`   → Itens detalhados montados: ${itensVencedoresDetalhados.length}`);
+        console.log(`   → Valor total: R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+
         return {
           razaoSocial: fData.fornecedor.razao_social,
           cnpj: resposta?.fornecedores.cnpj || "",
           valorTotal: valorTotal,
           itensVencedores: itensVencedoresDetalhados
         };
+      });
+
+      console.log(`📊 [Relatório Final] Total de fornecedores a incluir: ${fornecedoresVencedores.length}`);
+      fornecedoresVencedores.forEach((f, i) => {
+        console.log(`   ${i+1}. ${f.razaoSocial}: ${f.itensVencedores.length} itens (R$ ${f.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})})`);
       });
 
       const resultado = await gerarRelatorioFinal({
