@@ -403,29 +403,23 @@ export function DialogPlanilhaConsolidada({
       // Montar mapeamento de critérios por item
       console.log('📋 calculosPorItem ORIGINAL:', calculosPorItem);
       console.log('📋 Todas as chaves:', Object.keys(calculosPorItem));
+      console.log('📋 todosItens:', todosItens.map(i => ({ id: i.id, numero_item: i.numero_item, lote_id: i.lote_id })));
       
       const criteriosPorItemNumero: Record<number, 'menor' | 'media' | 'mediana'> = {};
       
-      // Converter o mapeamento string->critério para número->critério
-      Object.entries(calculosPorItem).forEach(([chaveItem, criterio]) => {
-        console.log(`   Processando: chave="${chaveItem}", critério="${criterio}"`);
+      // Converter o mapeamento usando a mesma lógica que cria as chaves
+      todosItens.forEach((item: any) => {
+        const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
+        const criterio = calculosPorItem[chave];
         
-        // A chave pode estar no formato "item_N" ou apenas "N" ou ainda "N" como string
-        let numeroItem: number;
+        console.log(`   Item ${item.numero_item}: chave="${chave}", critério encontrado="${criterio}"`);
         
-        if (chaveItem.includes('item_')) {
-          numeroItem = parseInt(chaveItem.replace('item_', ''));
+        if (criterio) {
+          criteriosPorItemNumero[item.numero_item] = criterio;
+          console.log(`   ✅ Mapeado: Item ${item.numero_item} = ${criterio}`);
         } else {
-          numeroItem = parseInt(chaveItem);
-        }
-        
-        console.log(`   → Número extraído: ${numeroItem}`);
-        
-        if (!isNaN(numeroItem)) {
-          criteriosPorItemNumero[numeroItem] = criterio;
-          console.log(`   ✅ Mapeado: Item ${numeroItem} = ${criterio}`);
-        } else {
-          console.warn(`   ⚠️ Não foi possível extrair número de: ${chaveItem}`);
+          console.log(`   ⚠️ Nenhum critério encontrado para chave: ${chave}, usando 'menor' como padrão`);
+          criteriosPorItemNumero[item.numero_item] = 'menor';
         }
       });
       
