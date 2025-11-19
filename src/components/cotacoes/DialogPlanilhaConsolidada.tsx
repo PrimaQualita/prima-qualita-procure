@@ -391,7 +391,7 @@ export function DialogPlanilhaConsolidada({
           url_arquivo: filePath,
           usuario_gerador_id: user?.id,
           data_geracao: new Date().toISOString(),
-          protocolo: protocoloDocumento,
+          protocolo: protocolo,
           fornecedores_incluidos: cnpjsIncluidos
         });
 
