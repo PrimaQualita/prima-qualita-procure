@@ -133,28 +133,24 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhas2.length * 3.5 + 5;
   
-  // Tabela de fornecedores vencedores com itens detalhados
+  // Tabela de fornecedores vencedores com itens agrupados
   if (dados.fornecedoresVencedores && dados.fornecedoresVencedores.length > 0) {
     doc.setFontSize(8);
     
-    // Cabeçalho da tabela
+    // Cabeçalho da tabela (sem colunas Marca e Valor Unit.)
     doc.setFillColor(0, 51, 102);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 40, 8, 'FD');
-    doc.rect(60, yPos, 35, 8, 'FD');
-    doc.rect(95, yPos, 15, 8, 'FD');
-    doc.rect(110, yPos, 30, 8, 'FD');
-    doc.rect(140, yPos, 25, 8, 'FD');
-    doc.rect(165, yPos, 25, 8, 'FD');
+    doc.rect(20, yPos, 60, 8, 'FD');
+    doc.rect(80, yPos, 45, 8, 'FD');
+    doc.rect(125, yPos, 30, 8, 'FD');
+    doc.rect(155, yPos, 35, 8, 'FD');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('Empresa', 40, yPos + 5, { align: 'center' });
-    doc.text('CNPJ', 77.5, yPos + 5, { align: 'center' });
-    doc.text('Item', 102.5, yPos + 5, { align: 'center' });
-    doc.text('Marca', 125, yPos + 5, { align: 'center' });
-    doc.text('Valor Unit.', 152.5, yPos + 5, { align: 'center' });
-    doc.text('Valor Total', 177.5, yPos + 5, { align: 'center' });
+    doc.text('Empresa', 50, yPos + 5, { align: 'center' });
+    doc.text('CNPJ', 102.5, yPos + 5, { align: 'center' });
+    doc.text('Item', 140, yPos + 5, { align: 'center' });
+    doc.text('Valor Total', 172.5, yPos + 5, { align: 'center' });
     yPos += 8;
     
     // Conteúdo da tabela
@@ -172,60 +168,52 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     };
     
     dados.fornecedoresVencedores.forEach((fornecedor) => {
-      // Para cada item vencedor do fornecedor, criar uma linha
-      fornecedor.itensVencedores.forEach((item, itemIndex) => {
-        const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 35);
-        const marcaSplit = doc.splitTextToSize(item.marca || '-', 28);
-        const alturaLinha = Math.max(8, Math.max(razaoSocialSplit.length, marcaSplit.length) * 4 + 2);
-        
-        // Verificar se precisa de nova página
-        if (yPos + alturaLinha > pageHeight - 30) {
-          doc.addPage();
-          yPos = 20;
-          adicionarLogoERodape();
-        }
-        
-        doc.rect(20, yPos, 40, alturaLinha);
-        doc.rect(60, yPos, 35, alturaLinha);
-        doc.rect(95, yPos, 15, alturaLinha);
-        doc.rect(110, yPos, 30, alturaLinha);
-        doc.rect(140, yPos, 25, alturaLinha);
-        doc.rect(165, yPos, 25, alturaLinha);
-        
-        // Mostrar empresa apenas na primeira linha de cada fornecedor
-        if (itemIndex === 0) {
-          const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
-          razaoSocialSplit.forEach((linha: string, index: number) => {
-            doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 36 });
-          });
-          
-          const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
-          const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 33);
-          const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
-          cnpjSplit.forEach((linha: string, index: number) => {
-            doc.text(linha, 62, yPos + offsetVerticalCNPJ + (index * 4), { align: 'left', maxWidth: 31 });
-          });
-        }
-        
-        // Item número
-        doc.text(item.numero.toString(), 102.5, yPos + (alturaLinha / 2) + 1, { align: 'center' });
-        
-        // Marca (centralizada)
-        const offsetVerticalMarca = (alturaLinha - (marcaSplit.length * 4)) / 2 + 3;
-        marcaSplit.forEach((linha: string, index: number) => {
-          doc.text(linha, 125, yPos + offsetVerticalMarca + (index * 4), { align: 'center', maxWidth: 28 });
-        });
-        
-        // Valor unitário
-        const valorUnitario = item.valorUnitario || 0;
-        doc.text(`R$ ${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 163, yPos + (alturaLinha / 2) + 1, { align: 'right' });
-        
-        // Valor total do item
-        doc.text(`R$ ${item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + (alturaLinha / 2) + 1, { align: 'right' });
-        
-        yPos += alturaLinha;
+      // Agrupar números de itens separados por vírgula
+      const numerosItens = fornecedor.itensVencedores
+        .map(item => item.numero)
+        .sort((a, b) => a - b)
+        .join(', ');
+      
+      const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 55);
+      const itensSplit = doc.splitTextToSize(numerosItens, 28);
+      const alturaLinha = Math.max(8, Math.max(razaoSocialSplit.length, itensSplit.length) * 4 + 2);
+      
+      // Verificar se precisa de nova página
+      if (yPos + alturaLinha > pageHeight - 30) {
+        doc.addPage();
+        yPos = 20;
+        adicionarLogoERodape();
+      }
+      
+      doc.rect(20, yPos, 60, alturaLinha);
+      doc.rect(80, yPos, 45, alturaLinha);
+      doc.rect(125, yPos, 30, alturaLinha);
+      doc.rect(155, yPos, 35, alturaLinha);
+      
+      // Razão social
+      const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
+      razaoSocialSplit.forEach((linha: string, index: number) => {
+        doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 56 });
       });
       
+      // CNPJ
+      const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
+      const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 43);
+      const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
+      cnpjSplit.forEach((linha: string, index: number) => {
+        doc.text(linha, 82, yPos + offsetVerticalCNPJ + (index * 4), { align: 'left', maxWidth: 41 });
+      });
+      
+      // Itens agrupados (com quebra de linha automática)
+      const offsetVerticalItens = (alturaLinha - (itensSplit.length * 4)) / 2 + 3;
+      itensSplit.forEach((linha: string, index: number) => {
+        doc.text(linha, 140, yPos + offsetVerticalItens + (index * 4), { align: 'center', maxWidth: 28 });
+      });
+      
+      // Valor total do fornecedor
+      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+      
+      yPos += alturaLinha;
       totalGeral += fornecedor.valorTotal;
     });
     
@@ -233,12 +221,12 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     doc.setFillColor(240, 240, 240);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 145, 8, 'FD');
-    doc.rect(165, yPos, 25, 8, 'FD');
+    doc.rect(20, yPos, 135, 8, 'FD');
+    doc.rect(155, yPos, 35, 8, 'FD');
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text('TOTAL GERAL', 22, yPos + 5);
-    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 188, yPos + 5, { align: 'right' });
+    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + 5, { align: 'right' });
     yPos += 16;
   }
   
