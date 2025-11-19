@@ -327,13 +327,14 @@ export const gerarProcessoCompletoPDF = async (
       // Data específica para este fornecedor
       const dataFornecedor = new Date(new Date(dataBaseFornecedores).getTime() + (index * 100)).toISOString();
       
-      // 1. Buscar documentos de cadastro (snapshot) deste fornecedor
+      // 1. Buscar documentos de cadastro (snapshot) deste fornecedor - APENAS A VERSÃO MAIS RECENTE
       const { data: docsSnapshot, error: snapshotError } = await supabase
         .from("documentos_processo_finalizado")
         .select("*")
         .eq("cotacao_id", cotacaoId)
         .eq("fornecedor_id", fornecedorId)
-        .order("tipo_documento", { ascending: true });
+        .order("tipo_documento", { ascending: true })
+        .order("data_snapshot", { ascending: false });
 
       if (snapshotError) {
         console.error(`  ❌ Erro ao buscar documentos snapshot:`, snapshotError);
