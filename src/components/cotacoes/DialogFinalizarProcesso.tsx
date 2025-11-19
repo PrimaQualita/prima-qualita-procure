@@ -271,10 +271,10 @@ export function DialogFinalizarProcesso({
     try {
       console.log("🔄 Iniciando carregamento de fornecedores para cotação:", cotacaoId);
       
-      // Buscar cotação com critério de julgamento
+      // CRÍTICO: Buscar cotação com critério de julgamento E documentos_aprovados atualizados
       const { data: cotacao, error: cotacaoError } = await supabase
         .from("cotacoes_precos")
-        .select("criterio_julgamento")
+        .select("criterio_julgamento, documentos_aprovados")
         .eq("id", cotacaoId)
         .single();
 
@@ -367,6 +367,10 @@ export function DialogFinalizarProcesso({
 
       const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
 
+      // CRÍTICO: Usar documentos_aprovados do banco (sempre atualizados), não do estado React
+      const documentosAprovadosAtualizados = (cotacao?.documentos_aprovados as Record<string, boolean>) || {};
+      console.log("📋 Documentos aprovados do banco:", documentosAprovadosAtualizados);
+
       // Carregar dados de cada fornecedor vencedor
       const fornecedoresComDados = await Promise.all(
         fornecedoresVencedores.map(async (forn) => {
@@ -390,7 +394,8 @@ export function DialogFinalizarProcesso({
             primeiroItemCompleto: itensVenc[0] || null
           });
 
-          const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
+          // CRÍTICO: Usar verificação com dados atualizados do banco
+          const todosAprovados = verificarTodosDocumentosAprovadosComDados(forn.id, docs, campos, documentosAprovadosAtualizados);
 
           return {
             fornecedor: forn,
@@ -883,11 +888,18 @@ export function DialogFinalizarProcesso({
     return data || [];
   };
 
-  const verificarTodosDocumentosAprovados = (fornecedorId: string, docs: DocumentoExistente[], campos: CampoDocumento[]): boolean => {
+  // Função auxiliar que usa dados do banco (sempre atualizados)
+  const verificarTodosDocumentosAprovadosComDados = (
+    fornecedorId: string, 
+    docs: DocumentoExistente[], 
+    campos: CampoDocumento[],
+    documentosAprovadosAtualizados: Record<string, boolean>
+  ): boolean => {
     console.log(`🔍 Verificando aprovação para fornecedor ${fornecedorId}:`, {
       totalDocs: docs.length,
       totalCampos: campos.length,
-      camposStatus: campos.map(c => ({ nome: c.nome_campo, status: c.status_solicitacao }))
+      camposStatus: campos.map(c => ({ nome: c.nome_campo, status: c.status_solicitacao })),
+      aprovacaoManual: documentosAprovadosAtualizados[fornecedorId]
     });
 
     // Se não tem documentos em cadastro, não pode estar aprovado
@@ -908,7 +920,7 @@ export function DialogFinalizarProcesso({
 
     // Se não há campos solicitados, verificar aprovação no JSON documentos_aprovados
     if (campos.length === 0) {
-      const aprovado = documentosAprovados[fornecedorId] === true;
+      const aprovado = documentosAprovadosAtualizados[fornecedorId] === true;
       console.log(`${aprovado ? '✅' : '❌'} Fornecedor sem campos solicitados - aprovação manual: ${aprovado}`);
       return aprovado;
     }
@@ -925,6 +937,11 @@ export function DialogFinalizarProcesso({
 
     console.log(`✅ Todos documentos aprovados`);
     return true;
+  };
+
+  // Função legada que usa o estado React (mantida para compatibilidade)
+  const verificarTodosDocumentosAprovados = (fornecedorId: string, docs: DocumentoExistente[], campos: CampoDocumento[]): boolean => {
+    return verificarTodosDocumentosAprovadosComDados(fornecedorId, docs, campos, documentosAprovados);
   };
 
   const loadDocumentosAprovados = async () => {
