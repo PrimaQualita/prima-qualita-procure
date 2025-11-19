@@ -298,7 +298,10 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
 
-    // 11. Buscar documentos dos fornecedores aprovados (snapshot e faltantes) organizados POR FORNECEDOR
+    // 11. CRIAR SEÇÃO SEPARADA PARA DOCUMENTOS DOS FORNECEDORES VENCEDORES
+    // Esta seção é adicionada APÓS todos os documentos cronológicos e ANTES dos relatórios/autorizações
+    console.log("\n🏆 === PREPARANDO DOCUMENTOS DOS FORNECEDORES VENCEDORES ===");
+    
     const { data: documentosSnapshot, error: snapshotError } = await supabase
       .from("documentos_processo_finalizado")
       .select("*")
@@ -312,7 +315,6 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`📄 Documentos snapshot encontrados: ${documentosSnapshot?.length || 0}`);
 
-    // Buscar documentos faltantes/adicionais
     const { data: documentosFaltantes, error: faltantesError } = await supabase
       .from("documentos_finalizacao_fornecedor")
       .select(`
@@ -333,7 +335,7 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`📄 Documentos faltantes/adicionais encontrados: ${documentosFaltantes?.length || 0}`);
 
-    // Organizar documentos por fornecedor
+    // Identificar fornecedores únicos que possuem documentos
     const fornecedoresUnicos = new Set<string>();
     documentosSnapshot?.forEach(doc => fornecedoresUnicos.add(doc.fornecedor_id));
     documentosFaltantes?.forEach(doc => fornecedoresUnicos.add(doc.fornecedor_id));
@@ -341,25 +343,29 @@ export const gerarProcessoCompletoPDF = async (
     const fornecedoresOrdenados = Array.from(fornecedoresUnicos).sort();
     console.log(`👥 Fornecedores com documentos: ${fornecedoresOrdenados.length}`);
 
-    // Adicionar documentos organizados por fornecedor
-    let incrementoTempo = 1000; // Inicia em +1 segundo da última data cronológica
-    const idsAdicionados = new Set<string>();
+    // CRIAR ARRAY SEPARADO para documentos dos fornecedores
+    const documentosFornecedores: DocumentoOrdenado[] = [];
+    const idsProcessados = new Set<string>();
+    
+    // Data base para documentos de fornecedores (após última data cronológica)
+    let dataBaseFornecedores = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
 
     fornecedoresOrdenados.forEach((fornecedorId, index) => {
       console.log(`\n📋 Processando fornecedor ${index + 1}/${fornecedoresOrdenados.length}: ${fornecedorId}`);
       
-      // Data específica para este fornecedor
-      const dataFornecedor = new Date(new Date(ultimaDataCronologica).getTime() + incrementoTempo).toISOString();
+      // Data específica para este fornecedor (incrementando 100ms por fornecedor)
+      const dataFornecedor = new Date(new Date(dataBaseFornecedores).getTime() + (index * 100)).toISOString();
       
-      // 1. Adicionar documentos de cadastro (snapshot) deste fornecedor
+      // 1. Documentos de cadastro (snapshot) - NA ORDEM ORIGINAL
       const docsSnapshot = documentosSnapshot?.filter(doc => doc.fornecedor_id === fornecedorId) || [];
       console.log(`  📄 Documentos de cadastro: ${docsSnapshot.length}`);
       
       docsSnapshot.forEach(doc => {
-        if (!idsAdicionados.has(doc.id)) {
-          idsAdicionados.add(doc.id);
-          documentosOrdenados.push({
-            tipo: "Documento Fornecedor Aprovado",
+        const docId = `snapshot-${doc.id}`;
+        if (!idsProcessados.has(docId)) {
+          idsProcessados.add(docId);
+          documentosFornecedores.push({
+            tipo: "Documento Fornecedor",
             data: dataFornecedor,
             nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
             url: doc.url_arquivo,
@@ -369,15 +375,16 @@ export const gerarProcessoCompletoPDF = async (
         }
       });
 
-      // 2. Adicionar documentos faltantes/adicionais deste fornecedor
+      // 2. Documentos faltantes/adicionais - LOGO APÓS OS DE CADASTRO
       const docsFaltantes = documentosFaltantes?.filter(doc => doc.fornecedor_id === fornecedorId) || [];
       console.log(`  📎 Documentos faltantes/adicionais: ${docsFaltantes.length}`);
       
       docsFaltantes.forEach(doc => {
-        if (!idsAdicionados.has(doc.id)) {
-          idsAdicionados.add(doc.id);
-          documentosOrdenados.push({
-            tipo: "Documento Faltante/Adicional",
+        const docId = `faltante-${doc.id}`;
+        if (!idsProcessados.has(docId)) {
+          idsProcessados.add(docId);
+          documentosFornecedores.push({
+            tipo: "Documento Adicional",
             data: dataFornecedor,
             nome: `${doc.campos_documentos_finalizacao.nome_campo} - ${doc.nome_arquivo}`,
             url: doc.url_arquivo,
@@ -386,10 +393,12 @@ export const gerarProcessoCompletoPDF = async (
           });
         }
       });
-
-      // Incrementar tempo para próximo fornecedor
-      incrementoTempo += 100; // +100ms entre fornecedores para manter ordem
     });
+
+    console.log(`\n✅ Total de documentos de fornecedores preparados: ${documentosFornecedores.length}`);
+    
+    // ADICIONAR documentos de fornecedores AO ARRAY PRINCIPAL
+    documentosFornecedores.forEach(doc => documentosOrdenados.push(doc));
 
     // 12. Adicionar relatórios finais APÓS documentos dos fornecedores
     if (relatorios && relatorios.length > 0) {
