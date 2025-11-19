@@ -59,20 +59,25 @@ export function DialogAnexosProcesso({
   }, [open, processoId]);
 
   const loadAnexos = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("anexos_processo_compra")
         .select("*")
-        .eq("processo_compra_id", processoId);
+        .eq("processo_compra_id", processoId)
+        .order("data_upload", { ascending: true });
 
       if (error) throw error;
       setAnexos(data || []);
     } catch (error: any) {
+      console.error("Erro ao carregar anexos:", error);
       toast({
         title: "Erro ao carregar anexos",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -109,7 +114,7 @@ export function DialogAnexosProcesso({
       if (dbError) throw dbError;
 
       toast({ title: "Anexo enviado com sucesso!" });
-      loadAnexos();
+      await loadAnexos();
     } catch (error: any) {
       toast({
         title: "Erro ao enviar anexo",
@@ -174,10 +179,12 @@ export function DialogAnexosProcesso({
         filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
       }
 
-      // Delete from storage
-      await supabase.storage
-        .from("processo-anexos")
-        .remove([filePath]);
+      // Delete from storage (apenas se não for URL http completa)
+      if (!anexo.url_arquivo.startsWith('http')) {
+        await supabase.storage
+          .from("processo-anexos")
+          .remove([filePath]);
+      }
 
       // Delete from database
       const { error } = await supabase
@@ -188,8 +195,9 @@ export function DialogAnexosProcesso({
       if (error) throw error;
 
       toast({ title: "Anexo excluído com sucesso!" });
-      loadAnexos();
+      await loadAnexos();
     } catch (error: any) {
+      console.error("Erro ao excluir anexo:", error);
       toast({
         title: "Erro ao excluir anexo",
         description: error.message,
@@ -201,6 +209,21 @@ export function DialogAnexosProcesso({
   const getAnexoPorTipo = (tipo: string) => {
     return anexos.find((a) => a.tipo_anexo === tipo);
   };
+
+  if (loading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Anexos do Processo {processoNumero}</DialogTitle>
+          </DialogHeader>
+          <div className="py-8 text-center">
+            <p className="text-muted-foreground">Carregando anexos...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -264,7 +287,67 @@ export function DialogAnexosProcesso({
 
             return (
               <div key={tipo} className="border rounded-lg p-4">
-...
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="font-semibold">{label}</Label>
+                  {anexo ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-destructive" />
+                  )}
+                </div>
+
+                {anexo ? (
+                  <div className="flex items-center justify-between bg-muted p-3 rounded">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{anexo.nome_arquivo}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Enviado em {new Date(anexo.data_upload).toLocaleString("pt-BR")}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDownload(anexo)}
+                        title="Baixar anexo"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDelete(anexo)}
+                        title="Excluir anexo"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      id={`file-${tipo}`}
+                      className="hidden"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(tipo, file);
+                      }}
+                      disabled={isUploading}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => document.getElementById(`file-${tipo}`)?.click()}
+                      disabled={isUploading}
+                      className="w-full"
+                    >
+                      <FileUp className="h-4 w-4 mr-2" />
+                      {isUploading ? "Enviando..." : "Anexar PDF"}
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           })}
