@@ -597,7 +597,7 @@ export function DialogPlanilhaConsolidada({
       console.log("✅ Todas as aprovações anteriores invalidadas com sucesso");
 
       toast.success("✅ Planilha gerada com sucesso!", {
-        description: `${todosItens.length} itens processados. Protocolo: ${protocoloDocumento.substring(0, 19)}...`,
+        description: `${todosItens.length} itens processados. Protocolo: ${dadosProtocolo.protocolo.substring(0, 19)}...`,
       });
       
       // Chamar callback se fornecido
