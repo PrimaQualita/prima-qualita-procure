@@ -77,11 +77,11 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.rect(0, 0, pageWidth, 35, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
+  doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
   doc.text('PLANILHA CONSOLIDADA DE PROPOSTAS', pageWidth / 2, 15, { align: 'center' });
   
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text(processo.numero, pageWidth / 2, 23, { align: 'center' });
   
@@ -172,18 +172,20 @@ export async function gerarPlanilhaConsolidadaPDF(
       fillColor: [37, 99, 235], // primary color
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 9,
+      fontSize: 10,
       halign: 'center',
       valign: 'middle',
-      lineWidth: 0.1,
-      lineColor: [200, 200, 200]
+      lineWidth: 0.3,
+      lineColor: [0, 0, 0],
+      minCellHeight: 12
     },
     bodyStyles: {
-      fontSize: 8,
+      fontSize: 9,
       textColor: [0, 0, 0],
-      lineWidth: 0.1,
-      lineColor: [200, 200, 200],
-      cellPadding: 2
+      lineWidth: 0.3,
+      lineColor: [0, 0, 0],
+      cellPadding: 3,
+      minCellHeight: 10
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252] // muted background
@@ -200,8 +202,11 @@ export async function gerarPlanilhaConsolidadaPDF(
       if (data.row.index === linhas.length - 1) {
         data.cell.styles.fillColor = [226, 232, 240]; // secondary color
         data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 9;
+        data.cell.styles.fontSize = 10;
+        data.cell.styles.textColor = [0, 0, 0];
       }
+      // Garantir texto preto em todas as células
+      data.cell.styles.textColor = [0, 0, 0];
     }
   });
 
