@@ -187,18 +187,24 @@ export async function gerarPlanilhaConsolidadaPDF(
     if (valoresItem.length > 0) {
       // Buscar critério específico deste item, ou usar 'menor' como padrão
       const criterioItem = calculosPorItem[item.numero_item] || 'menor';
+      
+      console.log(`📐 Item ${item.numero_item}: critério=${criterioItem}, valores=[${valoresItem.join(', ')}]`);
+      
       let valorEstimativa: number;
       
       if (criterioItem === 'menor') {
         valorEstimativa = Math.min(...valoresItem);
+        console.log(`   → Menor preço: ${valorEstimativa}`);
       } else if (criterioItem === 'media') {
         valorEstimativa = valoresItem.reduce((a, b) => a + b, 0) / valoresItem.length;
+        console.log(`   → Média: ${valorEstimativa}`);
       } else { // mediana
         const sorted = [...valoresItem].sort((a, b) => a - b);
         const middle = Math.floor(sorted.length / 2);
         valorEstimativa = sorted.length % 2 === 0 
           ? (sorted[middle - 1] + sorted[middle]) / 2 
           : sorted[middle];
+        console.log(`   → Mediana: ${valorEstimativa} (valores ordenados: [${sorted.join(', ')}])`);
       }
       
       const valorTotalEstimativa = valorEstimativa * item.quantidade;
