@@ -42,7 +42,10 @@ const formatarMoeda = (valor: number): string => {
   });
 };
 
-// Decodificar entidades HTML
+const formatarCNPJ = (cnpj: string): string => {
+  return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+};
+
 const decodeHtmlEntities = (text: string): string => {
   const textarea = document.createElement('textarea');
   textarea.innerHTML = text;
@@ -66,68 +69,76 @@ export async function gerarPlanilhaConsolidadaPDF(
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margemEsquerda = 15;
-  const margemDireita = 15;
+  const margemEsquerda = 10;
+  const margemDireita = 10;
   const larguraUtil = pageWidth - margemEsquerda - margemDireita;
   
   let y = 20;
 
-  // Cabeçalho com cores do sistema
-  doc.setFillColor(37, 99, 235); // primary color
-  doc.rect(0, 0, pageWidth, 35, 'F');
+  // Cabeçalho azul
+  doc.setFillColor(37, 99, 235);
+  doc.rect(0, 0, pageWidth, 30, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('PLANILHA CONSOLIDADA DE PROPOSTAS', pageWidth / 2, 15, { align: 'center' });
+  doc.text('PLANILHA CONSOLIDADA DE PROPOSTAS', pageWidth / 2, 12, { align: 'center' });
   
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text(processo.numero, pageWidth / 2, 23, { align: 'center' });
+  doc.text(processo.numero, pageWidth / 2, 18, { align: 'center' });
   
-  // Decodificar o objeto antes de exibir
   const objetoDecodificado = decodeHtmlEntities(processo.objeto);
-  const objetoLinhas = doc.splitTextToSize(objetoDecodificado, larguraUtil);
-  objetoLinhas.forEach((linha: string, index: number) => {
-    doc.text(linha, pageWidth / 2, 30 + (index * 5), { align: 'center' });
-  });
+  doc.setFontSize(10);
+  doc.text(objetoDecodificado, pageWidth / 2, 24, { align: 'center' });
 
-  y = 50;
+  y = 35;
 
   // Informações da Cotação
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(12);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text('Cotação:', margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(cotacao.titulo_cotacao, margemEsquerda + 25, y);
+  doc.text(cotacao.titulo_cotacao, margemEsquerda + 22, y);
   
-  y += 7;
+  y += 5;
   doc.setFont('helvetica', 'bold');
   doc.text('Data de Geração:', margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(new Date().toLocaleString('pt-BR'), margemEsquerda + 40, y);
+  doc.text(new Date().toLocaleString('pt-BR'), margemEsquerda + 35, y);
 
-  y += 10;
+  y += 8;
 
-  // Preparar dados da tabela
-  const colunas = [
-    { header: 'Item', dataKey: 'item' },
-    { header: 'Descrição', dataKey: 'descricao' },
-    { header: 'Qtd', dataKey: 'quantidade' },
-    { header: 'Unid.', dataKey: 'unidade' }
+  // Preparar colunas da tabela
+  const colunas: any[] = [
+    { header: 'Item', dataKey: 'item', width: 12 },
+    { header: 'Descrição', dataKey: 'descricao', width: 40 },
+    { header: 'Qtd', dataKey: 'quantidade', width: 12 },
+    { header: 'Unid.', dataKey: 'unidade', width: 15 }
   ];
 
-  // Adicionar colunas de fornecedores com CNPJ e Email
-  respostas.forEach((resposta, index) => {
-    const headerText = `${resposta.fornecedor.razao_social}\nCNPJ: ${resposta.fornecedor.cnpj}${resposta.fornecedor.email ? '\n' + resposta.fornecedor.email : ''}`;
+  // Calcular largura disponível para fornecedores
+  const larguraFixa = 12 + 40 + 12 + 15; // Item + Descrição + Qtd + Unid
+  const larguraDisponivel = larguraUtil - larguraFixa;
+  const larguraPorFornecedor = larguraDisponivel / respostas.length;
+
+  // Adicionar colunas de fornecedores
+  respostas.forEach((resposta) => {
+    const razaoSocial = resposta.fornecedor.razao_social.toUpperCase();
+    const cnpjFormatado = formatarCNPJ(resposta.fornecedor.cnpj);
+    const email = resposta.fornecedor.email || '';
+    
+    const headerText = `${razaoSocial}\nCNPJ: ${cnpjFormatado}\n${email}`;
+    
     colunas.push({
       header: headerText,
-      dataKey: `fornecedor_${index}`
+      dataKey: `fornecedor_${resposta.fornecedor.cnpj}`,
+      width: larguraPorFornecedor
     });
   });
 
-  // Preparar linhas
+  // Preparar linhas de dados
   const linhas: any[] = [];
   
   itens.forEach(item => {
@@ -138,29 +149,15 @@ export async function gerarPlanilhaConsolidadaPDF(
       unidade: item.unidade
     };
 
-    respostas.forEach((resposta, index) => {
+    respostas.forEach((resposta) => {
       const respostaItem = resposta.itens.find(i => i.numero_item === item.numero_item);
-      linha[`fornecedor_${index}`] = respostaItem 
+      linha[`fornecedor_${resposta.fornecedor.cnpj}`] = respostaItem 
         ? formatarMoeda(respostaItem.valor_unitario_ofertado)
         : '-';
     });
 
     linhas.push(linha);
   });
-
-  // Adicionar linha de totais
-  const linhaTotais: any = {
-    item: '',
-    descricao: 'VALOR TOTAL',
-    quantidade: '',
-    unidade: ''
-  };
-
-  respostas.forEach((resposta, index) => {
-    linhaTotais[`fornecedor_${index}`] = formatarMoeda(resposta.valor_total);
-  });
-
-  linhas.push(linhaTotais);
 
   // Gerar tabela
   autoTable(doc, {
@@ -169,52 +166,45 @@ export async function gerarPlanilhaConsolidadaPDF(
     body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
     theme: 'grid',
     headStyles: {
-      fillColor: [37, 99, 235], // primary color
+      fillColor: [37, 99, 235],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 10,
+      fontSize: 8,
       halign: 'center',
       valign: 'middle',
-      lineWidth: 0.3,
+      lineWidth: 0.5,
       lineColor: [0, 0, 0],
-      minCellHeight: 12
+      cellPadding: 2,
+      minCellHeight: 15
     },
     bodyStyles: {
-      fontSize: 9,
+      fontSize: 8,
       textColor: [0, 0, 0],
-      lineWidth: 0.3,
+      lineWidth: 0.5,
       lineColor: [0, 0, 0],
-      cellPadding: 3,
-      minCellHeight: 10
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252] // muted background
+      cellPadding: 2,
+      halign: 'center',
+      valign: 'middle'
     },
     columnStyles: {
-      0: { cellWidth: 15, halign: 'center', valign: 'middle' },
-      1: { cellWidth: 60, valign: 'middle' },
-      2: { cellWidth: 15, halign: 'center', valign: 'middle' },
-      3: { cellWidth: 15, halign: 'center', valign: 'middle' }
+      0: { halign: 'center', cellWidth: 12 },
+      1: { halign: 'left', cellWidth: 40 },
+      2: { halign: 'center', cellWidth: 12 },
+      3: { halign: 'center', cellWidth: 15 }
     },
     margin: { left: margemEsquerda, right: margemDireita },
+    tableWidth: 'auto',
     didParseCell: function(data) {
-      // Destacar linha de totais
-      if (data.row.index === linhas.length - 1) {
-        data.cell.styles.fillColor = [226, 232, 240]; // secondary color
-        data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 10;
-        data.cell.styles.textColor = [0, 0, 0];
-      }
-      // Garantir texto preto em todas as células
+      // Garantir que todo texto seja preto
       data.cell.styles.textColor = [0, 0, 0];
     }
   });
 
-  // Pegar a posição Y após a tabela
+  // Pegar posição Y após a tabela
   const finalY = (doc as any).lastAutoTable.finalY;
 
   // Verificar se precisa de nova página para certificação
-  let y2 = finalY + 15;
+  let y2 = finalY + 10;
   if (y2 > pageHeight - 50) {
     doc.addPage();
     y2 = 20;
@@ -235,7 +225,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   const hash = await gerarHashDocumento(conteudoParaHash);
   const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${dadosProtocolo.protocolo}`;
 
-  // Certificação simplificada
+  // Certificação digital
   doc.setFillColor(245, 245, 245);
   doc.rect(margemEsquerda, y2, larguraUtil, 35, 'F');
   doc.setDrawColor(0, 0, 0);
