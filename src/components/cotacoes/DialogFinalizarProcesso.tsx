@@ -1547,61 +1547,27 @@ export function DialogFinalizarProcesso({
         `)
         .in("cotacao_resposta_fornecedor_id", todasRespostas?.map(r => r.id) || []);
 
-      // CRÍTICO: Buscar dados diretamente da planilha consolidada para garantir consistência
-      const { data: planilha } = await supabase
-        .from('planilhas_consolidadas')
-        .select('fornecedores_incluidos')
-        .eq('cotacao_id', cotacaoId)
-        .order('data_geracao', { ascending: false })
-        .limit(1)
-        .single();
+      console.log(`📊 [Relatório Final] Processando ${fornecedoresData.length} fornecedores`);
 
-      console.log(`📊 [Relatório Final] Buscando fornecedores vencedores da planilha consolidada`);
-
-      const fornecedoresPlanilha = (planilha?.fornecedores_incluidos as any[]) || [];
-      console.log(`   → Total de fornecedores na planilha: ${fornecedoresPlanilha.length}`);
-
-      // Buscar rejeições revertidas
-      const { data: rejeicoesRevertidas } = await supabase
-        .from('fornecedores_rejeitados_cotacao')
-        .select('fornecedor_id')
-        .eq('cotacao_id', cotacaoId)
-        .eq('revertido', true);
-
-      const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
-
-      // Processar cada fornecedor da planilha
-      const fornecedoresVencedores = fornecedoresPlanilha
-        .map(fornecedorPlanilha => {
-          const resposta = todasRespostas?.find(r => r.fornecedor_id === fornecedorPlanilha.fornecedor_id);
+      // CRÍTICO: Usar fornecedoresData que já vem com itens vencedores identificados corretamente
+      const fornecedoresVencedores = fornecedoresData
+        .filter(f => !f.rejeitado)
+        .map(fData => {
+          const resposta = todasRespostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
+          const itensVencedores = fData.itensVencedores;
           
-          // Verificar se está rejeitado e não foi revertido
-          const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(fornecedorPlanilha.fornecedor_id);
-          
-          if (estaRejeitado) {
-            console.log(`   ⏭️ Pulando fornecedor rejeitado: ${fornecedorPlanilha.razao_social}`);
-            return null;
-          }
-
-          console.log(`🔍 [Relatório Final] Processando fornecedor: ${fornecedorPlanilha.razao_social}`);
-          
-          // Obter itens vencedores da planilha
-          const itensVencedoresPlanilha = (fornecedorPlanilha.itens || [])
-            .filter((item: any) => item.eh_vencedor === true);
-
-          console.log(`   → Total de itens vencedores na planilha: ${itensVencedoresPlanilha.length}`);
-          console.log(`   → Números dos itens: ${itensVencedoresPlanilha.map((i: any) => i.numero_item).join(', ')}`);
+          console.log(`🔍 [Relatório Final] Processando fornecedor: ${fData.fornecedor.razao_social}`);
+          console.log(`   → Total de itens vencedores: ${itensVencedores.length}`);
+          console.log(`   → Números dos itens: ${itensVencedores.map(i => i.itens_cotacao?.numero_item).join(', ')}`);
           
           let valorTotal = 0;
           const itensVencedoresDetalhados: Array<{ numero: number; descricao: string; valor: number; marca?: string; valorUnitario?: number }> = [];
           
-          itensVencedoresPlanilha.forEach((itemPlanilha: any) => {
+          itensVencedores.forEach(item => {
             const itemResposta = itensRespostas?.find(
               ir => ir.cotacao_resposta_fornecedor_id === resposta?.id && 
-                    ir.itens_cotacao.numero_item === itemPlanilha.numero_item
+                    ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item
             );
-            
-            console.log(`   → Item ${itemPlanilha.numero_item}: ${itemResposta ? 'ENCONTRADO' : 'NÃO ENCONTRADO'}`);
             
             if (itemResposta) {
               const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
@@ -1609,7 +1575,7 @@ export function DialogFinalizarProcesso({
               const valorItem = valorUnitario * quantidade;
               valorTotal += valorItem;
               itensVencedoresDetalhados.push({
-                numero: itemPlanilha.numero_item,
+                numero: item.itens_cotacao.numero_item,
                 descricao: itemResposta.itens_cotacao.descricao,
                 valor: valorItem,
                 marca: itemResposta.marca || '-',
@@ -1619,20 +1585,19 @@ export function DialogFinalizarProcesso({
           });
 
           console.log(`   → Itens detalhados montados: ${itensVencedoresDetalhados.length}`);
-          console.log(`   → Valor total: R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+          console.log(`   → Valor total calculado: R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
 
           return {
-            razaoSocial: fornecedorPlanilha.razao_social,
-            cnpj: fornecedorPlanilha.cnpj,
+            razaoSocial: fData.fornecedor.razao_social,
+            cnpj: resposta?.fornecedores.cnpj || "",
             valorTotal: valorTotal,
             itensVencedores: itensVencedoresDetalhados
           };
-        })
-        .filter((f): f is NonNullable<typeof f> => f !== null);
+        });
 
-      console.log(`📊 [Relatório Final] Total de fornecedores a incluir: ${fornecedoresVencedores.length}`);
+      console.log(`📊 [Relatório Final] Total de fornecedores no relatório: ${fornecedoresVencedores.length}`);
       fornecedoresVencedores.forEach((f, i) => {
-        console.log(`   ${i+1}. ${f.razaoSocial}: ${f.itensVencedores.length} itens (R$ ${f.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})})`);
+        console.log(`   ${i+1}. ${f.razaoSocial}: ${f.itensVencedores.length} itens vencedores - Total: R$ ${f.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})})`);
       });
 
       const resultado = await gerarRelatorioFinal({
