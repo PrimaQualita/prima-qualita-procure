@@ -56,6 +56,15 @@ export async function gerarPlanilhaConsolidadaPDF(
   respostas: RespostaFornecedor[],
   dadosProtocolo: DadosProtocolo
 ): Promise<Blob> {
+  console.log('🚀 INICIANDO GERAÇÃO DA PLANILHA CONSOLIDADA');
+  console.log('📊 Dados recebidos:', {
+    processo: processo.numero,
+    cotacao: cotacao.titulo_cotacao,
+    totalItens: itens.length,
+    totalRespostas: respostas.length,
+    fornecedores: respostas.map(r => r.fornecedor.razao_social)
+  });
+
   const doc = new jsPDF({ 
     orientation: 'landscape',
     unit: 'mm',
@@ -69,6 +78,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   const larguraUtil = pageWidth - margemEsquerda - margemDireita;
   
   let y = 20;
+  
+  console.log('📄 Dimensões do documento:', { pageWidth, pageHeight, larguraUtil });
 
   // Informações da Cotação
   doc.setTextColor(0, 0, 0);
@@ -105,6 +116,8 @@ export async function gerarPlanilhaConsolidadaPDF(
 
   y += 10;
 
+  console.log('🔧 Preparando dados da tabela...');
+  
   // Preparar dados da tabela
   const colunas = [
     { header: 'Item', dataKey: 'item' },
@@ -121,6 +134,8 @@ export async function gerarPlanilhaConsolidadaPDF(
       dataKey: `fornecedor_${index}`
     });
   });
+
+  console.log(`📋 Total de colunas: ${colunas.length}`);
 
   // Preparar linhas
   const linhas: any[] = [];
@@ -161,87 +176,104 @@ export async function gerarPlanilhaConsolidadaPDF(
 
   linhas.push(linhaTotais);
 
+  console.log('✅ Dados da tabela preparados com sucesso');
+  console.log('🎨 Iniciando renderização da tabela com autoTable...');
+
+
+
   // Gerar tabela com suporte para grande volume de dados
-  autoTable(doc, {
-    startY: y,
-    head: [colunas.map(c => c.header)],
-    body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
-    theme: 'grid',
-    headStyles: {
-      fillColor: [37, 99, 235],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      fontSize: 8,
-      halign: 'center',
-      cellPadding: 2
-    },
-    bodyStyles: {
-      fontSize: 7,
-      textColor: [0, 0, 0],
-      minCellHeight: 5,
-      cellPadding: 1.5
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252]
-    },
-    columnStyles: {
-      0: { cellWidth: 12, halign: 'center' },
-      1: { cellWidth: 55 },
-      2: { cellWidth: 12, halign: 'center' },
-      3: { cellWidth: 12, halign: 'center' }
-    },
-    margin: { left: margemEsquerda, right: margemDireita, top: 20, bottom: 30 },
-    showHead: 'everyPage',
-    pageBreak: 'auto',
-    rowPageBreak: 'avoid',
-    tableWidth: 'auto',
-    didParseCell: function(data) {
-      // Destacar linha de totais
-      if (data.row.index === linhas.length - 1) {
-        data.cell.styles.fillColor = [226, 232, 240];
-        data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 8;
+  try {
+    autoTable(doc, {
+      startY: y,
+      head: [colunas.map(c => c.header)],
+      body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
+      theme: 'grid',
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center',
+        cellPadding: 2
+      },
+      bodyStyles: {
+        fontSize: 7,
+        textColor: [0, 0, 0],
+        minCellHeight: 5,
+        cellPadding: 1.5
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 55 },
+        2: { cellWidth: 12, halign: 'center' },
+        3: { cellWidth: 12, halign: 'center' }
+      },
+      margin: { left: margemEsquerda, right: margemDireita, top: 20, bottom: 30 },
+      showHead: 'everyPage',
+      pageBreak: 'auto',
+      rowPageBreak: 'avoid',
+      tableWidth: 'auto',
+      didParseCell: function(data) {
+        // Destacar linha de totais
+        if (data.row.index === linhas.length - 1) {
+          data.cell.styles.fillColor = [226, 232, 240];
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fontSize = 8;
+        }
+      },
+      didDrawPage: function(data) {
+        // Rodapé em todas as páginas
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.text(
+          'Prima Qualitá Saúde',
+          pageWidth / 2,
+          pageHeight - 15,
+          { align: 'center' }
+        );
+        doc.text(
+          'Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040',
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+        
+        // Número da página
+        doc.text(
+          `Página ${data.pageNumber} de ${pageCount}`,
+          pageWidth / 2,
+          pageHeight - 5,
+          { align: 'center' }
+        );
       }
-    },
-    didDrawPage: function(data) {
-      // Rodapé em todas as páginas
-      const pageCount = (doc as any).internal.getNumberOfPages();
-      
-      doc.setFontSize(8);
-      doc.setTextColor(100);
-      doc.text(
-        'Prima Qualitá Saúde',
-        pageWidth / 2,
-        pageHeight - 15,
-        { align: 'center' }
-      );
-      doc.text(
-        'Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040',
-        pageWidth / 2,
-        pageHeight - 10,
-        { align: 'center' }
-      );
-      
-      // Número da página
-      doc.text(
-        `Página ${data.pageNumber} de ${pageCount}`,
-        pageWidth / 2,
-        pageHeight - 5,
-        { align: 'center' }
-      );
-    }
-  });
+    });
+    
+    console.log('✅ Tabela renderizada com sucesso!');
+  } catch (error) {
+    console.error('❌ ERRO ao renderizar tabela:', error);
+    throw error;
+  }
 
   // Pegar a posição Y após a tabela
   const finalY = (doc as any).lastAutoTable.finalY;
+  
+  console.log(`📍 Tabela finalizada na posição Y: ${finalY}`);
 
   // Verificar se precisa de nova página para certificação
   let y2 = finalY + 15;
   if (y2 > pageHeight - 50) {
     doc.addPage();
     y2 = 20;
+    console.log('📄 Nova página adicionada para certificação');
   }
 
+  console.log('🔐 Gerando certificação digital...');
+  
   // Gerar hash do conteúdo
   const conteudoParaHash = JSON.stringify({
     processo: processo.numero,
@@ -256,6 +288,8 @@ export async function gerarPlanilhaConsolidadaPDF(
 
   const hash = await gerarHashDocumento(conteudoParaHash);
   const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${dadosProtocolo.protocolo}`;
+
+  console.log(`🔐 Hash gerado: ${hash.substring(0, 20)}...`);
 
   // Certificação digital
   doc.setFillColor(245, 245, 245);
@@ -288,6 +322,9 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.text(`Verifique em: ${linkVerificacao}`, margemEsquerda + 3, y2);
 
   console.log(`✅ PDF gerado com sucesso - Total de páginas: ${(doc as any).internal.getNumberOfPages()}`);
+  
+  const blob = doc.output('blob');
+  console.log(`📦 Blob gerado com tamanho: ${(blob.size / 1024).toFixed(2)} KB`);
 
-  return doc.output('blob');
+  return blob;
 }
