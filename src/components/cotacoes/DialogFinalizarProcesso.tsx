@@ -118,6 +118,9 @@ export function DialogFinalizarProcesso({
   const [rejeicaoParaReverter, setRejeicaoParaReverter] = useState<string | null>(null);
   const [motivoReversao, setMotivoReversao] = useState("");
   const [confirmFinalizarOpen, setConfirmFinalizarOpen] = useState(false);
+  const [dialogSolicitarAtualizacao, setDialogSolicitarAtualizacao] = useState(false);
+  const [documentoParaAtualizar, setDocumentoParaAtualizar] = useState<DocumentoExistente | null>(null);
+  const [motivoAtualizacao, setMotivoAtualizacao] = useState("");
   const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
   const [encaminhamentoParaExcluir, setEncaminhamentoParaExcluir] = useState<any>(null);
   const [confirmDeleteAutorizacaoOpen, setConfirmDeleteAutorizacaoOpen] = useState(false);
@@ -1416,6 +1419,37 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const handleSolicitarAtualizacaoDocumento = async () => {
+    if (!documentoParaAtualizar) return;
+    
+    if (!motivoAtualizacao || motivoAtualizacao.trim() === "") {
+      toast.error("É necessário informar o motivo da solicitação");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("documentos_fornecedor")
+        .update({
+          atualizacao_solicitada: true,
+          data_solicitacao_atualizacao: new Date().toISOString(),
+          motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+        })
+        .eq("id", documentoParaAtualizar.id);
+
+      if (error) throw error;
+
+      toast.success("Solicitação de atualização enviada para o fornecedor");
+      setDialogSolicitarAtualizacao(false);
+      setDocumentoParaAtualizar(null);
+      setMotivoAtualizacao("");
+      await loadAllFornecedores();
+    } catch (error: any) {
+      console.error("Erro ao solicitar atualização:", error);
+      toast.error("Erro ao enviar solicitação de atualização");
+    }
+  };
+
   const deletarRelatorioFinal = async () => {
     if (!relatorioParaExcluir) return;
 
@@ -2152,29 +2186,10 @@ export function DialogFinalizarProcesso({
                                           variant="outline"
                                           size="sm"
                                           className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
-                                          onClick={async () => {
-                                            try {
-                                              const motivo = prompt(`Informe o motivo da solicitação de atualização do documento "${doc.tipo_documento}":`);
-                                              if (!motivo) return;
-
-                                              // Marcar documento de cadastro como "atualização solicitada"
-                                              const { error } = await supabase
-                                                .from('documentos_fornecedor')
-                                                .update({
-                                                  atualizacao_solicitada: true,
-                                                  data_solicitacao_atualizacao: new Date().toISOString(),
-                                                  motivo_solicitacao_atualizacao: motivo.trim()
-                                                })
-                                                .eq('id', doc.id);
-
-                                              if (error) throw error;
-
-                                              toast.success("Solicitação de atualização enviada para o fornecedor");
-                                              await loadAllFornecedores();
-                                            } catch (error) {
-                                              console.error('Erro ao solicitar atualização:', error);
-                                              toast.error("Erro ao enviar solicitação de atualização");
-                                            }
+                                          onClick={() => {
+                                            setDocumentoParaAtualizar(doc);
+                                            setMotivoAtualizacao("");
+                                            setDialogSolicitarAtualizacao(true);
                                           }}
                                         >
                                           <Clock className="h-4 w-4 mr-1" />
@@ -3122,6 +3137,47 @@ export function DialogFinalizarProcesso({
           cancelText="Cancelar"
         />
       </DialogContent>
+
+      {/* Dialog Solicitar Atualização de Documento */}
+      <Dialog open={dialogSolicitarAtualizacao} onOpenChange={setDialogSolicitarAtualizacao}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Solicitar Atualização de Documento</DialogTitle>
+            <DialogDescription>
+              {documentoParaAtualizar && `Informe o motivo da solicitação de atualização do documento "${documentoParaAtualizar.tipo_documento}"`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="motivo_atualizacao">Motivo da Solicitação *</Label>
+              <Textarea
+                id="motivo_atualizacao"
+                placeholder="Ex: Documento vencido, necessário atualização..."
+                value={motivoAtualizacao}
+                onChange={(e) => setMotivoAtualizacao(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDialogSolicitarAtualizacao(false);
+                setDocumentoParaAtualizar(null);
+                setMotivoAtualizacao("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSolicitarAtualizacaoDocumento}>
+              Enviar Solicitação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
