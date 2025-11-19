@@ -170,6 +170,12 @@ export const gerarProcessoCompletoPDF = async (
               continue;
             }
             
+            // Evitar duplicação: pular se for Preços Públicos (será adicionado depois com documentos dos fornecedores)
+            if (razaoSocial.toLowerCase().includes('preços públicos') || razaoSocial.toLowerCase().includes('precos publicos')) {
+              console.log(`    ⏭️ Pulando ${razaoSocial} (será incluído com fornecedores vencedores)`);
+              continue;
+            }
+            
             documentosOrdenados.push({
               tipo: "Proposta Fornecedor",
               data: anexo.data_upload || resposta.data_envio_resposta,
