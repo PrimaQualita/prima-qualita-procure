@@ -891,211 +891,54 @@ export function DialogPlanilhaConsolidada({
         </html>
       `;
 
-      // Helper para formatar moeda
-      const formatarMoeda = (valor: number): string => {
-        return valor.toLocaleString('pt-BR', { 
-          style: 'currency', 
-          currency: 'BRL',
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        });
+      // Gerar PDF usando html2pdf.js com otimizações para grandes volumes
+      console.log(`📄 Gerando planilha com ${todosItens.length} itens usando html2pdf.js`);
+      
+      const element = document.createElement('div');
+      element.innerHTML = html;
+
+      // Ajustar configurações baseado no volume de itens
+      const isGrandeVolume = todosItens.length > 500;
+      const isMuitoGrandeVolume = todosItens.length > 800;
+      
+      const opt = {
+        margin: [5, 5, 5, 5],
+        filename: `planilha_consolidada_${cotacaoId}.pdf`,
+        image: { 
+          type: 'jpeg', 
+          quality: isMuitoGrandeVolume ? 0.75 : (isGrandeVolume ? 0.85 : 0.95)
+        },
+        html2canvas: { 
+          scale: isMuitoGrandeVolume ? 1.2 : (isGrandeVolume ? 1.5 : 2),
+          useCORS: true,
+          letterRendering: true,
+          logging: false,
+          scrollY: 0,
+          scrollX: 0,
+          windowWidth: 1920,
+          windowHeight: 1080,
+          async: true, // Processar de forma assíncrona para não travar
+          allowTaint: false,
+          removeContainer: true
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'landscape',
+          compress: true,
+          putOnlyUsedFonts: true
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css', 'legacy'],
+          before: '.page-break',
+          after: '.page-break-after'
+        }
       };
 
-      // Para grandes volumes (>100 itens), usar jsPDF direto é mais eficiente
-      let pdfBlob: Blob;
-      
-      if (todosItens.length > 100) {
-        console.log(`🚀 Grande volume detectado (${todosItens.length} itens) - usando jsPDF + autoTable`);
-        
-        // Importar dinamicamente jsPDF e autoTable
-        const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
-        
-        const doc = new jsPDF({
-          orientation: 'landscape',
-          unit: 'mm',
-          format: 'a4'
-        });
+      console.log(`⚙️ Configurações PDF: scale=${opt.html2canvas.scale}, quality=${opt.image.quality}`);
 
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margemEsquerda = 10;
-        const margemDireita = 10;
-        
-        // Cabeçalho
-        doc.setFillColor(37, 99, 235);
-        doc.rect(0, 0, pageWidth, 30, 'F');
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO', pageWidth / 2, 12, { align: 'center' });
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        const criterioTexto = tipoVisualizacao === "item" ? "Menor Valor por Item" : 
-                             tipoVisualizacao === "lote" ? "Menor Valor por Lote" : "Menor Valor Global";
-        doc.text(`Critério de Julgamento: ${criterioTexto}`, pageWidth / 2, 20, { align: 'center' });
-        
-        let startY = 35;
-        
-        // Preparar colunas
-        const colunas: any[] = [
-          { header: 'Item', dataKey: 'item', width: 15 },
-          { header: 'Descrição', dataKey: 'descricao', width: 60 },
-          { header: 'Qtd', dataKey: 'qtd', width: 15 },
-          { header: 'Unid', dataKey: 'unid', width: 15 }
-        ];
-        
-        // Adicionar colunas dos fornecedores
-        respostasFiltradas.forEach((r, idx) => {
-          if (tipoProcesso === "material") {
-            colunas.push(
-              { header: `${r.fornecedor.razao_social}\nCNPJ: ${r.fornecedor.cnpj}\n${r.fornecedor.email || ''}\nMarca`, dataKey: `marca_${idx}`, width: 25 },
-              { header: 'Valor', dataKey: `valor_${idx}`, width: 25 }
-            );
-          } else {
-            colunas.push({ header: `${r.fornecedor.razao_social}\nCNPJ: ${r.fornecedor.cnpj}\n${r.fornecedor.email || ''}`, dataKey: `valor_${idx}`, width: 30 });
-          }
-        });
-        
-        colunas.push({ header: 'Estimativa', dataKey: 'estimativa', width: 25 });
-        
-        // Preparar linhas
-        const linhas: any[] = [];
-        todosItens.forEach((item: any) => {
-          const linha: any = {
-            item: item.numero_item?.toString() || '',
-            descricao: item.descricao || '',
-            qtd: item.quantidade?.toString() || '',
-            unid: item.unidade || ''
-          };
-          
-          respostasFiltradas.forEach((r, idx) => {
-            const respostaItem = r.itens_respondidos?.find((ri: any) => ri.item_cotacao_id === item.id);
-            if (tipoProcesso === "material") {
-              linha[`marca_${idx}`] = respostaItem?.marca || '-';
-              linha[`valor_${idx}`] = respostaItem ? formatarMoeda(respostaItem.valor_unitario_ofertado) : '-';
-            } else {
-              linha[`valor_${idx}`] = respostaItem ? formatarMoeda(respostaItem.valor_unitario_ofertado) : '-';
-            }
-          });
-          
-          const valorEstimado = (item.quantidade || 0) * (item.valor_unitario_estimado || 0);
-          linha.estimativa = formatarMoeda(valorEstimado);
-          linhas.push(linha);
-        });
-        
-        // Adicionar linha de totais
-        const linhaTotais: any = { item: '', descricao: 'VALOR TOTAL ESTIMADO', qtd: '', unid: '' };
-        respostasFiltradas.forEach((r, idx) => {
-          if (tipoProcesso === "material") {
-            linhaTotais[`marca_${idx}`] = '';
-            linhaTotais[`valor_${idx}`] = formatarMoeda(r.valor_total);
-          } else {
-            linhaTotais[`valor_${idx}`] = formatarMoeda(r.valor_total);
-          }
-        });
-        const totalGeral = todosItens.reduce((sum: number, item: any) => sum + ((item.quantidade || 0) * (item.valor_unitario_estimado || 0)), 0);
-        linhaTotais.estimativa = formatarMoeda(totalGeral);
-        linhas.push(linhaTotais);
-        
-        // Gerar tabela
-        autoTable(doc, {
-          startY,
-          head: [colunas.map(c => c.header)],
-          body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
-          theme: 'grid',
-          headStyles: {
-            fillColor: [37, 99, 235],
-            textColor: [255, 255, 255],
-            fontStyle: 'bold',
-            fontSize: 8,
-            halign: 'center',
-            valign: 'middle'
-          },
-          bodyStyles: {
-            fontSize: 7,
-            textColor: [0, 0, 0],
-            cellPadding: 2
-          },
-          alternateRowStyles: {
-            fillColor: [248, 250, 252]
-          },
-          columnStyles: {
-            0: { halign: 'center', cellWidth: 15 },
-            1: { cellWidth: 60 },
-            2: { halign: 'center', cellWidth: 15 },
-            3: { halign: 'center', cellWidth: 15 }
-          },
-          margin: { left: margemEsquerda, right: margemDireita },
-          didParseCell: function(data) {
-            if (data.row.index === linhas.length - 1) {
-              data.cell.styles.fillColor = [226, 232, 240];
-              data.cell.styles.fontStyle = 'bold';
-              data.cell.styles.fontSize = 8;
-            }
-          }
-        });
-        
-        // Adicionar certificação digital
-        const finalY = (doc as any).lastAutoTable.finalY + 10;
-        const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${protocoloDocumento}`;
-        
-        doc.setFillColor(245, 245, 245);
-        doc.rect(margemEsquerda, finalY, pageWidth - margemEsquerda - margemDireita, 30, 'F');
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
-        doc.rect(margemEsquerda, finalY, pageWidth - margemEsquerda - margemDireita, 30, 'S');
-        
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(0, 0, 139);
-        doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, finalY + 6, { align: 'center' });
-        
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Responsável: ${usuarioNome}`, margemEsquerda + 3, finalY + 12);
-        doc.text(`Protocolo: ${protocoloDocumento}`, margemEsquerda + 3, finalY + 17);
-        doc.text(`Verificar em: ${linkVerificacao}`, margemEsquerda + 3, finalY + 22);
-        doc.setFontSize(7);
-        doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margemEsquerda + 3, finalY + 27);
-        
-        pdfBlob = doc.output('blob');
-        
-      } else {
-        // Para volumes menores, usar html2pdf.js como antes
-        console.log(`📄 Volume normal (${todosItens.length} itens) - usando html2pdf.js`);
-        
-        const element = document.createElement('div');
-        element.innerHTML = html;
-
-        const opt = {
-          margin: [5, 5, 5, 5],
-          filename: `planilha_consolidada_${cotacaoId}.pdf`,
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { 
-            scale: 2,
-            useCORS: true,
-            letterRendering: true,
-            logging: false,
-            scrollY: 0,
-            scrollX: 0
-          },
-          jsPDF: { 
-            unit: 'mm', 
-            format: 'a4', 
-            orientation: 'landscape',
-            compress: true
-          },
-          pagebreak: { 
-            mode: ['avoid-all', 'css', 'legacy']
-          }
-        };
-
-        // @ts-ignore
-        pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
-      }
+      // @ts-ignore
+      const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
 
       // Salvar no storage
       const nomeArquivo = `planilha_consolidada_${cotacaoId}_${Date.now()}.pdf`;
