@@ -118,9 +118,9 @@ export async function gerarPlanilhaConsolidadaPDF(
     { header: 'Unid.', dataKey: 'unidade', width: 15 }
   ];
 
-  // Calcular largura disponível para fornecedores
+  // Calcular largura disponível para fornecedores + estimativa
   const larguraFixa = 12 + 40 + 12 + 15; // Item + Descrição + Qtd + Unid
-  const larguraDisponivel = larguraUtil - larguraFixa;
+  const larguraDisponivel = larguraUtil - larguraFixa - 25; // 25 para coluna Estimativa
   const larguraPorFornecedor = larguraDisponivel / respostas.length;
 
   // Adicionar colunas de fornecedores
@@ -138,8 +138,22 @@ export async function gerarPlanilhaConsolidadaPDF(
     });
   });
 
+  // Adicionar coluna Estimativa
+  colunas.push({
+    header: 'Estimativa',
+    dataKey: 'estimativa',
+    width: 25
+  });
+
   // Preparar linhas de dados
   const linhas: any[] = [];
+  const totaisPorFornecedor: { [cnpj: string]: number } = {};
+  let totalGeralEstimativa = 0;
+  
+  // Inicializar totais
+  respostas.forEach(resposta => {
+    totaisPorFornecedor[resposta.fornecedor.cnpj] = 0;
+  });
   
   itens.forEach(item => {
     const linha: any = {
@@ -149,15 +163,52 @@ export async function gerarPlanilhaConsolidadaPDF(
       unidade: item.unidade
     };
 
+    const valoresItem: number[] = [];
+
     respostas.forEach((resposta) => {
       const respostaItem = resposta.itens.find(i => i.numero_item === item.numero_item);
-      linha[`fornecedor_${resposta.fornecedor.cnpj}`] = respostaItem 
-        ? formatarMoeda(respostaItem.valor_unitario_ofertado)
-        : '-';
+      if (respostaItem) {
+        const valorUnitario = respostaItem.valor_unitario_ofertado;
+        const valorTotal = valorUnitario * item.quantidade;
+        
+        // Mostrar valor unitário na primeira linha e total na segunda
+        linha[`fornecedor_${resposta.fornecedor.cnpj}`] = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotal)})`;
+        
+        totaisPorFornecedor[resposta.fornecedor.cnpj] += valorTotal;
+        valoresItem.push(valorUnitario);
+      } else {
+        linha[`fornecedor_${resposta.fornecedor.cnpj}`] = '-';
+      }
     });
+
+    // Calcular estimativa (usando menor preço como padrão)
+    if (valoresItem.length > 0) {
+      const menorPreco = Math.min(...valoresItem);
+      const valorTotalEstimativa = menorPreco * item.quantidade;
+      linha.estimativa = `${formatarMoeda(menorPreco)}\n(Total: ${formatarMoeda(valorTotalEstimativa)})`;
+      totalGeralEstimativa += valorTotalEstimativa;
+    } else {
+      linha.estimativa = '-';
+    }
 
     linhas.push(linha);
   });
+
+  // Adicionar linha de TOTAL GERAL
+  const linhaTotalGeral: any = {
+    item: '',
+    descricao: 'VALOR TOTAL',
+    quantidade: '',
+    unidade: ''
+  };
+
+  respostas.forEach((resposta) => {
+    linhaTotalGeral[`fornecedor_${resposta.fornecedor.cnpj}`] = formatarMoeda(totaisPorFornecedor[resposta.fornecedor.cnpj]);
+  });
+
+  linhaTotalGeral.estimativa = formatarMoeda(totalGeralEstimativa);
+
+  linhas.push(linhaTotalGeral);
 
   // Gerar tabela
   autoTable(doc, {
@@ -197,6 +248,13 @@ export async function gerarPlanilhaConsolidadaPDF(
     didParseCell: function(data) {
       // Garantir que todo texto seja preto
       data.cell.styles.textColor = [0, 0, 0];
+      
+      // Destacar linha de totais
+      if (data.row.index === linhas.length - 1) {
+        data.cell.styles.fillColor = [226, 232, 240];
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 9;
+      }
     }
   });
 
