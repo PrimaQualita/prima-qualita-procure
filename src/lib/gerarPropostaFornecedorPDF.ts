@@ -315,6 +315,9 @@ export async function gerarPropostaFornecedorPDF(
       y += obsLines.length * 5;
     }
 
+    // Adicionar espaço extra após observações ou valor total
+    y += 10;
+
     // Gerar protocolo
     const protocolo = gerarProtocolo();
 
@@ -342,18 +345,26 @@ export async function gerarPropostaFornecedorPDF(
     const ultimaPagina = pdfFinal.getPage(pdfFinal.getPageCount() - 1);
     const { height } = ultimaPagina.getSize();
     
-    // Se y atual for maior que 220, não há espaço suficiente - adicionar nova página
+    // Altura do quadro de certificação
+    const alturaQuadroCert = 100;
+    
+    // Converter posição Y do jsPDF para pdf-lib (invertendo o eixo Y)
+    // jsPDF mede do topo para baixo, pdf-lib mede de baixo para cima
+    const yPosJsPDF = y; // Posição atual no jsPDF
+    const yPosPdfLib = height - (yPosJsPDF * 2.83465); // Conversão de mm para pontos
+    
+    // Verificar se há espaço suficiente na página atual
     let paginaCert;
     let yPosCert;
     
-    if (y > height - 100) {
-      // Criar nova página para certificação
+    if (yPosPdfLib < alturaQuadroCert + 20) {
+      // Não há espaço suficiente - criar nova página
       paginaCert = pdfFinal.addPage();
-      yPosCert = height - 40;
+      yPosCert = height - 60; // Posicionar no topo da nova página
     } else {
-      // Usar a última página
+      // Usar a última página com a posição calculada
       paginaCert = ultimaPagina;
-      yPosCert = y + 10;
+      yPosCert = yPosPdfLib - 20; // Adicionar pequeno espaço
     }
 
     const { width } = paginaCert.getSize();
