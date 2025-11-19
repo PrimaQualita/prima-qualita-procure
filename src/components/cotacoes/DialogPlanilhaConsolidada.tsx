@@ -344,7 +344,9 @@ export function DialogPlanilhaConsolidada({
       const pdfBlob = await gerarPlanilhaConsolidadaPDF(
         {
           numero: cotacaoData.processos_compras.numero_processo_interno,
-          objeto: cotacaoData.processos_compras.objeto_resumido
+          objeto: cotacaoData.processos_compras.objeto_resumido,
+          tipo: cotacaoData.processos_compras.tipo,
+          criterio_julgamento: cotacaoData.processos_compras.criterio_julgamento
         },
         {
           titulo_cotacao: cotacaoData.titulo_cotacao

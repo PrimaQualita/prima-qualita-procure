@@ -50,7 +50,7 @@ const decodeHtmlEntities = (text: string): string => {
 };
 
 export async function gerarPlanilhaConsolidadaPDF(
-  processo: { numero: string; objeto: string },
+  processo: { numero: string; objeto: string; tipo: string; criterio_julgamento: string },
   cotacao: { titulo_cotacao: string },
   itens: ItemCotacao[],
   respostas: RespostaFornecedor[],
@@ -116,7 +116,45 @@ export async function gerarPlanilhaConsolidadaPDF(
 
   y += 10;
 
+  // Logo Prima Qualitá
+  const logoPath = '/src/assets/prima-qualita-logo-horizontal.png';
+  try {
+    const logoImg = new Image();
+    logoImg.src = logoPath;
+    await new Promise((resolve) => {
+      logoImg.onload = resolve;
+      logoImg.onerror = resolve;
+    });
+    if (logoImg.complete && logoImg.naturalWidth > 0) {
+      doc.addImage(logoImg, 'PNG', pageWidth / 2 - 40, y - 5, 80, 15);
+      y += 18;
+    }
+  } catch (error) {
+    console.log('Logo não carregado, continuando sem logo');
+  }
+
+  // Critério de Julgamento em caixa
+  doc.setFillColor(200, 220, 240);
+  doc.rect(margemEsquerda, y, 80, 10, 'F');
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(margemEsquerda, y, 80, 10, 'S');
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  const criterioTexto = processo.criterio_julgamento === 'global' 
+    ? 'Menor Valor Global' 
+    : processo.criterio_julgamento === 'por_item' 
+    ? 'Menor Valor por Item' 
+    : 'Menor Valor por Lote';
+  doc.text(`Critério de Julgamento: ${criterioTexto}`, margemEsquerda + 40, y + 6.5, { align: 'center' });
+  
+  y += 15;
+
   console.log('🔧 Preparando dados da tabela...');
+  
+  const isMaterial = processo.tipo === 'material';
   
   // Preparar dados da tabela
   const colunas = [
@@ -126,16 +164,45 @@ export async function gerarPlanilhaConsolidadaPDF(
     { header: 'Unid.', dataKey: 'unidade' }
   ];
 
-  // Adicionar colunas de fornecedores com CNPJ e Email
+  // Adicionar colunas de fornecedores
   respostas.forEach((resposta, index) => {
     const headerText = `${resposta.fornecedor.razao_social}\nCNPJ: ${resposta.fornecedor.cnpj}${resposta.fornecedor.email ? '\n' + resposta.fornecedor.email : ''}`;
-    colunas.push({
-      header: headerText,
-      dataKey: `fornecedor_${index}`
-    });
+    
+    if (isMaterial) {
+      // Para material: duas colunas (Marca e Valor)
+      colunas.push({
+        header: `${headerText}\nMarca`,
+        dataKey: `fornecedor_${index}_marca`
+      });
+      colunas.push({
+        header: `${headerText}\nValor`,
+        dataKey: `fornecedor_${index}_valor`
+      });
+    } else {
+      // Para outros: apenas uma coluna de valor
+      colunas.push({
+        header: headerText,
+        dataKey: `fornecedor_${index}`
+      });
+    }
   });
 
   console.log(`📋 Total de colunas: ${colunas.length}`);
+
+  // Identificar menores valores por item
+  const menoresValores: { [key: number]: number } = {};
+  itens.forEach(item => {
+    const valores = respostas
+      .map(r => {
+        const respostaItem = r.itens.find(i => i.numero_item === item.numero_item);
+        return respostaItem ? respostaItem.valor_unitario_ofertado : Infinity;
+      })
+      .filter(v => v !== Infinity);
+    
+    if (valores.length > 0) {
+      menoresValores[item.numero_item] = Math.min(...valores);
+    }
+  });
 
   // Preparar linhas
   const linhas: any[] = [];
@@ -152,9 +219,17 @@ export async function gerarPlanilhaConsolidadaPDF(
 
     respostas.forEach((resposta, index) => {
       const respostaItem = resposta.itens.find(i => i.numero_item === item.numero_item);
-      linha[`fornecedor_${index}`] = respostaItem 
-        ? formatarMoeda(respostaItem.valor_unitario_ofertado)
-        : '-';
+      
+      if (isMaterial) {
+        linha[`fornecedor_${index}_marca`] = respostaItem?.marca || '-';
+        linha[`fornecedor_${index}_valor`] = respostaItem 
+          ? formatarMoeda(respostaItem.valor_unitario_ofertado)
+          : '-';
+      } else {
+        linha[`fornecedor_${index}`] = respostaItem 
+          ? formatarMoeda(respostaItem.valor_unitario_ofertado)
+          : '-';
+      }
     });
 
     linhas.push(linha);
@@ -171,7 +246,12 @@ export async function gerarPlanilhaConsolidadaPDF(
   };
 
   respostas.forEach((resposta, index) => {
-    linhaTotais[`fornecedor_${index}`] = formatarMoeda(resposta.valor_total);
+    if (isMaterial) {
+      linhaTotais[`fornecedor_${index}_marca`] = '';
+      linhaTotais[`fornecedor_${index}_valor`] = formatarMoeda(resposta.valor_total);
+    } else {
+      linhaTotais[`fornecedor_${index}`] = formatarMoeda(resposta.valor_total);
+    }
   });
 
   linhas.push(linhaTotais);
@@ -222,6 +302,24 @@ export async function gerarPlanilhaConsolidadaPDF(
           data.cell.styles.fillColor = [226, 232, 240];
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fontSize = 8;
+        }
+        
+        // Destacar menores valores (vencedores)
+        if (data.row.index < linhas.length - 1) {
+          const linha = linhas[data.row.index];
+          const numeroItem = parseInt(linha.item);
+          const menorValor = menoresValores[numeroItem];
+          
+          respostas.forEach((resposta, index) => {
+            const respostaItem = resposta.itens.find(i => i.numero_item === numeroItem);
+            if (respostaItem && respostaItem.valor_unitario_ofertado === menorValor) {
+              const colKey = isMaterial ? `fornecedor_${index}_valor` : `fornecedor_${index}`;
+              if (data.cell.raw === linha[colKey]) {
+                data.cell.styles.fillColor = [144, 238, 144];
+                data.cell.styles.fontStyle = 'bold';
+              }
+            }
+          });
         }
       },
       didDrawPage: function(data) {
