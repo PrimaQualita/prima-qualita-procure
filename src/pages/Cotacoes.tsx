@@ -132,6 +132,14 @@ const Cotacoes = () => {
         // Remover o parâmetro da URL
         setSearchParams({});
       }
+      
+      // Verificar se há parâmetro para abrir gerenciar itens da cotação
+      const cotacaoId = searchParams.get('cotacao');
+      if (cotacaoId) {
+        await loadCotacaoByIdAndOpenDialog(cotacaoId);
+        // Remover o parâmetro da URL
+        setSearchParams({});
+      }
     };
     init();
   }, []);
