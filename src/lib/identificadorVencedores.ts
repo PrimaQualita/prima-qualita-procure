@@ -174,6 +174,12 @@ export async function carregarItensVencedoresPorFornecedor(
   }
 
   console.log(`  ✅ Fornecedor encontrado na planilha: ${fornecedorPlanilha.razao_social}`);
+  console.log(`  📊 Total de itens do fornecedor na planilha: ${fornecedorPlanilha.itens?.length || 0}`);
+  
+  // DEBUG: Ver estrutura dos itens deste fornecedor
+  if (fornecedorPlanilha.itens && fornecedorPlanilha.itens.length > 0) {
+    console.log(`  📋 Exemplo de item:`, fornecedorPlanilha.itens[0]);
+  }
 
   // Obter os números dos itens vencidos da planilha
   const numerosItensVencidos = fornecedorPlanilha.itens
@@ -183,6 +189,8 @@ export async function carregarItensVencedoresPorFornecedor(
   console.log(`  → Itens vencedores segundo planilha: ${numerosItensVencidos.length}`);
   if (numerosItensVencidos.length <= 15) {
     console.log(`  → Números: ${numerosItensVencidos.join(', ')}`);
+  } else {
+    console.log(`  → Primeiros 15 números: ${numerosItensVencidos.slice(0, 15).join(', ')}`);
   }
 
   // Buscar os objetos ItemResposta correspondentes

@@ -990,6 +990,7 @@ export function DialogPlanilhaConsolidada({
         .eq("cotacao_id", cotacaoId);
       
       // Criar estrutura completa de fornecedores com seus itens e vencedores
+      // IMPORTANTE: Identificação de vencedores deve respeitar o critério de julgamento
       const fornecedoresIncluidos = respostas
         .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social))
         .map(resposta => {
@@ -998,27 +999,92 @@ export function DialogPlanilhaConsolidada({
             (rc.fornecedores as any).cnpj === resposta.fornecedor.cnpj
           );
           
-          // Para cada item do fornecedor, verificar se ele é vencedor
-          const itensComVencedor = resposta.itens.map(item => {
-            // Buscar todos os valores deste item entre os fornecedores selecionados
-            const valoresDoItem: number[] = [];
-            respostasFiltradas.forEach(r => {
-              const itemEncontrado = r.itens.find(i => i.numero_item === item.numero_item);
-              if (itemEncontrado) {
-                valoresDoItem.push(Number(itemEncontrado.valor_unitario_ofertado));
-              }
-            });
+          let itensComVencedor;
+          
+          // Identificar vencedores baseado no critério de julgamento
+          if (criterioJulgamento === "global") {
+            // Critério GLOBAL: apenas um vencedor (menor valor total)
+            const valoresTotal = respostasFiltradas.map(r => r.valor_total);
+            const menorTotal = Math.min(...valoresTotal);
+            const ehVencedorGlobal = Math.abs(resposta.valor_total - menorTotal) < 0.01;
             
-            // Identificar o menor valor
-            const menorValor = Math.min(...valoresDoItem);
-            const ehVencedor = Math.abs(Number(item.valor_unitario_ofertado) - menorValor) < 0.001;
-            
-            return {
+            itensComVencedor = resposta.itens.map(item => ({
               numero_item: item.numero_item,
               valor_unitario: Number(item.valor_unitario_ofertado),
-              eh_vencedor: ehVencedor
-            };
-          });
+              eh_vencedor: ehVencedorGlobal // Todos os itens herdam o status global
+            }));
+            
+          } else if (criterioJulgamento === "por_lote") {
+            // Critério POR LOTE: vencedor por lote (menor valor total do lote)
+            const lotes = new Map<string, number>();
+            
+            // Calcular total por lote para cada fornecedor
+            respostasFiltradas.forEach(r => {
+              r.itens.forEach(item => {
+                const loteId = item.lote_id || 'sem_lote';
+                const valorAtual = lotes.get(`${r.fornecedor.cnpj}_${loteId}`) || 0;
+                lotes.set(`${r.fornecedor.cnpj}_${loteId}`, valorAtual + (item.quantidade * Number(item.valor_unitario_ofertado)));
+              });
+            });
+            
+            // Para cada lote, identificar o menor valor
+            const lotesVencedores = new Map<string, string>();
+            respostasFiltradas.forEach(r => {
+              const lotesDoFornecedor = new Set(r.itens.map(i => i.lote_id || 'sem_lote'));
+              lotesDoFornecedor.forEach(loteId => {
+                const valoresPorFornecedor: { cnpj: string; valor: number }[] = [];
+                respostasFiltradas.forEach(rf => {
+                  const valorLote = lotes.get(`${rf.fornecedor.cnpj}_${loteId}`) || 0;
+                  if (valorLote > 0) {
+                    valoresPorFornecedor.push({ cnpj: rf.fornecedor.cnpj, valor: valorLote });
+                  }
+                });
+                
+                if (valoresPorFornecedor.length > 0) {
+                  const menorValor = Math.min(...valoresPorFornecedor.map(v => v.valor));
+                  const vencedor = valoresPorFornecedor.find(v => Math.abs(v.valor - menorValor) < 0.01);
+                  if (vencedor) {
+                    lotesVencedores.set(loteId, vencedor.cnpj);
+                  }
+                }
+              });
+            });
+            
+            itensComVencedor = resposta.itens.map(item => {
+              const loteId = item.lote_id || 'sem_lote';
+              const cnpjVencedor = lotesVencedores.get(loteId);
+              const ehVencedor = cnpjVencedor === resposta.fornecedor.cnpj;
+              
+              return {
+                numero_item: item.numero_item,
+                valor_unitario: Number(item.valor_unitario_ofertado),
+                eh_vencedor: ehVencedor
+              };
+            });
+            
+          } else {
+            // Critério POR ITEM (padrão): vencedor por item (menor valor unitário)
+            itensComVencedor = resposta.itens.map(item => {
+              // Buscar todos os valores deste item entre os fornecedores selecionados
+              const valoresDoItem: number[] = [];
+              respostasFiltradas.forEach(r => {
+                const itemEncontrado = r.itens.find(i => i.numero_item === item.numero_item);
+                if (itemEncontrado) {
+                  valoresDoItem.push(Number(itemEncontrado.valor_unitario_ofertado));
+                }
+              });
+              
+              // Identificar o menor valor
+              const menorValor = Math.min(...valoresDoItem);
+              const ehVencedor = Math.abs(Number(item.valor_unitario_ofertado) - menorValor) < 0.001;
+              
+              return {
+                numero_item: item.numero_item,
+                valor_unitario: Number(item.valor_unitario_ofertado),
+                eh_vencedor: ehVencedor
+              };
+            });
+          }
           
           return {
             fornecedor_id: respostaCompleta?.fornecedor_id || '',
