@@ -166,27 +166,51 @@ export function DialogPlanilhaConsolidada({
           continue; // Pula esta empresa
         }
 
-        const { data: itensData } = await supabase
-          .from("respostas_itens_fornecedor")
-          .select(`
-            valor_unitario_ofertado,
-            marca,
-            item_cotacao:item_cotacao_id (
-              id,
-              numero_item,
-              descricao,
-              quantidade,
-              unidade,
-              lote_id,
-              lote:lote_id (
-                numero_lote,
-                descricao_lote
+        // Buscar TODOS os itens em lotes de 1000 (escala automaticamente)
+        console.log(`🔍 [Planilha] Buscando itens do fornecedor ${resposta.fornecedor.razao_social}...`);
+        
+        const itensData: any[] = [];
+        let offset = 0;
+        let hasMore = true;
+        const BATCH_SIZE = 1000;
+        
+        while (hasMore) {
+          const { data: batch, error: batchError } = await supabase
+            .from("respostas_itens_fornecedor")
+            .select(`
+              valor_unitario_ofertado,
+              marca,
+              item_cotacao:item_cotacao_id (
+                id,
+                numero_item,
+                descricao,
+                quantidade,
+                unidade,
+                lote_id,
+                lote:lote_id (
+                  numero_lote,
+                  descricao_lote
+                )
               )
-            )
-          `)
-          .eq("cotacao_resposta_fornecedor_id", resposta.id);
-
-        console.log(`📦 Itens do fornecedor ${resposta.fornecedor.razao_social}:`, itensData);
+            `)
+            .eq("cotacao_resposta_fornecedor_id", resposta.id)
+            .range(offset, offset + BATCH_SIZE - 1);
+          
+          if (batchError) {
+            console.error(`❌ [Planilha] Erro ao buscar lote:`, batchError);
+            throw batchError;
+          }
+          
+          if (batch && batch.length > 0) {
+            itensData.push(...batch);
+            console.log(`✅ [Planilha] Lote ${Math.floor(offset / BATCH_SIZE) + 1}: ${batch.length} itens carregados`);
+          }
+          
+          hasMore = batch && batch.length === BATCH_SIZE;
+          offset += BATCH_SIZE;
+        }
+        
+        console.log(`✅ [Planilha] ${resposta.fornecedor.razao_social}: TOTAL ${itensData.length} itens`);
         console.log(`🏷️ Marcas encontradas:`, itensData?.map((i: any) => ({ item: i.item_cotacao.numero_item, marca: i.marca })));
 
         const itensFormatadosFornecedor = (itensData || []).map((item: any) => ({
