@@ -2,9 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { gerarHashDocumento } from './certificacaoDigital';
+import html2pdf from "html2pdf.js";
 import {
   Dialog,
   DialogContent,
@@ -911,191 +909,58 @@ export function DialogPlanilhaConsolidada({
       
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Usar jsPDF + autotable para geração robusta
-      console.log(`📄 Gerando planilha com ${todosItens.length} itens usando jsPDF + autotable`);
+      // Gerar PDF usando html2pdf.js com configurações otimizadas
+      console.log(`📄 Gerando planilha com ${todosItens.length} itens usando html2pdf.js`);
       
       toast.info("📑 Gerando PDF", {
-        description: "Gerando documento otimizado...",
+        description: "Isso pode levar alguns segundos...",
       });
-
-      const doc = new jsPDF({ 
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      let y = 20;
-
-      // Logo
-      if (logoBase64) {
-        try {
-          doc.addImage(logoBase64, 'PNG', (pageWidth - 50) / 2, 10, 50, 12);
-          y = 28;
-        } catch (error) {
-          console.error('Erro ao adicionar logo:', error);
-        }
-      }
-
-      // Título
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(14, 165, 233);
-      doc.text('PLANILHA CONSOLIDADA - ESTIMATIVA DE PREÇOS PARA SELEÇÃO', pageWidth / 2, y, { align: 'center' });
-      y += 10;
-
-      // Critério de julgamento
-      doc.setFontSize(11);
-      doc.setTextColor(255, 255, 255);
-      doc.setFillColor(14, 165, 233);
-      const criterioTexto = criterioJulgamento === "por_item" ? "Menor Valor por Item" :
-                           criterioJulgamento === "global" ? "Menor Valor Global" : "Menor Valor por Lote";
-      doc.rect(15, y - 5, 100, 8, 'F');
-      doc.text(`Critério de Julgamento: ${criterioTexto}`, 17, y, { align: 'left' });
-      y += 12;
-
-      // Preparar colunas
-      const colunas: any[] = [
-        { header: 'Item', dataKey: 'item', width: 15 },
-        { header: 'Descrição', dataKey: 'descricao', width: 60 },
-        { header: 'Qtd', dataKey: 'quantidade', width: 15 },
-        { header: 'Unid.', dataKey: 'unidade', width: 15 }
-      ];
-
-      // Adicionar colunas dos fornecedores
-      respostasFiltradas.forEach((resposta, index) => {
-        if (tipoProcesso === "material") {
-          colunas.push({
-            header: `${resposta.fornecedor.razao_social}\n${resposta.fornecedor.cnpj}\n${resposta.fornecedor.email || ''}`,
-            dataKey: `marca_${index}`,
-            width: 20
-          });
-          colunas.push({
-            header: 'Valor',
-            dataKey: `valor_${index}`,
-            width: 25
-          });
-        } else {
-          colunas.push({
-            header: `${resposta.fornecedor.razao_social}\n${resposta.fornecedor.cnpj}\n${resposta.fornecedor.email || ''}`,
-            dataKey: `valor_${index}`,
-            width: 30
-          });
-        }
-      });
-
-      colunas.push({ header: 'Estimativa', dataKey: 'estimativa', width: 25 });
-
-      // Preparar linhas
-      const linhas: any[] = [];
-      let totalGeralEstimativa = 0;
-
-      todosItens.forEach(item => {
-        const linha: any = {
-          item: item.numero_item.toString(),
-          descricao: stripHtml(item.descricao).substring(0, 100),
-          quantidade: Number(item.quantidade).toLocaleString("pt-BR"),
-          unidade: item.unidade
-        };
-
-        // Calcular valores dos fornecedores
-        const valores: number[] = [];
-        respostasFiltradas.forEach((resposta, index) => {
-          const itemResposta = resposta.itens.find((i: any) => i.numero_item === item.numero_item);
-          
-          if (tipoProcesso === "material") {
-            linha[`marca_${index}`] = itemResposta?.marca || "-";
-          }
-          
-          if (itemResposta) {
-            valores.push(Number(itemResposta.valor_unitario_ofertado));
-            const valorTotal = Math.round(Number(itemResposta.valor_unitario_ofertado) * Number(item.quantidade) * 100) / 100;
-            linha[`valor_${index}`] = `R$ ${Number(itemResposta.valor_unitario_ofertado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n(Total: R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`;
-          } else {
-            linha[`valor_${index}`] = "-";
-          }
-        });
-
-        // Calcular estimativa
-        if (valores.length > 0) {
-          const stats = calcularEstatisticas(valores);
-          const tipoCalculoItem = calculosPorItem[item.numero_item.toString()] || "menor";
-          const valorEstimativa = stats[tipoCalculoItem];
-          const totalItemEstimativa = Math.round(valorEstimativa * Number(item.quantidade) * 100) / 100;
-          totalGeralEstimativa += totalItemEstimativa;
-          linha.estimativa = `R$ ${valorEstimativa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n(Total: R$ ${totalItemEstimativa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`;
-        } else {
-          linha.estimativa = "-";
-        }
-
-        linhas.push(linha);
-      });
-
-      // Gerar tabela
-      autoTable(doc, {
-        columns: colunas,
-        body: linhas,
-        startY: y,
-        theme: 'grid',
-        styles: { 
-          fontSize: 8,
-          cellPadding: 2,
-          overflow: 'linebreak',
-          halign: 'center'
-        },
-        headStyles: { 
-          fillColor: [14, 165, 233],
-          textColor: 255,
-          fontSize: 8,
-          fontStyle: 'bold',
-          halign: 'center'
-        },
-        columnStyles: {
-          item: { halign: 'center', cellWidth: 15 },
-          descricao: { halign: 'left', cellWidth: 60 },
-          quantidade: { halign: 'right', cellWidth: 15 },
-          unidade: { halign: 'center', cellWidth: 15 }
-        },
-        didDrawPage: (data) => {
-          // Rodapé em todas as páginas
-          doc.setFontSize(8);
-          doc.setTextColor(100);
-          doc.text('Prima Qualitá Saúde', pageWidth / 2, pageHeight - 10, { align: 'center' });
-          doc.text('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, pageHeight - 6, { align: 'center' });
-        }
-      });
-
-      // Linha de total
-      const finalY = (doc as any).lastAutoTable.finalY + 5;
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`VALOR TOTAL ESTIMADO: R$ ${totalGeralEstimativa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - 15, finalY, { align: 'right' });
-
-      // Adicionar certificação digital
-      const certY = finalY + 15;
-      doc.setFillColor(240, 240, 240);
-      doc.rect(15, certY, pageWidth - 30, 35, 'F');
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(15, certY, pageWidth - 30, 35);
       
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, certY + 7, { align: 'center' });
-      
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Protocolo: ${protocoloDocumento}`, 20, certY + 14);
-      doc.text(`Data/Hora: ${dataHoraGeracao.toLocaleString('pt-BR')}`, 20, certY + 19);
-      doc.text(`Gerado por: ${usuarioNome}`, 20, certY + 24);
-      doc.text(`Hash: ${hashVerificacao}`, 20, certY + 29);
-      
-      const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${protocoloDocumento}`;
-      doc.setTextColor(14, 165, 233);
-      doc.textWithLink('Verificar autenticidade', 20, certY + 34, { url: linkVerificacao });
+      const element = document.createElement('div');
+      element.innerHTML = html;
 
-      const pdfBlob = doc.output('blob');
+      // Configurações otimizadas para grande volume - scale baixo para evitar PDFs em branco
+      const isGrandeVolume = todosItens.length > 500;
+      const isMuitoGrandeVolume = todosItens.length > 800;
+      
+      const opt = {
+        margin: [5, 5, 5, 5],
+        filename: `planilha_consolidada_${cotacaoId}.pdf`,
+        image: { 
+          type: 'jpeg', 
+          quality: isMuitoGrandeVolume ? 0.85 : (isGrandeVolume ? 0.88 : 0.92)
+        },
+        html2canvas: { 
+          scale: isMuitoGrandeVolume ? 1.2 : (isGrandeVolume ? 1.4 : 1.6), // Scale reduzido para evitar branco
+          useCORS: true,
+          letterRendering: true,
+          logging: false,
+          scrollY: 0,
+          scrollX: 0,
+          windowWidth: 1920,
+          windowHeight: 1080,
+          async: true,
+          allowTaint: false,
+          removeContainer: true
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'landscape',
+          compress: true,
+          putOnlyUsedFonts: true
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css', 'legacy'],
+          before: '.page-break',
+          after: '.page-break-after'
+        }
+      };
+
+      console.log(`⚙️ Configurações PDF: scale=${opt.html2canvas.scale}, quality=${opt.image.quality}`);
+
+      // @ts-ignore
+      const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
 
       // Feedback: PDF gerado
       toast.info("💾 Salvando planilha", {
