@@ -308,6 +308,11 @@ export function DialogFinalizarProcesso({
       }
 
       // Buscar itens de TODAS as respostas (remover limite de 1000)
+      console.log(`📤 Buscando itens para ${respostas.length} respostas:`, respostas.map(r => ({
+        id: r.id,
+        fornecedor: r.fornecedores.razao_social
+      })));
+      
       const { data: itens, error: itensError } = await supabase
         .from("respostas_itens_fornecedor")
         .select(`
@@ -320,9 +325,25 @@ export function DialogFinalizarProcesso({
         .in("cotacao_resposta_fornecedor_id", respostas.map(r => r.id))
         .limit(100000); // Permitir buscar TODOS os itens mesmo em processos grandes
 
-      if (itensError) throw itensError;
+      if (itensError) {
+        console.error(`❌ Erro ao buscar itens:`, itensError);
+        throw itensError;
+      }
 
       console.log(`📦 Total de itens de respostas: ${itens?.length || 0}`);
+      
+      // DEBUG: Contar itens por fornecedor
+      if (itens && itens.length > 0) {
+        const itensPorFornecedor = respostas.map(r => {
+          const count = itens.filter(i => i.cotacao_resposta_fornecedor_id === r.id).length;
+          return {
+            fornecedor: r.fornecedores.razao_social,
+            resposta_id: r.id,
+            total_itens: count
+          };
+        });
+        console.log(`📊 Itens por fornecedor:`, itensPorFornecedor);
+      }
 
       const criterio = cotacao?.criterio_julgamento || "global";
       
