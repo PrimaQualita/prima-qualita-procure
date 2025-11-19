@@ -34,7 +34,6 @@ import Credenciamentos from "./pages/Credenciamentos";
 import ContratacoesEspecificas from "./pages/ContratacoesEspecificas";
 import Contratos from "./pages/Contratos";
 import Compliance from "./pages/Compliance";
-import VerificarDocumentacao from "./pages/VerificarDocumentacao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,7 +62,6 @@ const App = () => (
           <Route path="/verificar-documento" element={<VerificarDocumento />} />
           <Route path="/verificar-encaminhamento" element={<VerificarEncaminhamento />} />
           <Route path="/verificar-analise-compliance" element={<VerificarAnaliseCompliance />} />
-          <Route path="/verificar-documentacao" element={<VerificarDocumentacao />} />
           
           {/* Rotas com sidebar */}
           <Route element={<DashboardLayout />}>
