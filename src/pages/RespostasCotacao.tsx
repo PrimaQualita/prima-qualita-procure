@@ -392,6 +392,20 @@ export default function RespostasCotacao() {
         cotacao.titulo_cotacao
       );
 
+      // Criar registro do anexo em anexos_cotacao_fornecedor
+      const { error: anexoError } = await supabase
+        .from('anexos_cotacao_fornecedor')
+        .insert({
+          cotacao_resposta_fornecedor_id: respostaId,
+          nome_arquivo: resultado.nome,
+          url_arquivo: resultado.url,
+          tipo_anexo: 'PROPOSTA'
+        });
+
+      if (anexoError) {
+        console.error("Erro ao criar registro de anexo:", anexoError);
+      }
+
       // Buscar o arquivo do storage
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('processo-anexos')
@@ -401,6 +415,10 @@ export default function RespostasCotacao() {
 
       const pdfUrl = URL.createObjectURL(fileData);
       window.open(pdfUrl, '_blank');
+      
+      // Recarregar dados para atualizar interface
+      await carregarDados();
+      toast.success("Proposta gerada com sucesso!");
     } catch (error) {
       console.error("Erro ao visualizar proposta:", error);
       toast.error("Erro ao visualizar proposta");
