@@ -1240,7 +1240,7 @@ export function DialogFinalizarProcesso({
       toast.success(`Documentos de ${fornecedorData.fornecedor.razao_social} aprovados com sucesso`);
       
       // Recarregar dados para refletir mudança na UI
-      await loadAllFornecedores();
+      await loadDocumentosAprovados();
       await loadAllFornecedores();
     } catch (error) {
       console.error("Erro ao aprovar documentos do fornecedor:", error);
@@ -1266,9 +1266,22 @@ export function DialogFinalizarProcesso({
           .in("id", camposAprovados.map(c => c.id!));
 
         if (error) throw error;
+      } else {
+        // Se não há campos, remover aprovação do JSON documentos_aprovados
+        const novosDocumentosAprovados = { ...documentosAprovados };
+        delete novosDocumentosAprovados[fornecedorId];
+        
+        const { error } = await supabase
+          .from("cotacoes_precos")
+          .update({ documentos_aprovados: novosDocumentosAprovados })
+          .eq("id", cotacaoId);
+
+        if (error) throw error;
+        setDocumentosAprovados(novosDocumentosAprovados);
       }
 
       toast.success(`Aprovação de ${fornecedorData.fornecedor.razao_social} revertida com sucesso`);
+      await loadDocumentosAprovados();
       await loadAllFornecedores();
     } catch (error) {
       console.error("Erro ao reverter aprovação do fornecedor:", error);
