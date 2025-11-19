@@ -137,20 +137,18 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   if (dados.fornecedoresVencedores && dados.fornecedoresVencedores.length > 0) {
     doc.setFontSize(8);
     
-    // Cabeçalho da tabela (sem colunas Marca e Valor Unit.)
+    // Cabeçalho da tabela (apenas Empresa, CNPJ e Valor Total)
     doc.setFillColor(0, 51, 102);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 60, 8, 'FD');
-    doc.rect(80, yPos, 45, 8, 'FD');
-    doc.rect(125, yPos, 30, 8, 'FD');
-    doc.rect(155, yPos, 35, 8, 'FD');
+    doc.rect(20, yPos, 80, 8, 'FD');
+    doc.rect(100, yPos, 50, 8, 'FD');
+    doc.rect(150, yPos, 40, 8, 'FD');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('Empresa', 50, yPos + 5, { align: 'center' });
-    doc.text('CNPJ', 102.5, yPos + 5, { align: 'center' });
-    doc.text('Item', 140, yPos + 5, { align: 'center' });
-    doc.text('Valor Total', 172.5, yPos + 5, { align: 'center' });
+    doc.text('Empresa', 60, yPos + 5, { align: 'center' });
+    doc.text('CNPJ', 125, yPos + 5, { align: 'center' });
+    doc.text('Valor Total', 170, yPos + 5, { align: 'center' });
     yPos += 8;
     
     // Conteúdo da tabela
@@ -168,15 +166,8 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     };
     
     dados.fornecedoresVencedores.forEach((fornecedor) => {
-      // Agrupar números de itens separados por vírgula
-      const numerosItens = fornecedor.itensVencedores
-        .map(item => item.numero)
-        .sort((a, b) => a - b)
-        .join(', ');
-      
-      const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 55);
-      const itensSplit = doc.splitTextToSize(numerosItens, 28);
-      const alturaLinha = Math.max(8, Math.max(razaoSocialSplit.length, itensSplit.length) * 4 + 2);
+      const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 75);
+      const alturaLinha = Math.max(8, razaoSocialSplit.length * 4 + 2);
       
       // Verificar se precisa de nova página (margem reduzida para 23mm)
       if (yPos + alturaLinha > pageHeight - 23) {
@@ -185,29 +176,22 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
         adicionarLogoERodape();
       }
       
-      doc.rect(20, yPos, 60, alturaLinha);
-      doc.rect(80, yPos, 45, alturaLinha);
-      doc.rect(125, yPos, 30, alturaLinha);
-      doc.rect(155, yPos, 35, alturaLinha);
+      doc.rect(20, yPos, 80, alturaLinha);
+      doc.rect(100, yPos, 50, alturaLinha);
+      doc.rect(150, yPos, 40, alturaLinha);
       
       // Razão social
       const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
       razaoSocialSplit.forEach((linha: string, index: number) => {
-        doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 56 });
+        doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 76 });
       });
       
       // CNPJ
       const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
-      const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 43);
+      const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 48);
       const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
       cnpjSplit.forEach((linha: string, index: number) => {
-        doc.text(linha, 82, yPos + offsetVerticalCNPJ + (index * 4), { align: 'left', maxWidth: 41 });
-      });
-      
-      // Itens agrupados (com quebra de linha automática)
-      const offsetVerticalItens = (alturaLinha - (itensSplit.length * 4)) / 2 + 3;
-      itensSplit.forEach((linha: string, index: number) => {
-        doc.text(linha, 140, yPos + offsetVerticalItens + (index * 4), { align: 'center', maxWidth: 28 });
+        doc.text(linha, 102, yPos + offsetVerticalCNPJ + (index * 4), { align: 'left', maxWidth: 46 });
       });
       
       // Valor total do fornecedor
@@ -221,8 +205,8 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     doc.setFillColor(240, 240, 240);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 135, 8, 'FD');
-    doc.rect(155, yPos, 35, 8, 'FD');
+    doc.rect(20, yPos, 130, 8, 'FD');
+    doc.rect(150, yPos, 40, 8, 'FD');
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text('TOTAL GERAL', 22, yPos + 5);
