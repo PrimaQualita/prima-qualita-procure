@@ -135,7 +135,8 @@ export const gerarEncaminhamentoPDF = async (
   doc.setTextColor(0, 0, 255);
   const linksVerificacao = doc.splitTextToSize(linkVerificacao, pageWidth - 50);
   linksVerificacao.forEach((linha: string, index: number) => {
-    doc.textWithLink(linha, 20, yPos + (index * 5), { url: linkVerificacao });
+    const yPosLinha = yPos + (index * 5);
+    doc.textWithLink(linha, 20, yPosLinha, { url: linkVerificacao });
   });
   doc.setTextColor(0, 0, 0);
   
