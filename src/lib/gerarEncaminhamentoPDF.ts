@@ -133,7 +133,8 @@ export const gerarEncaminhamentoPDF = async (
   yPos += 8;
   const linkVerificacao = `${window.location.origin}/verificar-encaminhamento?protocolo=${protocolo}`;
   doc.setTextColor(0, 0, 255);
-  doc.textWithLink('Clique aqui para verificar a autenticidade', 20, yPos, { url: linkVerificacao });
+  const linksVerificacao = doc.splitTextToSize(linkVerificacao, 170);
+  doc.text(linksVerificacao, 20, yPos);
   doc.setTextColor(0, 0, 0);
   
   // Salvar no Supabase Storage
