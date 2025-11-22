@@ -315,13 +315,13 @@ export default function PortalFornecedor() {
           <Card className="mb-6 border-orange-500/50 bg-orange-500/10">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
-                <FileText className="h-5 w-5 text-orange-600 mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
                 <div className="flex-1">
                   <p className="font-semibold text-orange-700 dark:text-orange-400 mb-2">
                     ⚠️ Você possui documentos pendentes de envio!
                   </p>
                   <p className="text-sm text-orange-600 dark:text-orange-300">
-                    Acesse a aba "Meu Perfil" para visualizar e enviar os documentos solicitados.
+                    Acesse a aba "Cotações de Preços" ou "Seleções" para visualizar e enviar os documentos solicitados.
                   </p>
                 </div>
               </div>
