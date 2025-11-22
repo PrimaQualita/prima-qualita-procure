@@ -355,8 +355,9 @@ export function DialogRespostasCotacao({
 
       if (dbError) throw dbError;
 
+      console.log('✅ Encaminhamento salvo no banco, recarregando lista...');
       toast.success("Encaminhamento gerado com sucesso!");
-      handleEncaminhamentoGerado();
+      await loadEncaminhamento();
     } catch (error) {
       console.error('Erro ao gerar encaminhamento:', error);
       toast.error("Erro ao gerar encaminhamento");
@@ -383,9 +384,10 @@ export function DialogRespostasCotacao({
 
       if (dbError) throw dbError;
 
+      console.log('✅ Encaminhamento excluído, recarregando lista...');
       setEncaminhamentoParaExcluir(null);
       setConfirmDeleteEncaminhamentoOpen(false);
-      handleEncaminhamentoGerado();
+      await loadEncaminhamento();
       toast.success("Encaminhamento excluído com sucesso");
     } catch (error: any) {
       console.error("Erro ao excluir encaminhamento:", error);
