@@ -201,12 +201,20 @@ export function DialogRespostasCotacao({
 
   const loadEncaminhamento = async () => {
     try {
-      const { data } = await supabase
+      console.log('🔄 Carregando encaminhamentos para cotação:', cotacaoId);
+      
+      const { data, error } = await supabase
         .from("encaminhamentos_processo")
         .select("*")
         .eq("cotacao_id", cotacaoId)
         .order("created_at", { ascending: false });
       
+      if (error) {
+        console.error('❌ Erro ao carregar encaminhamentos:', error);
+        throw error;
+      }
+      
+      console.log('📄 Encaminhamentos encontrados:', data?.length || 0, data);
       setEncaminhamentos(data || []);
     } catch (error) {
       console.error("Erro ao carregar encaminhamentos:", error);
