@@ -586,13 +586,26 @@ export function DialogPlanilhaConsolidada({
       // CRÍTICO: Invalidar todas as aprovações de documentos ao gerar nova planilha
       console.log("🔄 Invalidando aprovações anteriores de documentos...");
       
-      // PRIMEIRO: Buscar IDs dos campos antes de deletar
+      // PRIMEIRO: Resetar campo documentos_aprovados da cotação
+      const { error: resetApprovedError } = await supabase
+        .from("cotacoes_precos")
+        .update({ documentos_aprovados: {} })
+        .eq("id", cotacaoId);
+      
+      if (resetApprovedError) {
+        console.error("Erro ao resetar documentos aprovados:", resetApprovedError);
+        toast.error("Atenção: Não foi possível limpar aprovações anteriores");
+      } else {
+        console.log("✅ Campo documentos_aprovados resetado");
+      }
+      
+      // SEGUNDO: Buscar IDs dos campos antes de deletar
       const { data: campos } = await supabase
         .from("campos_documentos_finalizacao")
         .select("id")
         .eq("cotacao_id", cotacaoId);
       
-      // SEGUNDO: Deletar documentos enviados pelos fornecedores
+      // TERCEIRO: Deletar documentos enviados pelos fornecedores
       if (campos && campos.length > 0) {
         const campoIds = campos.map(c => c.id);
         const { error: deleteDocsError } = await supabase
@@ -607,15 +620,14 @@ export function DialogPlanilhaConsolidada({
         }
       }
 
-      // TERCEIRO: Deletar solicitações de documentos de finalizacao
+      // QUARTO: Deletar solicitações de documentos de finalizacao
       const { error: deleteError } = await supabase
         .from("campos_documentos_finalizacao")
         .delete()
         .eq("cotacao_id", cotacaoId);
       
       if (deleteError) {
-        console.error("Erro ao limpar aprovações:", deleteError);
-        toast.error("Atenção: Não foi possível limpar aprovações anteriores");
+        console.error("Erro ao limpar solicitações:", deleteError);
       } else {
         console.log("✅ Solicitações de documentos invalidadas");
       }
