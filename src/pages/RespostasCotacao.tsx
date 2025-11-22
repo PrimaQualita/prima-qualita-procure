@@ -24,6 +24,7 @@ import {
 import { stripHtml } from "@/lib/htmlUtils";
 import { DialogPlanilhaConsolidada } from "@/components/cotacoes/DialogPlanilhaConsolidada";
 import { v4 as uuidv4 } from 'uuid';
+import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 
 interface ItemResposta {
   numero_item: number;
@@ -626,6 +627,14 @@ export default function RespostasCotacao() {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col items-center mb-6">
+        <img 
+          src={logoHorizontal} 
+          alt="Prima Qualitá Saúde" 
+          className="h-16 object-contain mb-4"
+        />
+      </div>
+      
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
