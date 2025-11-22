@@ -111,7 +111,7 @@ export const gerarEncaminhamentoPDF = async (
   
   // Bloco de certificação
   doc.setFillColor(240, 240, 240);
-  doc.rect(15, yPos, pageWidth - 30, 45, 'F');
+  doc.rect(15, yPos, pageWidth - 30, 50, 'F');
   
   yPos += 8;
   doc.setFontSize(10);
@@ -133,7 +133,10 @@ export const gerarEncaminhamentoPDF = async (
   yPos += 8;
   const linkVerificacao = `${window.location.origin}/verificar-encaminhamento?protocolo=${protocolo}`;
   doc.setTextColor(0, 0, 255);
-  doc.textWithLink(linkVerificacao, 20, yPos, { url: linkVerificacao });
+  const linksVerificacao = doc.splitTextToSize(linkVerificacao, pageWidth - 50);
+  linksVerificacao.forEach((linha: string, index: number) => {
+    doc.textWithLink(linha, 20, yPos + (index * 5), { url: linkVerificacao });
+  });
   doc.setTextColor(0, 0, 0);
   
   // Salvar no Supabase Storage
