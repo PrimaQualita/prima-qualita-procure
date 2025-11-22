@@ -341,8 +341,10 @@ export function DialogRespostasCotacao({
         perfil.cpf
       );
 
+      console.log('📄 PDF gerado:', resultado);
+
       // Salvar no banco
-      const { error: dbError } = await supabase
+      const { data: insertData, error: dbError } = await supabase
         .from('encaminhamentos_processo')
         .insert({
           cotacao_id: cotacaoId,
@@ -351,15 +353,21 @@ export function DialogRespostasCotacao({
           storage_path: resultado.storagePath,
           url: resultado.url,
           gerado_por: user.id
-        });
+        })
+        .select();
 
-      if (dbError) throw dbError;
+      console.log('💾 Resultado do INSERT:', { data: insertData, error: dbError });
+
+      if (dbError) {
+        console.error('❌ Erro ao salvar no banco:', dbError);
+        throw dbError;
+      }
 
       console.log('✅ Encaminhamento salvo no banco, recarregando lista...');
       toast.success("Encaminhamento gerado com sucesso!");
       await loadEncaminhamento();
     } catch (error) {
-      console.error('Erro ao gerar encaminhamento:', error);
+      console.error('❌ Erro ao gerar encaminhamento:', error);
       toast.error("Erro ao gerar encaminhamento");
     } finally {
       setGerandoEncaminhamento(false);
