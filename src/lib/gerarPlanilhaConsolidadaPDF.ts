@@ -99,8 +99,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  const textoCotacao = 'Cotação: ';
-  const textoData = 'Data de Geração: ';
+  const textoCotacao = 'Cotação:  ';
+  const textoData = 'Data de Geração:  ';
   
   doc.text(textoCotacao, margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
