@@ -61,9 +61,9 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            opacity: 0.05;
+            opacity: 0.08;
             z-index: 1;
-            width: 400px;
+            width: 650px;
             height: auto;
             pointer-events: none;
           }
@@ -71,64 +71,78 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .content {
             position: relative;
             z-index: 2;
-            padding: 40px 60px 80px 60px;
-            height: calc(297mm - 60px);
+            padding: 100px 80px 20px 80px;
+            min-height: calc(297mm - 100px);
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
           }
           
           .top-section {
-            margin-top: 60px;
+            margin-bottom: 80px;
           }
           
-          .processo-line, .contrato-line {
+          .processo-line {
             text-align: center;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
+            color: #1a5490;
+          }
+          
+          .contrato-line {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 60px;
+            color: #1a5490;
           }
           
           .objeto-section {
             margin-bottom: 20px;
+            text-align: left;
           }
           
           .objeto-title {
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
           }
           
           .objeto-text {
             font-size: 16px;
-            text-align: justify;
-            line-height: 1.3;
+            line-height: 1.5;
           }
           
           .middle-section {
             text-align: center;
-            margin: 40px 0;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 100px 0;
           }
           
           .data-text {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: bold;
+            color: #1a5490;
           }
           
           .bottom-section {
-            margin-bottom: 40px;
+            margin-bottom: 30px;
+            text-align: left;
           }
           
           .assunto-title {
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
           }
           
           .assunto-text {
             font-size: 16px;
+            line-height: 1.5;
             text-align: justify;
-            line-height: 1.3;
           }
           
           .footer {
