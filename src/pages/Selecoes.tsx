@@ -325,14 +325,13 @@ const Selecoes = () => {
                     <TableHead>Título</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data/Hora Disputa</TableHead>
-                    <TableHead className="text-right">Valor Estimado</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {selecoes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
                         Nenhuma seleção criada para este processo
                       </TableCell>
                     </TableRow>
@@ -347,9 +346,6 @@ const Selecoes = () => {
                         </TableCell>
                         <TableCell>
                           {new Date(selecao.data_sessao_disputa).toLocaleDateString("pt-BR")} às {selecao.hora_sessao_disputa}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          R$ {selecao.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button 
