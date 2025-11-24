@@ -222,6 +222,10 @@ const VerificarProposta = () => {
             .eq("protocolo", protocolo)
             .maybeSingle();
 
+          console.log('RESULTADO COTAÇÃO:');
+          console.log('Data:', data);
+          console.log('Error:', error);
+
           if (error) throw error;
 
           if (!data) {
