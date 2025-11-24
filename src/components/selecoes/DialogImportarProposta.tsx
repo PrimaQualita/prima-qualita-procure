@@ -69,26 +69,26 @@ export function DialogImportarProposta({
       { wch: 15 }   // Valor Unitário
     ];
     
-    // Configurar proteção de células
-    // Bloquear colunas A (Número do Item) e B (Descrição)
+    // Configurar proteção de células - APENAS HEADER
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
     
+    // Para cada linha
     for (let R = range.s.r; R <= range.e.r; ++R) {
-      // Colunas A e B (índices 0 e 1) - bloqueadas
-      ['A', 'B'].forEach(col => {
-        const cellRef = col + (R + 1);
-        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
+      // Para cada coluna
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellRef]) continue;
+        
+        // Inicializar estilo se não existir
         if (!ws[cellRef].s) ws[cellRef].s = {};
-        ws[cellRef].s.protection = { locked: true };
-      });
-      
-      // Colunas C e D (índices 2 e 3) - desbloqueadas
-      ['C', 'D'].forEach(col => {
-        const cellRef = col + (R + 1);
-        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
-        if (!ws[cellRef].s) ws[cellRef].s = {};
-        ws[cellRef].s.protection = { locked: false };
-      });
+        
+        // Colunas A (0) e B (1) são bloqueadas, C (2) e D (3) são editáveis
+        if (C === 0 || C === 1) {
+          ws[cellRef].s.protection = { locked: true };
+        } else {
+          ws[cellRef].s.protection = { locked: false };
+        }
+      }
     }
     
     // Aplicar proteção no worksheet
@@ -106,12 +106,16 @@ export function DialogImportarProposta({
       deleteRows: false,
       sort: false,
       autoFilter: false,
-      pivotTables: false
+      pivotTables: false,
+      objects: false,
+      scenarios: false
     };
     
     XLSX.utils.book_append_sheet(wb, ws, "Proposta");
-    XLSX.writeFile(wb, "template_proposta_selecao.xlsx");
-    toast.success("Template baixado com sucesso! As colunas 'Número do Item' e 'Descrição' estão protegidas.");
+    
+    // Salvar como XLS (formato antigo que respeita melhor a proteção)
+    XLSX.writeFile(wb, "template_proposta_selecao.xls", { bookType: 'xls' });
+    toast.success("Template baixado! Apenas as colunas 'Marca' e 'Valor Unitário' podem ser editadas.");
   };
 
   const handleImportarPlanilha = async (e: React.ChangeEvent<HTMLInputElement>) => {
