@@ -243,13 +243,13 @@ export async function gerarPropostaSelecaoPDF(
     const linkLines = doc.splitTextToSize(linkVerificacao, larguraInternaQuadro);
     const textoLeiLines = doc.splitTextToSize('Este documento possui certificação digital conforme Lei 14.063/2020', larguraInternaQuadro);
     
-    // Calcular altura total do quadro
-    const alturaQuadro = 8 + 10 + 
-                        (responsavelLines.length * 5) + 2 + 
-                        (protocoloLines.length * 5) + 6 + 
-                        4 + 3 + 
-                        (linkLines.length * 4) + 3 + 
-                        (textoLeiLines.length * 4) + 3;
+    // Calcular altura total do quadro com espaçamentos uniformes
+    const alturaQuadro = 10 + 8 + 
+                        (responsavelLines.length * 4.5) + 5 + 
+                        (protocoloLines.length * 4.5) + 8 + 
+                        4.5 + 
+                        (linkLines.length * 4) + 5 + 
+                        (textoLeiLines.length * 4) + 5;
     
     // Desenhar quadro com bordas pretas e fundo branco
     doc.setFillColor(255, 255, 255);
@@ -258,34 +258,34 @@ export async function gerarPropostaSelecaoPDF(
     doc.rect(margemEsquerda, y, larguraUtil, alturaQuadro, 'FD');
     
     // Título centralizado em azul
-    y += 8;
+    y += 10;
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 139); // Azul escuro
     doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, y, { align: 'center' });
     
     // Espaço após título
-    y += 10;
+    y += 8;
     
     // Responsável (texto normal, preto)
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
     responsavelLines.forEach((linha: string, index: number) => {
-      doc.text(linha, margemEsquerda + 5, y + (index * 5));
+      doc.text(linha, margemEsquerda + 5, y + (index * 4.5));
     });
-    y += (responsavelLines.length * 5) + 2;
+    y += (responsavelLines.length * 4.5) + 5;
     
     // Protocolo (texto normal, preto)
     protocoloLines.forEach((linha: string, index: number) => {
-      doc.text(linha, margemEsquerda + 5, y + (index * 5));
+      doc.text(linha, margemEsquerda + 5, y + (index * 4.5));
     });
-    y += (protocoloLines.length * 5) + 6;
+    y += (protocoloLines.length * 4.5) + 8;
     
     // "Verificar autenticidade em:" em negrito
     doc.setFont('helvetica', 'bold');
     doc.text('Verificar autenticidade em:', margemEsquerda + 5, y);
-    y += 3;
+    y += 4.5;
     
     // Link em azul
     doc.setFont('helvetica', 'normal');
@@ -294,7 +294,7 @@ export async function gerarPropostaSelecaoPDF(
     linkLines.forEach((linha: string, index: number) => {
       doc.textWithLink(linha, margemEsquerda + 5, y + (index * 4), { url: linkVerificacao });
     });
-    y += (linkLines.length * 4) + 3;
+    y += (linkLines.length * 4) + 5;
     
     // Texto final sobre a lei
     doc.setTextColor(0, 0, 0);
