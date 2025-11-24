@@ -250,7 +250,7 @@ export async function gerarPropostaSelecaoPDF(
     const alturaQuadro = 10 + 8 + 
                         (responsavelLines.length * espacamentoLinha) + 
                         (protocoloLines.length * espacamentoLinha) + 
-                        espacamentoLinha + espacamentoLinha + 
+                        espacamentoLinha + 
                         (linkLines.length * espacamentoLinha) + 
                         (textoLeiLines.length * espacamentoLinha) + 5;
     
@@ -283,7 +283,7 @@ export async function gerarPropostaSelecaoPDF(
     protocoloLines.forEach((linha: string, index: number) => {
       doc.text(linha, margemEsquerda + 5, y + (index * espacamentoLinha));
     });
-    y += (protocoloLines.length * espacamentoLinha) + espacamentoLinha;
+    y += (protocoloLines.length * espacamentoLinha);
     
     // "Verificar autenticidade em:" em negrito
     doc.setFont('helvetica', 'bold');
