@@ -62,8 +62,12 @@ const VerificarProposta = () => {
 
   const verificarProposta = async () => {
     try {
+      console.log('=== INICIANDO VERIFICAÇÃO ===');
+      console.log('Protocolo:', protocolo);
+      
       // Verificar se protocolo parece ser uma autorização (começa com AUT-)
       if (protocolo && protocolo.startsWith('AUT-')) {
+        console.log('Protocolo de autorização detectado');
         // Buscar na tabela de autorizações
         const { data, error } = await supabaseAnon
           .from("autorizacoes_processo")
@@ -103,49 +107,66 @@ const VerificarProposta = () => {
           });
         }
       } else {
-        // Tentar buscar primeiro em propostas de seleção
-        console.log('=== INICIO BUSCA SELEÇÃO ===');
-        console.log('Protocolo recebido:', protocolo);
-        console.log('Tipo do protocolo:', typeof protocolo);
+        console.log('Buscando proposta de seleção...');
         
+        // Buscar proposta de seleção diretamente
         const { data: selecaoData, error: selecaoError } = await supabaseAnon
           .from("selecao_propostas_fornecedor")
-          .select(`
-            id,
-            protocolo,
-            hash_certificacao,
-            valor_total_proposta,
-            data_envio_proposta,
-            fornecedor_id,
-            selecao_id
-          `)
+          .select('*')
           .eq("protocolo", protocolo)
           .maybeSingle();
 
-        console.log('Dados encontrados:', selecaoData);
-        console.log('Erro na busca:', selecaoError);
-        console.log('Tem dados?', !!selecaoData);
-        console.log('Tem erro?', !!selecaoError);
+        console.log('RESULTADO DA QUERY:');
+        console.log('Data:', selecaoData);
+        console.log('Error:', selecaoError);
 
         if (selecaoData && !selecaoError) {
-          // Buscar dados do fornecedor e seleção separadamente
-          const { data: fornecedorData } = await supabaseAnon
+          console.log('Proposta encontrada! ID:', selecaoData.id);
+          
+          // Buscar fornecedor
+          console.log('Buscando fornecedor ID:', selecaoData.fornecedor_id);
+          const { data: fornecedorData, error: fornecedorError } = await supabaseAnon
             .from("fornecedores")
             .select("razao_social, cnpj")
             .eq("id", selecaoData.fornecedor_id)
             .maybeSingle();
           
-          const { data: selecaoInfo } = await supabaseAnon
+          console.log('Fornecedor data:', fornecedorData);
+          console.log('Fornecedor error:', fornecedorError);
+          
+          // Buscar seleção
+          console.log('Buscando seleção ID:', selecaoData.selecao_id);
+          const { data: selecaoInfo, error: selecaoInfoError } = await supabaseAnon
             .from("selecoes_fornecedores")
             .select(`
               titulo_selecao,
-              processos_compras:processo_compra_id (
-                numero_processo_interno
-              )
+              processo_compra_id
             `)
             .eq("id", selecaoData.selecao_id)
             .maybeSingle();
-          // Encontrou proposta de seleção
+          
+          console.log('Seleção info:', selecaoInfo);
+          console.log('Seleção error:', selecaoInfoError);
+          
+          // Buscar processo
+          let processoNumero = "N/A";
+          if (selecaoInfo?.processo_compra_id) {
+            console.log('Buscando processo ID:', selecaoInfo.processo_compra_id);
+            const { data: processoData, error: processoError } = await supabaseAnon
+              .from("processos_compras")
+              .select("numero_processo_interno")
+              .eq("id", selecaoInfo.processo_compra_id)
+              .maybeSingle();
+            
+            console.log('Processo data:', processoData);
+            console.log('Processo error:', processoError);
+            
+            if (processoData) {
+              processoNumero = processoData.numero_processo_interno;
+            }
+          }
+          
+          console.log('Montando resposta final...');
           setResposta({
             id: selecaoData.id,
             protocolo: selecaoData.protocolo,
@@ -159,13 +180,15 @@ const VerificarProposta = () => {
             },
             usuario_gerador: null,
             cotacao: {
-              titulo_cotacao: (selecaoInfo as any)?.titulo_selecao || "N/A",
+              titulo_cotacao: selecaoInfo?.titulo_selecao || "N/A",
               processo: {
-                numero_processo_interno: ((selecaoInfo as any)?.processos_compras as any)?.numero_processo_interno || "N/A",
+                numero_processo_interno: processoNumero,
               },
             },
           });
+          console.log('Resposta montada com sucesso!');
         } else {
+          console.log('Proposta de seleção não encontrada, tentando cotação...');
           // Se não encontrou em seleção, buscar em cotação
           const { data, error } = await supabaseAnon
             .from("cotacao_respostas_fornecedor")
@@ -196,8 +219,10 @@ const VerificarProposta = () => {
           if (error) throw error;
 
           if (!data) {
+            console.log('Proposta de cotação também não encontrada');
             setErro("Proposta não encontrada com este protocolo");
           } else {
+            console.log('Proposta de cotação encontrada!');
             setResposta({
               id: data.id,
               protocolo: data.protocolo,
@@ -221,7 +246,10 @@ const VerificarProposta = () => {
         }
       }
     } catch (error: any) {
-      console.error("Erro ao verificar proposta:", error);
+      console.error("=== ERRO NA VERIFICAÇÃO ===");
+      console.error("Erro:", error);
+      console.error("Message:", error?.message);
+      console.error("Stack:", error?.stack);
       setErro("Erro ao verificar proposta: " + (error?.message || "Erro desconhecido"));
     } finally {
       setLoading(false);
