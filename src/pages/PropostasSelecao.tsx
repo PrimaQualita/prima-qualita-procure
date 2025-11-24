@@ -33,12 +33,38 @@ export default function PropostasSelecao() {
   const [selecao, setSelecao] = useState<any>(null);
   const [processo, setProcesso] = useState<any>(null);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
+  const [usuarioNome, setUsuarioNome] = useState<string>('');
+  const [usuarioCpf, setUsuarioCpf] = useState<string>('');
+
+  useEffect(() => {
+    loadUsuario();
+  }, []);
 
   useEffect(() => {
     if (selecaoId) {
       loadPropostas();
     }
   }, [selecaoId]);
+
+  const loadUsuario = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('nome_completo, cpf')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setUsuarioNome(profile.nome_completo);
+          setUsuarioCpf(profile.cpf);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar usuário:', error);
+    }
+  };
 
   const loadPropostas = async () => {
     try {
@@ -107,7 +133,9 @@ export default function PropostasSelecao() {
         proposta.fornecedor,
         proposta.valor_total_proposta,
         proposta.observacoes_fornecedor,
-        selecao?.titulo_selecao || ''
+        selecao?.titulo_selecao || '',
+        usuarioNome,
+        usuarioCpf
       );
 
       const { data: fileData, error: downloadError } = await supabase.storage
@@ -143,7 +171,9 @@ export default function PropostasSelecao() {
         proposta.fornecedor,
         proposta.valor_total_proposta,
         proposta.observacoes_fornecedor,
-        selecao?.titulo_selecao || ''
+        selecao?.titulo_selecao || '',
+        usuarioNome,
+        usuarioCpf
       );
 
       const { data: fileData, error: downloadError } = await supabase.storage
