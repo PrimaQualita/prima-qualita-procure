@@ -103,7 +103,7 @@ const VerificarProposta = () => {
           });
         }
       } else {
-        // Buscar proposta de seleção com todos os dados em uma única query
+        // Buscar proposta de seleção com todos os dados
         const { data: selecaoData, error: selecaoError } = await supabaseAnon
           .from("selecao_propostas_fornecedor")
           .select(`
@@ -114,20 +114,22 @@ const VerificarProposta = () => {
             data_envio_proposta,
             fornecedor_id,
             selecao_id,
-            fornecedores!inner (
+            fornecedores (
               razao_social,
               cnpj
             ),
-            selecoes_fornecedores!inner (
+            selecoes_fornecedores (
               titulo_selecao,
               processo_compra_id,
-              processos_compras!inner (
+              processos_compras (
                 numero_processo_interno
               )
             )
           `)
           .eq("protocolo", protocolo)
           .maybeSingle();
+
+        console.log('Query seleção result:', { data: selecaoData, error: selecaoError });
 
         if (selecaoData && !selecaoError) {
           setResposta({
