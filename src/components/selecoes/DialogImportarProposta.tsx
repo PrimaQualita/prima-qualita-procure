@@ -72,7 +72,7 @@ export function DialogImportarProposta({
     // Obter range do worksheet
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
     
-    // Para cada célula, configurar proteção
+    // Para cada célula, configurar proteção EXPLICITAMENTE
     for (let R = range.s.r; R <= range.e.r; ++R) {
       for (let C = range.s.c; C <= range.e.c; ++C) {
         const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
@@ -87,10 +87,15 @@ export function DialogImportarProposta({
           ws[cellAddress].s = {};
         }
         
-        // Bloquear colunas A (0) e B (1), desbloquear C (2) e D (3)
-        ws[cellAddress].s.protection = {
-          locked: C === 0 || C === 1 // true para colunas A e B, false para C e D
-        };
+        // IMPORTANTE: Bloquear APENAS colunas 0 (A) e 1 (B)
+        // Desbloquear EXPLICITAMENTE colunas 2 (C) e 3 (D)
+        if (C === 0 || C === 1) {
+          // Número do Item e Descrição - BLOQUEADAS
+          ws[cellAddress].s.protection = { locked: true };
+        } else {
+          // Marca e Valor Unitário - EDITÁVEIS
+          ws[cellAddress].s.protection = { locked: false };
+        }
       }
     }
     
