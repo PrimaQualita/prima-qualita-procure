@@ -31,7 +31,6 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           body {
             font-family: Arial, sans-serif;
             width: 210mm;
-            height: 297mm;
             margin: 0;
             padding: 0;
             position: relative;
@@ -39,8 +38,8 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           
           .page-container {
             width: 210mm;
-            height: 297mm;
             position: relative;
+            padding-bottom: 30mm;
           }
           
           .header img {
@@ -179,14 +178,15 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
       scale: 2,
       useCORS: true,
       logging: false,
-      letterRendering: true
+      letterRendering: true,
+      windowHeight: 1122
     },
     jsPDF: { 
       unit: 'mm', 
       format: 'a4', 
       orientation: 'portrait' as const
     },
-    pagebreak: { mode: 'avoid-all' }
+    pagebreak: { mode: 'avoid-all', after: '.page-container' }
   };
 
   return html2pdf().set(opt).from(htmlContent).toPdf().output('blob');
