@@ -687,6 +687,44 @@ const ParticiparSelecao = () => {
 
       if (erroItens) throw erroItens;
 
+      // Gerar e salvar PDF da proposta
+      try {
+        const { gerarPropostaSelecaoPDF } = await import('@/lib/gerarPropostaSelecaoPDF');
+        
+        const enderecoCompleto = fornecedor?.endereco_comercial || 
+          `${dadosEmpresa.logradouro}, Nº ${dadosEmpresa.numero}, ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf}, CEP: ${dadosEmpresa.cep}`;
+        
+        const pdfResult = await gerarPropostaSelecaoPDF(
+          propostaCriada.id,
+          {
+            razao_social: fornecedor?.razao_social || dadosEmpresa.razao_social,
+            cnpj: fornecedor?.cnpj || dadosEmpresa.cnpj,
+            email: fornecedor?.email || dadosEmpresa.email,
+            logradouro: enderecoCompleto.split(',')[0]?.trim() || '',
+            numero: enderecoCompleto.split('Nº ')[1]?.split(',')[0]?.trim() || '',
+            bairro: enderecoCompleto.split(',')[2]?.trim() || '',
+            municipio: enderecoCompleto.split(',')[3]?.split('/')[0]?.trim() || '',
+            uf: enderecoCompleto.split('/')[1]?.split(',')[0]?.trim() || '',
+            cep: enderecoCompleto.split('CEP: ')[1]?.trim() || ''
+          },
+          valorTotal,
+          observacoes || null,
+          selecao.titulo_selecao,
+          new Date().toISOString()
+        );
+
+        // Atualizar proposta com URL do PDF
+        await supabase
+          .from('selecao_propostas_fornecedor')
+          .update({ url_pdf_proposta: pdfResult.url })
+          .eq('id', propostaCriada.id);
+
+        console.log('PDF da proposta gerado e salvo:', pdfResult.url);
+      } catch (pdfError) {
+        console.error('Erro ao gerar PDF da proposta:', pdfError);
+        // Não bloqueia o envio se houver erro no PDF
+      }
+
       // Enviar e-mail com código de acesso
       const razaoSocialEmail = fornecedor?.razao_social || dadosEmpresa.razao_social;
       const emailDestino = fornecedor?.email || dadosEmpresa.email;

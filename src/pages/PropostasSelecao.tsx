@@ -18,6 +18,7 @@ interface PropostaFornecedor {
   desclassificado: boolean | null;
   motivo_desclassificacao: string | null;
   email: string | null;
+  url_pdf_proposta: string | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
@@ -105,35 +106,50 @@ export default function PropostasSelecao() {
         return;
       }
 
-      const resultado = await gerarPropostaSelecaoPDF(
-        propostaId,
-        {
-          razao_social: proposta.fornecedor.razao_social,
-          cnpj: proposta.fornecedor.cnpj,
-          email: proposta.email || '', // E-mail preenchido NA PROPOSTA
-          logradouro: proposta.fornecedor.endereco_comercial?.split(',')[0]?.trim() || '',
-          numero: proposta.fornecedor.endereco_comercial?.split('Nº ')[1]?.split(',')[0]?.trim() || '',
-          bairro: proposta.fornecedor.endereco_comercial?.split(',')[2]?.trim() || '',
-          municipio: proposta.fornecedor.endereco_comercial?.split(',')[3]?.split('/')[0]?.trim() || '',
-          uf: proposta.fornecedor.endereco_comercial?.split('/')[1]?.split(',')[0]?.trim() || '',
-          cep: proposta.fornecedor.endereco_comercial?.split('CEP: ')[1]?.trim() || ''
-        },
-        proposta.valor_total_proposta,
-        proposta.observacoes_fornecedor,
-        selecao?.titulo_selecao || '',
-        proposta.data_envio_proposta
-      );
+      // Se já existe PDF salvo, usar ele diretamente
+      if (proposta.url_pdf_proposta) {
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('processo-anexos')
+          .download(proposta.url_pdf_proposta);
 
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('processo-anexos')
-        .download(resultado.url);
+        if (downloadError) throw downloadError;
 
-      if (downloadError) throw downloadError;
+        const pdfUrl = URL.createObjectURL(fileData);
+        window.open(pdfUrl, '_blank');
+        
+        toast.success("Proposta carregada com sucesso!");
+      } else {
+        // Fallback: gerar PDF se não existir
+        const resultado = await gerarPropostaSelecaoPDF(
+          propostaId,
+          {
+            razao_social: proposta.fornecedor.razao_social,
+            cnpj: proposta.fornecedor.cnpj,
+            email: proposta.email || '',
+            logradouro: proposta.fornecedor.endereco_comercial?.split(',')[0]?.trim() || '',
+            numero: proposta.fornecedor.endereco_comercial?.split('Nº ')[1]?.split(',')[0]?.trim() || '',
+            bairro: proposta.fornecedor.endereco_comercial?.split(',')[2]?.trim() || '',
+            municipio: proposta.fornecedor.endereco_comercial?.split(',')[3]?.split('/')[0]?.trim() || '',
+            uf: proposta.fornecedor.endereco_comercial?.split('/')[1]?.split(',')[0]?.trim() || '',
+            cep: proposta.fornecedor.endereco_comercial?.split('CEP: ')[1]?.trim() || ''
+          },
+          proposta.valor_total_proposta,
+          proposta.observacoes_fornecedor,
+          selecao?.titulo_selecao || '',
+          proposta.data_envio_proposta
+        );
 
-      const pdfUrl = URL.createObjectURL(fileData);
-      window.open(pdfUrl, '_blank');
-      
-      toast.success("Proposta gerada com sucesso!");
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('processo-anexos')
+          .download(resultado.url);
+
+        if (downloadError) throw downloadError;
+
+        const pdfUrl = URL.createObjectURL(fileData);
+        window.open(pdfUrl, '_blank');
+        
+        toast.success("Proposta gerada com sucesso!");
+      }
     } catch (error) {
       console.error("Erro ao visualizar proposta:", error);
       toast.error("Erro ao visualizar proposta");
@@ -152,38 +168,56 @@ export default function PropostasSelecao() {
         return;
       }
 
-      const resultado = await gerarPropostaSelecaoPDF(
-        propostaId,
-        {
-          razao_social: proposta.fornecedor.razao_social,
-          cnpj: proposta.fornecedor.cnpj,
-          email: proposta.email || '', // E-mail preenchido NA PROPOSTA
-          logradouro: proposta.fornecedor.endereco_comercial?.split(',')[0]?.trim() || '',
-          numero: proposta.fornecedor.endereco_comercial?.split('Nº ')[1]?.split(',')[0]?.trim() || '',
-          bairro: proposta.fornecedor.endereco_comercial?.split(',')[2]?.trim() || '',
-          municipio: proposta.fornecedor.endereco_comercial?.split(',')[3]?.split('/')[0]?.trim() || '',
-          uf: proposta.fornecedor.endereco_comercial?.split('/')[1]?.split(',')[0]?.trim() || '',
-          cep: proposta.fornecedor.endereco_comercial?.split('CEP: ')[1]?.trim() || ''
-        },
-        proposta.valor_total_proposta,
-        proposta.observacoes_fornecedor,
-        selecao?.titulo_selecao || '',
-        proposta.data_envio_proposta
-      );
+      // Se já existe PDF salvo, usar ele diretamente
+      if (proposta.url_pdf_proposta) {
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('processo-anexos')
+          .download(proposta.url_pdf_proposta);
 
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('processo-anexos')
-        .download(resultado.url);
+        if (downloadError) throw downloadError;
 
-      if (downloadError) throw downloadError;
+        const pdfUrl = URL.createObjectURL(fileData);
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = `proposta-${proposta.fornecedor.cnpj}.pdf`;
+        link.click();
+        
+        toast.success("Proposta baixada com sucesso!");
+      } else {
+        // Fallback: gerar PDF se não existir
+        const resultado = await gerarPropostaSelecaoPDF(
+          propostaId,
+          {
+            razao_social: proposta.fornecedor.razao_social,
+            cnpj: proposta.fornecedor.cnpj,
+            email: proposta.email || '',
+            logradouro: proposta.fornecedor.endereco_comercial?.split(',')[0]?.trim() || '',
+            numero: proposta.fornecedor.endereco_comercial?.split('Nº ')[1]?.split(',')[0]?.trim() || '',
+            bairro: proposta.fornecedor.endereco_comercial?.split(',')[2]?.trim() || '',
+            municipio: proposta.fornecedor.endereco_comercial?.split(',')[3]?.split('/')[0]?.trim() || '',
+            uf: proposta.fornecedor.endereco_comercial?.split('/')[1]?.split(',')[0]?.trim() || '',
+            cep: proposta.fornecedor.endereco_comercial?.split('CEP: ')[1]?.trim() || ''
+          },
+          proposta.valor_total_proposta,
+          proposta.observacoes_fornecedor,
+          selecao?.titulo_selecao || '',
+          proposta.data_envio_proposta
+        );
 
-      const pdfUrl = URL.createObjectURL(fileData);
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = resultado.nome;
-      link.click();
-      
-      toast.success("Proposta baixada com sucesso!");
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('processo-anexos')
+          .download(resultado.url);
+
+        if (downloadError) throw downloadError;
+
+        const pdfUrl = URL.createObjectURL(fileData);
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = resultado.nome;
+        link.click();
+        
+        toast.success("Proposta baixada com sucesso!");
+      }
     } catch (error) {
       console.error("Erro ao baixar proposta:", error);
       toast.error("Erro ao baixar proposta");

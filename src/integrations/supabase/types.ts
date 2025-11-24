@@ -1792,6 +1792,7 @@ export type Database = {
           observacoes_fornecedor: string | null
           protocolo: string | null
           selecao_id: string
+          url_pdf_proposta: string | null
           valor_total_proposta: number
         }
         Insert: {
@@ -1807,6 +1808,7 @@ export type Database = {
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           selecao_id: string
+          url_pdf_proposta?: string | null
           valor_total_proposta: number
         }
         Update: {
@@ -1822,6 +1824,7 @@ export type Database = {
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           selecao_id?: string
+          url_pdf_proposta?: string | null
           valor_total_proposta?: number
         }
         Relationships: [
