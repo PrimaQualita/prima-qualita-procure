@@ -704,8 +704,13 @@ const ParticiparSelecao = () => {
         {/* Registro de Proposta */}
         {!jaEnviouProposta ? (
           <>
-            {/* Dados da Empresa */}
-            {!fornecedor && (
+            {/* Dados da Empresa - SEMPRE EXIBIR PARA USUÁRIOS NÃO AUTENTICADOS */}
+            {(() => {
+              console.log("🔍 Verificando exibição do formulário:");
+              console.log("  - fornecedor:", fornecedor ? "EXISTE (autenticado)" : "NULL (público)");
+              console.log("  - Deve exibir formulário:", !fornecedor ? "SIM" : "NÃO");
+              return !fornecedor;
+            })() && (
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle>Dados da Empresa</CardTitle>
