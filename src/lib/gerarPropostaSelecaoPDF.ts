@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
 import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
-import { v4 as uuidv4 } from 'uuid';
 import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,6 +23,15 @@ const formatarMoeda = (valor: number): string => {
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   }).format(valor);
+};
+
+// Função para gerar protocolo no formato customizado (XXXX-XXXX-XXXX-XXXX)
+const gerarProtocolo = (): string => {
+  const parte1 = Math.floor(1000 + Math.random() * 9000);
+  const parte2 = Math.floor(1000 + Math.random() * 9000);
+  const parte3 = Math.floor(1000 + Math.random() * 9000);
+  const parte4 = Math.floor(1000 + Math.random() * 9000);
+  return `${parte1}-${parte2}-${parte3}-${parte4}`;
 };
 
 export async function gerarPropostaSelecaoPDF(
@@ -63,7 +71,7 @@ export async function gerarPropostaSelecaoPDF(
 
     const doc = new jsPDF();
     const dataEnvio = new Date().toLocaleString('pt-BR');
-    const protocolo = uuidv4(); // UUID completo como nos outros documentos
+    const protocolo = gerarProtocolo(); // Formato XXXX-XXXX-XXXX-XXXX
     
     // Criar conteúdo para hash
     const conteudoHash = `
