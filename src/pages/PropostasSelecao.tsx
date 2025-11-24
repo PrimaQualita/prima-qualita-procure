@@ -4,11 +4,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Eye, Download } from "lucide-react";
+import { ArrowLeft, Eye, Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 import { gerarPropostaSelecaoPDF } from "@/lib/gerarPropostaSelecaoPDF";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PropostaFornecedor {
   id: string;
@@ -37,6 +47,8 @@ export default function PropostasSelecao() {
   const [selecao, setSelecao] = useState<any>(null);
   const [processo, setProcesso] = useState<any>(null);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
+  const [propostaParaExcluir, setPropostaParaExcluir] = useState<PropostaFornecedor | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -252,6 +264,52 @@ export default function PropostasSelecao() {
     }
   };
 
+  const handleExcluirProposta = (proposta: PropostaFornecedor) => {
+    setPropostaParaExcluir(proposta);
+    setConfirmDeleteOpen(true);
+  };
+
+  const excluirProposta = async () => {
+    if (!propostaParaExcluir) return;
+    
+    try {
+      // Deletar PDF do storage se existir
+      if (propostaParaExcluir.url_pdf_proposta) {
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove([propostaParaExcluir.url_pdf_proposta]);
+
+        if (storageError) {
+          console.error('Erro ao deletar PDF do storage:', storageError);
+        }
+      }
+
+      // Deletar itens da proposta
+      const { error: itensError } = await supabase
+        .from('selecao_respostas_itens_fornecedor')
+        .delete()
+        .eq('proposta_id', propostaParaExcluir.id);
+
+      if (itensError) throw itensError;
+
+      // Deletar proposta
+      const { error: propostaError } = await supabase
+        .from('selecao_propostas_fornecedor')
+        .delete()
+        .eq('id', propostaParaExcluir.id);
+
+      if (propostaError) throw propostaError;
+
+      setPropostaParaExcluir(null);
+      setConfirmDeleteOpen(false);
+      toast.success("Proposta excluída com sucesso");
+      await loadPropostas();
+    } catch (error) {
+      console.error("Erro ao excluir proposta:", error);
+      toast.error("Erro ao excluir proposta");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -407,6 +465,13 @@ export default function PropostasSelecao() {
                           <Download className="h-4 w-4 mr-2" />
                           {gerandoPDF === proposta.id ? "Gerando..." : "Baixar"}
                         </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleExcluirProposta(proposta)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -434,6 +499,26 @@ export default function PropostasSelecao() {
           )}
         </CardContent>
       </Card>
+      
+      {/* Diálogo de Confirmação de Exclusão */}
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a proposta de <strong>{propostaParaExcluir?.fornecedor.razao_social}</strong>?
+              <br />
+              Esta ação não pode ser desfeita e o fornecedor poderá enviar uma nova proposta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirProposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
