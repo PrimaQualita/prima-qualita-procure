@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { gerarHashDocumento } from './certificacaoDigital';
+import { v4 as uuidv4 } from 'uuid';
 import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,8 +9,8 @@ interface ItemProposta {
   descricao: string;
   quantidade: number;
   unidade: string;
-  valor_unitario_ofertado: number;
   marca: string | null;
+  valor_unitario_ofertado: number;
 }
 
 interface DadosFornecedor {
@@ -18,7 +19,6 @@ interface DadosFornecedor {
   email?: string;
 }
 
-// Função para formatar valores em Real brasileiro com separadores
 const formatarMoeda = (valor: number): string => {
   return new Intl.NumberFormat('pt-BR', { 
     minimumFractionDigits: 2, 
@@ -63,15 +63,17 @@ export async function gerarPropostaSelecaoPDF(
 
     const doc = new jsPDF();
     const dataEnvio = new Date().toLocaleString('pt-BR');
+    const protocolo = uuidv4();
     
     // Criar conteúdo para hash
     const conteudoHash = `
-      Proposta Seleção: ${propostaId}
+      Seleção: ${tituloSelecao}
       Fornecedor: ${fornecedor.razao_social}
       CNPJ: ${fornecedor.cnpj}
       Data: ${dataEnvio}
       Valor Total: ${valorTotal.toFixed(2)}
       Itens: ${JSON.stringify(itensFormatados)}
+      Protocolo: ${protocolo}
     `;
     
     const hash = await gerarHashDocumento(conteudoHash);
@@ -86,7 +88,7 @@ export async function gerarPropostaSelecaoPDF(
     // Cabeçalho
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(14, 165, 233); // Azul
+    doc.setTextColor(14, 165, 233); // Azul do sistema
     doc.text('PROPOSTA DE SELEÇÃO DE FORNECEDORES', pageWidth / 2, y, { align: 'center' });
     y += 12;
 
@@ -94,8 +96,9 @@ export async function gerarPropostaSelecaoPDF(
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text(tituloSelecao, margemEsquerda, y);
-    y += 5;
+    const tituloLines = doc.splitTextToSize(tituloSelecao, larguraUtil);
+    doc.text(tituloLines, margemEsquerda, y);
+    y += tituloLines.length * 5 + 3;
     
     doc.setFont('helvetica', 'normal');
     doc.text(`Data de Envio: ${dataEnvio}`, margemEsquerda, y);
@@ -116,129 +119,114 @@ export async function gerarPropostaSelecaoPDF(
     
     if (fornecedor.email) {
       doc.text(`E-mail: ${fornecedor.email}`, margemEsquerda, y);
-      y += 5;
+      y += 8;
+    } else {
+      y += 3;
     }
-    y += 3;
 
-    // Itens Cotados
+    // Tabela de Itens
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text('Itens Cotados', margemEsquerda, y);
     y += 8;
 
     // Cabeçalho da tabela
-    doc.setFontSize(8);
+    doc.setFillColor(14, 165, 233); // Azul do sistema
+    doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
+    
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('Item', margemEsquerda + 2, y, { align: 'center' });
-    doc.text('Descrição', margemEsquerda + 10, y);
-    doc.text('Qtd', margemEsquerda + 78, y, { align: 'center' });
-    doc.text('Unid', margemEsquerda + 98, y, { align: 'center' });
-    doc.text('Marca', margemEsquerda + 125, y, { align: 'center' });
-    doc.text('Vlr Unit (R$)', margemEsquerda + 157, y, { align: 'right' });
-    doc.text('Vlr Total (R$)', larguraUtil + margemEsquerda, y, { align: 'right' });
-    y += 2;
+    doc.setTextColor(255, 255, 255);
     
-    doc.setLineWidth(0.5);
-    doc.line(margemEsquerda, y, larguraUtil + margemEsquerda, y);
+    const colItem = margemEsquerda + 2;
+    const colDesc = margemEsquerda + 15;
+    const colQtd = margemEsquerda + 85;
+    const colUni = margemEsquerda + 105;
+    const colMarca = margemEsquerda + 125;
+    const colValorUnit = margemEsquerda + 150;
+    const colValorTotal = margemEsquerda + 170;
+    
+    doc.text('Item', colItem, y);
+    doc.text('Descrição', colDesc, y);
+    doc.text('Qtd', colQtd, y);
+    doc.text('Unid', colUni, y);
+    doc.text('Marca', colMarca, y);
+    doc.text('Vlr Unit.', colValorUnit, y);
+    doc.text('Vlr Total', colValorTotal, y);
+    
     y += 5;
-
-    // Itens
+    doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    
+
+    // Linhas da tabela
     for (const item of itensOrdenados) {
       if (y > 270) {
         doc.addPage();
         y = 20;
       }
 
-      const valorItemTotal = item.quantidade * item.valor_unitario_ofertado;
+      const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
       
-      // Item (centralizado)
-      doc.text(item.numero_item.toString(), margemEsquerda + 2, y, { align: 'center' });
+      const descLines = doc.splitTextToSize(item.descricao, 65);
+      const alturaLinha = Math.max(descLines.length * 4, 6);
       
-      // Descrição (justificada)
-      const descricaoMaxWidth = 60;
-      const descricaoLimpa = stripHtml(item.descricao);
-      const descricaoLines = doc.splitTextToSize(descricaoLimpa, descricaoMaxWidth);
-      doc.text(descricaoLines[0], margemEsquerda + 10, y, { align: 'justify' });
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margemEsquerda, y + alturaLinha, margemEsquerda + larguraUtil, y + alturaLinha);
       
-      // Quantidade (centralizada)
-      doc.text(formatarMoeda(item.quantidade), margemEsquerda + 78, y, { align: 'center' });
+      doc.text(item.numero_item.toString(), colItem, y + 3);
+      doc.text(descLines, colDesc, y + 3);
+      doc.text(item.quantidade.toString(), colQtd, y + 3);
+      doc.text(item.unidade, colUni, y + 3);
+      doc.text(item.marca || '-', colMarca, y + 3);
+      doc.text(formatarMoeda(item.valor_unitario_ofertado), colValorUnit, y + 3);
+      doc.text(formatarMoeda(valorTotalItem), colValorTotal, y + 3);
       
-      // Unidade (centralizada)
-      doc.text(item.unidade, margemEsquerda + 98, y, { align: 'center' });
-      
-      // Marca (centralizada)
-      const marcaMaxWidth = 35;
-      const marcaText = item.marca && item.marca.trim() !== '' ? item.marca : '-';
-      const marcaLines = doc.splitTextToSize(marcaText, marcaMaxWidth);
-      doc.text(marcaLines[0], margemEsquerda + 125, y, { align: 'center' });
-      
-      // Valores (alinhados à direita)
-      doc.text(formatarMoeda(item.valor_unitario_ofertado), margemEsquerda + 157, y, { align: 'right' });
-      doc.text(formatarMoeda(valorItemTotal), larguraUtil + margemEsquerda, y, { align: 'right' });
-      
-      y += 6;
+      y += alturaLinha;
     }
 
-    // Linha de separação
-    y += 2;
-    doc.setLineWidth(0.5);
-    doc.line(margemEsquerda, y, larguraUtil + margemEsquerda, y);
-    y += 6;
+    y += 5;
 
-    // Valor total
+    // Valor Total
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margemEsquerda, y, larguraUtil, 8, 'F');
+    
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text('VALOR TOTAL DA PROPOSTA:', margemEsquerda + 100, y);
-    doc.text(`R$ ${formatarMoeda(valorTotal)}`, larguraUtil + margemEsquerda, y, { align: 'right' });
-    y += 10;
+    doc.text('VALOR TOTAL DA PROPOSTA:', colDesc, y + 5);
+    doc.text(`R$ ${formatarMoeda(valorTotal)}`, colValorTotal, y + 5);
+    
+    y += 12;
 
     // Observações
     if (observacoes && observacoes.trim()) {
-      if (y > 250) {
-        doc.addPage();
-        y = 20;
-      }
-      
-      doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
       doc.text('Observações:', margemEsquerda, y);
-      y += 6;
-
+      y += 5;
+      
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      const obsLines = doc.splitTextToSize(observacoes, larguraUtil);
+      const obsLimpa = stripHtml(observacoes);
+      const obsLines = doc.splitTextToSize(obsLimpa, larguraUtil);
       doc.text(obsLines, margemEsquerda, y);
-      y += obsLines.length * 5 + 8;
+      y += obsLines.length * 5 + 5;
     }
 
-    // Certificação Digital - Modelo Simplificado
-    if (y > 220) {
-      doc.addPage();
-      y = 20;
-    }
-
-    const parte1 = Math.floor(1000 + Math.random() * 9000);
-    const parte2 = Math.floor(1000 + Math.random() * 9000);
-    const parte3 = Math.floor(1000 + Math.random() * 9000);
-    const parte4 = Math.floor(1000 + Math.random() * 9000);
-    const protocolo = `${parte1}-${parte2}-${parte3}-${parte4}`;
+    // Certificação Digital
+    y += 5;
     
-    const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
-
-    // Calcular altura do quadro de certificação
+    const linkVerificacao = `https://prima-qualita-procure.lovable.app/verificar-proposta?protocolo=${protocolo}`;
+    
+    // Calcular altura do quadro
     const yInicioCert = y;
     let yTempCalc = y + 6;
-    yTempCalc += 7;
+    yTempCalc += 7; // Título
     yTempCalc += 5; // Protocolo
-    yTempCalc += 6; // Data/Hora
-    yTempCalc += 6; // Responsável
+    yTempCalc += 5; // Data/Hora
+    yTempCalc += 5; // Fornecedor
     
     doc.setFontSize(8);
     const linksVerif = doc.splitTextToSize(linkVerificacao, larguraUtil - 6);
-    yTempCalc += linksVerif.length * 5 + 8;
+    yTempCalc += linksVerif.length * 4 + 8;
     
     const alturaCert = yTempCalc - yInicioCert;
 
@@ -251,31 +239,28 @@ export async function gerarPropostaSelecaoPDF(
 
     // Título da certificação
     y += 6;
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 139);
-    doc.text('CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO', pageWidth / 2, y, { align: 'center' });
+    doc.setTextColor(14, 165, 233); // Azul do sistema
+    doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, y, { align: 'center' });
     
     y += 7;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
     doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 3, y);
     
-    y += 6;
+    y += 5;
     doc.text(`Data/Hora: ${dataEnvio}`, margemEsquerda + 3, y);
     
-    y += 6;
-    doc.text(`Responsável: ${fornecedor.razao_social} (CNPJ: ${fornecedor.cnpj})`, margemEsquerda + 3, y);
+    y += 5;
+    doc.text(`Fornecedor: ${fornecedor.razao_social} (CNPJ: ${fornecedor.cnpj})`, margemEsquerda + 3, y);
     
-    y += 8;
-    doc.setTextColor(0, 0, 255);
-    doc.setFontSize(8);
-    linksVerif.forEach((linha: string, index: number) => {
-      const yPosLinha = y + (index * 5);
-      doc.textWithLink(linha, margemEsquerda + 3, yPosLinha, { url: linkVerificacao });
-    });
-    doc.setTextColor(0, 0, 0);
+    y += 6;
+    doc.setTextColor(14, 165, 233);
+    doc.textWithLink('Verificar autenticidade:', margemEsquerda + 3, y, { url: linkVerificacao });
+    y += 4;
+    doc.text(linksVerif, margemEsquerda + 3, y);
 
     // Gerar PDF como blob
     const pdfBlob = doc.output('blob');
@@ -286,9 +271,15 @@ export async function gerarPropostaSelecaoPDF(
 
     const { error: uploadError } = await supabase.storage
       .from('processo-anexos')
-      .upload(filePath, pdfBlob);
+      .upload(filePath, pdfBlob, {
+        contentType: 'application/pdf',
+        upsert: true
+      });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      console.error('Erro ao fazer upload:', uploadError);
+      throw uploadError;
+    }
 
     // Atualizar a proposta com o protocolo e hash
     const { error: updateError } = await supabase
@@ -301,7 +292,10 @@ export async function gerarPropostaSelecaoPDF(
 
     if (updateError) {
       console.error('Erro ao atualizar protocolo:', updateError);
+      throw updateError;
     }
+
+    console.log('Proposta atualizada com protocolo:', protocolo);
 
     return {
       url: filePath,
