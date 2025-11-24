@@ -39,7 +39,7 @@ const SistemaLancesFornecedor = () => {
   const [valorLance, setValorLance] = useState<string>("");
   const [itemSelecionado, setItemSelecionado] = useState<number | null>(null);
   const [itensEstimados, setItensEstimados] = useState<Map<number, number>>(new Map());
-  const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map()); // Map<numeroItem, segundosRestantes>
+  const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map()); // Map<numeroItem, tempoExpiracao>
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
 
@@ -94,6 +94,37 @@ const SistemaLancesFornecedor = () => {
       };
     }
   }, [selecao?.id]);
+
+  // Atualizar countdown visual a cada 100ms para suavidade
+  useEffect(() => {
+    if (itensEmFechamento.size === 0) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      
+      setItensEmFechamento(prev => {
+        const novo = new Map(prev);
+        let algumItemExpirou = false;
+
+        novo.forEach((tempoExpiracao, numeroItem) => {
+          if (tempoExpiracao > now) {
+            novo.set(numeroItem, tempoExpiracao);
+          } else {
+            novo.delete(numeroItem);
+            algumItemExpirou = true;
+          }
+        });
+
+        if (algumItemExpirou) {
+          loadItensAbertos();
+        }
+
+        return novo;
+      });
+    }, 100); // Atualiza a cada 100ms para visual mais suave
+
+    return () => clearInterval(interval);
+  }, [itensEmFechamento.size]);
 
   const loadProposta = async () => {
     try {
@@ -193,50 +224,22 @@ const SistemaLancesFornecedor = () => {
       const abertos = new Set(data?.map((item: any) => item.numero_item) || []);
       setItensAbertos(abertos);
 
-      // Mapear itens em fechamento com tempo restante
+      // Mapear itens em fechamento com timestamp de expiração
       const emFechamento = new Map<number, number>();
+      const now = Date.now();
       
       data?.forEach((item: any) => {
         if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
-          const tempoDecorrido = Math.floor((Date.now() - new Date(item.data_inicio_fechamento).getTime()) / 1000);
-          const tempoRestante = Math.max(0, item.segundos_para_fechar - tempoDecorrido);
+          const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
+          const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
           
-          if (tempoRestante > 0) {
-            emFechamento.set(item.numero_item, tempoRestante);
-            
-            // Agendar recarregamento quando o item fechar
-            setTimeout(() => {
-              loadItensAbertos();
-            }, tempoRestante * 1000);
+          if (tempoExpiracao > now) {
+            emFechamento.set(item.numero_item, tempoExpiracao);
           }
         }
       });
       
       setItensEmFechamento(emFechamento);
-
-      // Atualizar contador a cada segundo
-      const intervalo = setInterval(() => {
-        setItensEmFechamento(prev => {
-          const novo = new Map(prev);
-          let temAlgumAtivo = false;
-          
-          novo.forEach((segundos, numeroItem) => {
-            const novosSegundos = segundos - 1;
-            if (novosSegundos > 0) {
-              novo.set(numeroItem, novosSegundos);
-              temAlgumAtivo = true;
-            } else {
-              novo.delete(numeroItem);
-            }
-          });
-          
-          if (!temAlgumAtivo) {
-            clearInterval(intervalo);
-          }
-          
-          return novo;
-        });
-      }, 1000);
 
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
@@ -582,8 +585,9 @@ const SistemaLancesFornecedor = () => {
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {Array.from(itensAbertos).sort((a, b) => a - b).map((numeroItem) => {
-                        const segundosRestantes = itensEmFechamento.get(numeroItem);
-                        const emFechamento = segundosRestantes !== undefined;
+                        const tempoExpiracao = itensEmFechamento.get(numeroItem);
+                        const emFechamento = tempoExpiracao !== undefined;
+                        const segundosRestantes = emFechamento ? Math.max(0, Math.ceil((tempoExpiracao - Date.now()) / 1000)) : 0;
                         
                         return (
                           <Button
