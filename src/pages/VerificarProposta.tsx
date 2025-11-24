@@ -52,9 +52,14 @@ const VerificarProposta = () => {
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('=== USE EFFECT EXECUTADO ===');
+    console.log('Protocolo recebido:', protocolo);
+    
     if (protocolo) {
+      console.log('Protocolo válido, chamando verificarProposta...');
       verificarProposta();
     } else {
+      console.log('Protocolo não informado');
       setErro("Protocolo não informado");
       setLoading(false);
     }
@@ -62,9 +67,9 @@ const VerificarProposta = () => {
 
   const verificarProposta = async () => {
     try {
-      alert('INICIANDO VERIFICAÇÃO - Protocolo: ' + protocolo);
       console.log('=== INICIANDO VERIFICAÇÃO ===');
       console.log('Protocolo:', protocolo);
+      console.log('Timestamp:', new Date().toISOString());
       
       // Verificar se protocolo parece ser uma autorização (começa com AUT-)
       if (protocolo && protocolo.startsWith('AUT-')) {
