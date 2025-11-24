@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +41,9 @@ interface Selecao {
 
 const Selecoes = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const processoIdParam = searchParams.get("processo");
+  
   const [loading, setLoading] = useState(true);
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
@@ -53,6 +56,39 @@ const Selecoes = () => {
     checkAuth();
     loadContratos();
   }, []);
+
+  // Expandir automaticamente até o processo quando vindo da URL
+  useEffect(() => {
+    if (processoIdParam && contratos.length > 0 && !processoSelecionado) {
+      expandirAteProcesso(processoIdParam);
+    }
+  }, [processoIdParam, contratos]);
+
+  const expandirAteProcesso = async (processoId: string) => {
+    // Buscar o processo
+    const { data: processo, error } = await supabase
+      .from("processos_compras")
+      .select("*, contratos_gestao(*)")
+      .eq("id", processoId)
+      .single();
+
+    if (error || !processo) {
+      console.error("Erro ao buscar processo:", error);
+      return;
+    }
+
+    // Selecionar o contrato
+    const contrato = contratos.find(c => c.id === processo.contrato_gestao_id);
+    if (contrato) {
+      setContratoSelecionado(contrato);
+      
+      // Aguardar processos carregarem
+      await loadProcessos(contrato.id);
+      
+      // Selecionar o processo
+      setProcessoSelecionado(processo);
+    }
+  };
 
   useEffect(() => {
     if (contratoSelecionado) {
