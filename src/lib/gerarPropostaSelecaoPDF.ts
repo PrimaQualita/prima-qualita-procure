@@ -134,11 +134,8 @@ export async function gerarPropostaSelecaoPDF(
     y += 5;
     doc.text(`CNPJ: ${fornecedor.cnpj}`, margemEsquerda, y);
     y += 5;
-    
-    if (fornecedor.email) {
-      doc.text(`E-mail: ${fornecedor.email}`, margemEsquerda, y);
-      y += 5;
-    }
+    doc.text(`E-mail: ${fornecedor.email || 'Não informado'}`, margemEsquerda, y);
+    y += 5;
     
     if (fornecedor.logradouro) {
       const enderecoCompleto = `${fornecedor.logradouro}${fornecedor.numero ? ', ' + fornecedor.numero : ''}${fornecedor.bairro ? ', ' + fornecedor.bairro : ''}`;
