@@ -1,6 +1,8 @@
 import jsPDF from 'jspdf';
 import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
+import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ItemProposta {
   numero_item: number;
@@ -25,20 +27,15 @@ const formatarMoeda = (valor: number): string => {
 };
 
 // Função para gerar protocolo no formato customizado (XXXX-XXXX-XXXX-XXXX)
-const gerarProtocolo = (): string => {
-  const parte1 = Math.floor(1000 + Math.random() * 9000);
-  const parte2 = Math.floor(1000 + Math.random() * 9000);
-  const parte3 = Math.floor(1000 + Math.random() * 9000);
-  const parte4 = Math.floor(1000 + Math.random() * 9000);
-  return `${parte1}-${parte2}-${parte3}-${parte4}`;
-};
 
 export async function gerarPropostaSelecaoPDF(
   propostaId: string,
   fornecedor: DadosFornecedor,
   valorTotal: number,
   observacoes: string | null,
-  tituloSelecao: string
+  tituloSelecao: string,
+  usuarioNome: string,
+  usuarioCpf: string
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
     // Verificar se já existe protocolo para esta proposta
@@ -49,7 +46,7 @@ export async function gerarPropostaSelecaoPDF(
       .single();
 
     // Gerar ou reutilizar protocolo
-    const protocolo = propostaExistente?.protocolo || gerarProtocolo();
+    const protocolo = propostaExistente?.protocolo || uuidv4();
     console.log('Protocolo utilizado:', protocolo);
 
     // Buscar itens da proposta com informações completas
@@ -94,6 +91,18 @@ export async function gerarPropostaSelecaoPDF(
 
     const doc = new jsPDF();
     const dataEnvio = new Date().toLocaleString('pt-BR');
+    
+    // Criar conteúdo para hash
+    const conteudoHash = `
+      Seleção: ${tituloSelecao}
+      Fornecedor: ${fornecedor.razao_social}
+      CNPJ: ${fornecedor.cnpj}
+      Data: ${dataEnvio}
+      Valor Total: ${valorTotal.toFixed(2)}
+      Itens: ${JSON.stringify(itensFormatados)}
+    `;
+    
+    const hash = await gerarHashDocumento(conteudoHash);
     
     const itensOrdenados = [...itensFormatados].sort((a, b) => a.numero_item - b.numero_item);
     
@@ -228,49 +237,22 @@ export async function gerarPropostaSelecaoPDF(
       y += obsLines.length * 5 + 5;
     }
 
-    // Certificação Digital SIMPLIFICADA
-    if (y > 230) {
+    // Certificação Digital (IGUAL à cotação)
+    if (y > 220) {
       doc.addPage();
       y = 20;
     }
-    
-    y += 10;
-    const linkVerificacao = `https://prima-qualita-procure.lovable.app/verificar-proposta?protocolo=${protocolo}`;
-    
-    // Desenhar quadro com fundo cinza
-    const alturaQuadro = 35;
-    doc.setFillColor(240, 240, 240);
-    doc.setDrawColor(0, 0, 0);
-    doc.rect(margemEsquerda, y, larguraUtil, alturaQuadro, 'FD');
-    
-    // Cabeçalho da certificação
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('CERTIFICAÇÃO DIGITAL', margemEsquerda + 2, y + 6);
-    y += 10;
-    
-    // Conteúdo simplificado
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 2, y);
-    y += 5;
-    
-    doc.text(`Data: ${dataEnvio}`, margemEsquerda + 2, y);
-    y += 7;
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.text('Verificar em:', margemEsquerda + 2, y);
-    y += 4;
-    
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 255);
-    doc.setFontSize(8);
-    const linkLines = doc.splitTextToSize(linkVerificacao, larguraUtil - 4);
-    linkLines.forEach((linha: string, index: number) => {
-      doc.textWithLink(linha, margemEsquerda + 2, y + (index * 3.5), { url: linkVerificacao });
-    });
+
+    const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
+
+    adicionarCertificacaoDigital(doc, {
+      protocolo,
+      dataHora: dataEnvio,
+      responsavel: usuarioNome,
+      cpf: usuarioCpf,
+      hash,
+      linkVerificacao
+    }, y);
 
 
     // Gerar PDF como blob
@@ -310,7 +292,7 @@ export async function gerarPropostaSelecaoPDF(
     return {
       url: filePath,
       nome: nomeArquivo,
-      hash: ''
+      hash
     };
   } catch (error) {
     console.error('Erro ao gerar PDF da proposta de seleção:', error);
