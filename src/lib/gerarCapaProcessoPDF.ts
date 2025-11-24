@@ -114,18 +114,18 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   doc.addImage(base64Rodape, 'PNG', 0, yRodape, pageWidth, rodapeHeight);
 
   // Conteúdo
-  let yPos = logoHeight + 20;
+  let yPos = logoHeight + 25;
 
   // Processo - CAIXA ALTA
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(26, 84, 144);
   doc.text(`PROCESSO: ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 15;
+  yPos += 18;
 
   // Contrato - CAIXA ALTA
   doc.text(`CONTRATO DE GESTÃO: ${dados.numeroContrato}`, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 25;
+  yPos += 30;
 
   // Objeto - texto justificado
   doc.setFontSize(15);
@@ -138,7 +138,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   const textoObjetoLimpo = extractTextFromHTML(dados.observacoesContrato || 'Não informado');
   const linhasObjeto = doc.splitTextToSize(textoObjetoLimpo, 170);
   doc.text(linhasObjeto, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasObjeto.length * 6 + 40;
+  yPos += linhasObjeto.length * 6 + 35;
 
   // Data - CAIXA ALTA
   doc.setFontSize(18);
@@ -150,7 +150,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
     year: 'numeric' 
   }).toUpperCase()}`;
   doc.text(dataTexto, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 40;
+  yPos += 35;
 
   // Assunto - texto justificado e limpo de HTML
   doc.setFontSize(15);
