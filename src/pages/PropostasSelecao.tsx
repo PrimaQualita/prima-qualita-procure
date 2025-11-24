@@ -22,6 +22,7 @@ interface PropostaFornecedor {
     razao_social: string;
     cnpj: string;
     email: string;
+    endereco_comercial: string | null;
   };
 }
 
@@ -63,7 +64,7 @@ export default function PropostasSelecao() {
         .from("selecao_propostas_fornecedor")
         .select(`
           *,
-          fornecedor:fornecedores(razao_social, cnpj, email)
+          fornecedor:fornecedores(razao_social, cnpj, email, endereco_comercial)
         `)
         .eq("selecao_id", selecaoId)
         .order("data_envio_proposta", { ascending: false });
@@ -109,7 +110,13 @@ export default function PropostasSelecao() {
         {
           razao_social: proposta.fornecedor.razao_social,
           cnpj: proposta.fornecedor.cnpj,
-          email: proposta.email || proposta.fornecedor.email
+          email: proposta.email || proposta.fornecedor.email,
+          logradouro: proposta.fornecedor.endereco_comercial?.split(',')[0]?.trim() || '',
+          numero: proposta.fornecedor.endereco_comercial?.split('Nº ')[1]?.split(',')[0]?.trim() || '',
+          bairro: proposta.fornecedor.endereco_comercial?.split(',')[2]?.trim() || '',
+          municipio: proposta.fornecedor.endereco_comercial?.split(',')[3]?.split('/')[0]?.trim() || '',
+          uf: proposta.fornecedor.endereco_comercial?.split('/')[1]?.split(',')[0]?.trim() || '',
+          cep: proposta.fornecedor.endereco_comercial?.split('CEP: ')[1]?.trim() || ''
         },
         proposta.valor_total_proposta,
         proposta.observacoes_fornecedor,
@@ -149,7 +156,13 @@ export default function PropostasSelecao() {
         {
           razao_social: proposta.fornecedor.razao_social,
           cnpj: proposta.fornecedor.cnpj,
-          email: proposta.email || proposta.fornecedor.email
+          email: proposta.email || proposta.fornecedor.email,
+          logradouro: proposta.fornecedor.endereco_comercial?.split(',')[0]?.trim() || '',
+          numero: proposta.fornecedor.endereco_comercial?.split('Nº ')[1]?.split(',')[0]?.trim() || '',
+          bairro: proposta.fornecedor.endereco_comercial?.split(',')[2]?.trim() || '',
+          municipio: proposta.fornecedor.endereco_comercial?.split(',')[3]?.split('/')[0]?.trim() || '',
+          uf: proposta.fornecedor.endereco_comercial?.split('/')[1]?.split(',')[0]?.trim() || '',
+          cep: proposta.fornecedor.endereco_comercial?.split('CEP: ')[1]?.trim() || ''
         },
         proposta.valor_total_proposta,
         proposta.observacoes_fornecedor,
