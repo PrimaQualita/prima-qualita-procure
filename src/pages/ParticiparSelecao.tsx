@@ -172,14 +172,19 @@ const ParticiparSelecao = () => {
 
   const loadSelecao = async (fornecedorId: string | null) => {
     try {
-      // Carregar seleção
+      // Carregar seleção - acesso público permitido
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
         .select("*, processos_compras(*)")
         .eq("id", selecaoId)
         .single();
 
-      if (selecaoError) throw selecaoError;
+      if (selecaoError) {
+        console.error("Erro ao carregar seleção:", selecaoError);
+        toast.error("Seleção não encontrada");
+        setLoading(false);
+        return;
+      }
       
       setSelecao(selecaoData);
       setProcesso(selecaoData.processos_compras);
@@ -194,6 +199,10 @@ const ParticiparSelecao = () => {
           .maybeSingle();
         
         setJaEnviouProposta(!!propostaExistente);
+      } else {
+        // Mesmo sem autenticação, verificar se existe proposta por CNPJ
+        // (será verificado depois quando o CNPJ for informado no formulário)
+        setJaEnviouProposta(false);
       }
 
       // Carregar lotes se for por lote
