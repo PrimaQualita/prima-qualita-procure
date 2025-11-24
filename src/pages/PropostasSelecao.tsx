@@ -17,9 +17,11 @@ interface PropostaFornecedor {
   data_envio_proposta: string;
   desclassificado: boolean | null;
   motivo_desclassificacao: string | null;
+  email: string | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
+    email: string;
   };
 }
 
@@ -33,38 +35,12 @@ export default function PropostasSelecao() {
   const [selecao, setSelecao] = useState<any>(null);
   const [processo, setProcesso] = useState<any>(null);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
-  const [usuarioNome, setUsuarioNome] = useState<string>('');
-  const [usuarioCpf, setUsuarioCpf] = useState<string>('');
-
-  useEffect(() => {
-    loadUsuario();
-  }, []);
 
   useEffect(() => {
     if (selecaoId) {
       loadPropostas();
     }
   }, [selecaoId]);
-
-  const loadUsuario = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('nome_completo, cpf')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile) {
-          setUsuarioNome(profile.nome_completo);
-          setUsuarioCpf(profile.cpf);
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao carregar usuário:', error);
-    }
-  };
 
   const loadPropostas = async () => {
     try {
@@ -87,7 +63,7 @@ export default function PropostasSelecao() {
         .from("selecao_propostas_fornecedor")
         .select(`
           *,
-          fornecedor:fornecedores(razao_social, cnpj)
+          fornecedor:fornecedores(razao_social, cnpj, email)
         `)
         .eq("selecao_id", selecaoId)
         .order("data_envio_proposta", { ascending: false });
@@ -130,12 +106,14 @@ export default function PropostasSelecao() {
 
       const resultado = await gerarPropostaSelecaoPDF(
         propostaId,
-        proposta.fornecedor,
+        {
+          razao_social: proposta.fornecedor.razao_social,
+          cnpj: proposta.fornecedor.cnpj,
+          email: proposta.email || proposta.fornecedor.email
+        },
         proposta.valor_total_proposta,
         proposta.observacoes_fornecedor,
-        selecao?.titulo_selecao || '',
-        usuarioNome,
-        usuarioCpf
+        selecao?.titulo_selecao || ''
       );
 
       const { data: fileData, error: downloadError } = await supabase.storage
@@ -168,12 +146,14 @@ export default function PropostasSelecao() {
 
       const resultado = await gerarPropostaSelecaoPDF(
         propostaId,
-        proposta.fornecedor,
+        {
+          razao_social: proposta.fornecedor.razao_social,
+          cnpj: proposta.fornecedor.cnpj,
+          email: proposta.email || proposta.fornecedor.email
+        },
         proposta.valor_total_proposta,
         proposta.observacoes_fornecedor,
-        selecao?.titulo_selecao || '',
-        usuarioNome,
-        usuarioCpf
+        selecao?.titulo_selecao || ''
       );
 
       const { data: fileData, error: downloadError } = await supabase.storage
