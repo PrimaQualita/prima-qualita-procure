@@ -67,6 +67,7 @@ const formatarCNPJ = (valor: string): string => {
 const dadosEmpresaSchema = z.object({
   razao_social: z.string().trim().min(1, "Razão Social é obrigatória").max(255),
   cnpj: z.string().trim().min(1, "CNPJ é obrigatório").refine((val) => validarCNPJ(val), { message: "CNPJ inválido" }),
+  email: z.string().trim().min(1, "E-mail é obrigatório").email("E-mail inválido"),
   logradouro: z.string().trim().min(1, "Logradouro é obrigatório").max(255),
   numero: z.string().trim().min(1, "Número é obrigatório").max(20),
   bairro: z.string().trim().min(1, "Bairro é obrigatório").max(100),
@@ -120,6 +121,7 @@ const ParticiparSelecao = () => {
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
     cnpj: "",
+    email: "",
     logradouro: "",
     numero: "",
     bairro: "",
@@ -153,6 +155,7 @@ const ParticiparSelecao = () => {
         setDadosEmpresa({
           razao_social: fornecedorData.razao_social || "",
           cnpj: formatarCNPJ(fornecedorData.cnpj) || "",
+          email: fornecedorData.email || "",
           logradouro: "",
           numero: "",
           bairro: "",
@@ -333,15 +336,38 @@ const ParticiparSelecao = () => {
     }
   };
 
+  const formatarMoeda = (valor: string): string => {
+    // Remove tudo exceto números
+    const numeros = valor.replace(/\D/g, '');
+    if (!numeros) return '';
+    
+    // Converte para número e divide por 100 para ter centavos
+    const valorNumerico = parseFloat(numeros) / 100;
+    
+    // Formata como moeda brasileira
+    return valorNumerico.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
   const handleValorChange = (itemId: string, value: string) => {
-    const valorNumerico = value.replace(/[^\d,]/g, '').replace(',', '.');
-    const valorFormatado = value.replace(/[^\d,]/g, '');
+    // Remove "R$" e espaços para processar
+    const valorLimpo = value.replace(/^R\$\s?/, '').replace(/\s/g, '');
+    
+    // Formata como moeda
+    const valorFormatado = formatarMoeda(valorLimpo);
+    
+    // Converte para número (remove pontos de milhar e troca vírgula por ponto)
+    const valorNumerico = valorFormatado
+      ? parseFloat(valorFormatado.replace(/\./g, '').replace(',', '.'))
+      : 0;
     
     setRespostas(prev => ({
       ...prev,
       [itemId]: {
         ...prev[itemId],
-        valor_unitario_ofertado: valorNumerico ? parseFloat(valorNumerico) : 0,
+        valor_unitario_ofertado: valorNumerico,
         valor_display: valorFormatado
       }
     }));
@@ -451,7 +477,7 @@ const ParticiparSelecao = () => {
             .insert({
               razao_social: dadosEmpresa.razao_social,
               cnpj: cnpjLimpo,
-              email: `selecao-${cnpjLimpo}@temporario.com`,
+              email: dadosEmpresa.email,
               telefone: "00000000000",
               endereco_comercial: enderecoCompleto,
               status_aprovacao: "pendente",
@@ -655,6 +681,17 @@ const ParticiparSelecao = () => {
                     </div>
 
                     <div>
+                      <Label>E-mail *</Label>
+                      <Input
+                        type="email"
+                        value={dadosEmpresa.email}
+                        onChange={(e) => setDadosEmpresa(prev => ({ ...prev, email: e.target.value }))}
+                        className={errors.email ? "border-red-500" : ""}
+                      />
+                      {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
+                    </div>
+
+                    <div>
                       <Label>CEP *</Label>
                       <Input
                         value={dadosEmpresa.cep}
@@ -778,12 +815,15 @@ const ParticiparSelecao = () => {
                                   )}
                                   <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
                                   <TableCell>
-                                    <Input
-                                      placeholder="0,00"
-                                      value={respostas[item.id]?.valor_display || ""}
-                                      onChange={(e) => handleValorChange(item.id, e.target.value)}
-                                      className="text-right"
-                                    />
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                                      <Input
+                                        placeholder="0,00"
+                                        value={respostas[item.id]?.valor_display || ""}
+                                        onChange={(e) => handleValorChange(item.id, e.target.value)}
+                                        className="text-right pl-10"
+                                      />
+                                    </div>
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {formatCurrency((respostas[item.id]?.valor_unitario_ofertado || 0) * item.quantidade)}
@@ -813,12 +853,15 @@ const ParticiparSelecao = () => {
                             )}
                             <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
                             <TableCell>
-                              <Input
-                                placeholder="0,00"
-                                value={respostas[item.id]?.valor_display || ""}
-                                onChange={(e) => handleValorChange(item.id, e.target.value)}
-                                className="text-right"
-                              />
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                                <Input
+                                  placeholder="0,00"
+                                  value={respostas[item.id]?.valor_display || ""}
+                                  onChange={(e) => handleValorChange(item.id, e.target.value)}
+                                  className="text-right pl-10"
+                                />
+                              </div>
                             </TableCell>
                             <TableCell className="text-right">
                               {formatCurrency((respostas[item.id]?.valor_unitario_ofertado || 0) * item.quantidade)}
