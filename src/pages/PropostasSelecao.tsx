@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 
 interface PropostaFornecedor {
   id: string;
@@ -102,6 +103,15 @@ export default function PropostasSelecao() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* Logo */}
+      <div className="flex justify-center mb-6">
+        <img 
+          src={logoHorizontal} 
+          alt="Prima Qualitá" 
+          className="h-16 object-contain"
+        />
+      </div>
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
