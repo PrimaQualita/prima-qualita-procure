@@ -85,18 +85,40 @@ export function DialogControleItensLances({
 
     setSalvando(true);
     try {
-      // Inserir registros para itens selecionados
-      const inserts = Array.from(itensSelecionados).map((numeroItem) => ({
-        selecao_id: selecaoId,
-        numero_item: numeroItem,
-        aberto: true,
-      }));
-
-      const { error } = await supabase
+      // Verificar quais itens já existem
+      const { data: existentes } = await supabase
         .from("itens_abertos_lances")
-        .upsert(inserts, { onConflict: "selecao_id,numero_item" });
+        .select("numero_item")
+        .eq("selecao_id", selecaoId)
+        .in("numero_item", Array.from(itensSelecionados));
 
-      if (error) throw error;
+      const numerosExistentes = new Set(existentes?.map(e => e.numero_item) || []);
+
+      // Atualizar itens existentes
+      if (numerosExistentes.size > 0) {
+        await supabase
+          .from("itens_abertos_lances")
+          .update({ aberto: true, data_fechamento: null })
+          .eq("selecao_id", selecaoId)
+          .in("numero_item", Array.from(numerosExistentes));
+      }
+
+      // Inserir novos itens
+      const novosItens = Array.from(itensSelecionados)
+        .filter(num => !numerosExistentes.has(num))
+        .map(numeroItem => ({
+          selecao_id: selecaoId,
+          numero_item: numeroItem,
+          aberto: true,
+        }));
+
+      if (novosItens.length > 0) {
+        const { error } = await supabase
+          .from("itens_abertos_lances")
+          .insert(novosItens);
+
+        if (error) throw error;
+      }
 
       toast.success(`${itensSelecionados.size} item(ns) aberto(s) para lances`);
       await loadItensAbertos();
