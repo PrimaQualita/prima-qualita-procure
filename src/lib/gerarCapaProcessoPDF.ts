@@ -44,15 +44,17 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           
           .header {
             width: 100%;
-            height: auto;
+            height: 40mm;
             margin: 0;
             padding: 0;
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
           
           .header img {
-            width: 100%;
-            height: auto;
+            max-height: 35mm;
+            width: auto;
             display: block;
           }
           
@@ -71,8 +73,8 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .content {
             position: relative;
             z-index: 2;
-            padding: 40px 60px 0 60px;
-            height: calc(297mm - 80px);
+            padding: 15px 60px 0 60px;
+            height: calc(297mm - 40mm - 50mm);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -86,7 +88,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             text-align: center;
             font-size: 20px;
             font-weight: bold;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             color: #1a5490;
           }
           
@@ -94,7 +96,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             text-align: center;
             font-size: 20px;
             font-weight: bold;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             color: #1a5490;
           }
           
@@ -106,19 +108,19 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .objeto-title {
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
           }
           
           .objeto-text {
             font-size: 16px;
-            line-height: 1.3;
+            line-height: 1.2;
           }
           
           .middle-section {
             text-align: center;
             flex-grow: 0;
             flex-shrink: 0;
-            margin: 20px 0;
+            margin: 10px 0;
           }
           
           .data-text {
@@ -128,7 +130,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           }
           
           .bottom-section {
-            margin-bottom: 10px;
+            margin-bottom: 5px;
             text-align: left;
             flex-shrink: 0;
           }
@@ -136,12 +138,12 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .assunto-title {
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
           }
           
           .assunto-text {
             font-size: 16px;
-            line-height: 1.3;
+            line-height: 1.2;
             text-align: justify;
           }
           
@@ -150,13 +152,14 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             bottom: 0;
             left: 0;
             width: 100%;
-            height: auto;
+            height: 50mm;
           }
           
           .footer img {
             width: 100%;
-            height: auto;
+            height: 100%;
             display: block;
+            object-fit: cover;
           }
         </style>
       </head>
