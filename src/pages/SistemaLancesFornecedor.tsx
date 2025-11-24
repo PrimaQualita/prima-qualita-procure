@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Lock, Save, Eye, Gavel } from "lucide-react";
+import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -33,12 +33,61 @@ const SistemaLancesFornecedor = () => {
   const [itens, setItens] = useState<Item[]>([]);
   const [editavel, setEditavel] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
+  const [lances, setLances] = useState<any[]>([]);
+  const [valorLance, setValorLance] = useState<string>("");
 
   useEffect(() => {
     if (propostaId) {
       loadProposta();
     }
   }, [propostaId]);
+
+  useEffect(() => {
+    if (selecao?.id) {
+      loadItensAbertos();
+      loadLances();
+
+      // Subscrição em tempo real para lances
+      const channel = supabase
+        .channel(`lances_${selecao.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "lances_fornecedores",
+            filter: `selecao_id=eq.${selecao.id}`,
+          },
+          () => {
+            loadLances();
+          }
+        )
+        .subscribe();
+
+      // Subscrição para itens abertos
+      const channelItens = supabase
+        .channel(`itens_abertos_${selecao.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "itens_abertos_lances",
+            filter: `selecao_id=eq.${selecao.id}`,
+          },
+          () => {
+            loadItensAbertos();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+        supabase.removeChannel(channelItens);
+      };
+    }
+  }, [selecao?.id]);
 
   const loadProposta = async () => {
     try {
@@ -100,6 +149,89 @@ const SistemaLancesFornecedor = () => {
     }));
   };
 
+  const loadItensAbertos = async () => {
+    if (!selecao?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("itens_abertos_lances")
+        .select("numero_item")
+        .eq("selecao_id", selecao.id)
+        .eq("aberto", true);
+
+      if (error) throw error;
+
+      const abertos = new Set(data?.map((item) => item.numero_item) || []);
+      setItensAbertos(abertos);
+    } catch (error) {
+      console.error("Erro ao carregar itens abertos:", error);
+    }
+  };
+
+  const loadLances = async () => {
+    if (!selecao?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("lances_fornecedores")
+        .select(`
+          *,
+          fornecedores (
+            razao_social,
+            cnpj
+          )
+        `)
+        .eq("selecao_id", selecao.id)
+        .order("valor_lance", { ascending: true })
+        .order("data_hora_lance", { ascending: true });
+
+      if (error) throw error;
+
+      setLances(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar lances:", error);
+    }
+  };
+
+  const handleEnviarLance = async () => {
+    if (!valorLance || !proposta || !selecao) {
+      toast.error("Preencha o valor do lance");
+      return;
+    }
+
+    const valorNumerico = parseFloat(valorLance.replace(/\./g, "").replace(",", "."));
+    
+    if (isNaN(valorNumerico) || valorNumerico <= 0) {
+      toast.error("Valor do lance inválido");
+      return;
+    }
+
+    // Verificar se há itens abertos
+    if (itensAbertos.size === 0) {
+      toast.error("Não há itens abertos para lances no momento");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("lances_fornecedores")
+        .insert({
+          selecao_id: selecao.id,
+          fornecedor_id: proposta.fornecedores.id,
+          valor_lance: valorNumerico,
+        });
+
+      if (error) throw error;
+
+      toast.success("Lance enviado com sucesso!");
+      setValorLance("");
+      loadLances();
+    } catch (error) {
+      console.error("Erro ao enviar lance:", error);
+      toast.error("Erro ao enviar lance");
+    }
+  };
+
   const handleSalvar = async () => {
     if (!editavel) {
       toast.error("O prazo para edição já expirou");
@@ -148,6 +280,35 @@ const SistemaLancesFornecedor = () => {
       style: "currency",
       currency: "BRL"
     }).format(valor);
+  };
+
+  const formatarMoedaInput = (valor: string): string => {
+    // Remove tudo que não é número
+    const numero = valor.replace(/\D/g, "");
+    
+    // Converte para número e divide por 100 para ter as casas decimais
+    const valorNumerico = parseFloat(numero) / 100;
+    
+    // Formata como moeda
+    return valorNumerico.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const formatCNPJ = (cnpj: string) => {
+    return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  };
+
+  const formatDateTime = (dateTime: string) => {
+    return new Date(dateTime).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   };
 
   if (loading) {
@@ -232,6 +393,150 @@ const SistemaLancesFornecedor = () => {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Sistema de Lances */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Gavel className="h-5 w-5" />
+              Sistema de Lances em Tempo Real
+            </CardTitle>
+            <CardDescription>
+              Acompanhe os lances e envie suas ofertas para os itens abertos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Status dos Itens */}
+            <div>
+              <Label className="text-sm font-semibold mb-2 block">Itens Abertos para Lances</Label>
+              {itensAbertos.size === 0 ? (
+                <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                  <Lock className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Nenhum item aberto para lances no momento</p>
+                  <p className="text-sm mt-1">Aguarde o gestor abrir os itens</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {Array.from(itensAbertos).sort((a, b) => a - b).map((numeroItem) => {
+                    const item = itens.find(i => i.numero_item === numeroItem);
+                    return (
+                      <Badge key={numeroItem} variant="default" className="bg-green-500 justify-center py-2">
+                        <Unlock className="h-3 w-3 mr-1" />
+                        Item {numeroItem}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Formulário de Lance */}
+            {itensAbertos.size > 0 && editavel && (
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <Label className="text-sm font-semibold mb-2 block">Enviar Lance</Label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      type="text"
+                      placeholder="R$ 0,00"
+                      value={valorLance ? `R$ ${valorLance}` : ""}
+                      onChange={(e) => {
+                        const valor = e.target.value.replace(/\D/g, "");
+                        setValorLance(formatarMoedaInput(valor));
+                      }}
+                      className="text-lg font-semibold"
+                    />
+                  </div>
+                  <Button onClick={handleEnviarLance} size="lg">
+                    <Send className="mr-2 h-4 w-4" />
+                    Enviar Lance
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!editavel && (
+              <div className="border rounded-lg p-4 bg-destructive/10 border-destructive/30">
+                <div className="flex items-center gap-2 text-destructive">
+                  <Lock className="h-4 w-4" />
+                  <p className="font-semibold">Lances bloqueados</p>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  O prazo para enviar lances encerrou (5 minutos antes da sessão)
+                </p>
+              </div>
+            )}
+
+            {/* Lance Vencedor Atual */}
+            {lances.length > 0 && (
+              <div className="border rounded-lg p-4 bg-yellow-50 border-yellow-300">
+                <div className="flex items-center gap-2 mb-2">
+                  <Trophy className="h-5 w-5 text-yellow-600" />
+                  <Label className="text-sm font-semibold">Lance Vencedor Atual</Label>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Fornecedor</p>
+                    <p className="font-semibold">{lances[0].fornecedores.razao_social}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">CNPJ</p>
+                    <p className="font-medium">{formatCNPJ(lances[0].fornecedores.cnpj)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Melhor Lance</p>
+                    <p className="font-bold text-xl text-green-600">
+                      {formatarMoeda(lances[0].valor_lance)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tabela de Lances */}
+            {lances.length > 0 && (
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Histórico de Lances</Label>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-16">Posição</TableHead>
+                        <TableHead>Fornecedor</TableHead>
+                        <TableHead className="text-right">Valor do Lance</TableHead>
+                        <TableHead>Data/Hora</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lances.map((lance, index) => (
+                        <TableRow 
+                          key={lance.id}
+                          className={index === 0 ? "bg-yellow-50" : ""}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {index === 0 && <Trophy className="h-4 w-4 text-yellow-600" />}
+                              <span className="font-bold">{index + 1}º</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {lance.fornecedores.razao_social}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {formatarMoeda(lance.valor_lance)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatDateTime(lance.data_hora_lance)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
