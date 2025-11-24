@@ -7,9 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send } from "lucide-react";
+import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { ChatSelecao } from "@/components/selecoes/ChatSelecao";
 
 interface Item {
   id: string;
@@ -140,15 +141,6 @@ const SistemaLancesFornecedor = () => {
     }
   };
 
-  const handleUpdateItem = (itemId: string, field: string, value: any) => {
-    setItens(prev => prev.map(item => {
-      if (item.id === itemId) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    }));
-  };
-
   const loadItensAbertos = async () => {
     if (!selecao?.id) return;
     
@@ -217,7 +209,7 @@ const SistemaLancesFornecedor = () => {
         .from("lances_fornecedores")
         .insert({
           selecao_id: selecao.id,
-          fornecedor_id: proposta.fornecedores.id,
+          fornecedor_id: proposta.fornecedor_id,
           valor_lance: valorNumerico,
         });
 
@@ -230,6 +222,15 @@ const SistemaLancesFornecedor = () => {
       console.error("Erro ao enviar lance:", error);
       toast.error("Erro ao enviar lance");
     }
+  };
+
+  const handleUpdateItem = (itemId: string, field: string, value: any) => {
+    setItens(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return { ...item, [field]: value };
+      }
+      return item;
+    }));
   };
 
   const handleSalvar = async () => {
@@ -396,149 +397,188 @@ const SistemaLancesFornecedor = () => {
           </CardContent>
         </Card>
 
-        {/* Sistema de Lances */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Gavel className="h-5 w-5" />
-              Sistema de Lances em Tempo Real
-            </CardTitle>
-            <CardDescription>
-              Acompanhe os lances e envie suas ofertas para os itens abertos
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Status dos Itens */}
-            <div>
-              <Label className="text-sm font-semibold mb-2 block">Itens Abertos para Lances</Label>
-              {itensAbertos.size === 0 ? (
-                <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                  <Lock className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum item aberto para lances no momento</p>
-                  <p className="text-sm mt-1">Aguarde o gestor abrir os itens</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {Array.from(itensAbertos).sort((a, b) => a - b).map((numeroItem) => {
-                    const item = itens.find(i => i.numero_item === numeroItem);
-                    return (
-                      <Badge key={numeroItem} variant="default" className="bg-green-500 justify-center py-2">
-                        <Unlock className="h-3 w-3 mr-1" />
-                        Item {numeroItem}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+        {/* Grid com Chat e Sistema de Lances */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Chat - 1/3 da largura */}
+          <div className="lg:col-span-1">
+            <ChatSelecao selecaoId={selecao.id} />
+          </div>
 
-            {/* Formulário de Lance */}
-            {itensAbertos.size > 0 && editavel && (
-              <div className="border rounded-lg p-4 bg-muted/50">
-                <Label className="text-sm font-semibold mb-2 block">Enviar Lance</Label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      type="text"
-                      placeholder="R$ 0,00"
-                      value={valorLance ? `R$ ${valorLance}` : ""}
-                      onChange={(e) => {
-                        const valor = e.target.value.replace(/\D/g, "");
-                        setValorLance(formatarMoedaInput(valor));
-                      }}
-                      className="text-lg font-semibold"
-                    />
+          {/* Sistema de Lances - 2/3 da largura */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gavel className="h-5 w-5" />
+                  Sistema de Lances em Tempo Real
+                </CardTitle>
+                <CardDescription>
+                  Acompanhe os lances e envie suas ofertas para os itens abertos
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Valor Mínimo Atual */}
+                {lances.length > 0 && (
+                  <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-green-300">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <TrendingDown className="h-6 w-6 text-green-600" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Valor Mínimo Atual para Vencer</p>
+                          <p className="font-bold text-3xl text-green-600">
+                            {formatarMoeda(lances[0].valor_lance)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Seu lance deve ser</p>
+                        <p className="font-semibold text-green-700">menor que este valor</p>
+                      </div>
+                    </div>
                   </div>
-                  <Button onClick={handleEnviarLance} size="lg">
-                    <Send className="mr-2 h-4 w-4" />
-                    Enviar Lance
-                  </Button>
-                </div>
-              </div>
-            )}
+                )}
 
-            {!editavel && (
-              <div className="border rounded-lg p-4 bg-destructive/10 border-destructive/30">
-                <div className="flex items-center gap-2 text-destructive">
-                  <Lock className="h-4 w-4" />
-                  <p className="font-semibold">Lances bloqueados</p>
+                {/* Status dos Itens */}
+                <div>
+                  <Label className="text-sm font-semibold mb-2 block">Itens Abertos para Lances</Label>
+                  {itensAbertos.size === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                      <Lock className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Nenhum item aberto para lances no momento</p>
+                      <p className="text-sm mt-1">Aguarde o gestor abrir os itens</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {Array.from(itensAbertos).sort((a, b) => a - b).map((numeroItem) => (
+                        <Badge key={numeroItem} variant="default" className="bg-green-500 justify-center py-2">
+                          <Unlock className="h-3 w-3 mr-1" />
+                          Item {numeroItem}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  O prazo para enviar lances encerrou (5 minutos antes da sessão)
-                </p>
-              </div>
-            )}
 
-            {/* Lance Vencedor Atual */}
-            {lances.length > 0 && (
-              <div className="border rounded-lg p-4 bg-yellow-50 border-yellow-300">
-                <div className="flex items-center gap-2 mb-2">
-                  <Trophy className="h-5 w-5 text-yellow-600" />
-                  <Label className="text-sm font-semibold">Lance Vencedor Atual</Label>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Fornecedor</p>
-                    <p className="font-semibold">{lances[0].fornecedores.razao_social}</p>
+                {/* Formulário de Lance */}
+                {itensAbertos.size > 0 && editavel && (
+                  <div className="border rounded-lg p-4 bg-muted/50">
+                    <Label className="text-sm font-semibold mb-2 block">Enviar Lance</Label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          placeholder="R$ 0,00"
+                          value={valorLance ? `R$ ${valorLance}` : ""}
+                          onChange={(e) => {
+                            const valor = e.target.value.replace(/\D/g, "");
+                            setValorLance(formatarMoedaInput(valor));
+                          }}
+                          className="text-lg font-semibold"
+                        />
+                      </div>
+                      <Button onClick={handleEnviarLance} size="lg">
+                        <Send className="mr-2 h-4 w-4" />
+                        Enviar Lance
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">CNPJ</p>
-                    <p className="font-medium">{formatCNPJ(lances[0].fornecedores.cnpj)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Melhor Lance</p>
-                    <p className="font-bold text-xl text-green-600">
-                      {formatarMoeda(lances[0].valor_lance)}
+                )}
+
+                {!editavel && (
+                  <div className="border rounded-lg p-4 bg-destructive/10 border-destructive/30">
+                    <div className="flex items-center gap-2 text-destructive">
+                      <Lock className="h-4 w-4" />
+                      <p className="font-semibold">Lances bloqueados</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      O prazo para enviar lances encerrou (5 minutos antes da sessão)
                     </p>
                   </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* Tabela de Lances */}
-            {lances.length > 0 && (
-              <div>
-                <Label className="text-sm font-semibold mb-2 block">Histórico de Lances</Label>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-16">Posição</TableHead>
-                        <TableHead>Fornecedor</TableHead>
-                        <TableHead className="text-right">Valor do Lance</TableHead>
-                        <TableHead>Data/Hora</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {lances.map((lance, index) => (
-                        <TableRow 
-                          key={lance.id}
-                          className={index === 0 ? "bg-yellow-50" : ""}
-                        >
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {index === 0 && <Trophy className="h-4 w-4 text-yellow-600" />}
-                              <span className="font-bold">{index + 1}º</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {lance.fornecedores.razao_social}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {formatarMoeda(lance.valor_lance)}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {formatDateTime(lance.data_hora_lance)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                {/* Lance Vencedor Atual */}
+                {lances.length > 0 && (
+                  <div className="border rounded-lg p-4 bg-yellow-50 border-yellow-300">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Trophy className="h-5 w-5 text-yellow-600" />
+                      <Label className="text-sm font-semibold">Lance Vencedor Atual</Label>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Fornecedor</p>
+                        <p className="font-semibold">{lances[0].fornecedores.razao_social}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">CNPJ</p>
+                        <p className="font-medium">{formatCNPJ(lances[0].fornecedores.cnpj)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Melhor Lance</p>
+                        <p className="font-bold text-xl text-green-600">
+                          {formatarMoeda(lances[0].valor_lance)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Histórico de Lances - Mensagens de outros fornecedores com nome oculto */}
+                {lances.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-semibold mb-2 block">Histórico de Lances</Label>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">Posição</TableHead>
+                            <TableHead>Fornecedor</TableHead>
+                            <TableHead className="text-right">Valor do Lance</TableHead>
+                            <TableHead>Data/Hora</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {lances.map((lance, index) => {
+                            const isProprioLance = lance.fornecedor_id === proposta.fornecedor_id;
+                            return (
+                              <TableRow 
+                                key={lance.id}
+                                className={index === 0 ? "bg-yellow-50" : ""}
+                              >
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {index === 0 && <Trophy className="h-4 w-4 text-yellow-600" />}
+                                    <span className="font-bold">{index + 1}º</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  {isProprioLance ? (
+                                    <span className="text-primary font-bold">
+                                      {lance.fornecedores.razao_social} (Você)
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      Fornecedor Oculto
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right font-bold">
+                                  {formatarMoeda(lance.valor_lance)}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {formatDateTime(lance.data_hora_lance)}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
         {/* Tabela de Itens */}
         <Card>

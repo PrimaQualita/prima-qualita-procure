@@ -27,11 +27,44 @@ interface ChatSelecaoProps {
 }
 
 export function ChatSelecao({ selecaoId }: ChatSelecaoProps) {
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentFornecedor, setCurrentFornecedor] = useState<any>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    loadCurrentUser();
+  }, []);
+
+  const loadCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // Verificar se é usuário interno
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (profile) {
+        setCurrentUser(profile);
+      } else {
+        // Verificar se é fornecedor
+        const { data: fornecedor } = await supabase
+          .from("fornecedores")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+        
+        if (fornecedor) {
+          setCurrentFornecedor(fornecedor);
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     loadUserProfile();
