@@ -221,7 +221,7 @@ const DetalheSelecao = () => {
               Processo: {processo?.numero_processo_interno}
             </p>
           </div>
-          <Button variant="outline" onClick={() => navigate(-1)}>
+          <Button variant="outline" onClick={() => navigate("/selecoes")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>
