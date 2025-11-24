@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Upload, Download } from "lucide-react";
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 interface DialogImportarPropostaProps {
   open: boolean;
@@ -46,70 +47,47 @@ export function DialogImportarProposta({
 }: DialogImportarPropostaProps) {
   const [loading, setLoading] = useState(false);
 
-  const gerarTemplate = () => {
-    // Criar workbook
-    const wb = XLSX.utils.book_new();
+  const gerarTemplate = async () => {
+    // Criar workbook com ExcelJS (que REALMENTE funciona com proteção)
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Proposta');
     
-    // Preparar dados com itens da seleção
-    const dados = itens.map(item => ({
-      'Número do Item': item.numero_item,
-      'Descrição': item.descricao,
-      'Marca': '',
-      'Valor Unitário': ''
-    }));
-    
-    // Criar worksheet
-    const ws = XLSX.utils.json_to_sheet(dados);
-    
-    // Definir larguras das colunas
-    ws['!cols'] = [
-      { wch: 15 },  // Número do Item
-      { wch: 50 },  // Descrição
-      { wch: 30 },  // Marca
-      { wch: 15 }   // Valor Unitário
+    // Definir colunas
+    worksheet.columns = [
+      { header: 'Número do Item', key: 'numero', width: 15 },
+      { header: 'Descrição', key: 'descricao', width: 50 },
+      { header: 'Marca', key: 'marca', width: 30 },
+      { header: 'Valor Unitário', key: 'valor', width: 15 }
     ];
     
-    // Obter range do worksheet
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    // Adicionar dados dos itens
+    itens.forEach(item => {
+      worksheet.addRow({
+        numero: item.numero_item,
+        descricao: item.descricao,
+        marca: '',
+        valor: ''
+      });
+    });
     
-    // PASSO 1: Desproteger TODAS as células primeiro
-    for (let R = range.s.r; R <= range.e.r; ++R) {
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-        
-        if (!ws[cellAddress]) {
-          ws[cellAddress] = { t: 's', v: '' };
-        }
-        
-        if (!ws[cellAddress].s) {
-          ws[cellAddress].s = {};
-        }
-        
-        // Desproteger TODAS as células
-        ws[cellAddress].s.protection = { locked: false };
-      }
-    }
+    // IMPORTANTE: Desproteger TODAS as células primeiro
+    worksheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        cell.protection = { locked: false };
+      });
+    });
     
-    // PASSO 2: Proteger APENAS colunas A (0) e B (1)
-    for (let R = range.s.r; R <= range.e.r; ++R) {
-      // Coluna A - Número do Item
-      const cellA = XLSX.utils.encode_cell({ r: R, c: 0 });
-      if (ws[cellA]) {
-        if (!ws[cellA].s) ws[cellA].s = {};
-        ws[cellA].s.protection = { locked: true };
-      }
-      
-      // Coluna B - Descrição
-      const cellB = XLSX.utils.encode_cell({ r: R, c: 1 });
-      if (ws[cellB]) {
-        if (!ws[cellB].s) ws[cellB].s = {};
-        ws[cellB].s.protection = { locked: true };
-      }
-    }
+    // Agora proteger APENAS as colunas A (1) e B (2)
+    worksheet.getColumn(1).eachCell((cell) => {
+      cell.protection = { locked: true };
+    });
     
-    // Aplicar proteção no worksheet
-    ws['!protect'] = {
-      password: '',
+    worksheet.getColumn(2).eachCell((cell) => {
+      cell.protection = { locked: true };
+    });
+    
+    // Aplicar proteção na planilha
+    await worksheet.protect('', {
       selectLockedCells: true,
       selectUnlockedCells: true,
       formatCells: false,
@@ -117,23 +95,21 @@ export function DialogImportarProposta({
       formatRows: false,
       insertColumns: false,
       insertRows: false,
-      insertHyperlinks: false,
       deleteColumns: false,
       deleteRows: false,
       sort: false,
-      autoFilter: false,
-      pivotTables: false,
-      objects: false,
-      scenarios: false
-    };
-    
-    XLSX.utils.book_append_sheet(wb, ws, "Proposta");
-    
-    // Salvar como XLSX
-    XLSX.writeFile(wb, "template_proposta_selecao.xlsx", { 
-      bookType: 'xlsx',
-      cellStyles: true
+      autoFilter: false
     });
+    
+    // Gerar arquivo e fazer download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'template_proposta_selecao.xlsx';
+    link.click();
+    window.URL.revokeObjectURL(url);
     
     toast.success("Template baixado! Apenas 'Número do Item' e 'Descrição' estão bloqueadas.");
   };
