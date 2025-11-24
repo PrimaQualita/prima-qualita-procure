@@ -86,20 +86,36 @@ const DetalheSelecao = () => {
 
   const loadItensFromPlanilha = async (cotacaoId: string, dataCriacaoSelecao: string) => {
     try {
+      console.log("🔍 Buscando planilha para cotacao:", cotacaoId);
+      console.log("📅 Data limite:", dataCriacaoSelecao);
+
       // Buscar a planilha consolidada mais recente até a data de criação da seleção
       const { data: planilha, error } = await supabase
         .from("planilhas_consolidadas")
-        .select("fornecedores_incluidos")
+        .select("fornecedores_incluidos, data_geracao")
         .eq("cotacao_id", cotacaoId)
         .lte("data_geracao", dataCriacaoSelecao)
         .order("data_geracao", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      console.log("📊 Planilha encontrada:", planilha);
+      console.log("❌ Erro:", error);
+
+      if (error) {
+        console.error("Erro ao buscar planilha:", error);
+        throw error;
+      }
+
+      if (!planilha) {
+        console.warn("⚠️ Nenhuma planilha consolidada encontrada para esta cotação até a data de criação");
+        toast.error("Nenhuma planilha consolidada encontrada");
+        return;
+      }
 
       if (planilha?.fornecedores_incluidos) {
         const fornecedoresData = planilha.fornecedores_incluidos as any;
+        console.log("👥 Dados dos fornecedores:", fornecedoresData);
         
         // Extrair itens da planilha consolidada
         const todosItens: Item[] = [];
@@ -107,6 +123,7 @@ const DetalheSelecao = () => {
 
         if (fornecedoresData.fornecedores && fornecedoresData.fornecedores.length > 0) {
           const primeiroFornecedor = fornecedoresData.fornecedores[0];
+          console.log("🏢 Primeiro fornecedor:", primeiroFornecedor);
           
           if (primeiroFornecedor.itens) {
             primeiroFornecedor.itens.forEach((item: any) => {
@@ -129,11 +146,16 @@ const DetalheSelecao = () => {
           }
         }
 
+        console.log("📦 Total de itens carregados:", todosItens.length);
+        console.log("💰 Valor total:", total);
+
         setItens(todosItens);
         setValorTotal(total);
+      } else {
+        console.warn("⚠️ Planilha sem dados de fornecedores");
       }
     } catch (error) {
-      console.error("Erro ao carregar itens da planilha:", error);
+      console.error("❌ Erro ao carregar itens da planilha:", error);
       toast.error("Erro ao carregar itens");
     }
   };
