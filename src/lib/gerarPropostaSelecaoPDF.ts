@@ -38,7 +38,8 @@ export async function gerarPropostaSelecaoPDF(
   fornecedor: DadosFornecedor,
   valorTotal: number,
   observacoes: string | null,
-  tituloSelecao: string
+  tituloSelecao: string,
+  dataEnvioProposta: string
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
     // Verificar se já existe protocolo para esta proposta
@@ -93,7 +94,7 @@ export async function gerarPropostaSelecaoPDF(
     }));
 
     const doc = new jsPDF();
-    const dataEnvio = new Date().toLocaleString('pt-BR');
+    const dataEnvio = new Date(dataEnvioProposta).toLocaleString('pt-BR');
     
     const itensOrdenados = [...itensFormatados].sort((a, b) => a.numero_item - b.numero_item);
     
