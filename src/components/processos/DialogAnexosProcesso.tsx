@@ -167,11 +167,18 @@ export function DialogAnexosProcesso({
       if (error) throw error;
       if (!data?.signedUrl) throw new Error("Erro ao gerar URL de download");
 
+      // Construir URL completa do Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const fullUrl = `${supabaseUrl}/storage/v1${data.signedUrl}`;
+
       const link = document.createElement("a");
-      link.href = data.signedUrl;
+      link.href = fullUrl;
       link.download = anexo.nome_arquivo;
+      link.target = "_blank";
       link.click();
     } catch (error: any) {
+      console.error("Erro ao baixar arquivo:", error);
       toast({
         title: "Erro ao baixar arquivo",
         description: error.message,
