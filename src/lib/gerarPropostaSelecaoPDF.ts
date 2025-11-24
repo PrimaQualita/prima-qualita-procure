@@ -223,7 +223,7 @@ export async function gerarPropostaSelecaoPDF(
     }
 
     // Certificação Digital (formatação igual à referência)
-    if (y > 230) {
+    if (y > 220) {
       doc.addPage();
       y = 20;
     }
@@ -231,10 +231,25 @@ export async function gerarPropostaSelecaoPDF(
     y += 15;
     const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
     
-    // Calcular altura do conteúdo
+    // Calcular largura útil dentro do quadro (com margens internas)
+    const larguraInternaQuadro = larguraUtil - 10;
+    
+    // Quebrar textos longos
+    doc.setFontSize(11);
+    const responsavelLines = doc.splitTextToSize(`Responsável: ${fornecedor.razao_social}`, larguraInternaQuadro);
+    const protocoloLines = doc.splitTextToSize(`Protocolo: ${protocolo}`, larguraInternaQuadro);
+    
     doc.setFontSize(10);
-    const linkLines = doc.splitTextToSize(linkVerificacao, larguraUtil - 10);
-    const alturaQuadro = 40 + (linkLines.length * 4);
+    const linkLines = doc.splitTextToSize(linkVerificacao, larguraInternaQuadro);
+    const textoLeiLines = doc.splitTextToSize('Este documento possui certificação digital conforme Lei 14.063/2020', larguraInternaQuadro);
+    
+    // Calcular altura total do quadro
+    const alturaQuadro = 8 + 10 + 
+                        (responsavelLines.length * 5) + 2 + 
+                        (protocoloLines.length * 5) + 6 + 
+                        4 + 3 + 
+                        (linkLines.length * 4) + 3 + 
+                        (textoLeiLines.length * 4) + 3;
     
     // Desenhar quadro com bordas pretas e fundo branco
     doc.setFillColor(255, 255, 255);
@@ -256,20 +271,25 @@ export async function gerarPropostaSelecaoPDF(
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text(`Responsável: ${fornecedor.razao_social}`, margemEsquerda + 5, y);
-    y += 6;
+    responsavelLines.forEach((linha: string, index: number) => {
+      doc.text(linha, margemEsquerda + 5, y + (index * 5));
+    });
+    y += (responsavelLines.length * 5) + 2;
     
     // Protocolo (texto normal, preto)
-    doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 5, y);
-    y += 8;
+    protocoloLines.forEach((linha: string, index: number) => {
+      doc.text(linha, margemEsquerda + 5, y + (index * 5));
+    });
+    y += (protocoloLines.length * 5) + 6;
     
     // "Verificar autenticidade em:" em negrito
     doc.setFont('helvetica', 'bold');
     doc.text('Verificar autenticidade em:', margemEsquerda + 5, y);
-    y += 5;
+    y += 3;
     
     // Link em azul
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
     doc.setTextColor(0, 0, 255);
     linkLines.forEach((linha: string, index: number) => {
       doc.textWithLink(linha, margemEsquerda + 5, y + (index * 4), { url: linkVerificacao });
@@ -278,8 +298,9 @@ export async function gerarPropostaSelecaoPDF(
     
     // Texto final sobre a lei
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margemEsquerda + 5, y);
+    textoLeiLines.forEach((linha: string, index: number) => {
+      doc.text(linha, margemEsquerda + 5, y + (index * 4));
+    });
 
 
     // Gerar PDF como blob
