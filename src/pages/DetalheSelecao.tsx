@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ArrowLeft, FileText, Upload, Send, Gavel } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
@@ -39,6 +49,8 @@ const DetalheSelecao = () => {
   const [avisoAnexado, setAvisoAnexado] = useState<any>(null);
   const [editalAnexado, setEditalAnexado] = useState<any>(null);
   const [mostrarLances, setMostrarLances] = useState(false);
+  const [confirmDeleteAviso, setConfirmDeleteAviso] = useState(false);
+  const [confirmDeleteEdital, setConfirmDeleteEdital] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -334,21 +346,7 @@ const DetalheSelecao = () => {
                       size="sm"
                       variant="ghost"
                       className="text-red-600 hover:text-red-700"
-                      onClick={async () => {
-                        if (confirm("Deseja excluir o Aviso de Seleção?")) {
-                          const { error } = await supabase
-                            .from("anexos_selecao")
-                            .delete()
-                            .eq("id", avisoAnexado.id);
-                          
-                          if (error) {
-                            toast.error("Erro ao excluir documento");
-                          } else {
-                            toast.success("Documento excluído com sucesso");
-                            loadDocumentosAnexados();
-                          }
-                        }
-                      }}
+                      onClick={() => setConfirmDeleteAviso(true)}
                     >
                       Excluir
                     </Button>
@@ -381,21 +379,7 @@ const DetalheSelecao = () => {
                       size="sm"
                       variant="ghost"
                       className="text-red-600 hover:text-red-700"
-                      onClick={async () => {
-                        if (confirm("Deseja excluir o Edital?")) {
-                          const { error } = await supabase
-                            .from("anexos_selecao")
-                            .delete()
-                            .eq("id", editalAnexado.id);
-                          
-                          if (error) {
-                            toast.error("Erro ao excluir documento");
-                          } else {
-                            toast.success("Documento excluído com sucesso");
-                            loadDocumentosAnexados();
-                          }
-                        }
-                      }}
+                      onClick={() => setConfirmDeleteEdital(true)}
                     >
                       Excluir
                     </Button>
@@ -522,6 +506,70 @@ const DetalheSelecao = () => {
           setDialogEditalOpen(false);
         }}
       />
+
+      {/* Confirmação de exclusão de Aviso */}
+      <AlertDialog open={confirmDeleteAviso} onOpenChange={setConfirmDeleteAviso}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o Aviso de Seleção? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                const { error } = await supabase
+                  .from("anexos_selecao")
+                  .delete()
+                  .eq("id", avisoAnexado.id);
+                
+                if (error) {
+                  toast.error("Erro ao excluir documento");
+                } else {
+                  toast.success("Documento excluído com sucesso");
+                  loadDocumentosAnexados();
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de exclusão de Edital */}
+      <AlertDialog open={confirmDeleteEdital} onOpenChange={setConfirmDeleteEdital}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o Edital? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                const { error } = await supabase
+                  .from("anexos_selecao")
+                  .delete()
+                  .eq("id", editalAnexado.id);
+                
+                if (error) {
+                  toast.error("Erro ao excluir documento");
+                } else {
+                  toast.success("Documento excluído com sucesso");
+                  loadDocumentosAnexados();
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

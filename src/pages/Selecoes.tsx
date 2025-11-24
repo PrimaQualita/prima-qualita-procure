@@ -6,6 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { ArrowLeft, ChevronRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -50,6 +60,7 @@ const Selecoes = () => {
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
   const [selecoes, setSelecoes] = useState<Selecao[]>([]);
+  const [confirmDeleteSelecao, setConfirmDeleteSelecao] = useState<string | null>(null);
   const [filtro, setFiltro] = useState("");
 
   useEffect(() => {
@@ -203,10 +214,6 @@ const Selecoes = () => {
   };
 
   const handleExcluirSelecao = async (selecaoId: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta seleção?")) {
-      return;
-    }
-
     const { error } = await supabase
       .from("selecoes_fornecedores")
       .delete()
@@ -221,6 +228,7 @@ const Selecoes = () => {
         loadSelecoes(processoSelecionado.id);
       }
     }
+    setConfirmDeleteSelecao(null);
   };
 
   const contratosFiltrados = contratos.filter(c =>
@@ -413,7 +421,7 @@ const Selecoes = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleExcluirSelecao(selecao.id)}
+                              onClick={() => setConfirmDeleteSelecao(selecao.id)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -428,6 +436,30 @@ const Selecoes = () => {
           </Card>
         )}
       </div>
+
+      {/* Confirmação de exclusão de Seleção */}
+      <AlertDialog open={!!confirmDeleteSelecao} onOpenChange={() => setConfirmDeleteSelecao(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta seleção? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmDeleteSelecao) {
+                  handleExcluirSelecao(confirmDeleteSelecao);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
