@@ -91,7 +91,7 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selecaoId]);
+  }, [selecaoId, codigoAcesso]); // Adicionar codigoAcesso como dependência
 
   useEffect(() => {
     // Auto-scroll para última mensagem
@@ -104,14 +104,23 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
     try {
       // Se tem código de acesso, é fornecedor não autenticado
       if (codigoAcesso) {
-        const { data: proposta } = await supabase
+        console.log('Carregando perfil com código de acesso:', codigoAcesso);
+        const { data: proposta, error } = await supabase
           .from("selecao_propostas_fornecedor")
           .select("*, fornecedores(*)")
           .eq("codigo_acesso", codigoAcesso)
           .eq("selecao_id", selecaoId)
           .single();
 
+        console.log('Proposta encontrada:', proposta);
+        
+        if (error) {
+          console.error('Erro ao buscar proposta:', error);
+          return;
+        }
+
         if (proposta?.fornecedores) {
+          console.log('Definindo userProfile como fornecedor:', proposta.fornecedores);
           setUserProfile({ type: "fornecedor", data: proposta.fornecedores });
         }
         return;
@@ -184,8 +193,13 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
 
   const handleEnviar = useCallback(async () => {
     const mensagemTexto = inputRef.current?.value.trim();
-    if (!mensagemTexto || !userProfile) return;
+    if (!mensagemTexto || !userProfile) {
+      console.log('Não pode enviar - userProfile:', userProfile);
+      return;
+    }
 
+    console.log('Enviando mensagem com userProfile:', userProfile);
+    
     setEnviando(true);
     try {
       const { error } = await supabase
