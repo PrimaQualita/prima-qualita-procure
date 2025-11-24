@@ -141,36 +141,48 @@ const ParticiparSelecao = () => {
   }, [selecaoId]);
 
   const checkAuth = async () => {
-    // Permite acesso público - não exige autenticação
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session) {
-      const { data: fornecedorData } = await supabase
-        .from("fornecedores")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
+    try {
+      // Permite acesso público - não exige autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      console.log("🔐 Session:", session ? "Autenticado" : "Público (não autenticado)");
+      
+      if (session) {
+        const { data: fornecedorData } = await supabase
+          .from("fornecedores")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
 
-      if (fornecedorData) {
-        setFornecedor(fornecedorData);
-        setDadosEmpresa({
-          razao_social: fornecedorData.razao_social || "",
-          cnpj: formatarCNPJ(fornecedorData.cnpj) || "",
-          email: fornecedorData.email || "",
-          logradouro: "",
-          numero: "",
-          bairro: "",
-          municipio: "",
-          uf: "",
-          cep: "",
-        });
-        await loadSelecao(fornecedorData.id);
-        return;
+        if (fornecedorData) {
+          console.log("✅ Fornecedor encontrado:", fornecedorData.razao_social);
+          setFornecedor(fornecedorData);
+          setDadosEmpresa({
+            razao_social: fornecedorData.razao_social || "",
+            cnpj: formatarCNPJ(fornecedorData.cnpj) || "",
+            email: fornecedorData.email || "",
+            logradouro: "",
+            numero: "",
+            bairro: "",
+            municipio: "",
+            uf: "",
+            cep: "",
+          });
+          await loadSelecao(fornecedorData.id);
+          return;
+        }
       }
+      
+      // Acesso público sem autenticação - IMPORTANTE: fornecedor permanece null
+      console.log("🌐 Modo público - formulário de dados deve aparecer");
+      setFornecedor(null); // Garante que fornecedor seja null para acesso público
+      await loadSelecao(null);
+    } catch (error) {
+      console.error("❌ Erro em checkAuth:", error);
+      // Mesmo com erro, permite acesso público
+      setFornecedor(null);
+      await loadSelecao(null);
     }
-    
-    // Acesso público sem autenticação
-    await loadSelecao(null);
   };
 
   const loadSelecao = async (fornecedorId: string | null) => {
