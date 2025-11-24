@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import logoHorizontal from '@/assets/prima-qualita-logo-horizontal.png';
 import capaLogo from '@/assets/capa-processo-logo.png';
 import logoMarcaDagua from '@/assets/prima-qualita-logo.png';
+import capaRodape from '@/assets/capa-processo-rodape.png';
 
 interface RelatorioFinalResult {
   url: string;
@@ -105,6 +106,26 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
       img.src = logoMarcaDagua;
     });
     
+    // Rodapé
+    const base64Rodape = await new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Erro ao criar canvas'));
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar rodapé'));
+      img.src = capaRodape;
+    });
+    
     // Adicionar marca d'água com opacidade baixa
     doc.saveGraphicsState();
     const gState = doc.GState({ opacity: 0.08 });
@@ -126,15 +147,10 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     const logoHeight = 40;
     doc.addImage(base64CapaLogo, 'PNG', 0, 0, logoWidth, logoHeight);
     
-    // Rodapé - encostar no fundo da página
-    const yRodape = pageHeight - 15;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-    doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yRodape, { align: 'center' });
-    doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape + 4, { align: 'center' });
-    doc.text('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yRodape + 8, { align: 'center' });
-    doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 12, { align: 'center' });
+    // Rodapé - imagem no fundo
+    const rodapeHeight = 25;
+    const yRodape = pageHeight - rodapeHeight;
+    doc.addImage(base64Rodape, 'PNG', 0, yRodape, pageWidth, rodapeHeight);
   };
   
   // Adicionar logo e rodapé
