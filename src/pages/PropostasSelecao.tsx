@@ -139,9 +139,9 @@ export default function PropostasSelecao() {
             <p className="text-sm text-muted-foreground">Data da Sessão</p>
             <p className="font-medium">
               {(() => {
-                const date = new Date(selecao?.data_sessao_disputa + 'T00:00:00');
-                const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-                return localDate.toLocaleDateString('pt-BR');
+                if (!selecao?.data_sessao_disputa) return '';
+                const [year, month, day] = selecao.data_sessao_disputa.split('-');
+                return `${day}/${month}/${year}`;
               })()} às {selecao?.hora_sessao_disputa}
             </p>
           </div>
