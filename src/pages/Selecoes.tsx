@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 
@@ -163,6 +163,27 @@ const Selecoes = () => {
       console.error(error);
     } else {
       setSelecoes(data || []);
+    }
+  };
+
+  const handleExcluirSelecao = async (selecaoId: string) => {
+    if (!confirm("Tem certeza que deseja excluir esta seleção?")) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("selecoes_fornecedores")
+      .delete()
+      .eq("id", selecaoId);
+
+    if (error) {
+      toast.error("Erro ao excluir seleção");
+      console.error(error);
+    } else {
+      toast.success("Seleção excluída com sucesso");
+      if (processoSelecionado) {
+        loadSelecoes(processoSelecionado.id);
+      }
     }
   };
 
@@ -344,14 +365,23 @@ const Selecoes = () => {
                           {new Date(selecao.data_sessao_disputa).toLocaleDateString("pt-BR")} às {selecao.hora_sessao_disputa}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => navigate(`/detalhe-selecao?id=${selecao.id}`)}
-                          >
-                            <ChevronRight className="h-4 w-4 mr-2" />
-                            Ver Seleção
-                          </Button>
+                          <div className="flex gap-2 justify-end">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => navigate(`/detalhe-selecao?id=${selecao.id}`)}
+                            >
+                              <ChevronRight className="h-4 w-4 mr-2" />
+                              Ver Seleção
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleExcluirSelecao(selecao.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
