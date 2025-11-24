@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import logoHorizontal from '@/assets/prima-qualita-logo-horizontal.png';
 import capaLogo from '@/assets/capa-processo-logo.png';
 import logoMarcaDagua from '@/assets/prima-qualita-logo.png';
+import capaRodape from '@/assets/capa-processo-rodape.png';
 
 // Função para extrair texto simples de HTML
 const extractTextFromHTML = (html: string): string => {
@@ -107,6 +108,26 @@ export const gerarAutorizacaoCompraDireta = async (
       img.src = logoMarcaDagua;
     });
     
+    // Rodapé
+    const base64Rodape = await new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Erro ao criar canvas'));
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar rodapé'));
+      img.src = capaRodape;
+    });
+    
     // Adicionar marca d'água com opacidade baixa
     doc.saveGraphicsState();
     const gState = doc.GState({ opacity: 0.08 });
@@ -128,15 +149,10 @@ export const gerarAutorizacaoCompraDireta = async (
     const logoHeight = 40;
     doc.addImage(base64CapaLogo, 'PNG', 0, 0, logoWidth, logoHeight);
     
-    // Rodapé - encostar no fundo da página
-    const yRodape = pageHeight - 15;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-    doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yRodape, { align: 'center' });
-    doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape + 4, { align: 'center' });
-    doc.text('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yRodape + 8, { align: 'center' });
-    doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 12, { align: 'center' });
+    // Rodapé - imagem no fundo
+    const rodapeHeight = 25;
+    const yRodape = pageHeight - rodapeHeight;
+    doc.addImage(base64Rodape, 'PNG', 0, yRodape, pageWidth, rodapeHeight);
   };
   
   // Adicionar logo e rodapé na primeira página
@@ -365,10 +381,10 @@ export const gerarAutorizacaoSelecao = async (
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
-  // Função para adicionar logo e rodapé em todas as páginas
+  // Função para adicionar logo, marca d'água e rodapé em todas as páginas
   const adicionarLogoERodape = async (paginaAtual: number) => {
-    // Logo
-    const base64Logo = await new Promise<string>((resolve, reject) => {
+    // Logo da capa no topo
+    const base64CapaLogo = await new Promise<string>((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
@@ -383,21 +399,75 @@ export const gerarAutorizacaoSelecao = async (
           reject(new Error('Erro ao criar canvas'));
         }
       };
-      img.onerror = () => reject(new Error('Erro ao carregar logo'));
-      img.src = logoHorizontal;
+      img.onerror = () => reject(new Error('Erro ao carregar logo capa'));
+      img.src = capaLogo;
     });
     
-    doc.addImage(base64Logo, 'PNG', (pageWidth - 80) / 2, 10, 80, 20);
+    // Marca d'água centralizada
+    const base64MarcaDagua = await new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Erro ao criar canvas'));
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar marca d\'água'));
+      img.src = logoMarcaDagua;
+    });
     
-    // Rodapé - encostar no fundo da página
-    const yRodape = pageHeight - 15;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-    doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yRodape, { align: 'center' });
-    doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape + 4, { align: 'center' });
-    doc.text('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yRodape + 8, { align: 'center' });
-    doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 12, { align: 'center' });
+    // Rodapé
+    const base64Rodape = await new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Erro ao criar canvas'));
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar rodapé'));
+      img.src = capaRodape;
+    });
+    
+    // Adicionar marca d'água com opacidade baixa
+    doc.saveGraphicsState();
+    const gState = doc.GState({ opacity: 0.08 });
+    doc.setGState(gState);
+    const marcaDaguaWidth = 160;
+    const marcaDaguaHeight = 80;
+    doc.addImage(
+      base64MarcaDagua, 
+      'PNG', 
+      (pageWidth - marcaDaguaWidth) / 2, 
+      (pageHeight - marcaDaguaHeight) / 2, 
+      marcaDaguaWidth, 
+      marcaDaguaHeight
+    );
+    doc.restoreGraphicsState();
+    
+    // Logo da capa no topo - largura total da página
+    const logoWidth = pageWidth;
+    const logoHeight = 40;
+    doc.addImage(base64CapaLogo, 'PNG', 0, 0, logoWidth, logoHeight);
+    
+    // Rodapé - imagem no fundo
+    const rodapeHeight = 25;
+    const yRodape = pageHeight - rodapeHeight;
+    doc.addImage(base64Rodape, 'PNG', 0, yRodape, pageWidth, rodapeHeight);
   };
   
   // Adicionar logo e rodapé na primeira página
