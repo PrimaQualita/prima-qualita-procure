@@ -344,14 +344,17 @@ const ParticiparSelecao = () => {
     // Converte para número e divide por 100 para ter centavos
     const valorNumerico = parseFloat(numeros) / 100;
     
-    // Formata com duas casas decimais e substitui ponto por vírgula
-    const valorFormatado = valorNumerico.toFixed(2).replace('.', ',');
+    // Formata com duas casas decimais
+    const valorString = valorNumerico.toFixed(2);
     
-    // Adiciona separador de milhar
-    const partes = valorFormatado.split(',');
-    partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    // Separa parte inteira e decimal
+    const [inteiros, decimais] = valorString.split('.');
     
-    return partes.join(',');
+    // Adiciona separador de milhar na parte inteira
+    const inteirosFormatados = inteiros.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    // Retorna com vírgula como separador decimal
+    return `${inteirosFormatados},${decimais}`;
   };
 
   const handleValorChange = (itemId: string, value: string) => {
