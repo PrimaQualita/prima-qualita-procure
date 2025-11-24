@@ -69,31 +69,33 @@ export function DialogImportarProposta({
       { wch: 15 }   // Valor Unitário
     ];
     
-    // Configurar proteção de células - APENAS HEADER
+    // Obter range do worksheet
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
     
-    // Para cada linha
+    // Para cada célula, configurar proteção
     for (let R = range.s.r; R <= range.e.r; ++R) {
-      // Para cada coluna
       for (let C = range.s.c; C <= range.e.c; ++C) {
-        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[cellRef]) continue;
+        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
         
-        // Inicializar estilo se não existir
-        if (!ws[cellRef].s) ws[cellRef].s = {};
-        
-        // Colunas A (0) e B (1) são bloqueadas, C (2) e D (3) são editáveis
-        if (C === 0 || C === 1) {
-          ws[cellRef].s.protection = { locked: true };
-        } else {
-          ws[cellRef].s.protection = { locked: false };
+        // Se a célula não existe, criar
+        if (!ws[cellAddress]) {
+          ws[cellAddress] = { t: 's', v: '' };
         }
+        
+        // Inicializar objeto de estilo
+        if (!ws[cellAddress].s) {
+          ws[cellAddress].s = {};
+        }
+        
+        // Bloquear colunas A (0) e B (1), desbloquear C (2) e D (3)
+        ws[cellAddress].s.protection = {
+          locked: C === 0 || C === 1 // true para colunas A e B, false para C e D
+        };
       }
     }
     
-    // Aplicar proteção no worksheet
+    // Aplicar proteção na planilha com senha vazia
     ws['!protect'] = {
-      password: '',
       selectLockedCells: true,
       selectUnlockedCells: true,
       formatCells: false,
@@ -113,8 +115,13 @@ export function DialogImportarProposta({
     
     XLSX.utils.book_append_sheet(wb, ws, "Proposta");
     
-    // Salvar como XLS (formato antigo que respeita melhor a proteção)
-    XLSX.writeFile(wb, "template_proposta_selecao.xls", { bookType: 'xls' });
+    // Salvar como XLSX com opções de proteção
+    XLSX.writeFile(wb, "template_proposta_selecao.xlsx", { 
+      bookType: 'xlsx',
+      cellStyles: true,
+      sheetStubs: true
+    });
+    
     toast.success("Template baixado! Apenas as colunas 'Marca' e 'Valor Unitário' podem ser editadas.");
   };
 
