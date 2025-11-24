@@ -355,16 +355,27 @@ const ParticiparSelecao = () => {
   };
 
   const handleValorChange = (itemId: string, value: string) => {
-    // Remove "R$" e espaços para processar
-    const valorLimpo = value.replace(/^R\$\s?/, '').replace(/\s/g, '');
+    // Remove TUDO exceto números - não importa o que venha no value
+    const numeros = value.replace(/\D/g, '');
     
-    // Formata como moeda
-    const valorFormatado = formatarMoeda(valorLimpo);
+    // Se não houver números, seta como 0,00
+    if (!numeros || numeros === '0' || numeros === '') {
+      setRespostas(prev => ({
+        ...prev,
+        [itemId]: {
+          ...prev[itemId],
+          valor_unitario_ofertado: 0,
+          valor_display: '0,00'
+        }
+      }));
+      return;
+    }
+    
+    // Formata o valor (sempre com 2 casas decimais)
+    const valorFormatado = formatarMoeda(numeros);
     
     // Converte para número (remove pontos de milhar e troca vírgula por ponto)
-    const valorNumerico = valorFormatado
-      ? parseFloat(valorFormatado.replace(/\./g, '').replace(',', '.'))
-      : 0;
+    const valorNumerico = parseFloat(valorFormatado.replace(/\./g, '').replace(',', '.'));
     
     setRespostas(prev => ({
       ...prev,
