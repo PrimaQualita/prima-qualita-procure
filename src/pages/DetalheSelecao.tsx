@@ -399,6 +399,16 @@ const DetalheSelecao = () => {
                 <Link className="h-4 w-4 mr-2" />
                 Gerar Link para Fornecedores
               </Button>
+
+              {/* Ver Propostas */}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate(`/propostas-selecao?selecao=${selecaoId}`)}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Ver Propostas
+              </Button>
             </div>
           </CardContent>
         </Card>
