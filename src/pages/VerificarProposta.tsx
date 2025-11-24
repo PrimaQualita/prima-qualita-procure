@@ -103,25 +103,21 @@ const VerificarProposta = () => {
           });
         }
       } else {
-        // Buscar na tabela de respostas de cotação (propostas) pelo protocolo
-        const { data, error } = await supabaseAnon
-          .from("cotacao_respostas_fornecedor")
+        // Tentar buscar primeiro em propostas de seleção
+        const { data: selecaoData, error: selecaoError } = await supabaseAnon
+          .from("selecao_propostas_fornecedor")
           .select(`
             id,
             protocolo,
             hash_certificacao,
-            usuario_gerador_id,
-            valor_total_anual_ofertado,
-            data_envio_resposta,
+            valor_total_proposta,
+            data_envio_proposta,
             fornecedores:fornecedor_id (
               razao_social,
               cnpj
             ),
-            profiles!usuario_gerador_id (
-              nome_completo
-            ),
-            cotacoes_precos:cotacao_id (
-              titulo_cotacao,
+            selecoes_fornecedores:selecao_id (
+              titulo_selecao,
               processos_compras:processo_compra_id (
                 numero_processo_interno
               )
@@ -130,30 +126,80 @@ const VerificarProposta = () => {
           .eq("protocolo", protocolo)
           .maybeSingle();
 
-        if (error) throw error;
-
-        if (!data) {
-          setErro("Proposta não encontrada com este protocolo");
-        } else {
+        if (selecaoData) {
+          // Encontrou proposta de seleção
           setResposta({
-            id: data.id,
-            protocolo: data.protocolo,
-            hash_certificacao: data.hash_certificacao,
-            usuario_gerador_id: data.usuario_gerador_id,
-            valor_total_anual_ofertado: data.valor_total_anual_ofertado,
-            data_envio_resposta: data.data_envio_resposta,
+            id: selecaoData.id,
+            protocolo: selecaoData.protocolo,
+            hash_certificacao: selecaoData.hash_certificacao,
+            usuario_gerador_id: null,
+            valor_total_anual_ofertado: selecaoData.valor_total_proposta,
+            data_envio_resposta: selecaoData.data_envio_proposta,
             fornecedor: {
-              razao_social: (data.fornecedores as any)?.razao_social || "N/A",
-              cnpj: (data.fornecedores as any)?.cnpj || "N/A",
+              razao_social: (selecaoData.fornecedores as any)?.razao_social || "N/A",
+              cnpj: (selecaoData.fornecedores as any)?.cnpj || "N/A",
             },
-            usuario_gerador: (data.profiles as any) || null,
+            usuario_gerador: null,
             cotacao: {
-              titulo_cotacao: (data.cotacoes_precos as any)?.titulo_cotacao || "N/A",
+              titulo_cotacao: (selecaoData.selecoes_fornecedores as any)?.titulo_selecao || "N/A",
               processo: {
-                numero_processo_interno: (data.cotacoes_precos as any)?.processos_compras?.numero_processo_interno || "N/A",
+                numero_processo_interno: ((selecaoData.selecoes_fornecedores as any)?.processos_compras as any)?.numero_processo_interno || "N/A",
               },
             },
           });
+        } else {
+          // Se não encontrou em seleção, buscar em cotação
+          const { data, error } = await supabaseAnon
+            .from("cotacao_respostas_fornecedor")
+            .select(`
+              id,
+              protocolo,
+              hash_certificacao,
+              usuario_gerador_id,
+              valor_total_anual_ofertado,
+              data_envio_resposta,
+              fornecedores:fornecedor_id (
+                razao_social,
+                cnpj
+              ),
+              profiles!usuario_gerador_id (
+                nome_completo
+              ),
+              cotacoes_precos:cotacao_id (
+                titulo_cotacao,
+                processos_compras:processo_compra_id (
+                  numero_processo_interno
+                )
+              )
+            `)
+            .eq("protocolo", protocolo)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          if (!data) {
+            setErro("Proposta não encontrada com este protocolo");
+          } else {
+            setResposta({
+              id: data.id,
+              protocolo: data.protocolo,
+              hash_certificacao: data.hash_certificacao,
+              usuario_gerador_id: data.usuario_gerador_id,
+              valor_total_anual_ofertado: data.valor_total_anual_ofertado,
+              data_envio_resposta: data.data_envio_resposta,
+              fornecedor: {
+                razao_social: (data.fornecedores as any)?.razao_social || "N/A",
+                cnpj: (data.fornecedores as any)?.cnpj || "N/A",
+              },
+              usuario_gerador: (data.profiles as any) || null,
+              cotacao: {
+                titulo_cotacao: (data.cotacoes_precos as any)?.titulo_cotacao || "N/A",
+                processo: {
+                  numero_processo_interno: ((data.cotacoes_precos as any)?.processos_compras as any)?.numero_processo_interno || "N/A",
+                },
+              },
+            });
+          }
         }
       }
     } catch (error: any) {

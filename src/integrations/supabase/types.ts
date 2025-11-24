@@ -1786,9 +1786,11 @@ export type Database = {
           desclassificado: boolean | null
           email: string | null
           fornecedor_id: string
+          hash_certificacao: string | null
           id: string
           motivo_desclassificacao: string | null
           observacoes_fornecedor: string | null
+          protocolo: string | null
           selecao_id: string
           valor_total_proposta: number
         }
@@ -1799,9 +1801,11 @@ export type Database = {
           desclassificado?: boolean | null
           email?: string | null
           fornecedor_id: string
+          hash_certificacao?: string | null
           id?: string
           motivo_desclassificacao?: string | null
           observacoes_fornecedor?: string | null
+          protocolo?: string | null
           selecao_id: string
           valor_total_proposta: number
         }
@@ -1812,9 +1816,11 @@ export type Database = {
           desclassificado?: boolean | null
           email?: string | null
           fornecedor_id?: string
+          hash_certificacao?: string | null
           id?: string
           motivo_desclassificacao?: string | null
           observacoes_fornecedor?: string | null
+          protocolo?: string | null
           selecao_id?: string
           valor_total_proposta?: number
         }
