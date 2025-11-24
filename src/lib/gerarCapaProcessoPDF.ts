@@ -71,8 +71,8 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .content {
             position: relative;
             z-index: 2;
-            padding: 60px 80px 0 80px;
-            height: calc(297mm - 120px);
+            padding: 40px 60px 0 60px;
+            height: calc(297mm - 80px);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -84,17 +84,17 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           
           .processo-line {
             text-align: center;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             color: #1a5490;
           }
           
           .contrato-line {
             text-align: center;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             color: #1a5490;
           }
           
@@ -106,28 +106,29 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .objeto-title {
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
           }
           
           .objeto-text {
             font-size: 16px;
-            line-height: 1.4;
+            line-height: 1.3;
           }
           
           .middle-section {
             text-align: center;
             flex-grow: 0;
             flex-shrink: 0;
+            margin: 20px 0;
           }
           
           .data-text {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: bold;
             color: #1a5490;
           }
           
           .bottom-section {
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             text-align: left;
             flex-shrink: 0;
           }
@@ -135,12 +136,12 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .assunto-title {
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
           }
           
           .assunto-text {
             font-size: 16px;
-            line-height: 1.4;
+            line-height: 1.3;
             text-align: justify;
           }
           
