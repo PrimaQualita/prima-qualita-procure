@@ -11,6 +11,13 @@ interface DadosCapaProcesso {
   objetoProcesso: string;
 }
 
+// Função para extrair texto limpo de HTML
+const extractTextFromHTML = (html: string): string => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+};
+
 export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -109,18 +116,18 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   // Conteúdo
   let yPos = logoHeight + 15;
 
-  // Processo
+  // Processo - CAIXA ALTA
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(26, 84, 144);
-  doc.text(`Processo: ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
+  doc.text(`PROCESSO: ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 10;
 
-  // Contrato
-  doc.text(`Contrato de Gestão: ${dados.numeroContrato}`, pageWidth / 2, yPos, { align: 'center' });
+  // Contrato - CAIXA ALTA
+  doc.text(`CONTRATO DE GESTÃO: ${dados.numeroContrato}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 15;
 
-  // Objeto
+  // Objeto - texto justificado
   doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
@@ -128,23 +135,24 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   yPos += 6;
 
   doc.setFont('helvetica', 'normal');
-  const linhasObjeto = doc.splitTextToSize(dados.observacoesContrato || 'Não informado', 170);
-  doc.text(linhasObjeto, 20, yPos);
+  const textoObjetoLimpo = extractTextFromHTML(dados.observacoesContrato || 'Não informado');
+  const linhasObjeto = doc.splitTextToSize(textoObjetoLimpo, 170);
+  doc.text(linhasObjeto, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasObjeto.length * 5 + 20;
 
-  // Data
+  // Data - CAIXA ALTA
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(26, 84, 144);
-  const dataTexto = `Rio de Janeiro, ${new Date().toLocaleDateString('pt-BR', { 
+  const dataTexto = `RIO DE JANEIRO, ${new Date().toLocaleDateString('pt-BR', { 
     day: '2-digit', 
     month: 'long', 
     year: 'numeric' 
-  })}`;
+  }).toUpperCase()}`;
   doc.text(dataTexto, pageWidth / 2, yPos, { align: 'center' });
   yPos += 20;
 
-  // Assunto
+  // Assunto - texto justificado e limpo de HTML
   doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
@@ -152,7 +160,8 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   yPos += 6;
 
   doc.setFont('helvetica', 'normal');
-  const linhasAssunto = doc.splitTextToSize(dados.objetoProcesso, 170);
+  const textoAssuntoLimpo = extractTextFromHTML(dados.objetoProcesso);
+  const linhasAssunto = doc.splitTextToSize(textoAssuntoLimpo, 170);
   doc.text(linhasAssunto, 20, yPos, { align: 'justify', maxWidth: 170 });
 
   return doc.output('blob');
