@@ -1030,8 +1030,11 @@ export type Database = {
           created_at: string
           data_abertura: string
           data_fechamento: string | null
+          data_inicio_fechamento: string | null
           id: string
+          iniciando_fechamento: boolean | null
           numero_item: number
+          segundos_para_fechar: number | null
           selecao_id: string
         }
         Insert: {
@@ -1039,8 +1042,11 @@ export type Database = {
           created_at?: string
           data_abertura?: string
           data_fechamento?: string | null
+          data_inicio_fechamento?: string | null
           id?: string
+          iniciando_fechamento?: boolean | null
           numero_item: number
+          segundos_para_fechar?: number | null
           selecao_id: string
         }
         Update: {
@@ -1048,8 +1054,11 @@ export type Database = {
           created_at?: string
           data_abertura?: string
           data_fechamento?: string | null
+          data_inicio_fechamento?: string | null
           id?: string
+          iniciando_fechamento?: boolean | null
           numero_item?: number
+          segundos_para_fechar?: number | null
           selecao_id?: string
         }
         Relationships: [
