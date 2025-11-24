@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,10 +28,10 @@ interface ChatSelecaoProps {
 
 export function ChatSelecao({ selecaoId }: ChatSelecaoProps) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
-  const [novaMensagem, setNovaMensagem] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadUserProfile();
@@ -133,8 +133,9 @@ export function ChatSelecao({ selecaoId }: ChatSelecaoProps) {
     }
   };
 
-  const handleEnviar = async () => {
-    if (!novaMensagem.trim() || !userProfile) return;
+  const handleEnviar = useCallback(async () => {
+    const mensagemTexto = inputRef.current?.value.trim();
+    if (!mensagemTexto || !userProfile) return;
 
     setEnviando(true);
     try {
@@ -142,7 +143,7 @@ export function ChatSelecao({ selecaoId }: ChatSelecaoProps) {
         .from("mensagens_selecao")
         .insert({
           selecao_id: selecaoId,
-          mensagem: novaMensagem.trim(),
+          mensagem: mensagemTexto,
           tipo_usuario: userProfile.type,
           usuario_id: userProfile.type === "interno" ? userProfile.data.id : null,
           fornecedor_id: userProfile.type === "fornecedor" ? userProfile.data.id : null,
@@ -150,14 +151,16 @@ export function ChatSelecao({ selecaoId }: ChatSelecaoProps) {
 
       if (error) throw error;
 
-      setNovaMensagem("");
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       toast.error("Erro ao enviar mensagem");
     } finally {
       setEnviando(false);
     }
-  };
+  }, [selecaoId, userProfile]);
 
   const formatDateTime = (dateTime: string) => {
     return new Date(dateTime).toLocaleString("pt-BR", {
@@ -229,13 +232,12 @@ export function ChatSelecao({ selecaoId }: ChatSelecaoProps) {
 
         <div className="flex gap-2">
           <Input
+            ref={inputRef}
             placeholder="Digite sua mensagem..."
-            value={novaMensagem}
-            onChange={(e) => setNovaMensagem(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleEnviar()}
             disabled={enviando}
           />
-          <Button onClick={handleEnviar} disabled={enviando || !novaMensagem.trim()}>
+          <Button onClick={handleEnviar} disabled={enviando}>
             <Send className="h-4 w-4" />
           </Button>
         </div>
