@@ -90,8 +90,9 @@ export default function PortalFornecedor() {
 
   const loadSelecoes = async (fornecedorId: string) => {
     try {
-      const { data, error } = await supabase
-        .from("selecao_fornecedor_convites")
+      // Buscar propostas enviadas pelo fornecedor (mesmo que antes de se cadastrar)
+      const { data: propostas, error: propostasError } = await supabase
+        .from("selecao_propostas_fornecedor")
         .select(`
           *,
           selecoes_fornecedores (
@@ -106,9 +107,19 @@ export default function PortalFornecedor() {
         .eq("fornecedor_id", fornecedorId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setSelecoes(data || []);
+      if (propostasError) throw propostasError;
+      
+      // Transformar para formato compatível
+      const selecoesFormatadas = (propostas || []).map((proposta: any) => ({
+        id: proposta.id,
+        created_at: proposta.created_at,
+        selecao_id: proposta.selecao_id,
+        selecoes_fornecedores: proposta.selecoes_fornecedores
+      }));
+
+      setSelecoes(selecoesFormatadas);
     } catch (error: any) {
+      console.error("Erro ao carregar seleções:", error);
       toast.error("Erro ao carregar seleções");
     }
   };
