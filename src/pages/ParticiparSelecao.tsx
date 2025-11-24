@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -861,11 +861,10 @@ const ParticiparSelecao = () => {
                                   {processo?.tipo === "material" && (
                                     <TableCell>
                                       <Input
+                                        key={`marca-lote-${item.id}`}
                                         placeholder="Marca"
-                                        value={respostas[item.id]?.marca_ofertada || ""}
-                                        onChange={(e) => handleMarcaChange(item.id, e.target.value)}
-                                        autoComplete="off"
-                                        data-form-type="other"
+                                        defaultValue={respostas[item.id]?.marca_ofertada || ""}
+                                        onBlur={(e) => handleMarcaChange(item.id, e.target.value)}
                                       />
                                     </TableCell>
                                   )}
@@ -905,29 +904,23 @@ const ParticiparSelecao = () => {
                             {processo?.tipo === "material" && (
                               <TableCell>
                                 <Input
+                                  key={`marca-${item.id}`}
                                   placeholder="Marca"
-                                  value={respostas[item.id]?.marca_ofertada || ""}
-                                  onChange={(e) => handleMarcaChange(item.id, e.target.value)}
-                                  autoComplete="off"
-                                  data-form-type="other"
+                                  defaultValue={respostas[item.id]?.marca_ofertada || ""}
+                                  onBlur={(e) => handleMarcaChange(item.id, e.target.value)}
                                 />
                               </TableCell>
                             )}
                             <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
                             <TableCell>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none z-10">R$</span>
-                                <Input
-                                  type="text"
-                                  inputMode="decimal"
-                                  placeholder="0,00"
-                                  value={respostas[item.id]?.valor_display || "0,00"}
-                                  onChange={(e) => handleValorChange(item.id, e.target.value)}
-                                  className="text-right pl-10"
-                                  autoComplete="off"
-                                  data-form-type="other"
-                                />
-                              </div>
+                              <Input
+                                key={`valor-item-${item.id}`}
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0,00"
+                                defaultValue={respostas[item.id]?.valor_display || "0,00"}
+                                onBlur={(e) => handleValorChange(item.id, e.target.value)}
+                              />
                             </TableCell>
                             <TableCell className="text-right">
                               {formatCurrency((respostas[item.id]?.valor_unitario_ofertado || 0) * item.quantidade)}
