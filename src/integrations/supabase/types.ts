@@ -1783,6 +1783,7 @@ export type Database = {
           created_at: string | null
           data_envio_proposta: string | null
           desclassificado: boolean | null
+          email: string | null
           fornecedor_id: string
           id: string
           motivo_desclassificacao: string | null
@@ -1794,6 +1795,7 @@ export type Database = {
           created_at?: string | null
           data_envio_proposta?: string | null
           desclassificado?: boolean | null
+          email?: string | null
           fornecedor_id: string
           id?: string
           motivo_desclassificacao?: string | null
@@ -1805,6 +1807,7 @@ export type Database = {
           created_at?: string | null
           data_envio_proposta?: string | null
           desclassificado?: boolean | null
+          email?: string | null
           fornecedor_id?: string
           id?: string
           motivo_desclassificacao?: string | null
