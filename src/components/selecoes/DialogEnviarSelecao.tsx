@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Copy } from "lucide-react";
+import { Copy, Send } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DialogEnviarSelecaoProps {
   open: boolean;
@@ -22,6 +25,72 @@ export function DialogEnviarSelecao({
   horaDisputa,
 }: DialogEnviarSelecaoProps) {
   const [copiado, setCopiado] = useState(false);
+  const [fornecedores, setFornecedores] = useState<any[]>([]);
+  const [fornecedoresSelecionados, setFornecedoresSelecionados] = useState<string[]>([]);
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      loadFornecedores();
+    }
+  }, [open]);
+
+  const loadFornecedores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("fornecedores")
+        .select("id, razao_social, cnpj, email")
+        .eq("status_aprovacao", "aprovado")
+        .eq("ativo", true)
+        .order("razao_social");
+
+      if (error) throw error;
+      setFornecedores(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar fornecedores:", error);
+      toast.error("Erro ao carregar fornecedores");
+    }
+  };
+
+  const handleToggleFornecedor = (fornecedorId: string) => {
+    setFornecedoresSelecionados(prev => 
+      prev.includes(fornecedorId)
+        ? prev.filter(id => id !== fornecedorId)
+        : [...prev, fornecedorId]
+    );
+  };
+
+  const handleEnviarConvites = async () => {
+    if (fornecedoresSelecionados.length === 0) {
+      toast.error("Selecione pelo menos um fornecedor");
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      // Criar convites para os fornecedores selecionados
+      const convites = fornecedoresSelecionados.map(fornecedorId => ({
+        selecao_id: selecaoId,
+        fornecedor_id: fornecedorId,
+        status_convite: "enviado",
+        email_enviado_em: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from("selecao_fornecedor_convites")
+        .insert(convites);
+
+      if (error) throw error;
+
+      toast.success(`Convites enviados para ${fornecedoresSelecionados.length} fornecedor(es)`);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Erro ao enviar convites:", error);
+      toast.error("Erro ao enviar convites");
+    } finally {
+      setEnviando(false);
+    }
+  };
 
   const linkSelecao = `${window.location.origin}/participar-selecao?id=${selecaoId}`;
   const dataFormatada = new Date(dataDisputa).toLocaleDateString("pt-BR", {
@@ -71,30 +140,73 @@ Departamento de Compras`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Enviar Convite para Fornecedores</DialogTitle>
           <DialogDescription>
-            Copie o texto abaixo e envie por e-mail para os fornecedores convidados
+            Selecione os fornecedores que participarão desta seleção
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="bg-muted p-4 rounded-lg">
-            <pre className="whitespace-pre-wrap text-sm font-mono">{textoEmail}</pre>
+        <div className="space-y-6">
+          {/* Lista de Fornecedores */}
+          <div className="border rounded-lg p-4 max-h-[300px] overflow-y-auto">
+            <h3 className="font-semibold mb-3">Fornecedores Disponíveis</h3>
+            <div className="space-y-2">
+              {fornecedores.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum fornecedor aprovado encontrado</p>
+              ) : (
+                fornecedores.map((fornecedor) => (
+                  <div key={fornecedor.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={fornecedor.id}
+                      checked={fornecedoresSelecionados.includes(fornecedor.id)}
+                      onCheckedChange={() => handleToggleFornecedor(fornecedor.id)}
+                    />
+                    <Label
+                      htmlFor={fornecedor.id}
+                      className="flex-1 cursor-pointer"
+                    >
+                      <span className="font-medium">{fornecedor.razao_social}</span>
+                      <span className="text-sm text-muted-foreground ml-2">
+                        ({fornecedor.cnpj})
+                      </span>
+                    </Label>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
+          {/* Texto do Email */}
+          <div>
+            <h3 className="font-semibold mb-2">Modelo de E-mail</h3>
+            <div className="bg-muted p-4 rounded-lg">
+              <pre className="whitespace-pre-wrap text-sm font-mono">{textoEmail}</pre>
+            </div>
+          </div>
+
+          {/* Botões */}
           <div className="flex gap-2">
             <Button
-              onClick={handleCopiar}
+              onClick={handleEnviarConvites}
               className="flex-1"
-              variant={copiado ? "default" : "outline"}
+              disabled={fornecedoresSelecionados.length === 0 || enviando}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {enviando ? "Enviando..." : `Enviar Convites (${fornecedoresSelecionados.length})`}
+            </Button>
+
+            <Button
+              onClick={handleCopiar}
+              variant="outline"
+              disabled={enviando}
             >
               <Copy className="h-4 w-4 mr-2" />
               {copiado ? "Copiado!" : "Copiar Texto"}
             </Button>
 
-            <Button onClick={() => onOpenChange(false)} variant="secondary">
+            <Button onClick={() => onOpenChange(false)} variant="secondary" disabled={enviando}>
               Fechar
             </Button>
           </div>
