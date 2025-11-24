@@ -131,13 +131,10 @@ export function DialogImportarProposta({
         return;
       }
 
-      // Validar estrutura
+      // Validar se existe coluna Número do Item e Descrição
       const primeiraLinha = jsonData[0];
-      const camposObrigatorios = ['Número do Item', 'Descrição', 'Marca', 'Valor Unitário'];
-      const camposFaltando = camposObrigatorios.filter(campo => !(campo in primeiraLinha));
-
-      if (camposFaltando.length > 0) {
-        toast.error(`Campos obrigatórios faltando na planilha: ${camposFaltando.join(', ')}`);
+      if (!('Número do Item' in primeiraLinha) || !('Descrição' in primeiraLinha)) {
+        toast.error("Planilha inválida. Use o template fornecido.");
         setLoading(false);
         return;
       }
@@ -149,7 +146,8 @@ export function DialogImportarProposta({
           const temMarca = item['Marca'] && String(item['Marca']).trim() !== '';
           const temValor = item['Valor Unitário'] !== undefined && 
                           item['Valor Unitário'] !== null && 
-                          String(item['Valor Unitário']).trim() !== '';
+                          String(item['Valor Unitário']).trim() !== '' &&
+                          Number(item['Valor Unitário']) > 0;
           return temMarca || temValor;
         })
         .map(item => ({
@@ -159,7 +157,7 @@ export function DialogImportarProposta({
         }));
 
       if (dadosImportados.length === 0) {
-        toast.error("Nenhum item foi preenchido na planilha");
+        toast.error("Nenhum item foi preenchido na planilha. Preencha pelo menos um item com marca ou valor unitário.");
         setLoading(false);
         return;
       }
