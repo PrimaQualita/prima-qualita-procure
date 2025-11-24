@@ -103,45 +103,33 @@ const VerificarProposta = () => {
           });
         }
       } else {
-        // Buscar proposta de seleção diretamente
+        // Buscar proposta de seleção com todos os dados em uma única query
         const { data: selecaoData, error: selecaoError } = await supabaseAnon
           .from("selecao_propostas_fornecedor")
-          .select('*')
+          .select(`
+            id,
+            protocolo,
+            hash_certificacao,
+            valor_total_proposta,
+            data_envio_proposta,
+            fornecedor_id,
+            selecao_id,
+            fornecedores!inner (
+              razao_social,
+              cnpj
+            ),
+            selecoes_fornecedores!inner (
+              titulo_selecao,
+              processo_compra_id,
+              processos_compras!inner (
+                numero_processo_interno
+              )
+            )
+          `)
           .eq("protocolo", protocolo)
           .maybeSingle();
 
         if (selecaoData && !selecaoError) {
-          // Buscar fornecedor
-          const { data: fornecedorData, error: fornecedorError } = await supabaseAnon
-            .from("fornecedores")
-            .select("razao_social, cnpj")
-            .eq("id", selecaoData.fornecedor_id)
-            .maybeSingle();
-          
-          // Buscar seleção
-          const { data: selecaoInfo, error: selecaoInfoError } = await supabaseAnon
-            .from("selecoes_fornecedores")
-            .select(`
-              titulo_selecao,
-              processo_compra_id
-            `)
-            .eq("id", selecaoData.selecao_id)
-            .maybeSingle();
-          
-          // Buscar processo
-          let processoNumero = "N/A";
-          if (selecaoInfo?.processo_compra_id) {
-            const { data: processoData, error: processoError } = await supabaseAnon
-              .from("processos_compras")
-              .select("numero_processo_interno")
-              .eq("id", selecaoInfo.processo_compra_id)
-              .maybeSingle();
-            
-            if (processoData) {
-              processoNumero = processoData.numero_processo_interno;
-            }
-          }
-          
           setResposta({
             id: selecaoData.id,
             protocolo: selecaoData.protocolo,
@@ -150,14 +138,14 @@ const VerificarProposta = () => {
             valor_total_anual_ofertado: selecaoData.valor_total_proposta,
             data_envio_resposta: selecaoData.data_envio_proposta,
             fornecedor: {
-              razao_social: fornecedorData?.razao_social || "N/A",
-              cnpj: fornecedorData?.cnpj || "N/A",
+              razao_social: (selecaoData.fornecedores as any)?.razao_social || "N/A",
+              cnpj: (selecaoData.fornecedores as any)?.cnpj || "N/A",
             },
             usuario_gerador: null,
             cotacao: {
-              titulo_cotacao: selecaoInfo?.titulo_selecao || "N/A",
+              titulo_cotacao: (selecaoData.selecoes_fornecedores as any)?.titulo_selecao || "N/A",
               processo: {
-                numero_processo_interno: processoNumero,
+                numero_processo_interno: (selecaoData.selecoes_fornecedores as any)?.processos_compras?.numero_processo_interno || "N/A",
               },
             },
           });
