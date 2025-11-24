@@ -155,13 +155,13 @@ export async function gerarPropostaSelecaoPDF(
       y += 3;
     }
 
-    // Cabeçalho "Itens da Proposta" com sombra
+    // Cabeçalho "Itens da Proposta" com sombra - CENTRALIZADO
     doc.setFillColor(30, 159, 204); // Azul do logo
     doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text('ITENS DA PROPOSTA', margemEsquerda + 2, y);
+    doc.text('ITENS DA PROPOSTA', pageWidth / 2, y, { align: 'center' });
     y += 8;
     doc.setTextColor(0, 0, 0);
 
@@ -195,7 +195,8 @@ export async function gerarPropostaSelecaoPDF(
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
 
-    // Linhas da tabela
+    // Linhas da tabela com sombras alternadas
+    let itemIndex = 0;
     for (const item of itensOrdenados) {
       if (y > 270) {
         doc.addPage();
@@ -207,6 +208,12 @@ export async function gerarPropostaSelecaoPDF(
       const descLines = doc.splitTextToSize(item.descricao, 65);
       const alturaLinha = Math.max(descLines.length * 4, 6);
       const yCenter = y + (alturaLinha / 2);
+      
+      // Sombra azul claro alternada (zebra striping)
+      if (itemIndex % 2 === 1) {
+        doc.setFillColor(224, 242, 250); // Azul muito claro
+        doc.rect(margemEsquerda, y, larguraUtil, alturaLinha, 'F');
+      }
       
       doc.setDrawColor(200, 200, 200);
       doc.line(margemEsquerda, y + alturaLinha, margemEsquerda + larguraUtil, y + alturaLinha);
@@ -220,6 +227,7 @@ export async function gerarPropostaSelecaoPDF(
       doc.text(formatarMoeda(valorTotalItem), colValorTotal, yCenter);
       
       y += alturaLinha;
+      itemIndex++;
     }
 
     y += 5;
