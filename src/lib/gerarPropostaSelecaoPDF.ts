@@ -219,30 +219,48 @@ export async function gerarPropostaSelecaoPDF(
       y += obsLines.length * 5 + 5;
     }
 
-    // Buscar dados do fornecedor para certificação
-    const { data: fornecedorData } = await supabase
-      .from('fornecedores')
-      .select('razao_social, cnpj, nome_socio_administrador')
-      .eq('cnpj', fornecedor.cnpj)
-      .single();
-
-    // Certificação Digital usando função padrão completa
+    // Certificação Digital SIMPLIFICADA
     if (y > 220) {
       doc.addPage();
       y = 20;
     }
     
-    y += 5;
+    y += 10;
     const linkVerificacao = `https://prima-qualita-procure.lovable.app/verificar-proposta?protocolo=${protocolo}`;
     
-    y = adicionarCertificacaoDigital(doc, {
-      protocolo: protocolo,
-      dataHora: dataEnvio,
-      responsavel: fornecedorData?.nome_socio_administrador || fornecedor.razao_social,
-      cpf: fornecedor.cnpj,
-      hash: hash,
-      linkVerificacao: linkVerificacao
-    }, y);
+    // Cabeçalho da certificação
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('CERTIFICAÇÃO DIGITAL', margemEsquerda, y);
+    y += 8;
+    
+    // Conteúdo simplificado
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Responsável: ${fornecedor.razao_social}`, margemEsquerda, y);
+    y += 6;
+    
+    doc.text(`Protocolo: ${protocolo}`, margemEsquerda, y);
+    y += 8;
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('Verificar autenticidade em:', margemEsquerda, y);
+    y += 5;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 255);
+    doc.setFontSize(9);
+    const linkLines = doc.splitTextToSize(linkVerificacao, larguraUtil);
+    linkLines.forEach((linha: string, index: number) => {
+      doc.textWithLink(linha, margemEsquerda, y + (index * 4), { url: linkVerificacao });
+    });
+    y += linkLines.length * 4 + 6;
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margemEsquerda, y);
 
 
     // Gerar PDF como blob
