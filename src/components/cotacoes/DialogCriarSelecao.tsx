@@ -72,7 +72,10 @@ export function DialogCriarSelecao({
         });
       }
 
-      // Criar seleção
+      // Criar seleção - ajustar data para evitar problema de timezone
+      // Quando o input type="date" retorna "2025-11-25", precisamos garantir que seja salvo como essa data no timezone local
+      const dataLocal = dataDisputa; // Já está no formato YYYY-MM-DD
+      
       const { data: selecao, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
         .insert({
@@ -80,7 +83,7 @@ export function DialogCriarSelecao({
           cotacao_relacionada_id: cotacaoId,
           titulo_selecao: titulo,
           descricao: descricao || null,
-          data_sessao_disputa: dataDisputa,
+          data_sessao_disputa: dataLocal,
           hora_sessao_disputa: horaDisputa,
           criterios_julgamento: criterioJulgamento,
           valor_estimado_anual: valorTotal,
