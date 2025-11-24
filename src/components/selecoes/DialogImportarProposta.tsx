@@ -61,7 +61,6 @@ export function DialogImportarProposta({
     // Criar worksheet
     const ws = XLSX.utils.json_to_sheet(dados);
     
-    // Proteger colunas "Número do Item" e "Descrição"
     // Definir larguras das colunas
     ws['!cols'] = [
       { wch: 15 },  // Número do Item
@@ -70,21 +69,49 @@ export function DialogImportarProposta({
       { wch: 15 }   // Valor Unitário
     ];
     
-    // Aplicar proteção no worksheet
-    if (!ws['!protect']) {
-      ws['!protect'] = {
-        password: '',
-        selectLockedCells: true,
-        selectUnlockedCells: true
-      };
+    // Configurar proteção de células
+    // Bloquear colunas A (Número do Item) e B (Descrição)
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      // Colunas A e B (índices 0 e 1) - bloqueadas
+      ['A', 'B'].forEach(col => {
+        const cellRef = col + (R + 1);
+        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
+        if (!ws[cellRef].s) ws[cellRef].s = {};
+        ws[cellRef].s.protection = { locked: true };
+      });
+      
+      // Colunas C e D (índices 2 e 3) - desbloqueadas
+      ['C', 'D'].forEach(col => {
+        const cellRef = col + (R + 1);
+        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
+        if (!ws[cellRef].s) ws[cellRef].s = {};
+        ws[cellRef].s.protection = { locked: false };
+      });
     }
     
-    // Nota: A proteção de planilha em Excel só funciona quando o arquivo é aberto no Microsoft Excel
-    // A biblioteca xlsx não suporta proteção total, mas vamos definir larguras adequadas
+    // Aplicar proteção no worksheet
+    ws['!protect'] = {
+      password: '',
+      selectLockedCells: true,
+      selectUnlockedCells: true,
+      formatCells: false,
+      formatColumns: false,
+      formatRows: false,
+      insertColumns: false,
+      insertRows: false,
+      insertHyperlinks: false,
+      deleteColumns: false,
+      deleteRows: false,
+      sort: false,
+      autoFilter: false,
+      pivotTables: false
+    };
     
     XLSX.utils.book_append_sheet(wb, ws, "Proposta");
     XLSX.writeFile(wb, "template_proposta_selecao.xlsx");
-    toast.success("Template baixado com sucesso!");
+    toast.success("Template baixado com sucesso! As colunas 'Número do Item' e 'Descrição' estão protegidas.");
   };
 
   const handleImportarPlanilha = async (e: React.ChangeEvent<HTMLInputElement>) => {
