@@ -297,7 +297,7 @@ const ParticiparSelecao = () => {
       todosItens.forEach((item) => {
         respostasIniciais[item.id] = {
           valor_unitario_ofertado: 0,
-          valor_display: "",
+          valor_display: "0,00",
           marca_ofertada: "",
         };
       });
@@ -339,7 +339,7 @@ const ParticiparSelecao = () => {
   const formatarMoeda = (valor: string): string => {
     // Remove tudo exceto números
     const numeros = valor.replace(/\D/g, '');
-    if (!numeros) return '';
+    if (!numeros || numeros === '0') return '0,00';
     
     // Converte para número e divide por 100 para ter centavos
     const valorNumerico = parseFloat(numeros) / 100;
@@ -822,7 +822,7 @@ const ParticiparSelecao = () => {
                                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
                                       <Input
                                         placeholder="0,00"
-                                        value={respostas[item.id]?.valor_display || ""}
+                                        value={respostas[item.id]?.valor_display || "0,00"}
                                         onChange={(e) => handleValorChange(item.id, e.target.value)}
                                         className="text-right pl-10"
                                       />
@@ -860,7 +860,7 @@ const ParticiparSelecao = () => {
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
                                 <Input
                                   placeholder="0,00"
-                                  value={respostas[item.id]?.valor_display || ""}
+                                  value={respostas[item.id]?.valor_display || "0,00"}
                                   onChange={(e) => handleValorChange(item.id, e.target.value)}
                                   className="text-right pl-10"
                                 />
