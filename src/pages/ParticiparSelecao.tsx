@@ -143,6 +143,17 @@ const ParticiparSelecao = () => {
 
   const checkAuth = async () => {
     try {
+      // FORÇAR MODO PÚBLICO se parâmetro ?modo=publico na URL
+      const modoPublico = searchParams.get("modo") === "publico";
+      
+      if (modoPublico) {
+        console.log("🔓 MODO PÚBLICO FORÇADO VIA URL - Ignorando autenticação");
+        setFornecedor(null);
+        setIsPublicAccess(true);
+        await loadSelecao(null);
+        return;
+      }
+      
       // Permite acesso público - não exige autenticação
       const { data: { session } } = await supabase.auth.getSession();
       
