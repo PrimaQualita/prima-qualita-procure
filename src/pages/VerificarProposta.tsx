@@ -104,6 +104,8 @@ const VerificarProposta = () => {
         }
       } else {
         // Tentar buscar primeiro em propostas de seleção
+        console.log('Buscando proposta de seleção com protocolo:', protocolo);
+        
         const { data: selecaoData, error: selecaoError } = await supabaseAnon
           .from("selecao_propostas_fornecedor")
           .select(`
@@ -125,6 +127,9 @@ const VerificarProposta = () => {
           `)
           .eq("protocolo", protocolo)
           .maybeSingle();
+
+        console.log('Resultado da busca de seleção:', selecaoData);
+        console.log('Erro da busca de seleção:', selecaoError);
 
         if (selecaoData) {
           // Encontrou proposta de seleção

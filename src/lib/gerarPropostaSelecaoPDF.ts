@@ -289,20 +289,26 @@ export async function gerarPropostaSelecaoPDF(
     }
 
     // Atualizar a proposta com o protocolo e hash
-    const { error: updateError } = await supabase
+    console.log('Atualizando proposta com ID:', propostaId);
+    console.log('Protocolo gerado:', protocolo);
+    console.log('Hash gerado:', hash);
+    
+    const { data: updateData, error: updateError } = await supabase
       .from('selecao_propostas_fornecedor')
       .update({
         protocolo: protocolo,
         hash_certificacao: hash
       })
-      .eq('id', propostaId);
+      .eq('id', propostaId)
+      .select();
 
     if (updateError) {
       console.error('Erro ao atualizar protocolo:', updateError);
       throw updateError;
     }
 
-    console.log('Proposta atualizada com protocolo:', protocolo);
+    console.log('Proposta atualizada com sucesso:', updateData);
+    console.log('Protocolo salvo:', protocolo);
 
     return {
       url: filePath,
