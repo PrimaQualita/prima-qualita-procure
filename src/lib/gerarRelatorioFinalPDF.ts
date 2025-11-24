@@ -1,6 +1,8 @@
 import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
 import logoHorizontal from '@/assets/prima-qualita-logo-horizontal.png';
+import capaLogo from '@/assets/capa-processo-logo.png';
+import logoMarcaDagua from '@/assets/prima-qualita-logo.png';
 
 interface RelatorioFinalResult {
   url: string;
@@ -61,10 +63,10 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
-  // Função para adicionar logo e rodapé
+  // Função para adicionar logo, marca d'água e rodapé
   const adicionarLogoERodape = async () => {
-    // Logo
-    const base64Logo = await new Promise<string>((resolve, reject) => {
+    // Logo da capa no topo
+    const base64CapaLogo = await new Promise<string>((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
@@ -79,11 +81,50 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
           reject(new Error('Erro ao criar canvas'));
         }
       };
-      img.onerror = () => reject(new Error('Erro ao carregar logo'));
-      img.src = logoHorizontal;
+      img.onerror = () => reject(new Error('Erro ao carregar logo capa'));
+      img.src = capaLogo;
     });
     
-    doc.addImage(base64Logo, 'PNG', (pageWidth - 80) / 2, 10, 80, 20);
+    // Marca d'água centralizada
+    const base64MarcaDagua = await new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Erro ao criar canvas'));
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar marca d\'água'));
+      img.src = logoMarcaDagua;
+    });
+    
+    // Adicionar marca d'água com opacidade baixa
+    doc.saveGraphicsState();
+    const gState = doc.GState({ opacity: 0.08 });
+    doc.setGState(gState);
+    const marcaDaguaWidth = 160;
+    const marcaDaguaHeight = 80;
+    doc.addImage(
+      base64MarcaDagua, 
+      'PNG', 
+      (pageWidth - marcaDaguaWidth) / 2, 
+      (pageHeight - marcaDaguaHeight) / 2, 
+      marcaDaguaWidth, 
+      marcaDaguaHeight
+    );
+    doc.restoreGraphicsState();
+    
+    // Logo da capa no topo - largura total da página
+    const logoWidth = pageWidth;
+    const logoHeight = 40;
+    doc.addImage(base64CapaLogo, 'PNG', 0, 0, logoWidth, logoHeight);
     
     // Rodapé
     const yRodape = pageHeight - 20;
