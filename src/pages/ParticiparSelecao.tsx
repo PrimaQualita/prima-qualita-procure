@@ -145,8 +145,6 @@ const ParticiparSelecao = () => {
       // Permite acesso público - não exige autenticação
       const { data: { session } } = await supabase.auth.getSession();
       
-      console.log("🔐 Session:", session ? "Autenticado" : "Público (não autenticado)");
-      
       if (session) {
         const { data: fornecedorData } = await supabase
           .from("fornecedores")
@@ -155,7 +153,6 @@ const ParticiparSelecao = () => {
           .maybeSingle();
 
         if (fornecedorData) {
-          console.log("✅ Fornecedor encontrado:", fornecedorData.razao_social);
           setFornecedor(fornecedorData);
           setDadosEmpresa({
             razao_social: fornecedorData.razao_social || "",
@@ -173,13 +170,11 @@ const ParticiparSelecao = () => {
         }
       }
       
-      // Acesso público sem autenticação - IMPORTANTE: fornecedor permanece null
-      console.log("🌐 Modo público - formulário de dados deve aparecer");
-      setFornecedor(null); // Garante que fornecedor seja null para acesso público
+      // Acesso público sem autenticação
+      setFornecedor(null);
       await loadSelecao(null);
     } catch (error) {
-      console.error("❌ Erro em checkAuth:", error);
-      // Mesmo com erro, permite acesso público
+      console.error("Erro em checkAuth:", error);
       setFornecedor(null);
       await loadSelecao(null);
     }
