@@ -207,6 +207,14 @@ const SistemaLancesFornecedor = () => {
     return lances.filter(l => l.numero_item === numeroItem);
   };
 
+  const isFornecedorDesclassificadoNoItem = (numeroItem: number) => {
+    const itemProposta = itens.find(i => i.numero_item === numeroItem);
+    if (!itemProposta) return false;
+    
+    const valorEstimado = itensEstimados.get(numeroItem) || 0;
+    return itemProposta.valor_unitario_ofertado > valorEstimado;
+  };
+
   const isLanceDesclassificado = (numeroItem: number, valorLance: number) => {
     const valorEstimado = itensEstimados.get(numeroItem);
     if (!valorEstimado) return false;
@@ -511,39 +519,68 @@ const SistemaLancesFornecedor = () => {
                   )}
                 </div>
 
-                {/* Valor Mínimo do Item Selecionado */}
+                {/* Valor Mínimo e Estimado do Item Selecionado */}
                 {itemSelecionado !== null && (
                   <div className="space-y-3">
-                    <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-300">
-                      <div className="flex items-center gap-2 mb-2">
-                        <TrendingDown className="h-6 w-6 text-blue-600" />
-                        <Label className="text-sm font-semibold">Valor Mínimo Atual - Item {itemSelecionado}</Label>
+                    {isFornecedorDesclassificadoNoItem(itemSelecionado) ? (
+                      <div className="border-2 rounded-lg p-6 bg-gradient-to-r from-red-50 to-red-100 border-red-300">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center">
+                            <span className="text-2xl text-white">✕</span>
+                          </div>
+                          <div>
+                            <Label className="text-lg font-bold text-red-900">Desclassificado no Item {itemSelecionado}</Label>
+                            <p className="text-sm text-red-700">Você não pode enviar lances para este item</p>
+                          </div>
+                        </div>
+                        <div className="border-t border-red-200 pt-3 mt-3">
+                          <p className="text-sm text-red-800 mb-2">
+                            <strong>Motivo:</strong> Sua proposta inicial (R$ {formatarMoeda(itens.find(i => i.numero_item === itemSelecionado)?.valor_unitario_ofertado || 0)}) está acima do valor estimado.
+                          </p>
+                          <p className="text-sm text-red-800">
+                            <strong>Valor Estimado:</strong> {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}
+                          </p>
+                          <p className="text-xs text-red-600 mt-3 italic">
+                            ⚠️ Apenas fornecedores com propostas iniciais iguais ou menores ao valor estimado podem participar da disputa deste item.
+                          </p>
+                        </div>
                       </div>
-                      <p className="font-bold text-3xl text-blue-700">
-                        {formatarMoeda(getValorMinimoAtual(itemSelecionado))}
-                      </p>
-                      <p className="text-sm text-blue-600 mt-1">Seu lance deve ser menor que este valor</p>
-                    </div>
-                    
-                    <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Trophy className="h-6 w-6 text-amber-600" />
-                        <Label className="text-sm font-semibold">Valor Estimado - Item {itemSelecionado}</Label>
-                      </div>
-                      <p className="font-bold text-3xl text-amber-700">
-                        {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}
-                      </p>
-                      <p className="text-sm text-amber-600 mt-1">Lances acima deste valor são desclassificados</p>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-300">
+                          <div className="flex items-center gap-2 mb-2">
+                            <TrendingDown className="h-6 w-6 text-blue-600" />
+                            <Label className="text-sm font-semibold">Valor Mínimo Atual - Item {itemSelecionado}</Label>
+                          </div>
+                          <p className="font-bold text-3xl text-blue-700">
+                            {formatarMoeda(getValorMinimoAtual(itemSelecionado))}
+                          </p>
+                          <p className="text-sm text-blue-600 mt-1">Seu lance deve ser menor que este valor</p>
+                        </div>
+                        
+                        <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Trophy className="h-6 w-6 text-amber-600" />
+                            <Label className="text-sm font-semibold">Valor Estimado - Item {itemSelecionado}</Label>
+                          </div>
+                          <p className="font-bold text-3xl text-amber-700">
+                            {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}
+                          </p>
+                          <p className="text-sm text-amber-600 mt-1">Lances acima deste valor são desclassificados</p>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
-                {/* Formulário de Lance */}
+                {/* Formulário de Lance - Só aparece se não estiver desclassificado */}
                 {itensAbertos.size > 0 && editavel && (
                   <div className="border rounded-lg p-4 bg-muted/50">
                     <Label className="text-sm font-semibold mb-3 block">Enviar Lance</Label>
                     {itemSelecionado === null ? (
                       <p className="text-sm text-muted-foreground">Selecione um item acima para enviar seu lance</p>
+                    ) : isFornecedorDesclassificadoNoItem(itemSelecionado) ? (
+                      <p className="text-sm text-red-600 font-medium">Você está desclassificado neste item e não pode enviar lances.</p>
                     ) : (
                       <div className="flex gap-2">
                         <div className="flex-1">
