@@ -110,7 +110,7 @@ export default function PropostasSelecao() {
         {
           razao_social: proposta.fornecedor.razao_social,
           cnpj: proposta.fornecedor.cnpj,
-          email: proposta.email || proposta.fornecedor.email,
+          email: proposta.email || '', // E-mail preenchido NA PROPOSTA
           logradouro: proposta.fornecedor.endereco_comercial?.split(',')[0]?.trim() || '',
           numero: proposta.fornecedor.endereco_comercial?.split('Nº ')[1]?.split(',')[0]?.trim() || '',
           bairro: proposta.fornecedor.endereco_comercial?.split(',')[2]?.trim() || '',
@@ -156,7 +156,7 @@ export default function PropostasSelecao() {
         {
           razao_social: proposta.fornecedor.razao_social,
           cnpj: proposta.fornecedor.cnpj,
-          email: proposta.email || proposta.fornecedor.email,
+          email: proposta.email || '', // E-mail preenchido NA PROPOSTA
           logradouro: proposta.fornecedor.endereco_comercial?.split(',')[0]?.trim() || '',
           numero: proposta.fornecedor.endereco_comercial?.split('Nº ')[1]?.split(',')[0]?.trim() || '',
           bairro: proposta.fornecedor.endereco_comercial?.split(',')[2]?.trim() || '',
