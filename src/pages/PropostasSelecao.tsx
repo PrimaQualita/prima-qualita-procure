@@ -8,6 +8,7 @@ import { ArrowLeft, Eye, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
+import { gerarPropostaSelecaoPDF } from "@/lib/gerarPropostaSelecaoPDF";
 
 interface PropostaFornecedor {
   id: string;
@@ -31,6 +32,7 @@ export default function PropostasSelecao() {
   const [loading, setLoading] = useState(true);
   const [selecao, setSelecao] = useState<any>(null);
   const [processo, setProcesso] = useState<any>(null);
+  const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
 
   useEffect(() => {
     if (selecaoId) {
@@ -88,6 +90,81 @@ export default function PropostasSelecao() {
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString('pt-BR');
+  };
+
+  const handleVisualizarProposta = async (propostaId: string) => {
+    try {
+      setGerandoPDF(propostaId);
+      
+      const proposta = propostas.find(p => p.id === propostaId);
+      if (!proposta) {
+        toast.error("Proposta não encontrada");
+        return;
+      }
+
+      const resultado = await gerarPropostaSelecaoPDF(
+        propostaId,
+        proposta.fornecedor,
+        proposta.valor_total_proposta,
+        proposta.observacoes_fornecedor,
+        selecao?.titulo_selecao || ''
+      );
+
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('processo-anexos')
+        .download(resultado.url);
+
+      if (downloadError) throw downloadError;
+
+      const pdfUrl = URL.createObjectURL(fileData);
+      window.open(pdfUrl, '_blank');
+      
+      toast.success("Proposta gerada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao visualizar proposta:", error);
+      toast.error("Erro ao visualizar proposta");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
+  const handleBaixarProposta = async (propostaId: string) => {
+    try {
+      setGerandoPDF(propostaId);
+      
+      const proposta = propostas.find(p => p.id === propostaId);
+      if (!proposta) {
+        toast.error("Proposta não encontrada");
+        return;
+      }
+
+      const resultado = await gerarPropostaSelecaoPDF(
+        propostaId,
+        proposta.fornecedor,
+        proposta.valor_total_proposta,
+        proposta.observacoes_fornecedor,
+        selecao?.titulo_selecao || ''
+      );
+
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('processo-anexos')
+        .download(resultado.url);
+
+      if (downloadError) throw downloadError;
+
+      const pdfUrl = URL.createObjectURL(fileData);
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = resultado.nome;
+      link.click();
+      
+      toast.success("Proposta baixada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao baixar proposta:", error);
+      toast.error("Erro ao baixar proposta");
+    } finally {
+      setGerandoPDF(null);
+    }
   };
 
   if (loading) {
@@ -207,12 +284,20 @@ export default function PropostasSelecao() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            toast.info("Visualização de proposta em desenvolvimento");
-                          }}
+                          onClick={() => handleVisualizarProposta(proposta.id)}
+                          disabled={gerandoPDF === proposta.id}
                         >
                           <Eye className="h-4 w-4 mr-2" />
-                          Ver Detalhes
+                          {gerandoPDF === proposta.id ? "Gerando..." : "Visualizar"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleBaixarProposta(proposta.id)}
+                          disabled={gerandoPDF === proposta.id}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          {gerandoPDF === proposta.id ? "Gerando..." : "Baixar"}
                         </Button>
                       </div>
                     </TableCell>
