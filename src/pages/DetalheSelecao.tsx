@@ -89,73 +89,97 @@ const DetalheSelecao = () => {
       console.log("🔍 Buscando planilha para cotacao:", cotacaoId);
       console.log("📅 Data limite:", dataCriacaoSelecao);
 
-      // Buscar a planilha consolidada mais recente até a data de criação da seleção
-      const { data: planilha, error } = await supabase
-        .from("planilhas_consolidadas")
-        .select("fornecedores_incluidos, data_geracao")
-        .eq("cotacao_id", cotacaoId)
-        .lte("data_geracao", dataCriacaoSelecao)
-        .order("data_geracao", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Buscar a planilha consolidada E os itens originais da cotação
+      const [planilhaResult, itensOriginaisResult] = await Promise.all([
+        supabase
+          .from("planilhas_consolidadas")
+          .select("fornecedores_incluidos, data_geracao")
+          .eq("cotacao_id", cotacaoId)
+          .lte("data_geracao", dataCriacaoSelecao)
+          .order("data_geracao", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("itens_cotacao")
+          .select("*")
+          .eq("cotacao_id", cotacaoId)
+          .order("numero_item", { ascending: true })
+      ]);
+
+      const { data: planilha, error: planilhaError } = planilhaResult;
+      const { data: itensOriginais, error: itensError } = itensOriginaisResult;
 
       console.log("📊 Planilha encontrada:", planilha);
-      console.log("❌ Erro:", error);
+      console.log("📋 Itens originais:", itensOriginais);
 
-      if (error) {
-        console.error("Erro ao buscar planilha:", error);
-        throw error;
-      }
+      if (planilhaError) throw planilhaError;
+      if (itensError) throw itensError;
 
       if (!planilha) {
-        console.warn("⚠️ Nenhuma planilha consolidada encontrada para esta cotação até a data de criação");
+        console.warn("⚠️ Nenhuma planilha consolidada encontrada");
         toast.error("Nenhuma planilha consolidada encontrada");
         return;
       }
 
-      if (planilha?.fornecedores_incluidos) {
-        const fornecedoresData = planilha.fornecedores_incluidos as any;
-        console.log("👥 Dados dos fornecedores:", fornecedoresData);
-        
-        // Extrair itens da planilha consolidada
-        const todosItens: Item[] = [];
-        let total = 0;
-
-        if (fornecedoresData.fornecedores && fornecedoresData.fornecedores.length > 0) {
-          const primeiroFornecedor = fornecedoresData.fornecedores[0];
-          console.log("🏢 Primeiro fornecedor:", primeiroFornecedor);
-          
-          if (primeiroFornecedor.itens) {
-            primeiroFornecedor.itens.forEach((item: any) => {
-              const valorUnitario = item.valores?.[0]?.valor || item.valor_unitario || 0;
-              const valorTotalItem = valorUnitario * item.quantidade;
-              
-              todosItens.push({
-                id: item.item_id || item.id,
-                numero_item: item.numero_item,
-                descricao: item.descricao,
-                quantidade: item.quantidade,
-                unidade: item.unidade,
-                marca: item.marca,
-                valor_unitario_estimado: valorUnitario,
-                valor_total: valorTotalItem
-              });
-
-              total += valorTotalItem;
-            });
-          }
-        }
-
-        console.log("📦 Total de itens carregados:", todosItens.length);
-        console.log("💰 Valor total:", total);
-
-        setItens(todosItens);
-        setValorTotal(total);
-      } else {
-        console.warn("⚠️ Planilha sem dados de fornecedores");
+      if (!itensOriginais || itensOriginais.length === 0) {
+        console.warn("⚠️ Nenhum item original encontrado");
+        toast.error("Nenhum item encontrado na cotação");
+        return;
       }
+
+      // Criar mapa de itens originais por numero_item
+      const mapaItens = new Map(
+        itensOriginais.map(item => [item.numero_item, item])
+      );
+
+      // Extrair itens da planilha consolidada
+      const fornecedoresArray = planilha.fornecedores_incluidos as any[];
+      console.log("👥 Total de fornecedores:", fornecedoresArray?.length || 0);
+
+      if (!fornecedoresArray || fornecedoresArray.length === 0) {
+        console.warn("⚠️ Planilha sem fornecedores");
+        toast.error("Planilha consolidada sem dados");
+        return;
+      }
+
+      // Pegar os itens do primeiro fornecedor (todos têm a mesma estrutura)
+      const primeiroFornecedor = fornecedoresArray[0];
+      const itensComValor = primeiroFornecedor.itens || [];
+      
+      console.log("🏢 Itens do primeiro fornecedor:", itensComValor.length);
+
+      const todosItens: Item[] = [];
+      let total = 0;
+
+      itensComValor.forEach((itemPlanilha: any) => {
+        const itemOriginal = mapaItens.get(itemPlanilha.numero_item);
+        
+        if (itemOriginal) {
+          const valorUnitario = itemPlanilha.valor_unitario || 0;
+          const valorTotalItem = valorUnitario * itemOriginal.quantidade;
+          
+          todosItens.push({
+            id: itemOriginal.id,
+            numero_item: itemOriginal.numero_item,
+            descricao: itemOriginal.descricao,
+            quantidade: itemOriginal.quantidade,
+            unidade: itemOriginal.unidade,
+            marca: itemOriginal.marca,
+            valor_unitario_estimado: valorUnitario,
+            valor_total: valorTotalItem
+          });
+
+          total += valorTotalItem;
+        }
+      });
+
+      console.log("📦 Total de itens carregados:", todosItens.length);
+      console.log("💰 Valor total:", total);
+
+      setItens(todosItens);
+      setValorTotal(total);
     } catch (error) {
-      console.error("❌ Erro ao carregar itens da planilha:", error);
+      console.error("❌ Erro ao carregar itens:", error);
       toast.error("Erro ao carregar itens");
     }
   };
