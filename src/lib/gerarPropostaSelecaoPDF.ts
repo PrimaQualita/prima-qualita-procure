@@ -211,22 +211,27 @@ export async function gerarPropostaSelecaoPDF(
       y += obsLines.length * 5 + 5;
     }
 
-    // Buscar dados do usuário para certificação
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('nome_completo, cpf')
-      .eq('id', (await supabase.auth.getUser()).data.user?.id)
+    // Buscar dados do fornecedor para certificação
+    const { data: fornecedorData } = await supabase
+      .from('fornecedores')
+      .select('razao_social, cnpj, nome_socio_administrador')
+      .eq('cnpj', fornecedor.cnpj)
       .single();
 
-    // Certificação Digital usando função padrão
+    // Certificação Digital usando função padrão completa
+    if (y > 220) {
+      doc.addPage();
+      y = 20;
+    }
+    
     y += 5;
     const linkVerificacao = `https://prima-qualita-procure.lovable.app/verificar-proposta?protocolo=${protocolo}`;
     
     y = adicionarCertificacaoDigital(doc, {
       protocolo: protocolo,
       dataHora: dataEnvio,
-      responsavel: userData?.nome_completo || 'Sistema',
-      cpf: userData?.cpf || '',
+      responsavel: fornecedorData?.nome_socio_administrador || fornecedor.razao_social,
+      cpf: fornecedor.cnpj,
       hash: hash,
       linkVerificacao: linkVerificacao
     }, y);
