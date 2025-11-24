@@ -385,6 +385,26 @@ export default function RespostasCotacao() {
         return;
       }
 
+      // Verificar se já existe PDF gerado
+      if (resposta.anexos && resposta.anexos.length > 0) {
+        const propostaPDF = resposta.anexos.find(a => a.tipo_anexo === 'PROPOSTA');
+        
+        if (propostaPDF) {
+          // Abrir PDF existente
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from('processo-anexos')
+            .download(propostaPDF.url_arquivo);
+
+          if (downloadError) throw downloadError;
+
+          const pdfUrl = URL.createObjectURL(fileData);
+          window.open(pdfUrl, '_blank');
+          setGerandoPDF(null);
+          return;
+        }
+      }
+
+      // Se não existe, gerar novo PDF
       const resultado = await gerarPropostaFornecedorPDF(
         respostaId,
         resposta.fornecedor,
