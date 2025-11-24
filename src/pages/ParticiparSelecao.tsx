@@ -141,14 +141,15 @@ const ParticiparSelecao = () => {
   }, [selecaoId]);
 
   const checkAuth = async () => {
+    // Permite acesso público - não exige autenticação
     const { data: { session } } = await supabase.auth.getSession();
+    
     if (session) {
-      // Buscar fornecedor associado ao usuário
       const { data: fornecedorData } = await supabase
         .from("fornecedores")
         .select("*")
         .eq("user_id", session.user.id)
-        .single();
+        .maybeSingle();
 
       if (fornecedorData) {
         setFornecedor(fornecedorData);
@@ -168,7 +169,7 @@ const ParticiparSelecao = () => {
       }
     }
     
-    // Se não autenticado ou sem fornecedor, carrega seleção como visitante
+    // Acesso público sem autenticação
     await loadSelecao(null);
   };
 
@@ -358,46 +359,36 @@ const ParticiparSelecao = () => {
   }, []);
 
   const handleValorChange = useCallback((itemId: string, value: string) => {
-    // Remove TUDO exceto números - não importa o que venha no value
     const numeros = value.replace(/\D/g, '');
     
-    // Se não houver números, seta como 0,00
     if (!numeros || numeros === '0' || numeros === '') {
-      setRespostas(prev => ({
-        ...prev,
-        [itemId]: {
-          ...prev[itemId],
-          valor_unitario_ofertado: 0,
-          valor_display: '0,00'
-        }
-      }));
+      setRespostas(prev => {
+        const newState = { ...prev };
+        if (!newState[itemId]) newState[itemId] = { valor_unitario_ofertado: 0, marca_ofertada: '' };
+        newState[itemId] = { ...newState[itemId], valor_unitario_ofertado: 0, valor_display: '0,00' };
+        return newState;
+      });
       return;
     }
     
-    // Formata o valor (sempre com 2 casas decimais)
     const valorFormatado = formatarMoeda(numeros);
-    
-    // Converte para número (remove pontos de milhar e troca vírgula por ponto)
     const valorNumerico = parseFloat(valorFormatado.replace(/\./g, '').replace(',', '.'));
     
-    setRespostas(prev => ({
-      ...prev,
-      [itemId]: {
-        ...prev[itemId],
-        valor_unitario_ofertado: valorNumerico,
-        valor_display: valorFormatado
-      }
-    }));
+    setRespostas(prev => {
+      const newState = { ...prev };
+      if (!newState[itemId]) newState[itemId] = { valor_unitario_ofertado: 0, marca_ofertada: '' };
+      newState[itemId] = { ...newState[itemId], valor_unitario_ofertado: valorNumerico, valor_display: valorFormatado };
+      return newState;
+    });
   }, [formatarMoeda]);
 
   const handleMarcaChange = useCallback((itemId: string, marca: string) => {
-    setRespostas(prev => ({
-      ...prev,
-      [itemId]: {
-        ...prev[itemId],
-        marca_ofertada: marca
-      }
-    }));
+    setRespostas(prev => {
+      const newState = { ...prev };
+      if (!newState[itemId]) newState[itemId] = { valor_unitario_ofertado: 0, marca_ofertada: '' };
+      newState[itemId] = { ...newState[itemId], marca_ofertada: marca };
+      return newState;
+    });
   }, []);
 
   const handleImportSuccess = (dadosImportados: Array<{
