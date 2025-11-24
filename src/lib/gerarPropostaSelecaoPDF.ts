@@ -222,8 +222,8 @@ export async function gerarPropostaSelecaoPDF(
       y += obsLines.length * 5 + 5;
     }
 
-    // Certificação Digital SIMPLIFICADA (APENAS protocolo, responsável e link)
-    if (y > 235) {
+    // Certificação Digital (formatação igual à referência)
+    if (y > 230) {
       doc.addPage();
       y = 20;
     }
@@ -232,39 +232,54 @@ export async function gerarPropostaSelecaoPDF(
     const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
     
     // Calcular altura do conteúdo
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     const linkLines = doc.splitTextToSize(linkVerificacao, larguraUtil - 10);
-    const alturaQuadro = 25 + (linkLines.length * 4);
+    const alturaQuadro = 40 + (linkLines.length * 4);
     
-    // Desenhar quadro com fundo cinza e bordas
-    doc.setFillColor(245, 245, 245);
+    // Desenhar quadro com bordas pretas e fundo branco
+    doc.setFillColor(255, 255, 255);
     doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
+    doc.setLineWidth(0.5);
     doc.rect(margemEsquerda, y, larguraUtil, alturaQuadro, 'FD');
     
-    // Título
-    y += 7;
-    doc.setFontSize(10);
+    // Título centralizado em azul
+    y += 8;
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('CERTIFICAÇÃO DIGITAL', margemEsquerda + 5, y);
-    y += 6;
+    doc.setTextColor(0, 0, 139); // Azul escuro
+    doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, y, { align: 'center' });
     
-    // Protocolo
-    doc.setFontSize(9);
+    // Espaço após título
+    y += 10;
+    
+    // Responsável (texto normal, preto)
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 5, y);
-    y += 5;
-    
-    // Responsável
+    doc.setTextColor(0, 0, 0);
     doc.text(`Responsável: ${fornecedor.razao_social}`, margemEsquerda + 5, y);
     y += 6;
     
-    // Link
+    // Protocolo (texto normal, preto)
+    doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 5, y);
+    y += 8;
+    
+    // "Verificar autenticidade em:" em negrito
+    doc.setFont('helvetica', 'bold');
+    doc.text('Verificar autenticidade em:', margemEsquerda + 5, y);
+    y += 5;
+    
+    // Link em azul
+    doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 255);
     linkLines.forEach((linha: string, index: number) => {
       doc.textWithLink(linha, margemEsquerda + 5, y + (index * 4), { url: linkVerificacao });
     });
+    y += (linkLines.length * 4) + 3;
+    
+    // Texto final sobre a lei
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margemEsquerda + 5, y);
 
 
     // Gerar PDF como blob
