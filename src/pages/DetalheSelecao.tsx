@@ -222,6 +222,15 @@ const DetalheSelecao = () => {
     setDialogEnviarOpen(true);
   };
 
+  const handleVoltar = () => {
+    // Voltar para a visualização de seleções do processo
+    if (selecao?.processo_compra_id) {
+      navigate(`/selecoes?processo=${selecao.processo_compra_id}`);
+    } else {
+      navigate(-1);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return value.toLocaleString("pt-BR", {
       style: "currency",
@@ -254,7 +263,7 @@ const DetalheSelecao = () => {
               Processo: {processo?.numero_processo_interno}
             </p>
           </div>
-          <Button variant="outline" onClick={() => navigate(-1)}>
+          <Button variant="outline" onClick={handleVoltar}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>
