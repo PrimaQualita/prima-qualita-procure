@@ -145,7 +145,7 @@ export async function gerarPropostaSelecaoPDF(
     doc.setFillColor(14, 165, 233); // Azul do sistema
     doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
     
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
     
@@ -154,16 +154,18 @@ export async function gerarPropostaSelecaoPDF(
     const colQtd = margemEsquerda + 85;
     const colUni = margemEsquerda + 105;
     const colMarca = margemEsquerda + 125;
-    const colValorUnit = margemEsquerda + 150;
-    const colValorTotal = margemEsquerda + 170;
+    const colValorUnit = margemEsquerda + 148;
+    const colValorTotal = margemEsquerda + 168;
     
-    doc.text('Item', colItem, y);
-    doc.text('Descrição', colDesc, y);
-    doc.text('Qtd', colQtd, y);
-    doc.text('Unid', colUni, y);
-    doc.text('Marca', colMarca, y);
-    doc.text('Vlr Unit.', colValorUnit, y);
-    doc.text('Vlr Total', colValorTotal, y);
+    const headerYCenter = y - 1;
+    
+    doc.text('Item', colItem, headerYCenter);
+    doc.text('Descrição', colDesc, headerYCenter);
+    doc.text('Qtd', colQtd, headerYCenter);
+    doc.text('Unid', colUni, headerYCenter);
+    doc.text('Marca', colMarca, headerYCenter);
+    doc.text('Vlr Unit.', colValorUnit, headerYCenter);
+    doc.text('Vlr Total', colValorTotal, headerYCenter);
     
     y += 5;
     doc.setTextColor(0, 0, 0);
