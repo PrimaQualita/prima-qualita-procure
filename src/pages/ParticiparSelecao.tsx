@@ -391,33 +391,38 @@ const ParticiparSelecao = () => {
     const numeros = value.replace(/\D/g, '');
     
     if (!numeros || numeros === '0' || numeros === '') {
-      setRespostas(prev => {
-        const newState = { ...prev };
-        if (!newState[itemId]) newState[itemId] = { valor_unitario_ofertado: 0, marca_ofertada: '' };
-        newState[itemId] = { ...newState[itemId], valor_unitario_ofertado: 0, valor_display: '0,00' };
-        return newState;
-      });
+      setRespostas(prev => ({
+        ...prev,
+        [itemId]: { 
+          ...prev[itemId], 
+          valor_unitario_ofertado: 0, 
+          valor_display: '0,00' 
+        }
+      }));
       return;
     }
     
     const valorFormatado = formatarMoeda(numeros);
     const valorNumerico = parseFloat(valorFormatado.replace(/\./g, '').replace(',', '.'));
     
-    setRespostas(prev => {
-      const newState = { ...prev };
-      if (!newState[itemId]) newState[itemId] = { valor_unitario_ofertado: 0, marca_ofertada: '' };
-      newState[itemId] = { ...newState[itemId], valor_unitario_ofertado: valorNumerico, valor_display: valorFormatado };
-      return newState;
-    });
+    setRespostas(prev => ({
+      ...prev,
+      [itemId]: { 
+        ...prev[itemId], 
+        valor_unitario_ofertado: valorNumerico, 
+        valor_display: valorFormatado 
+      }
+    }));
   }, [formatarMoeda]);
 
   const handleMarcaChange = useCallback((itemId: string, marca: string) => {
-    setRespostas(prev => {
-      const newState = { ...prev };
-      if (!newState[itemId]) newState[itemId] = { valor_unitario_ofertado: 0, marca_ofertada: '' };
-      newState[itemId] = { ...newState[itemId], marca_ofertada: marca };
-      return newState;
-    });
+    setRespostas(prev => ({
+      ...prev,
+      [itemId]: { 
+        ...prev[itemId], 
+        marca_ofertada: marca 
+      }
+    }));
   }, []);
 
   const handleImportSuccess = (dadosImportados: Array<{
