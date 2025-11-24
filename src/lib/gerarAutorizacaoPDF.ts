@@ -476,35 +476,35 @@ export const gerarAutorizacaoSelecao = async (
   // Título
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('AUTORIZAÇÃO', pageWidth / 2, 45, { align: 'center' });
+  doc.text('AUTORIZAÇÃO', pageWidth / 2, 50, { align: 'center' });
   
   // Processo
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 60, { align: 'center' });
+  doc.text(`Processo ${numeroProcesso}`, pageWidth / 2, 70, { align: 'center' });
   
   // Assunto - extrair texto limpo do HTML
   doc.setFontSize(12);
   const textoLimpo = extractTextFromHTML(objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
-  doc.text(linhasAssunto, 20, 72, { align: 'justify', maxWidth: 170 });
+  doc.text(linhasAssunto, 20, 85, { align: 'justify', maxWidth: 170 });
   
   // Texto principal
   doc.setFontSize(11);
-  let yPos = 90;
+  let yPos = 108;
   
   const texto1 = 'Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, autorizo a presente contratação por SELEÇÃO DE FORNECEDORES, conforme requisição e termo de referência anexos, nos termos do art.4° do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição.';
   
   const linhas1 = doc.splitTextToSize(texto1, 170);
   doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas1.length * 6 + 10;
+  yPos += linhas1.length * 6 + 18;
   
   // Encaminhamento
   doc.setFont('helvetica', 'normal');
   const texto2 = 'Encaminha-se ao Departamento de Compras, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += 10;
+  yPos += 15;
   
   // Certificação Digital - versão compacta
   doc.setFillColor(240, 249, 255);
