@@ -1,18 +1,7 @@
 import jsPDF from 'jspdf';
 import { gerarHashDocumento } from './certificacaoDigital';
 import { stripHtml } from './htmlUtils';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-const supabaseAnon = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  }
-});
+import { supabase } from '@/integrations/supabase/client';
 
 interface ItemProposta {
   numero_item: number;
@@ -46,7 +35,7 @@ export async function gerarPropostaSelecaoPDF(
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
     // Buscar itens da proposta
-    const { data: itens, error: itensError } = await supabaseAnon
+    const { data: itens, error: itensError } = await supabase
       .from('selecao_respostas_itens_fornecedor')
       .select('*')
       .eq('proposta_id', propostaId)
@@ -295,14 +284,14 @@ export async function gerarPropostaSelecaoPDF(
     const nomeArquivo = `proposta-selecao-${propostaId}-${Date.now()}.pdf`;
     const filePath = `propostas-selecao/${nomeArquivo}`;
 
-    const { error: uploadError } = await supabaseAnon.storage
+    const { error: uploadError } = await supabase.storage
       .from('processo-anexos')
       .upload(filePath, pdfBlob);
 
     if (uploadError) throw uploadError;
 
     // Atualizar a proposta com o protocolo e hash
-    const { error: updateError } = await supabaseAnon
+    const { error: updateError } = await supabase
       .from('selecao_propostas_fornecedor')
       .update({
         protocolo: protocolo,
