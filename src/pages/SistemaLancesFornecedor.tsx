@@ -211,7 +211,11 @@ const SistemaLancesFornecedor = () => {
     const itemProposta = itens.find(i => i.numero_item === numeroItem);
     if (!itemProposta) return false;
     
-    const valorEstimado = itensEstimados.get(numeroItem) || 0;
+    const valorEstimado = itensEstimados.get(numeroItem);
+    if (!valorEstimado) return false; // Se não há valor estimado, não pode desclassificar
+    
+    // Desclassifica APENAS se o valor ofertado for MAIOR que o estimado
+    // Valores iguais ou menores são classificados
     return itemProposta.valor_unitario_ofertado > valorEstimado;
   };
 
