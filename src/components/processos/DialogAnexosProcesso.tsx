@@ -167,15 +167,23 @@ export function DialogAnexosProcesso({
       if (error) throw error;
       if (!data?.signedUrl) throw new Error("Erro ao gerar URL de download");
 
-      // Construir URL completa do Supabase
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const fullUrl = `${supabaseUrl}${data.signedUrl}`;
+      // Baixar diretamente o blob do arquivo
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("processo-anexos")
+        .download(filePath);
 
+      if (downloadError) throw downloadError;
+      if (!fileData) throw new Error("Arquivo não encontrado");
+
+      // Criar URL do blob para download
+      const url = URL.createObjectURL(fileData);
       const link = document.createElement("a");
-      link.href = fullUrl;
+      link.href = url;
       link.download = anexo.nome_arquivo;
-      link.target = "_blank";
       link.click();
+      
+      // Limpar URL do blob
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (error: any) {
       console.error("Erro ao baixar arquivo:", error);
       toast({
