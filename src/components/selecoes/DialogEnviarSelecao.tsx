@@ -24,7 +24,11 @@ export function DialogEnviarSelecao({
   const [copiado, setCopiado] = useState(false);
 
   const linkSelecao = `${window.location.origin}/participar-selecao?id=${selecaoId}`;
-  const dataFormatada = new Date(dataDisputa).toLocaleDateString("pt-BR", {
+  
+  // Evita problema de timezone ao parsear data
+  const [ano, mes, dia] = dataDisputa.split('-');
+  const data = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+  const dataFormatada = data.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "long",
     year: "numeric",
