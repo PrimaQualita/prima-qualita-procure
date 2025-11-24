@@ -155,6 +155,47 @@ export type Database = {
           },
         ]
       }
+      anexos_selecao: {
+        Row: {
+          created_at: string
+          data_upload: string
+          id: string
+          nome_arquivo: string
+          selecao_id: string
+          tipo_documento: string
+          url_arquivo: string
+          usuario_upload_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_upload?: string
+          id?: string
+          nome_arquivo: string
+          selecao_id: string
+          tipo_documento: string
+          url_arquivo: string
+          usuario_upload_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_upload?: string
+          id?: string
+          nome_arquivo?: string
+          selecao_id?: string
+          tipo_documento?: string
+          url_arquivo?: string
+          usuario_upload_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anexos_selecao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           acao: string

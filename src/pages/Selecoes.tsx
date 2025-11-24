@@ -304,9 +304,13 @@ const Selecoes = () => {
                           R$ {selecao.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => navigate(`/detalhe-selecao?id=${selecao.id}`)}
+                          >
                             <ChevronRight className="h-4 w-4 mr-2" />
-                            Detalhes
+                            Ver Seleção
                           </Button>
                         </TableCell>
                       </TableRow>

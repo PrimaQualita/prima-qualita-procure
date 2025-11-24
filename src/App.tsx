@@ -34,6 +34,7 @@ import Credenciamentos from "./pages/Credenciamentos";
 import ContratacoesEspecificas from "./pages/ContratacoesEspecificas";
 import Contratos from "./pages/Contratos";
 import Compliance from "./pages/Compliance";
+import DetalheSelecao from "./pages/DetalheSelecao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -78,6 +79,7 @@ const App = () => (
             <Route path="/contratacoes-especificas" element={<ContratacoesEspecificas />} />
             <Route path="/contratos" element={<Contratos />} />
             <Route path="/compliance" element={<Compliance />} />
+            <Route path="/detalhe-selecao" element={<DetalheSelecao />} />
           </Route>
           
           <Route path="*" element={<NotFound />} />
