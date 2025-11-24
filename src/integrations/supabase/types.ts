@@ -1780,6 +1780,7 @@ export type Database = {
       }
       selecao_propostas_fornecedor: {
         Row: {
+          codigo_acesso: string | null
           created_at: string | null
           data_envio_proposta: string | null
           desclassificado: boolean | null
@@ -1792,6 +1793,7 @@ export type Database = {
           valor_total_proposta: number
         }
         Insert: {
+          codigo_acesso?: string | null
           created_at?: string | null
           data_envio_proposta?: string | null
           desclassificado?: boolean | null
@@ -1804,6 +1806,7 @@ export type Database = {
           valor_total_proposta: number
         }
         Update: {
+          codigo_acesso?: string | null
           created_at?: string | null
           data_envio_proposta?: string | null
           desclassificado?: boolean | null
