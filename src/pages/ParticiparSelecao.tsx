@@ -539,16 +539,33 @@ const ParticiparSelecao = () => {
         }
       }
 
-      // Validar valores
-      const itensIncompletos = itens.filter(item => {
+      // Validar valores baseado no critério de julgamento
+      const criterioJulgamento = processo?.criterio_julgamento || selecao?.criterios_julgamento;
+      
+      const itensPreenchidos = itens.filter(item => {
         const resposta = respostas[item.id];
-        return !resposta?.valor_unitario_ofertado || resposta.valor_unitario_ofertado <= 0;
+        return resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
       });
 
-      if (itensIncompletos.length > 0) {
-        toast.error("Por favor, preencha os valores de todos os itens");
-        setSubmitting(false);
-        return;
+      // Se critério for "por item", exigir apenas que PELO MENOS UM item seja preenchido
+      if (criterioJulgamento === "Menor Preço por Item") {
+        if (itensPreenchidos.length === 0) {
+          toast.error("Por favor, preencha ao menos um item para participar");
+          setSubmitting(false);
+          return;
+        }
+      } else {
+        // Para critérios "global" ou "por lote", exigir todos os itens
+        const itensIncompletos = itens.filter(item => {
+          const resposta = respostas[item.id];
+          return !resposta?.valor_unitario_ofertado || resposta.valor_unitario_ofertado <= 0;
+        });
+
+        if (itensIncompletos.length > 0) {
+          toast.error("Por favor, preencha os valores de todos os itens");
+          setSubmitting(false);
+          return;
+        }
       }
 
       const valorTotal = calcularValorTotal();
