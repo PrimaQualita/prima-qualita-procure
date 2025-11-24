@@ -118,7 +118,7 @@ const VerificarProposta = () => {
             selecao_id
           `)
           .eq("protocolo", protocolo)
-          .single();
+          .maybeSingle();
 
         console.log('Resultado da busca de seleção:', selecaoData);
         console.log('Erro da busca de seleção:', selecaoError);
@@ -129,7 +129,7 @@ const VerificarProposta = () => {
             .from("fornecedores")
             .select("razao_social, cnpj")
             .eq("id", selecaoData.fornecedor_id)
-            .single();
+            .maybeSingle();
           
           const { data: selecaoInfo } = await supabaseAnon
             .from("selecoes_fornecedores")
@@ -140,7 +140,7 @@ const VerificarProposta = () => {
               )
             `)
             .eq("id", selecaoData.selecao_id)
-            .single();
+            .maybeSingle();
           // Encontrou proposta de seleção
           setResposta({
             id: selecaoData.id,
