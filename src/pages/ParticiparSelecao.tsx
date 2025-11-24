@@ -522,6 +522,19 @@ const ParticiparSelecao = () => {
 
     setSubmitting(true);
     try {
+      // Validar prazo - bloquear envios a menos de 5 minutos da sessão
+      const dataHoraSessao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}`);
+      const agora = new Date();
+      const diferencaMinutos = (dataHoraSessao.getTime() - agora.getTime()) / (1000 * 60);
+      
+      if (diferencaMinutos < 5) {
+        toast.error("O prazo para envio de propostas encerrou-se 5 minutos antes da sessão");
+        setSubmitting(false);
+        return;
+      }
+      
+      console.log(`⏰ Tempo restante para sessão: ${diferencaMinutos.toFixed(0)} minutos`);
+      
       // Validar dados da empresa se não autenticado
       if (!fornecedor) {
         try {
@@ -648,30 +661,75 @@ const ParticiparSelecao = () => {
         }
       }
 
-      // Gerar código de acesso único
-      const codigoAcesso = gerarCodigoAcesso();
-      console.log("Código de acesso gerado:", codigoAcesso);
-
-      // Criar proposta COM código de acesso e e-mail
-      const { data: propostaCriada, error: erroProposta } = await supabase
+      // Verificar se fornecedor já tem proposta para esta seleção
+      const { data: propostaExistente } = await supabase
         .from("selecao_propostas_fornecedor")
-        .insert({
-          selecao_id: selecaoId,
-          fornecedor_id: fornecedorId,
-          observacoes_fornecedor: observacoes || null,
-          valor_total_proposta: valorTotal,
-          data_envio_proposta: new Date().toISOString(),
-          codigo_acesso: codigoAcesso,
-          email: fornecedor?.email || dadosEmpresa.email,
-        })
-        .select("id")
-        .single();
+        .select("id, codigo_acesso")
+        .eq("selecao_id", selecaoId)
+        .eq("fornecedor_id", fornecedorId)
+        .maybeSingle();
 
-      if (erroProposta) throw erroProposta;
+      let propostaId: string;
+      let codigoAcesso: string;
 
-      // Criar respostas dos itens
+      if (propostaExistente) {
+        // ATUALIZAR proposta existente
+        console.log("📝 Atualizando proposta existente:", propostaExistente.id);
+        
+        const { error: erroProposta } = await supabase
+          .from("selecao_propostas_fornecedor")
+          .update({
+            observacoes_fornecedor: observacoes || null,
+            valor_total_proposta: valorTotal,
+            data_envio_proposta: new Date().toISOString(),
+            email: fornecedor?.email || dadosEmpresa.email,
+          })
+          .eq("id", propostaExistente.id);
+
+        if (erroProposta) throw erroProposta;
+
+        // Deletar itens antigos da proposta
+        const { error: erroDeleteItens } = await supabase
+          .from("selecao_respostas_itens_fornecedor")
+          .delete()
+          .eq("proposta_id", propostaExistente.id);
+
+        if (erroDeleteItens) throw erroDeleteItens;
+
+        propostaId = propostaExistente.id;
+        codigoAcesso = propostaExistente.codigo_acesso;
+        
+        console.log("✅ Proposta atualizada com sucesso");
+      } else {
+        // CRIAR nova proposta
+        console.log("📝 Criando nova proposta");
+        
+        codigoAcesso = gerarCodigoAcesso();
+        console.log("Código de acesso gerado:", codigoAcesso);
+
+        const { data: propostaCriada, error: erroProposta } = await supabase
+          .from("selecao_propostas_fornecedor")
+          .insert({
+            selecao_id: selecaoId,
+            fornecedor_id: fornecedorId,
+            observacoes_fornecedor: observacoes || null,
+            valor_total_proposta: valorTotal,
+            data_envio_proposta: new Date().toISOString(),
+            codigo_acesso: codigoAcesso,
+            email: fornecedor?.email || dadosEmpresa.email,
+          })
+          .select("id")
+          .single();
+
+        if (erroProposta) throw erroProposta;
+        propostaId = propostaCriada.id;
+        
+        console.log("✅ Nova proposta criada com sucesso");
+      }
+
+      // Criar respostas dos itens (sempre novos, seja atualização ou criação)
       const itensParaInserir = itens.map(item => ({
-        proposta_id: propostaCriada.id,
+        proposta_id: propostaId,
         numero_item: item.numero_item,
         descricao: item.descricao,
         quantidade: item.quantidade,
@@ -695,7 +753,7 @@ const ParticiparSelecao = () => {
           `${dadosEmpresa.logradouro}, Nº ${dadosEmpresa.numero}, ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf}, CEP: ${dadosEmpresa.cep}`;
         
         const pdfResult = await gerarPropostaSelecaoPDF(
-          propostaCriada.id,
+          propostaId,
           {
             razao_social: fornecedor?.razao_social || dadosEmpresa.razao_social,
             cnpj: fornecedor?.cnpj || dadosEmpresa.cnpj,
@@ -717,7 +775,7 @@ const ParticiparSelecao = () => {
         await supabase
           .from('selecao_propostas_fornecedor')
           .update({ url_pdf_proposta: pdfResult.url })
-          .eq('id', propostaCriada.id);
+          .eq('id', propostaId);
 
         console.log('PDF da proposta gerado e salvo:', pdfResult.url);
       } catch (pdfError) {
@@ -749,7 +807,7 @@ const ParticiparSelecao = () => {
       // Exibir mensagem de sucesso com código de acesso
       toast.success(
         <div className="space-y-2">
-          <p className="font-bold">✅ Proposta Enviada com Sucesso!</p>
+          <p className="font-bold">✅ Proposta {propostaExistente ? 'Atualizada' : 'Enviada'} com Sucesso!</p>
           <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md border border-blue-200 dark:border-blue-800">
             <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Sua Chave de Acesso:</p>
             <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 tracking-wider text-center my-2">
@@ -757,7 +815,10 @@ const ParticiparSelecao = () => {
             </p>
             <p className="text-xs text-blue-700 dark:text-blue-300">
               ⚠️ IMPORTANTE: Guarde esta chave! Você precisará dela para futuras consultas. 
-              Um e-mail de confirmação com sua chave foi enviado para {emailDestino}.
+              {!propostaExistente && `Um e-mail de confirmação com sua chave foi enviado para ${emailDestino}.`}
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+              📌 Você pode editar sua proposta até 5 minutos antes da sessão.
             </p>
           </div>
         </div>,
