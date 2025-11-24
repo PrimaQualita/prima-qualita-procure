@@ -341,6 +341,7 @@ export default function PropostasSelecao() {
                   <TableHead className="text-right">Valor Total</TableHead>
                   <TableHead>Data de Envio</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Proposta PDF</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -364,6 +365,28 @@ export default function PropostasSelecao() {
                         <Badge variant="default">Classificado</Badge>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {proposta.url_pdf_proposta && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <svg 
+                            className="h-4 w-4 text-muted-foreground" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={2} 
+                              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" 
+                            />
+                          </svg>
+                          <span className="truncate max-w-[150px]">
+                            proposta_{proposta.fornecedor.cnpj.replace(/[^\d]/g, '').slice(0, 10)}...
+                          </span>
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button
@@ -373,7 +396,7 @@ export default function PropostasSelecao() {
                           disabled={gerandoPDF === proposta.id}
                         >
                           <Eye className="h-4 w-4 mr-2" />
-                          {gerandoPDF === proposta.id ? "Gerando..." : "Visualizar"}
+                          {gerandoPDF === proposta.id ? "Gerando..." : "Ver"}
                         </Button>
                         <Button
                           variant="outline"
