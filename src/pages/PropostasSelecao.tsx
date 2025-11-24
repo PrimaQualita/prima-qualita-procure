@@ -275,21 +275,8 @@ export default function PropostasSelecao() {
     if (!propostaParaExcluir) return;
     
     try {
-      console.log("🗑️ Iniciando exclusão da proposta:", propostaParaExcluir.id);
+      console.log("🗑️ Iniciando exclusão do PDF da proposta:", propostaParaExcluir.id);
       
-      // Deletar itens da proposta primeiro
-      console.log("🗑️ Deletando itens da proposta...");
-      const { error: itensError } = await supabase
-        .from('selecao_respostas_itens_fornecedor')
-        .delete()
-        .eq('proposta_id', propostaParaExcluir.id);
-
-      if (itensError) {
-        console.error("❌ Erro ao deletar itens:", itensError);
-        throw itensError;
-      }
-      console.log("✅ Itens deletados com sucesso");
-
       // Deletar PDF do storage se existir
       if (propostaParaExcluir.url_pdf_proposta) {
         console.log("🗑️ Deletando PDF do storage...");
@@ -299,29 +286,28 @@ export default function PropostasSelecao() {
 
         if (storageError) {
           console.error('⚠️ Erro ao deletar PDF do storage:', storageError);
-          // Não bloqueia a exclusão se falhar
-        } else {
-          console.log("✅ PDF deletado do storage");
+          throw storageError;
         }
+        console.log("✅ PDF deletado do storage");
       }
 
-      // Deletar proposta
-      console.log("🗑️ Deletando proposta...");
-      const { error: propostaError } = await supabase
+      // Atualizar proposta para remover URL do PDF
+      console.log("🗑️ Removendo URL do PDF da proposta...");
+      const { error: updateError } = await supabase
         .from('selecao_propostas_fornecedor')
-        .delete()
+        .update({ url_pdf_proposta: null })
         .eq('id', propostaParaExcluir.id);
 
-      if (propostaError) {
-        console.error("❌ Erro ao deletar proposta:", propostaError);
-        throw propostaError;
+      if (updateError) {
+        console.error("❌ Erro ao atualizar proposta:", updateError);
+        throw updateError;
       }
-      console.log("✅ Proposta deletada com sucesso");
+      console.log("✅ URL do PDF removida com sucesso");
 
       setPropostaParaExcluir(null);
       setConfirmDeleteOpen(false);
       
-      toast.success("Proposta excluída com sucesso");
+      toast.success("PDF excluído com sucesso");
       
       // Recarregar propostas
       console.log("🔄 Recarregando lista de propostas...");
@@ -329,8 +315,8 @@ export default function PropostasSelecao() {
       console.log("✅ Lista de propostas recarregada");
       
     } catch (error: any) {
-      console.error("❌ Erro ao excluir proposta:", error);
-      toast.error(error.message || "Erro ao excluir proposta");
+      console.error("❌ Erro ao excluir PDF:", error);
+      toast.error(error.message || "Erro ao excluir PDF");
     }
   };
 
@@ -448,7 +434,7 @@ export default function PropostasSelecao() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {proposta.url_pdf_proposta && (
+                      {proposta.url_pdf_proposta ? (
                         <div className="flex items-center gap-2 text-sm">
                           <svg 
                             className="h-4 w-4 text-muted-foreground" 
@@ -467,35 +453,51 @@ export default function PropostasSelecao() {
                             proposta_{proposta.fornecedor.cnpj.replace(/[^\d]/g, '').slice(0, 10)}...
                           </span>
                         </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">PDF não gerado</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleVisualizarProposta(proposta.id)}
-                          disabled={gerandoPDF === proposta.id}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          {gerandoPDF === proposta.id ? "Gerando..." : "Ver"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleBaixarProposta(proposta.id)}
-                          disabled={gerandoPDF === proposta.id}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          {gerandoPDF === proposta.id ? "Gerando..." : "Baixar"}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleExcluirProposta(proposta)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {proposta.url_pdf_proposta ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleVisualizarProposta(proposta.id)}
+                              disabled={gerandoPDF === proposta.id}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              {gerandoPDF === proposta.id ? "Gerando..." : "Ver"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleBaixarProposta(proposta.id)}
+                              disabled={gerandoPDF === proposta.id}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              {gerandoPDF === proposta.id ? "Gerando..." : "Baixar"}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleExcluirProposta(proposta)}
+                              title="Excluir PDF"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleVisualizarProposta(proposta.id)}
+                            disabled={gerandoPDF === proposta.id}
+                          >
+                            {gerandoPDF === proposta.id ? "Gerando..." : "Gerar PDF"}
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -530,9 +532,9 @@ export default function PropostasSelecao() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a proposta de <strong>{propostaParaExcluir?.fornecedor.razao_social}</strong>?
+              Tem certeza que deseja excluir o PDF da proposta de <strong>{propostaParaExcluir?.fornecedor.razao_social}</strong>?
               <br />
-              Esta ação não pode ser desfeita e o fornecedor poderá enviar uma nova proposta.
+              O PDF poderá ser gerado novamente posteriormente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
