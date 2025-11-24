@@ -308,8 +308,9 @@ const DetalheSelecao = () => {
             <CardTitle>Documentos da Seleção</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[250px]">
+            <div className="space-y-4">
+              {/* Aviso de Seleção */}
+              <div>
                 <Button
                   variant="outline"
                   className="w-full"
@@ -319,11 +320,44 @@ const DetalheSelecao = () => {
                   {avisoAnexado ? "Atualizar Aviso de Seleção" : "Anexar Aviso de Seleção"}
                 </Button>
                 {avisoAnexado && (
-                  <p className="text-sm text-green-600 mt-2">✓ Aviso anexado</p>
+                  <div className="flex gap-2 mt-2">
+                    <p className="text-sm text-green-600 flex-1">✓ Aviso anexado</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => window.open(avisoAnexado.url_arquivo, '_blank')}
+                    >
+                      <FileText className="h-4 w-4 mr-1" />
+                      Visualizar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={async () => {
+                        if (confirm("Deseja excluir o Aviso de Seleção?")) {
+                          const { error } = await supabase
+                            .from("anexos_selecao")
+                            .delete()
+                            .eq("id", avisoAnexado.id);
+                          
+                          if (error) {
+                            toast.error("Erro ao excluir documento");
+                          } else {
+                            toast.success("Documento excluído com sucesso");
+                            loadDocumentosAnexados();
+                          }
+                        }
+                      }}
+                    >
+                      Excluir
+                    </Button>
+                  </div>
                 )}
               </div>
 
-              <div className="flex-1 min-w-[250px]">
+              {/* Edital */}
+              <div>
                 <Button
                   variant="outline"
                   className="w-full"
@@ -333,21 +367,52 @@ const DetalheSelecao = () => {
                   {editalAnexado ? "Atualizar Edital" : "Anexar Edital"}
                 </Button>
                 {editalAnexado && (
-                  <p className="text-sm text-green-600 mt-2">✓ Edital anexado</p>
+                  <div className="flex gap-2 mt-2">
+                    <p className="text-sm text-green-600 flex-1">✓ Edital anexado</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => window.open(editalAnexado.url_arquivo, '_blank')}
+                    >
+                      <FileText className="h-4 w-4 mr-1" />
+                      Visualizar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={async () => {
+                        if (confirm("Deseja excluir o Edital?")) {
+                          const { error } = await supabase
+                            .from("anexos_selecao")
+                            .delete()
+                            .eq("id", editalAnexado.id);
+                          
+                          if (error) {
+                            toast.error("Erro ao excluir documento");
+                          } else {
+                            toast.success("Documento excluído com sucesso");
+                            loadDocumentosAnexados();
+                          }
+                        }
+                      }}
+                    >
+                      Excluir
+                    </Button>
+                  </div>
                 )}
               </div>
 
-              <div className="flex-1 min-w-[250px]">
-                <Button
-                  variant="default"
-                  className="w-full"
-                  onClick={handleEnviarFornecedores}
-                  disabled={!avisoAnexado || !editalAnexado}
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  Enviar para Fornecedores
-                </Button>
-              </div>
+              {/* Enviar para Fornecedores */}
+              <Button
+                variant="default"
+                className="w-full"
+                onClick={handleEnviarFornecedores}
+                disabled={!avisoAnexado || !editalAnexado}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Enviar para Fornecedores
+              </Button>
             </div>
           </CardContent>
         </Card>
