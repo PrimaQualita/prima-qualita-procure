@@ -300,22 +300,30 @@ const ParticiparSelecao = () => {
 
   const loadDocumentosAnexados = async () => {
     try {
+      console.log("🔍 Carregando documentos da seleção:", selecaoId);
+      
       const { data, error } = await supabase
         .from("anexos_selecao")
         .select("*")
         .eq("selecao_id", selecaoId)
         .order("data_upload", { ascending: true });
 
+      console.log("📄 Documentos retornados:", { data, error });
+
       if (error) {
-        console.error("Erro ao carregar documentos:", error);
+        console.error("❌ Erro ao carregar documentos:", error);
         return;
       }
 
       if (data && data.length > 0) {
+        console.log(`✅ ${data.length} documentos carregados com sucesso`);
         setDocumentosAnexados(data);
+      } else {
+        console.log("⚠️ Nenhum documento encontrado");
+        setDocumentosAnexados([]);
       }
     } catch (error) {
-      console.error("Erro ao carregar documentos:", error);
+      console.error("💥 Exceção ao carregar documentos:", error);
     }
   };
 
