@@ -142,35 +142,26 @@ const DetalheSelecao = () => {
         return;
       }
 
-      // Pegar os itens do primeiro fornecedor (todos têm a mesma estrutura)
-      const primeiroFornecedor = fornecedoresArray[0];
-      const itensComValor = primeiroFornecedor.itens || [];
-      
-      console.log("🏢 Itens do primeiro fornecedor:", itensComValor.length);
-
+      // Usar os valores estimados dos itens originais
       const todosItens: Item[] = [];
       let total = 0;
 
-      itensComValor.forEach((itemPlanilha: any) => {
-        const itemOriginal = mapaItens.get(itemPlanilha.numero_item);
+      itensOriginais.forEach((itemOriginal) => {
+        const valorEstimado = itemOriginal.valor_unitario_estimado || 0;
+        const valorTotalItem = valorEstimado * itemOriginal.quantidade;
         
-        if (itemOriginal) {
-          const valorUnitario = itemPlanilha.valor_unitario || 0;
-          const valorTotalItem = valorUnitario * itemOriginal.quantidade;
-          
-          todosItens.push({
-            id: itemOriginal.id,
-            numero_item: itemOriginal.numero_item,
-            descricao: itemOriginal.descricao,
-            quantidade: itemOriginal.quantidade,
-            unidade: itemOriginal.unidade,
-            marca: itemOriginal.marca,
-            valor_unitario_estimado: valorUnitario,
-            valor_total: valorTotalItem
-          });
+        todosItens.push({
+          id: itemOriginal.id,
+          numero_item: itemOriginal.numero_item,
+          descricao: itemOriginal.descricao,
+          quantidade: itemOriginal.quantidade,
+          unidade: itemOriginal.unidade,
+          marca: itemOriginal.marca,
+          valor_unitario_estimado: valorEstimado,
+          valor_total: valorTotalItem
+        });
 
-          total += valorTotalItem;
-        }
+        total += valorTotalItem;
       });
 
       console.log("📦 Total de itens carregados:", todosItens.length);
