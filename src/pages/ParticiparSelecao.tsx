@@ -413,7 +413,7 @@ const ParticiparSelecao = () => {
     return `${inteirosFormatados},${decimais}`;
   }, []);
 
-  const handleValorChange = useCallback((itemId: string, value: string) => {
+  const handleValorBlur = useCallback((itemId: string, value: string) => {
     const numeros = value.replace(/\D/g, '');
     
     if (!numeros || numeros === '0' || numeros === '') {
@@ -441,7 +441,7 @@ const ParticiparSelecao = () => {
     }));
   }, [formatarMoeda]);
 
-  const handleMarcaChange = useCallback((itemId: string, marca: string) => {
+  const handleMarcaBlur = useCallback((itemId: string, marca: string) => {
     setRespostas(prev => ({
       ...prev,
       [itemId]: { 
@@ -881,7 +881,7 @@ const ParticiparSelecao = () => {
                                         key={`marca-lote-${item.id}`}
                                         placeholder="Marca"
                                         defaultValue={respostas[item.id]?.marca_ofertada || ""}
-                                        onBlur={(e) => handleMarcaChange(item.id, e.target.value)}
+                                        onBlur={(e) => handleMarcaBlur(item.id, e.target.value)}
                                       />
                                     </TableCell>
                                   )}
@@ -893,7 +893,7 @@ const ParticiparSelecao = () => {
                                       inputMode="decimal"
                                       placeholder="0,00"
                                       defaultValue={respostas[item.id]?.valor_display || "0,00"}
-                                      onBlur={(e) => handleValorChange(item.id, e.target.value)}
+                                      onBlur={(e) => handleValorBlur(item.id, e.target.value)}
                                     />
                                   </TableCell>
                                   <TableCell className="text-right">
@@ -919,7 +919,7 @@ const ParticiparSelecao = () => {
                                   key={`marca-${item.id}`}
                                   placeholder="Marca"
                                   defaultValue={respostas[item.id]?.marca_ofertada || ""}
-                                  onBlur={(e) => handleMarcaChange(item.id, e.target.value)}
+                                  onBlur={(e) => handleMarcaBlur(item.id, e.target.value)}
                                 />
                               </TableCell>
                             )}
@@ -931,7 +931,7 @@ const ParticiparSelecao = () => {
                                 inputMode="decimal"
                                 placeholder="0,00"
                                 defaultValue={respostas[item.id]?.valor_display || "0,00"}
-                                onBlur={(e) => handleValorChange(item.id, e.target.value)}
+                                onBlur={(e) => handleValorBlur(item.id, e.target.value)}
                               />
                             </TableCell>
                             <TableCell className="text-right">
