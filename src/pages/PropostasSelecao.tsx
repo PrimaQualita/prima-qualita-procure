@@ -87,7 +87,10 @@ export default function PropostasSelecao() {
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('pt-BR');
+    // Criar data sem conversão de timezone
+    const date = new Date(dateString + 'Z'); // Força UTC
+    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return localDate.toLocaleString('pt-BR');
   };
 
   if (loading) {
@@ -138,7 +141,11 @@ export default function PropostasSelecao() {
           <div>
             <p className="text-sm text-muted-foreground">Data da Sessão</p>
             <p className="font-medium">
-              {new Date(selecao?.data_sessao_disputa).toLocaleDateString('pt-BR')} às {selecao?.hora_sessao_disputa}
+              {(() => {
+                const date = new Date(selecao?.data_sessao_disputa + 'T00:00:00');
+                const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                return localDate.toLocaleDateString('pt-BR');
+              })()} às {selecao?.hora_sessao_disputa}
             </p>
           </div>
           <div>
