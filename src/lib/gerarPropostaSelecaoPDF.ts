@@ -16,6 +16,12 @@ interface DadosFornecedor {
   razao_social: string;
   cnpj: string;
   email?: string;
+  logradouro?: string;
+  numero?: string;
+  bairro?: string;
+  municipio?: string;
+  uf?: string;
+  cep?: string;
 }
 
 const formatarMoeda = (valor: number): string => {
@@ -130,6 +136,18 @@ export async function gerarPropostaSelecaoPDF(
     
     if (fornecedor.email) {
       doc.text(`E-mail: ${fornecedor.email}`, margemEsquerda, y);
+      y += 5;
+    }
+    
+    if (fornecedor.logradouro) {
+      const enderecoCompleto = `${fornecedor.logradouro}${fornecedor.numero ? ', ' + fornecedor.numero : ''}${fornecedor.bairro ? ', ' + fornecedor.bairro : ''}`;
+      doc.text(`Endereço: ${enderecoCompleto}`, margemEsquerda, y);
+      y += 5;
+    }
+    
+    if (fornecedor.municipio || fornecedor.uf) {
+      const localidade = `${fornecedor.municipio || ''}${fornecedor.uf ? ' - ' + fornecedor.uf : ''}${fornecedor.cep ? ', CEP: ' + fornecedor.cep : ''}`;
+      doc.text(localidade, margemEsquerda, y);
       y += 8;
     } else {
       y += 3;
