@@ -40,8 +40,8 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             height: 297mm;
             position: relative;
             background: white;
-            padding-top: 50mm;
-            padding-bottom: 0;
+            padding-top: 60mm;
+            padding-bottom: 35mm;
           }
           
           .header {
@@ -75,8 +75,8 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .content {
             position: relative;
             z-index: 2;
-            padding: 15px 60px 30mm 60px;
-            min-height: calc(297mm - 50mm - 30mm);
+            padding: 15px 60px 15px 60px;
+            min-height: calc(297mm - 60mm - 35mm);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
