@@ -171,6 +171,8 @@ const ParticiparSelecao = () => {
 
   const loadSelecao = async (fornecedorId: string | null) => {
     try {
+      console.log("🔍 Iniciando carregamento da seleção:", selecaoId);
+      
       // Carregar seleção
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
@@ -180,6 +182,7 @@ const ParticiparSelecao = () => {
 
       if (selecaoError) throw selecaoError;
       
+      console.log("✅ Seleção carregada:", selecaoData);
       setSelecao(selecaoData);
       setProcesso(selecaoData.processos_compras);
 
@@ -193,6 +196,7 @@ const ParticiparSelecao = () => {
           .maybeSingle();
         
         setJaEnviouProposta(!!propostaExistente);
+        console.log("📋 Já enviou proposta:", !!propostaExistente);
       }
 
       // Carregar lotes se for por lote
@@ -210,11 +214,13 @@ const ParticiparSelecao = () => {
         await loadItensFromPlanilha(selecaoData.cotacao_relacionada_id, selecaoData.created_at);
       }
 
-      // Carregar documentos
+      // IMPORTANTE: Carregar documentos SEMPRE
+      console.log("📄 Iniciando carregamento de documentos...");
       await loadDocumentosAnexados();
+      console.log("✅ Carregamento de documentos concluído");
 
     } catch (error) {
-      console.error("Erro ao carregar seleção:", error);
+      console.error("❌ Erro ao carregar seleção:", error);
       toast.error("Erro ao carregar detalhes da seleção");
     } finally {
       setLoading(false);
@@ -580,33 +586,40 @@ const ParticiparSelecao = () => {
           </CardContent>
         </Card>
 
-        {/* Documentos */}
-        {documentosAnexados.length > 0 && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Documentos da Seleção</CardTitle>
-              <CardDescription>Leia atentamente antes de participar da disputa</CardDescription>
-            </CardHeader>
-            <CardContent>
+        {/* Documentos - SEMPRE exibir */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>📋 Documentos da Seleção</CardTitle>
+            <CardDescription>Leia atentamente antes de participar da disputa</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {documentosAnexados.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {documentosAnexados.map((doc) => (
                   <Button
                     key={doc.id}
                     variant="outline"
                     onClick={() => window.open(doc.url_arquivo, '_blank')}
-                    className="h-auto py-3 px-4 justify-start"
+                    className="h-auto py-4 px-4 justify-start"
                   >
-                    <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <FileText className="h-5 w-5 mr-3 flex-shrink-0 text-primary" />
                     <div className="text-left overflow-hidden">
-                      <p className="font-medium truncate">{doc.nome_arquivo}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{doc.tipo_documento.replace('_', ' ')}</p>
+                      <p className="font-medium truncate text-sm">{doc.nome_arquivo}</p>
+                      <p className="text-xs text-muted-foreground capitalize mt-1">
+                        {doc.tipo_documento.replace('_', ' ')}
+                      </p>
                     </div>
                   </Button>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p>Nenhum documento anexado ainda</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Registro de Proposta */}
         {!jaEnviouProposta ? (
@@ -710,15 +723,17 @@ const ParticiparSelecao = () => {
 
             {/* Proposta de Valores */}
             <Card className="mb-6">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Registrar Proposta</CardTitle>
-                  <CardDescription>Informe seus valores para os itens da seleção</CardDescription>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle>📝 Registrar Proposta</CardTitle>
+                    <CardDescription>Informe seus valores para os itens da seleção</CardDescription>
+                  </div>
+                  <Button onClick={() => setImportDialogOpen(true)} variant="default" size="lg" className="w-full sm:w-auto">
+                    <Upload className="h-5 w-5 mr-2" />
+                    Importar via Excel
+                  </Button>
                 </div>
-                <Button onClick={() => setImportDialogOpen(true)} variant="outline">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Importar Planilha
-                </Button>
               </CardHeader>
               <CardContent>
                 <Table>
