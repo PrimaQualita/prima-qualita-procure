@@ -63,7 +63,7 @@ export async function gerarPropostaSelecaoPDF(
 
     const doc = new jsPDF();
     const dataEnvio = new Date().toLocaleString('pt-BR');
-    const protocolo = uuidv4();
+    const protocolo = uuidv4(); // UUID completo como nos outros documentos
     
     // Criar conteúdo para hash
     const conteudoHash = `
