@@ -203,8 +203,10 @@ export async function gerarPropostaSelecaoPDF(
     
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text('VALOR TOTAL DA PROPOSTA:', colDesc, y + 5);
-    doc.text(`R$ ${formatarMoeda(valorTotal)}`, colValorTotal, y + 5);
+    doc.text('VALOR TOTAL DA PROPOSTA:', margemEsquerda + 2, y + 5);
+    const valorTexto = `R$ ${formatarMoeda(valorTotal)}`;
+    const valorWidth = doc.getTextWidth(valorTexto);
+    doc.text(valorTexto, margemEsquerda + larguraUtil - valorWidth - 2, y + 5);
     
     y += 12;
 
