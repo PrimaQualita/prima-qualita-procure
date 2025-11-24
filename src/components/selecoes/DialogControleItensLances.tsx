@@ -171,16 +171,16 @@ export function DialogControleItensLances({
 
     setSalvando(true);
     try {
-      // Para cada item selecionado, gerar um tempo aleatório de 0 a 60 segundos
+      // Para cada item selecionado, definir tempo fixo de 2 minutos (120 segundos)
+      const TEMPO_FECHAMENTO = 120; // 2 minutos
+      
       const updates = Array.from(itensSelecionados).map(async (numeroItem) => {
-        const segundosAleatorios = Math.floor(Math.random() * 61); // 0 a 60 segundos
-        
         return supabase
           .from("itens_abertos_lances")
           .update({
             iniciando_fechamento: true,
             data_inicio_fechamento: new Date().toISOString(),
-            segundos_para_fechar: segundosAleatorios,
+            segundos_para_fechar: TEMPO_FECHAMENTO,
           })
           .eq("selecao_id", selecaoId)
           .eq("numero_item", numeroItem);
@@ -188,32 +188,22 @@ export function DialogControleItensLances({
 
       await Promise.all(updates);
 
-      // Criar edge function ou lógica no frontend para fechar após o tempo
-      // Vamos fazer no frontend por enquanto
+      // Agendar fechamento automático após 2 minutos
       Array.from(itensSelecionados).forEach(async (numeroItem) => {
-        const { data } = await supabase
-          .from("itens_abertos_lances")
-          .select("segundos_para_fechar")
-          .eq("selecao_id", selecaoId)
-          .eq("numero_item", numeroItem)
-          .single();
-
-        if (data?.segundos_para_fechar !== undefined) {
-          setTimeout(async () => {
-            await supabase
-              .from("itens_abertos_lances")
-              .update({ 
-                aberto: false, 
-                data_fechamento: new Date().toISOString(),
-                iniciando_fechamento: false
-              })
-              .eq("selecao_id", selecaoId)
-              .eq("numero_item", numeroItem);
-          }, data.segundos_para_fechar * 1000);
-        }
+        setTimeout(async () => {
+          await supabase
+            .from("itens_abertos_lances")
+            .update({ 
+              aberto: false, 
+              data_fechamento: new Date().toISOString(),
+              iniciando_fechamento: false
+            })
+            .eq("selecao_id", selecaoId)
+            .eq("numero_item", numeroItem);
+        }, TEMPO_FECHAMENTO * 1000);
       });
 
-      toast.success(`${itensSelecionados.size} item(ns) entrando em processo de fechamento (0-60s)`);
+      toast.success(`${itensSelecionados.size} item(ns) entrando em processo de fechamento (2 minutos)`);
       await loadItensAbertos();
       setItensSelecionados(new Set());
     } catch (error) {
