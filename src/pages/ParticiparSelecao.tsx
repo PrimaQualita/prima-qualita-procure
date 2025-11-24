@@ -827,18 +827,24 @@ const ParticiparSelecao = () => {
                                         placeholder="Marca"
                                         value={respostas[item.id]?.marca_ofertada || ""}
                                         onChange={(e) => handleMarcaChange(item.id, e.target.value)}
+                                        autoComplete="off"
+                                        data-form-type="other"
                                       />
                                     </TableCell>
                                   )}
                                   <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
                                   <TableCell>
                                     <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none z-10">R$</span>
                                       <Input
+                                        type="text"
+                                        inputMode="decimal"
                                         placeholder="0,00"
                                         value={respostas[item.id]?.valor_display || "0,00"}
                                         onChange={(e) => handleValorChange(item.id, e.target.value)}
                                         className="text-right pl-10"
+                                        autoComplete="off"
+                                        data-form-type="other"
                                       />
                                     </div>
                                   </TableCell>
@@ -865,18 +871,24 @@ const ParticiparSelecao = () => {
                                   placeholder="Marca"
                                   value={respostas[item.id]?.marca_ofertada || ""}
                                   onChange={(e) => handleMarcaChange(item.id, e.target.value)}
+                                  autoComplete="off"
+                                  data-form-type="other"
                                 />
                               </TableCell>
                             )}
                             <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
                             <TableCell>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none z-10">R$</span>
                                 <Input
+                                  type="text"
+                                  inputMode="decimal"
                                   placeholder="0,00"
                                   value={respostas[item.id]?.valor_display || "0,00"}
                                   onChange={(e) => handleValorChange(item.id, e.target.value)}
                                   className="text-right pl-10"
+                                  autoComplete="off"
+                                  data-form-type="other"
                                 />
                               </div>
                             </TableCell>
