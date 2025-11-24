@@ -362,7 +362,7 @@ const Selecoes = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {new Date(selecao.data_sessao_disputa).toLocaleDateString("pt-BR")} às {selecao.hora_sessao_disputa}
+                          {selecao.data_sessao_disputa.split('T')[0].split('-').reverse().join('/')} às {selecao.hora_sessao_disputa}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">

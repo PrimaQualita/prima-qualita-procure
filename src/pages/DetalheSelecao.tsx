@@ -220,7 +220,7 @@ const DetalheSelecao = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Data da Sessão</p>
                 <p className="font-medium">
-                  {new Date(selecao.data_sessao_disputa).toLocaleDateString("pt-BR")} às {selecao.hora_sessao_disputa}
+                  {selecao.data_sessao_disputa.split('T')[0].split('-').reverse().join('/')} às {selecao.hora_sessao_disputa}
                 </p>
               </div>
               <div>
