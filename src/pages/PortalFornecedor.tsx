@@ -612,41 +612,45 @@ export default function PortalFornecedor() {
               <CardHeader>
                 <CardTitle>Minhas Seleções de Fornecedores</CardTitle>
                 <CardDescription>
-                  Processos seletivos em que você foi convidado a participar
+                  Processos seletivos em que você participou ou está participando
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {selecoes.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">
-                    Você ainda não foi convidado para nenhuma seleção.
+                    Você ainda não participou de nenhuma seleção.
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    {selecoes.map((convite) => (
-                      <div key={convite.id} className="p-4 border rounded-lg">
+                    {selecoes.map((proposta) => (
+                      <div key={proposta.id} className="p-4 border rounded-lg">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <h3 className="font-semibold">
-                              {convite.selecoes_fornecedores?.titulo_selecao}
+                              {proposta.selecoes_fornecedores?.titulo_selecao}
                             </h3>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {convite.selecoes_fornecedores?.descricao}
+                              {proposta.selecoes_fornecedores?.descricao}
                             </p>
                             <div className="flex gap-4 mt-3 text-sm">
                               <span>
-                                Data: {new Date(convite.selecoes_fornecedores?.data_sessao_disputa).toLocaleDateString()}
+                                Data da Sessão: {new Date(proposta.selecoes_fornecedores?.data_sessao_disputa).toLocaleDateString()}
                               </span>
                               <span>
-                                Horário: {convite.selecoes_fornecedores?.hora_sessao_disputa}
+                                Horário: {proposta.selecoes_fornecedores?.hora_sessao_disputa}
                               </span>
-                              {getStatusSelecaoBadge(convite.selecoes_fornecedores?.status_selecao)}
+                              {getStatusSelecaoBadge(proposta.selecoes_fornecedores?.status_selecao)}
+                            </div>
+                            <div className="mt-2 text-sm text-muted-foreground">
+                              Proposta enviada em: {new Date(proposta.created_at).toLocaleString()}
                             </div>
                           </div>
                           <Button 
                             size="sm" 
-                            disabled={convite.selecoes_fornecedores?.status_selecao !== "em_andamento"}
+                            onClick={() => navigate(`/participar-selecao?id=${proposta.selecao_id}`)}
                           >
-                            Participar
+                            <Gavel className="h-4 w-4 mr-2" />
+                            Ver Detalhes
                           </Button>
                         </div>
                       </div>
