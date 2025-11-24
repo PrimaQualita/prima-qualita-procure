@@ -114,24 +114,33 @@ const VerificarProposta = () => {
             hash_certificacao,
             valor_total_proposta,
             data_envio_proposta,
-            fornecedores:fornecedor_id (
-              razao_social,
-              cnpj
-            ),
-            selecoes_fornecedores:selecao_id (
-              titulo_selecao,
-              processos_compras:processo_compra_id (
-                numero_processo_interno
-              )
-            )
+            fornecedor_id,
+            selecao_id
           `)
           .eq("protocolo", protocolo)
-          .maybeSingle();
+          .single();
 
         console.log('Resultado da busca de seleção:', selecaoData);
         console.log('Erro da busca de seleção:', selecaoError);
 
-        if (selecaoData) {
+        if (selecaoData && !selecaoError) {
+          // Buscar dados do fornecedor e seleção separadamente
+          const { data: fornecedorData } = await supabaseAnon
+            .from("fornecedores")
+            .select("razao_social, cnpj")
+            .eq("id", selecaoData.fornecedor_id)
+            .single();
+          
+          const { data: selecaoInfo } = await supabaseAnon
+            .from("selecoes_fornecedores")
+            .select(`
+              titulo_selecao,
+              processos_compras:processo_compra_id (
+                numero_processo_interno
+              )
+            `)
+            .eq("id", selecaoData.selecao_id)
+            .single();
           // Encontrou proposta de seleção
           setResposta({
             id: selecaoData.id,
@@ -141,14 +150,14 @@ const VerificarProposta = () => {
             valor_total_anual_ofertado: selecaoData.valor_total_proposta,
             data_envio_resposta: selecaoData.data_envio_proposta,
             fornecedor: {
-              razao_social: (selecaoData.fornecedores as any)?.razao_social || "N/A",
-              cnpj: (selecaoData.fornecedores as any)?.cnpj || "N/A",
+              razao_social: fornecedorData?.razao_social || "N/A",
+              cnpj: fornecedorData?.cnpj || "N/A",
             },
             usuario_gerador: null,
             cotacao: {
-              titulo_cotacao: (selecaoData.selecoes_fornecedores as any)?.titulo_selecao || "N/A",
+              titulo_cotacao: (selecaoInfo as any)?.titulo_selecao || "N/A",
               processo: {
-                numero_processo_interno: ((selecaoData.selecoes_fornecedores as any)?.processos_compras as any)?.numero_processo_interno || "N/A",
+                numero_processo_interno: ((selecaoInfo as any)?.processos_compras as any)?.numero_processo_interno || "N/A",
               },
             },
           });
