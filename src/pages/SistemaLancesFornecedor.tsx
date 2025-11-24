@@ -38,6 +38,7 @@ const SistemaLancesFornecedor = () => {
   const [lances, setLances] = useState<any[]>([]);
   const [valorLance, setValorLance] = useState<string>("");
   const [itemSelecionado, setItemSelecionado] = useState<number | null>(null);
+  const [itensEstimados, setItensEstimados] = useState<Map<number, number>>(new Map());
 
   useEffect(() => {
     if (propostaId) {
@@ -108,6 +109,22 @@ const SistemaLancesFornecedor = () => {
       
       setProposta(propostaData);
       setSelecao(propostaData.selecoes_fornecedores);
+
+      // Carregar valores estimados da cotação relacionada
+      if (propostaData.selecoes_fornecedores.cotacao_relacionada_id) {
+        const { data: itensEstimadosData, error: itensEstimadosError } = await supabase
+          .from("itens_cotacao")
+          .select("numero_item, valor_unitario_estimado")
+          .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id);
+
+        if (!itensEstimadosError && itensEstimadosData) {
+          const mapaEstimados = new Map<number, number>();
+          itensEstimadosData.forEach(item => {
+            mapaEstimados.set(item.numero_item, item.valor_unitario_estimado || 0);
+          });
+          setItensEstimados(mapaEstimados);
+        }
+      }
 
       // Verificar se ainda é editável (5 minutos antes da sessão)
       const dataHoraSelecao = new Date(`${propostaData.selecoes_fornecedores.data_sessao_disputa}T${propostaData.selecoes_fornecedores.hora_sessao_disputa}`);
@@ -190,15 +207,36 @@ const SistemaLancesFornecedor = () => {
     return lances.filter(l => l.numero_item === numeroItem);
   };
 
+  const isLanceDesclassificado = (numeroItem: number, valorLance: number) => {
+    const valorEstimado = itensEstimados.get(numeroItem);
+    if (!valorEstimado) return false;
+    return valorLance > valorEstimado;
+  };
+
   const getValorMinimoAtual = (numeroItem: number) => {
+    const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const lancesDoItem = getLancesDoItem(numeroItem);
-    if (lancesDoItem.length === 0) {
+    
+    // Filtrar apenas lances classificados (menores ou iguais ao estimado)
+    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+    
+    if (lancesClassificados.length === 0) {
+      // Se não há lances classificados, buscar valor da proposta inicial
       const itemProposta = itens.find(i => i.numero_item === numeroItem);
-      return itemProposta?.valor_unitario_ofertado || 0;
+      const valorProposta = itemProposta?.valor_unitario_ofertado || 0;
+      
+      // Se a proposta inicial está acima do estimado, retornar o estimado
+      if (valorProposta > valorEstimado) {
+        return valorEstimado;
+      }
+      return valorProposta;
     }
-    const valoresOrdenados = lancesDoItem
+    
+    // Retornar o menor lance classificado
+    const valoresOrdenados = lancesClassificados
       .map(l => l.valor_lance)
       .sort((a, b) => a - b);
+    
     return valoresOrdenados[0];
   };
 
@@ -217,6 +255,12 @@ const SistemaLancesFornecedor = () => {
     
     if (isNaN(valorNumerico) || valorNumerico <= 0) {
       toast.error("Valor do lance inválido");
+      return;
+    }
+
+    const valorEstimado = itensEstimados.get(itemSelecionado) || 0;
+    if (valorNumerico > valorEstimado) {
+      toast.error(`Lance desclassificado! Valor deve ser menor ou igual ao estimado: R$ ${valorEstimado.toFixed(2).replace('.', ',')}`);
       return;
     }
 
@@ -469,15 +513,28 @@ const SistemaLancesFornecedor = () => {
 
                 {/* Valor Mínimo do Item Selecionado */}
                 {itemSelecionado !== null && (
-                  <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-300">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingDown className="h-6 w-6 text-blue-600" />
-                      <Label className="text-sm font-semibold">Valor Mínimo Atual - Item {itemSelecionado}</Label>
+                  <div className="space-y-3">
+                    <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-300">
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingDown className="h-6 w-6 text-blue-600" />
+                        <Label className="text-sm font-semibold">Valor Mínimo Atual - Item {itemSelecionado}</Label>
+                      </div>
+                      <p className="font-bold text-3xl text-blue-700">
+                        {formatarMoeda(getValorMinimoAtual(itemSelecionado))}
+                      </p>
+                      <p className="text-sm text-blue-600 mt-1">Seu lance deve ser menor que este valor</p>
                     </div>
-                    <p className="font-bold text-3xl text-blue-700">
-                      {formatarMoeda(getValorMinimoAtual(itemSelecionado))}
-                    </p>
-                    <p className="text-sm text-blue-600 mt-1">Seu lance deve ser menor que este valor</p>
+                    
+                    <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Trophy className="h-6 w-6 text-amber-600" />
+                        <Label className="text-sm font-semibold">Valor Estimado - Item {itemSelecionado}</Label>
+                      </div>
+                      <p className="font-bold text-3xl text-amber-700">
+                        {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}
+                      </p>
+                      <p className="text-sm text-amber-600 mt-1">Lances acima deste valor são desclassificados</p>
+                    </div>
                   </div>
                 )}
 
@@ -533,6 +590,7 @@ const SistemaLancesFornecedor = () => {
                             <TableHead className="w-16">Posição</TableHead>
                             <TableHead>Fornecedor</TableHead>
                             <TableHead className="text-right">Valor do Lance</TableHead>
+                            <TableHead className="w-32">Status</TableHead>
                             <TableHead>Data/Hora</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -541,14 +599,23 @@ const SistemaLancesFornecedor = () => {
                             .sort((a, b) => a.valor_lance - b.valor_lance)
                             .map((lance, index) => {
                               const isProprioLance = lance.fornecedor_id === proposta.fornecedor_id;
+                              const desclassificado = isLanceDesclassificado(itemSelecionado, lance.valor_lance);
+                              const valorEstimado = itensEstimados.get(itemSelecionado) || 0;
+                              
                               return (
                                 <TableRow 
                                   key={lance.id}
-                                  className={index === 0 ? "bg-yellow-50" : ""}
+                                  className={
+                                    desclassificado 
+                                      ? "bg-red-50 opacity-60" 
+                                      : index === 0 && !desclassificado
+                                      ? "bg-yellow-50"
+                                      : ""
+                                  }
                                 >
                                   <TableCell>
                                     <div className="flex items-center gap-2">
-                                      {index === 0 && <Trophy className="h-4 w-4 text-yellow-600" />}
+                                      {index === 0 && !desclassificado && <Trophy className="h-4 w-4 text-yellow-600" />}
                                       <span className="font-bold">{index + 1}º</span>
                                     </div>
                                   </TableCell>
@@ -566,14 +633,32 @@ const SistemaLancesFornecedor = () => {
                                   <TableCell className="text-right font-bold">
                                     {formatarMoeda(lance.valor_lance)}
                                   </TableCell>
+                                  <TableCell>
+                                    {desclassificado ? (
+                                      <Badge variant="destructive" className="text-xs">
+                                        Desclassificado
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="default" className="bg-green-500 text-xs">
+                                        Classificado
+                                      </Badge>
+                                    )}
+                                  </TableCell>
                                   <TableCell className="text-sm">
                                     {formatDateTime(lance.data_hora_lance)}
-</TableCell>
+                                  </TableCell>
                                 </TableRow>
                               );
                             })}
                         </TableBody>
                       </Table>
+                    </div>
+                    
+                    {/* Legenda de Desclassificação */}
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm text-amber-800">
+                        <strong>⚠️ Atenção:</strong> Lances com valores acima do estimado (R$ {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}) são automaticamente desclassificados e não participam da disputa.
+                      </p>
                     </div>
                   </div>
                 )}
