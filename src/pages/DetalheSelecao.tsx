@@ -68,9 +68,9 @@ const DetalheSelecao = () => {
       setSelecao(selecaoData);
       setProcesso(selecaoData.processos_compras);
 
-      // Carregar planilha consolidada da cotação relacionada
+      // Carregar planilha consolidada da cotação relacionada usando a data de criação da seleção
       if (selecaoData.cotacao_relacionada_id) {
-        await loadItensFromPlanilha(selecaoData.cotacao_relacionada_id);
+        await loadItensFromPlanilha(selecaoData.cotacao_relacionada_id, selecaoData.created_at);
       }
 
       // Carregar documentos anexados
@@ -84,16 +84,17 @@ const DetalheSelecao = () => {
     }
   };
 
-  const loadItensFromPlanilha = async (cotacaoId: string) => {
+  const loadItensFromPlanilha = async (cotacaoId: string, dataCriacaoSelecao: string) => {
     try {
-      // Buscar a planilha consolidada mais recente
+      // Buscar a planilha consolidada mais recente até a data de criação da seleção
       const { data: planilha, error } = await supabase
         .from("planilhas_consolidadas")
         .select("fornecedores_incluidos")
         .eq("cotacao_id", cotacaoId)
+        .lte("data_geracao", dataCriacaoSelecao)
         .order("data_geracao", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
