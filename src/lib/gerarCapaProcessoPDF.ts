@@ -68,15 +68,16 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           }
           
           .content {
-            position: absolute;
-            top: 65mm;
-            left: 60px;
-            right: 60px;
-            bottom: 40mm;
+            position: relative;
             z-index: 2;
+            margin-top: 65mm;
+            margin-bottom: 40mm;
+            margin-left: 60px;
+            margin-right: 60px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            min-height: calc(297mm - 65mm - 40mm);
           }
           
           .top-section {
