@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Upload, Send, Gavel } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Send, Gavel, Link } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
@@ -389,15 +389,15 @@ const DetalheSelecao = () => {
                 )}
               </div>
 
-              {/* Enviar para Fornecedores */}
+              {/* Gerar Link para Fornecedores */}
               <Button
                 variant="default"
                 className="w-full"
                 onClick={handleEnviarFornecedores}
                 disabled={!avisoAnexado || !editalAnexado}
               >
-                <Send className="h-4 w-4 mr-2" />
-                Enviar para Fornecedores
+                <Link className="h-4 w-4 mr-2" />
+                Gerar Link para Fornecedores
               </Button>
             </div>
           </CardContent>
