@@ -462,29 +462,38 @@ const ParticiparSelecao = () => {
     dadosImportados.forEach(dado => {
       const item = itens.find(i => i.numero_item === dado.numero_item);
       if (item) {
-        // Formatar o valor corretamente para exibição
-        const valorFormatado = dado.valor_unitario.toFixed(2).replace('.', ',');
+        // Formatar o valor corretamente para exibição com R$
+        const valorFormatado = `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
         
         novasRespostas[item.id] = {
           valor_unitario_ofertado: dado.valor_unitario,
           valor_display: valorFormatado,
           marca_ofertada: dado.marca
         };
-        
-        // Atualizar os inputs diretamente no DOM já que usam defaultValue
-        const inputValor = document.querySelector(`input[key="valor-item-${item.id}"], input[key="valor-lote-${item.id}"]`) as HTMLInputElement;
-        if (inputValor) {
-          inputValor.value = `R$ ${valorFormatado}`;
-        }
-        
-        const inputMarca = document.querySelector(`input[key="marca-${item.id}"], input[key="marca-lote-${item.id}"]`) as HTMLInputElement;
-        if (inputMarca) {
-          inputMarca.value = dado.marca;
-        }
       }
     });
     
     setRespostas(novasRespostas);
+    
+    // Forçar atualização dos inputs após o estado ser atualizado
+    setTimeout(() => {
+      dadosImportados.forEach(dado => {
+        const item = itens.find(i => i.numero_item === dado.numero_item);
+        if (item) {
+          // Buscar inputs por ID único
+          const inputValor = document.getElementById(`input-valor-${item.id}`) as HTMLInputElement;
+          if (inputValor) {
+            inputValor.value = `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
+          }
+          
+          const inputMarca = document.getElementById(`input-marca-${item.id}`) as HTMLInputElement;
+          if (inputMarca) {
+            inputMarca.value = dado.marca;
+          }
+        }
+      });
+    }, 100);
+    
     toast.success("Dados importados com sucesso!");
   };
 
@@ -893,6 +902,7 @@ const ParticiparSelecao = () => {
                                   {processo?.tipo === "material" && (
                                     <TableCell>
                                       <Input
+                                        id={`input-marca-${item.id}`}
                                         key={`marca-lote-${item.id}`}
                                         placeholder="Marca"
                                         defaultValue={respostas[item.id]?.marca_ofertada || ""}
@@ -903,11 +913,12 @@ const ParticiparSelecao = () => {
                                   <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
                                   <TableCell>
                                     <Input
+                                      id={`input-valor-${item.id}`}
                                       key={`valor-lote-${item.id}`}
                                       type="text"
                                       inputMode="decimal"
-                                      placeholder="0,00"
-                                      defaultValue={respostas[item.id]?.valor_display || "0,00"}
+                                      placeholder="R$ 0,00"
+                                      defaultValue={respostas[item.id]?.valor_display || "R$ 0,00"}
                                       onBlur={(e) => handleValorBlur(item.id, e.target.value)}
                                     />
                                   </TableCell>
@@ -931,6 +942,7 @@ const ParticiparSelecao = () => {
                             {processo?.tipo === "material" && (
                               <TableCell>
                                 <Input
+                                  id={`input-marca-${item.id}`}
                                   key={`marca-${item.id}`}
                                   placeholder="Marca"
                                   defaultValue={respostas[item.id]?.marca_ofertada || ""}
@@ -941,11 +953,12 @@ const ParticiparSelecao = () => {
                             <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
                             <TableCell>
                               <Input
+                                id={`input-valor-${item.id}`}
                                 key={`valor-item-${item.id}`}
                                 type="text"
                                 inputMode="decimal"
-                                placeholder="0,00"
-                                defaultValue={respostas[item.id]?.valor_display || "0,00"}
+                                placeholder="R$ 0,00"
+                                defaultValue={respostas[item.id]?.valor_display || "R$ 0,00"}
                                 onBlur={(e) => handleValorBlur(item.id, e.target.value)}
                               />
                             </TableCell>
