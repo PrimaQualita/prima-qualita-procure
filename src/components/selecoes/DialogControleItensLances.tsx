@@ -46,7 +46,7 @@ export function DialogControleItensLances({
     try {
       const { data, error } = await supabase
         .from("itens_abertos_lances")
-        .select("numero_item")
+        .select("*")
         .eq("selecao_id", selecaoId)
         .eq("aberto", true);
 
@@ -54,6 +54,38 @@ export function DialogControleItensLances({
 
       const abertos = new Set(data?.map((item) => item.numero_item) || []);
       setItensAbertos(abertos);
+
+      // Verificar se algum item está em processo de fechamento e ainda precisa ser fechado
+      data?.forEach((item: any) => {
+        if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+          const tempoDecorrido = Math.floor((Date.now() - new Date(item.data_inicio_fechamento).getTime()) / 1000);
+          const tempoRestante = item.segundos_para_fechar - tempoDecorrido;
+          
+          if (tempoRestante > 0) {
+            // Ainda tem tempo, agendar fechamento
+            setTimeout(async () => {
+              await supabase
+                .from("itens_abertos_lances")
+                .update({ 
+                  aberto: false, 
+                  data_fechamento: new Date().toISOString(),
+                  iniciando_fechamento: false
+                })
+                .eq("id", item.id);
+            }, tempoRestante * 1000);
+          } else if (tempoRestante <= 0 && item.aberto) {
+            // Tempo já passou, fechar imediatamente
+            supabase
+              .from("itens_abertos_lances")
+              .update({ 
+                aberto: false, 
+                data_fechamento: new Date().toISOString(),
+                iniciando_fechamento: false
+              })
+              .eq("id", item.id);
+          }
+        }
+      });
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }
@@ -139,19 +171,53 @@ export function DialogControleItensLances({
 
     setSalvando(true);
     try {
-      const { error } = await supabase
-        .from("itens_abertos_lances")
-        .update({ aberto: false, data_fechamento: new Date().toISOString() })
-        .eq("selecao_id", selecaoId)
-        .in("numero_item", Array.from(itensSelecionados));
+      // Para cada item selecionado, gerar um tempo aleatório de 0 a 60 segundos
+      const updates = Array.from(itensSelecionados).map(async (numeroItem) => {
+        const segundosAleatorios = Math.floor(Math.random() * 61); // 0 a 60 segundos
+        
+        return supabase
+          .from("itens_abertos_lances")
+          .update({
+            iniciando_fechamento: true,
+            data_inicio_fechamento: new Date().toISOString(),
+            segundos_para_fechar: segundosAleatorios,
+          })
+          .eq("selecao_id", selecaoId)
+          .eq("numero_item", numeroItem);
+      });
 
-      if (error) throw error;
+      await Promise.all(updates);
 
-      toast.success(`${itensSelecionados.size} item(ns) fechado(s) para lances`);
+      // Criar edge function ou lógica no frontend para fechar após o tempo
+      // Vamos fazer no frontend por enquanto
+      Array.from(itensSelecionados).forEach(async (numeroItem) => {
+        const { data } = await supabase
+          .from("itens_abertos_lances")
+          .select("segundos_para_fechar")
+          .eq("selecao_id", selecaoId)
+          .eq("numero_item", numeroItem)
+          .single();
+
+        if (data?.segundos_para_fechar !== undefined) {
+          setTimeout(async () => {
+            await supabase
+              .from("itens_abertos_lances")
+              .update({ 
+                aberto: false, 
+                data_fechamento: new Date().toISOString(),
+                iniciando_fechamento: false
+              })
+              .eq("selecao_id", selecaoId)
+              .eq("numero_item", numeroItem);
+          }, data.segundos_para_fechar * 1000);
+        }
+      });
+
+      toast.success(`${itensSelecionados.size} item(ns) entrando em processo de fechamento (0-60s)`);
       await loadItensAbertos();
       setItensSelecionados(new Set());
     } catch (error) {
-      console.error("Erro ao fechar itens:", error);
+      console.error("Erro ao iniciar fechamento de itens:", error);
       toast.error("Erro ao fechar itens");
     } finally {
       setSalvando(false);

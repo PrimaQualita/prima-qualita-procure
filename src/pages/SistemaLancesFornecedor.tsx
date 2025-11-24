@@ -39,6 +39,9 @@ const SistemaLancesFornecedor = () => {
   const [valorLance, setValorLance] = useState<string>("");
   const [itemSelecionado, setItemSelecionado] = useState<number | null>(null);
   const [itensEstimados, setItensEstimados] = useState<Map<number, number>>(new Map());
+  const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map()); // Map<numeroItem, segundosRestantes>
+  const [observacao, setObservacao] = useState("");
+  const [enviandoLance, setEnviandoLance] = useState(false);
 
   useEffect(() => {
     if (propostaId) {
@@ -181,14 +184,60 @@ const SistemaLancesFornecedor = () => {
     try {
       const { data, error } = await supabase
         .from("itens_abertos_lances")
-        .select("numero_item")
+        .select("*")
         .eq("selecao_id", selecao.id)
         .eq("aberto", true);
 
       if (error) throw error;
 
-      const abertos = new Set(data?.map((item) => item.numero_item) || []);
+      const abertos = new Set(data?.map((item: any) => item.numero_item) || []);
       setItensAbertos(abertos);
+
+      // Mapear itens em fechamento com tempo restante
+      const emFechamento = new Map<number, number>();
+      
+      data?.forEach((item: any) => {
+        if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+          const tempoDecorrido = Math.floor((Date.now() - new Date(item.data_inicio_fechamento).getTime()) / 1000);
+          const tempoRestante = Math.max(0, item.segundos_para_fechar - tempoDecorrido);
+          
+          if (tempoRestante > 0) {
+            emFechamento.set(item.numero_item, tempoRestante);
+            
+            // Agendar recarregamento quando o item fechar
+            setTimeout(() => {
+              loadItensAbertos();
+            }, tempoRestante * 1000);
+          }
+        }
+      });
+      
+      setItensEmFechamento(emFechamento);
+
+      // Atualizar contador a cada segundo
+      const intervalo = setInterval(() => {
+        setItensEmFechamento(prev => {
+          const novo = new Map(prev);
+          let temAlgumAtivo = false;
+          
+          novo.forEach((segundos, numeroItem) => {
+            const novosSegundos = segundos - 1;
+            if (novosSegundos > 0) {
+              novo.set(numeroItem, novosSegundos);
+              temAlgumAtivo = true;
+            } else {
+              novo.delete(numeroItem);
+            }
+          });
+          
+          if (!temAlgumAtivo) {
+            clearInterval(intervalo);
+          }
+          
+          return novo;
+        });
+      }, 1000);
+
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }
@@ -532,18 +581,30 @@ const SistemaLancesFornecedor = () => {
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {Array.from(itensAbertos).sort((a, b) => a - b).map((numeroItem) => (
-                        <Button
-                          key={numeroItem}
-                          onClick={() => setItemSelecionado(numeroItem)}
-                          variant={itemSelecionado === numeroItem ? "default" : "outline"}
-                          className="gap-2"
-                          size="lg"
-                        >
-                          <Unlock className="h-4 w-4" />
-                          Item {numeroItem}
-                        </Button>
-                      ))}
+                      {Array.from(itensAbertos).sort((a, b) => a - b).map((numeroItem) => {
+                        const segundosRestantes = itensEmFechamento.get(numeroItem);
+                        const emFechamento = segundosRestantes !== undefined;
+                        
+                        return (
+                          <Button
+                            key={numeroItem}
+                            onClick={() => setItemSelecionado(numeroItem)}
+                            variant={itemSelecionado === numeroItem ? "default" : "outline"}
+                            className={`gap-2 ${emFechamento ? 'border-orange-500 bg-orange-50 hover:bg-orange-100' : ''}`}
+                            size="lg"
+                          >
+                            <Unlock className="h-4 w-4" />
+                            <div className="flex flex-col items-start">
+                              <span>Item {numeroItem}</span>
+                              {emFechamento && (
+                                <span className="text-xs text-orange-600 font-semibold">
+                                  Fechando em {segundosRestantes}s
+                                </span>
+                              )}
+                            </div>
+                          </Button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
