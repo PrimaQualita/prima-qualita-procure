@@ -25,20 +25,14 @@ interface RespostaVerificada {
   valor_total_anual_ofertado: number;
   data_envio_resposta: string;
   protocolo: string | null;
-  hash_certificacao: string | null;
-  usuario_gerador_id: string | null;
+  tipo: 'selecao' | 'cotacao' | 'autorizacao';
   fornecedor: {
     razao_social: string;
     cnpj: string;
   };
-  usuario_gerador?: {
-    nome_completo: string;
-  } | null;
-  cotacao: {
-    titulo_cotacao: string;
-    processo: {
-      numero_processo_interno: string;
-    };
+  processo: {
+    titulo: string;
+    numero: string;
   };
 }
 
@@ -62,156 +56,98 @@ const VerificarProposta = () => {
 
   const verificarProposta = async () => {
     try {
-      // Verificar se protocolo parece ser uma autorização (começa com AUT-)
-      if (protocolo && protocolo.startsWith('AUT-')) {
-        // Buscar na tabela de autorizações
-        const { data, error } = await supabaseAnon
-          .from("autorizacoes_processo")
-          .select(`
-            protocolo,
-            data_geracao,
-            nome_arquivo,
-            tipo_autorizacao,
-            cotacao_id
-          `)
-          .eq("protocolo", protocolo)
-          .maybeSingle();
+      console.log('Verificando protocolo:', protocolo);
 
-        if (error) throw error;
-
-        if (!data) {
-          setErro("Autorização não encontrada com este protocolo");
-        } else {
-          // Autorização encontrada - mostrar sucesso
-          setResposta({
-            id: data.protocolo,
-            valor_total_anual_ofertado: 0,
-            data_envio_resposta: data.data_geracao,
-            protocolo: data.protocolo,
-            hash_certificacao: null,
-            usuario_gerador_id: null,
-            fornecedor: {
-              razao_social: "Documento de Autorização",
-              cnpj: "N/A",
-            },
-            cotacao: {
-              titulo_cotacao: data.tipo_autorizacao === 'compra_direta' ? 'Autorização de Compra Direta' : 'Autorização de Seleção de Fornecedores',
-              processo: {
-                numero_processo_interno: data.protocolo,
-              },
-            },
-          });
-        }
-      } else {
-        // Buscar proposta de seleção com todos os dados
-        const { data: selecaoData, error: selecaoError } = await supabaseAnon
-          .from("selecao_propostas_fornecedor")
-          .select(`
-            id,
-            protocolo,
-            hash_certificacao,
-            valor_total_proposta,
-            data_envio_proposta,
-            fornecedor_id,
-            selecao_id,
-            fornecedores (
-              razao_social,
-              cnpj
-            ),
-            selecoes_fornecedores (
-              titulo_selecao,
-              processo_compra_id,
-              processos_compras (
-                numero_processo_interno
-              )
+      // Buscar proposta de seleção
+      const { data: selecaoData } = await supabaseAnon
+        .from("selecao_propostas_fornecedor")
+        .select(`
+          id,
+          protocolo,
+          valor_total_proposta,
+          data_envio_proposta,
+          fornecedores (
+            razao_social,
+            cnpj
+          ),
+          selecoes_fornecedores (
+            titulo_selecao,
+            processos_compras (
+              numero_processo_interno
             )
-          `)
-          .eq("protocolo", protocolo)
-          .maybeSingle();
+          )
+        `)
+        .eq("protocolo", protocolo)
+        .maybeSingle();
 
-        console.log('Query seleção result:', { data: selecaoData, error: selecaoError });
-
-        if (selecaoData && !selecaoError) {
-          setResposta({
-            id: selecaoData.id,
-            protocolo: selecaoData.protocolo,
-            hash_certificacao: selecaoData.hash_certificacao,
-            usuario_gerador_id: null,
-            valor_total_anual_ofertado: selecaoData.valor_total_proposta,
-            data_envio_resposta: selecaoData.data_envio_proposta,
-            fornecedor: {
-              razao_social: (selecaoData.fornecedores as any)?.razao_social || "N/A",
-              cnpj: (selecaoData.fornecedores as any)?.cnpj || "N/A",
-            },
-            usuario_gerador: null,
-            cotacao: {
-              titulo_cotacao: (selecaoData.selecoes_fornecedores as any)?.titulo_selecao || "N/A",
-              processo: {
-                numero_processo_interno: (selecaoData.selecoes_fornecedores as any)?.processos_compras?.numero_processo_interno || "N/A",
-              },
-            },
-          });
-        } else {
-          // Se não encontrou em seleção, buscar em cotação
-          const { data, error } = await supabaseAnon
-            .from("cotacao_respostas_fornecedor")
-            .select(`
-              id,
-              protocolo,
-              hash_certificacao,
-              usuario_gerador_id,
-              valor_total_anual_ofertado,
-              data_envio_resposta,
-              fornecedores:fornecedor_id (
-                razao_social,
-                cnpj
-              ),
-              profiles!usuario_gerador_id (
-                nome_completo
-              ),
-              cotacoes_precos:cotacao_id (
-                titulo_cotacao,
-                processos_compras:processo_compra_id (
-                  numero_processo_interno
-                )
-              )
-            `)
-            .eq("protocolo", protocolo)
-            .maybeSingle();
-
-          if (error) throw error;
-
-          if (!data) {
-            setErro("Proposta não encontrada com este protocolo");
-          } else {
-            setResposta({
-              id: data.id,
-              protocolo: data.protocolo,
-              hash_certificacao: data.hash_certificacao,
-              usuario_gerador_id: data.usuario_gerador_id,
-              valor_total_anual_ofertado: data.valor_total_anual_ofertado,
-              data_envio_resposta: data.data_envio_resposta,
-              fornecedor: {
-                razao_social: (data.fornecedores as any)?.razao_social || "N/A",
-                cnpj: (data.fornecedores as any)?.cnpj || "N/A",
-              },
-              usuario_gerador: (data.profiles as any) || null,
-              cotacao: {
-                titulo_cotacao: (data.cotacoes_precos as any)?.titulo_cotacao || "N/A",
-                processo: {
-                  numero_processo_interno: ((data.cotacoes_precos as any)?.processos_compras as any)?.numero_processo_interno || "N/A",
-                },
-              },
-            });
-          }
-        }
+      if (selecaoData) {
+        console.log('✅ Proposta de seleção encontrada');
+        setResposta({
+          id: selecaoData.id,
+          protocolo: selecaoData.protocolo,
+          tipo: 'selecao',
+          valor_total_anual_ofertado: selecaoData.valor_total_proposta,
+          data_envio_resposta: selecaoData.data_envio_proposta,
+          fornecedor: {
+            razao_social: (selecaoData.fornecedores as any)?.razao_social || "N/A",
+            cnpj: (selecaoData.fornecedores as any)?.cnpj || "N/A",
+          },
+          processo: {
+            titulo: (selecaoData.selecoes_fornecedores as any)?.titulo_selecao || "N/A",
+            numero: (selecaoData.selecoes_fornecedores as any)?.processos_compras?.numero_processo_interno || "N/A",
+          },
+        });
+        return;
       }
+
+      // Se não encontrou em seleção, tentar cotação
+      const { data: cotacaoData } = await supabaseAnon
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          id,
+          protocolo,
+          valor_total_anual_ofertado,
+          data_envio_resposta,
+          fornecedores (
+            razao_social,
+            cnpj
+          ),
+          cotacoes_precos (
+            titulo_cotacao,
+            processos_compras (
+              numero_processo_interno
+            )
+          )
+        `)
+        .eq("protocolo", protocolo)
+        .maybeSingle();
+
+      if (cotacaoData) {
+        console.log('✅ Proposta de cotação encontrada');
+        setResposta({
+          id: cotacaoData.id,
+          protocolo: cotacaoData.protocolo,
+          tipo: 'cotacao',
+          valor_total_anual_ofertado: cotacaoData.valor_total_anual_ofertado,
+          data_envio_resposta: cotacaoData.data_envio_resposta,
+          fornecedor: {
+            razao_social: (cotacaoData.fornecedores as any)?.razao_social || "N/A",
+            cnpj: (cotacaoData.fornecedores as any)?.cnpj || "N/A",
+          },
+          processo: {
+            titulo: (cotacaoData.cotacoes_precos as any)?.titulo_cotacao || "N/A",
+            numero: (cotacaoData.cotacoes_precos as any)?.processos_compras?.numero_processo_interno || "N/A",
+          },
+        });
+        return;
+      }
+
+      // Não encontrou nenhuma proposta
+      console.log('❌ Proposta não encontrada');
+      setErro("Proposta não encontrada com este protocolo");
     } catch (error: any) {
-      console.error("=== ERRO NA VERIFICAÇÃO ===");
-      console.error("Erro:", error);
-      console.error("Message:", error?.message);
-      console.error("Stack:", error?.stack);
-      setErro("Erro ao verificar proposta: " + (error?.message || "Erro desconhecido"));
+      console.error("Erro na verificação:", error);
+      setErro("Erro ao verificar: " + (error?.message || "Erro desconhecido"));
     } finally {
       setLoading(false);
     }
@@ -322,41 +258,28 @@ const VerificarProposta = () => {
 
                   <div className="flex justify-between items-start py-2 border-b">
                     <span className="text-sm font-medium text-muted-foreground">Processo:</span>
-                    <span className="text-sm font-medium">{resposta.cotacao.processo.numero_processo_interno}</span>
+                    <span className="text-sm font-medium">{resposta.processo.numero}</span>
                   </div>
 
+                  <div className="flex justify-between items-start py-2 border-b">
+                    <span className="text-sm font-medium text-muted-foreground">Fornecedor:</span>
+                    <span className="text-sm font-medium">{resposta.fornecedor.razao_social}</span>
+                  </div>
 
+                  <div className="flex justify-between items-start py-2 border-b">
+                    <span className="text-sm font-medium text-muted-foreground">CNPJ:</span>
+                    <span className="text-sm font-medium">{formatarCNPJ(resposta.fornecedor.cnpj)}</span>
+                  </div>
 
-                  {resposta.fornecedor.razao_social !== "Documento de Autorização" && resposta.fornecedor.cnpj !== "00000000000000" && (
-                    <>
-                      <div className="flex justify-between items-start py-2 border-b">
-                        <span className="text-sm font-medium text-muted-foreground">CNPJ:</span>
-                        <span className="text-sm font-medium">{formatarCNPJ(resposta.fornecedor.cnpj)}</span>
-                      </div>
-
-                      <div className="flex justify-between items-start py-2">
-                        <span className="text-sm font-medium text-muted-foreground">Valor Total:</span>
-                        <span className="text-lg font-bold text-primary">
-                          R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                          })}
-                        </span>
-                      </div>
-                    </>
-                  )}
-
-                  {resposta.fornecedor.razao_social !== "Documento de Autorização" && resposta.fornecedor.cnpj === "00000000000000" && (
-                    <div className="flex justify-between items-start py-2">
-                      <span className="text-sm font-medium text-muted-foreground">Valor Total:</span>
-                      <span className="text-lg font-bold text-primary">
-                        R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
-                        })}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-start py-2">
+                    <span className="text-sm font-medium text-muted-foreground">Valor Total:</span>
+                    <span className="text-lg font-bold text-primary">
+                      R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
+                    </span>
+                  </div>
                 </div>
               </div>
 
