@@ -41,14 +41,36 @@ export function DialogCriarSelecao({
     setCreating(true);
 
     try {
-      // Buscar valor estimado do processo
-      const { data: processo, error: processoError } = await supabase
-        .from("processos_compras")
-        .select("valor_estimado_anual")
-        .eq("id", processoId)
+      // Buscar planilha consolidada mais recente da cotação
+      const { data: planilha, error: planilhaError } = await supabase
+        .from("planilhas_consolidadas")
+        .select("fornecedores_incluidos")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_geracao", { ascending: false })
+        .limit(1)
         .single();
 
-      if (processoError) throw processoError;
+      if (planilhaError) {
+        console.error("Erro ao buscar planilha:", planilhaError);
+        toast.error("Erro ao buscar planilha consolidada");
+        setCreating(false);
+        return;
+      }
+
+      // Calcular valor total da planilha consolidada
+      let valorTotal = 0;
+      if (planilha?.fornecedores_incluidos && Array.isArray(planilha.fornecedores_incluidos)) {
+        planilha.fornecedores_incluidos.forEach((fornecedor: any) => {
+          if (fornecedor.itens && Array.isArray(fornecedor.itens)) {
+            fornecedor.itens.forEach((item: any) => {
+              const valorItem = parseFloat(item.valor_total || 0);
+              if (!isNaN(valorItem)) {
+                valorTotal += valorItem;
+              }
+            });
+          }
+        });
+      }
 
       // Criar seleção
       const { data: selecao, error: selecaoError } = await supabase
@@ -61,7 +83,7 @@ export function DialogCriarSelecao({
           data_sessao_disputa: dataDisputa,
           hora_sessao_disputa: horaDisputa,
           criterios_julgamento: criterioJulgamento,
-          valor_estimado_anual: processo?.valor_estimado_anual || 0,
+          valor_estimado_anual: valorTotal,
           status_selecao: "planejada",
         })
         .select()
