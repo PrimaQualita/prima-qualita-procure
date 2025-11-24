@@ -90,7 +90,7 @@ export const gerarEncaminhamentoPDF = async (
     const gState = doc.GState({ opacity: 0.08 });
     doc.setGState(gState);
     const marcaDaguaWidth = 160;
-    const marcaDaguaHeight = 160;
+    const marcaDaguaHeight = 80;
     doc.addImage(
       base64MarcaDagua, 
       'PNG', 
