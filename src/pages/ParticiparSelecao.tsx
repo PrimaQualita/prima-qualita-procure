@@ -115,6 +115,7 @@ const ParticiparSelecao = () => {
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [documentosAnexados, setDocumentosAnexados] = useState<any[]>([]);
   const [fornecedor, setFornecedor] = useState<any>(null);
+  const [isPublicAccess, setIsPublicAccess] = useState(false);
   const [jaEnviouProposta, setJaEnviouProposta] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   
@@ -174,13 +175,15 @@ const ParticiparSelecao = () => {
       }
       
       // Acesso público sem autenticação - IMPORTANTE: fornecedor permanece null
-      console.log("🌐 Modo público - formulário de dados deve aparecer");
+      console.log("🌐 MODO PÚBLICO ATIVADO - FORMULÁRIO DEVE APARECER");
       setFornecedor(null); // Garante que fornecedor seja null para acesso público
+      setIsPublicAccess(true); // Flag explícita para público
       await loadSelecao(null);
     } catch (error) {
       console.error("❌ Erro em checkAuth:", error);
       // Mesmo com erro, permite acesso público
       setFornecedor(null);
+      setIsPublicAccess(true);
       await loadSelecao(null);
     }
   };
@@ -704,8 +707,11 @@ const ParticiparSelecao = () => {
         {/* Registro de Proposta */}
         {!jaEnviouProposta ? (
           <>
-            {/* Dados da Empresa - FORMULÁRIO SEMPRE EXIBIDO PARA PÚBLICO */}
-            {!fornecedor && (
+            {/* DEBUG - VERIFICAÇÃO DE RENDERIZAÇÃO */}
+            {console.log("🎨 RENDERIZAÇÃO:", { fornecedor: fornecedor, isPublicAccess, shouldShowForm: !fornecedor || isPublicAccess })}
+            
+            {/* Dados da Empresa - FORMULÁRIO FORÇADO PARA PÚBLICO */}
+            {(isPublicAccess || !fornecedor) && (
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle>Dados da Empresa</CardTitle>
