@@ -23,6 +23,7 @@ interface Processo {
   numero_processo_interno: string;
   objeto_resumido: string;
   valor_estimado_anual: number;
+  valor_planilha?: number;
   requer_selecao: boolean;
   criterio_julgamento?: string;
 }
@@ -98,9 +99,56 @@ const Selecoes = () => {
     if (error) {
       toast.error("Erro ao carregar processos");
       console.error(error);
-    } else {
-      setProcessos(data || []);
+      return;
     }
+
+    // Para cada processo, buscar o valor da planilha consolidada mais recente
+    const processosComValor = await Promise.all(
+      (data || []).map(async (processo) => {
+        // Buscar cotação do processo
+        const { data: cotacao } = await supabase
+          .from("cotacoes_precos")
+          .select("id")
+          .eq("processo_compra_id", processo.id)
+          .single();
+
+        if (!cotacao) {
+          return { ...processo, valor_planilha: 0 };
+        }
+
+        // Buscar planilha consolidada mais recente
+        const { data: planilha } = await supabase
+          .from("planilhas_consolidadas")
+          .select("fornecedores_incluidos")
+          .eq("cotacao_id", cotacao.id)
+          .order("data_geracao", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!planilha?.fornecedores_incluidos) {
+          return { ...processo, valor_planilha: 0 };
+        }
+
+        // Calcular valor total da planilha
+        let valorTotal = 0;
+        if (Array.isArray(planilha.fornecedores_incluidos)) {
+          planilha.fornecedores_incluidos.forEach((fornecedor: any) => {
+            if (fornecedor.itens && Array.isArray(fornecedor.itens)) {
+              fornecedor.itens.forEach((item: any) => {
+                const valorItem = parseFloat(item.valor_total || 0);
+                if (!isNaN(valorItem)) {
+                  valorTotal += valorItem;
+                }
+              });
+            }
+          });
+        }
+
+        return { ...processo, valor_planilha: valorTotal };
+      })
+    );
+
+    setProcessos(processosComValor);
   };
 
   const loadSelecoes = async (processoId: string) => {
@@ -232,7 +280,7 @@ const Selecoes = () => {
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
                         <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
                         <TableCell className="text-right">
-                          R$ {processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          R$ {(processo.valor_planilha || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
