@@ -58,6 +58,7 @@ const VerificarProposta = () => {
   useEffect(() => {
     console.log('=== USE EFFECT EXECUTADO ===');
     console.log('Protocolo recebido:', protocolo);
+    alert(`Protocolo recebido: ${protocolo}`);
     
     if (protocolo) {
       console.log('Protocolo válido, chamando verificarProposta...');
