@@ -110,34 +110,36 @@ const SistemaLancesFornecedor = () => {
       setProposta(propostaData);
       setSelecao(propostaData.selecoes_fornecedores);
 
-      // Carregar TODAS as propostas iniciais para calcular valores de referência por item
-      const { data: todasPropostas, error: todasPropostasError } = await supabase
-        .from("selecao_propostas_fornecedor")
-        .select(`
-          id,
-          fornecedor_id,
-          selecao_respostas_itens_fornecedor(
-            numero_item,
-            valor_unitario_ofertado
-          )
-        `)
-        .eq("selecao_id", propostaData.selecoes_fornecedores.id);
+      // Buscar valores estimados da PLANILHA CONSOLIDADA mais recente
+      if (propostaData.selecoes_fornecedores.cotacao_relacionada_id) {
+        const { data: planilhaData, error: planilhaError } = await supabase
+          .from("planilhas_consolidadas")
+          .select("fornecedores_incluidos")
+          .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
+          .order("data_geracao", { ascending: false })
+          .limit(1)
+          .single();
 
-      if (!todasPropostasError && todasPropostas) {
-        // Calcular menor valor proposto inicialmente para cada item
-        const mapaEstimados = new Map<number, number>();
-        
-        todasPropostas.forEach((proposta: any) => {
-          proposta.selecao_respostas_itens_fornecedor?.forEach((item: any) => {
-            const valorAtual = mapaEstimados.get(item.numero_item);
-            if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
-              mapaEstimados.set(item.numero_item, item.valor_unitario_ofertado);
+        if (!planilhaError && planilhaData?.fornecedores_incluidos) {
+          const mapaEstimados = new Map<number, number>();
+          
+          // Extrair valores estimados (menores valores = vencedores) de cada item da planilha
+          const fornecedores = planilhaData.fornecedores_incluidos as any[];
+          fornecedores.forEach((fornecedor: any) => {
+            if (fornecedor.itens) {
+              fornecedor.itens.forEach((item: any) => {
+                const valorAtual = mapaEstimados.get(item.numero_item);
+                // Pegar apenas os valores dos itens vencedores OU o menor valor
+                if (!valorAtual || item.valor_unitario < valorAtual) {
+                  mapaEstimados.set(item.numero_item, item.valor_unitario);
+                }
+              });
             }
           });
-        });
 
-        console.log('Valores de referência por item (menor proposta inicial):', Object.fromEntries(mapaEstimados));
-        setItensEstimados(mapaEstimados);
+          console.log('Valores estimados da planilha consolidada:', Object.fromEntries(mapaEstimados));
+          setItensEstimados(mapaEstimados);
+        }
       }
 
       // Verificar se ainda é editável (5 minutos antes da sessão)
@@ -228,38 +230,38 @@ const SistemaLancesFornecedor = () => {
       return false;
     }
     
-    const valorReferencia = itensEstimados.get(numeroItem);
-    console.log(`Item ${numeroItem} - Valor Proposta: ${itemProposta.valor_unitario_ofertado}, Menor Valor Inicial: ${valorReferencia}`);
+    const valorEstimado = itensEstimados.get(numeroItem);
+    console.log(`Item ${numeroItem} - Valor Proposta: ${itemProposta.valor_unitario_ofertado}, Valor Estimado: ${valorEstimado}`);
     
-    if (!valorReferencia || valorReferencia === 0) {
-      console.log(`Item ${numeroItem} - Sem valor de referência válido, NÃO desclassifica`);
+    if (!valorEstimado || valorEstimado === 0) {
+      console.log(`Item ${numeroItem} - Sem valor estimado válido, NÃO desclassifica`);
       return false;
     }
     
-    // Desclassifica APENAS se o valor ofertado for MAIOR (>) que o menor valor inicial
+    // Desclassifica APENAS se o valor ofertado for MAIOR (>) que o estimado
     // Valores iguais (=) ou menores (<) são CLASSIFICADOS
-    const desclassificado = itemProposta.valor_unitario_ofertado > valorReferencia;
-    console.log(`Item ${numeroItem} - Desclassificado: ${desclassificado} (${itemProposta.valor_unitario_ofertado} > ${valorReferencia})`);
+    const desclassificado = itemProposta.valor_unitario_ofertado > valorEstimado;
+    console.log(`Item ${numeroItem} - Desclassificado: ${desclassificado} (${itemProposta.valor_unitario_ofertado} > ${valorEstimado})`);
     
     return desclassificado;
   };
 
   const isLanceDesclassificado = (numeroItem: number, valorLance: number) => {
-    const valorReferencia = itensEstimados.get(numeroItem);
-    if (!valorReferencia) return false;
-    return valorLance > valorReferencia;
+    const valorEstimado = itensEstimados.get(numeroItem);
+    if (!valorEstimado) return false;
+    return valorLance > valorEstimado;
   };
 
   const getValorMinimoAtual = (numeroItem: number) => {
-    const valorReferencia = itensEstimados.get(numeroItem) || 0;
+    const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const lancesDoItem = getLancesDoItem(numeroItem);
     
-    // Filtrar apenas lances classificados (menores ou iguais ao menor valor inicial)
-    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorReferencia);
+    // Filtrar apenas lances classificados (menores ou iguais ao estimado)
+    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
     
     if (lancesClassificados.length === 0) {
-      // Se não há lances classificados, buscar menor valor das propostas iniciais
-      return valorReferencia;
+      // Se não há lances classificados, retornar o valor estimado
+      return valorEstimado;
     }
     
     // Retornar o menor lance classificado
@@ -288,9 +290,9 @@ const SistemaLancesFornecedor = () => {
       return;
     }
 
-    const valorReferencia = itensEstimados.get(itemSelecionado) || 0;
-    if (valorNumerico > valorReferencia) {
-      toast.error(`Lance desclassificado! Valor deve ser menor ou igual ao menor valor inicial: R$ ${valorReferencia.toFixed(2).replace('.', ',')}`);
+    const valorEstimado = itensEstimados.get(itemSelecionado) || 0;
+    if (valorNumerico > valorEstimado) {
+      toast.error(`Lance desclassificado! Valor deve ser menor ou igual ao estimado: R$ ${valorEstimado.toFixed(2).replace('.', ',')}`);
       return;
     }
 
@@ -557,13 +559,13 @@ const SistemaLancesFornecedor = () => {
                         </div>
                         <div className="border-t border-red-200 pt-3 mt-3">
                           <p className="text-sm text-red-800 mb-2">
-                            <strong>Motivo:</strong> Sua proposta inicial (R$ {formatarMoeda(itens.find(i => i.numero_item === itemSelecionado)?.valor_unitario_ofertado || 0)}) está acima do menor valor proposto.
+                            <strong>Motivo:</strong> Sua proposta inicial ({formatarMoeda(itens.find(i => i.numero_item === itemSelecionado)?.valor_unitario_ofertado || 0)}) está acima do valor estimado.
                           </p>
                           <p className="text-sm text-red-800">
-                            <strong>Menor Valor Inicial:</strong> {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}
+                            <strong>Valor Estimado:</strong> {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}
                           </p>
                           <p className="text-xs text-red-600 mt-3 italic">
-                            ⚠️ Apenas fornecedores com propostas iniciais iguais ou menores ao menor valor proposto podem participar da disputa deste item.
+                            ⚠️ Apenas fornecedores com propostas iniciais iguais ou menores ao valor estimado podem participar da disputa deste item.
                           </p>
                         </div>
                       </div>
@@ -583,7 +585,7 @@ const SistemaLancesFornecedor = () => {
                         <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300">
                           <div className="flex items-center gap-2 mb-2">
                             <Trophy className="h-6 w-6 text-amber-600" />
-                            <Label className="text-sm font-semibold">Menor Valor Inicial - Item {itemSelecionado}</Label>
+                            <Label className="text-sm font-semibold">Valor Estimado - Item {itemSelecionado}</Label>
                           </div>
                           <p className="font-bold text-3xl text-amber-700">
                             {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}
@@ -716,7 +718,7 @@ const SistemaLancesFornecedor = () => {
                     {/* Legenda de Desclassificação */}
                     <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                       <p className="text-sm text-amber-800">
-                        <strong>⚠️ Atenção:</strong> Lances com valores acima do menor valor inicial (R$ {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}) são automaticamente desclassificados e não participam da disputa.
+                        <strong>⚠️ Atenção:</strong> Lances com valores acima do estimado ({formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}) são automaticamente desclassificados e não participam da disputa.
                       </p>
                     </div>
                   </div>
