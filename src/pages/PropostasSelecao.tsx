@@ -119,7 +119,7 @@ export default function PropostasSelecao() {
         
         toast.success("Proposta carregada com sucesso!");
       } else {
-        // Fallback: gerar PDF se não existir
+        // Gerar PDF e salvar URL
         const resultado = await gerarPropostaSelecaoPDF(
           propostaId,
           {
@@ -139,6 +139,16 @@ export default function PropostasSelecao() {
           proposta.data_envio_proposta
         );
 
+        // Salvar URL no banco de dados
+        const { error: updateError } = await supabase
+          .from('selecao_propostas_fornecedor')
+          .update({ url_pdf_proposta: resultado.url })
+          .eq('id', propostaId);
+
+        if (updateError) {
+          console.error('Erro ao salvar URL do PDF:', updateError);
+        }
+
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('processo-anexos')
           .download(resultado.url);
@@ -149,6 +159,9 @@ export default function PropostasSelecao() {
         window.open(pdfUrl, '_blank');
         
         toast.success("Proposta gerada com sucesso!");
+        
+        // Recarregar propostas para atualizar a URL
+        await loadPropostas();
       }
     } catch (error) {
       console.error("Erro ao visualizar proposta:", error);
@@ -184,7 +197,7 @@ export default function PropostasSelecao() {
         
         toast.success("Proposta baixada com sucesso!");
       } else {
-        // Fallback: gerar PDF se não existir
+        // Gerar PDF e salvar URL
         const resultado = await gerarPropostaSelecaoPDF(
           propostaId,
           {
@@ -204,6 +217,16 @@ export default function PropostasSelecao() {
           proposta.data_envio_proposta
         );
 
+        // Salvar URL no banco de dados
+        const { error: updateError } = await supabase
+          .from('selecao_propostas_fornecedor')
+          .update({ url_pdf_proposta: resultado.url })
+          .eq('id', propostaId);
+
+        if (updateError) {
+          console.error('Erro ao salvar URL do PDF:', updateError);
+        }
+
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('processo-anexos')
           .download(resultado.url);
@@ -217,6 +240,9 @@ export default function PropostasSelecao() {
         link.click();
         
         toast.success("Proposta baixada com sucesso!");
+        
+        // Recarregar propostas para atualizar a URL
+        await loadPropostas();
       }
     } catch (error) {
       console.error("Erro ao baixar proposta:", error);
