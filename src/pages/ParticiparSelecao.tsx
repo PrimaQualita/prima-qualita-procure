@@ -505,6 +505,15 @@ const ParticiparSelecao = () => {
     }, 0);
   };
 
+  const gerarCodigoAcesso = () => {
+    const caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let codigo = '';
+    for (let i = 0; i < 8; i++) {
+      codigo += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    }
+    return codigo;
+  };
+
   const handleSubmit = async () => {
     if (!fornecedor && !dadosEmpresa.cnpj) {
       toast.error("É necessário informar o CNPJ da empresa");
@@ -583,7 +592,11 @@ const ParticiparSelecao = () => {
         }
       }
 
-      // Criar proposta
+      // Gerar código de acesso único
+      const codigoAcesso = gerarCodigoAcesso();
+      console.log("Código de acesso gerado:", codigoAcesso);
+
+      // Criar proposta COM código de acesso
       const { data: propostaCriada, error: erroProposta } = await supabase
         .from("selecao_propostas_fornecedor")
         .insert({
@@ -592,6 +605,7 @@ const ParticiparSelecao = () => {
           observacoes_fornecedor: observacoes || null,
           valor_total_proposta: valorTotal,
           data_envio_proposta: new Date().toISOString(),
+          codigo_acesso: codigoAcesso,
         })
         .select("id")
         .single();
@@ -616,7 +630,45 @@ const ParticiparSelecao = () => {
 
       if (erroItens) throw erroItens;
 
-      toast.success("Proposta enviada com sucesso! Aguarde a data da sessão de disputa para enviar lances.");
+      // Enviar e-mail com código de acesso
+      const razaoSocialEmail = fornecedor?.razao_social || dadosEmpresa.razao_social;
+      const emailDestino = fornecedor?.email || dadosEmpresa.email;
+
+      try {
+        const { error: emailError } = await supabase.functions.invoke('enviar-email-chave-acesso', {
+          body: {
+            email: emailDestino,
+            razaoSocial: razaoSocialEmail,
+            codigoAcesso: codigoAcesso,
+            tituloSelecao: selecao.titulo_selecao,
+          }
+        });
+
+        if (emailError) {
+          console.error("Erro ao enviar e-mail:", emailError);
+        }
+      } catch (emailError) {
+        console.error("Erro ao invocar função de e-mail:", emailError);
+      }
+
+      // Exibir mensagem de sucesso com código de acesso
+      toast.success(
+        <div className="space-y-2">
+          <p className="font-bold">✅ Proposta Enviada com Sucesso!</p>
+          <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md border border-blue-200 dark:border-blue-800">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Sua Chave de Acesso:</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 tracking-wider text-center my-2">
+              {codigoAcesso}
+            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-300">
+              ⚠️ IMPORTANTE: Guarde esta chave! Você precisará dela para futuras consultas. 
+              Um e-mail de confirmação com sua chave foi enviado para {emailDestino}.
+            </p>
+          </div>
+        </div>,
+        { duration: 10000 }
+      );
+      
       setJaEnviouProposta(true);
       
     } catch (error) {
