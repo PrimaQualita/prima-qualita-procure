@@ -47,6 +47,10 @@ const VerificarProposta = () => {
   const [searchParams] = useSearchParams();
   const protocolo = searchParams.get("protocolo");
   
+  console.log('==== PÁGINA VERIFICAR PROPOSTA CARREGADA ====');
+  console.log('URL atual:', window.location.href);
+  console.log('Protocolo da URL:', protocolo);
+  
   const [loading, setLoading] = useState(true);
   const [resposta, setResposta] = useState<RespostaVerificada | null>(null);
   const [erro, setErro] = useState<string | null>(null);
