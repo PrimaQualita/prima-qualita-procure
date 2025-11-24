@@ -64,10 +64,19 @@ const formatarCNPJ = (valor: string): string => {
   return `${apenasNumeros.slice(0, 2)}.${apenasNumeros.slice(2, 5)}.${apenasNumeros.slice(5, 8)}/${apenasNumeros.slice(8, 12)}-${apenasNumeros.slice(12, 14)}`;
 };
 
+const formatarTelefone = (valor: string): string => {
+  const apenasNumeros = valor.replace(/[^\d]/g, "");
+  if (apenasNumeros.length <= 2) return apenasNumeros;
+  if (apenasNumeros.length <= 6) return `(${apenasNumeros.slice(0, 2)}) ${apenasNumeros.slice(2)}`;
+  if (apenasNumeros.length <= 10) return `(${apenasNumeros.slice(0, 2)}) ${apenasNumeros.slice(2, 6)}-${apenasNumeros.slice(6)}`;
+  return `(${apenasNumeros.slice(0, 2)}) ${apenasNumeros.slice(2, 7)}-${apenasNumeros.slice(7, 11)}`;
+};
+
 const dadosEmpresaSchema = z.object({
   razao_social: z.string().trim().min(1, "Razão Social é obrigatória").max(255),
   cnpj: z.string().trim().min(1, "CNPJ é obrigatório").refine((val) => validarCNPJ(val), { message: "CNPJ inválido" }),
   email: z.string().trim().min(1, "E-mail é obrigatório").email("E-mail inválido"),
+  telefone: z.string().trim().min(14, "Telefone inválido").max(15, "Telefone inválido"),
   logradouro: z.string().trim().min(1, "Logradouro é obrigatório").max(255),
   numero: z.string().trim().min(1, "Número é obrigatório").max(20),
   bairro: z.string().trim().min(1, "Bairro é obrigatório").max(100),
@@ -123,6 +132,7 @@ const ParticiparSelecao = () => {
     razao_social: "",
     cnpj: "",
     email: "",
+    telefone: "",
     logradouro: "",
     numero: "",
     bairro: "",
@@ -173,6 +183,7 @@ const ParticiparSelecao = () => {
             razao_social: fornecedorData.razao_social || "",
             cnpj: formatarCNPJ(fornecedorData.cnpj) || "",
             email: fornecedorData.email || "",
+            telefone: formatarTelefone(fornecedorData.telefone) || "",
             logradouro: "",
             numero: "",
             bairro: "",
@@ -648,7 +659,7 @@ const ParticiparSelecao = () => {
               razao_social: dadosEmpresa.razao_social,
               cnpj: cnpjLimpo,
               email: dadosEmpresa.email,
-              telefone: "00000000000",
+              telefone: dadosEmpresa.telefone.replace(/[^\d]/g, ""),
               endereco_comercial: enderecoCompleto,
               status_aprovacao: "pendente",
               ativo: false,
@@ -992,6 +1003,19 @@ const ParticiparSelecao = () => {
                         className={errors.email ? "border-red-500" : ""}
                       />
                       {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
+                    </div>
+
+                    <div>
+                      <Label>Telefone *</Label>
+                      <Input
+                        type="tel"
+                        value={dadosEmpresa.telefone}
+                        onChange={(e) => setDadosEmpresa(prev => ({ ...prev, telefone: formatarTelefone(e.target.value) }))}
+                        maxLength={15}
+                        placeholder="(XX) XXXXX-XXXX"
+                        className={errors.telefone ? "border-red-500" : ""}
+                      />
+                      {errors.telefone && <p className="text-sm text-red-500 mt-1">{errors.telefone}</p>}
                     </div>
 
                     <div>
