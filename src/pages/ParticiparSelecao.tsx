@@ -9,12 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, FileText, Gavel, Send, Upload } from "lucide-react";
+import { ArrowLeft, FileText, Gavel, Send, Upload, Key } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
 import { z } from "zod";
 import { DialogImportarProposta } from "@/components/selecoes/DialogImportarProposta";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const UFS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
@@ -127,6 +128,9 @@ const ParticiparSelecao = () => {
   const [isPublicAccess, setIsPublicAccess] = useState(false);
   const [jaEnviouProposta, setJaEnviouProposta] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [acessoCodigoDialogOpen, setAcessoCodigoDialogOpen] = useState(false);
+  const [codigoAcesso, setCodigoAcesso] = useState("");
+  const [validandoCodigo, setValidandoCodigo] = useState(false);
   
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
@@ -958,6 +962,32 @@ const ParticiparSelecao = () => {
           </CardContent>
         </Card>
 
+        {/* Botão de Acesso com Código - SEMPRE visível */}
+        <Card className="mb-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
+                  <Key className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  Já tem uma proposta registrada?
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Digite seu código de acesso para editar sua proposta ou acompanhar o sistema de lances
+                </p>
+              </div>
+              <Button 
+                onClick={() => setAcessoCodigoDialogOpen(true)}
+                variant="default"
+                size="lg"
+                className="ml-4"
+              >
+                <Key className="mr-2 h-4 w-4" />
+                Acessar com Código
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Registro de Proposta */}
         {!jaEnviouProposta ? (
           <>
@@ -1249,6 +1279,83 @@ const ParticiparSelecao = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Dialog de Acesso com Código */}
+        <Dialog open={acessoCodigoDialogOpen} onOpenChange={setAcessoCodigoDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                Acessar com Código
+              </DialogTitle>
+              <DialogDescription>
+                Digite o código de acesso que você recebeu ao enviar sua proposta
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="codigo">Código de Acesso</Label>
+                <Input
+                  id="codigo"
+                  value={codigoAcesso}
+                  onChange={(e) => setCodigoAcesso(e.target.value.toUpperCase())}
+                  placeholder="Digite o código de 8 caracteres"
+                  maxLength={8}
+                  className="font-mono text-lg"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAcessoCodigoDialogOpen(false);
+                  setCodigoAcesso("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!codigoAcesso || codigoAcesso.length !== 8) {
+                    toast.error("Digite um código válido de 8 caracteres");
+                    return;
+                  }
+
+                  setValidandoCodigo(true);
+                  try {
+                    const { data, error } = await supabase
+                      .from("selecao_propostas_fornecedor")
+                      .select("id")
+                      .eq("codigo_acesso", codigoAcesso)
+                      .eq("selecao_id", selecaoId)
+                      .maybeSingle();
+
+                    if (error) throw error;
+
+                    if (!data) {
+                      toast.error("Código inválido ou não encontrado para esta seleção");
+                      return;
+                    }
+
+                    toast.success("Código validado! Redirecionando...");
+                    navigate(`/sistema-lances-fornecedor?proposta=${data.id}`);
+                  } catch (error) {
+                    console.error("Erro ao validar código:", error);
+                    toast.error("Erro ao validar código");
+                  } finally {
+                    setValidandoCodigo(false);
+                  }
+                }}
+                disabled={validandoCodigo || codigoAcesso.length !== 8}
+              >
+                {validandoCodigo ? "Validando..." : "Acessar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Botão Voltar */}
         <div className="text-center">

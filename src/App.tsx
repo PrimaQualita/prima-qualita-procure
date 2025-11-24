@@ -37,6 +37,7 @@ import Compliance from "./pages/Compliance";
 import DetalheSelecao from "./pages/DetalheSelecao";
 import ParticiparSelecao from "./pages/ParticiparSelecao";
 import PropostasSelecao from "./pages/PropostasSelecao";
+import SistemaLancesFornecedor from "./pages/SistemaLancesFornecedor";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ const App = () => (
           <Route path="/respostas-cotacao" element={<RespostasCotacao />} />
           <Route path="/participar-selecao" element={<ParticiparSelecao />} />
           <Route path="/propostas-selecao" element={<PropostasSelecao />} />
+          <Route path="/sistema-lances-fornecedor" element={<SistemaLancesFornecedor />} />
           <Route path="/incluir-precos-publicos" element={<IncluirPrecosPublicos />} />
           <Route path="/verificar-proposta" element={<VerificarProposta />} />
           <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
