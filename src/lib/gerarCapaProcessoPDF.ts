@@ -71,21 +71,22 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .content {
             position: relative;
             z-index: 2;
-            padding: 100px 80px 20px 80px;
-            min-height: calc(297mm - 100px);
+            padding: 60px 80px 0 80px;
+            height: calc(297mm - 120px);
             display: flex;
             flex-direction: column;
+            justify-content: space-between;
           }
           
           .top-section {
-            margin-bottom: 80px;
+            flex-shrink: 0;
           }
           
           .processo-line {
             text-align: center;
             font-size: 24px;
             font-weight: bold;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             color: #1a5490;
           }
           
@@ -93,33 +94,30 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             text-align: center;
             font-size: 24px;
             font-weight: bold;
-            margin-bottom: 60px;
+            margin-bottom: 40px;
             color: #1a5490;
           }
           
           .objeto-section {
-            margin-bottom: 20px;
+            margin-bottom: 0;
             text-align: left;
           }
           
           .objeto-title {
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
           }
           
           .objeto-text {
             font-size: 16px;
-            line-height: 1.5;
+            line-height: 1.4;
           }
           
           .middle-section {
             text-align: center;
-            flex-grow: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 100px 0;
+            flex-grow: 0;
+            flex-shrink: 0;
           }
           
           .data-text {
@@ -129,19 +127,20 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           }
           
           .bottom-section {
-            margin-bottom: 30px;
+            margin-bottom: 15px;
             text-align: left;
+            flex-shrink: 0;
           }
           
           .assunto-title {
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
           }
           
           .assunto-text {
             font-size: 16px;
-            line-height: 1.5;
+            line-height: 1.4;
             text-align: justify;
           }
           
@@ -175,7 +174,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             
             <div class="objeto-section">
               <div class="objeto-title">Objeto:</div>
-              <div class="objeto-text">${dados.objetoProcesso}</div>
+              <div class="objeto-text">${dados.observacoesContrato || 'Não informado'}</div>
             </div>
           </div>
           
@@ -191,7 +190,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           
           <div class="bottom-section">
             <div class="assunto-title">Assunto:</div>
-            <div class="assunto-text">${dados.observacoesContrato || 'Não informado'}</div>
+            <div class="assunto-text">${dados.objetoProcesso}</div>
           </div>
         </div>
         
