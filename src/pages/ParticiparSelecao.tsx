@@ -252,7 +252,36 @@ const ParticiparSelecao = () => {
       const { data: planilha } = planilhaResult;
       const { data: itensOriginais } = itensOriginaisResult;
 
-      if (!planilha || !itensOriginais || itensOriginais.length === 0) {
+      if (!itensOriginais || itensOriginais.length === 0) {
+        console.log("⚠️ Nenhum item encontrado");
+        return;
+      }
+
+      // Se não há planilha, usa valores estimados diretos dos itens
+      if (!planilha) {
+        console.log("⚠️ Sem planilha - carregando valores estimados dos itens");
+        const todosItens: Item[] = itensOriginais.map((itemOriginal) => ({
+          id: itemOriginal.id,
+          numero_item: itemOriginal.numero_item,
+          descricao: itemOriginal.descricao,
+          quantidade: itemOriginal.quantidade,
+          unidade: itemOriginal.unidade,
+          marca: itemOriginal.marca || "",
+          valor_unitario_estimado: itemOriginal.valor_unitario_estimado || 0,
+          valor_total: (itemOriginal.valor_unitario_estimado || 0) * itemOriginal.quantidade,
+          lote_id: itemOriginal.lote_id,
+        }));
+        setItens(todosItens);
+        
+        const respostasIniciais: RespostaItem = {};
+        todosItens.forEach((item) => {
+          respostasIniciais[item.id] = {
+            valor_unitario_ofertado: 0,
+            valor_display: "0,00",
+            marca_ofertada: "",
+          };
+        });
+        setRespostas(respostasIniciais);
         return;
       }
 
