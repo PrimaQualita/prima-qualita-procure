@@ -1778,6 +1778,110 @@ export type Database = {
           },
         ]
       }
+      selecao_propostas_fornecedor: {
+        Row: {
+          created_at: string | null
+          data_envio_proposta: string | null
+          desclassificado: boolean | null
+          fornecedor_id: string
+          id: string
+          motivo_desclassificacao: string | null
+          observacoes_fornecedor: string | null
+          selecao_id: string
+          valor_total_proposta: number
+        }
+        Insert: {
+          created_at?: string | null
+          data_envio_proposta?: string | null
+          desclassificado?: boolean | null
+          fornecedor_id: string
+          id?: string
+          motivo_desclassificacao?: string | null
+          observacoes_fornecedor?: string | null
+          selecao_id: string
+          valor_total_proposta: number
+        }
+        Update: {
+          created_at?: string | null
+          data_envio_proposta?: string | null
+          desclassificado?: boolean | null
+          fornecedor_id?: string
+          id?: string
+          motivo_desclassificacao?: string | null
+          observacoes_fornecedor?: string | null
+          selecao_id?: string
+          valor_total_proposta?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selecao_propostas_fornecedor_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "selecao_propostas_fornecedor_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      selecao_respostas_itens_fornecedor: {
+        Row: {
+          created_at: string | null
+          desclassificado: boolean | null
+          descricao: string
+          id: string
+          marca: string | null
+          motivo_desclassificacao: string | null
+          numero_item: number
+          proposta_id: string
+          quantidade: number
+          unidade: string
+          valor_total_item: number
+          valor_unitario_ofertado: number
+        }
+        Insert: {
+          created_at?: string | null
+          desclassificado?: boolean | null
+          descricao: string
+          id?: string
+          marca?: string | null
+          motivo_desclassificacao?: string | null
+          numero_item: number
+          proposta_id: string
+          quantidade: number
+          unidade: string
+          valor_total_item: number
+          valor_unitario_ofertado: number
+        }
+        Update: {
+          created_at?: string | null
+          desclassificado?: boolean | null
+          descricao?: string
+          id?: string
+          marca?: string | null
+          motivo_desclassificacao?: string | null
+          numero_item?: number
+          proposta_id?: string
+          quantidade?: number
+          unidade?: string
+          valor_total_item?: number
+          valor_unitario_ofertado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selecao_respostas_itens_fornecedor_proposta_id_fkey"
+            columns: ["proposta_id"]
+            isOneToOne: false
+            referencedRelation: "selecao_propostas_fornecedor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       selecoes_fornecedores: {
         Row: {
           cotacao_relacionada_id: string | null
