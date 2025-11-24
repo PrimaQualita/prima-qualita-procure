@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, FileText, Gavel, Send } from "lucide-react";
+import { ArrowLeft, FileText, Gavel, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
 import { z } from "zod";
+import { DialogImportarProposta } from "@/components/selecoes/DialogImportarProposta";
 
 const UFS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
@@ -115,6 +116,7 @@ const ParticiparSelecao = () => {
   const [editalAnexado, setEditalAnexado] = useState<any>(null);
   const [fornecedor, setFornecedor] = useState<any>(null);
   const [jaEnviouProposta, setJaEnviouProposta] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
@@ -340,6 +342,28 @@ const ParticiparSelecao = () => {
         marca_ofertada: marca
       }
     }));
+  };
+
+  const handleImportSuccess = (dadosImportados: Array<{
+    numero_item: number;
+    marca: string;
+    valor_unitario: number;
+  }>) => {
+    // Atualizar respostas com dados importados
+    const novasRespostas = { ...respostas };
+    
+    dadosImportados.forEach(dado => {
+      const item = itens.find(i => i.numero_item === dado.numero_item);
+      if (item) {
+        novasRespostas[item.id] = {
+          valor_unitario_ofertado: dado.valor_unitario,
+          valor_display: dado.valor_unitario.toString().replace('.', ','),
+          marca_ofertada: dado.marca
+        };
+      }
+    });
+    
+    setRespostas(novasRespostas);
   };
 
   const calcularValorTotal = () => {
@@ -681,9 +705,15 @@ const ParticiparSelecao = () => {
 
             {/* Proposta de Valores */}
             <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Registrar Proposta</CardTitle>
-                <CardDescription>Informe seus valores para os itens da seleção</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Registrar Proposta</CardTitle>
+                  <CardDescription>Informe seus valores para os itens da seleção</CardDescription>
+                </div>
+                <Button onClick={() => setImportDialogOpen(true)} variant="outline">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar Planilha
+                </Button>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -834,6 +864,14 @@ const ParticiparSelecao = () => {
           </Button>
         </div>
       </div>
+
+      {/* Diálogo de Importação */}
+      <DialogImportarProposta
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        itens={itens}
+        onImportSuccess={handleImportSuccess}
+      />
     </div>
   );
 };
