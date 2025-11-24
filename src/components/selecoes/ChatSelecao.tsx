@@ -24,9 +24,10 @@ interface Mensagem {
 
 interface ChatSelecaoProps {
   selecaoId: string;
+  codigoAcesso?: string;
 }
 
-export function ChatSelecao({ selecaoId }: ChatSelecaoProps) {
+export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentFornecedor, setCurrentFornecedor] = useState<any>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -101,6 +102,21 @@ export function ChatSelecao({ selecaoId }: ChatSelecaoProps) {
 
   const loadUserProfile = async () => {
     try {
+      // Se tem código de acesso, é fornecedor não autenticado
+      if (codigoAcesso) {
+        const { data: proposta } = await supabase
+          .from("selecao_propostas_fornecedor")
+          .select("*, fornecedores(*)")
+          .eq("codigo_acesso", codigoAcesso)
+          .eq("selecao_id", selecaoId)
+          .single();
+
+        if (proposta?.fornecedores) {
+          setUserProfile({ type: "fornecedor", data: proposta.fornecedores });
+        }
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
