@@ -42,6 +42,32 @@ export async function gerarPropostaSelecaoPDF(
   tituloSelecao: string
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
+    // Verificar se já existe protocolo e hash para esta proposta
+    const { data: propostaExistente, error: checkError } = await supabase
+      .from('selecao_propostas_fornecedor')
+      .select('protocolo, hash_certificacao')
+      .eq('id', propostaId)
+      .single();
+
+    if (checkError) {
+      console.error('Erro ao verificar proposta:', checkError);
+      throw checkError;
+    }
+
+    // Se já existe protocolo, usar o existente
+    let protocolo: string;
+    let hash: string;
+
+    if (propostaExistente?.protocolo && propostaExistente?.hash_certificacao) {
+      protocolo = propostaExistente.protocolo;
+      hash = propostaExistente.hash_certificacao;
+      console.log('Reutilizando protocolo existente:', protocolo);
+    } else {
+      // Gerar novo protocolo apenas se não existir
+      protocolo = gerarProtocolo();
+      console.log('Gerando novo protocolo:', protocolo);
+    }
+
     // Buscar itens da proposta
     const { data: itens, error: itensError } = await supabase
       .from('selecao_respostas_itens_fornecedor')
@@ -71,20 +97,22 @@ export async function gerarPropostaSelecaoPDF(
 
     const doc = new jsPDF();
     const dataEnvio = new Date().toLocaleString('pt-BR');
-    const protocolo = gerarProtocolo(); // Formato XXXX-XXXX-XXXX-XXXX
     
-    // Criar conteúdo para hash
-    const conteudoHash = `
-      Seleção: ${tituloSelecao}
-      Fornecedor: ${fornecedor.razao_social}
-      CNPJ: ${fornecedor.cnpj}
-      Data: ${dataEnvio}
-      Valor Total: ${valorTotal.toFixed(2)}
-      Itens: ${JSON.stringify(itensFormatados)}
-      Protocolo: ${protocolo}
-    `;
-    
-    const hash = await gerarHashDocumento(conteudoHash);
+    // Criar conteúdo para hash apenas se for novo protocolo
+    if (!propostaExistente?.hash_certificacao) {
+      const conteudoHash = `
+        Seleção: ${tituloSelecao}
+        Fornecedor: ${fornecedor.razao_social}
+        CNPJ: ${fornecedor.cnpj}
+        Data: ${dataEnvio}
+        Valor Total: ${valorTotal.toFixed(2)}
+        Itens: ${JSON.stringify(itensFormatados)}
+        Protocolo: ${protocolo}
+      `;
+      
+      hash = await gerarHashDocumento(conteudoHash);
+      console.log('Hash gerado:', hash);
+    }
     
     const itensOrdenados = [...itensFormatados].sort((a, b) => a.numero_item - b.numero_item);
     
@@ -288,27 +316,31 @@ export async function gerarPropostaSelecaoPDF(
       throw uploadError;
     }
 
-    // Atualizar a proposta com o protocolo e hash
-    console.log('Atualizando proposta com ID:', propostaId);
-    console.log('Protocolo gerado:', protocolo);
-    console.log('Hash gerado:', hash);
-    
-    const { data: updateData, error: updateError } = await supabase
-      .from('selecao_propostas_fornecedor')
-      .update({
-        protocolo: protocolo,
-        hash_certificacao: hash
-      })
-      .eq('id', propostaId)
-      .select();
+    // Atualizar a proposta com o protocolo e hash APENAS se não existir
+    if (!propostaExistente?.protocolo || !propostaExistente?.hash_certificacao) {
+      console.log('Atualizando proposta com ID:', propostaId);
+      console.log('Protocolo gerado:', protocolo);
+      console.log('Hash gerado:', hash);
+      
+      const { data: updateData, error: updateError } = await supabase
+        .from('selecao_propostas_fornecedor')
+        .update({
+          protocolo: protocolo,
+          hash_certificacao: hash
+        })
+        .eq('id', propostaId)
+        .select();
 
-    if (updateError) {
-      console.error('Erro ao atualizar protocolo:', updateError);
-      throw updateError;
+      if (updateError) {
+        console.error('Erro ao atualizar protocolo:', updateError);
+        throw updateError;
+      }
+
+      console.log('Proposta atualizada com sucesso:', updateData);
+      console.log('Protocolo salvo:', protocolo);
+    } else {
+      console.log('Protocolo já existe, não será atualizado');
     }
-
-    console.log('Proposta atualizada com sucesso:', updateData);
-    console.log('Protocolo salvo:', protocolo);
 
     return {
       url: filePath,
