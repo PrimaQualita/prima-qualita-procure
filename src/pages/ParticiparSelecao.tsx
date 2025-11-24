@@ -112,8 +112,7 @@ const ParticiparSelecao = () => {
   const [processo, setProcesso] = useState<any>(null);
   const [itens, setItens] = useState<Item[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
-  const [avisoAnexado, setAvisoAnexado] = useState<any>(null);
-  const [editalAnexado, setEditalAnexado] = useState<any>(null);
+  const [documentosAnexados, setDocumentosAnexados] = useState<any[]>([]);
   const [fornecedor, setFornecedor] = useState<any>(null);
   const [jaEnviouProposta, setJaEnviouProposta] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -304,16 +303,16 @@ const ParticiparSelecao = () => {
       const { data, error } = await supabase
         .from("anexos_selecao")
         .select("*")
-        .eq("selecao_id", selecaoId);
+        .eq("selecao_id", selecaoId)
+        .order("data_upload", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao carregar documentos:", error);
+        return;
+      }
 
-      if (data) {
-        const aviso = data.find(d => d.tipo_documento === "aviso");
-        const edital = data.find(d => d.tipo_documento === "edital");
-        
-        setAvisoAnexado(aviso);
-        setEditalAnexado(edital);
+      if (data && data.length > 0) {
+        setDocumentosAnexados(data);
       }
     } catch (error) {
       console.error("Erro ao carregar documentos:", error);
@@ -574,34 +573,32 @@ const ParticiparSelecao = () => {
         </Card>
 
         {/* Documentos */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Documentos da Seleção</CardTitle>
-            <CardDescription>Leia atentamente antes de participar da disputa</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              {avisoAnexado && (
-                <Button
-                  variant="outline"
-                  onClick={() => window.open(avisoAnexado.url_arquivo, '_blank')}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Ver Aviso de Seleção
-                </Button>
-              )}
-              {editalAnexado && (
-                <Button
-                  variant="outline"
-                  onClick={() => window.open(editalAnexado.url_arquivo, '_blank')}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Ver Edital
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {documentosAnexados.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Documentos da Seleção</CardTitle>
+              <CardDescription>Leia atentamente antes de participar da disputa</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {documentosAnexados.map((doc) => (
+                  <Button
+                    key={doc.id}
+                    variant="outline"
+                    onClick={() => window.open(doc.url_arquivo, '_blank')}
+                    className="h-auto py-3 px-4 justify-start"
+                  >
+                    <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <div className="text-left overflow-hidden">
+                      <p className="font-medium truncate">{doc.nome_arquivo}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{doc.tipo_documento.replace('_', ' ')}</p>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Registro de Proposta */}
         {!jaEnviouProposta ? (
