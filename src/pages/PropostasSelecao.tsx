@@ -120,7 +120,8 @@ export default function PropostasSelecao() {
         },
         proposta.valor_total_proposta,
         proposta.observacoes_fornecedor,
-        selecao?.titulo_selecao || ''
+        selecao?.titulo_selecao || '',
+        proposta.data_envio_proposta
       );
 
       const { data: fileData, error: downloadError } = await supabase.storage
@@ -166,7 +167,8 @@ export default function PropostasSelecao() {
         },
         proposta.valor_total_proposta,
         proposta.observacoes_fornecedor,
-        selecao?.titulo_selecao || ''
+        selecao?.titulo_selecao || '',
+        proposta.data_envio_proposta
       );
 
       const { data: fileData, error: downloadError } = await supabase.storage
