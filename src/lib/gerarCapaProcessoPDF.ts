@@ -114,31 +114,31 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   doc.addImage(base64Rodape, 'PNG', 0, yRodape, pageWidth, rodapeHeight);
 
   // Conteúdo
-  let yPos = logoHeight + 15;
+  let yPos = logoHeight + 20;
 
   // Processo - CAIXA ALTA
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(26, 84, 144);
   doc.text(`PROCESSO: ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 10;
+  yPos += 15;
 
   // Contrato - CAIXA ALTA
   doc.text(`CONTRATO DE GESTÃO: ${dados.numeroContrato}`, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 15;
+  yPos += 25;
 
   // Objeto - texto justificado
   doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
   doc.text('Objeto:', 20, yPos);
-  yPos += 6;
+  yPos += 7;
 
   doc.setFont('helvetica', 'normal');
   const textoObjetoLimpo = extractTextFromHTML(dados.observacoesContrato || 'Não informado');
   const linhasObjeto = doc.splitTextToSize(textoObjetoLimpo, 170);
   doc.text(linhasObjeto, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasObjeto.length * 5 + 20;
+  yPos += linhasObjeto.length * 6 + 40;
 
   // Data - CAIXA ALTA
   doc.setFontSize(18);
@@ -150,14 +150,14 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
     year: 'numeric' 
   }).toUpperCase()}`;
   doc.text(dataTexto, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 20;
+  yPos += 40;
 
   // Assunto - texto justificado e limpo de HTML
   doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
   doc.text('Assunto:', 20, yPos);
-  yPos += 6;
+  yPos += 7;
 
   doc.setFont('helvetica', 'normal');
   const textoAssuntoLimpo = extractTextFromHTML(dados.objetoProcesso);
