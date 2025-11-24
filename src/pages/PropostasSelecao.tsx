@@ -11,6 +11,7 @@ import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 
 interface PropostaFornecedor {
   id: string;
+  email: string | null;
   valor_total_proposta: number;
   observacoes_fornecedor: string | null;
   data_envio_proposta: string;

@@ -474,6 +474,7 @@ const ParticiparSelecao = () => {
         .insert({
           selecao_id: selecaoId,
           fornecedor_id: fornecedorId,
+          email: fornecedor?.email || dadosEmpresa.email,
           observacoes_fornecedor: observacoes || null,
           valor_total_proposta: valorTotal,
           data_envio_proposta: new Date().toISOString(),
