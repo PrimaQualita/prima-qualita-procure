@@ -222,7 +222,7 @@ export async function gerarPropostaSelecaoPDF(
       y += obsLines.length * 5 + 5;
     }
 
-    // Certificação Digital (formatação igual à referência)
+    // Certificação Digital (espaçamento uniforme 1.15)
     if (y > 220) {
       doc.addPage();
       y = 20;
@@ -234,6 +234,9 @@ export async function gerarPropostaSelecaoPDF(
     // Calcular largura útil dentro do quadro (com margens internas)
     const larguraInternaQuadro = larguraUtil - 10;
     
+    // Espaçamento uniforme entre linhas (1.15)
+    const espacamentoLinha = 5.75; // 5 * 1.15
+    
     // Quebrar textos longos
     doc.setFontSize(11);
     const responsavelLines = doc.splitTextToSize(`Responsável: ${fornecedor.razao_social}`, larguraInternaQuadro);
@@ -243,13 +246,13 @@ export async function gerarPropostaSelecaoPDF(
     const linkLines = doc.splitTextToSize(linkVerificacao, larguraInternaQuadro);
     const textoLeiLines = doc.splitTextToSize('Este documento possui certificação digital conforme Lei 14.063/2020', larguraInternaQuadro);
     
-    // Calcular altura total do quadro com espaçamentos uniformes
+    // Calcular altura total do quadro
     const alturaQuadro = 10 + 8 + 
-                        (responsavelLines.length * 4.5) + 5 + 
-                        (protocoloLines.length * 4.5) + 8 + 
-                        4.5 + 
-                        (linkLines.length * 4) + 5 + 
-                        (textoLeiLines.length * 4) + 5;
+                        (responsavelLines.length * espacamentoLinha) + 
+                        (protocoloLines.length * espacamentoLinha) + 
+                        espacamentoLinha + espacamentoLinha + 
+                        (linkLines.length * espacamentoLinha) + 
+                        (textoLeiLines.length * espacamentoLinha) + 5;
     
     // Desenhar quadro com bordas pretas e fundo branco
     doc.setFillColor(255, 255, 255);
@@ -261,45 +264,45 @@ export async function gerarPropostaSelecaoPDF(
     y += 10;
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 139); // Azul escuro
+    doc.setTextColor(0, 0, 139);
     doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, y, { align: 'center' });
     
     // Espaço após título
     y += 8;
     
-    // Responsável (texto normal, preto)
+    // Responsável
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
     responsavelLines.forEach((linha: string, index: number) => {
-      doc.text(linha, margemEsquerda + 5, y + (index * 4.5));
+      doc.text(linha, margemEsquerda + 5, y + (index * espacamentoLinha));
     });
-    y += (responsavelLines.length * 4.5) + 5;
+    y += (responsavelLines.length * espacamentoLinha);
     
-    // Protocolo (texto normal, preto)
+    // Protocolo
     protocoloLines.forEach((linha: string, index: number) => {
-      doc.text(linha, margemEsquerda + 5, y + (index * 4.5));
+      doc.text(linha, margemEsquerda + 5, y + (index * espacamentoLinha));
     });
-    y += (protocoloLines.length * 4.5) + 8;
+    y += (protocoloLines.length * espacamentoLinha) + espacamentoLinha;
     
     // "Verificar autenticidade em:" em negrito
     doc.setFont('helvetica', 'bold');
     doc.text('Verificar autenticidade em:', margemEsquerda + 5, y);
-    y += 4.5;
+    y += espacamentoLinha;
     
     // Link em azul
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 255);
     linkLines.forEach((linha: string, index: number) => {
-      doc.textWithLink(linha, margemEsquerda + 5, y + (index * 4), { url: linkVerificacao });
+      doc.textWithLink(linha, margemEsquerda + 5, y + (index * espacamentoLinha), { url: linkVerificacao });
     });
-    y += (linkLines.length * 4) + 5;
+    y += (linkLines.length * espacamentoLinha);
     
     // Texto final sobre a lei
     doc.setTextColor(0, 0, 0);
     textoLeiLines.forEach((linha: string, index: number) => {
-      doc.text(linha, margemEsquerda + 5, y + (index * 4));
+      doc.text(linha, margemEsquerda + 5, y + (index * espacamentoLinha));
     });
 
 
