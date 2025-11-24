@@ -1,7 +1,6 @@
 import jsPDF from 'jspdf';
 import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ItemProposta {
@@ -91,18 +90,6 @@ export async function gerarPropostaSelecaoPDF(
 
     const doc = new jsPDF();
     const dataEnvio = new Date().toLocaleString('pt-BR');
-    
-    // Criar conteúdo para hash
-    const conteudoHash = `
-      Seleção: ${tituloSelecao}
-      Fornecedor: ${fornecedor.razao_social}
-      CNPJ: ${fornecedor.cnpj}
-      Data: ${dataEnvio}
-      Valor Total: ${valorTotal.toFixed(2)}
-      Itens: ${JSON.stringify(itensFormatados)}
-    `;
-    
-    const hash = await gerarHashDocumento(conteudoHash);
     
     const itensOrdenados = [...itensFormatados].sort((a, b) => a.numero_item - b.numero_item);
     
@@ -237,22 +224,49 @@ export async function gerarPropostaSelecaoPDF(
       y += obsLines.length * 5 + 5;
     }
 
-    // Certificação Digital (IGUAL à cotação)
-    if (y > 220) {
+    // Certificação Digital SIMPLIFICADA (APENAS protocolo, responsável e link)
+    if (y > 240) {
       doc.addPage();
       y = 20;
     }
-
+    
+    y += 10;
     const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
-
-    adicionarCertificacaoDigital(doc, {
-      protocolo,
-      dataHora: dataEnvio,
-      responsavel: usuarioNome,
-      cpf: usuarioCpf,
-      hash,
-      linkVerificacao
-    }, y);
+    
+    // Calcular altura do conteúdo
+    doc.setFontSize(9);
+    const linkLines = doc.splitTextToSize(linkVerificacao, larguraUtil - 4);
+    const alturaQuadro = 6 + 5 + 5 + (linkLines.length * 3.5) + 3;
+    
+    // Desenhar quadro com fundo cinza
+    doc.setFillColor(245, 245, 245);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(margemEsquerda, y, larguraUtil, alturaQuadro, 'FD');
+    
+    // Título
+    y += 6;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('CERTIFICAÇÃO DIGITAL', margemEsquerda + 2, y);
+    y += 5;
+    
+    // Protocolo
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 2, y);
+    y += 5;
+    
+    // Responsável
+    doc.text(`Responsável: ${usuarioNome}`, margemEsquerda + 2, y);
+    y += 5;
+    
+    // Link
+    doc.setTextColor(0, 0, 255);
+    linkLines.forEach((linha: string, index: number) => {
+      doc.textWithLink(linha, margemEsquerda + 2, y + (index * 3.5), { url: linkVerificacao });
+    });
 
 
     // Gerar PDF como blob
@@ -292,7 +306,7 @@ export async function gerarPropostaSelecaoPDF(
     return {
       url: filePath,
       nome: nomeArquivo,
-      hash
+      hash: ''
     };
   } catch (error) {
     console.error('Erro ao gerar PDF da proposta de seleção:', error);
