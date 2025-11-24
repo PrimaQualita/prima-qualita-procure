@@ -72,35 +72,44 @@ export function DialogImportarProposta({
     // Obter range do worksheet
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
     
-    // Para cada célula, configurar proteção EXPLICITAMENTE
+    // PASSO 1: Desproteger TODAS as células primeiro
     for (let R = range.s.r; R <= range.e.r; ++R) {
       for (let C = range.s.c; C <= range.e.c; ++C) {
         const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
         
-        // Se a célula não existe, criar
         if (!ws[cellAddress]) {
           ws[cellAddress] = { t: 's', v: '' };
         }
         
-        // Inicializar objeto de estilo
         if (!ws[cellAddress].s) {
           ws[cellAddress].s = {};
         }
         
-        // IMPORTANTE: Bloquear APENAS colunas 0 (A) e 1 (B)
-        // Desbloquear EXPLICITAMENTE colunas 2 (C) e 3 (D)
-        if (C === 0 || C === 1) {
-          // Número do Item e Descrição - BLOQUEADAS
-          ws[cellAddress].s.protection = { locked: true };
-        } else {
-          // Marca e Valor Unitário - EDITÁVEIS
-          ws[cellAddress].s.protection = { locked: false };
-        }
+        // Desproteger TODAS as células
+        ws[cellAddress].s.protection = { locked: false };
       }
     }
     
-    // Aplicar proteção na planilha com senha vazia
+    // PASSO 2: Proteger APENAS colunas A (0) e B (1)
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      // Coluna A - Número do Item
+      const cellA = XLSX.utils.encode_cell({ r: R, c: 0 });
+      if (ws[cellA]) {
+        if (!ws[cellA].s) ws[cellA].s = {};
+        ws[cellA].s.protection = { locked: true };
+      }
+      
+      // Coluna B - Descrição
+      const cellB = XLSX.utils.encode_cell({ r: R, c: 1 });
+      if (ws[cellB]) {
+        if (!ws[cellB].s) ws[cellB].s = {};
+        ws[cellB].s.protection = { locked: true };
+      }
+    }
+    
+    // Aplicar proteção no worksheet
     ws['!protect'] = {
+      password: '',
       selectLockedCells: true,
       selectUnlockedCells: true,
       formatCells: false,
@@ -120,14 +129,13 @@ export function DialogImportarProposta({
     
     XLSX.utils.book_append_sheet(wb, ws, "Proposta");
     
-    // Salvar como XLSX com opções de proteção
+    // Salvar como XLSX
     XLSX.writeFile(wb, "template_proposta_selecao.xlsx", { 
       bookType: 'xlsx',
-      cellStyles: true,
-      sheetStubs: true
+      cellStyles: true
     });
     
-    toast.success("Template baixado! Apenas as colunas 'Marca' e 'Valor Unitário' podem ser editadas.");
+    toast.success("Template baixado! Apenas 'Número do Item' e 'Descrição' estão bloqueadas.");
   };
 
   const handleImportarPlanilha = async (e: React.ChangeEvent<HTMLInputElement>) => {
