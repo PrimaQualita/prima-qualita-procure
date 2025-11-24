@@ -344,11 +344,14 @@ const ParticiparSelecao = () => {
     // Converte para número e divide por 100 para ter centavos
     const valorNumerico = parseFloat(numeros) / 100;
     
-    // Formata como moeda brasileira
-    return valorNumerico.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
+    // Formata com duas casas decimais e substitui ponto por vírgula
+    const valorFormatado = valorNumerico.toFixed(2).replace('.', ',');
+    
+    // Adiciona separador de milhar
+    const partes = valorFormatado.split(',');
+    partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    return partes.join(',');
   };
 
   const handleValorChange = (itemId: string, value: string) => {
