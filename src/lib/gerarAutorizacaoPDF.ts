@@ -504,7 +504,7 @@ export const gerarAutorizacaoSelecao = async (
   const texto2 = 'Encaminha-se ao Departamento de Compras, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += 15;
+  yPos += 25;
   
   // Certificação Digital - versão compacta
   doc.setFillColor(240, 249, 255);
