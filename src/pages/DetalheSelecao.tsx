@@ -142,12 +142,30 @@ const DetalheSelecao = () => {
         return;
       }
 
-      // Usar os valores estimados dos itens originais
+      // Calcular o menor valor de cada item entre todos os fornecedores
+      const menoresValoresPorItem = new Map<number, number>();
+
+      fornecedoresArray.forEach((fornecedor: any) => {
+        if (fornecedor.itens) {
+          fornecedor.itens.forEach((item: any) => {
+            const valorAtual = menoresValoresPorItem.get(item.numero_item);
+            const valorItem = item.valor_unitario || 0;
+            
+            if (!valorAtual || valorItem < valorAtual) {
+              menoresValoresPorItem.set(item.numero_item, valorItem);
+            }
+          });
+        }
+      });
+
+      console.log("💵 Menores valores por item:", menoresValoresPorItem);
+
+      // Usar os menores valores como valores estimados para a seleção
       const todosItens: Item[] = [];
       let total = 0;
 
       itensOriginais.forEach((itemOriginal) => {
-        const valorEstimado = itemOriginal.valor_unitario_estimado || 0;
+        const valorEstimado = menoresValoresPorItem.get(itemOriginal.numero_item) || 0;
         const valorTotalItem = valorEstimado * itemOriginal.quantidade;
         
         todosItens.push({
