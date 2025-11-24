@@ -209,14 +209,25 @@ const SistemaLancesFornecedor = () => {
 
   const isFornecedorDesclassificadoNoItem = (numeroItem: number) => {
     const itemProposta = itens.find(i => i.numero_item === numeroItem);
-    if (!itemProposta) return false;
+    if (!itemProposta) {
+      console.log(`Item ${numeroItem} não encontrado na proposta`);
+      return false;
+    }
     
     const valorEstimado = itensEstimados.get(numeroItem);
-    if (!valorEstimado) return false; // Se não há valor estimado, não pode desclassificar
+    console.log(`Item ${numeroItem} - Valor Proposta: ${itemProposta.valor_unitario_ofertado}, Valor Estimado: ${valorEstimado}`);
     
-    // Desclassifica APENAS se o valor ofertado for MAIOR que o estimado
-    // Valores iguais ou menores são classificados
-    return itemProposta.valor_unitario_ofertado > valorEstimado;
+    if (!valorEstimado || valorEstimado === 0) {
+      console.log(`Item ${numeroItem} - Sem valor estimado válido, NÃO desclassifica`);
+      return false; // Se não há valor estimado válido, não pode desclassificar
+    }
+    
+    // Desclassifica APENAS se o valor ofertado for MAIOR (>) que o estimado
+    // Valores iguais (=) ou menores (<) são CLASSIFICADOS
+    const desclassificado = itemProposta.valor_unitario_ofertado > valorEstimado;
+    console.log(`Item ${numeroItem} - Desclassificado: ${desclassificado} (${itemProposta.valor_unitario_ofertado} > ${valorEstimado})`);
+    
+    return desclassificado;
   };
 
   const isLanceDesclassificado = (numeroItem: number, valorLance: number) => {
