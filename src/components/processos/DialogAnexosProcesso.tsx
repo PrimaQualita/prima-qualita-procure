@@ -168,9 +168,8 @@ export function DialogAnexosProcesso({
       if (!data?.signedUrl) throw new Error("Erro ao gerar URL de download");
 
       // Construir URL completa do Supabase
-      const { data: { session } } = await supabase.auth.getSession();
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const fullUrl = `${supabaseUrl}/storage/v1${data.signedUrl}`;
+      const fullUrl = `${supabaseUrl}${data.signedUrl}`;
 
       const link = document.createElement("a");
       link.href = fullUrl;
