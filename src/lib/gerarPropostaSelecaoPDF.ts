@@ -32,9 +32,7 @@ export async function gerarPropostaSelecaoPDF(
   fornecedor: DadosFornecedor,
   valorTotal: number,
   observacoes: string | null,
-  tituloSelecao: string,
-  usuarioNome: string,
-  usuarioCpf: string
+  tituloSelecao: string
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
     // Verificar se já existe protocolo para esta proposta
@@ -259,7 +257,7 @@ export async function gerarPropostaSelecaoPDF(
     y += 5;
     
     // Responsável
-    doc.text(`Responsável: ${usuarioNome}`, margemEsquerda + 2, y);
+    doc.text(`Responsável: ${fornecedor.razao_social}`, margemEsquerda + 2, y);
     y += 5;
     
     // Link
