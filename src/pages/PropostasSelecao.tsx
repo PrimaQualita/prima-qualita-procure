@@ -87,10 +87,7 @@ export default function PropostasSelecao() {
   };
 
   const formatDateTime = (dateString: string) => {
-    // Criar data sem conversão de timezone
-    const date = new Date(dateString + 'Z'); // Força UTC
-    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return localDate.toLocaleString('pt-BR');
+    return new Date(dateString).toLocaleString('pt-BR');
   };
 
   if (loading) {
