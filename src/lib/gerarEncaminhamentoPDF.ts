@@ -122,34 +122,34 @@ export const gerarEncaminhamentoPDF = async (
   // De/Para
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text('De: Departamento de Compras', 20, 50);
-  doc.text('Para: Departamento de Compliance', 20, 58);
+  doc.text('De: Departamento de Compras', 20, 60);
+  doc.text('Para: Departamento de Compliance', 20, 70);
   
   // Processo
-  doc.text(`Processo ${numeroProcesso}`, 20, 70);
+  doc.text(`Processo ${numeroProcesso}`, 20, 90);
   
   // Assunto
   const textoLimpo = extractTextFromHTML(objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
-  doc.text(linhasAssunto, 20, 82, { align: 'justify', maxWidth: 170 });
+  doc.text(linhasAssunto, 20, 105, { align: 'justify', maxWidth: 170 });
   
-  let yPos = 82 + (linhasAssunto.length * 7) + 10;
+  let yPos = 105 + (linhasAssunto.length * 8) + 20;
   
   // Texto principal
   const textoPrincipal = `Encaminhamos o Presente Processo para análise e verificação de regularidade jurídica e reputacional dos fornecedores, em atendimento ao procedimento interno definido por requisitos legais e normativos da OS Prima Qualitá Saúde, nos processos de aquisição e serviços.`;
   const linhasPrincipal = doc.splitTextToSize(textoPrincipal, 170);
   doc.text(linhasPrincipal, 20, yPos, { align: 'justify', maxWidth: 170 });
   
-  yPos += linhasPrincipal.length * 6 + 10;
+  yPos += linhasPrincipal.length * 8 + 30;
   
   // Certificação Digital Simplificada
-  if (yPos > pageHeight - 60) {
+  if (yPos > pageHeight - 70) {
     doc.addPage();
     await adicionarLogoERodape();
-    yPos = 40;
+    yPos = 60;
   }
   
-  yPos += 10;
+  yPos += 20;
   
   // Bloco de certificação
   doc.setFillColor(240, 240, 240);
