@@ -20,8 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { FileUp, Download, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { FileUp, Download, Trash2, CheckCircle, XCircle, FileText } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { gerarCapaProcessoPDF } from "@/lib/gerarCapaProcessoPDF";
 
 interface AnexoProcesso {
   id: string;
@@ -62,6 +63,7 @@ export function DialogAnexosProcesso({
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [anexoToDelete, setAnexoToDelete] = useState<AnexoProcesso | null>(null);
+  const [gerandoCapa, setGerandoCapa] = useState(false);
 
   useEffect(() => {
     if (open && processoId) {
@@ -224,6 +226,80 @@ export function DialogAnexosProcesso({
     return anexos.find((a) => a.tipo_anexo === tipo);
   };
 
+  const handleGerarCapa = async () => {
+    setGerandoCapa(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Buscar dados do processo e contrato
+      const { data: processo, error: processoError } = await supabase
+        .from("processos_compras")
+        .select(`
+          *,
+          contratos_gestao:contrato_gestao_id (
+            nome_contrato,
+            observacoes
+          )
+        `)
+        .eq("id", processoId)
+        .single();
+
+      if (processoError) throw processoError;
+      if (!processo) throw new Error("Processo não encontrado");
+
+      const contrato = processo.contratos_gestao as any;
+
+      // Gerar PDF da capa
+      const pdfBlob = await gerarCapaProcessoPDF({
+        numeroProcesso: processo.numero_processo_interno,
+        numeroContrato: contrato?.nome_contrato || 'Não informado',
+        observacoesContrato: contrato?.observacoes || '',
+        objetoProcesso: processo.objeto_resumido,
+      });
+
+      // Upload para storage
+      const fileName = `${processoId}/capa_processo_${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from("processo-anexos")
+        .upload(fileName, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Salvar no banco
+      const { error: dbError } = await supabase
+        .from("anexos_processo_compra")
+        .insert({
+          processo_compra_id: processoId,
+          tipo_anexo: "capa_processo",
+          nome_arquivo: `Capa_Processo_${processo.numero_processo_interno}.pdf`,
+          url_arquivo: fileName,
+          usuario_upload_id: user.id,
+        });
+
+      if (dbError) throw dbError;
+
+      toast({ 
+        title: "Capa do Processo gerada com sucesso!",
+        description: "O documento foi criado e anexado ao processo."
+      });
+      
+      await loadAnexos();
+    } catch (error: any) {
+      console.error("Erro ao gerar capa:", error);
+      toast({
+        title: "Erro ao gerar capa do processo",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGerandoCapa(false);
+    }
+  };
+
   if (loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -298,6 +374,7 @@ export function DialogAnexosProcesso({
           {TIPOS_ANEXOS_OBRIGATORIOS.map(({ tipo, label }) => {
             const anexo = getAnexoPorTipo(tipo);
             const isUploading = uploading === tipo;
+            const isCapaProcesso = tipo === "capa_processo";
 
             return (
               <div key={tipo} className="border rounded-lg p-4">
@@ -339,6 +416,18 @@ export function DialogAnexosProcesso({
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
+                    {isCapaProcesso && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={handleGerarCapa}
+                        disabled={gerandoCapa}
+                        className="flex-1"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {gerandoCapa ? "Gerando Capa..." : "Gerar Capa do Processo"}
+                      </Button>
+                    )}
                     <input
                       type="file"
                       id={`file-${tipo}`}
@@ -355,7 +444,7 @@ export function DialogAnexosProcesso({
                       variant="outline"
                       onClick={() => document.getElementById(`file-${tipo}`)?.click()}
                       disabled={isUploading}
-                      className="w-full"
+                      className={isCapaProcesso ? "flex-1" : "w-full"}
                     >
                       <FileUp className="h-4 w-4 mr-2" />
                       {isUploading ? "Enviando..." : "Anexar PDF"}
