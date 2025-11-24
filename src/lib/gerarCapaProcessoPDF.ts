@@ -40,22 +40,23 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             height: 297mm;
             position: relative;
             background: white;
-            padding-bottom: 25mm;
+            padding-top: 50mm;
+            padding-bottom: 0;
           }
           
           .header {
             width: 100%;
-            height: 40mm;
+            height: auto;
             margin: 0;
             padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
           }
           
           .header img {
-            max-height: 35mm;
-            width: auto;
+            width: 100%;
+            height: auto;
             display: block;
           }
           
@@ -74,8 +75,8 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .content {
             position: relative;
             z-index: 2;
-            padding: 15px 60px 15px 60px;
-            min-height: calc(297mm - 40mm - 25mm);
+            padding: 15px 60px 30mm 60px;
+            min-height: calc(297mm - 50mm - 30mm);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -154,14 +155,13 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 25mm;
+            height: auto;
           }
           
           .footer img {
             width: 100%;
-            height: 100%;
+            height: auto;
             display: block;
-            object-fit: cover;
           }
         </style>
       </head>
