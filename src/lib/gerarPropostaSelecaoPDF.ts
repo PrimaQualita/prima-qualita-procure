@@ -1,5 +1,4 @@
 import jsPDF from 'jspdf';
-import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
 import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -42,31 +41,16 @@ export async function gerarPropostaSelecaoPDF(
   tituloSelecao: string
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
-    // Verificar se já existe protocolo e hash para esta proposta
-    const { data: propostaExistente, error: checkError } = await supabase
+    // Verificar se já existe protocolo para esta proposta
+    const { data: propostaExistente } = await supabase
       .from('selecao_propostas_fornecedor')
-      .select('protocolo, hash_certificacao')
+      .select('protocolo')
       .eq('id', propostaId)
       .single();
 
-    if (checkError) {
-      console.error('Erro ao verificar proposta:', checkError);
-      throw checkError;
-    }
-
-    // Se já existe protocolo, usar o existente
-    let protocolo: string;
-    let hash: string;
-
-    if (propostaExistente?.protocolo && propostaExistente?.hash_certificacao) {
-      protocolo = propostaExistente.protocolo;
-      hash = propostaExistente.hash_certificacao;
-      console.log('Reutilizando protocolo existente:', protocolo);
-    } else {
-      // Gerar novo protocolo apenas se não existir
-      protocolo = gerarProtocolo();
-      console.log('Gerando novo protocolo:', protocolo);
-    }
+    // Gerar ou reutilizar protocolo
+    const protocolo = propostaExistente?.protocolo || gerarProtocolo();
+    console.log('Protocolo utilizado:', protocolo);
 
     // Buscar itens da proposta com informações completas
     const { data: itens, error: itensError } = await supabase
@@ -110,22 +94,6 @@ export async function gerarPropostaSelecaoPDF(
 
     const doc = new jsPDF();
     const dataEnvio = new Date().toLocaleString('pt-BR');
-    
-    // Criar conteúdo para hash apenas se for novo protocolo
-    if (!propostaExistente?.hash_certificacao) {
-      const conteudoHash = `
-        Seleção: ${tituloSelecao}
-        Fornecedor: ${fornecedor.razao_social}
-        CNPJ: ${fornecedor.cnpj}
-        Data: ${dataEnvio}
-        Valor Total: ${valorTotal.toFixed(2)}
-        Itens: ${JSON.stringify(itensFormatados)}
-        Protocolo: ${protocolo}
-      `;
-      
-      hash = await gerarHashDocumento(conteudoHash);
-      console.log('Hash gerado:', hash);
-    }
     
     const itensOrdenados = [...itensFormatados].sort((a, b) => a.numero_item - b.numero_item);
     
@@ -261,7 +229,7 @@ export async function gerarPropostaSelecaoPDF(
     }
 
     // Certificação Digital SIMPLIFICADA
-    if (y > 220) {
+    if (y > 230) {
       doc.addPage();
       y = 20;
     }
@@ -270,44 +238,39 @@ export async function gerarPropostaSelecaoPDF(
     const linkVerificacao = `https://prima-qualita-procure.lovable.app/verificar-proposta?protocolo=${protocolo}`;
     
     // Desenhar quadro com fundo cinza
-    const alturaQuadro = 45;
+    const alturaQuadro = 35;
     doc.setFillColor(240, 240, 240);
     doc.setDrawColor(0, 0, 0);
-    doc.rect(margemEsquerda, y - 5, larguraUtil, alturaQuadro, 'FD');
+    doc.rect(margemEsquerda, y, larguraUtil, alturaQuadro, 'FD');
     
     // Cabeçalho da certificação
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('CERTIFICAÇÃO DIGITAL', margemEsquerda + 2, y + 2);
-    y += 8;
+    doc.text('CERTIFICAÇÃO DIGITAL', margemEsquerda + 2, y + 6);
+    y += 10;
     
     // Conteúdo simplificado
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Responsável: ${fornecedor.razao_social}`, margemEsquerda + 2, y);
-    y += 6;
-    
     doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 2, y);
-    y += 8;
+    y += 5;
+    
+    doc.text(`Data: ${dataEnvio}`, margemEsquerda + 2, y);
+    y += 7;
     
     doc.setFont('helvetica', 'bold');
-    doc.text('Verificar autenticidade em:', margemEsquerda + 2, y);
-    y += 5;
+    doc.setFontSize(8);
+    doc.text('Verificar em:', margemEsquerda + 2, y);
+    y += 4;
     
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 255);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     const linkLines = doc.splitTextToSize(linkVerificacao, larguraUtil - 4);
     linkLines.forEach((linha: string, index: number) => {
-      doc.textWithLink(linha, margemEsquerda + 2, y + (index * 4), { url: linkVerificacao });
+      doc.textWithLink(linha, margemEsquerda + 2, y + (index * 3.5), { url: linkVerificacao });
     });
-    y += linkLines.length * 4 + 4;
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margemEsquerda + 2, y);
 
 
     // Gerar PDF como blob
@@ -329,36 +292,25 @@ export async function gerarPropostaSelecaoPDF(
       throw uploadError;
     }
 
-    // Atualizar a proposta com o protocolo e hash APENAS se não existir
-    if (!propostaExistente?.protocolo || !propostaExistente?.hash_certificacao) {
-      console.log('Atualizando proposta com ID:', propostaId);
-      console.log('Protocolo gerado:', protocolo);
-      console.log('Hash gerado:', hash);
-      
-      const { data: updateData, error: updateError } = await supabase
+    // Atualizar o protocolo se não existir
+    if (!propostaExistente?.protocolo) {
+      const { error: updateError } = await supabase
         .from('selecao_propostas_fornecedor')
-        .update({
-          protocolo: protocolo,
-          hash_certificacao: hash
-        })
-        .eq('id', propostaId)
-        .select();
+        .update({ protocolo })
+        .eq('id', propostaId);
 
       if (updateError) {
         console.error('Erro ao atualizar protocolo:', updateError);
         throw updateError;
       }
-
-      console.log('Proposta atualizada com sucesso:', updateData);
+      
       console.log('Protocolo salvo:', protocolo);
-    } else {
-      console.log('Protocolo já existe, não será atualizado');
     }
 
     return {
       url: filePath,
       nome: nomeArquivo,
-      hash: hash
+      hash: ''
     };
   } catch (error) {
     console.error('Erro ao gerar PDF da proposta de seleção:', error);
