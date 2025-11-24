@@ -462,15 +462,30 @@ const ParticiparSelecao = () => {
     dadosImportados.forEach(dado => {
       const item = itens.find(i => i.numero_item === dado.numero_item);
       if (item) {
+        // Formatar o valor corretamente para exibição
+        const valorFormatado = dado.valor_unitario.toFixed(2).replace('.', ',');
+        
         novasRespostas[item.id] = {
           valor_unitario_ofertado: dado.valor_unitario,
-          valor_display: dado.valor_unitario.toString().replace('.', ','),
+          valor_display: valorFormatado,
           marca_ofertada: dado.marca
         };
+        
+        // Atualizar os inputs diretamente no DOM já que usam defaultValue
+        const inputValor = document.querySelector(`input[key="valor-item-${item.id}"], input[key="valor-lote-${item.id}"]`) as HTMLInputElement;
+        if (inputValor) {
+          inputValor.value = `R$ ${valorFormatado}`;
+        }
+        
+        const inputMarca = document.querySelector(`input[key="marca-${item.id}"], input[key="marca-lote-${item.id}"]`) as HTMLInputElement;
+        if (inputMarca) {
+          inputMarca.value = dado.marca;
+        }
       }
     });
     
     setRespostas(novasRespostas);
+    toast.success("Dados importados com sucesso!");
   };
 
   const calcularValorTotal = () => {
