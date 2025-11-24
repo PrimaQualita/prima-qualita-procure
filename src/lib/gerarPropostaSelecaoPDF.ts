@@ -180,17 +180,18 @@ export async function gerarPropostaSelecaoPDF(
       
       const descLines = doc.splitTextToSize(item.descricao, 65);
       const alturaLinha = Math.max(descLines.length * 4, 6);
+      const yCenter = y + (alturaLinha / 2);
       
       doc.setDrawColor(200, 200, 200);
       doc.line(margemEsquerda, y + alturaLinha, margemEsquerda + larguraUtil, y + alturaLinha);
       
-      doc.text(item.numero_item.toString(), colItem, y + 3);
+      doc.text(item.numero_item.toString(), colItem, yCenter);
       doc.text(descLines, colDesc, y + 3);
-      doc.text(item.quantidade.toString(), colQtd, y + 3);
-      doc.text(item.unidade, colUni, y + 3);
-      doc.text(item.marca || '-', colMarca, y + 3);
-      doc.text(formatarMoeda(item.valor_unitario_ofertado), colValorUnit, y + 3);
-      doc.text(formatarMoeda(valorTotalItem), colValorTotal, y + 3);
+      doc.text(item.quantidade.toString(), colQtd, yCenter);
+      doc.text(item.unidade, colUni, yCenter);
+      doc.text(item.marca || '-', colMarca, yCenter);
+      doc.text(formatarMoeda(item.valor_unitario_ofertado), colValorUnit, yCenter);
+      doc.text(formatarMoeda(valorTotalItem), colValorTotal, yCenter);
       
       y += alturaLinha;
     }
