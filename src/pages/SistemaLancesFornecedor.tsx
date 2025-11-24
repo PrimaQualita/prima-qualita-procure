@@ -223,6 +223,11 @@ const SistemaLancesFornecedor = () => {
     return lances.filter(l => l.numero_item === numeroItem);
   };
 
+  const fornecedorApresentouPropostaNoItem = (numeroItem: number): boolean => {
+    const itemProposta = itens.find(i => i.numero_item === numeroItem);
+    return !!itemProposta && itemProposta.valor_unitario_ofertado > 0;
+  };
+
   const isFornecedorDesclassificadoNoItem = (numeroItem: number) => {
     const itemProposta = itens.find(i => i.numero_item === numeroItem);
     if (!itemProposta) {
@@ -546,7 +551,27 @@ const SistemaLancesFornecedor = () => {
                 {/* Valor Mínimo e Estimado do Item Selecionado */}
                 {itemSelecionado !== null && (
                   <div className="space-y-3">
-                    {isFornecedorDesclassificadoNoItem(itemSelecionado) ? (
+                    {!fornecedorApresentouPropostaNoItem(itemSelecionado) ? (
+                      <div className="border-2 rounded-lg p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-gray-300">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="h-12 w-12 rounded-full bg-gray-500 flex items-center justify-center">
+                            <span className="text-2xl text-white">⊘</span>
+                          </div>
+                          <div>
+                            <Label className="text-lg font-bold text-gray-900">Sem Proposta no Item {itemSelecionado}</Label>
+                            <p className="text-sm text-gray-700">Você não pode participar de lances neste item</p>
+                          </div>
+                        </div>
+                        <div className="border-t border-gray-200 pt-3 mt-3">
+                          <p className="text-sm text-gray-800">
+                            <strong>Motivo:</strong> Você não apresentou proposta inicial para este item.
+                          </p>
+                          <p className="text-xs text-gray-600 mt-3 italic">
+                            ℹ️ Apenas itens cotados na proposta inicial podem receber lances.
+                          </p>
+                        </div>
+                      </div>
+                    ) : isFornecedorDesclassificadoNoItem(itemSelecionado) ? (
                       <div className="border-2 rounded-lg p-6 bg-gradient-to-r from-red-50 to-red-100 border-red-300">
                         <div className="flex items-center gap-3 mb-3">
                           <div className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center">
@@ -603,6 +628,8 @@ const SistemaLancesFornecedor = () => {
                     <Label className="text-sm font-semibold mb-3 block">Enviar Lance</Label>
                     {itemSelecionado === null ? (
                       <p className="text-sm text-muted-foreground">Selecione um item acima para enviar seu lance</p>
+                    ) : !fornecedorApresentouPropostaNoItem(itemSelecionado) ? (
+                      <p className="text-sm text-gray-600 font-medium">Você não pode participar de lances neste item porque não apresentou proposta inicial.</p>
                     ) : isFornecedorDesclassificadoNoItem(itemSelecionado) ? (
                       <p className="text-sm text-red-600 font-medium">Você está desclassificado neste item e não pode enviar lances.</p>
                     ) : (
