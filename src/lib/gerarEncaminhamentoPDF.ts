@@ -89,8 +89,8 @@ export const gerarEncaminhamentoPDF = async (
     doc.saveGraphicsState();
     const gState = doc.GState({ opacity: 0.08 });
     doc.setGState(gState);
-    const marcaDaguaWidth = 100;
-    const marcaDaguaHeight = 100;
+    const marcaDaguaWidth = 160;
+    const marcaDaguaHeight = 160;
     doc.addImage(
       base64MarcaDagua, 
       'PNG', 
@@ -101,10 +101,10 @@ export const gerarEncaminhamentoPDF = async (
     );
     doc.restoreGraphicsState();
     
-    // Logo da capa no topo
-    const logoWidth = pageWidth * 0.9;
-    const logoHeight = 35;
-    doc.addImage(base64CapaLogo, 'PNG', (pageWidth - logoWidth) / 2, 5, logoWidth, logoHeight);
+    // Logo da capa no topo - largura total da página
+    const logoWidth = pageWidth;
+    const logoHeight = 40;
+    doc.addImage(base64CapaLogo, 'PNG', 0, 0, logoWidth, logoHeight);
     
     // Rodapé
     const yRodape = pageHeight - 20;
