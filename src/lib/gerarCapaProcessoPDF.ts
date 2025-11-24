@@ -71,13 +71,13 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             position: relative;
             z-index: 2;
             margin-top: 65mm;
-            margin-bottom: 40mm;
+            margin-bottom: 25mm;
             margin-left: 60px;
             margin-right: 60px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: calc(297mm - 65mm - 40mm);
+            min-height: calc(297mm - 65mm - 25mm);
           }
           
           .top-section {
@@ -153,12 +153,16 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             bottom: 0;
             left: 0;
             width: 100%;
+            max-height: 25mm;
+            overflow: hidden;
           }
           
           .footer img {
             width: 100%;
             height: auto;
+            max-height: 25mm;
             display: block;
+            object-fit: contain;
           }
         </style>
       </head>
