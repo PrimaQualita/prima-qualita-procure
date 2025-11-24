@@ -1,6 +1,8 @@
 import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
 import logoHorizontal from '@/assets/prima-qualita-logo-horizontal.png';
+import capaLogo from '@/assets/capa-processo-logo.png';
+import logoMarcaDagua from '@/assets/prima-qualita-logo.png';
 
 interface EncaminhamentoResult {
   url: string;
@@ -41,9 +43,10 @@ export const gerarEncaminhamentoPDF = async (
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
-  // Função para adicionar logo e rodapé
+  // Função para adicionar logo, marca d'água e rodapé
   const adicionarLogoERodape = async () => {
-    const base64Logo = await new Promise<string>((resolve, reject) => {
+    // Logo da capa no topo
+    const base64CapaLogo = await new Promise<string>((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
@@ -58,11 +61,50 @@ export const gerarEncaminhamentoPDF = async (
           reject(new Error('Erro ao criar canvas'));
         }
       };
-      img.onerror = () => reject(new Error('Erro ao carregar logo'));
-      img.src = logoHorizontal;
+      img.onerror = () => reject(new Error('Erro ao carregar logo capa'));
+      img.src = capaLogo;
     });
     
-    doc.addImage(base64Logo, 'PNG', (pageWidth - 60) / 2, 10, 60, 18);
+    // Marca d'água centralizada
+    const base64MarcaDagua = await new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Erro ao criar canvas'));
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar marca d\'água'));
+      img.src = logoMarcaDagua;
+    });
+    
+    // Adicionar marca d'água com opacidade baixa
+    doc.saveGraphicsState();
+    const gState = doc.GState({ opacity: 0.08 });
+    doc.setGState(gState);
+    const marcaDaguaWidth = 100;
+    const marcaDaguaHeight = 100;
+    doc.addImage(
+      base64MarcaDagua, 
+      'PNG', 
+      (pageWidth - marcaDaguaWidth) / 2, 
+      (pageHeight - marcaDaguaHeight) / 2, 
+      marcaDaguaWidth, 
+      marcaDaguaHeight
+    );
+    doc.restoreGraphicsState();
+    
+    // Logo da capa no topo
+    const logoWidth = pageWidth * 0.9;
+    const logoHeight = 35;
+    doc.addImage(base64CapaLogo, 'PNG', (pageWidth - logoWidth) / 2, 5, logoWidth, logoHeight);
     
     // Rodapé
     const yRodape = pageHeight - 20;
