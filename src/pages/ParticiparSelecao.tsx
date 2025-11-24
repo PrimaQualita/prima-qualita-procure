@@ -652,7 +652,7 @@ const ParticiparSelecao = () => {
       const codigoAcesso = gerarCodigoAcesso();
       console.log("Código de acesso gerado:", codigoAcesso);
 
-      // Criar proposta COM código de acesso
+      // Criar proposta COM código de acesso e e-mail
       const { data: propostaCriada, error: erroProposta } = await supabase
         .from("selecao_propostas_fornecedor")
         .insert({
@@ -662,6 +662,7 @@ const ParticiparSelecao = () => {
           valor_total_proposta: valorTotal,
           data_envio_proposta: new Date().toISOString(),
           codigo_acesso: codigoAcesso,
+          email: fornecedor?.email || dadosEmpresa.email,
         })
         .select("id")
         .single();
