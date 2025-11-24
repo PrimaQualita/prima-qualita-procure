@@ -28,73 +28,47 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             margin: 0;
           }
           
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          
-          html, body {
+          body {
+            font-family: Arial, sans-serif;
             width: 210mm;
             height: 297mm;
             margin: 0;
             padding: 0;
-            overflow: hidden;
-          }
-          
-          body {
-            font-family: Arial, sans-serif;
             position: relative;
-            background: white;
           }
           
-          .header {
-            width: 100%;
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 10;
+          .page-container {
+            width: 210mm;
+            height: 297mm;
+            position: relative;
           }
           
           .header img {
             width: 100%;
-            height: auto;
             display: block;
           }
           
           .watermark {
-            position: fixed;
-            top: 50%;
+            position: absolute;
+            top: 120mm;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translateX(-50%);
             opacity: 0.08;
-            z-index: 1;
-            width: 650px;
-            height: auto;
-            pointer-events: none;
+            width: 160mm;
+            z-index: 0;
           }
           
           .content {
-            position: absolute;
-            top: 60mm;
-            left: 50px;
-            right: 50px;
-            bottom: 30mm;
-            z-index: 2;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-          }
-          
-          .top-section {
-            flex-shrink: 0;
+            padding: 0 50px;
+            position: relative;
+            z-index: 1;
           }
           
           .processo-line {
             text-align: center;
             font-size: 18px;
             font-weight: bold;
-            margin-bottom: 12px;
+            margin: 15px 0;
             color: #1a5490;
           }
           
@@ -102,94 +76,79 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             text-align: center;
             font-size: 18px;
             font-weight: bold;
-            margin-bottom: 15px;
+            margin: 0 0 15px 0;
             color: #1a5490;
           }
           
           .objeto-section {
-            margin-bottom: 0;
-            text-align: left;
+            margin-bottom: 30px;
           }
           
           .objeto-title {
             font-size: 15px;
             font-weight: bold;
-            margin-bottom: 2px;
+            margin-bottom: 3px;
           }
           
           .objeto-text {
             font-size: 15px;
-            line-height: 1.2;
-          }
-          
-          .middle-section {
-            text-align: center;
-            flex-grow: 0;
-            flex-shrink: 0;
-            margin: 8px 0;
+            line-height: 1.3;
           }
           
           .data-text {
+            text-align: center;
             font-size: 18px;
             font-weight: bold;
             color: #1a5490;
+            margin: 40px 0;
           }
           
-          .bottom-section {
-            margin-bottom: 0;
-            text-align: left;
-            flex-shrink: 0;
+          .assunto-section {
+            margin-bottom: 20px;
           }
           
           .assunto-title {
             font-size: 15px;
             font-weight: bold;
-            margin-bottom: 2px;
+            margin-bottom: 3px;
           }
           
           .assunto-text {
             font-size: 15px;
-            line-height: 1.2;
+            line-height: 1.3;
             text-align: justify;
           }
           
           .footer {
-            position: fixed;
+            position: absolute;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 25mm;
-            z-index: 10;
           }
           
           .footer img {
             width: 100%;
-            height: 100%;
             display: block;
-            object-fit: cover;
           }
         </style>
       </head>
       <body>
-        <div class="header">
-          <img src="${capaLogo}" alt="Logo Prima Qualitá Saúde">
-        </div>
-        
-        <img src="${logoMarcaDagua}" class="watermark" alt="Marca d'água">
-        
-        <div class="content">
-          <div class="top-section">
+        <div class="page-container">
+          <div class="header">
+            <img src="${capaLogo}" alt="Logo">
+          </div>
+          
+          <img src="${logoMarcaDagua}" class="watermark" alt="Marca d'água">
+          
+          <div class="content">
             <div class="processo-line">Processo: ${dados.numeroProcesso}</div>
-            
             <div class="contrato-line">Contrato de Gestão: ${dados.numeroContrato}</div>
             
             <div class="objeto-section">
               <div class="objeto-title">Objeto:</div>
               <div class="objeto-text">${dados.observacoesContrato || 'Não informado'}</div>
             </div>
-          </div>
-          
-          <div class="middle-section">
+            
             <div class="data-text">
               Rio de Janeiro, ${new Date().toLocaleDateString('pt-BR', { 
                 day: '2-digit', 
@@ -197,16 +156,16 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
                 year: 'numeric' 
               })}
             </div>
+            
+            <div class="assunto-section">
+              <div class="assunto-title">Assunto:</div>
+              <div class="assunto-text">${dados.objetoProcesso}</div>
+            </div>
           </div>
           
-          <div class="bottom-section">
-            <div class="assunto-title">Assunto:</div>
-            <div class="assunto-text">${dados.objetoProcesso}</div>
+          <div class="footer">
+            <img src="${capaRodape}" alt="Rodapé">
           </div>
-        </div>
-        
-        <div class="footer">
-          <img src="${capaRodape}" alt="Rodapé Prima Qualitá">
         </div>
       </body>
     </html>
