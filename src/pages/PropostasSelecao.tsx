@@ -59,6 +59,7 @@ export default function PropostasSelecao() {
   const loadPropostas = async () => {
     try {
       setLoading(true);
+      console.log("📋 Carregando propostas para seleção:", selecaoId);
 
       // Carregar seleção e processo
       const { data: selecaoData, error: selecaoError } = await supabase
@@ -84,6 +85,7 @@ export default function PropostasSelecao() {
 
       if (propostasError) throw propostasError;
 
+      console.log("✅ Propostas carregadas:", propostasData?.length || 0);
       setPropostas(propostasData || []);
     } catch (error) {
       console.error("Erro ao carregar propostas:", error);
@@ -273,40 +275,62 @@ export default function PropostasSelecao() {
     if (!propostaParaExcluir) return;
     
     try {
-      // Deletar PDF do storage se existir
-      if (propostaParaExcluir.url_pdf_proposta) {
-        const { error: storageError } = await supabase.storage
-          .from('processo-anexos')
-          .remove([propostaParaExcluir.url_pdf_proposta]);
-
-        if (storageError) {
-          console.error('Erro ao deletar PDF do storage:', storageError);
-        }
-      }
-
-      // Deletar itens da proposta
+      console.log("🗑️ Iniciando exclusão da proposta:", propostaParaExcluir.id);
+      
+      // Deletar itens da proposta primeiro
+      console.log("🗑️ Deletando itens da proposta...");
       const { error: itensError } = await supabase
         .from('selecao_respostas_itens_fornecedor')
         .delete()
         .eq('proposta_id', propostaParaExcluir.id);
 
-      if (itensError) throw itensError;
+      if (itensError) {
+        console.error("❌ Erro ao deletar itens:", itensError);
+        throw itensError;
+      }
+      console.log("✅ Itens deletados com sucesso");
+
+      // Deletar PDF do storage se existir
+      if (propostaParaExcluir.url_pdf_proposta) {
+        console.log("🗑️ Deletando PDF do storage...");
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove([propostaParaExcluir.url_pdf_proposta]);
+
+        if (storageError) {
+          console.error('⚠️ Erro ao deletar PDF do storage:', storageError);
+          // Não bloqueia a exclusão se falhar
+        } else {
+          console.log("✅ PDF deletado do storage");
+        }
+      }
 
       // Deletar proposta
+      console.log("🗑️ Deletando proposta...");
       const { error: propostaError } = await supabase
         .from('selecao_propostas_fornecedor')
         .delete()
         .eq('id', propostaParaExcluir.id);
 
-      if (propostaError) throw propostaError;
+      if (propostaError) {
+        console.error("❌ Erro ao deletar proposta:", propostaError);
+        throw propostaError;
+      }
+      console.log("✅ Proposta deletada com sucesso");
 
       setPropostaParaExcluir(null);
       setConfirmDeleteOpen(false);
+      
       toast.success("Proposta excluída com sucesso");
+      
+      // Recarregar propostas
+      console.log("🔄 Recarregando lista de propostas...");
       await loadPropostas();
-    } catch (error) {
-      console.error("Erro ao excluir proposta:", error);
-      toast.error("Erro ao excluir proposta");
+      console.log("✅ Lista de propostas recarregada");
+      
+    } catch (error: any) {
+      console.error("❌ Erro ao excluir proposta:", error);
+      toast.error(error.message || "Erro ao excluir proposta");
     }
   };
 
