@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { gerarHashDocumento } from './certificacaoDigital';
+import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
 import { v4 as uuidv4 } from 'uuid';
 import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
@@ -211,56 +211,26 @@ export async function gerarPropostaSelecaoPDF(
       y += obsLines.length * 5 + 5;
     }
 
-    // Certificação Digital
+    // Buscar dados do usuário para certificação
+    const { data: userData } = await supabase
+      .from('profiles')
+      .select('nome_completo, cpf')
+      .eq('id', (await supabase.auth.getUser()).data.user?.id)
+      .single();
+
+    // Certificação Digital usando função padrão
     y += 5;
-    
     const linkVerificacao = `https://prima-qualita-procure.lovable.app/verificar-proposta?protocolo=${protocolo}`;
     
-    // Calcular altura do quadro
-    const yInicioCert = y;
-    let yTempCalc = y + 6;
-    yTempCalc += 7; // Título
-    yTempCalc += 5; // Protocolo
-    yTempCalc += 5; // Data/Hora
-    yTempCalc += 5; // Fornecedor
-    
-    doc.setFontSize(8);
-    const linksVerif = doc.splitTextToSize(linkVerificacao, larguraUtil - 6);
-    yTempCalc += linksVerif.length * 4 + 8;
-    
-    const alturaCert = yTempCalc - yInicioCert;
+    y = adicionarCertificacaoDigital(doc, {
+      protocolo: protocolo,
+      dataHora: dataEnvio,
+      responsavel: userData?.nome_completo || 'Sistema',
+      cpf: userData?.cpf || '',
+      hash: hash,
+      linkVerificacao: linkVerificacao
+    }, y);
 
-    // Desenhar retângulo da certificação
-    doc.setFillColor(245, 245, 245);
-    doc.rect(margemEsquerda, yInicioCert, larguraUtil, alturaCert, 'F');
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    doc.rect(margemEsquerda, yInicioCert, larguraUtil, alturaCert, 'S');
-
-    // Título da certificação
-    y += 6;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(14, 165, 233); // Azul do sistema
-    doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, y, { align: 'center' });
-    
-    y += 7;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 3, y);
-    
-    y += 5;
-    doc.text(`Data/Hora: ${dataEnvio}`, margemEsquerda + 3, y);
-    
-    y += 5;
-    doc.text(`Fornecedor: ${fornecedor.razao_social} (CNPJ: ${fornecedor.cnpj})`, margemEsquerda + 3, y);
-    
-    y += 6;
-    doc.setTextColor(14, 165, 233);
-    doc.textWithLink('Verificar autenticidade:', margemEsquerda + 3, y, { url: linkVerificacao });
-    y += 4;
-    doc.text(linksVerif, margemEsquerda + 3, y);
 
     // Gerar PDF como blob
     const pdfBlob = doc.output('blob');
