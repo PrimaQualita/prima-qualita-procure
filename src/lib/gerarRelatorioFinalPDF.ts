@@ -126,14 +126,15 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     const logoHeight = 40;
     doc.addImage(base64CapaLogo, 'PNG', 0, 0, logoWidth, logoHeight);
     
-    // Rodapé
-    const yRodape = pageHeight - 20;
+    // Rodapé - encostar no fundo da página
+    const yRodape = pageHeight - 15;
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape, { align: 'center' });
-    doc.text('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yRodape + 5, { align: 'center' });
-    doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 10, { align: 'center' });
+    doc.text('PRIMA QUALITA SAUDE', pageWidth / 2, yRodape, { align: 'center' });
+    doc.text('www.primaqualitasaude.org', pageWidth / 2, yRodape + 4, { align: 'center' });
+    doc.text('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', pageWidth / 2, yRodape + 8, { align: 'center' });
+    doc.text('CNPJ: 40.289.134/0001-99', pageWidth / 2, yRodape + 12, { align: 'center' });
   };
   
   // Adicionar logo e rodapé
