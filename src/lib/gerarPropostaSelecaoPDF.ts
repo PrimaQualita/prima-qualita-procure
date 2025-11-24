@@ -103,12 +103,12 @@ export async function gerarPropostaSelecaoPDF(
     const margemEsquerda = 15;
     const larguraUtil = pageWidth - 30;
 
-    // Cabeçalho
-    doc.setFontSize(18);
+    // Cabeçalho Principal
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(14, 165, 233); // Azul do sistema
-    doc.text('PROPOSTA DE SELEÇÃO DE FORNECEDORES', pageWidth / 2, y, { align: 'center' });
-    y += 12;
+    doc.setTextColor(30, 159, 204); // Azul do logo Prima Qualitá
+    doc.text('PROPOSTA DE PREÇOS', pageWidth / 2, y, { align: 'center' });
+    y += 10;
 
     // Informações da Seleção
     doc.setFontSize(10);
@@ -120,13 +120,17 @@ export async function gerarPropostaSelecaoPDF(
     
     doc.setFont('helvetica', 'normal');
     doc.text(`Data de Envio: ${dataEnvio}`, margemEsquerda, y);
-    y += 10;
+    y += 12;
 
-    // Dados do Fornecedor
+    // Cabeçalho "Dados do Fornecedor" com sombra
+    doc.setFillColor(30, 159, 204); // Azul do logo
+    doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Dados do Fornecedor', margemEsquerda, y);
+    doc.setTextColor(255, 255, 255);
+    doc.text('DADOS DO FORNECEDOR', margemEsquerda + 2, y);
     y += 7;
+    doc.setTextColor(0, 0, 0);
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -151,14 +155,18 @@ export async function gerarPropostaSelecaoPDF(
       y += 3;
     }
 
-    // Tabela de Itens
+    // Cabeçalho "Itens da Proposta" com sombra
+    doc.setFillColor(30, 159, 204); // Azul do logo
+    doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Itens Cotados', margemEsquerda, y);
+    doc.setTextColor(255, 255, 255);
+    doc.text('ITENS DA PROPOSTA', margemEsquerda + 2, y);
     y += 8;
+    doc.setTextColor(0, 0, 0);
 
-    // Cabeçalho da tabela
-    doc.setFillColor(14, 165, 233); // Azul do sistema
+    // Cabeçalho da tabela com sombra
+    doc.setFillColor(30, 159, 204); // Azul do logo
     doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
     
     doc.setFontSize(8);
