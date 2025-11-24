@@ -67,6 +67,7 @@ const formatarCNPJ = (valor: string): string => {
 const dadosEmpresaSchema = z.object({
   razao_social: z.string().trim().min(1, "Razão Social é obrigatória").max(255),
   cnpj: z.string().trim().min(1, "CNPJ é obrigatório").refine((val) => validarCNPJ(val), { message: "CNPJ inválido" }),
+  email: z.string().trim().email("E-mail inválido").max(255),
   logradouro: z.string().trim().min(1, "Logradouro é obrigatório").max(255),
   numero: z.string().trim().min(1, "Número é obrigatório").max(20),
   bairro: z.string().trim().min(1, "Bairro é obrigatório").max(100),
@@ -120,6 +121,7 @@ const ParticiparSelecao = () => {
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
     cnpj: "",
+    email: "",
     logradouro: "",
     numero: "",
     bairro: "",
@@ -153,6 +155,7 @@ const ParticiparSelecao = () => {
         setDadosEmpresa({
           razao_social: fornecedorData.razao_social || "",
           cnpj: formatarCNPJ(fornecedorData.cnpj) || "",
+          email: fornecedorData.email || "",
           logradouro: "",
           numero: "",
           bairro: "",
@@ -652,6 +655,18 @@ const ParticiparSelecao = () => {
                         className={errors.cnpj ? "border-red-500" : ""}
                       />
                       {errors.cnpj && <p className="text-sm text-red-500 mt-1">{errors.cnpj}</p>}
+                    </div>
+
+                    <div>
+                      <Label>E-mail *</Label>
+                      <Input
+                        type="email"
+                        value={dadosEmpresa.email}
+                        onChange={(e) => setDadosEmpresa(prev => ({ ...prev, email: e.target.value }))}
+                        className={errors.email ? "border-red-500" : ""}
+                        placeholder="email@empresa.com"
+                      />
+                      {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
                     </div>
 
                     <div>
