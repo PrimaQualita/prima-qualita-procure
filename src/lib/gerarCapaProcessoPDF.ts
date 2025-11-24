@@ -71,35 +71,64 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           .content {
             position: relative;
             z-index: 2;
-            padding: 40px 60px;
+            padding: 40px 60px 80px 60px;
+            height: calc(297mm - 60px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+          }
+          
+          .top-section {
+            margin-top: 60px;
+          }
+          
+          .processo-line, .contrato-line {
             text-align: center;
-          }
-          
-          .title {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
-            color: #333;
-            margin-bottom: 60px;
-            text-transform: uppercase;
+            margin-bottom: 30px;
           }
           
-          .info-section {
-            margin-bottom: 40px;
-            text-align: left;
+          .objeto-section {
+            margin-bottom: 20px;
           }
           
-          .info-label {
+          .objeto-title {
             font-size: 16px;
             font-weight: bold;
-            color: #1a5490;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
           }
           
-          .info-value {
-            font-size: 14px;
-            color: #333;
-            line-height: 1.6;
-            padding-left: 20px;
+          .objeto-text {
+            font-size: 16px;
+            text-align: justify;
+            line-height: 1.3;
+          }
+          
+          .middle-section {
+            text-align: center;
+            margin: 40px 0;
+          }
+          
+          .data-text {
+            font-size: 20px;
+            font-weight: bold;
+          }
+          
+          .bottom-section {
+            margin-bottom: 40px;
+          }
+          
+          .assunto-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+          }
+          
+          .assunto-text {
+            font-size: 16px;
+            text-align: justify;
+            line-height: 1.3;
           }
           
           .footer {
@@ -125,31 +154,30 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
         <img src="${logoMarcaDagua}" class="watermark" alt="Marca d'água">
         
         <div class="content">
-          <div class="title">PRIMA QUALITÁ SAÚDE</div>
-          
-          <div class="info-section">
-            <div class="info-label">PROCESSO Nº</div>
-            <div class="info-value">${dados.numeroProcesso}</div>
+          <div class="top-section">
+            <div class="processo-line">Processo: ${dados.numeroProcesso}</div>
+            
+            <div class="contrato-line">Contrato de Gestão: ${dados.numeroContrato}</div>
+            
+            <div class="objeto-section">
+              <div class="objeto-title">Objeto:</div>
+              <div class="objeto-text">${dados.objetoProcesso}</div>
+            </div>
           </div>
           
-          <div class="info-section">
-            <div class="info-label">CONTRATO DE GESTÃO</div>
-            <div class="info-value">${dados.numeroContrato}</div>
+          <div class="middle-section">
+            <div class="data-text">
+              Rio de Janeiro, ${new Date().toLocaleDateString('pt-BR', { 
+                day: '2-digit', 
+                month: 'long', 
+                year: 'numeric' 
+              })}
+            </div>
           </div>
           
-          <div class="info-section">
-            <div class="info-label">OBJETO:</div>
-            <div class="info-value">${dados.observacoesContrato || 'Não informado'}</div>
-          </div>
-          
-          <div class="info-section">
-            <div class="info-label">DATA:</div>
-            <div class="info-value">${dataGeracao}</div>
-          </div>
-          
-          <div class="info-section">
-            <div class="info-label">ASSUNTO:</div>
-            <div class="info-value">${dados.objetoProcesso}</div>
+          <div class="bottom-section">
+            <div class="assunto-title">Assunto:</div>
+            <div class="assunto-text">${dados.observacoesContrato || 'Não informado'}</div>
           </div>
         </div>
         
