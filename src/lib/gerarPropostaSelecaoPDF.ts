@@ -68,23 +68,36 @@ export async function gerarPropostaSelecaoPDF(
       console.log('Gerando novo protocolo:', protocolo);
     }
 
-    // Buscar itens da proposta
+    // Buscar itens da proposta com informações completas
     const { data: itens, error: itensError } = await supabase
       .from('selecao_respostas_itens_fornecedor')
-      .select('*')
+      .select(`
+        numero_item,
+        descricao,
+        quantidade,
+        unidade,
+        marca,
+        valor_unitario_ofertado,
+        valor_total_item
+      `)
       .eq('proposta_id', propostaId)
       .order('numero_item');
 
-    if (itensError) {
-      console.error('Erro ao buscar itens:', itensError);
-      throw itensError;
-    }
+    console.log('Query de itens executada');
+    console.log('Erro:', itensError);
+    console.log('Itens retornados:', itens?.length || 0);
 
-    console.log('Itens carregados:', itens);
+    if (itensError) {
+      console.error('Erro detalhado ao buscar itens:', JSON.stringify(itensError, null, 2));
+      throw new Error(`Erro ao buscar itens: ${itensError.message}`);
+    }
 
     if (!itens || itens.length === 0) {
-      throw new Error('Nenhum item encontrado para esta proposta');
+      console.error('NENHUM ITEM ENCONTRADO - Proposta ID:', propostaId);
+      throw new Error(`Nenhum item encontrado para esta proposta (ID: ${propostaId})`);
     }
+
+    console.log(`✅ ${itens.length} itens carregados com sucesso`);
 
     const itensFormatados: ItemProposta[] = itens.map((item: any) => ({
       numero_item: item.numero_item,
