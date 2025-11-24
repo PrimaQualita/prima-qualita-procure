@@ -254,8 +254,8 @@ export async function gerarPropostaSelecaoPDF(
                         (linkLines.length * espacamentoLinha) + 
                         (textoLeiLines.length * espacamentoLinha) + 5;
     
-    // Desenhar quadro com bordas pretas e fundo branco
-    doc.setFillColor(255, 255, 255);
+    // Desenhar quadro com bordas pretas e fundo cinza claro
+    doc.setFillColor(245, 245, 245);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
     doc.rect(margemEsquerda, y, larguraUtil, alturaQuadro, 'FD');
