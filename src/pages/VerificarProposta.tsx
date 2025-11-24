@@ -62,6 +62,7 @@ const VerificarProposta = () => {
 
   const verificarProposta = async () => {
     try {
+      alert('INICIANDO VERIFICAÇÃO - Protocolo: ' + protocolo);
       console.log('=== INICIANDO VERIFICAÇÃO ===');
       console.log('Protocolo:', protocolo);
       
