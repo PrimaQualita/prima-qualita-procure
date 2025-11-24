@@ -1,4 +1,5 @@
-import html2pdf from 'html2pdf.js';
+import { jsPDF } from 'jspdf';
+import { supabase } from '@/integrations/supabase/client';
 import capaLogo from '@/assets/capa-processo-logo.png';
 import capaRodape from '@/assets/capa-processo-rodape.png';
 import logoMarcaDagua from '@/assets/prima-qualita-logo.png';
@@ -11,183 +12,148 @@ interface DadosCapaProcesso {
 }
 
 export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
-  const dataGeracao = new Date().toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
   });
 
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          @page {
-            size: A4;
-            margin: 0;
-          }
-          
-          body {
-            font-family: Arial, sans-serif;
-            width: 210mm;
-            margin: 0;
-            padding: 0;
-            position: relative;
-          }
-          
-          .page-container {
-            width: 210mm;
-            position: relative;
-            padding-bottom: 30mm;
-          }
-          
-          .header img {
-            width: 100%;
-            display: block;
-          }
-          
-          .watermark {
-            position: absolute;
-            top: 120mm;
-            left: 50%;
-            transform: translateX(-50%);
-            opacity: 0.08;
-            width: 160mm;
-            z-index: 0;
-          }
-          
-          .content {
-            padding: 0 50px;
-            position: relative;
-            z-index: 1;
-          }
-          
-          .processo-line {
-            text-align: center;
-            font-size: 18px;
-            font-weight: bold;
-            margin: 15px 0;
-            color: #1a5490;
-          }
-          
-          .contrato-line {
-            text-align: center;
-            font-size: 18px;
-            font-weight: bold;
-            margin: 0 0 15px 0;
-            color: #1a5490;
-          }
-          
-          .objeto-section {
-            margin-bottom: 30px;
-          }
-          
-          .objeto-title {
-            font-size: 15px;
-            font-weight: bold;
-            margin-bottom: 3px;
-          }
-          
-          .objeto-text {
-            font-size: 15px;
-            line-height: 1.3;
-          }
-          
-          .data-text {
-            text-align: center;
-            font-size: 18px;
-            font-weight: bold;
-            color: #1a5490;
-            margin: 40px 0;
-          }
-          
-          .assunto-section {
-            margin-bottom: 20px;
-          }
-          
-          .assunto-title {
-            font-size: 15px;
-            font-weight: bold;
-            margin-bottom: 3px;
-          }
-          
-          .assunto-text {
-            font-size: 15px;
-            line-height: 1.3;
-            text-align: justify;
-          }
-          
-          .footer {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-          }
-          
-          .footer img {
-            width: 100%;
-            display: block;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="page-container">
-          <div class="header">
-            <img src="${capaLogo}" alt="Logo">
-          </div>
-          
-          <img src="${logoMarcaDagua}" class="watermark" alt="Marca d'água">
-          
-          <div class="content">
-            <div class="processo-line">Processo: ${dados.numeroProcesso}</div>
-            <div class="contrato-line">Contrato de Gestão: ${dados.numeroContrato}</div>
-            
-            <div class="objeto-section">
-              <div class="objeto-title">Objeto:</div>
-              <div class="objeto-text">${dados.observacoesContrato || 'Não informado'}</div>
-            </div>
-            
-            <div class="data-text">
-              Rio de Janeiro, ${new Date().toLocaleDateString('pt-BR', { 
-                day: '2-digit', 
-                month: 'long', 
-                year: 'numeric' 
-              })}
-            </div>
-            
-            <div class="assunto-section">
-              <div class="assunto-title">Assunto:</div>
-              <div class="assunto-text">${dados.objetoProcesso}</div>
-            </div>
-          </div>
-          
-          <div class="footer">
-            <img src="${capaRodape}" alt="Rodapé">
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  const opt = {
-    margin: 0,
-    filename: `Capa_Processo_${dados.numeroProcesso}.pdf`,
-    image: { type: 'jpeg' as const, quality: 0.98 },
-    html2canvas: { 
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      letterRendering: true,
-      windowHeight: 1122
-    },
-    jsPDF: { 
-      unit: 'mm', 
-      format: 'a4', 
-      orientation: 'portrait' as const
-    },
-    pagebreak: { mode: 'avoid-all', after: '.page-container' }
-  };
+  // Carregar logo da capa
+  const base64CapaLogo = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar canvas'));
+      }
+    };
+    img.onerror = () => reject(new Error('Erro ao carregar logo'));
+    img.src = capaLogo;
+  });
 
-  return html2pdf().set(opt).from(htmlContent).toPdf().output('blob');
+  // Carregar marca d'água
+  const base64MarcaDagua = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar canvas'));
+      }
+    };
+    img.onerror = () => reject(new Error('Erro ao carregar marca d\'água'));
+    img.src = logoMarcaDagua;
+  });
+
+  // Carregar rodapé
+  const base64Rodape = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar canvas'));
+      }
+    };
+    img.onerror = () => reject(new Error('Erro ao carregar rodapé'));
+    img.src = capaRodape;
+  });
+
+  // Adicionar marca d'água
+  doc.saveGraphicsState();
+  const gState = doc.GState({ opacity: 0.08 });
+  doc.setGState(gState);
+  const marcaDaguaWidth = 160;
+  const marcaDaguaHeight = 80;
+  doc.addImage(
+    base64MarcaDagua,
+    'PNG',
+    (pageWidth - marcaDaguaWidth) / 2,
+    (pageHeight - marcaDaguaHeight) / 2,
+    marcaDaguaWidth,
+    marcaDaguaHeight
+  );
+  doc.restoreGraphicsState();
+
+  // Logo no topo - largura total
+  const logoHeight = 40;
+  doc.addImage(base64CapaLogo, 'PNG', 0, 0, pageWidth, logoHeight);
+
+  // Rodapé no fundo - largura total
+  const rodapeHeight = 25;
+  const yRodape = pageHeight - rodapeHeight;
+  doc.addImage(base64Rodape, 'PNG', 0, yRodape, pageWidth, rodapeHeight);
+
+  // Conteúdo
+  let yPos = logoHeight + 15;
+
+  // Processo
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(26, 84, 144);
+  doc.text(`Processo: ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 10;
+
+  // Contrato
+  doc.text(`Contrato de Gestão: ${dados.numeroContrato}`, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 15;
+
+  // Objeto
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text('Objeto:', 20, yPos);
+  yPos += 6;
+
+  doc.setFont('helvetica', 'normal');
+  const linhasObjeto = doc.splitTextToSize(dados.observacoesContrato || 'Não informado', 170);
+  doc.text(linhasObjeto, 20, yPos);
+  yPos += linhasObjeto.length * 5 + 20;
+
+  // Data
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(26, 84, 144);
+  const dataTexto = `Rio de Janeiro, ${new Date().toLocaleDateString('pt-BR', { 
+    day: '2-digit', 
+    month: 'long', 
+    year: 'numeric' 
+  })}`;
+  doc.text(dataTexto, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 20;
+
+  // Assunto
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text('Assunto:', 20, yPos);
+  yPos += 6;
+
+  doc.setFont('helvetica', 'normal');
+  const linhasAssunto = doc.splitTextToSize(dados.objetoProcesso, 170);
+  doc.text(linhasAssunto, 20, yPos, { align: 'justify', maxWidth: 170 });
+
+  return doc.output('blob');
 };
