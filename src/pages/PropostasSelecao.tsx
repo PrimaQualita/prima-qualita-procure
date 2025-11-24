@@ -173,6 +173,7 @@ export default function PropostasSelecao() {
                 <TableRow>
                   <TableHead>Fornecedor</TableHead>
                   <TableHead>CNPJ</TableHead>
+                  <TableHead>E-mail</TableHead>
                   <TableHead className="text-right">Valor Total</TableHead>
                   <TableHead>Data de Envio</TableHead>
                   <TableHead>Status</TableHead>
@@ -186,6 +187,7 @@ export default function PropostasSelecao() {
                       {proposta.fornecedor.razao_social}
                     </TableCell>
                     <TableCell>{formatCNPJ(proposta.fornecedor.cnpj)}</TableCell>
+                    <TableCell>{proposta.email || '-'}</TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(proposta.valor_total_proposta)}
                     </TableCell>
