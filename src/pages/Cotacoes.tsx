@@ -17,6 +17,7 @@ import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
 import { DialogLote } from "@/components/cotacoes/DialogLote";
 import { DialogFinalizarProcesso } from "@/components/cotacoes/DialogFinalizarProcesso";
+import { DialogCriarSelecao } from "@/components/cotacoes/DialogCriarSelecao";
 
 import { DialogImportarItens } from "@/components/cotacoes/DialogImportarItens";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -92,6 +93,7 @@ const Cotacoes = () => {
   const [dialogEnviarOpen, setDialogEnviarOpen] = useState(false);
   const [dialogLoteOpen, setDialogLoteOpen] = useState(false);
   const [dialogFinalizarOpen, setDialogFinalizarOpen] = useState(false);
+  const [dialogCriarSelecaoOpen, setDialogCriarSelecaoOpen] = useState(false);
   
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
   const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
@@ -1421,24 +1423,7 @@ const Cotacoes = () => {
                           )}
                         </div>
                         <Button
-                          onClick={async () => {
-                            if (!cotacaoSelecionada?.id) return;
-                            
-                            const { error } = await supabase
-                              .from('cotacoes_precos')
-                              .update({ enviado_para_selecao: true })
-                              .eq('id', cotacaoSelecionada.id);
-                            
-                            if (error) {
-                              toast.error('Erro ao enviar para seleção de fornecedores');
-                              return;
-                            }
-                            
-                            toast.success('Processo enviado para Seleção de Fornecedores');
-                            if (processoSelecionado) {
-                              loadCotacoes(processoSelecionado.id);
-                            }
-                          }}
+                          onClick={() => setDialogCriarSelecaoOpen(true)}
                           disabled={itens.length === 0 || (!autorizacaoSelecaoUrl && !autorizacaoSelecaoAnexada)}
                           size="lg"
                           className="md:w-auto w-full"
@@ -1889,6 +1874,23 @@ const Cotacoes = () => {
           open={dialogFinalizarOpen}
           onOpenChange={setDialogFinalizarOpen}
           cotacaoId={cotacaoSelecionada.id}
+          onSuccess={() => {
+            if (processoSelecionado) {
+              loadCotacoes(processoSelecionado.id);
+            }
+          }}
+        />
+      )}
+
+      {/* Dialog Criar Seleção */}
+      {cotacaoSelecionada && processoSelecionado && (
+        <DialogCriarSelecao
+          open={dialogCriarSelecaoOpen}
+          onOpenChange={setDialogCriarSelecaoOpen}
+          cotacaoId={cotacaoSelecionada.id}
+          processoId={processoSelecionado.id}
+          processoNumero={processoSelecionado.numero_processo_interno}
+          criterioJulgamento={processoSelecionado.criterio_julgamento || 'global'}
           onSuccess={() => {
             if (processoSelecionado) {
               loadCotacoes(processoSelecionado.id);
