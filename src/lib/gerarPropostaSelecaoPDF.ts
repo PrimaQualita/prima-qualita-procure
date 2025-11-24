@@ -223,47 +223,47 @@ export async function gerarPropostaSelecaoPDF(
     }
 
     // Certificação Digital SIMPLIFICADA (APENAS protocolo, responsável e link)
-    if (y > 240) {
+    if (y > 235) {
       doc.addPage();
       y = 20;
     }
     
-    y += 10;
+    y += 15;
     const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
     
     // Calcular altura do conteúdo
     doc.setFontSize(9);
-    const linkLines = doc.splitTextToSize(linkVerificacao, larguraUtil - 4);
-    const alturaQuadro = 6 + 5 + 5 + (linkLines.length * 3.5) + 3;
+    const linkLines = doc.splitTextToSize(linkVerificacao, larguraUtil - 10);
+    const alturaQuadro = 25 + (linkLines.length * 4);
     
-    // Desenhar quadro com fundo cinza
+    // Desenhar quadro com fundo cinza e bordas
     doc.setFillColor(245, 245, 245);
     doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
+    doc.setLineWidth(0.3);
     doc.rect(margemEsquerda, y, larguraUtil, alturaQuadro, 'FD');
     
     // Título
-    y += 6;
-    doc.setFontSize(11);
+    y += 7;
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('CERTIFICAÇÃO DIGITAL', margemEsquerda + 2, y);
-    y += 5;
+    doc.text('CERTIFICAÇÃO DIGITAL', margemEsquerda + 5, y);
+    y += 6;
     
     // Protocolo
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 2, y);
+    doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 5, y);
     y += 5;
     
     // Responsável
-    doc.text(`Responsável: ${fornecedor.razao_social}`, margemEsquerda + 2, y);
-    y += 5;
+    doc.text(`Responsável: ${fornecedor.razao_social}`, margemEsquerda + 5, y);
+    y += 6;
     
     // Link
     doc.setTextColor(0, 0, 255);
     linkLines.forEach((linha: string, index: number) => {
-      doc.textWithLink(linha, margemEsquerda + 2, y + (index * 3.5), { url: linkVerificacao });
+      doc.textWithLink(linha, margemEsquerda + 5, y + (index * 4), { url: linkVerificacao });
     });
 
 
