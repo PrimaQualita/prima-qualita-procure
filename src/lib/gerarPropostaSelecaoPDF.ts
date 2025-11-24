@@ -52,14 +52,23 @@ export async function gerarPropostaSelecaoPDF(
       .eq('proposta_id', propostaId)
       .order('numero_item');
 
-    if (itensError) throw itensError;
+    if (itensError) {
+      console.error('Erro ao buscar itens:', itensError);
+      throw itensError;
+    }
 
-    const itensFormatados: ItemProposta[] = (itens || []).map((item: any) => ({
+    console.log('Itens carregados:', itens);
+
+    if (!itens || itens.length === 0) {
+      throw new Error('Nenhum item encontrado para esta proposta');
+    }
+
+    const itensFormatados: ItemProposta[] = itens.map((item: any) => ({
       numero_item: item.numero_item,
       descricao: item.descricao,
       quantidade: item.quantidade,
       unidade: item.unidade,
-      valor_unitario_ofertado: item.valor_unitario_ofertado,
+      valor_unitario_ofertado: item.valor_unitario_ofertado || 0,
       marca: item.marca
     }));
 
@@ -291,6 +300,19 @@ export async function gerarPropostaSelecaoPDF(
       .upload(filePath, pdfBlob);
 
     if (uploadError) throw uploadError;
+
+    // Atualizar a proposta com o protocolo e hash
+    const { error: updateError } = await supabaseAnon
+      .from('selecao_propostas_fornecedor')
+      .update({
+        protocolo: protocolo,
+        hash_certificacao: hash
+      })
+      .eq('id', propostaId);
+
+    if (updateError) {
+      console.error('Erro ao atualizar protocolo:', updateError);
+    }
 
     return {
       url: filePath,
