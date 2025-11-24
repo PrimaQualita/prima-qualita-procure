@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
-import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
-import { v4 as uuidv4 } from 'uuid';
+import { gerarHashDocumento } from './certificacaoDigital';
 import { stripHtml } from './htmlUtils';
 import { createClient } from '@supabase/supabase-js';
 
@@ -217,23 +216,68 @@ export async function gerarPropostaSelecaoPDF(
       y += obsLines.length * 5 + 8;
     }
 
-    // Certificação Digital
+    // Certificação Digital - Modelo Simplificado
     if (y > 220) {
       doc.addPage();
       y = 20;
     }
 
-    const protocolo = uuidv4();
+    const parte1 = Math.floor(1000 + Math.random() * 9000);
+    const parte2 = Math.floor(1000 + Math.random() * 9000);
+    const parte3 = Math.floor(1000 + Math.random() * 9000);
+    const parte4 = Math.floor(1000 + Math.random() * 9000);
+    const protocolo = `${parte1}-${parte2}-${parte3}-${parte4}`;
+    
     const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
 
-    adicionarCertificacaoDigital(doc, {
-      protocolo,
-      dataHora: dataEnvio,
-      responsavel: fornecedor.razao_social,
-      cpf: fornecedor.cnpj,
-      hash,
-      linkVerificacao
-    }, y);
+    // Calcular altura do quadro de certificação
+    const yInicioCert = y;
+    let yTempCalc = y + 6;
+    yTempCalc += 7;
+    yTempCalc += 5; // Protocolo
+    yTempCalc += 6; // Data/Hora
+    yTempCalc += 6; // Responsável
+    
+    doc.setFontSize(8);
+    const linksVerif = doc.splitTextToSize(linkVerificacao, larguraUtil - 6);
+    yTempCalc += linksVerif.length * 5 + 8;
+    
+    const alturaCert = yTempCalc - yInicioCert;
+
+    // Desenhar retângulo da certificação
+    doc.setFillColor(245, 245, 245);
+    doc.rect(margemEsquerda, yInicioCert, larguraUtil, alturaCert, 'F');
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(margemEsquerda, yInicioCert, larguraUtil, alturaCert, 'S');
+
+    // Título da certificação
+    y += 6;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 139);
+    doc.text('CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO', pageWidth / 2, y, { align: 'center' });
+    
+    y += 7;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Protocolo: ${protocolo}`, margemEsquerda + 3, y);
+    
+    y += 6;
+    doc.text(`Data/Hora: ${dataEnvio}`, margemEsquerda + 3, y);
+    
+    y += 6;
+    doc.text(`Responsável: ${fornecedor.razao_social} (CNPJ: ${fornecedor.cnpj})`, margemEsquerda + 3, y);
+    
+    y += 8;
+    doc.setTextColor(0, 0, 255);
+    doc.setFontSize(8);
+    linksVerif.forEach((linha: string, index: number) => {
+      const yPosLinha = y + (index * 5);
+      doc.textWithLink(linha, margemEsquerda + 3, yPosLinha, { url: linkVerificacao });
+    });
+    doc.setTextColor(0, 0, 0);
 
     // Gerar PDF como blob
     const pdfBlob = doc.output('blob');
