@@ -1024,6 +1024,44 @@ export type Database = {
           },
         ]
       }
+      itens_abertos_lances: {
+        Row: {
+          aberto: boolean
+          created_at: string
+          data_abertura: string
+          data_fechamento: string | null
+          id: string
+          numero_item: number
+          selecao_id: string
+        }
+        Insert: {
+          aberto?: boolean
+          created_at?: string
+          data_abertura?: string
+          data_fechamento?: string | null
+          id?: string
+          numero_item: number
+          selecao_id: string
+        }
+        Update: {
+          aberto?: boolean
+          created_at?: string
+          data_abertura?: string
+          data_fechamento?: string | null
+          id?: string
+          numero_item?: number
+          selecao_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_abertos_lances_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itens_cotacao: {
         Row: {
           cotacao_id: string
@@ -1160,6 +1198,51 @@ export type Database = {
             columns: ["cotacao_id"]
             isOneToOne: false
             referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensagens_selecao: {
+        Row: {
+          created_at: string
+          fornecedor_id: string | null
+          id: string
+          mensagem: string
+          selecao_id: string
+          tipo_usuario: string
+          usuario_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          fornecedor_id?: string | null
+          id?: string
+          mensagem: string
+          selecao_id: string
+          tipo_usuario: string
+          usuario_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          fornecedor_id?: string | null
+          id?: string
+          mensagem?: string
+          selecao_id?: string
+          tipo_usuario?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_selecao_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_selecao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
             referencedColumns: ["id"]
           },
         ]

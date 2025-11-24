@@ -21,6 +21,7 @@ import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
 import { DialogAnexarDocumentoSelecao } from "@/components/selecoes/DialogAnexarDocumentoSelecao";
 import { SistemaLances } from "@/components/selecoes/SistemaLances";
+import { DialogControleItensLances } from "@/components/selecoes/DialogControleItensLances";
 
 interface Item {
   id: string;
@@ -51,6 +52,7 @@ const DetalheSelecao = () => {
   const [mostrarLances, setMostrarLances] = useState(false);
   const [confirmDeleteAviso, setConfirmDeleteAviso] = useState(false);
   const [confirmDeleteEdital, setConfirmDeleteEdital] = useState(false);
+  const [dialogControleOpen, setDialogControleOpen] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -401,16 +403,23 @@ const DetalheSelecao = () => {
           </CardContent>
         </Card>
 
-        {/* Botão para Controle de Lances */}
-        <div className="mb-6">
+        {/* Botões de Controle */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <Button
             variant="default"
             size="lg"
-            className="w-full"
+            onClick={() => setDialogControleOpen(true)}
+          >
+            <Gavel className="h-5 w-5 mr-2" />
+            Controle de Lances e Chat
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
             onClick={() => setMostrarLances(!mostrarLances)}
           >
             <Gavel className="h-5 w-5 mr-2" />
-            {mostrarLances ? "Ocultar Sistema de Lances" : "Abrir Sistema de Lances"}
+            {mostrarLances ? "Ocultar" : "Ver"} Sistema de Lances
           </Button>
         </div>
 
@@ -481,6 +490,13 @@ const DetalheSelecao = () => {
         tituloSelecao={selecao.titulo_selecao}
         dataDisputa={selecao.data_sessao_disputa}
         horaDisputa={selecao.hora_sessao_disputa}
+      />
+
+      <DialogControleItensLances
+        open={dialogControleOpen}
+        onOpenChange={setDialogControleOpen}
+        selecaoId={selecaoId!}
+        itens={itens}
       />
 
       <DialogAnexarDocumentoSelecao
