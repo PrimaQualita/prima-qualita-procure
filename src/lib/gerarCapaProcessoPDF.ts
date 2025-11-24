@@ -34,19 +34,26 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             box-sizing: border-box;
           }
           
-          body {
-            font-family: Arial, sans-serif;
+          html, body {
             width: 210mm;
             height: 297mm;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+          }
+          
+          body {
+            font-family: Arial, sans-serif;
             position: relative;
             background: white;
           }
           
           .header {
             width: 100%;
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
+            z-index: 10;
           }
           
           .header img {
@@ -56,7 +63,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           }
           
           .watermark {
-            position: absolute;
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -68,16 +75,15 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           }
           
           .content {
-            position: relative;
+            position: absolute;
+            top: 60mm;
+            left: 50px;
+            right: 50px;
+            bottom: 30mm;
             z-index: 2;
-            margin-top: 65mm;
-            margin-bottom: 25mm;
-            margin-left: 60px;
-            margin-right: 60px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: calc(297mm - 65mm - 25mm);
           }
           
           .top-section {
@@ -86,17 +92,17 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           
           .processo-line {
             text-align: center;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             color: #1a5490;
           }
           
           .contrato-line {
             text-align: center;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             color: #1a5490;
           }
           
@@ -106,13 +112,13 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
           }
           
           .objeto-title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             margin-bottom: 2px;
           }
           
           .objeto-text {
-            font-size: 16px;
+            font-size: 15px;
             line-height: 1.2;
           }
           
@@ -120,49 +126,47 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
             text-align: center;
             flex-grow: 0;
             flex-shrink: 0;
-            margin: 10px 0;
+            margin: 8px 0;
           }
           
           .data-text {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             color: #1a5490;
           }
           
           .bottom-section {
             margin-bottom: 0;
-            padding-bottom: 10px;
             text-align: left;
             flex-shrink: 0;
           }
           
           .assunto-title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             margin-bottom: 2px;
           }
           
           .assunto-text {
-            font-size: 16px;
+            font-size: 15px;
             line-height: 1.2;
             text-align: justify;
           }
           
           .footer {
-            position: absolute;
+            position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            max-height: 25mm;
-            overflow: hidden;
+            height: 25mm;
+            z-index: 10;
           }
           
           .footer img {
             width: 100%;
-            height: auto;
-            max-height: 25mm;
+            height: 100%;
             display: block;
-            object-fit: contain;
+            object-fit: cover;
           }
         </style>
       </head>
