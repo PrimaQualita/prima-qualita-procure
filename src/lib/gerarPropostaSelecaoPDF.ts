@@ -1,7 +1,8 @@
 import jsPDF from 'jspdf';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { gerarHashDocumento, adicionarCertificacaoDigital } from './certificacaoDigital';
+import { v4 as uuidv4 } from 'uuid';
+import { stripHtml } from './htmlUtils';
 import { createClient } from '@supabase/supabase-js';
-import { gerarHashDocumento } from './certificacaoDigital';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -13,20 +14,6 @@ const supabaseAnon = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     detectSessionInUrl: false
   }
 });
-
-const formatarCNPJ = (cnpj: string): string => {
-  const apenasNumeros = cnpj.replace(/[^\d]/g, '');
-  if (apenasNumeros.length !== 14) return cnpj;
-  return `${apenasNumeros.slice(0, 2)}.${apenasNumeros.slice(2, 5)}.${apenasNumeros.slice(5, 8)}/${apenasNumeros.slice(8, 12)}-${apenasNumeros.slice(12, 14)}`;
-};
-
-const gerarProtocolo = (): string => {
-  const parte1 = Math.floor(1000 + Math.random() * 9000);
-  const parte2 = Math.floor(1000 + Math.random() * 9000);
-  const parte3 = Math.floor(1000 + Math.random() * 9000);
-  const parte4 = Math.floor(1000 + Math.random() * 9000);
-  return `${parte1}-${parte2}-${parte3}-${parte4}`;
-};
 
 interface ItemProposta {
   numero_item: number;
@@ -42,6 +29,14 @@ interface DadosFornecedor {
   cnpj: string;
   email?: string;
 }
+
+// Função para formatar valores em Real brasileiro com separadores
+const formatarMoeda = (valor: number): string => {
+  return new Intl.NumberFormat('pt-BR', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  }).format(valor);
+};
 
 export async function gerarPropostaSelecaoPDF(
   propostaId: string,
@@ -69,219 +64,194 @@ export async function gerarPropostaSelecaoPDF(
       marca: item.marca
     }));
 
-    // Criar PDF básico com jsPDF
     const doc = new jsPDF();
+    const dataEnvio = new Date().toLocaleString('pt-BR');
+    
+    // Criar conteúdo para hash
+    const conteudoHash = `
+      Proposta Seleção: ${propostaId}
+      Fornecedor: ${fornecedor.razao_social}
+      CNPJ: ${fornecedor.cnpj}
+      Data: ${dataEnvio}
+      Valor Total: ${valorTotal.toFixed(2)}
+      Itens: ${JSON.stringify(itensFormatados)}
+    `;
+    
+    const hash = await gerarHashDocumento(conteudoHash);
+    
+    const itensOrdenados = [...itensFormatados].sort((a, b) => a.numero_item - b.numero_item);
+    
+    let y = 20;
     const pageWidth = doc.internal.pageSize.getWidth();
-    let yPos = 20;
+    const margemEsquerda = 15;
+    const larguraUtil = pageWidth - 30;
 
-    // Título
-    doc.setFontSize(16);
+    // Cabeçalho
+    doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('PROPOSTA COMERCIAL', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 10;
+    doc.setTextColor(14, 165, 233); // Azul
+    doc.text('PROPOSTA DE SELEÇÃO DE FORNECEDORES', pageWidth / 2, y, { align: 'center' });
+    y += 12;
 
-    doc.setFontSize(12);
-    doc.text(tituloSelecao, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 15;
+    // Informações da Seleção
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(tituloSelecao, margemEsquerda, y);
+    y += 5;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Data de Envio: ${dataEnvio}`, margemEsquerda, y);
+    y += 10;
 
     // Dados do Fornecedor
-    doc.setFontSize(11);
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('DADOS DO FORNECEDOR', 15, yPos);
-    yPos += 7;
+    doc.text('Dados do Fornecedor', margemEsquerda, y);
+    y += 7;
 
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`Razão Social: ${fornecedor.razao_social}`, 15, yPos);
-    yPos += 5;
-    doc.text(`CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`, 15, yPos);
-    yPos += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Razão Social: ${fornecedor.razao_social}`, margemEsquerda, y);
+    y += 5;
+    doc.text(`CNPJ: ${fornecedor.cnpj}`, margemEsquerda, y);
+    y += 5;
+    
     if (fornecedor.email) {
-      doc.text(`E-mail: ${fornecedor.email}`, 15, yPos);
-      yPos += 5;
+      doc.text(`E-mail: ${fornecedor.email}`, margemEsquerda, y);
+      y += 5;
     }
-    yPos += 5;
+    y += 3;
 
-    // Tabela de Itens
+    // Itens Cotados
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('ITENS DA PROPOSTA', 15, yPos);
-    yPos += 7;
+    doc.text('Itens Cotados', margemEsquerda, y);
+    y += 8;
 
     // Cabeçalho da tabela
-    doc.setFontSize(9);
-    doc.text('Item', 15, yPos);
-    doc.text('Descrição', 30, yPos);
-    doc.text('Marca', 95, yPos);
-    doc.text('Qtd', 125, yPos);
-    doc.text('Unid.', 140, yPos);
-    doc.text('Valor Unit.', 160, yPos);
-    doc.text('Valor Total', 185, yPos);
-    yPos += 5;
-
-    // Linha separadora
-    doc.line(15, yPos, pageWidth - 15, yPos);
-    yPos += 5;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Item', margemEsquerda + 2, y, { align: 'center' });
+    doc.text('Descrição', margemEsquerda + 10, y);
+    doc.text('Qtd', margemEsquerda + 78, y, { align: 'center' });
+    doc.text('Unid', margemEsquerda + 98, y, { align: 'center' });
+    doc.text('Marca', margemEsquerda + 125, y, { align: 'center' });
+    doc.text('Vlr Unit (R$)', margemEsquerda + 157, y, { align: 'right' });
+    doc.text('Vlr Total (R$)', larguraUtil + margemEsquerda, y, { align: 'right' });
+    y += 2;
+    
+    doc.setLineWidth(0.5);
+    doc.line(margemEsquerda, y, larguraUtil + margemEsquerda, y);
+    y += 5;
 
     // Itens
     doc.setFont('helvetica', 'normal');
-    itensFormatados.forEach((item) => {
-      if (yPos > 270) {
+    doc.setFontSize(8);
+    
+    for (const item of itensOrdenados) {
+      if (y > 270) {
         doc.addPage();
-        yPos = 20;
+        y = 20;
       }
 
-      const valorTotal = item.quantidade * item.valor_unitario_ofertado;
+      const valorItemTotal = item.quantidade * item.valor_unitario_ofertado;
       
-      doc.text(item.numero_item.toString(), 15, yPos);
+      // Item (centralizado)
+      doc.text(item.numero_item.toString(), margemEsquerda + 2, y, { align: 'center' });
       
-      const descricaoLinhas = doc.splitTextToSize(item.descricao, 60);
-      doc.text(descricaoLinhas, 30, yPos);
+      // Descrição (justificada)
+      const descricaoMaxWidth = 60;
+      const descricaoLimpa = stripHtml(item.descricao);
+      const descricaoLines = doc.splitTextToSize(descricaoLimpa, descricaoMaxWidth);
+      doc.text(descricaoLines[0], margemEsquerda + 10, y, { align: 'justify' });
       
-      doc.text(item.marca || '-', 95, yPos);
-      doc.text(item.quantidade.toLocaleString('pt-BR'), 125, yPos);
-      doc.text(item.unidade, 140, yPos);
-      doc.text(item.valor_unitario_ofertado.toLocaleString('pt-BR', { 
-        style: 'currency', 
-        currency: 'BRL' 
-      }), 160, yPos);
-      doc.text(valorTotal.toLocaleString('pt-BR', { 
-        style: 'currency', 
-        currency: 'BRL' 
-      }), 185, yPos);
+      // Quantidade (centralizada)
+      doc.text(formatarMoeda(item.quantidade), margemEsquerda + 78, y, { align: 'center' });
       
-      yPos += Math.max(5 * descricaoLinhas.length, 6);
-    });
+      // Unidade (centralizada)
+      doc.text(item.unidade, margemEsquerda + 98, y, { align: 'center' });
+      
+      // Marca (centralizada)
+      const marcaMaxWidth = 35;
+      const marcaText = item.marca && item.marca.trim() !== '' ? item.marca : '-';
+      const marcaLines = doc.splitTextToSize(marcaText, marcaMaxWidth);
+      doc.text(marcaLines[0], margemEsquerda + 125, y, { align: 'center' });
+      
+      // Valores (alinhados à direita)
+      doc.text(formatarMoeda(item.valor_unitario_ofertado), margemEsquerda + 157, y, { align: 'right' });
+      doc.text(formatarMoeda(valorItemTotal), larguraUtil + margemEsquerda, y, { align: 'right' });
+      
+      y += 6;
+    }
 
-    yPos += 5;
-    doc.line(15, yPos, pageWidth - 15, yPos);
-    yPos += 7;
+    // Linha de separação
+    y += 2;
+    doc.setLineWidth(0.5);
+    doc.line(margemEsquerda, y, larguraUtil + margemEsquerda, y);
+    y += 6;
 
-    // Valor Total
+    // Valor total
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text('VALOR TOTAL DA PROPOSTA:', 15, yPos);
-    doc.text(valorTotal.toLocaleString('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL' 
-    }), 185, yPos, { align: 'right' });
-    yPos += 10;
+    doc.text('VALOR TOTAL DA PROPOSTA:', margemEsquerda + 100, y);
+    doc.text(`R$ ${formatarMoeda(valorTotal)}`, larguraUtil + margemEsquerda, y, { align: 'right' });
+    y += 10;
 
     // Observações
     if (observacoes && observacoes.trim()) {
-      yPos += 5;
-      doc.setFont('helvetica', 'bold');
-      doc.text('OBSERVAÇÕES:', 15, yPos);
-      yPos += 5;
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
       
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      const obsLinhas = doc.splitTextToSize(observacoes, pageWidth - 30);
-      doc.text(obsLinhas, 15, yPos);
-      yPos += 5 * obsLinhas.length;
+      doc.text('Observações:', margemEsquerda, y);
+      y += 6;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      const obsLines = doc.splitTextToSize(observacoes, larguraUtil);
+      doc.text(obsLines, margemEsquerda, y);
+      y += obsLines.length * 5 + 8;
     }
 
-    // Converter para ArrayBuffer
-    const pdfBuffer = doc.output('arraybuffer');
+    // Certificação Digital
+    if (y > 220) {
+      doc.addPage();
+      y = 20;
+    }
+
+    const protocolo = uuidv4();
+    const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
+
+    adicionarCertificacaoDigital(doc, {
+      protocolo,
+      dataHora: dataEnvio,
+      responsavel: fornecedor.razao_social,
+      cpf: fornecedor.cnpj,
+      hash,
+      linkVerificacao
+    }, y);
+
+    // Gerar PDF como blob
+    const pdfBlob = doc.output('blob');
     
-    // Adicionar certificação digital com pdf-lib
-    const pdfDoc = await PDFDocument.load(pdfBuffer);
-    const pages = pdfDoc.getPages();
-    const lastPage = pages[pages.length - 1];
-    const { height } = lastPage.getSize();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    const protocolo = gerarProtocolo();
-    const dataHora = new Date().toLocaleString('pt-BR');
-    const hashDocumento = await gerarHashDocumento(pdfBuffer);
-
-    // Posicionar certificação no final do documento
-    let certYPos = Math.min(yPos + 20, height - 120);
-    if (certYPos < 100) {
-      const newPage = pdfDoc.addPage();
-      certYPos = newPage.getHeight() - 120;
-    }
-
-    const certWidth = 500;
-    const certHeight = 90;
-    const certX = 50;
-
-    // Fundo cinza claro
-    lastPage.drawRectangle({
-      x: certX,
-      y: height - certYPos - certHeight,
-      width: certWidth,
-      height: certHeight,
-      color: rgb(0.95, 0.95, 0.95),
-      borderColor: rgb(0.7, 0.7, 0.7),
-      borderWidth: 1,
-    });
-
-    // Título
-    lastPage.drawText('CERTIFICAÇÃO DIGITAL', {
-      x: certX + 150,
-      y: height - certYPos - 20,
-      size: 12,
-      font: boldFont,
-      color: rgb(0, 0, 0),
-    });
-
-    // Protocolo
-    lastPage.drawText(`Protocolo: ${protocolo}`, {
-      x: certX + 10,
-      y: height - certYPos - 40,
-      size: 9,
-      font: font,
-      color: rgb(0, 0, 0),
-    });
-
-    // Data/Hora
-    lastPage.drawText(`Data/Hora: ${dataHora}`, {
-      x: certX + 10,
-      y: height - certYPos - 52,
-      size: 9,
-      font: font,
-      color: rgb(0, 0, 0),
-    });
-
-    // Link de verificação
-    const linkText = `Verificar autenticidade em: ${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
-    lastPage.drawText(linkText, {
-      x: certX + 10,
-      y: height - certYPos - 64,
-      size: 8,
-      font: font,
-      color: rgb(0, 0, 0.8),
-    });
-
-    // Hash
-    lastPage.drawText(`Hash: ${hashDocumento.substring(0, 40)}...`, {
-      x: certX + 10,
-      y: height - certYPos - 76,
-      size: 7,
-      font: font,
-      color: rgb(0.3, 0.3, 0.3),
-    });
-
-    const pdfBytes = await pdfDoc.save();
-    const pdfBlob = new Uint8Array(pdfBytes);
-    const blob = new Blob([pdfBlob], { type: 'application/pdf' });
-
     // Upload para Supabase Storage
     const nomeArquivo = `proposta-selecao-${propostaId}-${Date.now()}.pdf`;
     const filePath = `propostas-selecao/${nomeArquivo}`;
 
     const { error: uploadError } = await supabaseAnon.storage
       .from('processo-anexos')
-      .upload(filePath, blob);
+      .upload(filePath, pdfBlob);
 
     if (uploadError) throw uploadError;
 
     return {
       url: filePath,
       nome: nomeArquivo,
-      hash: hashDocumento
+      hash: hash
     };
   } catch (error) {
     console.error('Erro ao gerar PDF da proposta de seleção:', error);
