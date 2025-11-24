@@ -540,32 +540,71 @@ const ParticiparSelecao = () => {
       }
 
       // Validar valores baseado no critério de julgamento
-      const criterioJulgamento = processo?.criterio_julgamento || selecao?.criterios_julgamento;
+      const criterioJulgamento = processo?.criterio_julgamento;
+      
+      console.log("🎯 Critério de julgamento:", criterioJulgamento);
       
       const itensPreenchidos = itens.filter(item => {
         const resposta = respostas[item.id];
         return resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
       });
 
+      console.log(`📊 Itens preenchidos: ${itensPreenchidos.length} de ${itens.length}`);
+
       // Se critério for "por item", exigir apenas que PELO MENOS UM item seja preenchido
-      if (criterioJulgamento === "Menor Preço por Item") {
+      if (criterioJulgamento === "Menor Preço por Item" || criterioJulgamento === "por_item") {
         if (itensPreenchidos.length === 0) {
           toast.error("Por favor, preencha ao menos um item para participar");
           setSubmitting(false);
           return;
         }
+        console.log("✅ Validação por item OK - permite preenchimento parcial");
+      } else if (criterioJulgamento === "Menor Preço por Lote" || criterioJulgamento === "por_lote") {
+        // Para critério por lote, validar que todos os itens de cada lote preenchido estejam completos
+        const lotesComItens = new Map<string, { total: number; preenchidos: number }>();
+        
+        itens.forEach(item => {
+          const loteId = item.lote_id || 'sem_lote';
+          if (!lotesComItens.has(loteId)) {
+            lotesComItens.set(loteId, { total: 0, preenchidos: 0 });
+          }
+          const loteStats = lotesComItens.get(loteId)!;
+          loteStats.total++;
+          
+          const resposta = respostas[item.id];
+          if (resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0) {
+            loteStats.preenchidos++;
+          }
+        });
+        
+        // Se começou a preencher um lote, deve preencher todos os itens desse lote
+        for (const [loteId, stats] of lotesComItens.entries()) {
+          if (stats.preenchidos > 0 && stats.preenchidos < stats.total) {
+            toast.error("Ao preencher um lote, você deve cotar todos os itens desse lote");
+            setSubmitting(false);
+            return;
+          }
+        }
+        
+        if (itensPreenchidos.length === 0) {
+          toast.error("Por favor, preencha ao menos um lote completo para participar");
+          setSubmitting(false);
+          return;
+        }
+        console.log("✅ Validação por lote OK");
       } else {
-        // Para critérios "global" ou "por lote", exigir todos os itens
+        // Para critério global, exigir todos os itens
         const itensIncompletos = itens.filter(item => {
           const resposta = respostas[item.id];
           return !resposta?.valor_unitario_ofertado || resposta.valor_unitario_ofertado <= 0;
         });
 
         if (itensIncompletos.length > 0) {
-          toast.error("Por favor, preencha os valores de todos os itens");
+          toast.error("Para critério global, você deve preencher todos os itens");
           setSubmitting(false);
           return;
         }
+        console.log("✅ Validação global OK - todos os itens preenchidos");
       }
 
       const valorTotal = calcularValorTotal();
