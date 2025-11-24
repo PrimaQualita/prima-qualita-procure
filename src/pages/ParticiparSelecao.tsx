@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -336,7 +336,7 @@ const ParticiparSelecao = () => {
     }
   };
 
-  const formatarMoeda = (valor: string): string => {
+  const formatarMoeda = useCallback((valor: string): string => {
     // Remove tudo exceto números
     const numeros = valor.replace(/\D/g, '');
     if (!numeros || numeros === '0') return '0,00';
@@ -355,9 +355,9 @@ const ParticiparSelecao = () => {
     
     // Retorna com vírgula como separador decimal
     return `${inteirosFormatados},${decimais}`;
-  };
+  }, []);
 
-  const handleValorChange = (itemId: string, value: string) => {
+  const handleValorChange = useCallback((itemId: string, value: string) => {
     // Remove TUDO exceto números - não importa o que venha no value
     const numeros = value.replace(/\D/g, '');
     
@@ -388,9 +388,9 @@ const ParticiparSelecao = () => {
         valor_display: valorFormatado
       }
     }));
-  };
+  }, [formatarMoeda]);
 
-  const handleMarcaChange = (itemId: string, marca: string) => {
+  const handleMarcaChange = useCallback((itemId: string, marca: string) => {
     setRespostas(prev => ({
       ...prev,
       [itemId]: {
@@ -398,7 +398,7 @@ const ParticiparSelecao = () => {
         marca_ofertada: marca
       }
     }));
-  };
+  }, []);
 
   const handleImportSuccess = (dadosImportados: Array<{
     numero_item: number;
