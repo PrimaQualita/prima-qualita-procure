@@ -263,14 +263,13 @@ const Selecoes = () => {
                   <TableRow>
                     <TableHead>Nº Processo</TableHead>
                     <TableHead>Objeto</TableHead>
-                    <TableHead className="text-right">Valor Estimado</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {processos.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={3} className="text-center text-muted-foreground">
                         Nenhum processo que requer seleção de fornecedores encontrado neste contrato
                       </TableCell>
                     </TableRow>
@@ -279,9 +278,6 @@ const Selecoes = () => {
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
                         <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
-                        <TableCell className="text-right">
-                          R$ {(processo.valor_planilha || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                        </TableCell>
                         <TableCell className="text-right">
                           <Button
                             variant="outline"
