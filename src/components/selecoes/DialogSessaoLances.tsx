@@ -663,20 +663,26 @@ export function DialogSessaoLances({
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       const margin = 15;
+      const logoHeight = 25; // Altura reduzida do logo
       
-      // Carregar logo e adicionar no topo
+      // Carregar logo com alta resolução
       const loadLogoImage = (): Promise<string> => {
         return new Promise((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
+            // Aumentar resolução do canvas para melhor qualidade
+            const scale = 3;
+            canvas.width = img.naturalWidth * scale;
+            canvas.height = img.naturalHeight * scale;
             const ctx = canvas.getContext('2d');
             if (ctx) {
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.scale(scale, scale);
               ctx.drawImage(img, 0, 0);
-              resolve(canvas.toDataURL('image/png'));
+              resolve(canvas.toDataURL('image/png', 1.0));
             } else {
               reject(new Error('Erro ao criar canvas'));
             }
@@ -689,22 +695,30 @@ export function DialogSessaoLances({
         });
       };
 
-      let yStart = 50;
+      let base64Logo: string | null = null;
+      let yStart = 35;
       
       try {
-        const base64Logo = await loadLogoImage();
+        base64Logo = await loadLogoImage();
         // Logo no topo - largura total da página
-        const logoWidth = pageWidth;
-        const logoHeight = 40;
-        doc.addImage(base64Logo, 'PNG', 0, 0, logoWidth, logoHeight);
-        yStart = 50;
+        doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
+        yStart = logoHeight + 5;
       } catch (logoError) {
         console.warn('Logo não carregou, usando cabeçalho alternativo:', logoError);
         // Cabeçalho alternativo se logo falhar
         doc.setFillColor(37, 99, 235);
-        doc.rect(0, 0, pageWidth, 35, "F");
-        yStart = 42;
+        doc.rect(0, 0, pageWidth, 25, "F");
+        yStart = 30;
       }
+      
+      // Função para adicionar logo em nova página
+      const adicionarLogoNovaPagina = () => {
+        if (base64Logo) {
+          doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
+          return logoHeight + 5;
+        }
+        return 10;
+      };
       
       // Cabeçalho de texto
       doc.setTextColor(37, 99, 235);
@@ -748,7 +762,13 @@ export function DialogSessaoLances({
           columnStyles: {
             0: { cellWidth: pageWidth - margin * 2 },
           },
-          margin: { left: margin, right: margin },
+          margin: { left: margin, right: margin, top: logoHeight + 10 },
+          didDrawPage: (data) => {
+            // Adicionar logo em novas páginas
+            if (data.pageNumber > 1 || data.cursor?.y === logoHeight + 10) {
+              adicionarLogoNovaPagina();
+            }
+          },
         });
         
         yPosition = (doc as any).lastAutoTable.finalY + 2;
@@ -805,6 +825,13 @@ export function DialogSessaoLances({
             },
             alternateRowStyles: {
               fillColor: [248, 250, 252]
+            },
+            margin: { top: logoHeight + 10 },
+            didDrawPage: (data) => {
+              // Adicionar logo em novas páginas (não na primeira)
+              if (data.pageNumber > 1) {
+                adicionarLogoNovaPagina();
+              }
             },
             didParseCell: (data) => {
               // Destacar primeira posição (vencedor)
