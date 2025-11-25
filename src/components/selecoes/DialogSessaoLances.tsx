@@ -725,6 +725,31 @@ export function DialogSessaoLances({
         return;
       }
 
+      // Se já existe planilha, deletar antes de criar nova
+      if (planilhaGerada) {
+        try {
+          // Extrair caminho do storage da URL
+          const urlParts = planilhaGerada.url_arquivo.split("/storage/v1/object/public/processo-anexos/");
+          const storagePath = urlParts[1];
+          
+          // Deletar arquivo do storage
+          if (storagePath) {
+            await supabase.storage
+              .from("processo-anexos")
+              .remove([storagePath]);
+          }
+          
+          // Deletar registro do banco
+          await supabase
+            .from("planilhas_lances_selecao")
+            .delete()
+            .eq("id", planilhaGerada.id);
+        } catch (error) {
+          console.error("Erro ao deletar planilha antiga:", error);
+          // Continua mesmo se houver erro ao deletar a antiga
+        }
+      }
+
       const doc = new jsPDF("portrait");
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
@@ -1525,12 +1550,10 @@ export function DialogSessaoLances({
                     <Button variant="outline" size="sm" onClick={loadLances}>
                       <RefreshCw className="h-3 w-3" />
                     </Button>
-                    {!planilhaGerada && (
-                      <Button variant="default" size="sm" onClick={handleGerarPlanilhaLances} className="text-xs">
-                        <FileSpreadsheet className="h-3 w-3 mr-1" />
-                        Gerar Planilha
-                      </Button>
-                    )}
+                    <Button variant="default" size="sm" onClick={handleGerarPlanilhaLances} className="text-xs">
+                      <FileSpreadsheet className="h-3 w-3 mr-1" />
+                      Gerar Planilha
+                    </Button>
                   </div>
                 </div>
 
