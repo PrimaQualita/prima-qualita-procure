@@ -270,7 +270,7 @@ export async function gerarPlanilhaConsolidadaPDF(
     columnStyles: (() => {
       const styles: any = {
         0: { halign: 'center', cellWidth: 12 },
-        1: { halign: 'left', cellWidth: 40 },
+        1: { halign: 'justify', cellWidth: 40 },
         2: { halign: 'center', cellWidth: 12 },
         3: { halign: 'center', cellWidth: 15 }
       };
