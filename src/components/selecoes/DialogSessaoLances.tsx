@@ -1091,13 +1091,7 @@ export function DialogSessaoLances({
 
       // Adicionar tabela de resumo por fornecedor
       if (resumoFornecedoresData.length > 0) {
-        finalY += 15;
-        
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 128, 128); // Verde do logo
-        doc.text("RESUMO POR FORNECEDOR", landscapeWidth / 2, finalY, { align: "center" });
-        doc.setTextColor(0, 0, 0);
+        finalY += 10;
 
         autoTable(doc, {
           startY: finalY + 5,
