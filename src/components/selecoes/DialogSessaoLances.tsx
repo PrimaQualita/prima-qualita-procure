@@ -785,6 +785,7 @@ export function DialogSessaoLances({
                       );
                     })}
                   </div>
+                  <ScrollBar orientation="horizontal" />
                 </ScrollArea>
 
                 <div className="flex gap-2 mt-3 pt-3 border-t">
