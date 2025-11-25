@@ -305,11 +305,13 @@ const IncluirPrecosPublicos = () => {
         .eq("id", user.id)
         .single();
 
-      if (profileError) {
+      if (profileError || !profile) {
         console.error("Erro ao buscar profile:", profileError);
         toast.error("Erro ao buscar dados do usuário");
         return;
       }
+      
+      console.log('✅ Profile carregado:', profile);
 
       console.log("Profile encontrado:", profile);
 

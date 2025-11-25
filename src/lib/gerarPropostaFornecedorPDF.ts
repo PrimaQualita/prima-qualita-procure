@@ -402,10 +402,13 @@ export async function gerarPropostaFornecedorPDF(
     const fontSize = 10;
     const lineHeight = 15;
 
-    // Responsável pela geração - SEMPRE o usuário que gerou quando for preços públicos
-    const responsavel = fornecedor.cnpj === '00000000000000' 
-      ? (usuarioNome || 'Não informado')
+    // Responsável pela geração
+    console.log('🔍 DEBUG Responsável - CNPJ:', fornecedor.cnpj, 'usuarioNome:', usuarioNome, 'razao_social:', fornecedor.razao_social);
+    const responsavel = (fornecedor.cnpj === '00000000000000' && usuarioNome) 
+      ? usuarioNome
       : fornecedor.razao_social;
+    
+    console.log('✅ Responsável definido:', responsavel);
     
     paginaCert.drawText(`Responsável: ${responsavel}`, {
       x: 50,
