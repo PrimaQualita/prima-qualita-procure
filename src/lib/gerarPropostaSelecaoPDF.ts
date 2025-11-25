@@ -31,6 +31,40 @@ const formatarMoeda = (valor: number): string => {
   }).format(valor);
 };
 
+// Função para renderizar texto justificado no jsPDF
+const renderizarTextoJustificado = (
+  doc: jsPDF, 
+  texto: string, 
+  x: number, 
+  y: number, 
+  larguraMaxima: number
+): void => {
+  const palavras = texto.split(' ');
+  if (palavras.length <= 1) {
+    doc.text(texto, x, y);
+    return;
+  }
+
+  // Calcular largura total das palavras
+  let larguraPalavras = 0;
+  palavras.forEach(palavra => {
+    larguraPalavras += doc.getTextWidth(palavra);
+  });
+
+  // Calcular espaço extra entre palavras
+  const espacoTotal = larguraMaxima - larguraPalavras;
+  const espacoEntrePalavras = espacoTotal / (palavras.length - 1);
+
+  // Renderizar cada palavra com espaçamento calculado
+  let xAtual = x;
+  palavras.forEach((palavra, index) => {
+    doc.text(palavra, xAtual, y);
+    if (index < palavras.length - 1) {
+      xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
+    }
+  });
+};
+
 // Função para gerar protocolo no formato customizado (XXXX-XXXX-XXXX-XXXX)
 
 export async function gerarPropostaSelecaoPDF(
@@ -270,15 +304,15 @@ export async function gerarPropostaSelecaoPDF(
       const descricaoYInicio = y + 3;
       const espacamentoLinhaDesc = 4;
       
-      // Renderizar cada linha da descrição com justificação
+      // Renderizar cada linha da descrição com justificação real
       descLines.forEach((linha: string, index: number) => {
         const yLinha = descricaoYInicio + (index * espacamentoLinhaDesc);
         // Para última linha ou linhas curtas, usar alinhamento esquerdo
-        if (index === descLines.length - 1 || linha.length < 40) {
+        if (index === descLines.length - 1 || linha.trim().length < 35) {
           doc.text(linha, descricaoX, yLinha);
         } else {
-          // Justificar linhas completas
-          doc.text(linha, descricaoX, yLinha, { align: 'justify', maxWidth: descricaoLargura });
+          // Justificar linhas completas usando função customizada
+          renderizarTextoJustificado(doc, linha.trim(), descricaoX, yLinha, descricaoLargura);
         }
       });
       
