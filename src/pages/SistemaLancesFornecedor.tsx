@@ -864,7 +864,7 @@ const SistemaLancesFornecedor = () => {
                           type="number"
                           step="0.01"
                           min="0"
-                          value={item.valor_unitario_ofertado || ""}
+                          value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2) : ""}
                           onChange={(e) => handleUpdateItem(item.id, "valor_unitario_ofertado", parseFloat(e.target.value) || 0)}
                           disabled={!editavel}
                           className="w-full"
