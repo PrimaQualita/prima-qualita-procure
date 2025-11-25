@@ -688,8 +688,16 @@ export function DialogSessaoLances({
       let yPosition = 45;
 
       lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }) => {
+        // Calcular altura do título com quebra de linha
+        const tituloTexto = `Item ${item.numero_item}: ${item.descricao}`;
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        const maxTituloWidth = pageWidth - margin * 2 - 6;
+        const linhasTitulo = doc.splitTextToSize(tituloTexto, maxTituloWidth);
+        const alturaTitulo = linhasTitulo.length * 5 + 6;
+        
         // Verificar se precisa de nova página
-        const estimatedHeight = 25 + (lancesDoItem.length * 10);
+        const estimatedHeight = alturaTitulo + 10 + (lancesDoItem.length * 10);
         if (yPosition + estimatedHeight > pageHeight - 30) {
           doc.addPage();
           yPosition = 20;
@@ -697,15 +705,13 @@ export function DialogSessaoLances({
 
         // Título do item com fundo
         doc.setFillColor(241, 245, 249); // bg-slate-100
-        doc.rect(margin, yPosition - 5, pageWidth - margin * 2, 12, "F");
+        doc.rect(margin, yPosition - 5, pageWidth - margin * 2, alturaTitulo, "F");
         
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175); // text-blue-800
-        doc.text(`Item ${item.numero_item}: ${item.descricao.substring(0, 70)}${item.descricao.length > 70 ? "..." : ""}`, margin + 3, yPosition + 2);
+        doc.text(linhasTitulo, margin + 3, yPosition + 2);
         
         doc.setTextColor(0, 0, 0);
-        yPosition += 12;
+        yPosition += alturaTitulo;
 
         if (lancesDoItem.length === 0) {
           doc.setFontSize(9);
