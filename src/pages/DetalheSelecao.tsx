@@ -15,14 +15,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Upload, Send, Gavel, Link } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
 import { DialogAnexarDocumentoSelecao } from "@/components/selecoes/DialogAnexarDocumentoSelecao";
 import { DialogSessaoLances } from "@/components/selecoes/DialogSessaoLances";
 import { DialogAnaliseDocumentalSelecao } from "@/components/selecoes/DialogAnaliseDocumentalSelecao";
-import { ClipboardCheck, FileCheck } from "lucide-react";
+import { gerarAtaSelecaoPDF } from "@/lib/gerarAtaSelecaoPDF";
 
 interface Item {
   id: string;
@@ -54,6 +54,7 @@ const DetalheSelecao = () => {
   const [confirmDeleteEdital, setConfirmDeleteEdital] = useState(false);
   const [dialogSessaoOpen, setDialogSessaoOpen] = useState(false);
   const [dialogAnaliseDocumentalOpen, setDialogAnaliseDocumentalOpen] = useState(false);
+  const [gerandoAta, setGerandoAta] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -444,10 +445,23 @@ const DetalheSelecao = () => {
             variant="outline"
             size="lg"
             className="w-full"
-            disabled
+            disabled={gerandoAta}
+            onClick={async () => {
+              setGerandoAta(true);
+              try {
+                const resultado = await gerarAtaSelecaoPDF(selecaoId!);
+                window.open(resultado.url, "_blank");
+                toast.success("Ata gerada com sucesso!");
+              } catch (error) {
+                console.error("Erro ao gerar ata:", error);
+                toast.error("Erro ao gerar Ata");
+              } finally {
+                setGerandoAta(false);
+              }
+            }}
           >
             <FileCheck className="h-5 w-5 mr-2" />
-            Gerar Ata (Aguardando modelo)
+            {gerandoAta ? "Gerando..." : "Gerar Ata"}
           </Button>
         </div>
 

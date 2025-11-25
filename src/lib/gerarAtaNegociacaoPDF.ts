@@ -35,6 +35,7 @@ const formatDateTime = (dateStr: string) => {
   });
 };
 
+// Função para gerar Ata de um item específico (chat privado)
 export async function gerarAtaNegociacaoPDF({
   selecaoId,
   numeroItem,
@@ -94,14 +95,6 @@ export async function gerarAtaNegociacaoPDF({
     }
     return false;
   };
-
-  // Logo (placeholder - texto)
-  try {
-    const logoUrl = "/lovable-uploads/prima-qualita-logo-horizontal.png";
-    // Tentativa de carregar logo...
-  } catch (e) {
-    console.log("Logo não encontrado, continuando sem logo");
-  }
 
   // Título
   doc.setFontSize(16);
@@ -179,7 +172,7 @@ export async function gerarAtaNegociacaoPDF({
 
   // Quadro de certificação
   const certY = currentY;
-  const certHeight = 45;
+  const certHeight = 40;
   
   doc.setDrawColor(150);
   doc.setFillColor(245, 245, 245);
@@ -194,7 +187,6 @@ export async function gerarAtaNegociacaoPDF({
   
   const certContent = [
     `Protocolo: ${protocoloFormatado}`,
-    `Data/Hora: ${new Date().toLocaleString("pt-BR")}`,
     `Responsável: ${nomeResponsavel}`,
     `Verificação: ${window.location.origin}/verificar-ata?protocolo=${protocolo}`,
   ];
