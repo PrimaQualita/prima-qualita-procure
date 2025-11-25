@@ -25,6 +25,8 @@ import { ChatNegociacao } from "./ChatNegociacao";
 interface Item {
   numero_item: number;
   descricao: string;
+  quantidade?: number;
+  unidade?: string;
 }
 
 interface Lance {
@@ -789,41 +791,76 @@ export function DialogSessaoLances({
         }
       });
 
-      // Resumo geral em nova página
-      doc.addPage();
+      // Resumo geral em nova página PAISAGEM
+      doc.addPage("landscape");
+      const landscapeWidth = doc.internal.pageSize.width;
       
       // Cabeçalho do resumo
       doc.setFillColor(22, 163, 74); // Verde
-      doc.rect(0, 0, pageWidth, 25, "F");
+      doc.rect(0, 0, landscapeWidth, 25, "F");
       
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("RESUMO - VENCEDORES POR ITEM", pageWidth / 2, 16, { align: "center" });
+      doc.text("RESUMO - VENCEDORES POR ITEM", landscapeWidth / 2, 16, { align: "center" });
       
       doc.setTextColor(0, 0, 0);
+
+      // Buscar marcas das propostas dos vencedores
+      const vencedoresIds = new Set<string>();
+      itens.forEach(item => {
+        const vencedor = getVencedorItem(item.numero_item);
+        if (vencedor) vencedoresIds.add(vencedor.fornecedor_id);
+      });
+
+      // Buscar itens das propostas para obter marcas
+      let marcasPorItemFornecedor: Record<string, string> = {};
+      if (vencedoresIds.size > 0) {
+        const { data: itensPropostas } = await supabase
+          .from("selecao_respostas_itens_fornecedor")
+          .select("numero_item, marca, proposta_id, selecao_propostas_fornecedor!inner(fornecedor_id)")
+          .eq("selecao_propostas_fornecedor.selecao_id", selecaoId);
+
+        if (itensPropostas) {
+          itensPropostas.forEach((ip: any) => {
+            const key = `${ip.numero_item}-${ip.selecao_propostas_fornecedor?.fornecedor_id}`;
+            marcasPorItemFornecedor[key] = ip.marca || "-";
+          });
+        }
+      }
 
       const resumoData = itens.map(item => {
         const vencedor = getVencedorItem(item.numero_item);
         const isNegociacao = vencedor?.tipo_lance === "negociacao";
-        const valorFormatado = vencedor ? formatCurrency(vencedor.valor_lance) : "-";
+        const valorUnitarioFormatado = vencedor ? formatCurrency(vencedor.valor_lance) : "-";
+        const quantidade = item.quantidade || 1;
+        const valorTotal = vencedor ? vencedor.valor_lance * quantidade : 0;
+        const valorTotalFormatado = vencedor ? formatCurrency(valorTotal) : "-";
+        
+        // Buscar marca da proposta do fornecedor vencedor
+        const marcaKey = vencedor ? `${item.numero_item}-${vencedor.fornecedor_id}` : "";
+        const marca = marcasPorItemFornecedor[marcaKey] || "-";
         
         return [
           item.numero_item.toString(),
-          item.descricao.substring(0, 45) + (item.descricao.length > 45 ? "..." : ""),
+          item.descricao.substring(0, 40) + (item.descricao.length > 40 ? "..." : ""),
           vencedor?.fornecedores?.razao_social || "Sem lances",
-          isNegociacao ? `${valorFormatado} *` : valorFormatado,
+          marca,
+          quantidade.toString(),
+          item.unidade || "UN",
+          isNegociacao ? `${valorUnitarioFormatado} *` : valorUnitarioFormatado,
+          isNegociacao ? `${valorTotalFormatado} *` : valorTotalFormatado,
         ];
       });
 
       autoTable(doc, {
         startY: 35,
-        head: [["Item", "Descrição", "Vencedor", "Menor Lance"]],
+        head: [["Item", "Descrição", "Vencedor", "Marca", "Qtd.", "Un.", "Valor Unit.", "Valor Total"]],
         body: resumoData,
         theme: "striped",
         styles: { 
-          fontSize: 9,
-          cellPadding: 4,
+          fontSize: 8,
+          cellPadding: 3,
         },
         headStyles: { 
           fillColor: [22, 163, 74], 
@@ -833,16 +870,20 @@ export function DialogSessaoLances({
         },
         columnStyles: {
           0: { cellWidth: 15, halign: "center", fontStyle: "bold" },
-          1: { cellWidth: 70 },
+          1: { cellWidth: 65 },
           2: { cellWidth: 55 },
-          3: { cellWidth: 35, halign: "right", fontStyle: "bold" },
+          3: { cellWidth: 35 },
+          4: { cellWidth: 18, halign: "center" },
+          5: { cellWidth: 15, halign: "center" },
+          6: { cellWidth: 35, halign: "right", fontStyle: "bold" },
+          7: { cellWidth: 35, halign: "right", fontStyle: "bold" },
         },
         alternateRowStyles: {
           fillColor: [240, 253, 244] // bg-green-50
         },
         didParseCell: (data) => {
           // Destacar valores de negociação
-          if (data.column.index === 3 && data.section === "body") {
+          if ((data.column.index === 6 || data.column.index === 7) && data.section === "body") {
             const cellText = String(data.cell.raw);
             if (cellText.includes("*")) {
               data.cell.styles.textColor = [22, 163, 74];
