@@ -21,6 +21,8 @@ import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
 import { DialogAnexarDocumentoSelecao } from "@/components/selecoes/DialogAnexarDocumentoSelecao";
 import { DialogSessaoLances } from "@/components/selecoes/DialogSessaoLances";
+import { DialogAnaliseDocumentalSelecao } from "@/components/selecoes/DialogAnaliseDocumentalSelecao";
+import { ClipboardCheck, FileCheck } from "lucide-react";
 
 interface Item {
   id: string;
@@ -51,6 +53,7 @@ const DetalheSelecao = () => {
   const [confirmDeleteAviso, setConfirmDeleteAviso] = useState(false);
   const [confirmDeleteEdital, setConfirmDeleteEdital] = useState(false);
   const [dialogSessaoOpen, setDialogSessaoOpen] = useState(false);
+  const [dialogAnaliseDocumentalOpen, setDialogAnaliseDocumentalOpen] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -414,7 +417,7 @@ const DetalheSelecao = () => {
         </Card>
 
         {/* Botão de Sessão de Lances */}
-        <div className="mb-6">
+        <div className="mb-6 space-y-3">
           <Button
             variant="default"
             size="lg"
@@ -423,6 +426,28 @@ const DetalheSelecao = () => {
           >
             <Gavel className="h-5 w-5 mr-2" />
             Abrir Sessão de Lances (Controle + Chat + Sistema de Lances)
+          </Button>
+          
+          {/* Análise Documental */}
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={() => setDialogAnaliseDocumentalOpen(true)}
+          >
+            <ClipboardCheck className="h-5 w-5 mr-2" />
+            Análise Documental
+          </Button>
+          
+          {/* Gerar Ata */}
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            disabled
+          >
+            <FileCheck className="h-5 w-5 mr-2" />
+            Gerar Ata (Aguardando modelo)
           </Button>
         </div>
 
@@ -493,6 +518,12 @@ const DetalheSelecao = () => {
         selecaoId={selecaoId!}
         itens={itens}
         criterioJulgamento={selecao?.criterios_julgamento || processo?.criterio_julgamento || "Menor Preço Global"}
+      />
+
+      <DialogAnaliseDocumentalSelecao
+        open={dialogAnaliseDocumentalOpen}
+        onOpenChange={setDialogAnaliseDocumentalOpen}
+        selecaoId={selecaoId!}
       />
 
       <DialogAnexarDocumentoSelecao
