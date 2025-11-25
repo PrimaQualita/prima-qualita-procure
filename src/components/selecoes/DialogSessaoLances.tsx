@@ -663,7 +663,7 @@ export function DialogSessaoLances({
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       const margin = 15;
-      const logoHeight = 25; // Altura reduzida do logo
+      const logoHeight = 40; // Altura do logo
       
       // Carregar logo com alta resolução
       const loadLogoImage = (): Promise<string> => {
