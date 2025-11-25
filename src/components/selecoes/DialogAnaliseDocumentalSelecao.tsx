@@ -250,10 +250,22 @@ export function DialogAnaliseDocumentalSelecao({
         .from("documentos_fornecedor")
         .select("*")
         .eq("fornecedor_id", fornecedorId)
-        .order("tipo_documento");
+        .order("data_upload", { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Filtrar apenas o documento mais recente de cada tipo
+      const documentosPorTipo = new Map<string, DocumentoExistente>();
+      (data || []).forEach((doc: DocumentoExistente) => {
+        if (!documentosPorTipo.has(doc.tipo_documento)) {
+          documentosPorTipo.set(doc.tipo_documento, doc);
+        }
+      });
+      
+      // Retornar ordenado por tipo_documento
+      return Array.from(documentosPorTipo.values()).sort((a, b) => 
+        a.tipo_documento.localeCompare(b.tipo_documento)
+      );
     } catch (error) {
       console.error("Erro ao carregar documentos:", error);
       return [];
@@ -762,7 +774,7 @@ export function DialogAnaliseDocumentalSelecao({
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {(statusDoc.status === "vencido" || statusDoc.status === "proximo_vencer") && !doc.atualizacao_solicitada && (
+                            {statusDoc.status === "vencido" && !doc.atualizacao_solicitada && (
                               <Button
                                 size="sm"
                                 variant="outline"
