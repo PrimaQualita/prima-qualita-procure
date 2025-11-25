@@ -258,12 +258,6 @@ export async function gerarPropostaFornecedorPDF(
       const valorUnitario = item.valor_unitario_ofertado;
       const valorTotalItem = valorUnitario * itemCotacao.quantidade;
 
-      // Fundo alternado para linhas
-      if (isAlternate) {
-        doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
-        doc.rect(15, y - 4, 180, 6, 'F');
-      }
-
       // Calcular altura necessária para a descrição
       const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 45);
       const alturaItem = Math.max(6, descricaoLinhas.length * 4);
