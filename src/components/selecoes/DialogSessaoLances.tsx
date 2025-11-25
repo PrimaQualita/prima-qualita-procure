@@ -999,8 +999,8 @@ export function DialogSessaoLances({
         theme: "striped",
         styles: { 
           fontSize: 8,
-          cellPadding: 3,
-          valign: "middle", // Centralizar verticalmente
+          cellPadding: 2, // Reduzido para comprimir altura das linhas
+          valign: "middle",
         },
         headStyles: { 
           fillColor: [0, 128, 128], // Verde do logo
@@ -1105,27 +1105,28 @@ export function DialogSessaoLances({
           body: resumoFornecedoresData,
           theme: "striped",
           styles: { 
-            fontSize: 9,
-            cellPadding: 4,
-            valign: "middle", // Centralizar verticalmente
+            fontSize: 8,
+            cellPadding: 2, // Reduzido para comprimir altura das linhas
+            valign: "middle",
           },
           headStyles: { 
-            fillColor: [0, 128, 128], // Verde do logo
+            fillColor: [0, 128, 128],
             textColor: 255,
             fontStyle: "bold",
             halign: "center",
-            valign: "middle"
+            valign: "middle",
+            cellPadding: 2,
           },
           columnStyles: {
             0: { halign: "left", valign: "middle" },
-            1: { halign: "right", fontStyle: "bold", valign: "middle" },
+            1: { halign: "right", fontStyle: "bold", valign: "middle", cellWidth: 80 },
           },
           alternateRowStyles: {
-            fillColor: [224, 242, 241] // Verde claro do logo
+            fillColor: [224, 242, 241]
           },
-          margin: { left: margin, right: margin, top: logoResumoHeight + 20 },
+          tableWidth: "auto",
+          margin: { left: 14, right: 14, top: logoResumoHeight + 20 }, // Mesmas margens da planilha resumo
           didDrawPage: () => {
-            // Adicionar logo em páginas adicionais se necessário
             const paginaAtual = doc.internal.pages.length - 1;
             if (!paginasResumoProcessadas.has(paginaAtual)) {
               paginasResumoProcessadas.add(paginaAtual);
@@ -1136,9 +1137,8 @@ export function DialogSessaoLances({
             }
           },
           didParseCell: (data) => {
-            // Estilizar linha de total
             if (data.section === "body" && data.row.index === resumoFornecedoresData.length - 1) {
-              data.cell.styles.fillColor = [0, 128, 128]; // Verde do logo
+              data.cell.styles.fillColor = [0, 128, 128];
               data.cell.styles.textColor = [255, 255, 255];
               data.cell.styles.fontStyle = "bold";
             }
