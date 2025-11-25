@@ -23,6 +23,7 @@ import autoTable from "jspdf-autotable";
 import { ChatNegociacao } from "./ChatNegociacao";
 import capaLogo from "@/assets/capa-processo-logo.png";
 import capaRodape from "@/assets/capa-processo-rodape.png";
+import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 
 interface Item {
   numero_item: number;
@@ -698,16 +699,19 @@ export function DialogSessaoLances({
 
       let base64Logo: string | null = null;
       let base64Rodape: string | null = null;
+      let base64LogoHorizontal: string | null = null;
       let yStart = 35;
       
       try {
-        // Carregar logo e rodapé em paralelo
-        const [logoResult, rodapeResult] = await Promise.all([
+        // Carregar logo, rodapé e logo horizontal em paralelo
+        const [logoResult, rodapeResult, logoHorizontalResult] = await Promise.all([
           loadImage(capaLogo),
-          loadImage(capaRodape)
+          loadImage(capaRodape),
+          loadImage(logoHorizontal)
         ]);
         base64Logo = logoResult;
         base64Rodape = rodapeResult;
+        base64LogoHorizontal = logoHorizontalResult;
         
         // Logo no topo - largura total da página
         doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
@@ -884,14 +888,19 @@ export function DialogSessaoLances({
       const landscapeWidth = doc.internal.pageSize.getWidth();
       const landscapeHeight = doc.internal.pageSize.getHeight();
       
-      // Cabeçalho do resumo
-      doc.setFillColor(22, 163, 74); // Verde
-      doc.rect(0, 0, landscapeWidth, 25, "F");
+      // Adicionar logo horizontal no topo da página de resumo
+      const logoResumoHeight = 30;
+      if (base64LogoHorizontal) {
+        // Calcular largura proporcional para o logo (altura fixa de 30)
+        const logoResumoWidth = 80; // Largura fixa para manter proporção
+        doc.addImage(base64LogoHorizontal, 'PNG', 10, 5, logoResumoWidth, logoResumoHeight);
+      }
       
-      doc.setTextColor(255, 255, 255);
+      // Título do resumo ao lado do logo
+      doc.setTextColor(22, 163, 74);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("RESUMO - VENCEDORES POR ITEM", landscapeWidth / 2, 16, { align: "center" });
+      doc.text("RESUMO - VENCEDORES POR ITEM", landscapeWidth / 2, 22, { align: "center" });
       
       doc.setTextColor(0, 0, 0);
 
