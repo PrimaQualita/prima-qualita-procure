@@ -87,6 +87,8 @@ export default function RespostasCotacao() {
   const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
   const [analiseParaExcluir, setAnaliseParaExcluir] = useState<any>(null);
   const [confirmDeleteAnaliseOpen, setConfirmDeleteAnaliseOpen] = useState(false);
+  const [respostaParaExcluir, setRespostaParaExcluir] = useState<string | null>(null);
+  const [confirmDeleteRespostaOpen, setConfirmDeleteRespostaOpen] = useState(false);
 
   // Definir funções auxiliares ANTES do useEffect
   const loadAnaliseCompliance = async () => {
@@ -490,18 +492,20 @@ export default function RespostasCotacao() {
     }
   };
 
-  const handleDeletarResposta = async (respostaId: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta resposta?")) return;
+  const handleDeletarResposta = async () => {
+    if (!respostaParaExcluir) return;
     
     try {
       const { error } = await supabase
         .from("cotacao_respostas_fornecedor")
         .delete()
-        .eq("id", respostaId);
+        .eq("id", respostaParaExcluir);
 
       if (error) throw error;
 
       toast.success("Resposta excluída com sucesso!");
+      setConfirmDeleteRespostaOpen(false);
+      setRespostaParaExcluir(null);
       loadRespostas();
     } catch (error) {
       console.error("Erro ao excluir resposta:", error);
@@ -821,12 +825,9 @@ export default function RespostasCotacao() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={async () => {
-                                if (confirm("Tem certeza que deseja excluir esta proposta? Esta ação não pode ser desfeita.")) {
-                                  await handleDeletarResposta(resposta.id);
-                                  // Recarregar dados após exclusão para mostrar botão "Gerar Proposta"
-                                  carregarDados();
-                                }
+                              onClick={() => {
+                                setRespostaParaExcluir(resposta.id);
+                                setConfirmDeleteRespostaOpen(true);
                               }}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
@@ -855,10 +856,9 @@ export default function RespostasCotacao() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={async () => {
-                                if (confirm("Tem certeza que deseja excluir definitivamente esta resposta? Esta ação não pode ser desfeita.")) {
-                                  await handleDeletarResposta(resposta.id);
-                                }
+                              onClick={() => {
+                                setRespostaParaExcluir(resposta.id);
+                                setConfirmDeleteRespostaOpen(true);
                               }}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
@@ -1240,6 +1240,23 @@ export default function RespostasCotacao() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={excluirAnalise} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDeleteRespostaOpen} onOpenChange={setConfirmDeleteRespostaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Resposta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir definitivamente esta resposta? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletarResposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
