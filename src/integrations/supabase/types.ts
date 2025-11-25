@@ -2088,6 +2088,7 @@ export type Database = {
           id: string
           numero_selecao: string | null
           processo_compra_id: string
+          sessao_finalizada: boolean | null
           status_selecao: Database["public"]["Enums"]["status_selecao"] | null
           titulo_selecao: string
           updated_at: string | null
@@ -2103,6 +2104,7 @@ export type Database = {
           id?: string
           numero_selecao?: string | null
           processo_compra_id: string
+          sessao_finalizada?: boolean | null
           status_selecao?: Database["public"]["Enums"]["status_selecao"] | null
           titulo_selecao: string
           updated_at?: string | null
@@ -2118,6 +2120,7 @@ export type Database = {
           id?: string
           numero_selecao?: string | null
           processo_compra_id?: string
+          sessao_finalizada?: boolean | null
           status_selecao?: Database["public"]["Enums"]["status_selecao"] | null
           titulo_selecao?: string
           updated_at?: string | null
