@@ -131,6 +131,11 @@ const ParticiparSelecao = () => {
   const [acessoCodigoDialogOpen, setAcessoCodigoDialogOpen] = useState(false);
   const [codigoAcesso, setCodigoAcesso] = useState("");
   const [validandoCodigo, setValidandoCodigo] = useState(false);
+  const [cnpjStatus, setCnpjStatus] = useState<{
+    verificando: boolean;
+    existe: boolean;
+    temCadastro: boolean;
+  }>({ verificando: false, existe: false, temCadastro: false });
   
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
@@ -148,6 +153,43 @@ const ParticiparSelecao = () => {
   const [respostas, setRespostas] = useState<RespostaItem>({});
   const [observacoes, setObservacoes] = useState("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  const verificarCnpjExistente = async (cnpj: string) => {
+    const cnpjLimpo = cnpj.replace(/\D/g, '');
+    if (cnpjLimpo.length !== 14) {
+      setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+      return;
+    }
+
+    if (!validarCNPJ(cnpj)) {
+      setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+      return;
+    }
+
+    setCnpjStatus(prev => ({ ...prev, verificando: true }));
+
+    try {
+      const { data: fornecedorExistente } = await supabase
+        .from('fornecedores')
+        .select('id, user_id, status_aprovacao')
+        .eq('cnpj', cnpjLimpo)
+        .maybeSingle();
+
+      if (fornecedorExistente) {
+        const temCadastroCompleto = fornecedorExistente.user_id !== null;
+        setCnpjStatus({
+          verificando: false,
+          existe: true,
+          temCadastro: temCadastroCompleto
+        });
+      } else {
+        setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+      }
+    } catch (error) {
+      console.error('Erro ao verificar CNPJ:', error);
+      setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+    }
+  };
 
   useEffect(() => {
     if (selecaoId) {
@@ -1004,11 +1046,28 @@ const ParticiparSelecao = () => {
                       <Label>CNPJ *</Label>
                       <Input
                         value={dadosEmpresa.cnpj}
-                        onChange={(e) => setDadosEmpresa(prev => ({ ...prev, cnpj: formatarCNPJ(e.target.value) }))}
+                        onChange={(e) => {
+                          setDadosEmpresa(prev => ({ ...prev, cnpj: formatarCNPJ(e.target.value) }));
+                          setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+                        }}
+                        onBlur={(e) => verificarCnpjExistente(e.target.value)}
                         maxLength={18}
-                        className={errors.cnpj ? "border-red-500" : ""}
+                        className={errors.cnpj ? "border-red-500" : cnpjStatus.temCadastro ? "border-green-500" : cnpjStatus.existe ? "border-amber-500" : ""}
                       />
                       {errors.cnpj && <p className="text-sm text-red-500 mt-1">{errors.cnpj}</p>}
+                      {cnpjStatus.verificando && (
+                        <p className="text-sm text-muted-foreground mt-1">Verificando CNPJ...</p>
+                      )}
+                      {cnpjStatus.temCadastro && (
+                        <p className="text-sm text-green-600 mt-1">
+                          ✓ CNPJ já cadastrado no sistema. Sua proposta será vinculada automaticamente à sua conta.
+                        </p>
+                      )}
+                      {cnpjStatus.existe && !cnpjStatus.temCadastro && (
+                        <p className="text-sm text-amber-600 mt-1">
+                          ℹ️ Este CNPJ já enviou propostas anteriormente. Os dados serão vinculados.
+                        </p>
+                      )}
                     </div>
 
                     <div>
