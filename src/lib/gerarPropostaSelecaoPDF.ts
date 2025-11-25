@@ -266,7 +266,7 @@ export async function gerarPropostaSelecaoPDF(
     let alturaTotal = 0;
     const alturasPorItem: number[] = [];
     for (const item of itensOrdenados) {
-      const descLines = doc.splitTextToSize(item.descricao, 63);
+      const descLines = doc.splitTextToSize(item.descricao, 60);
       const alturaLinha = Math.max(descLines.length * 4, 6);
       alturasPorItem.push(alturaLinha);
       alturaTotal += alturaLinha;
@@ -289,7 +289,7 @@ export async function gerarPropostaSelecaoPDF(
 
       const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
       
-      const descLines = doc.splitTextToSize(item.descricao, 63);
+      const descLines = doc.splitTextToSize(item.descricao, 60);
       const alturaLinha = Math.max(descLines.length * 4, 6);
       
       // Sombra azul claro alternada (zebra striping)
@@ -315,7 +315,7 @@ export async function gerarPropostaSelecaoPDF(
       doc.text(item.numero_item.toString(), colItemCenter, yVerticalCenter, { align: 'center' });
       
       // Descrição com alinhamento justificado em TODAS as linhas exceto última
-      const descricaoLargura = 63;
+      const descricaoLargura = 60; // Reduzido para dar espaço da borda direita
       const descricaoX = colDesc;
       const descricaoYInicio = y + 3;
       const espacamentoLinhaDesc = 4;
@@ -339,9 +339,11 @@ export async function gerarPropostaSelecaoPDF(
       doc.text(item.unidade, colUniCenter, yVerticalCenter, { align: 'center' });
       doc.text(item.marca || '-', colMarcaCenter, yVerticalCenter, { align: 'center' });
       
-      // Valores - alinhados à esquerda com R$
-      doc.text(`R$ ${formatarMoeda(item.valor_unitario_ofertado)}`, colValorUnit, yVerticalCenter);
-      doc.text(`R$ ${formatarMoeda(valorTotalItem)}`, colValorTotal, yVerticalCenter);
+      // Valores - alinhados à direita com R$
+      const valorUnitRight = margemEsquerda + 143; // 2mm antes do divisor em 145
+      const valorTotalRight = margemEsquerda + larguraUtil - 2; // 2mm antes da borda direita
+      doc.text(`R$ ${formatarMoeda(item.valor_unitario_ofertado)}`, valorUnitRight, yVerticalCenter, { align: 'right' });
+      doc.text(`R$ ${formatarMoeda(valorTotalItem)}`, valorTotalRight, yVerticalCenter, { align: 'right' });
       
       y += alturaLinha;
       itemIndex++;
