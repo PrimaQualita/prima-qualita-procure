@@ -766,43 +766,42 @@ export function DialogSessaoLances({
       let yPosition = yStart + 22;
 
       lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }) => {
-        // Título do item usando autoTable para texto justificado
         const tituloTexto = `Item ${item.numero_item}: ${item.descricao}`;
-        
-        autoTable(doc, {
-          startY: yPosition,
-          body: [[tituloTexto]],
-          theme: "plain",
-          showHead: false,
-          styles: {
-            fontSize: 11,
-            fontStyle: "bold",
-            textColor: [0, 150, 199], // Azul cyan do logo
-            fillColor: [232, 247, 252], // Azul claro de sombra
-            cellPadding: 4,
-            halign: "justify",
-            lineColor: [0, 150, 199], // Borda azul cyan do logo
-            lineWidth: 0.5,
-          },
-          columnStyles: {
-            0: { cellWidth: pageWidth - margin * 2 },
-          },
-          margin: { left: margin, right: margin, top: logoHeight + 10, bottom: rodapeHeight + 10 },
-          didDrawPage: () => {
-            // Adicionar logo e rodapé em novas páginas
-            adicionarLogoERodapeNovaPagina();
-          },
-        });
-        
-        yPosition = (doc as any).lastAutoTable.finalY + 2;
 
         if (lancesDoItem.length === 0) {
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "italic");
-          doc.setTextColor(100, 100, 100);
-          doc.text("Nenhum lance registrado para este item", margin + 3, yPosition);
-          doc.setTextColor(0, 0, 0);
-          yPosition += 15;
+          // Para itens sem lances, criar tabela apenas com título
+          autoTable(doc, {
+            startY: yPosition,
+            head: [
+              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [232, 247, 252], textColor: [0, 150, 199], halign: "left", fontStyle: "bold", fontSize: 10 } }],
+              ["Pos.", "Fornecedor", "Valor", "Data/Hora"]
+            ],
+            body: [[{ content: "Nenhum lance registrado para este item", colSpan: 4, styles: { halign: "center", textColor: [100, 100, 100], fontStyle: "italic" } }]],
+            theme: "striped",
+            styles: { 
+              fontSize: 8, 
+              cellPadding: 3,
+              lineColor: [200, 200, 200],
+              lineWidth: 0.1,
+            },
+            headStyles: { 
+              fillColor: [0, 150, 199],
+              textColor: 255,
+              fontStyle: "bold",
+              halign: "center"
+            },
+            columnStyles: {
+              0: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+              1: { cellWidth: 80 },
+              2: { cellWidth: 35, halign: "right", fontStyle: "bold" },
+              3: { cellWidth: 45, halign: "center" },
+            },
+            margin: { top: logoHeight + 10, bottom: rodapeHeight + 10 },
+            didDrawPage: () => {
+              adicionarLogoERodapeNovaPagina();
+            },
+          });
+          yPosition = (doc as any).lastAutoTable.finalY + 8;
         } else {
           const tableData = lancesDoItem.map((lance, idx) => {
             const isNegociacao = lance.tipo_lance === "negociacao";
@@ -825,7 +824,10 @@ export function DialogSessaoLances({
 
           autoTable(doc, {
             startY: yPosition,
-            head: [["Pos.", "Fornecedor", "Valor", "Data/Hora"]],
+            head: [
+              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [232, 247, 252], textColor: [0, 150, 199], halign: "left", fontStyle: "bold", fontSize: 10 } }],
+              ["Pos.", "Fornecedor", "Valor", "Data/Hora"]
+            ],
             body: tableData,
             theme: "striped",
             styles: { 
@@ -835,7 +837,7 @@ export function DialogSessaoLances({
               lineWidth: 0.1,
             },
             headStyles: { 
-              fillColor: [0, 150, 199], // Azul cyan do logo
+              fillColor: [0, 150, 199],
               textColor: 255,
               fontStyle: "bold",
               halign: "center"
@@ -851,20 +853,19 @@ export function DialogSessaoLances({
             },
             margin: { top: logoHeight + 10, bottom: rodapeHeight + 10 },
             didDrawPage: () => {
-              // Adicionar logo e rodapé em novas páginas
               adicionarLogoERodapeNovaPagina();
             },
             didParseCell: (data) => {
               // Destacar primeira posição (vencedor)
               if (data.row.index === 0 && data.section === "body") {
-                data.cell.styles.fillColor = [254, 249, 195]; // bg-yellow-100
+                data.cell.styles.fillColor = [254, 249, 195];
                 data.cell.styles.fontStyle = "bold";
               }
               // Destacar valores de negociação
               if (data.column.index === 2 && data.section === "body") {
                 const cellText = String(data.cell.raw);
                 if (cellText.includes("*")) {
-                  data.cell.styles.textColor = [22, 163, 74]; // text-green-600
+                  data.cell.styles.textColor = [22, 163, 74];
                 }
               }
             },
