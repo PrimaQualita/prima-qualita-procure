@@ -243,7 +243,11 @@ export async function gerarPlanilhaConsolidadaPDF(
     startY: y,
     head: [colunas.map(c => c.header)],
     body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
-    theme: 'plain', // Sem bordas
+    theme: 'grid',
+    styles: {
+      lineColor: [200, 200, 200],
+      lineWidth: 0.1
+    },
     headStyles: {
       fillColor: [120, 190, 225], // Azul claro do logo (paleta Prima Qualitá)
       textColor: [255, 255, 255],
@@ -251,14 +255,16 @@ export async function gerarPlanilhaConsolidadaPDF(
       fontSize: 8,
       halign: 'center',
       valign: 'middle',
-      lineWidth: 0,
+      lineWidth: 0.1,
+      lineColor: [200, 200, 200],
       cellPadding: 2,
       minCellHeight: 15
     },
     bodyStyles: {
       fontSize: 8,
       textColor: [0, 0, 0],
-      lineWidth: 0, // Sem bordas
+      lineWidth: 0.1,
+      lineColor: [200, 200, 200],
       cellPadding: { top: 3, right: 2, bottom: 3, left: 2 },
       halign: 'center',
       valign: 'middle',
@@ -276,8 +282,7 @@ export async function gerarPlanilhaConsolidadaPDF(
           halign: 'left', 
           cellWidth: 40,
           overflow: 'linebreak',
-          cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
-          lineWidth: 0.1
+          cellPadding: { top: 3, right: 3, bottom: 3, left: 3 }
         },
         2: { halign: 'center', cellWidth: 12 },
         3: { halign: 'center', cellWidth: 15 }
