@@ -80,7 +80,8 @@ export async function gerarPropostaSelecaoPDF(
   valorTotal: number,
   observacoes: string | null,
   tituloSelecao: string,
-  dataEnvioProposta: string
+  dataEnvioProposta: string,
+  itensAtualizados?: Array<{ numero_item: number; descricao: string; quantidade: number; unidade: string; marca: string | null; valor_unitario_ofertado: number }>
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
     // Verificar se já existe protocolo para esta proposta
@@ -94,45 +95,60 @@ export async function gerarPropostaSelecaoPDF(
     const protocolo = propostaExistente?.protocolo || uuidv4();
     console.log('Protocolo utilizado:', protocolo);
 
-    // Buscar itens da proposta com informações completas
-    const { data: itens, error: itensError } = await supabase
-      .from('selecao_respostas_itens_fornecedor')
-      .select(`
-        numero_item,
-        descricao,
-        quantidade,
-        unidade,
-        marca,
-        valor_unitario_ofertado,
-        valor_total_item
-      `)
-      .eq('proposta_id', propostaId)
-      .order('numero_item');
+    // Usar itens passados OU buscar do banco de dados
+    let itensFormatados: ItemProposta[];
+    
+    if (itensAtualizados && itensAtualizados.length > 0) {
+      console.log('Usando itens passados diretamente:', itensAtualizados.length);
+      itensFormatados = itensAtualizados.map(item => ({
+        numero_item: item.numero_item,
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        valor_unitario_ofertado: item.valor_unitario_ofertado || 0,
+        marca: item.marca
+      }));
+    } else {
+      // Buscar itens da proposta com informações completas
+      const { data: itens, error: itensError } = await supabase
+        .from('selecao_respostas_itens_fornecedor')
+        .select(`
+          numero_item,
+          descricao,
+          quantidade,
+          unidade,
+          marca,
+          valor_unitario_ofertado,
+          valor_total_item
+        `)
+        .eq('proposta_id', propostaId)
+        .order('numero_item');
 
-    console.log('Query de itens executada');
-    console.log('Erro:', itensError);
-    console.log('Itens retornados:', itens?.length || 0);
+      console.log('Query de itens executada');
+      console.log('Erro:', itensError);
+      console.log('Itens retornados:', itens?.length || 0);
 
-    if (itensError) {
-      console.error('Erro detalhado ao buscar itens:', JSON.stringify(itensError, null, 2));
-      throw new Error(`Erro ao buscar itens: ${itensError.message}`);
+      if (itensError) {
+        console.error('Erro detalhado ao buscar itens:', JSON.stringify(itensError, null, 2));
+        throw new Error(`Erro ao buscar itens: ${itensError.message}`);
+      }
+
+      if (!itens || itens.length === 0) {
+        console.error('NENHUM ITEM ENCONTRADO - Proposta ID:', propostaId);
+        throw new Error(`Nenhum item encontrado para esta proposta (ID: ${propostaId})`);
+      }
+
+      console.log(`✅ ${itens.length} itens carregados com sucesso`);
+
+      itensFormatados = itens.map((item: any) => ({
+        numero_item: item.numero_item,
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        valor_unitario_ofertado: item.valor_unitario_ofertado || 0,
+        marca: item.marca
+      }));
     }
-
-    if (!itens || itens.length === 0) {
-      console.error('NENHUM ITEM ENCONTRADO - Proposta ID:', propostaId);
-      throw new Error(`Nenhum item encontrado para esta proposta (ID: ${propostaId})`);
-    }
-
-    console.log(`✅ ${itens.length} itens carregados com sucesso`);
-
-    const itensFormatados: ItemProposta[] = itens.map((item: any) => ({
-      numero_item: item.numero_item,
-      descricao: item.descricao,
-      quantidade: item.quantidade,
-      unidade: item.unidade,
-      valor_unitario_ofertado: item.valor_unitario_ofertado || 0,
-      marca: item.marca
-    }));
 
     const doc = new jsPDF();
     const dataEnvio = new Date(dataEnvioProposta).toLocaleString('pt-BR');
