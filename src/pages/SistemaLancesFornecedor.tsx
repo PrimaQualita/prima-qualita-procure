@@ -403,7 +403,7 @@ const SistemaLancesFornecedor = () => {
           .from("selecao_respostas_itens_fornecedor")
           .update({
             valor_unitario_ofertado: item.valor_unitario_ofertado,
-            marca_ofertada: item.marca_ofertada,
+            marca: item.marca_ofertada || item.marca || null,
             valor_total_item: item.valor_unitario_ofertado * item.quantidade
           })
           .eq("id", item.id);
