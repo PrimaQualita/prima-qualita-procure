@@ -1,0 +1,825 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
+import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+interface Item {
+  numero_item: number;
+  descricao: string;
+}
+
+interface Lance {
+  id: string;
+  fornecedor_id: string;
+  valor_lance: number;
+  data_hora_lance: string;
+  indicativo_lance_vencedor: boolean;
+  numero_item: number;
+  numero_rodada: number;
+  fornecedores: {
+    razao_social: string;
+    cnpj: string;
+  };
+}
+
+interface Mensagem {
+  id: string;
+  mensagem: string;
+  tipo_usuario: string;
+  created_at: string;
+  usuario_id: string | null;
+  fornecedor_id: string | null;
+  fornecedores?: {
+    razao_social: string;
+  } | null;
+  profiles?: {
+    nome_completo: string;
+  } | null;
+}
+
+interface DialogSessaoLancesProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selecaoId: string;
+  itens: Item[];
+  criterioJulgamento: string;
+}
+
+export function DialogSessaoLances({
+  open,
+  onOpenChange,
+  selecaoId,
+  itens,
+  criterioJulgamento,
+}: DialogSessaoLancesProps) {
+  // Estado - Controle de Itens
+  const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
+  const [itensSelecionados, setItensSelecionados] = useState<Set<number>>(new Set());
+  const [salvando, setSalvando] = useState(false);
+
+  // Estado - Sistema de Lances
+  const [lances, setLances] = useState<Lance[]>([]);
+  const [loadingLances, setLoadingLances] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [itemSelecionadoLances, setItemSelecionadoLances] = useState<number | null>(null);
+
+  // Estado - Chat
+  const [mensagens, setMensagens] = useState<Mensagem[]>([]);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [enviandoMsg, setEnviandoMsg] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Carregar dados iniciais
+  useEffect(() => {
+    if (open) {
+      loadItensAbertos();
+      loadLances();
+      loadUserProfile();
+      loadMensagens();
+    }
+  }, [open, selecaoId]);
+
+  // Auto-refresh e realtime para lances
+  useEffect(() => {
+    if (!open) return;
+
+    let interval: NodeJS.Timeout;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        loadLances();
+      }, 5000);
+    }
+
+    const lancesChannel = supabase
+      .channel(`lances_${selecaoId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "lances_fornecedores", filter: `selecao_id=eq.${selecaoId}` }, () => loadLances())
+      .subscribe();
+
+    const chatChannel = supabase
+      .channel(`chat_${selecaoId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mensagens_selecao", filter: `selecao_id=eq.${selecaoId}` }, () => loadMensagens())
+      .subscribe();
+
+    return () => {
+      if (interval) clearInterval(interval);
+      supabase.removeChannel(lancesChannel);
+      supabase.removeChannel(chatChannel);
+    };
+  }, [open, selecaoId, autoRefresh]);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [mensagens]);
+
+  // ========== FUNÇÕES DE CONTROLE DE ITENS ==========
+  const loadItensAbertos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("itens_abertos_lances")
+        .select("*")
+        .eq("selecao_id", selecaoId)
+        .eq("aberto", true);
+
+      if (error) throw error;
+
+      const abertos = new Set(data?.map((item) => item.numero_item) || []);
+      setItensAbertos(abertos);
+
+      // Verificar se algum item está em processo de fechamento
+      data?.forEach((item: any) => {
+        if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+          const tempoDecorrido = Math.floor((Date.now() - new Date(item.data_inicio_fechamento).getTime()) / 1000);
+          const tempoRestante = item.segundos_para_fechar - tempoDecorrido;
+          
+          if (tempoRestante > 0) {
+            setTimeout(async () => {
+              await supabase
+                .from("itens_abertos_lances")
+                .update({ aberto: false, data_fechamento: new Date().toISOString(), iniciando_fechamento: false })
+                .eq("id", item.id);
+            }, tempoRestante * 1000);
+          } else if (tempoRestante <= 0 && item.aberto) {
+            supabase
+              .from("itens_abertos_lances")
+              .update({ aberto: false, data_fechamento: new Date().toISOString(), iniciando_fechamento: false })
+              .eq("id", item.id);
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Erro ao carregar itens abertos:", error);
+    }
+  };
+
+  const handleToggleItem = (numeroItem: number) => {
+    const novos = new Set(itensSelecionados);
+    if (novos.has(numeroItem)) {
+      novos.delete(numeroItem);
+    } else {
+      novos.add(numeroItem);
+    }
+    setItensSelecionados(novos);
+  };
+
+  const handleSelecionarTodos = () => {
+    setItensSelecionados(new Set(itens.map((item) => item.numero_item)));
+  };
+
+  const handleLimparSelecao = () => {
+    setItensSelecionados(new Set());
+  };
+
+  const handleAbrirItens = async () => {
+    if (itensSelecionados.size === 0) {
+      toast.error("Selecione pelo menos um item");
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      const { data: existentes } = await supabase
+        .from("itens_abertos_lances")
+        .select("numero_item")
+        .eq("selecao_id", selecaoId)
+        .in("numero_item", Array.from(itensSelecionados));
+
+      const numerosExistentes = new Set(existentes?.map(e => e.numero_item) || []);
+
+      if (numerosExistentes.size > 0) {
+        await supabase
+          .from("itens_abertos_lances")
+          .update({ aberto: true, data_fechamento: null })
+          .eq("selecao_id", selecaoId)
+          .in("numero_item", Array.from(numerosExistentes));
+      }
+
+      const novosItens = Array.from(itensSelecionados)
+        .filter(num => !numerosExistentes.has(num))
+        .map(numeroItem => ({
+          selecao_id: selecaoId,
+          numero_item: numeroItem,
+          aberto: true,
+        }));
+
+      if (novosItens.length > 0) {
+        const { error } = await supabase.from("itens_abertos_lances").insert(novosItens);
+        if (error) throw error;
+      }
+
+      toast.success(`${itensSelecionados.size} item(ns) aberto(s) para lances`);
+      await loadItensAbertos();
+      setItensSelecionados(new Set());
+    } catch (error) {
+      console.error("Erro ao abrir itens:", error);
+      toast.error("Erro ao abrir itens para lances");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleFecharItens = async () => {
+    if (itensSelecionados.size === 0) {
+      toast.error("Selecione pelo menos um item");
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      const TEMPO_FECHAMENTO = 120;
+      
+      const updates = Array.from(itensSelecionados).map(async (numeroItem) => {
+        return supabase
+          .from("itens_abertos_lances")
+          .update({
+            iniciando_fechamento: true,
+            data_inicio_fechamento: new Date().toISOString(),
+            segundos_para_fechar: TEMPO_FECHAMENTO,
+          })
+          .eq("selecao_id", selecaoId)
+          .eq("numero_item", numeroItem);
+      });
+
+      await Promise.all(updates);
+
+      Array.from(itensSelecionados).forEach(async (numeroItem) => {
+        setTimeout(async () => {
+          await supabase
+            .from("itens_abertos_lances")
+            .update({ aberto: false, data_fechamento: new Date().toISOString(), iniciando_fechamento: false })
+            .eq("selecao_id", selecaoId)
+            .eq("numero_item", numeroItem);
+        }, TEMPO_FECHAMENTO * 1000);
+      });
+
+      toast.success(`${itensSelecionados.size} item(ns) entrando em processo de fechamento (2 minutos)`);
+      await loadItensAbertos();
+      setItensSelecionados(new Set());
+    } catch (error) {
+      console.error("Erro ao iniciar fechamento de itens:", error);
+      toast.error("Erro ao fechar itens");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  // ========== FUNÇÕES DO SISTEMA DE LANCES ==========
+  const loadLances = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("lances_fornecedores")
+        .select(`*, fornecedores (razao_social, cnpj)`)
+        .eq("selecao_id", selecaoId)
+        .order("numero_item", { ascending: true })
+        .order("valor_lance", { ascending: true })
+        .order("data_hora_lance", { ascending: true });
+
+      if (error) throw error;
+      setLances(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar lances:", error);
+    } finally {
+      setLoadingLances(false);
+    }
+  };
+
+  const getLancesDoItem = (numeroItem: number) => {
+    return lances.filter(l => l.numero_item === numeroItem);
+  };
+
+  const getVencedorItem = (numeroItem: number) => {
+    const lancesItem = getLancesDoItem(numeroItem);
+    return lancesItem.length > 0 ? lancesItem[0] : null;
+  };
+
+  const getRodadasItem = (numeroItem: number) => {
+    const lancesItem = getLancesDoItem(numeroItem);
+    const rodadas = new Set(lancesItem.map(l => l.numero_rodada || 1));
+    return rodadas.size;
+  };
+
+  // ========== FUNÇÕES DO CHAT ==========
+  const loadUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        setUserProfile({ type: "interno", data: profile });
+        return;
+      }
+
+      const { data: fornecedor } = await supabase
+        .from("fornecedores")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (fornecedor) {
+        setUserProfile({ type: "fornecedor", data: fornecedor });
+      }
+    } catch (error) {
+      console.error("Erro ao carregar perfil:", error);
+    }
+  };
+
+  const loadMensagens = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("mensagens_selecao")
+        .select(`*, fornecedores (razao_social)`)
+        .eq("selecao_id", selecaoId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      const mensagensComNomes = await Promise.all(
+        (data || []).map(async (msg) => {
+          if (msg.tipo_usuario === "interno" && msg.usuario_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("nome_completo")
+              .eq("id", msg.usuario_id)
+              .single();
+            return { ...msg, profiles: profile };
+          }
+          return msg;
+        })
+      );
+
+      setMensagens(mensagensComNomes as any);
+    } catch (error) {
+      console.error("Erro ao carregar mensagens:", error);
+    }
+  };
+
+  const handleEnviarMensagem = useCallback(async () => {
+    const mensagemTexto = inputRef.current?.value.trim();
+    if (!mensagemTexto || !userProfile) return;
+
+    setEnviandoMsg(true);
+    try {
+      const { error } = await supabase.from("mensagens_selecao").insert({
+        selecao_id: selecaoId,
+        mensagem: mensagemTexto,
+        tipo_usuario: userProfile.type,
+        usuario_id: userProfile.type === "interno" ? userProfile.data.id : null,
+        fornecedor_id: userProfile.type === "fornecedor" ? userProfile.data.id : null,
+      });
+
+      if (error) throw error;
+      if (inputRef.current) inputRef.current.value = "";
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error);
+      toast.error("Erro ao enviar mensagem");
+    } finally {
+      setEnviandoMsg(false);
+    }
+  }, [selecaoId, userProfile]);
+
+  const formatDateTime = (dateTime: string) => {
+    return new Date(dateTime).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  };
+
+  const formatCNPJ = (cnpj: string) => {
+    return cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") || "";
+  };
+
+  const getNomeRemetente = (msg: Mensagem) => {
+    if (msg.tipo_usuario === "interno" && msg.profiles) return msg.profiles.nome_completo;
+    if (msg.tipo_usuario === "fornecedor" && msg.fornecedores) return msg.fornecedores.razao_social;
+    return "Usuário";
+  };
+
+  const isMinhaMsg = (msg: Mensagem) => {
+    if (!userProfile) return false;
+    if (userProfile.type === "interno") return msg.usuario_id === userProfile.data.id;
+    return msg.fornecedor_id === userProfile.data.id;
+  };
+
+  // ========== GERAR PLANILHA DE LANCES ==========
+  const handleGerarPlanilhaLances = async () => {
+    try {
+      if (lances.length === 0) {
+        toast.error("Nenhum lance registrado para gerar planilha");
+        return;
+      }
+
+      const doc = new jsPDF("landscape");
+      
+      // Título
+      doc.setFontSize(16);
+      doc.text("PLANILHA DE LANCES DA SELEÇÃO", doc.internal.pageSize.width / 2, 15, { align: "center" });
+      doc.setFontSize(10);
+      doc.text(`Critério: ${criterioJulgamento}`, doc.internal.pageSize.width / 2, 22, { align: "center" });
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, doc.internal.pageSize.width / 2, 28, { align: "center" });
+
+      // Agrupar lances por item
+      const lancesGroupedByItem = itens.map(item => {
+        const lancesItem = getLancesDoItem(item.numero_item);
+        const rodadas = getRodadasItem(item.numero_item);
+        return { item, lances: lancesItem, rodadas };
+      });
+
+      let yPosition = 35;
+
+      lancesGroupedByItem.forEach(({ item, lances: lancesDoItem, rodadas }) => {
+        if (yPosition > doc.internal.pageSize.height - 40) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        // Título do item
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Item ${item.numero_item}: ${item.descricao.substring(0, 80)}${item.descricao.length > 80 ? "..." : ""}`, 14, yPosition);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Total de Rodadas: ${rodadas}`, 14, yPosition + 5);
+        
+        yPosition += 10;
+
+        if (lancesDoItem.length === 0) {
+          doc.text("Nenhum lance registrado para este item", 14, yPosition);
+          yPosition += 10;
+        } else {
+          const tableData = lancesDoItem.map((lance, idx) => [
+            `${idx + 1}º`,
+            lance.fornecedores?.razao_social || "N/A",
+            formatCNPJ(lance.fornecedores?.cnpj || ""),
+            formatCurrency(lance.valor_lance),
+            lance.numero_rodada || 1,
+            new Date(lance.data_hora_lance).toLocaleString("pt-BR"),
+          ]);
+
+          autoTable(doc, {
+            startY: yPosition,
+            head: [["Pos.", "Fornecedor", "CNPJ", "Valor", "Rodada", "Data/Hora"]],
+            body: tableData,
+            theme: "grid",
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+            columnStyles: {
+              0: { cellWidth: 15 },
+              1: { cellWidth: 60 },
+              2: { cellWidth: 40 },
+              3: { cellWidth: 30 },
+              4: { cellWidth: 20 },
+              5: { cellWidth: 40 },
+            },
+          });
+
+          yPosition = (doc as any).lastAutoTable.finalY + 10;
+        }
+      });
+
+      // Resumo geral
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.text("RESUMO - VENCEDORES POR ITEM", doc.internal.pageSize.width / 2, 15, { align: "center" });
+
+      const resumoData = itens.map(item => {
+        const vencedor = getVencedorItem(item.numero_item);
+        const rodadas = getRodadasItem(item.numero_item);
+        return [
+          item.numero_item,
+          item.descricao.substring(0, 50) + (item.descricao.length > 50 ? "..." : ""),
+          vencedor?.fornecedores?.razao_social || "Sem lances",
+          vencedor ? formatCurrency(vencedor.valor_lance) : "-",
+          rodadas,
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 25,
+        head: [["Item", "Descrição", "Vencedor", "Menor Lance", "Rodadas"]],
+        body: resumoData,
+        theme: "grid",
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [34, 197, 94], textColor: 255 },
+      });
+
+      doc.save(`planilha-lances-selecao.pdf`);
+      toast.success("Planilha de lances gerada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao gerar planilha:", error);
+      toast.error("Erro ao gerar planilha de lances");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] h-[95vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Gavel className="h-5 w-5" />
+            Sessão de Lances
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex-1 grid grid-cols-12 gap-4 h-[calc(95vh-100px)] overflow-hidden">
+          {/* Coluna Esquerda - Controle de Itens */}
+          <div className="col-span-3 flex flex-col overflow-hidden">
+            <Card className="flex-1 flex flex-col overflow-hidden">
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Controle de Itens
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col overflow-hidden p-3">
+                <div className="flex gap-2 mb-3">
+                  <Button variant="outline" size="sm" onClick={handleSelecionarTodos} className="text-xs">
+                    Todos
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleLimparSelecao} className="text-xs">
+                    Limpar
+                  </Button>
+                </div>
+
+                <ScrollArea className="flex-1">
+                  <div className="space-y-2 pr-2">
+                    {itens.map((item) => {
+                      const estaAberto = itensAbertos.has(item.numero_item);
+                      const estaSelecionado = itensSelecionados.has(item.numero_item);
+                      const lancesItem = getLancesDoItem(item.numero_item);
+
+                      return (
+                        <div
+                          key={item.numero_item}
+                          className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                            estaAberto ? "bg-green-50 border-green-300 dark:bg-green-950" : "bg-background hover:bg-muted"
+                          } ${itemSelecionadoLances === item.numero_item ? "ring-2 ring-primary" : ""}`}
+                          onClick={() => setItemSelecionadoLances(item.numero_item)}
+                        >
+                          <Checkbox
+                            id={`item-${item.numero_item}`}
+                            checked={estaSelecionado}
+                            onCheckedChange={() => handleToggleItem(item.numero_item)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <Label htmlFor={`item-${item.numero_item}`} className="cursor-pointer">
+                              <div className="flex items-center gap-1">
+                                <span className="font-semibold text-xs">Item {item.numero_item}</span>
+                                {estaAberto ? (
+                                  <Unlock className="h-3 w-3 text-green-600" />
+                                ) : (
+                                  <Lock className="h-3 w-3 text-muted-foreground" />
+                                )}
+                                {lancesItem.length > 0 && (
+                                  <Badge variant="secondary" className="text-xs px-1">
+                                    {lancesItem.length}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                {item.descricao}
+                              </p>
+                            </Label>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+
+                <div className="flex gap-2 mt-3 pt-3 border-t">
+                  <Button size="sm" className="flex-1 text-xs" onClick={handleAbrirItens} disabled={salvando || itensSelecionados.size === 0}>
+                    <Unlock className="h-3 w-3 mr-1" />
+                    Abrir ({itensSelecionados.size})
+                  </Button>
+                  <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={handleFecharItens} disabled={salvando || itensSelecionados.size === 0}>
+                    <Lock className="h-3 w-3 mr-1" />
+                    Fechar ({itensSelecionados.size})
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Coluna Central - Sistema de Lances */}
+          <div className="col-span-6 flex flex-col overflow-hidden">
+            <Card className="flex-1 flex flex-col overflow-hidden">
+              <CardHeader className="py-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Trophy className="h-4 w-4" />
+                    Sistema de Lances {itemSelecionadoLances ? `- Item ${itemSelecionadoLances}` : "- Todos"}
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setAutoRefresh(!autoRefresh)} className="text-xs">
+                      {autoRefresh ? "Pausar" : "Ativar"} Auto
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={loadLances}>
+                      <RefreshCw className="h-3 w-3" />
+                    </Button>
+                    <Button variant="default" size="sm" onClick={handleGerarPlanilhaLances} className="text-xs">
+                      <FileSpreadsheet className="h-3 w-3 mr-1" />
+                      Planilha
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-hidden p-3">
+                <div className="mb-2 flex gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs">Critério: {criterioJulgamento}</Badge>
+                  <Badge variant="outline" className="text-xs">Total Lances: {lances.length}</Badge>
+                  {autoRefresh && <Badge variant="default" className="text-xs">● Auto Ativo</Badge>}
+                </div>
+
+                <Tabs defaultValue="todos" className="h-[calc(100%-30px)]">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="todos" className="text-xs">Todos os Lances</TabsTrigger>
+                    <TabsTrigger value="item" className="text-xs">Por Item Selecionado</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="todos" className="h-[calc(100%-40px)] overflow-hidden">
+                    <ScrollArea className="h-full">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Item</TableHead>
+                            <TableHead className="text-xs">Fornecedor</TableHead>
+                            <TableHead className="text-xs text-right">Valor</TableHead>
+                            <TableHead className="text-xs">Rodada</TableHead>
+                            <TableHead className="text-xs">Data/Hora</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {lances.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
+                                Nenhum lance registrado
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            lances.map((lance) => (
+                              <TableRow key={lance.id} className={lance.indicativo_lance_vencedor ? "bg-yellow-50" : ""}>
+                                <TableCell className="text-xs font-medium">{lance.numero_item || "-"}</TableCell>
+                                <TableCell className="text-xs">{lance.fornecedores?.razao_social}</TableCell>
+                                <TableCell className="text-xs text-right font-bold">{formatCurrency(lance.valor_lance)}</TableCell>
+                                <TableCell className="text-xs">{lance.numero_rodada || 1}</TableCell>
+                                <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  <TabsContent value="item" className="h-[calc(100%-40px)] overflow-hidden">
+                    <ScrollArea className="h-full">
+                      {itemSelecionadoLances ? (
+                        <>
+                          <div className="mb-3 p-2 bg-muted rounded-lg">
+                            <p className="text-xs font-medium">Item {itemSelecionadoLances}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {itens.find(i => i.numero_item === itemSelecionadoLances)?.descricao}
+                            </p>
+                            <p className="text-xs mt-1">Rodadas: {getRodadasItem(itemSelecionadoLances)}</p>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-xs">Pos.</TableHead>
+                                <TableHead className="text-xs">Fornecedor</TableHead>
+                                <TableHead className="text-xs">CNPJ</TableHead>
+                                <TableHead className="text-xs text-right">Valor</TableHead>
+                                <TableHead className="text-xs">Rodada</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {getLancesDoItem(itemSelecionadoLances).map((lance, idx) => (
+                                <TableRow key={lance.id} className={idx === 0 ? "bg-yellow-50" : ""}>
+                                  <TableCell className="text-xs">
+                                    <div className="flex items-center gap-1">
+                                      {idx === 0 && <Trophy className="h-3 w-3 text-yellow-600" />}
+                                      {idx + 1}º
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-xs">{lance.fornecedores?.razao_social}</TableCell>
+                                  <TableCell className="text-xs">{formatCNPJ(lance.fornecedores?.cnpj || "")}</TableCell>
+                                  <TableCell className="text-xs text-right font-bold">{formatCurrency(lance.valor_lance)}</TableCell>
+                                  <TableCell className="text-xs">{lance.numero_rodada || 1}</TableCell>
+                                </TableRow>
+                              ))}
+                              {getLancesDoItem(itemSelecionadoLances).length === 0 && (
+                                <TableRow>
+                                  <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
+                                    Nenhum lance para este item
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </>
+                      ) : (
+                        <div className="text-center text-muted-foreground py-8 text-xs">
+                          Selecione um item na coluna esquerda para ver os lances
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Coluna Direita - Chat */}
+          <div className="col-span-3 flex flex-col overflow-hidden">
+            <Card className="flex-1 flex flex-col overflow-hidden">
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Chat em Tempo Real
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col overflow-hidden p-3">
+                <ScrollArea className="flex-1 pr-2" ref={scrollRef}>
+                  <div className="space-y-3">
+                    {mensagens.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-4 text-xs">
+                        Nenhuma mensagem ainda
+                      </p>
+                    ) : (
+                      mensagens.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`flex ${isMinhaMsg(msg) ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                              isMinhaMsg(msg)
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1 mb-0.5">
+                              <span className="font-semibold text-xs">{getNomeRemetente(msg)}</span>
+                              <span className="text-xs opacity-70">{formatDateTime(msg.created_at)}</span>
+                            </div>
+                            <p className="text-xs">{msg.mensagem}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+
+                <div className="flex gap-2 mt-3 pt-3 border-t">
+                  <Input
+                    ref={inputRef}
+                    placeholder="Digite..."
+                    className="text-xs"
+                    onKeyPress={(e) => e.key === "Enter" && handleEnviarMensagem()}
+                    disabled={enviandoMsg}
+                  />
+                  <Button size="sm" onClick={handleEnviarMensagem} disabled={enviandoMsg}>
+                    <Send className="h-3 w-3" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
