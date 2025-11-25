@@ -17,9 +17,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, ChevronRight, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
+import { DialogEditarSelecao } from "@/components/selecoes/DialogEditarSelecao";
 
 interface Contrato {
   id: string;
@@ -63,6 +64,7 @@ const Selecoes = () => {
   const [selecoes, setSelecoes] = useState<Selecao[]>([]);
   const [confirmDeleteSelecao, setConfirmDeleteSelecao] = useState<string | null>(null);
   const [filtro, setFiltro] = useState("");
+  const [selecaoParaEditar, setSelecaoParaEditar] = useState<Selecao | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -413,6 +415,14 @@ const Selecoes = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelecaoParaEditar(selecao)}
+                              title="Editar Seleção"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             <Button 
                               variant="outline" 
                               size="sm"
@@ -463,6 +473,18 @@ const Selecoes = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de Edição de Seleção */}
+      <DialogEditarSelecao
+        open={!!selecaoParaEditar}
+        onOpenChange={(open) => !open && setSelecaoParaEditar(null)}
+        selecao={selecaoParaEditar}
+        onSuccess={() => {
+          if (processoSelecionado) {
+            loadSelecoes(processoSelecionado.id);
+          }
+        }}
+      />
     </div>
   );
 };
