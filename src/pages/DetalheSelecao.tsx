@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
@@ -55,6 +55,7 @@ const DetalheSelecao = () => {
   const [dialogSessaoOpen, setDialogSessaoOpen] = useState(false);
   const [dialogAnaliseDocumentalOpen, setDialogAnaliseDocumentalOpen] = useState(false);
   const [gerandoAta, setGerandoAta] = useState(false);
+  const [finalizandoSessao, setFinalizandoSessao] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -250,6 +251,30 @@ const DetalheSelecao = () => {
     });
   };
 
+  const handleFinalizarSessao = async () => {
+    if (!selecaoId) return;
+
+    setFinalizandoSessao(true);
+    try {
+      const { error } = await supabase
+        .from("selecoes_fornecedores")
+        .update({ sessao_finalizada: true })
+        .eq("id", selecaoId);
+
+      if (error) throw error;
+
+      toast.success("Sessão de lances finalizada! Análise Documental disponível.");
+      
+      // Recarregar dados da seleção
+      await loadSelecao();
+    } catch (error) {
+      console.error("Erro ao finalizar sessão:", error);
+      toast.error("Erro ao finalizar sessão de lances");
+    } finally {
+      setFinalizandoSessao(false);
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
   }
@@ -428,17 +453,33 @@ const DetalheSelecao = () => {
             <Gavel className="h-5 w-5 mr-2" />
             Abrir Sessão de Lances (Controle + Chat + Sistema de Lances)
           </Button>
+
+          {/* Finalizar Sessão de Lances */}
+          {!selecao.sessao_finalizada && (
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full bg-green-600 hover:bg-green-700"
+              disabled={finalizandoSessao}
+              onClick={handleFinalizarSessao}
+            >
+              <CheckCircle className="h-5 w-5 mr-2" />
+              {finalizandoSessao ? "Finalizando..." : "Finalizar Sessão de Lances"}
+            </Button>
+          )}
           
-          {/* Análise Documental */}
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full"
-            onClick={() => setDialogAnaliseDocumentalOpen(true)}
-          >
-            <ClipboardCheck className="h-5 w-5 mr-2" />
-            Análise Documental
-          </Button>
+          {/* Análise Documental - só disponível após finalizar sessão */}
+          {selecao.sessao_finalizada && (
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={() => setDialogAnaliseDocumentalOpen(true)}
+            >
+              <ClipboardCheck className="h-5 w-5 mr-2" />
+              Análise Documental
+            </Button>
+          )}
           
           {/* Gerar Ata */}
           <Button
