@@ -107,6 +107,9 @@ export function DialogSessaoLances({
   // Estado - Confirmação de exclusão de lance
   const [confirmDeleteLance, setConfirmDeleteLance] = useState<{ open: boolean; lanceId: string | null }>({ open: false, lanceId: null });
 
+  // Estado - Planilha de Lances gerada
+  const [planilhaGerada, setPlanilhaGerada] = useState<{ id: string; nome_arquivo: string; url_arquivo: string } | null>(null);
+
   // Carregar dados iniciais
   useEffect(() => {
     if (open) {
@@ -115,6 +118,7 @@ export function DialogSessaoLances({
       loadUserProfile();
       loadMensagens();
       loadVencedoresPorItem();
+      loadPlanilhaGerada();
     }
   }, [open, selecaoId]);
 
@@ -653,6 +657,66 @@ export function DialogSessaoLances({
     return msg.fornecedor_id === userProfile.data.id;
   };
 
+  // ========== CARREGAR PLANILHA GERADA ==========
+  const loadPlanilhaGerada = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("planilhas_lances_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoId)
+        .maybeSingle();
+      
+      if (error && error.code !== "PGRST116") {
+        throw error;
+      }
+      
+      setPlanilhaGerada(data);
+    } catch (error) {
+      console.error("Erro ao carregar planilha:", error);
+    }
+  };
+
+  // ========== VISUALIZAR PLANILHA ==========
+  const handleVisualizarPlanilha = () => {
+    if (planilhaGerada) {
+      window.open(planilhaGerada.url_arquivo, "_blank");
+    }
+  };
+
+  // ========== DELETAR PLANILHA ==========
+  const handleDeletarPlanilha = async () => {
+    if (!planilhaGerada) return;
+    
+    try {
+      // Extrair caminho do storage da URL
+      const urlParts = planilhaGerada.url_arquivo.split("/storage/v1/object/public/processo-anexos/");
+      const storagePath = urlParts[1];
+      
+      // Deletar arquivo do storage
+      if (storagePath) {
+        const { error: storageError } = await supabase.storage
+          .from("processo-anexos")
+          .remove([storagePath]);
+        
+        if (storageError) throw storageError;
+      }
+      
+      // Deletar registro do banco
+      const { error: dbError } = await supabase
+        .from("planilhas_lances_selecao")
+        .delete()
+        .eq("id", planilhaGerada.id);
+      
+      if (dbError) throw dbError;
+      
+      setPlanilhaGerada(null);
+      toast.success("Planilha deletada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao deletar planilha:", error);
+      toast.error("Erro ao deletar planilha");
+    }
+  };
+
   // ========== GERAR PLANILHA DE LANCES ==========
   const handleGerarPlanilhaLances = async () => {
     try {
@@ -1158,7 +1222,44 @@ export function DialogSessaoLances({
         });
       }
 
-      doc.save(`planilha-lances-selecao.pdf`);
+      // Salvar PDF no storage e banco de dados
+      const pdfBlob = doc.output("blob");
+      const nomeArquivo = `planilha-lances-selecao-${Date.now()}.pdf`;
+      const storagePath = `selecao_${selecaoId}/${nomeArquivo}`;
+      
+      // Upload para o storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("processo-anexos")
+        .upload(storagePath, pdfBlob, {
+          contentType: "application/pdf",
+          upsert: false
+        });
+      
+      if (uploadError) throw uploadError;
+      
+      // Obter URL pública
+      const { data: urlData } = supabase.storage
+        .from("processo-anexos")
+        .getPublicUrl(storagePath);
+      
+      // Obter ID do usuário
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Salvar no banco de dados
+      const { data: planilhaData, error: dbError } = await supabase
+        .from("planilhas_lances_selecao")
+        .insert({
+          selecao_id: selecaoId,
+          nome_arquivo: nomeArquivo,
+          url_arquivo: urlData.publicUrl,
+          usuario_gerador_id: user?.id
+        })
+        .select()
+        .single();
+      
+      if (dbError) throw dbError;
+      
+      setPlanilhaGerada(planilhaData);
       toast.success("Planilha de lances gerada com sucesso!");
     } catch (error) {
       console.error("Erro ao gerar planilha:", error);
@@ -1424,10 +1525,22 @@ export function DialogSessaoLances({
                     <Button variant="outline" size="sm" onClick={loadLances}>
                       <RefreshCw className="h-3 w-3" />
                     </Button>
-                    <Button variant="default" size="sm" onClick={handleGerarPlanilhaLances} className="text-xs">
-                      <FileSpreadsheet className="h-3 w-3 mr-1" />
-                      Planilha
-                    </Button>
+                    {!planilhaGerada ? (
+                      <Button variant="default" size="sm" onClick={handleGerarPlanilhaLances} className="text-xs">
+                        <FileSpreadsheet className="h-3 w-3 mr-1" />
+                        Gerar Planilha
+                      </Button>
+                    ) : (
+                      <>
+                        <Button variant="outline" size="sm" onClick={handleVisualizarPlanilha} className="text-xs">
+                          <FileSpreadsheet className="h-3 w-3 mr-1" />
+                          Visualizar
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={handleDeletarPlanilha} className="text-xs">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardHeader>

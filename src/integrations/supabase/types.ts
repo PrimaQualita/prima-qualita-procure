@@ -1508,6 +1508,44 @@ export type Database = {
           },
         ]
       }
+      planilhas_lances_selecao: {
+        Row: {
+          created_at: string | null
+          data_geracao: string
+          id: string
+          nome_arquivo: string
+          selecao_id: string
+          url_arquivo: string
+          usuario_gerador_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_geracao?: string
+          id?: string
+          nome_arquivo: string
+          selecao_id: string
+          url_arquivo: string
+          usuario_gerador_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_geracao?: string
+          id?: string
+          nome_arquivo?: string
+          selecao_id?: string
+          url_arquivo?: string
+          usuario_gerador_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planilhas_lances_selecao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processos_compras: {
         Row: {
           ano_referencia: number
