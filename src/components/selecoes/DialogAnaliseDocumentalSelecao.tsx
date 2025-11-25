@@ -257,9 +257,8 @@ export function DialogAnaliseDocumentalSelecao({
       // Ordem específica dos documentos
       const ordemDocumentos: Record<string, number> = {
         'contrato_social': 1,
-        'cnpj': 2,
-        'inscricao_estadual': 3,
-        'inscricao_municipal': 3,
+        'cartao_cnpj': 2,
+        'inscricao_estadual_municipal': 3,
         'cnd_federal': 4,
         'cnd_tributos_estaduais': 5,
         'cnd_divida_ativa_estadual': 6,
@@ -267,14 +266,14 @@ export function DialogAnaliseDocumentalSelecao({
         'cnd_divida_ativa_municipal': 8,
         'crf_fgts': 9,
         'cndt': 10,
-        'certificado_fornecedor': 11,
+        'certificado_gestor': 11,
       };
       
       // Filtrar apenas o documento mais recente de cada tipo e excluir Relatorio KPMG
       const documentosPorTipo = new Map<string, DocumentoExistente>();
       (data || []).forEach((doc: DocumentoExistente) => {
         // Excluir Relatorio KPMG
-        if (doc.tipo_documento.toLowerCase().includes('kpmg') || doc.tipo_documento === 'relatorio_kpmg') {
+        if (doc.tipo_documento === 'relatorio_kpmg') {
           return;
         }
         if (!documentosPorTipo.has(doc.tipo_documento)) {
