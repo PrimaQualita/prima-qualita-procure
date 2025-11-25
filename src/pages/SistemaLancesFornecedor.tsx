@@ -871,8 +871,19 @@ const SistemaLancesFornecedor = () => {
                               Sem proposta neste item
                             </div>
                           ) : desclassificado ? (
-                            <div className="text-center py-2 px-1 bg-red-50 rounded text-[11px] text-red-600">
-                              Desclassificado
+                            <div className="text-center py-2 px-1 bg-red-50 rounded space-y-1">
+                              <Badge variant="destructive" className="text-[10px]">
+                                Desclassificado
+                              </Badge>
+                              <p className="text-[10px] text-red-600">
+                                Proposta acima do estimado
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                Sua proposta: {formatarMoeda(itens.find(i => i.numero_item === numeroItem)?.valor_unitario_ofertado || 0)}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                Estimado: {formatarMoeda(itensEstimados.get(numeroItem) || 0)}
+                              </p>
                             </div>
                           ) : (
                             <>
