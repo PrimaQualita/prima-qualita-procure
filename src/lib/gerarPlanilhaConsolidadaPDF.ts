@@ -273,10 +273,11 @@ export async function gerarPlanilhaConsolidadaPDF(
       const styles: any = {
         0: { halign: 'center', cellWidth: 12 },
         1: { 
-          halign: 'justify', 
+          halign: 'left', 
           cellWidth: 40,
           overflow: 'linebreak',
-          cellPadding: { top: 3, right: 3, bottom: 3, left: 3 }
+          cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
+          lineWidth: 0.1
         },
         2: { halign: 'center', cellWidth: 12 },
         3: { halign: 'center', cellWidth: 15 }
