@@ -1485,15 +1485,15 @@ export function DialogSessaoLances({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] h-[95vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] h-[95vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Gavel className="h-5 w-5" />
             Sessão de Lances
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 grid grid-cols-12 gap-4 h-[calc(95vh-100px)] overflow-hidden">
+        <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden min-h-0">
           {/* Coluna Esquerda - Controle de Itens */}
           <div className="col-span-3 flex flex-col overflow-hidden">
             <Card className="flex-1 flex flex-col overflow-hidden">
@@ -1995,9 +1995,9 @@ export function DialogSessaoLances({
           </div>
         </div>
 
-        {/* Botão Finalizar Sessão ou Remarcar Vencedores */}
-        {!sessaoFinalizada ? (
-          <div className="mt-4 pt-4 border-t">
+        {/* Botão Finalizar Sessão ou Remarcar Vencedores - Posição fixa no rodapé */}
+        <div className="flex-shrink-0 pt-4 border-t bg-background">
+          {!sessaoFinalizada ? (
             <Button
               variant="default"
               size="lg"
@@ -2008,12 +2008,7 @@ export function DialogSessaoLances({
               <CheckCircle className="h-5 w-5 mr-2" />
               {salvando ? "Finalizando..." : "Finalizar Sessão de Lances"}
             </Button>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Ao finalizar, a Análise Documental será habilitada
-            </p>
-          </div>
-        ) : (
-          <div className="mt-4 pt-4 border-t">
+          ) : (
             <Button
               variant="outline"
               size="lg"
@@ -2024,11 +2019,13 @@ export function DialogSessaoLances({
               <RefreshCw className="h-5 w-5 mr-2" />
               {salvando ? "Processando..." : "Remarcar Vencedores"}
             </Button>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Sessão já finalizada - Use para recalcular os vencedores se necessário
-            </p>
-          </div>
-        )}
+          )}
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            {!sessaoFinalizada 
+              ? "Ao finalizar, a Análise Documental será habilitada" 
+              : "Sessão já finalizada - Use para recalcular os vencedores se necessário"}
+          </p>
+        </div>
       </DialogContent>
     </Dialog>
 
