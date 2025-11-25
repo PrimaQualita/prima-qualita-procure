@@ -681,29 +681,42 @@ export function DialogSessaoLances({
               reject(new Error('Erro ao criar canvas'));
             }
           };
-          img.onerror = () => reject(new Error('Erro ao carregar logo'));
+          img.onerror = (e) => {
+            console.error('Erro ao carregar logo:', e);
+            reject(new Error('Erro ao carregar logo'));
+          };
           img.src = capaLogo;
         });
       };
 
-      const base64Logo = await loadLogoImage();
+      let yStart = 50;
       
-      // Logo no topo - largura total da página
-      const logoWidth = pageWidth;
-      const logoHeight = 40;
-      doc.addImage(base64Logo, 'PNG', 0, 0, logoWidth, logoHeight);
+      try {
+        const base64Logo = await loadLogoImage();
+        // Logo no topo - largura total da página
+        const logoWidth = pageWidth;
+        const logoHeight = 40;
+        doc.addImage(base64Logo, 'PNG', 0, 0, logoWidth, logoHeight);
+        yStart = 50;
+      } catch (logoError) {
+        console.warn('Logo não carregou, usando cabeçalho alternativo:', logoError);
+        // Cabeçalho alternativo se logo falhar
+        doc.setFillColor(37, 99, 235);
+        doc.rect(0, 0, pageWidth, 35, "F");
+        yStart = 42;
+      }
       
-      // Cabeçalho de texto abaixo do logo
+      // Cabeçalho de texto
       doc.setTextColor(37, 99, 235);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("PLANILHA DE LANCES DA SELEÇÃO", pageWidth / 2, 50, { align: "center" });
+      doc.text("PLANILHA DE LANCES DA SELEÇÃO", pageWidth / 2, yStart, { align: "center" });
       
       doc.setTextColor(80, 80, 80);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Critério de Julgamento: ${criterioJulgamento === "por_item" ? "Menor Preço por Item" : criterioJulgamento === "global" ? "Menor Preço Global" : criterioJulgamento === "por_lote" ? "Menor Preço por Lote" : criterioJulgamento}`, pageWidth / 2, 58, { align: "center" });
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, pageWidth / 2, 64, { align: "center" });
+      doc.text(`Critério de Julgamento: ${criterioJulgamento === "por_item" ? "Menor Preço por Item" : criterioJulgamento === "global" ? "Menor Preço Global" : criterioJulgamento === "por_lote" ? "Menor Preço por Lote" : criterioJulgamento}`, pageWidth / 2, yStart + 8, { align: "center" });
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, pageWidth / 2, yStart + 14, { align: "center" });
 
       doc.setTextColor(0, 0, 0);
 
@@ -713,7 +726,7 @@ export function DialogSessaoLances({
         return { item, lances: lancesItem };
       });
 
-      let yPosition = 72;
+      let yPosition = yStart + 22;
 
       lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }) => {
         // Título do item usando autoTable para texto justificado
