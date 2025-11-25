@@ -749,7 +749,7 @@ export function DialogSessaoLances({
       doc.setFont("helvetica", "bold");
       doc.text("PLANILHA DE LANCES DA SELEÇÃO", pageWidth / 2, yStart, { align: "center" });
       
-      doc.setTextColor(60, 60, 60);
+      doc.setTextColor(0, 150, 199); // Mesma cor do título
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
       doc.text(`Critério de Julgamento: ${criterioJulgamento === "por_item" ? "Menor Preço por Item" : criterioJulgamento === "global" ? "Menor Preço Global" : criterioJulgamento === "por_lote" ? "Menor Preço por Lote" : criterioJulgamento}`, pageWidth / 2, yStart + 10, { align: "center" });
@@ -779,7 +779,7 @@ export function DialogSessaoLances({
             theme: "striped",
             styles: { 
               fontSize: 8, 
-              cellPadding: 3,
+              cellPadding: 1.5,
               lineColor: [200, 200, 200],
               lineWidth: 0.1,
             },
@@ -831,7 +831,7 @@ export function DialogSessaoLances({
             theme: "striped",
             styles: { 
               fontSize: 8, 
-              cellPadding: 3,
+              cellPadding: 1.5,
               lineColor: [200, 200, 200],
               lineWidth: 0.1,
             },
