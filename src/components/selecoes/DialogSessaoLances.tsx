@@ -743,16 +743,28 @@ export function DialogSessaoLances({
         }
       };
       
+      // Buscar dados da seleção para o título
+      const { data: selecaoInfo } = await supabase
+        .from("selecoes_fornecedores")
+        .select("numero_selecao, processos_compras(numero_processo_interno)")
+        .eq("id", selecaoId)
+        .single();
+      
+      const numSelecao = selecaoInfo?.numero_selecao || "-";
+      const numProcesso = (selecaoInfo?.processos_compras as any)?.numero_processo_interno || "-";
+
       // Cabeçalho de texto
       doc.setTextColor(0, 150, 199); // Azul do logo
-      doc.setFontSize(18);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("PLANILHA DE LANCES DA SELEÇÃO", pageWidth / 2, yStart, { align: "center" });
+      doc.text(`PLANILHA DE LANCES DA SELEÇÃO DE FORNECEDORES ${numSelecao}`, pageWidth / 2, yStart, { align: "center" });
       
-      doc.setTextColor(0, 150, 199); // Mesma cor do título
-      doc.setFontSize(11);
+      doc.setFontSize(12);
+      doc.text(`PROCESSO ${numProcesso}`, pageWidth / 2, yStart + 8, { align: "center" });
+      
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Critério de Julgamento: ${criterioJulgamento === "por_item" ? "Menor Preço por Item" : criterioJulgamento === "global" ? "Menor Preço Global" : criterioJulgamento === "por_lote" ? "Menor Preço por Lote" : criterioJulgamento}`, pageWidth / 2, yStart + 10, { align: "center" });
+      doc.text(`Critério de Julgamento: ${criterioJulgamento === "por_item" ? "Menor Preço por Item" : criterioJulgamento === "global" ? "Menor Preço Global" : criterioJulgamento === "por_lote" ? "Menor Preço por Lote" : criterioJulgamento}`, pageWidth / 2, yStart + 16, { align: "center" });
 
       doc.setTextColor(0, 0, 0);
 
