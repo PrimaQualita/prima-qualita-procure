@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown } from "lucide-react";
+import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare } from "lucide-react";
+import { ChatNegociacao } from "@/components/selecoes/ChatNegociacao";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ChatSelecao } from "@/components/selecoes/ChatSelecao";
@@ -792,25 +793,40 @@ const SistemaLancesFornecedor = () => {
                   )}
                 </div>
 
-                {/* Aviso de Negociação */}
+                {/* Aviso de Negociação com Chat Privado */}
                 {itemSelecionado !== null && isItemEmNegociacaoParaMim(itemSelecionado) && (
-                  <div className="border-2 rounded-lg p-6 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="h-12 w-12 rounded-full bg-amber-500 flex items-center justify-center">
-                        <Trophy className="h-6 w-6 text-white" />
+                  <div className="space-y-4">
+                    <div className="border-2 rounded-lg p-6 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-12 w-12 rounded-full bg-amber-500 flex items-center justify-center">
+                          <Trophy className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <Label className="text-lg font-bold text-amber-900">Rodada de Negociação - Item {itemSelecionado}</Label>
+                          <p className="text-sm text-amber-700">Você é o vencedor! O comprador deseja negociar um valor menor.</p>
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-lg font-bold text-amber-900">Rodada de Negociação - Item {itemSelecionado}</Label>
-                        <p className="text-sm text-amber-700">Você é o vencedor! O comprador deseja negociar um valor menor.</p>
+                      <div className="border-t border-amber-200 pt-3 mt-3">
+                        <p className="text-sm text-amber-800 mb-2">
+                          <strong>Seu lance vencedor:</strong> {formatarMoeda(getValorMinimoAtual(itemSelecionado))}
+                        </p>
+                        <p className="text-xs text-amber-600 mt-3 italic">
+                          💡 Envie uma proposta com valor menor se desejar manter a venda. Você não é obrigado a reduzir.
+                        </p>
                       </div>
                     </div>
-                    <div className="border-t border-amber-200 pt-3 mt-3">
-                      <p className="text-sm text-amber-800 mb-2">
-                        <strong>Seu lance vencedor:</strong> {formatarMoeda(getValorMinimoAtual(itemSelecionado))}
-                      </p>
-                      <p className="text-xs text-amber-600 mt-3 italic">
-                        💡 Envie uma proposta com valor menor se desejar manter a venda. Você não é obrigado a reduzir.
-                      </p>
+                    
+                    {/* Chat Privado de Negociação */}
+                    <div className="h-80">
+                      <ChatNegociacao
+                        selecaoId={selecao.id}
+                        numeroItem={itemSelecionado}
+                        fornecedorId={proposta.fornecedor_id}
+                        fornecedorNome={proposta.fornecedores?.razao_social || "Fornecedor"}
+                        tituloSelecao={selecao.titulo_selecao}
+                        isGestor={false}
+                        codigoAcesso={proposta.codigo_acesso}
+                      />
                     </div>
                   </div>
                 )}
