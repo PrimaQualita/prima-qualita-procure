@@ -693,14 +693,27 @@ export function DialogAnaliseDocumentalSelecao({
                     </>
                   )}
                 </Badge>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleAbrirInabilitacao(data)}
-                >
-                  <UserX className="h-4 w-4 mr-1" />
-                  Inabilitar Fornecedor
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    disabled={!data.todosDocumentosAprovados}
+                    onClick={() => {
+                      toast.success(`Fornecedor ${data.fornecedor.razao_social} aprovado com sucesso!`);
+                    }}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Aprovar Fornecedor
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleAbrirInabilitacao(data)}
+                  >
+                    <UserX className="h-4 w-4 mr-1" />
+                    Inabilitar
+                  </Button>
+                </div>
               </>
             ) : (
               <div className="flex flex-col gap-2">
