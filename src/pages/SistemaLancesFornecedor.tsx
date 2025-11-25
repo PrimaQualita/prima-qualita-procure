@@ -93,9 +93,10 @@ const SistemaLancesFornecedor = () => {
           console.log("Status da subscrição itens_abertos:", status);
         });
 
-      // Polling como fallback a cada 3 segundos para garantir sincronização
+      // Polling como fallback a cada 3 segundos para garantir sincronização de itens e lances
       const pollingInterval = setInterval(() => {
         loadItensAbertos();
+        loadLances(); // Também atualiza lances para garantir valor mínimo atualizado
       }, 3000);
 
       return () => {
