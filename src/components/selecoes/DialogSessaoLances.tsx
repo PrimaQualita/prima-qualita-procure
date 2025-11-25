@@ -22,6 +22,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ChatNegociacao } from "./ChatNegociacao";
 import capaLogo from "@/assets/capa-processo-logo.png";
+import capaRodape from "@/assets/capa-processo-rodape.png";
 
 interface Item {
   numero_item: number;
@@ -664,15 +665,15 @@ export function DialogSessaoLances({
       const pageHeight = doc.internal.pageSize.height;
       const margin = 15;
       const logoHeight = 40; // Altura do logo
+      const rodapeHeight = 25; // Altura do rodapé
       
-      // Carregar logo com alta resolução
-      const loadLogoImage = (): Promise<string> => {
+      // Função genérica para carregar imagem com alta resolução
+      const loadImage = (src: string): Promise<string> => {
         return new Promise((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            // Aumentar resolução do canvas para melhor qualidade
             const scale = 3;
             canvas.width = img.naturalWidth * scale;
             canvas.height = img.naturalHeight * scale;
@@ -688,36 +689,47 @@ export function DialogSessaoLances({
             }
           };
           img.onerror = (e) => {
-            console.error('Erro ao carregar logo:', e);
-            reject(new Error('Erro ao carregar logo'));
+            console.error('Erro ao carregar imagem:', e);
+            reject(new Error('Erro ao carregar imagem'));
           };
-          img.src = capaLogo;
+          img.src = src;
         });
       };
 
       let base64Logo: string | null = null;
+      let base64Rodape: string | null = null;
       let yStart = 35;
       
       try {
-        base64Logo = await loadLogoImage();
+        // Carregar logo e rodapé em paralelo
+        const [logoResult, rodapeResult] = await Promise.all([
+          loadImage(capaLogo),
+          loadImage(capaRodape)
+        ]);
+        base64Logo = logoResult;
+        base64Rodape = rodapeResult;
+        
         // Logo no topo - largura total da página
         doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
+        // Rodapé no fim - largura total da página
+        doc.addImage(base64Rodape, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
         yStart = logoHeight + 5;
       } catch (logoError) {
-        console.warn('Logo não carregou, usando cabeçalho alternativo:', logoError);
-        // Cabeçalho alternativo se logo falhar
+        console.warn('Imagem não carregou, usando cabeçalho alternativo:', logoError);
         doc.setFillColor(37, 99, 235);
         doc.rect(0, 0, pageWidth, 25, "F");
         yStart = 30;
       }
       
-      // Função para adicionar logo em nova página
-      const adicionarLogoNovaPagina = () => {
+      // Função para adicionar logo e rodapé em nova página
+      const adicionarLogoERodapeNovaPagina = () => {
         if (base64Logo) {
           doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
-          return logoHeight + 5;
         }
-        return 10;
+        if (base64Rodape) {
+          doc.addImage(base64Rodape, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
+        }
+        return logoHeight + 5;
       };
       
       // Cabeçalho de texto
@@ -762,11 +774,11 @@ export function DialogSessaoLances({
           columnStyles: {
             0: { cellWidth: pageWidth - margin * 2 },
           },
-          margin: { left: margin, right: margin, top: logoHeight + 10 },
+          margin: { left: margin, right: margin, top: logoHeight + 10, bottom: rodapeHeight + 10 },
           didDrawPage: (data) => {
-            // Adicionar logo em novas páginas
+            // Adicionar logo e rodapé em novas páginas
             if (data.pageNumber > 1 || data.cursor?.y === logoHeight + 10) {
-              adicionarLogoNovaPagina();
+              adicionarLogoERodapeNovaPagina();
             }
           },
         });
@@ -826,11 +838,11 @@ export function DialogSessaoLances({
             alternateRowStyles: {
               fillColor: [248, 250, 252]
             },
-            margin: { top: logoHeight + 10 },
+            margin: { top: logoHeight + 10, bottom: rodapeHeight + 10 },
             didDrawPage: (data) => {
-              // Adicionar logo em novas páginas (não na primeira)
+              // Adicionar logo e rodapé em novas páginas (não na primeira)
               if (data.pageNumber > 1) {
-                adicionarLogoNovaPagina();
+                adicionarLogoERodapeNovaPagina();
               }
             },
             didParseCell: (data) => {
