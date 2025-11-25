@@ -563,6 +563,55 @@ const DetalheSelecao = () => {
         open={dialogAnaliseDocumentalOpen}
         onOpenChange={setDialogAnaliseDocumentalOpen}
         selecaoId={selecaoId!}
+        onReabrirNegociacao={async (itensParaReabrir, fornecedorId) => {
+          try {
+            // Reabrir os itens para lances
+            for (const item of itensParaReabrir) {
+              // Verificar se já existe registro do item
+              const { data: existing } = await supabase
+                .from("itens_abertos_lances")
+                .select("id")
+                .eq("selecao_id", selecaoId!)
+                .eq("numero_item", item)
+                .maybeSingle();
+
+              if (existing) {
+                // Atualizar item existente para reabrir
+                await supabase
+                  .from("itens_abertos_lances")
+                  .update({
+                    aberto: true,
+                    em_negociacao: true,
+                    fornecedor_negociacao_id: fornecedorId || null,
+                    data_abertura: new Date().toISOString(),
+                    data_fechamento: null,
+                    iniciando_fechamento: false,
+                    data_inicio_fechamento: null,
+                  })
+                  .eq("id", existing.id);
+              } else {
+                // Criar novo registro
+                await supabase
+                  .from("itens_abertos_lances")
+                  .insert({
+                    selecao_id: selecaoId!,
+                    numero_item: item,
+                    aberto: true,
+                    em_negociacao: true,
+                    fornecedor_negociacao_id: fornecedorId || null,
+                  });
+              }
+            }
+
+            toast.success(`Itens ${itensParaReabrir.join(", ")} reabertos para negociação!`);
+            
+            // Abrir a sessão de lances
+            setDialogSessaoOpen(true);
+          } catch (error) {
+            console.error("Erro ao reabrir negociação:", error);
+            toast.error("Erro ao reabrir itens para negociação");
+          }
+        }}
       />
 
       <DialogAnexarDocumentoSelecao

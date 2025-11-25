@@ -25,7 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Clock, XCircle, RefreshCw, Undo2, UserX, UserCheck, MessageSquare } from "lucide-react";
+import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Clock, XCircle, RefreshCw, Undo2, UserX, UserCheck, MessageSquare, Handshake, Gavel } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -98,6 +98,7 @@ interface DialogAnaliseDocumentalSelecaoProps {
   onOpenChange: (open: boolean) => void;
   selecaoId: string;
   onSuccess?: () => void;
+  onReabrirNegociacao?: (itens: number[], fornecedorId: string) => void;
 }
 
 export function DialogAnaliseDocumentalSelecao({
@@ -105,6 +106,7 @@ export function DialogAnaliseDocumentalSelecao({
   onOpenChange,
   selecaoId,
   onSuccess,
+  onReabrirNegociacao,
 }: DialogAnaliseDocumentalSelecaoProps) {
   const [loading, setLoading] = useState(false);
   const [fornecedoresData, setFornecedoresData] = useState<FornecedorData[]>([]);
@@ -126,6 +128,10 @@ export function DialogAnaliseDocumentalSelecao({
   const [dialogReverterInabilitacao, setDialogReverterInabilitacao] = useState(false);
   const [inabilitacaoParaReverter, setInabilitacaoParaReverter] = useState<FornecedorData | null>(null);
   const [motivoReversao, setMotivoReversao] = useState("");
+  
+  // State para reabrir negociação
+  const [dialogReabrirNegociacao, setDialogReabrirNegociacao] = useState(false);
+  const [inabilitacaoParaReabrirNegociacao, setInabilitacaoParaReabrirNegociacao] = useState<FornecedorData | null>(null);
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -664,18 +670,34 @@ export function DialogAnaliseDocumentalSelecao({
                 </Button>
               </>
             ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setInabilitacaoParaReverter(data);
-                  setMotivoReversao("");
-                  setDialogReverterInabilitacao(true);
-                }}
-              >
-                <Undo2 className="h-4 w-4 mr-1" />
-                Reverter Inabilitação
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setInabilitacaoParaReverter(data);
+                    setMotivoReversao("");
+                    setDialogReverterInabilitacao(true);
+                  }}
+                >
+                  <Undo2 className="h-4 w-4 mr-1" />
+                  Reverter Inabilitação
+                </Button>
+                {onReabrirNegociacao && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={async () => {
+                      setInabilitacaoParaReabrirNegociacao(data);
+                      await buscarSegundosColocados(data.inabilitado?.itens_afetados || []);
+                      setDialogReabrirNegociacao(true);
+                    }}
+                  >
+                    <Handshake className="h-4 w-4 mr-1" />
+                    Reabrir Negociação
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1079,6 +1101,74 @@ export function DialogAnaliseDocumentalSelecao({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleReverterInabilitacao}>
               Confirmar Reversão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para reabrir negociação */}
+      <AlertDialog open={dialogReabrirNegociacao} onOpenChange={setDialogReabrirNegociacao}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Handshake className="h-5 w-5" />
+              Reabrir Negociação
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Após inabilitar o fornecedor{" "}
+                  <strong>{inabilitacaoParaReabrirNegociacao?.fornecedor.razao_social}</strong>,
+                  você pode reabrir a negociação com os segundos colocados dos itens afetados.
+                </p>
+                
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-sm font-medium">Itens para negociação:</p>
+                  <p className="text-sm">
+                    {inabilitacaoParaReabrirNegociacao?.inabilitado?.itens_afetados?.sort((a, b) => a - b).join(", ")}
+                  </p>
+                </div>
+
+                {segundosColocados.length > 0 && (
+                  <div className="bg-primary/10 p-3 rounded-lg">
+                    <p className="text-sm font-medium mb-2">Segundos colocados disponíveis para negociação:</p>
+                    {segundosColocados.map((seg) => (
+                      <p key={seg.numero_item} className="text-sm">
+                        Item {seg.numero_item}: <strong>{seg.fornecedor_nome}</strong> - {formatCurrency(seg.valor_lance)}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-sm text-muted-foreground">
+                  A sessão de lances será reaberta para os itens selecionados, permitindo negociar melhores condições com os fornecedores classificados.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (inabilitacaoParaReabrirNegociacao?.inabilitado && onReabrirNegociacao) {
+                  // Encontrar o segundo colocado com menor valor para abrir negociação
+                  const segundoColocado = segundosColocados.length > 0 
+                    ? segundosColocados[0] 
+                    : null;
+                  
+                  onReabrirNegociacao(
+                    inabilitacaoParaReabrirNegociacao.inabilitado.itens_afetados,
+                    segundoColocado?.fornecedor_id || ""
+                  );
+                  setDialogReabrirNegociacao(false);
+                  setInabilitacaoParaReabrirNegociacao(null);
+                  onOpenChange(false);
+                }
+              }}
+            >
+              <Gavel className="h-4 w-4 mr-1" />
+              Reabrir Sessão de Lances
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
