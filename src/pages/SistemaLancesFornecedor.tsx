@@ -422,13 +422,18 @@ const SistemaLancesFornecedor = () => {
         if (result && !result.success) throw new Error(result.error || 'Erro desconhecido');
       }
 
-      // Recalcular valor total da proposta
+      // Recalcular valor total da proposta e atualizar data de envio
       const valorTotal = itens.reduce((acc, item) => acc + (item.valor_unitario_ofertado * item.quantidade), 0);
+      const novaDataEnvio = new Date().toISOString();
       console.log("Valor total calculado:", valorTotal);
+      console.log("Nova data de envio:", novaDataEnvio);
       
       const { error: propostaError } = await supabase
         .from("selecao_propostas_fornecedor")
-        .update({ valor_total_proposta: valorTotal })
+        .update({ 
+          valor_total_proposta: valorTotal,
+          data_envio_proposta: novaDataEnvio
+        })
         .eq("id", propostaId);
 
       if (propostaError) throw propostaError;
@@ -479,7 +484,7 @@ const SistemaLancesFornecedor = () => {
             valorTotal,
             proposta.observacoes_fornecedor || null,
             selecao?.titulo_selecao || '',
-            proposta.data_envio_proposta || new Date().toISOString(),
+            novaDataEnvio, // Usar a nova data de envio
             itensParaPDF // Passar itens atualizados diretamente
           );
 
