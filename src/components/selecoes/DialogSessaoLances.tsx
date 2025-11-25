@@ -1537,7 +1537,8 @@ export function DialogSessaoLances({
                           Visualizar
                         </Button>
                         <Button variant="destructive" size="sm" onClick={handleDeletarPlanilha} className="text-xs">
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Deletar
                         </Button>
                       </>
                     )}
