@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Eye, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, Download, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
@@ -381,6 +381,76 @@ export default function PropostasSelecao() {
     }
   };
 
+  const handleRegenerarPDF = async (propostaId: string) => {
+    try {
+      setGerandoPDF(propostaId);
+      
+      const proposta = propostas.find(p => p.id === propostaId);
+      if (!proposta) {
+        toast.error("Proposta não encontrada");
+        return;
+      }
+
+      toast.info("Regenerando PDF com dados atualizados...");
+
+      // Deletar PDF antigo se existir
+      if (proposta.url_pdf_proposta) {
+        await supabase.storage
+          .from('processo-anexos')
+          .remove([proposta.url_pdf_proposta]);
+      }
+
+      // Buscar valor total atualizado do banco
+      const { data: propostaAtualizada, error: fetchError } = await supabase
+        .from('selecao_propostas_fornecedor')
+        .select('valor_total_proposta')
+        .eq('id', propostaId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Gerar novo PDF com dados atualizados
+      const resultado = await gerarPropostaSelecaoPDF(
+        propostaId,
+        {
+          razao_social: proposta.fornecedor.razao_social,
+          cnpj: proposta.fornecedor.cnpj,
+          email: proposta.email || '',
+          logradouro: proposta.fornecedor.endereco_comercial?.split(',')[0]?.trim() || '',
+          numero: proposta.fornecedor.endereco_comercial?.split('Nº ')[1]?.split(',')[0]?.trim() || '',
+          bairro: proposta.fornecedor.endereco_comercial?.split(',')[2]?.trim() || '',
+          municipio: proposta.fornecedor.endereco_comercial?.split(',')[3]?.split('/')[0]?.trim() || '',
+          uf: proposta.fornecedor.endereco_comercial?.split('/')[1]?.split(',')[0]?.trim() || '',
+          cep: proposta.fornecedor.endereco_comercial?.split('CEP: ')[1]?.trim() || ''
+        },
+        propostaAtualizada.valor_total_proposta,
+        proposta.observacoes_fornecedor,
+        selecao?.titulo_selecao || '',
+        proposta.data_envio_proposta
+      );
+
+      // Salvar nova URL no banco de dados
+      const { error: updateError } = await supabase
+        .from('selecao_propostas_fornecedor')
+        .update({ url_pdf_proposta: resultado.url })
+        .eq('id', propostaId);
+
+      if (updateError) {
+        console.error('Erro ao salvar URL do PDF:', updateError);
+      }
+
+      toast.success("PDF regenerado com sucesso!");
+      
+      // Recarregar propostas para atualizar a URL
+      await loadPropostas();
+    } catch (error) {
+      console.error("Erro ao regenerar PDF:", error);
+      toast.error("Erro ao regenerar PDF");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -532,7 +602,7 @@ export default function PropostasSelecao() {
                                 disabled={gerandoPDF === proposta.id}
                               >
                                 <Eye className="h-4 w-4 mr-2" />
-                                {gerandoPDF === proposta.id ? "Gerando..." : "Ver"}
+                                {gerandoPDF === proposta.id ? "..." : "Ver"}
                               </Button>
                               <Button
                                 variant="outline"
@@ -541,7 +611,17 @@ export default function PropostasSelecao() {
                                 disabled={gerandoPDF === proposta.id}
                               >
                                 <Download className="h-4 w-4 mr-2" />
-                                {gerandoPDF === proposta.id ? "Gerando..." : "Baixar"}
+                                {gerandoPDF === proposta.id ? "..." : "Baixar"}
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleRegenerarPDF(proposta.id)}
+                                disabled={gerandoPDF === proposta.id}
+                                title="Regenerar PDF com dados atualizados"
+                              >
+                                <RefreshCw className={`h-4 w-4 mr-2 ${gerandoPDF === proposta.id ? 'animate-spin' : ''}`} />
+                                {gerandoPDF === proposta.id ? "..." : "Regenerar"}
                               </Button>
                               <Button
                                 variant="destructive"
