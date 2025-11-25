@@ -601,7 +601,7 @@ export default function PortalFornecedor() {
               <CardHeader>
                 <CardTitle>Minhas Seleções de Fornecedores</CardTitle>
                 <CardDescription>
-                  Processos seletivos em que você foi convidado a participar
+                  Processos seletivos em que você apresentou proposta
                 </CardDescription>
               </CardHeader>
               <CardContent>
