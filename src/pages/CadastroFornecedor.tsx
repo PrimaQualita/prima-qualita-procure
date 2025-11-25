@@ -31,6 +31,12 @@ export default function CadastroFornecedor() {
   const [loading, setLoading] = useState(false);
   const [perguntas, setPerguntas] = useState<DueDiligencePergunta[]>([]);
   const [respostas, setRespostas] = useState<Record<string, string>>({});
+  const [cnpjStatus, setCnpjStatus] = useState<{
+    verificando: boolean;
+    existe: boolean;
+    temCadastro: boolean;
+    statusAprovacao?: string;
+  }>({ verificando: false, existe: false, temCadastro: false });
   
   const [formData, setFormData] = useState({
     razao_social: "",
@@ -60,6 +66,45 @@ export default function CadastroFornecedor() {
     crf_fgts: { tipo: "crf_fgts", label: "CRF FGTS", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     cndt: { tipo: "cndt", label: "CNDT", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
   });
+
+  const verificarCnpjExistente = async (cnpj: string) => {
+    const cnpjLimpo = cnpj.replace(/\D/g, '');
+    if (cnpjLimpo.length !== 14) {
+      setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+      return;
+    }
+
+    if (!validarCNPJ(cnpj)) {
+      setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+      return;
+    }
+
+    setCnpjStatus(prev => ({ ...prev, verificando: true }));
+
+    try {
+      // Verificar se existe fornecedor com cadastro completo
+      const { data: fornecedorCadastrado } = await supabase
+        .from('fornecedores')
+        .select('id, status_aprovacao, user_id')
+        .eq('cnpj', cnpjLimpo)
+        .maybeSingle();
+
+      if (fornecedorCadastrado) {
+        const temCadastroCompleto = fornecedorCadastrado.user_id !== null;
+        setCnpjStatus({
+          verificando: false,
+          existe: true,
+          temCadastro: temCadastroCompleto,
+          statusAprovacao: fornecedorCadastrado.status_aprovacao
+        });
+      } else {
+        setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+      }
+    } catch (error) {
+      console.error('Erro ao verificar CNPJ:', error);
+      setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+    }
+  };
 
   useEffect(() => {
     console.log("=== INICIANDO CARREGAMENTO DO FORMULÁRIO ===");
@@ -572,10 +617,29 @@ export default function CadastroFornecedor() {
                     <Input
                       id="cnpj"
                       value={formData.cnpj}
-                      onChange={(e) => setFormData({ ...formData, cnpj: mascaraCNPJ(e.target.value) })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, cnpj: mascaraCNPJ(e.target.value) });
+                        setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
+                      }}
+                      onBlur={(e) => verificarCnpjExistente(e.target.value)}
                       required
                       placeholder="00.000.000/0000-00"
+                      className={cnpjStatus.temCadastro ? "border-red-500" : cnpjStatus.existe ? "border-amber-500" : ""}
                     />
+                    {cnpjStatus.verificando && (
+                      <p className="text-sm text-muted-foreground">Verificando CNPJ...</p>
+                    )}
+                    {cnpjStatus.temCadastro && (
+                      <p className="text-sm text-red-500">
+                        ⚠️ Este CNPJ já possui cadastro {cnpjStatus.statusAprovacao === 'aprovado' ? 'aprovado' : cnpjStatus.statusAprovacao === 'pendente' ? 'aguardando aprovação' : 'no sistema'}. 
+                        Se esqueceu sua senha, entre em contato com o departamento de compras.
+                      </p>
+                    )}
+                    {cnpjStatus.existe && !cnpjStatus.temCadastro && (
+                      <p className="text-sm text-amber-600">
+                        ℹ️ Este CNPJ já enviou propostas em seleções. Ao concluir o cadastro, suas propostas anteriores serão vinculadas automaticamente.
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
