@@ -266,7 +266,14 @@ const DetalheSelecao = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold">{selecao.titulo_selecao}</h1>
+            <div className="flex items-center gap-3">
+              {selecao.numero_selecao && (
+                <Badge variant="outline" className="text-lg font-semibold px-3 py-1">
+                  {selecao.numero_selecao}
+                </Badge>
+              )}
+              <h1 className="text-3xl font-bold">{selecao.titulo_selecao}</h1>
+            </div>
             <p className="text-muted-foreground mt-1">
               Processo: {processo?.numero_processo_interno}
             </p>
