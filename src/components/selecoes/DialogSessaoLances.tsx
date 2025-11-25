@@ -107,8 +107,8 @@ export function DialogSessaoLances({
   // Estado - Confirmação de exclusão de lance
   const [confirmDeleteLance, setConfirmDeleteLance] = useState<{ open: boolean; lanceId: string | null }>({ open: false, lanceId: null });
 
-  // Estado - Planilha de Lances gerada
-  const [planilhaGerada, setPlanilhaGerada] = useState<{ id: string; nome_arquivo: string; url_arquivo: string } | null>(null);
+  // Estado - Planilhas de Lances geradas (múltiplas)
+  const [planilhasGeradas, setPlanilhasGeradas] = useState<{ id: string; nome_arquivo: string; url_arquivo: string; data_geracao: string; protocolo: string }[]>([]);
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -118,7 +118,7 @@ export function DialogSessaoLances({
       loadUserProfile();
       loadMensagens();
       loadVencedoresPorItem();
-      loadPlanilhaGerada();
+      loadPlanilhasGeradas();
     }
   }, [open, selecaoId]);
 
@@ -657,39 +657,33 @@ export function DialogSessaoLances({
     return msg.fornecedor_id === userProfile.data.id;
   };
 
-  // ========== CARREGAR PLANILHA GERADA ==========
-  const loadPlanilhaGerada = async () => {
+  // ========== CARREGAR PLANILHAS GERADAS ==========
+  const loadPlanilhasGeradas = async () => {
     try {
       const { data, error } = await supabase
         .from("planilhas_lances_selecao")
         .select("*")
         .eq("selecao_id", selecaoId)
-        .maybeSingle();
+        .order("data_geracao", { ascending: false });
       
-      if (error && error.code !== "PGRST116") {
-        throw error;
-      }
+      if (error) throw error;
       
-      setPlanilhaGerada(data);
+      setPlanilhasGeradas(data || []);
     } catch (error) {
-      console.error("Erro ao carregar planilha:", error);
+      console.error("Erro ao carregar planilhas:", error);
     }
   };
 
   // ========== VISUALIZAR PLANILHA ==========
-  const handleVisualizarPlanilha = () => {
-    if (planilhaGerada) {
-      window.open(planilhaGerada.url_arquivo, "_blank");
-    }
+  const handleVisualizarPlanilha = (url: string) => {
+    window.open(url, "_blank");
   };
 
   // ========== DELETAR PLANILHA ==========
-  const handleDeletarPlanilha = async () => {
-    if (!planilhaGerada) return;
-    
+  const handleDeletarPlanilha = async (planilhaId: string, urlArquivo: string) => {
     try {
       // Extrair caminho do storage da URL
-      const urlParts = planilhaGerada.url_arquivo.split("/storage/v1/object/public/processo-anexos/");
+      const urlParts = urlArquivo.split("/storage/v1/object/public/processo-anexos/");
       const storagePath = urlParts[1];
       
       // Deletar arquivo do storage
@@ -705,11 +699,12 @@ export function DialogSessaoLances({
       const { error: dbError } = await supabase
         .from("planilhas_lances_selecao")
         .delete()
-        .eq("id", planilhaGerada.id);
+        .eq("id", planilhaId);
       
       if (dbError) throw dbError;
       
-      setPlanilhaGerada(null);
+      // Recarregar lista de planilhas
+      await loadPlanilhasGeradas();
       toast.success("Planilha deletada com sucesso!");
     } catch (error) {
       console.error("Erro ao deletar planilha:", error);
@@ -1344,27 +1339,12 @@ export function DialogSessaoLances({
       const nomeArquivo = `planilha-lances-selecao-${Date.now()}.pdf`;
       const storagePath = `selecao_${selecaoId}/${nomeArquivo}`;
       
-      // Se já existe planilha, deletar arquivo antigo do storage
-      if (planilhaGerada) {
-        try {
-          const urlParts = planilhaGerada.url_arquivo.split("/storage/v1/object/public/processo-anexos/");
-          const oldStoragePath = urlParts[1];
-          if (oldStoragePath) {
-            await supabase.storage
-              .from("processo-anexos")
-              .remove([oldStoragePath]);
-          }
-        } catch (error) {
-          console.error("Erro ao deletar arquivo antigo:", error);
-        }
-      }
-      
       // Upload para o storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("processo-anexos")
         .upload(storagePath, pdfBlob, {
           contentType: "application/pdf",
-          upsert: true
+          upsert: false
         });
       
       if (uploadError) throw uploadError;
@@ -1374,25 +1354,24 @@ export function DialogSessaoLances({
         .from("processo-anexos")
         .getPublicUrl(storagePath);
       
-      // Usar upsert para atualizar ou inserir no banco
+      // Inserir nova planilha no banco (não sobrescrever)
       const { data: planilhaData, error: dbError } = await supabase
         .from("planilhas_lances_selecao")
-        .upsert({
+        .insert({
           selecao_id: selecaoId,
           nome_arquivo: nomeArquivo,
           url_arquivo: urlData.publicUrl,
           usuario_gerador_id: user?.id,
           data_geracao: new Date().toISOString(),
           protocolo: protocolo
-        }, {
-          onConflict: 'selecao_id'
         })
         .select()
         .single();
       
       if (dbError) throw dbError;
       
-      setPlanilhaGerada(planilhaData);
+      // Recarregar lista de planilhas
+      await loadPlanilhasGeradas();
       toast.success("Planilha de lances gerada com sucesso!");
     } catch (error) {
       console.error("Erro ao gerar planilha:", error);
@@ -1665,42 +1644,46 @@ export function DialogSessaoLances({
                   </div>
                 </div>
 
-                {planilhaGerada && (
+                {planilhasGeradas.length > 0 && (
                   <div className="mt-3 pt-3 border-t">
-                    <p className="text-xs font-medium mb-2">Planilha de Lances Gerada:</p>
-                    <Card className="bg-muted/50">
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <FileSpreadsheet className="h-4 w-4 text-primary flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">{planilhaGerada.nome_arquivo}</p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {new Date().toLocaleDateString('pt-BR')}
-                              </p>
+                    <p className="text-xs font-medium mb-2">Planilhas de Lances Geradas ({planilhasGeradas.length}):</p>
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                      {planilhasGeradas.map((planilha) => (
+                        <Card key={planilha.id} className="bg-muted/50">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <FileSpreadsheet className="h-4 w-4 text-primary flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate">{planilha.nome_arquivo}</p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {new Date(planilha.data_geracao).toLocaleString('pt-BR')}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-1 ml-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleVisualizarPlanilha(planilha.url_arquivo)}
+                                  className="h-7 px-2 text-xs"
+                                >
+                                  Visualizar
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleDeletarPlanilha(planilha.id, planilha.url_arquivo)}
+                                  className="h-7 px-2"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex gap-1 ml-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleVisualizarPlanilha}
-                              className="h-7 px-2 text-xs"
-                            >
-                              Visualizar
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={handleDeletarPlanilha}
-                              className="h-7 px-2"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardHeader>
