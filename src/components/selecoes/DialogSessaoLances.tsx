@@ -900,12 +900,26 @@ export function DialogSessaoLances({
         resumoStartY = 8 + logoResumoHeight + 8; // Logo + espaçamento
       }
       
-      // Título do resumo abaixo do logo
+      // Buscar dados da seleção e processo para títulos
+      const { data: selecaoData } = await supabase
+        .from("selecoes_fornecedores")
+        .select("numero_selecao, processo_compra_id, processos_compras(numero_processo_interno)")
+        .eq("id", selecaoId)
+        .single();
+
+      const numeroSelecao = selecaoData?.numero_selecao || "-";
+      const numeroProcesso = (selecaoData?.processos_compras as any)?.numero_processo_interno || "-";
+
+      // Título principal
       doc.setTextColor(22, 163, 74);
-      doc.setFontSize(16);
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("RESUMO - VENCEDORES POR ITEM", landscapeWidth / 2, resumoStartY + 5, { align: "center" });
-      resumoStartY += 15;
+      doc.text(`MAPA RESUMO DA SELEÇÃO DE FORNECEDORES ${numeroSelecao}`, landscapeWidth / 2, resumoStartY + 5, { align: "center" });
+      
+      // Subtítulo com número do processo
+      doc.setFontSize(11);
+      doc.text(`PROCESSO ${numeroProcesso}`, landscapeWidth / 2, resumoStartY + 12, { align: "center" });
+      resumoStartY += 22;
       
       doc.setTextColor(0, 0, 0);
 
@@ -951,7 +965,7 @@ export function DialogSessaoLances({
         
         return [
           item.numero_item.toString(),
-          item.descricao.substring(0, 40) + (item.descricao.length > 40 ? "..." : ""),
+          item.descricao, // Descrição completa
           vencedor?.fornecedores?.razao_social || "Sem lances",
           marca,
           quantidade.toString(),
@@ -995,13 +1009,13 @@ export function DialogSessaoLances({
         },
         columnStyles: {
           0: { cellWidth: 15, halign: "center", fontStyle: "bold" },
-          1: { cellWidth: 65 },
+          1: { cellWidth: 80, halign: "justify" }, // Descrição justificada
           2: { cellWidth: 55 },
-          3: { cellWidth: 35 },
+          3: { cellWidth: 30, halign: "center" }, // Marca centralizada
           4: { cellWidth: 18, halign: "center" },
           5: { cellWidth: 15, halign: "center" },
-          6: { cellWidth: 35, halign: "right", fontStyle: "bold" },
-          7: { cellWidth: 35, halign: "right", fontStyle: "bold" },
+          6: { cellWidth: 30, halign: "right", fontStyle: "bold" },
+          7: { cellWidth: 30, halign: "right", fontStyle: "bold" },
         },
         alternateRowStyles: {
           fillColor: [240, 253, 244] // bg-green-50
