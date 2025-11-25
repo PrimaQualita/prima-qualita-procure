@@ -264,18 +264,31 @@ export async function gerarPropostaFornecedorPDF(
         doc.rect(15, y - 4, 180, 6, 'F');
       }
 
+      // Calcular altura necessária para a descrição
+      const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 45);
+      const alturaItem = Math.max(6, descricaoLinhas.length * 4);
+
+      // Fundo alternado para linhas (ajustado para altura variável)
+      if (isAlternate) {
+        doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
+        doc.rect(15, y - 4, 180, alturaItem, 'F');
+      }
+
+      // Número do item
       doc.text(itemCotacao.numero_item.toString(), 20, y, { align: 'center' });
       
-      const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 30);
-      doc.text(descricaoLinhas[0], 28, y);
+      // Descrição completa com alinhamento justificado
+      doc.text(descricaoLinhas, 28, y, { maxWidth: 45, align: 'justify' });
       
-      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 95, y, { align: 'center' });
-      doc.text(itemCotacao.unidade, 115, y, { align: 'center' });
-      doc.text(item.marca || '-', 135, y, { align: 'center' });
-      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 160, y, { align: 'center' });
-      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 185, y, { align: 'center' });
+      // Outros campos alinhados verticalmente ao centro da linha
+      const yCenter = y + (alturaItem / 2) - 2;
+      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 95, yCenter, { align: 'center' });
+      doc.text(itemCotacao.unidade, 115, yCenter, { align: 'center' });
+      doc.text(item.marca || '-', 135, yCenter, { align: 'center' });
+      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 160, yCenter, { align: 'center' });
+      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 185, yCenter, { align: 'center' });
       
-      y += 6;
+      y += alturaItem;
       isAlternate = !isAlternate;
     }
 
