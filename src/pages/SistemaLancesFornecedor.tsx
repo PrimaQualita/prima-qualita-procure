@@ -72,22 +72,51 @@ const SistemaLancesFornecedor = () => {
         )
         .subscribe();
 
-      // Subscrição para itens abertos
+      // Subscrição para itens abertos - Realtime
       const channelItens = supabase
         .channel(`itens_abertos_${selecao.id}`)
         .on(
           "postgres_changes",
           {
-            event: "*",
+            event: "INSERT",
             schema: "public",
             table: "itens_abertos_lances",
             filter: `selecao_id=eq.${selecao.id}`,
           },
-          () => {
+          (payload) => {
+            console.log("Novo item aberto recebido via realtime:", payload);
             loadItensAbertos();
           }
         )
-        .subscribe();
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "itens_abertos_lances",
+            filter: `selecao_id=eq.${selecao.id}`,
+          },
+          (payload) => {
+            console.log("Item atualizado via realtime:", payload);
+            loadItensAbertos();
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "DELETE",
+            schema: "public",
+            table: "itens_abertos_lances",
+            filter: `selecao_id=eq.${selecao.id}`,
+          },
+          (payload) => {
+            console.log("Item removido via realtime:", payload);
+            loadItensAbertos();
+          }
+        )
+        .subscribe((status) => {
+          console.log("Status da subscrição itens_abertos:", status);
+        });
 
       return () => {
         supabase.removeChannel(channel);
