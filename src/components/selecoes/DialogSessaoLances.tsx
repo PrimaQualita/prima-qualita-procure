@@ -854,6 +854,7 @@ export function DialogSessaoLances({
               lineColor: [200, 200, 200],
               lineWidth: 0.1,
               valign: "middle",
+              textColor: [0, 0, 0], // Preto
             },
             headStyles: { 
               fillColor: [0, 128, 128], // Verde do logo
@@ -908,6 +909,7 @@ export function DialogSessaoLances({
               lineColor: [200, 200, 200],
               lineWidth: 0.1,
               valign: "middle",
+              textColor: [0, 0, 0], // Preto
             },
             headStyles: { 
               fillColor: [0, 128, 128], // Verde do logo
@@ -1078,6 +1080,7 @@ export function DialogSessaoLances({
           fontSize: 8,
           cellPadding: 2, // Reduzido para comprimir altura das linhas
           valign: "middle",
+          textColor: [0, 0, 0], // Preto
         },
         headStyles: { 
           fillColor: [0, 128, 128], // Verde do logo
@@ -1179,6 +1182,7 @@ export function DialogSessaoLances({
             fontSize: 8,
             cellPadding: 2, // Reduzido para comprimir altura das linhas
             valign: "middle",
+            textColor: [0, 0, 0], // Preto
           },
           headStyles: { 
             fillColor: [0, 128, 128],
