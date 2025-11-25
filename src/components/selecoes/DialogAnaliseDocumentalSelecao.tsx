@@ -142,6 +142,28 @@ export function DialogAnaliseDocumentalSelecao({
   const loadFornecedoresVencedores = async () => {
     setLoading(true);
     try {
+      // Buscar dados da seleção e itens para obter quantidades
+      const { data: selecaoData, error: selecaoError } = await supabase
+        .from("selecoes_fornecedores")
+        .select("cotacao_relacionada_id")
+        .eq("id", selecaoId)
+        .single();
+
+      if (selecaoError) throw selecaoError;
+
+      // Buscar itens da cotação relacionada para obter quantidades
+      let itensQuantidades: Record<number, number> = {};
+      if (selecaoData?.cotacao_relacionada_id) {
+        const { data: itensData } = await supabase
+          .from("itens_cotacao")
+          .select("numero_item, quantidade")
+          .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+        
+        (itensData || []).forEach((item: any) => {
+          itensQuantidades[item.numero_item] = item.quantidade;
+        });
+      }
+
       // Buscar vencedores por item
       const { data: vencedoresData, error: vencedoresError } = await supabase
         .from("lances_fornecedores")
@@ -199,7 +221,9 @@ export function DialogAnaliseDocumentalSelecao({
         }
         const forn = fornecedoresMap.get(fornId)!;
         forn.itensVencedores.push(lance.numero_item);
-        forn.valorTotal += lance.valor_lance;
+        // Calcular valor total = valor_lance (unitário) × quantidade do item
+        const quantidade = itensQuantidades[lance.numero_item] || 1;
+        forn.valorTotal += lance.valor_lance * quantidade;
       });
 
       // Carregar documentos e campos de cada fornecedor
