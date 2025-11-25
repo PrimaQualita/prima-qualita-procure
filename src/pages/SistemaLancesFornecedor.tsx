@@ -11,6 +11,7 @@ import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown }
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ChatSelecao } from "@/components/selecoes/ChatSelecao";
+import { gerarPropostaSelecaoPDF } from "@/lib/gerarPropostaSelecaoPDF";
 
 interface Item {
   id: string;
@@ -421,7 +422,59 @@ const SistemaLancesFornecedor = () => {
 
       if (propostaError) throw propostaError;
 
-      toast.success("Proposta atualizada com sucesso!");
+      // Se já existe PDF gerado, regenerar automaticamente
+      if (proposta?.url_pdf_proposta) {
+        toast.info("Atualizando PDF da proposta...");
+        
+        try {
+          // Deletar PDF antigo do storage
+          const urlAntiga = proposta.url_pdf_proposta;
+          const pathMatch = urlAntiga.match(/processo-anexos\/(.+)$/);
+          if (pathMatch) {
+            await supabase.storage
+              .from("processo-anexos")
+              .remove([pathMatch[1]]);
+          }
+
+          // Gerar novo PDF
+          const enderecoCompleto = proposta.fornecedores?.endereco_comercial || '';
+          
+          const resultado = await gerarPropostaSelecaoPDF(
+            propostaId!,
+            {
+              razao_social: proposta.fornecedores?.razao_social || '',
+              cnpj: proposta.fornecedores?.cnpj || '',
+              email: proposta.email || '',
+              logradouro: enderecoCompleto.split(',')[0]?.trim() || '',
+              numero: enderecoCompleto.split('Nº ')[1]?.split(',')[0]?.trim() || '',
+              bairro: enderecoCompleto.split(',')[2]?.trim() || '',
+              municipio: enderecoCompleto.split(',')[3]?.split('/')[0]?.trim() || '',
+              uf: enderecoCompleto.split('/')[1]?.split(',')[0]?.trim() || '',
+              cep: enderecoCompleto.split('CEP: ')[1]?.trim() || ''
+            },
+            valorTotal,
+            proposta.observacoes_fornecedor || null,
+            selecao?.titulo_selecao || '',
+            proposta.data_envio_proposta || new Date().toISOString()
+          );
+
+          // Atualizar URL no banco
+          if (resultado.url) {
+            await supabase
+              .from("selecao_propostas_fornecedor")
+              .update({ url_pdf_proposta: resultado.url })
+              .eq("id", propostaId);
+          }
+
+          toast.success("Proposta e PDF atualizados com sucesso!");
+        } catch (pdfError) {
+          console.error("Erro ao regenerar PDF:", pdfError);
+          toast.warning("Proposta salva, mas houve erro ao atualizar o PDF");
+        }
+      } else {
+        toast.success("Proposta atualizada com sucesso!");
+      }
+
       await loadProposta();
 
     } catch (error) {
