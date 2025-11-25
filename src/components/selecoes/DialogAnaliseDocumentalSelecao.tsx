@@ -254,18 +254,40 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (error) throw error;
       
-      // Filtrar apenas o documento mais recente de cada tipo
+      // Ordem específica dos documentos
+      const ordemDocumentos: Record<string, number> = {
+        'contrato_social': 1,
+        'cnpj': 2,
+        'inscricao_estadual': 3,
+        'inscricao_municipal': 3,
+        'cnd_federal': 4,
+        'cnd_tributos_estaduais': 5,
+        'cnd_divida_ativa_estadual': 6,
+        'cnd_tributos_municipais': 7,
+        'cnd_divida_ativa_municipal': 8,
+        'crf_fgts': 9,
+        'cndt': 10,
+        'certificado_fornecedor': 11,
+      };
+      
+      // Filtrar apenas o documento mais recente de cada tipo e excluir Relatorio KPMG
       const documentosPorTipo = new Map<string, DocumentoExistente>();
       (data || []).forEach((doc: DocumentoExistente) => {
+        // Excluir Relatorio KPMG
+        if (doc.tipo_documento.toLowerCase().includes('kpmg') || doc.tipo_documento === 'relatorio_kpmg') {
+          return;
+        }
         if (!documentosPorTipo.has(doc.tipo_documento)) {
           documentosPorTipo.set(doc.tipo_documento, doc);
         }
       });
       
-      // Retornar ordenado por tipo_documento
-      return Array.from(documentosPorTipo.values()).sort((a, b) => 
-        a.tipo_documento.localeCompare(b.tipo_documento)
-      );
+      // Retornar ordenado pela ordem específica
+      return Array.from(documentosPorTipo.values()).sort((a, b) => {
+        const ordemA = ordemDocumentos[a.tipo_documento.toLowerCase()] || 99;
+        const ordemB = ordemDocumentos[b.tipo_documento.toLowerCase()] || 99;
+        return ordemA - ordemB;
+      });
     } catch (error) {
       console.error("Erro ao carregar documentos:", error);
       return [];
