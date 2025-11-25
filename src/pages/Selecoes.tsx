@@ -47,6 +47,7 @@ interface Selecao {
   hora_sessao_disputa: string;
   valor_estimado_anual: number;
   criterios_julgamento?: string;
+  numero_selecao?: string;
 }
 
 const Selecoes = () => {
@@ -383,6 +384,7 @@ const Selecoes = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Nº Seleção</TableHead>
                     <TableHead>Título</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data/Hora Disputa</TableHead>
@@ -392,14 +394,15 @@ const Selecoes = () => {
                 <TableBody>
                   {selecoes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
                         Nenhuma seleção criada para este processo
                       </TableCell>
                     </TableRow>
                   ) : (
                     selecoes.map((selecao) => (
                       <TableRow key={selecao.id}>
-                        <TableCell className="font-medium">{selecao.titulo_selecao}</TableCell>
+                        <TableCell className="font-medium">{selecao.numero_selecao || '-'}</TableCell>
+                        <TableCell>{selecao.titulo_selecao}</TableCell>
                         <TableCell>
                           <Badge variant={selecao.status_selecao === "planejada" ? "default" : "secondary"}>
                             {selecao.status_selecao}

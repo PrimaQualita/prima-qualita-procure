@@ -72,9 +72,31 @@ export function DialogCriarSelecao({
         });
       }
 
+      // Gerar número da seleção no formato XXX/AAAA
+      const anoAtual = new Date().getFullYear();
+      
+      // Buscar todas as seleções para encontrar o maior número sequencial (independente do ano)
+      const { data: ultimaSelecao, error: ultimaSelecaoError } = await supabase
+        .from("selecoes_fornecedores")
+        .select("numero_selecao")
+        .not("numero_selecao", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let proximoNumero = 1;
+      if (!ultimaSelecaoError && ultimaSelecao?.numero_selecao) {
+        // Extrair o número da seleção mais recente (formato XXX/AAAA)
+        const partes = ultimaSelecao.numero_selecao.split("/");
+        if (partes.length === 2) {
+          proximoNumero = parseInt(partes[0], 10) + 1;
+        }
+      }
+
+      const numeroSelecao = `${String(proximoNumero).padStart(3, "0")}/${anoAtual}`;
+
       // Criar seleção - ajustar data para evitar problema de timezone
-      // Quando o input type="date" retorna "2025-11-25", precisamos garantir que seja salvo como essa data no timezone local
-      const dataLocal = dataDisputa; // Já está no formato YYYY-MM-DD
+      const dataLocal = dataDisputa;
       
       const { data: selecao, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
@@ -88,6 +110,7 @@ export function DialogCriarSelecao({
           criterios_julgamento: criterioJulgamento,
           valor_estimado_anual: valorTotal,
           status_selecao: "planejada",
+          numero_selecao: numeroSelecao,
         })
         .select()
         .single();
