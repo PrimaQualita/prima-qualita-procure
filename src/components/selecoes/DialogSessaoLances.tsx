@@ -932,6 +932,8 @@ export function DialogSessaoLances({
         }
       }
 
+      let valorTotalGeral = 0;
+      
       const resumoData = itens.map(item => {
         const vencedor = getVencedorItem(item.numero_item);
         const isNegociacao = vencedor?.tipo_lance === "negociacao";
@@ -939,6 +941,9 @@ export function DialogSessaoLances({
         const quantidade = item.quantidade || 1;
         const valorTotal = vencedor ? vencedor.valor_lance * quantidade : 0;
         const valorTotalFormatado = vencedor ? formatCurrency(valorTotal) : "-";
+        
+        // Somar ao valor total geral
+        valorTotalGeral += valorTotal;
         
         // Buscar marca da proposta do fornecedor vencedor
         const marcaKey = vencedor ? `${item.numero_item}-${vencedor.fornecedor_id}` : "";
@@ -955,6 +960,23 @@ export function DialogSessaoLances({
           isNegociacao ? `${valorTotalFormatado} *` : valorTotalFormatado,
         ];
       });
+
+      // Adicionar linha de valor total
+      resumoData.push([
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "VALOR TOTAL:",
+        formatCurrency(valorTotalGeral)
+      ]);
+
+      // Rastrear páginas do resumo que já receberam logo
+      const paginasResumoProcessadas = new Set<number>();
+      const paginaInicialResumo = doc.internal.pages.length - 1;
+      paginasResumoProcessadas.add(paginaInicialResumo);
 
       autoTable(doc, {
         startY: resumoStartY,
@@ -984,6 +1006,18 @@ export function DialogSessaoLances({
         alternateRowStyles: {
           fillColor: [240, 253, 244] // bg-green-50
         },
+        margin: { top: logoResumoHeight + 20 },
+        didDrawPage: () => {
+          // Adicionar logo em todas as páginas do resumo
+          const paginaAtual = doc.internal.pages.length - 1;
+          if (!paginasResumoProcessadas.has(paginaAtual)) {
+            paginasResumoProcessadas.add(paginaAtual);
+            if (base64LogoHorizontal) {
+              const logoX = (landscapeWidth - logoResumoWidth) / 2;
+              doc.addImage(base64LogoHorizontal, 'PNG', logoX, 8, logoResumoWidth, logoResumoHeight);
+            }
+          }
+        },
         didParseCell: (data) => {
           // Destacar valores de negociação
           if ((data.column.index === 6 || data.column.index === 7) && data.section === "body") {
@@ -991,6 +1025,12 @@ export function DialogSessaoLances({
             if (cellText.includes("*")) {
               data.cell.styles.textColor = [22, 163, 74];
             }
+          }
+          // Estilizar linha de total
+          if (data.section === "body" && data.row.index === resumoData.length - 1) {
+            data.cell.styles.fillColor = [22, 163, 74];
+            data.cell.styles.textColor = [255, 255, 255];
+            data.cell.styles.fontStyle = "bold";
           }
         },
       });
