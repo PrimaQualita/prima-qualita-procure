@@ -269,24 +269,39 @@ export async function gerarPropostaFornecedorPDF(
         doc.rect(15, y - 4, 180, alturaLinha, 'F');
       }
 
-      // Bordas cinzas suaves entre linhas
+      // Bordas cinzas suaves
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.1);
+      
+      // Linha horizontal inferior
       doc.line(15, y + alturaLinha - 4, 195, y + alturaLinha - 4);
+      
+      // Linhas verticais entre colunas
+      const yTop = y - 4;
+      const yBottom = y + alturaLinha - 4;
+      doc.line(25, yTop, 25, yBottom); // Após ITEM
+      doc.line(75, yTop, 75, yBottom); // Após DESCRIÇÃO
+      doc.line(105, yTop, 105, yBottom); // Após QTD
+      doc.line(125, yTop, 125, yBottom); // Após UNID
+      doc.line(150, yTop, 150, yBottom); // Após MARCA
+      doc.line(172, yTop, 172, yBottom); // Após VL. UNIT.
 
-      // Número do item (centralizado verticalmente)
+      // Calcular centro vertical da linha
       const yCenter = y + (alturaLinha / 2) - 1;
+      
+      // Número do item (centralizado verticalmente)
       doc.text(itemCotacao.numero_item.toString(), 20, yCenter, { align: 'center' });
       
-      // Descrição completa com múltiplas linhas e alinhamento justificado
-      doc.text(linhasDescricao, 28, y, { maxWidth: 45, align: 'justify' });
+      // Descrição completa com múltiplas linhas e alinhamento justificado (centralizada verticalmente)
+      const yDescStart = y + (alturaLinha - linhasDescricao.length * 3.5) / 2;
+      doc.text(linhasDescricao, 28, yDescStart, { maxWidth: 45, align: 'justify' });
       
-      // Demais colunas (centralizadas verticalmente)
-      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 95, yCenter, { align: 'center' });
+      // Demais colunas (todas centralizadas verticalmente)
+      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 90, yCenter, { align: 'center' });
       doc.text(itemCotacao.unidade, 115, yCenter, { align: 'center' });
-      doc.text(item.marca || '-', 135, yCenter, { align: 'center' });
-      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 160, yCenter, { align: 'center' });
-      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 185, yCenter, { align: 'center' });
+      doc.text(item.marca || '-', 137.5, yCenter, { align: 'center' });
+      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 161, yCenter, { align: 'center' });
+      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 183.5, yCenter, { align: 'center' });
       
       y += alturaLinha;
       isAlternate = !isAlternate;
