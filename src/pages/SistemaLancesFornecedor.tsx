@@ -423,21 +423,30 @@ const SistemaLancesFornecedor = () => {
       if (propostaError) throw propostaError;
 
       // Se já existe PDF gerado, regenerar automaticamente
+      console.log("URL do PDF atual:", proposta?.url_pdf_proposta);
+      
       if (proposta?.url_pdf_proposta) {
         toast.info("Atualizando PDF da proposta...");
         
         try {
           // Deletar PDF antigo do storage
           const urlAntiga = proposta.url_pdf_proposta;
+          console.log("URL antiga do PDF:", urlAntiga);
+          
+          // Extrair o path correto do storage
           const pathMatch = urlAntiga.match(/processo-anexos\/(.+)$/);
+          console.log("Path match:", pathMatch);
+          
           if (pathMatch) {
-            await supabase.storage
+            const deleteResult = await supabase.storage
               .from("processo-anexos")
               .remove([pathMatch[1]]);
+            console.log("Resultado da exclusão do PDF antigo:", deleteResult);
           }
 
-          // Gerar novo PDF
+          // Gerar novo PDF com os dados atualizados
           const enderecoCompleto = proposta.fornecedores?.endereco_comercial || '';
+          console.log("Gerando novo PDF...");
           
           const resultado = await gerarPropostaSelecaoPDF(
             propostaId!,
@@ -458,12 +467,15 @@ const SistemaLancesFornecedor = () => {
             proposta.data_envio_proposta || new Date().toISOString()
           );
 
+          console.log("Resultado da geração do PDF:", resultado);
+
           // Atualizar URL no banco
           if (resultado.url) {
-            await supabase
+            const updateResult = await supabase
               .from("selecao_propostas_fornecedor")
               .update({ url_pdf_proposta: resultado.url })
               .eq("id", propostaId);
+            console.log("Resultado da atualização da URL:", updateResult);
           }
 
           toast.success("Proposta e PDF atualizados com sucesso!");
@@ -472,6 +484,7 @@ const SistemaLancesFornecedor = () => {
           toast.warning("Proposta salva, mas houve erro ao atualizar o PDF");
         }
       } else {
+        console.log("Nenhum PDF existente para atualizar");
         toast.success("Proposta atualizada com sucesso!");
       }
 
