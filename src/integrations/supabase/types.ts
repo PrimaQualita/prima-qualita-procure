@@ -1135,6 +1135,8 @@ export type Database = {
           fornecedor_id: string
           id: string
           indicativo_lance_vencedor: boolean | null
+          numero_item: number | null
+          numero_rodada: number | null
           observacao_lance: string | null
           selecao_id: string
           valor_lance: number
@@ -1145,6 +1147,8 @@ export type Database = {
           fornecedor_id: string
           id?: string
           indicativo_lance_vencedor?: boolean | null
+          numero_item?: number | null
+          numero_rodada?: number | null
           observacao_lance?: string | null
           selecao_id: string
           valor_lance: number
@@ -1155,6 +1159,8 @@ export type Database = {
           fornecedor_id?: string
           id?: string
           indicativo_lance_vencedor?: boolean | null
+          numero_item?: number | null
+          numero_rodada?: number | null
           observacao_lance?: string | null
           selecao_id?: string
           valor_lance?: number

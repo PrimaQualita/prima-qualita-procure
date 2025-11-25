@@ -20,8 +20,7 @@ import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
 import { DialogAnexarDocumentoSelecao } from "@/components/selecoes/DialogAnexarDocumentoSelecao";
-import { SistemaLances } from "@/components/selecoes/SistemaLances";
-import { DialogControleItensLances } from "@/components/selecoes/DialogControleItensLances";
+import { DialogSessaoLances } from "@/components/selecoes/DialogSessaoLances";
 
 interface Item {
   id: string;
@@ -49,10 +48,9 @@ const DetalheSelecao = () => {
   const [dialogEditalOpen, setDialogEditalOpen] = useState(false);
   const [avisoAnexado, setAvisoAnexado] = useState<any>(null);
   const [editalAnexado, setEditalAnexado] = useState<any>(null);
-  const [mostrarLances, setMostrarLances] = useState(false);
   const [confirmDeleteAviso, setConfirmDeleteAviso] = useState(false);
   const [confirmDeleteEdital, setConfirmDeleteEdital] = useState(false);
-  const [dialogControleOpen, setDialogControleOpen] = useState(false);
+  const [dialogSessaoOpen, setDialogSessaoOpen] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -408,33 +406,18 @@ const DetalheSelecao = () => {
           </CardContent>
         </Card>
 
-        {/* Botões de Controle */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        {/* Botão de Sessão de Lances */}
+        <div className="mb-6">
           <Button
             variant="default"
             size="lg"
-            onClick={() => setDialogControleOpen(true)}
+            className="w-full"
+            onClick={() => setDialogSessaoOpen(true)}
           >
             <Gavel className="h-5 w-5 mr-2" />
-            Controle de Lances e Chat
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setMostrarLances(!mostrarLances)}
-          >
-            <Gavel className="h-5 w-5 mr-2" />
-            {mostrarLances ? "Ocultar" : "Ver"} Sistema de Lances
+            Abrir Sessão de Lances (Controle + Chat + Sistema de Lances)
           </Button>
         </div>
-
-        {/* Sistema de Lances */}
-        {mostrarLances && (
-          <SistemaLances
-            selecaoId={selecaoId!}
-            criterioJulgamento={selecao.criterios_julgamento || processo?.criterio_julgamento}
-          />
-        )}
 
         {/* Itens da Cotação */}
         <Card>
@@ -497,11 +480,12 @@ const DetalheSelecao = () => {
         horaDisputa={selecao.hora_sessao_disputa}
       />
 
-      <DialogControleItensLances
-        open={dialogControleOpen}
-        onOpenChange={setDialogControleOpen}
+      <DialogSessaoLances
+        open={dialogSessaoOpen}
+        onOpenChange={setDialogSessaoOpen}
         selecaoId={selecaoId!}
         itens={itens}
+        criterioJulgamento={selecao?.criterios_julgamento || processo?.criterio_julgamento || "Menor Preço Global"}
       />
 
       <DialogAnexarDocumentoSelecao
