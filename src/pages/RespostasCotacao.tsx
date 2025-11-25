@@ -833,24 +833,37 @@ export default function RespostasCotacao() {
                             </Button>
                           </>
                         ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleVisualizarProposta(resposta.id)}
-                            disabled={gerandoPDF === resposta.id}
-                          >
-                            {gerandoPDF === resposta.id ? (
-                              <span className="flex items-center gap-2">
-                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                Gerando...
-                              </span>
-                            ) : (
-                              <>
-                                <FileText className="h-4 w-4 mr-1" />
-                                Gerar Proposta
-                              </>
-                            )}
-                          </Button>
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleVisualizarProposta(resposta.id)}
+                              disabled={gerandoPDF === resposta.id}
+                            >
+                              {gerandoPDF === resposta.id ? (
+                                <span className="flex items-center gap-2">
+                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                  Gerando...
+                                </span>
+                              ) : (
+                                <>
+                                  <FileText className="h-4 w-4 mr-1" />
+                                  Gerar Proposta
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                if (confirm("Tem certeza que deseja excluir definitivamente esta resposta? Esta ação não pode ser desfeita.")) {
+                                  await handleDeletarResposta(resposta.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </TableCell>
