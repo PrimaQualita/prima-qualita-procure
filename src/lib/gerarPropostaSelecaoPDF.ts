@@ -39,7 +39,8 @@ const renderizarTextoJustificado = (
   y: number, 
   larguraMaxima: number
 ): void => {
-  const palavras = texto.split(' ');
+  const palavras = texto.trim().split(/\s+/).filter(p => p.length > 0);
+  
   if (palavras.length <= 1) {
     doc.text(texto, x, y);
     return;
@@ -51,9 +52,16 @@ const renderizarTextoJustificado = (
     larguraPalavras += doc.getTextWidth(palavra);
   });
 
+  // Se a linha já é muito curta, não justificar (evita espaços gigantes)
+  const percentualPreenchimento = larguraPalavras / larguraMaxima;
+  if (percentualPreenchimento < 0.6) {
+    doc.text(texto, x, y);
+    return;
+  }
+
   // Calcular espaço extra entre palavras
-  const espacoTotal = larguraMaxima - larguraPalavras;
-  const espacoEntrePalavras = espacoTotal / (palavras.length - 1);
+  const espacoDisponivel = larguraMaxima - larguraPalavras;
+  const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
 
   // Renderizar cada palavra com espaçamento calculado
   let xAtual = x;
@@ -307,11 +315,13 @@ export async function gerarPropostaSelecaoPDF(
       // Renderizar cada linha da descrição com justificação real
       descLines.forEach((linha: string, index: number) => {
         const yLinha = descricaoYInicio + (index * espacamentoLinhaDesc);
-        // Para última linha ou linhas curtas, usar alinhamento esquerdo
-        if (index === descLines.length - 1 || linha.trim().length < 35) {
-          doc.text(linha, descricaoX, yLinha);
+        const isUltimaLinha = index === descLines.length - 1;
+        
+        if (isUltimaLinha) {
+          // Última linha: alinhamento à esquerda
+          doc.text(linha.trim(), descricaoX, yLinha);
         } else {
-          // Justificar linhas completas usando função customizada
+          // Linhas intermediárias: justificado
           renderizarTextoJustificado(doc, linha.trim(), descricaoX, yLinha, descricaoLargura);
         }
       });
