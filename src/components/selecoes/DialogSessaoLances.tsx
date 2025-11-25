@@ -1250,51 +1250,94 @@ export function DialogSessaoLances({
         .single();
 
       // Adicionar certificação digital no final do PDF
-      finalY = (doc as any).lastAutoTable.finalY + 15;
-
-      // Voltar para orientação portrait se estávamos em landscape
-      doc.addPage("p");
+      finalY = (doc as any).lastAutoTable.finalY;
+      
+      // Verificar se há espaço suficiente na página atual para a certificação
+      // Certificação precisa de aproximadamente 70mm de altura
+      const certHeight = 70;
+      const currentPageHeight = doc.internal.pageSize.height;
+      const spaceRemaining = currentPageHeight - finalY - rodapeHeight;
+      
+      // Se não houver espaço, criar nova página landscape
+      if (spaceRemaining < certHeight) {
+        doc.addPage("landscape");
+        finalY = logoResumoHeight + 20; // Começar após o logo
+        
+        // Adicionar logo na nova página
+        if (base64LogoHorizontal) {
+          const logoX = (landscapeWidth - logoResumoWidth) / 2;
+          doc.addImage(base64LogoHorizontal, 'PNG', logoX, 8, logoResumoWidth, logoResumoHeight);
+        }
+      }
+      
       const certPageWidth = doc.internal.pageSize.width;
       const certMargin = 15;
       const certBoxWidth = certPageWidth - (certMargin * 2);
-      const certBoxHeight = 40;
-      let certY = 50;
+      const certBoxHeight = 60; // Aumentado para acomodar mais conteúdo
+      let certY = finalY + 15;
 
-      // Desenhar box com fundo cinza e borda
-      doc.setFillColor(240, 240, 240);
-      doc.setDrawColor(200, 200, 200);
+      // Desenhar box com fundo cinza claro e borda
+      doc.setFillColor(245, 245, 245);
+      doc.setDrawColor(150, 150, 150);
       doc.setLineWidth(0.5);
       doc.rect(certMargin, certY, certBoxWidth, certBoxHeight, 'FD');
 
-      // Título da certificação (DENTRO das bordas)
-      certY += 8;
+      // Título da certificação
+      certY += 10;
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.text("CERTIFICAÇÃO DIGITAL", certPageWidth / 2, certY, { align: "center" });
 
-      // Protocolo (DENTRO das bordas)
+      // Texto da lei
+      certY += 8;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(80, 80, 80);
+      const textoLei = "Este documento foi gerado eletronicamente conforme Art. 10 da Lei nº 14.063/2020";
+      doc.text(textoLei, certPageWidth / 2, certY, { align: "center" });
+
+      // Linha separadora
+      certY += 6;
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.3);
+      doc.line(certMargin + 10, certY, certPageWidth - certMargin - 10, certY);
+
+      // Protocolo
       certY += 8;
       doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text("Protocolo:", certMargin + 10, certY);
       doc.setFont("helvetica", "normal");
-      doc.text(`Protocolo: ${protocolo}`, certMargin + 5, certY);
+      doc.text(protocolo, certMargin + 35, certY);
 
-      // Responsável (DENTRO das bordas)
-      certY += 6;
+      // Responsável
+      certY += 7;
+      doc.setFont("helvetica", "bold");
       const responsavel = userProfile?.nome_completo || "Sistema";
-      doc.text(`Responsável: ${responsavel}`, certMargin + 5, certY);
+      doc.text("Responsável:", certMargin + 10, certY);
+      doc.setFont("helvetica", "normal");
+      doc.text(responsavel, certMargin + 35, certY);
 
-      // Link de verificação (DENTRO das bordas com quebra de linha)
-      certY += 6;
+      // Link de verificação
+      certY += 8;
       const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${protocolo}`;
       doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("Verificar autenticidade:", certMargin + 10, certY);
       
       // Quebrar link em múltiplas linhas se necessário
-      const maxWidth = certBoxWidth - 10;
-      const linkLines = doc.splitTextToSize(`Verificar autenticidade: ${linkVerificacao}`, maxWidth);
+      certY += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 255);
+      const maxWidth = certBoxWidth - 20;
+      const linkLines = doc.splitTextToSize(linkVerificacao, maxWidth);
       linkLines.forEach((line: string, index: number) => {
-        doc.text(line, certMargin + 5, certY + (index * 5));
+        doc.text(line, certMargin + 10, certY + (index * 4));
       });
+      
+      doc.setTextColor(0, 0, 0);
 
       // Salvar PDF no storage e banco de dados
       const pdfBlob = doc.output("blob");
