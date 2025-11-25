@@ -687,16 +687,7 @@ export function DialogSessaoLances({
 
       let yPosition = 45;
 
-      lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }, index) => {
-        // Para o primeiro item, usar a posição inicial; para os demais, verificar quebra de página
-        if (index > 0) {
-          const estimatedHeight = 50 + (lancesDoItem.length * 12);
-          if (yPosition + estimatedHeight > pageHeight - 30) {
-            doc.addPage();
-            yPosition = 20;
-          }
-        }
-
+      lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }) => {
         // Título do item usando autoTable para texto justificado
         const tituloTexto = `Item ${item.numero_item}: ${item.descricao}`;
         
@@ -717,7 +708,6 @@ export function DialogSessaoLances({
             0: { cellWidth: pageWidth - margin * 2 },
           },
           margin: { left: margin, right: margin },
-          pageBreak: "avoid",
         });
         
         yPosition = (doc as any).lastAutoTable.finalY + 2;
