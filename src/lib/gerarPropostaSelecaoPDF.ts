@@ -66,7 +66,13 @@ const renderizarTextoJustificado = (
   });
 };
 
-// Função para gerar protocolo no formato customizado (XXXX-XXXX-XXXX-XXXX)
+// Função para formatar protocolo UUID no formato XXXX-XXXX-XXXX-XXXX para exibição
+const formatarProtocoloExibicao = (uuid: string): string => {
+  // Remove hífens do UUID e pega os primeiros 16 caracteres
+  const limpo = uuid.replace(/-/g, '').toUpperCase().substring(0, 16);
+  // Formata como XXXX-XXXX-XXXX-XXXX
+  return `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+};
 
 export async function gerarPropostaSelecaoPDF(
   propostaId: string,
@@ -398,7 +404,8 @@ export async function gerarPropostaSelecaoPDF(
     // Quebrar textos longos
     doc.setFontSize(11);
     const responsavelLines = doc.splitTextToSize(`Responsável: ${fornecedor.razao_social}`, larguraInternaQuadro);
-    const protocoloLines = doc.splitTextToSize(`Protocolo: ${protocolo}`, larguraInternaQuadro);
+    const protocoloFormatado = formatarProtocoloExibicao(protocolo);
+    const protocoloLines = doc.splitTextToSize(`Protocolo: ${protocoloFormatado}`, larguraInternaQuadro);
     
     doc.setFontSize(10);
     const linkLines = doc.splitTextToSize(linkVerificacao, larguraInternaQuadro);
