@@ -158,6 +158,12 @@ const VerificarProposta = () => {
     return `${cnpj.slice(0, 2)}.${cnpj.slice(2, 5)}.${cnpj.slice(5, 8)}/${cnpj.slice(8, 12)}-${cnpj.slice(12, 14)}`;
   };
 
+  // Função para formatar protocolo UUID no formato XXXX-XXXX-XXXX-XXXX para exibição
+  const formatarProtocoloExibicao = (uuid: string): string => {
+    const limpo = uuid.replace(/-/g, '').toUpperCase().substring(0, 16);
+    return `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -237,7 +243,7 @@ const VerificarProposta = () => {
                   <div className="flex justify-between items-start py-2 border-b">
                     <span className="text-sm font-medium text-muted-foreground">Protocolo:</span>
                     <Badge variant="outline" className="font-mono">
-                      {protocolo}
+                      {protocolo ? formatarProtocoloExibicao(protocolo) : ''}
                     </Badge>
                   </div>
 
