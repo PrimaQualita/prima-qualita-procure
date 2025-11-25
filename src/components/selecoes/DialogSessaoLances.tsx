@@ -97,7 +97,7 @@ export function DialogSessaoLances({
     }
   }, [open, selecaoId]);
 
-  // Auto-refresh e realtime para lances
+  // Auto-refresh e realtime para lances + polling para itens
   useEffect(() => {
     if (!open) return;
 
@@ -107,6 +107,12 @@ export function DialogSessaoLances({
         loadLances();
       }, 5000);
     }
+
+    // Polling para itens abertos a cada 3 segundos + verificação de fechamento automático
+    const itensInterval = setInterval(() => {
+      loadItensAbertos();
+      verificarFechamentoAutomatico();
+    }, 3000);
 
     const lancesChannel = supabase
       .channel(`lances_${selecaoId}`)
@@ -118,10 +124,17 @@ export function DialogSessaoLances({
       .on("postgres_changes", { event: "*", schema: "public", table: "mensagens_selecao", filter: `selecao_id=eq.${selecaoId}` }, () => loadMensagens())
       .subscribe();
 
+    const itensChannel = supabase
+      .channel(`itens_abertos_gestor_${selecaoId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "itens_abertos_lances", filter: `selecao_id=eq.${selecaoId}` }, () => loadItensAbertos())
+      .subscribe();
+
     return () => {
       if (interval) clearInterval(interval);
+      clearInterval(itensInterval);
       supabase.removeChannel(lancesChannel);
       supabase.removeChannel(chatChannel);
+      supabase.removeChannel(itensChannel);
     };
   }, [open, selecaoId, autoRefresh]);
 
@@ -131,6 +144,43 @@ export function DialogSessaoLances({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [mensagens]);
+
+  // Verificar fechamento automático dos itens
+  const verificarFechamentoAutomatico = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("itens_abertos_lances")
+        .select("*")
+        .eq("selecao_id", selecaoId)
+        .eq("aberto", true)
+        .eq("iniciando_fechamento", true);
+
+      if (error) throw error;
+
+      const agora = Date.now();
+      
+      for (const item of data || []) {
+        if (item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+          const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
+          const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
+          
+          if (agora >= tempoExpiracao) {
+            console.log(`Fechando item ${item.numero_item} automaticamente`);
+            await supabase
+              .from("itens_abertos_lances")
+              .update({ 
+                aberto: false, 
+                data_fechamento: new Date().toISOString(),
+                iniciando_fechamento: false
+              })
+              .eq("id", item.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao verificar fechamento automático:", error);
+    }
+  };
 
   // ========== FUNÇÕES DE CONTROLE DE ITENS ==========
   const loadItensAbertos = async () => {
@@ -145,28 +195,6 @@ export function DialogSessaoLances({
 
       const abertos = new Set(data?.map((item) => item.numero_item) || []);
       setItensAbertos(abertos);
-
-      // Verificar se algum item está em processo de fechamento
-      data?.forEach((item: any) => {
-        if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
-          const tempoDecorrido = Math.floor((Date.now() - new Date(item.data_inicio_fechamento).getTime()) / 1000);
-          const tempoRestante = item.segundos_para_fechar - tempoDecorrido;
-          
-          if (tempoRestante > 0) {
-            setTimeout(async () => {
-              await supabase
-                .from("itens_abertos_lances")
-                .update({ aberto: false, data_fechamento: new Date().toISOString(), iniciando_fechamento: false })
-                .eq("id", item.id);
-            }, tempoRestante * 1000);
-          } else if (tempoRestante <= 0 && item.aberto) {
-            supabase
-              .from("itens_abertos_lances")
-              .update({ aberto: false, data_fechamento: new Date().toISOString(), iniciando_fechamento: false })
-              .eq("id", item.id);
-          }
-        }
-      });
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }

@@ -39,8 +39,74 @@ export function DialogControleItensLances({
   useEffect(() => {
     if (open) {
       loadItensAbertos();
+      
+      // Subscrição realtime para itens abertos
+      const channel = supabase
+        .channel(`itens_abertos_gestor_${selecaoId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "itens_abertos_lances",
+            filter: `selecao_id=eq.${selecaoId}`,
+          },
+          () => {
+            loadItensAbertos();
+          }
+        )
+        .subscribe();
+
+      // Polling a cada 3 segundos como fallback + verificação de fechamento automático
+      const pollingInterval = setInterval(() => {
+        loadItensAbertos();
+        verificarFechamentoAutomatico();
+      }, 3000);
+
+      return () => {
+        supabase.removeChannel(channel);
+        clearInterval(pollingInterval);
+      };
     }
   }, [open, selecaoId]);
+
+  const verificarFechamentoAutomatico = async () => {
+    try {
+      // Buscar itens que estão em processo de fechamento e já deveriam ter fechado
+      const { data, error } = await supabase
+        .from("itens_abertos_lances")
+        .select("*")
+        .eq("selecao_id", selecaoId)
+        .eq("aberto", true)
+        .eq("iniciando_fechamento", true);
+
+      if (error) throw error;
+
+      const agora = Date.now();
+      
+      for (const item of data || []) {
+        if (item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+          const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
+          const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
+          
+          if (agora >= tempoExpiracao) {
+            // Tempo expirou, fechar o item
+            console.log(`Fechando item ${item.numero_item} automaticamente`);
+            await supabase
+              .from("itens_abertos_lances")
+              .update({ 
+                aberto: false, 
+                data_fechamento: new Date().toISOString(),
+                iniciando_fechamento: false
+              })
+              .eq("id", item.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao verificar fechamento automático:", error);
+    }
+  };
 
   const loadItensAbertos = async () => {
     try {
@@ -54,38 +120,6 @@ export function DialogControleItensLances({
 
       const abertos = new Set(data?.map((item) => item.numero_item) || []);
       setItensAbertos(abertos);
-
-      // Verificar se algum item está em processo de fechamento e ainda precisa ser fechado
-      data?.forEach((item: any) => {
-        if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
-          const tempoDecorrido = Math.floor((Date.now() - new Date(item.data_inicio_fechamento).getTime()) / 1000);
-          const tempoRestante = item.segundos_para_fechar - tempoDecorrido;
-          
-          if (tempoRestante > 0) {
-            // Ainda tem tempo, agendar fechamento
-            setTimeout(async () => {
-              await supabase
-                .from("itens_abertos_lances")
-                .update({ 
-                  aberto: false, 
-                  data_fechamento: new Date().toISOString(),
-                  iniciando_fechamento: false
-                })
-                .eq("id", item.id);
-            }, tempoRestante * 1000);
-          } else if (tempoRestante <= 0 && item.aberto) {
-            // Tempo já passou, fechar imediatamente
-            supabase
-              .from("itens_abertos_lances")
-              .update({ 
-                aberto: false, 
-                data_fechamento: new Date().toISOString(),
-                iniciando_fechamento: false
-              })
-              .eq("id", item.id);
-          }
-        }
-      });
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }
