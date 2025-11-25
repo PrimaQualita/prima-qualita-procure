@@ -11,8 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Gavel, Lock, Unlock } from "lucide-react";
+import { Gavel, Lock, Unlock, Handshake, Trophy } from "lucide-react";
 import { ChatSelecao } from "./ChatSelecao";
+import { Badge } from "@/components/ui/badge";
 
 interface Item {
   numero_item: number;
@@ -35,10 +36,13 @@ export function DialogControleItensLances({
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
   const [salvando, setSalvando] = useState(false);
   const [itensSelecionados, setItensSelecionados] = useState<Set<number>>(new Set());
+  const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map()); // Map<numeroItem, fornecedorId>
+  const [vencedoresPorItem, setVencedoresPorItem] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
 
   useEffect(() => {
     if (open) {
       loadItensAbertos();
+      loadVencedoresPorItem();
       
       // Subscrição realtime para itens abertos
       const channel = supabase
@@ -61,6 +65,7 @@ export function DialogControleItensLances({
       const pollingInterval = setInterval(() => {
         loadItensAbertos();
         verificarFechamentoAutomatico();
+        loadVencedoresPorItem();
       }, 3000);
 
       return () => {
@@ -113,15 +118,59 @@ export function DialogControleItensLances({
       const { data, error } = await supabase
         .from("itens_abertos_lances")
         .select("*")
-        .eq("selecao_id", selecaoId)
-        .eq("aberto", true);
+        .eq("selecao_id", selecaoId);
 
       if (error) throw error;
 
-      const abertos = new Set(data?.map((item) => item.numero_item) || []);
+      const abertos = new Set(data?.filter((item) => item.aberto).map((item) => item.numero_item) || []);
       setItensAbertos(abertos);
+
+      // Mapear itens em negociação
+      const emNegociacao = new Map<number, string>();
+      data?.forEach((item) => {
+        if (item.em_negociacao && item.fornecedor_negociacao_id) {
+          emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
+        }
+      });
+      setItensEmNegociacao(emNegociacao);
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
+    }
+  };
+
+  const loadVencedoresPorItem = async () => {
+    try {
+      // Buscar todos os lances classificados para identificar vencedores por item
+      const { data: lances, error } = await supabase
+        .from("lances_fornecedores")
+        .select(`
+          *,
+          fornecedores (
+            id,
+            razao_social
+          )
+        `)
+        .eq("selecao_id", selecaoId)
+        .order("valor_lance", { ascending: true });
+
+      if (error) throw error;
+
+      // Agrupar por item e pegar o menor valor (vencedor)
+      const vencedoresMap = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
+      
+      lances?.forEach((lance) => {
+        if (lance.numero_item !== null && !vencedoresMap.has(lance.numero_item)) {
+          vencedoresMap.set(lance.numero_item, {
+            fornecedorId: lance.fornecedor_id,
+            razaoSocial: lance.fornecedores?.razao_social || 'Fornecedor',
+            valorLance: lance.valor_lance
+          });
+        }
+      });
+
+      setVencedoresPorItem(vencedoresMap);
+    } catch (error) {
+      console.error("Erro ao carregar vencedores:", error);
     }
   };
 
@@ -248,6 +297,99 @@ export function DialogControleItensLances({
     }
   };
 
+  const handleAbrirNegociacao = async (numeroItem: number) => {
+    const vencedor = vencedoresPorItem.get(numeroItem);
+    if (!vencedor) {
+      toast.error("Nenhum vencedor identificado para este item");
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      // Verificar se já existe registro do item
+      const { data: existente } = await supabase
+        .from("itens_abertos_lances")
+        .select("id")
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem)
+        .single();
+
+      if (existente) {
+        // Atualizar para abrir negociação
+        const { error } = await supabase
+          .from("itens_abertos_lances")
+          .update({
+            aberto: true,
+            em_negociacao: true,
+            fornecedor_negociacao_id: vencedor.fornecedorId,
+            data_fechamento: null,
+            iniciando_fechamento: false
+          })
+          .eq("id", existente.id);
+
+        if (error) throw error;
+      } else {
+        // Criar novo registro em negociação
+        const { error } = await supabase
+          .from("itens_abertos_lances")
+          .insert({
+            selecao_id: selecaoId,
+            numero_item: numeroItem,
+            aberto: true,
+            em_negociacao: true,
+            fornecedor_negociacao_id: vencedor.fornecedorId
+          });
+
+        if (error) throw error;
+      }
+
+      toast.success(`Negociação aberta com ${vencedor.razaoSocial} para o Item ${numeroItem}`);
+      await loadItensAbertos();
+    } catch (error) {
+      console.error("Erro ao abrir negociação:", error);
+      toast.error("Erro ao abrir negociação");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleFecharNegociacao = async (numeroItem: number) => {
+    setSalvando(true);
+    try {
+      const { error } = await supabase
+        .from("itens_abertos_lances")
+        .update({
+          aberto: false,
+          em_negociacao: false,
+          data_fechamento: new Date().toISOString()
+        })
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem);
+
+      if (error) throw error;
+
+      toast.success(`Negociação encerrada para o Item ${numeroItem}`);
+      await loadItensAbertos();
+    } catch (error) {
+      console.error("Erro ao fechar negociação:", error);
+      toast.error("Erro ao fechar negociação");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  };
+
+  // Itens fechados com vencedor (candidatos a negociação)
+  const itensFechadosComVencedor = itens.filter(
+    (item) => !itensAbertos.has(item.numero_item) && vencedoresPorItem.has(item.numero_item) && !itensEmNegociacao.has(item.numero_item)
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh]">
@@ -348,6 +490,86 @@ export function DialogControleItensLances({
                 </Button>
               </div>
             </div>
+
+            {/* Seção de Negociação */}
+            {(itensFechadosComVencedor.length > 0 || itensEmNegociacao.size > 0) && (
+              <div className="border rounded-lg p-4 mt-4 bg-amber-50 border-amber-200">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <Handshake className="h-5 w-5 text-amber-600" />
+                  Rodada de Negociação
+                </h3>
+
+                {/* Itens em negociação ativa */}
+                {Array.from(itensEmNegociacao.entries()).map(([numeroItem, fornecedorId]) => {
+                  const vencedor = vencedoresPorItem.get(numeroItem);
+                  return (
+                    <div key={`neg-${numeroItem}`} className="flex items-center justify-between p-3 bg-amber-100 rounded-lg mb-2 border border-amber-300">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="bg-amber-500 text-white border-amber-500">
+                          <Handshake className="h-3 w-3 mr-1" />
+                          Em Negociação
+                        </Badge>
+                        <div>
+                          <span className="font-semibold">Item {numeroItem}</span>
+                          <p className="text-sm text-amber-700">
+                            Negociando com: {vencedor?.razaoSocial || 'Fornecedor'}
+                          </p>
+                          <p className="text-xs text-amber-600">
+                            Valor atual: {formatCurrency(vencedor?.valorLance || 0)}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleFecharNegociacao(numeroItem)}
+                        disabled={salvando}
+                      >
+                        <Lock className="h-4 w-4 mr-1" />
+                        Encerrar
+                      </Button>
+                    </div>
+                  );
+                })}
+
+                {/* Itens disponíveis para negociação */}
+                {itensFechadosComVencedor.length > 0 && (
+                  <>
+                    <p className="text-sm text-amber-700 mb-3">
+                      Itens fechados com vencedor identificado - disponíveis para negociação:
+                    </p>
+                    <div className="space-y-2">
+                      {itensFechadosComVencedor.map((item) => {
+                        const vencedor = vencedoresPorItem.get(item.numero_item);
+                        return (
+                          <div key={`avail-${item.numero_item}`} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                            <div className="flex items-center gap-3">
+                              <Trophy className="h-4 w-4 text-yellow-600" />
+                              <div>
+                                <span className="font-semibold">Item {item.numero_item}</span>
+                                <p className="text-sm text-muted-foreground">
+                                  Vencedor: {vencedor?.razaoSocial} - {formatCurrency(vencedor?.valorLance || 0)}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-amber-500 text-amber-700 hover:bg-amber-100"
+                              onClick={() => handleAbrirNegociacao(item.numero_item)}
+                              disabled={salvando}
+                            >
+                              <Handshake className="h-4 w-4 mr-1" />
+                              Abrir Negociação
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

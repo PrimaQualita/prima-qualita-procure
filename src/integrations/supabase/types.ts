@@ -1031,6 +1031,8 @@ export type Database = {
           data_abertura: string
           data_fechamento: string | null
           data_inicio_fechamento: string | null
+          em_negociacao: boolean | null
+          fornecedor_negociacao_id: string | null
           id: string
           iniciando_fechamento: boolean | null
           numero_item: number
@@ -1043,6 +1045,8 @@ export type Database = {
           data_abertura?: string
           data_fechamento?: string | null
           data_inicio_fechamento?: string | null
+          em_negociacao?: boolean | null
+          fornecedor_negociacao_id?: string | null
           id?: string
           iniciando_fechamento?: boolean | null
           numero_item: number
@@ -1055,6 +1059,8 @@ export type Database = {
           data_abertura?: string
           data_fechamento?: string | null
           data_inicio_fechamento?: string | null
+          em_negociacao?: boolean | null
+          fornecedor_negociacao_id?: string | null
           id?: string
           iniciando_fechamento?: boolean | null
           numero_item?: number
@@ -1062,6 +1068,13 @@ export type Database = {
           selecao_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "itens_abertos_lances_fornecedor_negociacao_id_fkey"
+            columns: ["fornecedor_negociacao_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "itens_abertos_lances_selecao_id_fkey"
             columns: ["selecao_id"]
@@ -1139,6 +1152,7 @@ export type Database = {
           numero_rodada: number | null
           observacao_lance: string | null
           selecao_id: string
+          tipo_lance: string | null
           valor_lance: number
         }
         Insert: {
@@ -1151,6 +1165,7 @@ export type Database = {
           numero_rodada?: number | null
           observacao_lance?: string | null
           selecao_id: string
+          tipo_lance?: string | null
           valor_lance: number
         }
         Update: {
@@ -1163,6 +1178,7 @@ export type Database = {
           numero_rodada?: number | null
           observacao_lance?: string | null
           selecao_id?: string
+          tipo_lance?: string | null
           valor_lance?: number
         }
         Relationships: [
