@@ -241,12 +241,27 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
   };
 
   const getNomeRemetente = (msg: Mensagem) => {
+    // Usuários internos sempre mostram nome
     if (msg.tipo_usuario === "interno" && msg.profiles) {
       return msg.profiles.nome_completo;
     }
-    if (msg.tipo_usuario === "fornecedor" && msg.fornecedores) {
-      return msg.fornecedores.razao_social;
+    
+    // Para fornecedores: só mostra nome se for a própria mensagem
+    if (msg.tipo_usuario === "fornecedor") {
+      // Se é a própria mensagem do fornecedor logado, mostra o nome
+      if (isMinhaMsg(msg) && msg.fornecedores) {
+        return msg.fornecedores.razao_social;
+      }
+      
+      // Se é usuário interno visualizando, mostra nome do fornecedor
+      if (userProfile?.type === "interno" && msg.fornecedores) {
+        return msg.fornecedores.razao_social;
+      }
+      
+      // Para outros fornecedores, oculta o nome (anonimato entre concorrentes)
+      return "Participante";
     }
+    
     return "Usuário";
   };
 
