@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare } from "lucide-react";
+import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ChatNegociacao } from "./ChatNegociacao";
@@ -598,6 +598,27 @@ export function DialogSessaoLances({
     });
   };
 
+  const handleDeletarLance = async (lanceId: string) => {
+    if (!confirm("Tem certeza que deseja excluir este lance? Esta ação não pode ser desfeita.")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("lances_fornecedores")
+        .delete()
+        .eq("id", lanceId);
+
+      if (error) throw error;
+
+      toast.success("Lance excluído com sucesso");
+      loadLances();
+    } catch (error) {
+      console.error("Erro ao excluir lance:", error);
+      toast.error("Erro ao excluir lance");
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
@@ -1015,12 +1036,13 @@ export function DialogSessaoLances({
                             <TableHead className="text-xs text-right">Valor</TableHead>
                             <TableHead className="text-xs">Rodada</TableHead>
                             <TableHead className="text-xs">Data/Hora</TableHead>
+                            <TableHead className="text-xs w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {lances.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
+                              <TableCell colSpan={6} className="text-center text-muted-foreground text-xs">
                                 Nenhum lance registrado
                               </TableCell>
                             </TableRow>
@@ -1032,6 +1054,16 @@ export function DialogSessaoLances({
                                 <TableCell className="text-xs text-right font-bold">{formatCurrency(lance.valor_lance)}</TableCell>
                                 <TableCell className="text-xs">{lance.numero_rodada || 1}</TableCell>
                                 <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
+                                <TableCell className="text-xs">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => handleDeletarLance(lance.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </TableCell>
                               </TableRow>
                             ))
                           )}
@@ -1059,6 +1091,7 @@ export function DialogSessaoLances({
                                 <TableHead className="text-xs">CNPJ</TableHead>
                                 <TableHead className="text-xs text-right">Valor</TableHead>
                                 <TableHead className="text-xs">Rodada</TableHead>
+                                <TableHead className="text-xs w-10"></TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1074,11 +1107,21 @@ export function DialogSessaoLances({
                                   <TableCell className="text-xs">{formatCNPJ(lance.fornecedores?.cnpj || "")}</TableCell>
                                   <TableCell className="text-xs text-right font-bold">{formatCurrency(lance.valor_lance)}</TableCell>
                                   <TableCell className="text-xs">{lance.numero_rodada || 1}</TableCell>
+                                  <TableCell className="text-xs">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => handleDeletarLance(lance.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </TableCell>
                                 </TableRow>
                               ))}
                               {getLancesDoItem(itemSelecionadoLances).length === 0 && (
                                 <TableRow>
-                                  <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
+                                  <TableCell colSpan={6} className="text-center text-muted-foreground text-xs">
                                     Nenhum lance para este item
                                   </TableCell>
                                 </TableRow>
