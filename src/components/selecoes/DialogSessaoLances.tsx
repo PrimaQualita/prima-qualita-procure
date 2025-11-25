@@ -1525,25 +1525,53 @@ export function DialogSessaoLances({
                     <Button variant="outline" size="sm" onClick={loadLances}>
                       <RefreshCw className="h-3 w-3" />
                     </Button>
-                    {!planilhaGerada ? (
+                    {!planilhaGerada && (
                       <Button variant="default" size="sm" onClick={handleGerarPlanilhaLances} className="text-xs">
                         <FileSpreadsheet className="h-3 w-3 mr-1" />
                         Gerar Planilha
                       </Button>
-                    ) : (
-                      <>
-                        <Button variant="outline" size="sm" onClick={handleVisualizarPlanilha} className="text-xs">
-                          <FileSpreadsheet className="h-3 w-3 mr-1" />
-                          Visualizar
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={handleDeletarPlanilha} className="text-xs">
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Deletar
-                        </Button>
-                      </>
                     )}
                   </div>
                 </div>
+
+                {planilhaGerada && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium mb-2">Planilha de Lances Gerada:</p>
+                    <Card className="bg-muted/50">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <FileSpreadsheet className="h-4 w-4 text-primary flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{planilhaGerada.nome_arquivo}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {new Date().toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-1 ml-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleVisualizarPlanilha}
+                              className="h-7 px-2 text-xs"
+                            >
+                              Visualizar
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={handleDeletarPlanilha}
+                              className="h-7 px-2"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden p-3">
                 <div className="mb-2 flex gap-2 flex-wrap">
