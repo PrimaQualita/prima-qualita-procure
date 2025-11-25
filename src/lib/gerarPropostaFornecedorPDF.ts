@@ -225,7 +225,19 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFontSize(8);
 
     for (const item of itensOrdenados) {
-      if (y > 260) {
+      const itemCotacao: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
+      
+      if (!itemCotacao) {
+        console.warn('Item sem dados de cotação:', item);
+        continue;
+      }
+      
+      // Quebrar descrição em múltiplas linhas com alinhamento justificado
+      const linhasDescricao = doc.splitTextToSize(itemCotacao.descricao, 45);
+      const alturaLinha = Math.max(6, linhasDescricao.length * 4 + 2);
+      
+      // Verificar se precisa de nova página
+      if (y + alturaLinha > 270) {
         doc.addPage();
         y = 20;
         
@@ -247,13 +259,6 @@ export async function gerarPropostaFornecedorPDF(
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
       }
-
-      const itemCotacao: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
-      
-      if (!itemCotacao) {
-        console.warn('Item sem dados de cotação:', item);
-        continue;
-      }
       
       const valorUnitario = item.valor_unitario_ofertado;
       const valorTotalItem = valorUnitario * itemCotacao.quantidade;
@@ -261,26 +266,29 @@ export async function gerarPropostaFornecedorPDF(
       // Fundo alternado
       if (isAlternate) {
         doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
-        doc.rect(15, y - 4, 180, 6, 'F');
+        doc.rect(15, y - 4, 180, alturaLinha, 'F');
       }
 
-      // Número do item
-      doc.text(itemCotacao.numero_item.toString(), 20, y, { align: 'center' });
+      // Bordas cinzas suaves entre linhas
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.1);
+      doc.line(15, y + alturaLinha - 4, 195, y + alturaLinha - 4);
+
+      // Número do item (centralizado verticalmente)
+      const yCenter = y + (alturaLinha / 2) - 1;
+      doc.text(itemCotacao.numero_item.toString(), 20, yCenter, { align: 'center' });
       
-      // Descrição (limitada para evitar overflow)
-      const descLimitada = itemCotacao.descricao.length > 60 
-        ? itemCotacao.descricao.substring(0, 57) + '...' 
-        : itemCotacao.descricao;
-      doc.text(descLimitada, 28, y, { maxWidth: 45 });
+      // Descrição completa com múltiplas linhas e alinhamento justificado
+      doc.text(linhasDescricao, 28, y, { maxWidth: 45, align: 'justify' });
       
-      // Demais colunas
-      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 95, y, { align: 'center' });
-      doc.text(itemCotacao.unidade, 115, y, { align: 'center' });
-      doc.text(item.marca || '-', 135, y, { align: 'center' });
-      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 160, y, { align: 'center' });
-      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 185, y, { align: 'center' });
+      // Demais colunas (centralizadas verticalmente)
+      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 95, yCenter, { align: 'center' });
+      doc.text(itemCotacao.unidade, 115, yCenter, { align: 'center' });
+      doc.text(item.marca || '-', 135, yCenter, { align: 'center' });
+      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 160, yCenter, { align: 'center' });
+      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 185, yCenter, { align: 'center' });
       
-      y += 6;
+      y += alturaLinha;
       isAlternate = !isAlternate;
     }
 
