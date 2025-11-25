@@ -1222,6 +1222,80 @@ export function DialogSessaoLances({
         });
       }
 
+      // Obter ID do usuário (mover para antes da certificação)
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // ========== CERTIFICAÇÃO DIGITAL ==========
+      // Gerar protocolo único no formato XXXX-XXXX-XXXX-XXXX
+      const generateProtocol = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        const segments = [];
+        for (let i = 0; i < 4; i++) {
+          let segment = '';
+          for (let j = 0; j < 4; j++) {
+            segment += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          segments.push(segment);
+        }
+        return segments.join('-');
+      };
+
+      const protocolo = generateProtocol();
+
+      // Buscar informações do usuário
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("nome_completo")
+        .eq("id", user?.id)
+        .single();
+
+      // Adicionar certificação digital no final do PDF
+      finalY = (doc as any).lastAutoTable.finalY + 15;
+
+      // Voltar para orientação portrait se estávamos em landscape
+      doc.addPage("p");
+      const certPageWidth = doc.internal.pageSize.width;
+      const certMargin = 15;
+      const certBoxWidth = certPageWidth - (certMargin * 2);
+      const certBoxHeight = 40;
+      let certY = 50;
+
+      // Desenhar box com fundo cinza e borda
+      doc.setFillColor(240, 240, 240);
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.rect(certMargin, certY, certBoxWidth, certBoxHeight, 'FD');
+
+      // Título da certificação (DENTRO das bordas)
+      certY += 8;
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("CERTIFICAÇÃO DIGITAL", certPageWidth / 2, certY, { align: "center" });
+
+      // Protocolo (DENTRO das bordas)
+      certY += 8;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Protocolo: ${protocolo}`, certMargin + 5, certY);
+
+      // Responsável (DENTRO das bordas)
+      certY += 6;
+      const responsavel = userProfile?.nome_completo || "Sistema";
+      doc.text(`Responsável: ${responsavel}`, certMargin + 5, certY);
+
+      // Link de verificação (DENTRO das bordas com quebra de linha)
+      certY += 6;
+      const linkVerificacao = `${window.location.origin}/verificar-planilha?protocolo=${protocolo}`;
+      doc.setFontSize(9);
+      
+      // Quebrar link em múltiplas linhas se necessário
+      const maxWidth = certBoxWidth - 10;
+      const linkLines = doc.splitTextToSize(`Verificar autenticidade: ${linkVerificacao}`, maxWidth);
+      linkLines.forEach((line: string, index: number) => {
+        doc.text(line, certMargin + 5, certY + (index * 5));
+      });
+
       // Salvar PDF no storage e banco de dados
       const pdfBlob = doc.output("blob");
       const nomeArquivo = `planilha-lances-selecao-${Date.now()}.pdf`;
@@ -1257,9 +1331,6 @@ export function DialogSessaoLances({
         .from("processo-anexos")
         .getPublicUrl(storagePath);
       
-      // Obter ID do usuário
-      const { data: { user } } = await supabase.auth.getUser();
-      
       // Usar upsert para atualizar ou inserir no banco
       const { data: planilhaData, error: dbError } = await supabase
         .from("planilhas_lances_selecao")
@@ -1268,7 +1339,8 @@ export function DialogSessaoLances({
           nome_arquivo: nomeArquivo,
           url_arquivo: urlData.publicUrl,
           usuario_gerador_id: user?.id,
-          data_geracao: new Date().toISOString()
+          data_geracao: new Date().toISOString(),
+          protocolo: protocolo
         }, {
           onConflict: 'selecao_id'
         })

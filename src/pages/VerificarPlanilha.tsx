@@ -33,7 +33,7 @@ export default function VerificarPlanilha() {
     try {
       // SEMPRE PEGAR A PLANILHA MAIS RECENTE POR DATA DE GERAÇÃO
       const { data, error } = await supabase
-        .from("planilhas_consolidadas")
+        .from("planilhas_lances_selecao")
         .select("*")
         .eq("protocolo", prot.trim())
         .order("data_geracao", { ascending: false })
@@ -80,10 +80,10 @@ export default function VerificarPlanilha() {
             />
           </div>
           <h1 className="text-4xl font-bold text-blue-900 mb-2">
-            Verificação de Planilha Consolidada
+            Verificação de Planilha de Lances
           </h1>
           <p className="text-gray-600">
-            Verifique a autenticidade de uma planilha consolidada através do protocolo
+            Verifique a autenticidade de uma planilha de lances através do protocolo
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export default function VerificarPlanilha() {
           <CardHeader>
             <CardTitle>Buscar Planilha</CardTitle>
             <CardDescription>
-              Insira o protocolo da planilha consolidada para verificar sua autenticidade
+              Insira o protocolo da planilha de lances para verificar sua autenticidade
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -117,9 +117,9 @@ export default function VerificarPlanilha() {
               <div className="flex items-center gap-3 text-red-700">
                 <XCircle className="h-8 w-8" />
                 <div>
-                  <h3 className="font-semibold text-lg">Planilha não encontrada</h3>
+                  <p className="text-sm">Planilha não encontrada</p>
                   <p className="text-sm">
-                    Nenhuma planilha consolidada foi encontrada com o protocolo informado.
+                    Nenhuma planilha de lances foi encontrada com o protocolo informado.
                   </p>
                 </div>
               </div>
@@ -134,7 +134,7 @@ export default function VerificarPlanilha() {
                 <CheckCircle className="h-8 w-8 text-green-600 flex-shrink-0 mt-1" />
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg text-green-900 mb-1">
-                    Planilha Consolidada Autêntica
+                    Planilha de Lances Autêntica
                   </h3>
                   <p className="text-sm text-green-700">
                     Esta planilha foi gerada oficialmente pelo sistema Prima Qualitá Saúde
@@ -162,8 +162,8 @@ export default function VerificarPlanilha() {
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold text-gray-600">ID da Cotação</p>
-                  <p className="text-sm font-mono">{resultado.dados.cotacao_id}</p>
+                  <p className="text-sm font-semibold text-gray-600">ID da Seleção</p>
+                  <p className="text-sm font-mono">{resultado.dados.selecao_id}</p>
                 </div>
 
                 <div>
@@ -171,16 +171,14 @@ export default function VerificarPlanilha() {
                   <p className="text-sm break-all">{resultado.dados.nome_arquivo}</p>
                 </div>
 
-                {resultado.dados.fornecedores_incluidos && resultado.dados.fornecedores_incluidos.length > 0 && (
+                {resultado.dados.url_arquivo && (
                   <div className="pt-4 border-t border-green-200">
-                    <p className="text-sm font-semibold text-gray-600 mb-2">Fornecedores Incluídos nesta Planilha</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      {resultado.dados.fornecedores_incluidos.map((fornecedor: any, index: number) => (
-                        <li key={index} className="text-sm text-gray-700">
-                          {typeof fornecedor === 'string' ? fornecedor : fornecedor.razao_social || fornecedor.cnpj}
-                        </li>
-                      ))}
-                    </ul>
+                    <Button
+                      onClick={() => window.open(resultado.dados.url_arquivo, '_blank')}
+                      className="w-full"
+                    >
+                      Visualizar Planilha
+                    </Button>
                   </div>
                 )}
               </div>
