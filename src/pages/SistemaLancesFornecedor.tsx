@@ -258,15 +258,16 @@ const SistemaLancesFornecedor = () => {
     if (!selecao?.id) return;
     
     try {
+      // Buscar TODOS os registros de itens para esta seleção (abertos + em negociação)
       const { data, error } = await supabase
         .from("itens_abertos_lances")
         .select("*")
-        .eq("selecao_id", selecao.id)
-        .eq("aberto", true);
+        .eq("selecao_id", selecao.id);
 
       if (error) throw error;
 
-      const abertos = new Set(data?.map((item: any) => item.numero_item) || []);
+      // Itens abertos incluem os normais e os em negociação
+      const abertos = new Set(data?.filter((item: any) => item.aberto).map((item: any) => item.numero_item) || []);
       setItensAbertos(abertos);
 
       // Mapear itens em fechamento com timestamp de expiração
@@ -276,7 +277,7 @@ const SistemaLancesFornecedor = () => {
       
       data?.forEach((item: any) => {
         // Itens em processo de fechamento
-        if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+        if (item.aberto && item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
           const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
           const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
           
@@ -285,7 +286,7 @@ const SistemaLancesFornecedor = () => {
           }
         }
         
-        // Itens em negociação
+        // Itens em negociação (podem estar abertos)
         if (item.em_negociacao && item.fornecedor_negociacao_id) {
           emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
         }

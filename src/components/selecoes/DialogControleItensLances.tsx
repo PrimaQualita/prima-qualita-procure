@@ -140,34 +140,41 @@ export function DialogControleItensLances({
 
   const loadVencedoresPorItem = async () => {
     try {
-      // Buscar todos os lances classificados para identificar vencedores por item
-      const { data: lances, error } = await supabase
+      // Buscar todos os lances para identificar vencedores por item
+      const { data: lancesData, error: lancesError } = await supabase
         .from("lances_fornecedores")
-        .select(`
-          *,
-          fornecedores (
-            id,
-            razao_social
-          )
-        `)
+        .select("*")
         .eq("selecao_id", selecaoId)
         .order("valor_lance", { ascending: true });
 
-      if (error) throw error;
+      if (lancesError) throw lancesError;
+
+      // Buscar fornecedores únicos
+      const fornecedorIds = [...new Set(lancesData?.map(l => l.fornecedor_id) || [])];
+      
+      const { data: fornecedoresData } = await supabase
+        .from("fornecedores")
+        .select("id, razao_social")
+        .in("id", fornecedorIds);
+
+      const fornecedoresMap = new Map(
+        fornecedoresData?.map(f => [f.id, f.razao_social]) || []
+      );
 
       // Agrupar por item e pegar o menor valor (vencedor)
       const vencedoresMap = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
       
-      lances?.forEach((lance) => {
+      lancesData?.forEach((lance) => {
         if (lance.numero_item !== null && !vencedoresMap.has(lance.numero_item)) {
           vencedoresMap.set(lance.numero_item, {
             fornecedorId: lance.fornecedor_id,
-            razaoSocial: lance.fornecedores?.razao_social || 'Fornecedor',
+            razaoSocial: fornecedoresMap.get(lance.fornecedor_id) || 'Fornecedor',
             valorLance: lance.valor_lance
           });
         }
       });
 
+      console.log("Vencedores por item:", Object.fromEntries(vencedoresMap));
       setVencedoresPorItem(vencedoresMap);
     } catch (error) {
       console.error("Erro ao carregar vencedores:", error);
