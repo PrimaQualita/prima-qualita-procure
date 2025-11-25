@@ -721,15 +721,22 @@ export function DialogSessaoLances({
         yStart = 30;
       }
       
+      // Rastrear páginas que já receberam logo/rodapé
+      const paginasProcessadas = new Set<number>();
+      paginasProcessadas.add(1); // Primeira página já foi processada
+      
       // Função para adicionar logo e rodapé em nova página
       const adicionarLogoERodapeNovaPagina = () => {
-        if (base64Logo) {
-          doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
+        const paginaAtual = (doc as any).internal.pages.length - 1;
+        if (!paginasProcessadas.has(paginaAtual)) {
+          paginasProcessadas.add(paginaAtual);
+          if (base64Logo) {
+            doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
+          }
+          if (base64Rodape) {
+            doc.addImage(base64Rodape, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
+          }
         }
-        if (base64Rodape) {
-          doc.addImage(base64Rodape, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
-        }
-        return logoHeight + 5;
       };
       
       // Cabeçalho de texto
@@ -775,11 +782,9 @@ export function DialogSessaoLances({
             0: { cellWidth: pageWidth - margin * 2 },
           },
           margin: { left: margin, right: margin, top: logoHeight + 10, bottom: rodapeHeight + 10 },
-          didDrawPage: (data) => {
+          didDrawPage: () => {
             // Adicionar logo e rodapé em novas páginas
-            if (data.pageNumber > 1 || data.cursor?.y === logoHeight + 10) {
-              adicionarLogoERodapeNovaPagina();
-            }
+            adicionarLogoERodapeNovaPagina();
           },
         });
         
@@ -839,11 +844,9 @@ export function DialogSessaoLances({
               fillColor: [248, 250, 252]
             },
             margin: { top: logoHeight + 10, bottom: rodapeHeight + 10 },
-            didDrawPage: (data) => {
-              // Adicionar logo e rodapé em novas páginas (não na primeira)
-              if (data.pageNumber > 1) {
-                adicionarLogoERodapeNovaPagina();
-              }
+            didDrawPage: () => {
+              // Adicionar logo e rodapé em novas páginas
+              adicionarLogoERodapeNovaPagina();
             },
             didParseCell: (data) => {
               // Destacar primeira posição (vencedor)
