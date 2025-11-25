@@ -812,60 +812,61 @@ export function DialogSessaoLances({
               if (itensFechadosComVencedor.length === 0 && itensEmNegociacao.size === 0) return null;
 
               return (
-                <Card className="mt-3 bg-amber-50 dark:bg-amber-950 border-amber-200 overflow-hidden">
+                <Card className="mt-3 bg-amber-50 dark:bg-amber-950 border-amber-200">
                   <CardHeader className="py-2">
                     <CardTitle className="text-xs flex items-center gap-2 text-amber-700 dark:text-amber-300">
                       <Handshake className="h-4 w-4" />
                       Rodada de Negociação
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-3 pt-0 max-h-[250px] overflow-y-auto overflow-x-hidden">
-                      {/* Itens em negociação ativa */}
-                      {Array.from(itensEmNegociacao.entries()).map(([numeroItem, fornecedorId]) => {
-                        const vencedor = vencedoresPorItem.get(numeroItem);
-                        return (
-                          <div key={`neg-${numeroItem}`} className="flex items-center justify-between p-2 bg-amber-100 dark:bg-amber-900 rounded-lg mb-2 border border-amber-300">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="bg-amber-500 text-white border-amber-500 text-xs">
-                                Em Negociação
-                              </Badge>
-                              <div>
-                                <span className="font-semibold text-xs">Item {numeroItem}</span>
-                                <p className="text-xs text-amber-700 dark:text-amber-300">
-                                  {vencedor?.razaoSocial || 'Fornecedor'}
-                                </p>
+                  <CardContent className="p-3 pt-0">
+                    <ScrollArea className="h-[200px]">
+                      <div className="space-y-2 pr-3">
+                        {/* Itens em negociação ativa */}
+                        {Array.from(itensEmNegociacao.entries()).map(([numeroItem, fornecedorId]) => {
+                          const vencedor = vencedoresPorItem.get(numeroItem);
+                          return (
+                            <div key={`neg-${numeroItem}`} className="p-2 bg-amber-100 dark:bg-amber-900 rounded-lg border border-amber-300">
+                              <div className="flex items-start gap-2 mb-2">
+                                <Badge variant="outline" className="bg-amber-500 text-white border-amber-500 text-xs shrink-0">
+                                  Em Negociação
+                                </Badge>
+                                <div className="min-w-0">
+                                  <span className="font-semibold text-xs">Item {numeroItem}</span>
+                                  <p className="text-xs text-amber-700 dark:text-amber-300 truncate">
+                                    {vencedor?.razaoSocial || 'Fornecedor'}
+                                  </p>
+                                </div>
                               </div>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleFecharNegociacao(numeroItem)}
+                                disabled={salvando}
+                                className="text-xs w-full"
+                              >
+                                <Lock className="h-3 w-3 mr-1" />
+                                Encerrar
+                              </Button>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleFecharNegociacao(numeroItem)}
-                              disabled={salvando}
-                              className="text-xs"
-                            >
-                              <Lock className="h-3 w-3 mr-1" />
-                              Encerrar
-                            </Button>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
 
-                      {/* Itens disponíveis para negociação */}
-                      {itensFechadosComVencedor.length > 0 && (
-                        <>
-                          <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
-                            Itens fechados disponíveis para negociação:
-                          </p>
-                          <div className="space-y-2">
+                        {/* Itens disponíveis para negociação */}
+                        {itensFechadosComVencedor.length > 0 && (
+                          <>
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                              Itens fechados disponíveis para negociação:
+                            </p>
                             {itensFechadosComVencedor.map((item) => {
                               const vencedor = vencedoresPorItem.get(item.numero_item);
                               return (
-                                <div key={`avail-${item.numero_item}`} className="flex items-center justify-between p-2 bg-white dark:bg-background rounded-lg border text-xs">
-                                  <div className="flex items-center gap-2">
-                                    <Trophy className="h-3 w-3 text-yellow-600" />
-                                    <div>
+                                <div key={`avail-${item.numero_item}`} className="p-2 bg-white dark:bg-background rounded-lg border text-xs">
+                                  <div className="flex items-start gap-2 mb-2">
+                                    <Trophy className="h-3 w-3 text-yellow-600 shrink-0 mt-0.5" />
+                                    <div className="min-w-0">
                                       <span className="font-semibold">Item {item.numero_item}</span>
-                                      <p className="text-muted-foreground">
+                                      <p className="text-muted-foreground truncate">
                                         {vencedor?.razaoSocial} - {vencedor?.valorLance?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                       </p>
                                     </div>
@@ -873,7 +874,7 @@ export function DialogSessaoLances({
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="border-amber-500 text-amber-700 hover:bg-amber-100 text-xs"
+                                    className="border-amber-500 text-amber-700 hover:bg-amber-100 text-xs w-full"
                                     onClick={() => handleAbrirNegociacao(item.numero_item)}
                                     disabled={salvando}
                                   >
@@ -883,9 +884,10 @@ export function DialogSessaoLances({
                                 </div>
                               );
                             })}
-                          </div>
-                        </>
-                      )}
+                          </>
+                        )}
+                      </div>
+                    </ScrollArea>
                   </CardContent>
                 </Card>
               );
