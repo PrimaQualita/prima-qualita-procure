@@ -52,13 +52,6 @@ const renderizarTextoJustificado = (
     larguraPalavras += doc.getTextWidth(palavra);
   });
 
-  // Se a linha já é muito curta, não justificar (evita espaços gigantes)
-  const percentualPreenchimento = larguraPalavras / larguraMaxima;
-  if (percentualPreenchimento < 0.6) {
-    doc.text(texto, x, y);
-    return;
-  }
-
   // Calcular espaço extra entre palavras
   const espacoDisponivel = larguraMaxima - larguraPalavras;
   const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
@@ -223,6 +216,7 @@ export async function gerarPropostaSelecaoPDF(
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
     
+    // Posições iniciais das colunas
     const colItem = margemEsquerda + 2;
     const colDesc = margemEsquerda + 15;
     const colQtd = margemEsquerda + 85;
@@ -230,6 +224,12 @@ export async function gerarPropostaSelecaoPDF(
     const colMarca = margemEsquerda + 125;
     const colValorUnit = margemEsquerda + 148;
     const colValorTotal = margemEsquerda + 168;
+    
+    // Centros das colunas para centralização horizontal
+    const colItemCenter = margemEsquerda + 7;
+    const colQtdCenter = margemEsquerda + 93;
+    const colUniCenter = margemEsquerda + 113;
+    const colMarcaCenter = margemEsquerda + 134;
     
     // Posições das colunas para linhas verticais
     const colPositions = [
@@ -243,11 +243,12 @@ export async function gerarPropostaSelecaoPDF(
     
     const headerYCenter = y - 1;
     
-    doc.text('Item', colItem, headerYCenter);
+    // Cabeçalhos centralizados
+    doc.text('Item', colItemCenter, headerYCenter, { align: 'center' });
     doc.text('Descrição', colDesc, headerYCenter);
-    doc.text('Qtd', colQtd, headerYCenter);
-    doc.text('Unid', colUni, headerYCenter);
-    doc.text('Marca', colMarca, headerYCenter);
+    doc.text('Qtd', colQtdCenter, headerYCenter, { align: 'center' });
+    doc.text('Unid', colUniCenter, headerYCenter, { align: 'center' });
+    doc.text('Marca', colMarcaCenter, headerYCenter, { align: 'center' });
     doc.text('Vlr Unit.', colValorUnit, headerYCenter);
     doc.text('Vlr Total', colValorTotal, headerYCenter);
     
@@ -304,15 +305,16 @@ export async function gerarPropostaSelecaoPDF(
       // Centralização vertical para todas as colunas
       const yVerticalCenter = y + (alturaLinha / 2) + 1;
       
-      doc.text(item.numero_item.toString(), colItem, yVerticalCenter);
+      // Item - centralizado horizontalmente
+      doc.text(item.numero_item.toString(), colItemCenter, yVerticalCenter, { align: 'center' });
       
-      // Descrição com alinhamento justificado
+      // Descrição com alinhamento justificado em TODAS as linhas exceto última
       const descricaoLargura = 65;
       const descricaoX = colDesc;
       const descricaoYInicio = y + 3;
       const espacamentoLinhaDesc = 4;
       
-      // Renderizar cada linha da descrição com justificação real
+      // Renderizar cada linha da descrição com justificação
       descLines.forEach((linha: string, index: number) => {
         const yLinha = descricaoYInicio + (index * espacamentoLinhaDesc);
         const isUltimaLinha = index === descLines.length - 1;
@@ -321,14 +323,17 @@ export async function gerarPropostaSelecaoPDF(
           // Última linha: alinhamento à esquerda
           doc.text(linha.trim(), descricaoX, yLinha);
         } else {
-          // Linhas intermediárias: justificado
+          // TODAS as outras linhas: justificado
           renderizarTextoJustificado(doc, linha.trim(), descricaoX, yLinha, descricaoLargura);
         }
       });
       
-      doc.text(item.quantidade.toString(), colQtd, yVerticalCenter);
-      doc.text(item.unidade, colUni, yVerticalCenter);
-      doc.text(item.marca || '-', colMarca, yVerticalCenter);
+      // Quantidade, Unidade, Marca - centralizados horizontalmente
+      doc.text(item.quantidade.toString(), colQtdCenter, yVerticalCenter, { align: 'center' });
+      doc.text(item.unidade, colUniCenter, yVerticalCenter, { align: 'center' });
+      doc.text(item.marca || '-', colMarcaCenter, yVerticalCenter, { align: 'center' });
+      
+      // Valores - alinhados à esquerda
       doc.text(formatarMoeda(item.valor_unitario_ofertado), colValorUnit, yVerticalCenter);
       doc.text(formatarMoeda(valorTotalItem), colValorTotal, yVerticalCenter);
       
