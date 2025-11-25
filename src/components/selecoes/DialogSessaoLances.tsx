@@ -840,11 +840,12 @@ export function DialogSessaoLances({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 pt-0">
-                    <ScrollArea className="h-[200px]">
+                    <ScrollArea className="h-[350px]">
                       <div className="space-y-2 pr-3">
                         {/* Itens em negociação ativa */}
                         {Array.from(itensEmNegociacao.entries()).map(([numeroItem, fornecedorId]) => {
                           const vencedor = vencedoresPorItem.get(numeroItem);
+                          const chatAberto = itemChatPrivado === numeroItem;
                           return (
                             <div key={`neg-${numeroItem}`} className="p-2 bg-amber-100 dark:bg-amber-900 rounded-lg border border-amber-300">
                               <div className="flex items-start gap-2 mb-2">
@@ -862,11 +863,11 @@ export function DialogSessaoLances({
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => setItemChatPrivado(itemChatPrivado === numeroItem ? null : numeroItem)}
-                                  className={`text-xs flex-1 ${itemChatPrivado === numeroItem ? 'bg-amber-200 border-amber-400' : 'border-amber-400 text-amber-700 hover:bg-amber-100'}`}
+                                  onClick={() => setItemChatPrivado(chatAberto ? null : numeroItem)}
+                                  className={`text-xs flex-1 ${chatAberto ? 'bg-amber-200 border-amber-400' : 'border-amber-400 text-amber-700 hover:bg-amber-100'}`}
                                 >
                                   <MessagesSquare className="h-3 w-3 mr-1" />
-                                  {itemChatPrivado === numeroItem ? 'Fechar Chat' : 'Chat Privado'}
+                                  {chatAberto ? 'Fechar Chat' : 'Chat Privado'}
                                 </Button>
                                 <Button
                                   size="sm"
@@ -879,6 +880,22 @@ export function DialogSessaoLances({
                                   Encerrar
                                 </Button>
                               </div>
+                              
+                              {/* Chat Inline */}
+                              {chatAberto && (
+                                <div className="mt-3 border-t border-amber-300 pt-3">
+                                  <div className="h-[200px] bg-white dark:bg-background rounded-lg border">
+                                    <ChatNegociacao
+                                      selecaoId={selecaoId}
+                                      numeroItem={numeroItem}
+                                      fornecedorId={fornecedorId}
+                                      fornecedorNome={vencedor?.razaoSocial || "Fornecedor"}
+                                      tituloSelecao={tituloSelecao}
+                                      isGestor={true}
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -892,6 +909,7 @@ export function DialogSessaoLances({
                             {itensFechadosComVencedor.map((item) => {
                               const vencedor = vencedoresPorItem.get(item.numero_item);
                               const temHistoricoNegociacao = itensComHistoricoNegociacao.has(item.numero_item);
+                              const chatAberto = itemChatPrivado === item.numero_item;
                               return (
                                 <div key={`avail-${item.numero_item}`} className="p-2 bg-white dark:bg-background rounded-lg border text-xs">
                                   <div className="flex items-start gap-2 mb-2">
@@ -919,12 +937,28 @@ export function DialogSessaoLances({
                                         size="sm"
                                         variant="ghost"
                                         className="text-xs"
-                                        onClick={() => setItemChatPrivado(itemChatPrivado === item.numero_item ? null : item.numero_item)}
+                                        onClick={() => setItemChatPrivado(chatAberto ? null : item.numero_item)}
                                       >
                                         <MessagesSquare className="h-3 w-3" />
                                       </Button>
                                     )}
                                   </div>
+                                  
+                                  {/* Chat Inline para histórico */}
+                                  {chatAberto && temHistoricoNegociacao && (
+                                    <div className="mt-3 border-t pt-3">
+                                      <div className="h-[200px] bg-muted/30 rounded-lg border">
+                                        <ChatNegociacao
+                                          selecaoId={selecaoId}
+                                          numeroItem={item.numero_item}
+                                          fornecedorId={itensComHistoricoNegociacao.get(item.numero_item)!}
+                                          fornecedorNome={vencedor?.razaoSocial || "Fornecedor"}
+                                          tituloSelecao={tituloSelecao}
+                                          isGestor={true}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -935,22 +969,6 @@ export function DialogSessaoLances({
                     </ScrollArea>
                   </CardContent>
                 </Card>
-
-                {/* Chat Privado de Negociação - também disponível para histórico */}
-                {itemChatPrivado !== null && itensComHistoricoNegociacao.has(itemChatPrivado) && (
-                  <Card className="mt-3 border-amber-300 bg-amber-50/50 dark:bg-amber-950/50">
-                    <div className="h-[280px]">
-                      <ChatNegociacao
-                        selecaoId={selecaoId}
-                        numeroItem={itemChatPrivado}
-                        fornecedorId={itensComHistoricoNegociacao.get(itemChatPrivado)!}
-                        fornecedorNome={vencedoresPorItem.get(itemChatPrivado)?.razaoSocial || "Fornecedor"}
-                        tituloSelecao={tituloSelecao}
-                        isGestor={true}
-                      />
-                    </div>
-                  </Card>
-                )}
               </>
             );
           })()}
