@@ -225,11 +225,11 @@ export async function gerarPropostaSelecaoPDF(
     const colValorUnit = margemEsquerda + 122;  // Valor Unitário
     const colValorTotal = margemEsquerda + 147; // Valor Total - mais largo
     
-    // Centros das colunas para centralização horizontal
+    // Centros das colunas para centralização horizontal (calculados a partir dos divisores)
     const colItemCenter = margemEsquerda + 5;
-    const colQtdCenter = margemEsquerda + 83;
-    const colUniCenter = margemEsquerda + 96;
-    const colMarcaCenter = margemEsquerda + 112;
+    const colQtdCenter = margemEsquerda + 82;   // Centro entre 75 e 89
+    const colUniCenter = margemEsquerda + 95;   // Centro entre 89 e 101
+    const colMarcaCenter = margemEsquerda + 110.5; // Centro entre 101 e 120
     
     // Posições das colunas para linhas verticais (divisores)
     const colPositions = [
@@ -333,9 +333,9 @@ export async function gerarPropostaSelecaoPDF(
       doc.text(item.unidade, colUniCenter, yVerticalCenter, { align: 'center' });
       doc.text(item.marca || '-', colMarcaCenter, yVerticalCenter, { align: 'center' });
       
-      // Valores - alinhados à esquerda
-      doc.text(formatarMoeda(item.valor_unitario_ofertado), colValorUnit, yVerticalCenter);
-      doc.text(formatarMoeda(valorTotalItem), colValorTotal, yVerticalCenter);
+      // Valores - alinhados à esquerda com R$
+      doc.text(`R$ ${formatarMoeda(item.valor_unitario_ofertado)}`, colValorUnit, yVerticalCenter);
+      doc.text(`R$ ${formatarMoeda(valorTotalItem)}`, colValorTotal, yVerticalCenter);
       
       y += alturaLinha;
       itemIndex++;
