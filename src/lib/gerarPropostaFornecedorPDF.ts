@@ -286,14 +286,14 @@ export async function gerarPropostaFornecedorPDF(
       doc.line(150, yTop, 150, yBottom); // Após MARCA
       doc.line(172, yTop, 172, yBottom); // Após VL. UNIT.
 
-      // Calcular centro vertical da linha
-      const yCenter = y + (alturaLinha / 2) - 1;
+      // Calcular centro vertical da linha (ajustado para melhor centralização)
+      const yCenter = y + (alturaLinha / 2);
       
       // Número do item (centralizado verticalmente)
       doc.text(itemCotacao.numero_item.toString(), 20, yCenter, { align: 'center' });
       
       // Descrição completa com múltiplas linhas e alinhamento justificado (centralizada verticalmente)
-      const yDescStart = y + (alturaLinha - linhasDescricao.length * 3.5) / 2;
+      const yDescStart = y + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 1;
       doc.text(linhasDescricao, 28, yDescStart, { maxWidth: 45, align: 'justify' });
       
       // Demais colunas (todas centralizadas verticalmente)
