@@ -35,6 +35,7 @@ interface Lance {
   indicativo_lance_vencedor: boolean;
   numero_item: number;
   numero_rodada: number;
+  tipo_lance: string | null;
   fornecedores: {
     razao_social: string;
     cnpj: string;
@@ -655,99 +656,208 @@ export function DialogSessaoLances({
         return;
       }
 
-      const doc = new jsPDF("landscape");
+      const doc = new jsPDF("portrait");
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 15;
       
-      // Título
-      doc.setFontSize(16);
-      doc.text("PLANILHA DE LANCES DA SELEÇÃO", doc.internal.pageSize.width / 2, 15, { align: "center" });
+      // Cabeçalho estilizado
+      doc.setFillColor(37, 99, 235); // Azul
+      doc.rect(0, 0, pageWidth, 35, "F");
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("PLANILHA DE LANCES DA SELEÇÃO", pageWidth / 2, 15, { align: "center" });
+      
       doc.setFontSize(10);
-      doc.text(`Critério: ${criterioJulgamento}`, doc.internal.pageSize.width / 2, 22, { align: "center" });
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, doc.internal.pageSize.width / 2, 28, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.text(`Critério de Julgamento: ${criterioJulgamento === "por_item" ? "Menor Preço por Item" : criterioJulgamento === "global" ? "Menor Preço Global" : criterioJulgamento === "por_lote" ? "Menor Preço por Lote" : criterioJulgamento}`, pageWidth / 2, 24, { align: "center" });
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, pageWidth / 2, 31, { align: "center" });
+
+      doc.setTextColor(0, 0, 0);
 
       // Agrupar lances por item
       const lancesGroupedByItem = itens.map(item => {
         const lancesItem = getLancesDoItem(item.numero_item);
-        const rodadas = getRodadasItem(item.numero_item);
-        return { item, lances: lancesItem, rodadas };
+        return { item, lances: lancesItem };
       });
 
-      let yPosition = 35;
+      let yPosition = 45;
 
-      lancesGroupedByItem.forEach(({ item, lances: lancesDoItem, rodadas }) => {
-        if (yPosition > doc.internal.pageSize.height - 40) {
+      lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }) => {
+        // Verificar se precisa de nova página
+        const estimatedHeight = 25 + (lancesDoItem.length * 10);
+        if (yPosition + estimatedHeight > pageHeight - 30) {
           doc.addPage();
           yPosition = 20;
         }
 
-        // Título do item
+        // Título do item com fundo
+        doc.setFillColor(241, 245, 249); // bg-slate-100
+        doc.rect(margin, yPosition - 5, pageWidth - margin * 2, 12, "F");
+        
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text(`Item ${item.numero_item}: ${item.descricao.substring(0, 80)}${item.descricao.length > 80 ? "..." : ""}`, 14, yPosition);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Total de Rodadas: ${rodadas}`, 14, yPosition + 5);
+        doc.setTextColor(30, 64, 175); // text-blue-800
+        doc.text(`Item ${item.numero_item}: ${item.descricao.substring(0, 70)}${item.descricao.length > 70 ? "..." : ""}`, margin + 3, yPosition + 2);
         
-        yPosition += 10;
+        doc.setTextColor(0, 0, 0);
+        yPosition += 12;
 
         if (lancesDoItem.length === 0) {
-          doc.text("Nenhum lance registrado para este item", 14, yPosition);
-          yPosition += 10;
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "italic");
+          doc.setTextColor(100, 100, 100);
+          doc.text("Nenhum lance registrado para este item", margin + 3, yPosition);
+          doc.setTextColor(0, 0, 0);
+          yPosition += 15;
         } else {
-          const tableData = lancesDoItem.map((lance, idx) => [
-            `${idx + 1}º`,
-            lance.fornecedores?.razao_social || "N/A",
-            formatCNPJ(lance.fornecedores?.cnpj || ""),
-            formatCurrency(lance.valor_lance),
-            lance.numero_rodada || 1,
-            new Date(lance.data_hora_lance).toLocaleString("pt-BR"),
-          ]);
+          const tableData = lancesDoItem.map((lance, idx) => {
+            const isNegociacao = lance.tipo_lance === "negociacao";
+            const valorFormatado = formatCurrency(lance.valor_lance);
+            
+            return [
+              `${idx + 1}º`,
+              `${lance.fornecedores?.razao_social || "N/A"}\n${formatCNPJ(lance.fornecedores?.cnpj || "")}`,
+              isNegociacao ? `${valorFormatado} *` : valorFormatado,
+              new Date(lance.data_hora_lance).toLocaleString("pt-BR", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit"
+              }),
+            ];
+          });
 
           autoTable(doc, {
             startY: yPosition,
-            head: [["Pos.", "Fornecedor", "CNPJ", "Valor", "Rodada", "Data/Hora"]],
+            head: [["Pos.", "Fornecedor", "Valor", "Data/Hora"]],
             body: tableData,
-            theme: "grid",
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+            theme: "striped",
+            styles: { 
+              fontSize: 8, 
+              cellPadding: 3,
+              lineColor: [200, 200, 200],
+              lineWidth: 0.1,
+            },
+            headStyles: { 
+              fillColor: [37, 99, 235], 
+              textColor: 255,
+              fontStyle: "bold",
+              halign: "center"
+            },
             columnStyles: {
-              0: { cellWidth: 15 },
-              1: { cellWidth: 60 },
-              2: { cellWidth: 40 },
-              3: { cellWidth: 30 },
-              4: { cellWidth: 20 },
-              5: { cellWidth: 40 },
+              0: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+              1: { cellWidth: 80 },
+              2: { cellWidth: 35, halign: "right", fontStyle: "bold" },
+              3: { cellWidth: 45, halign: "center" },
+            },
+            alternateRowStyles: {
+              fillColor: [248, 250, 252]
+            },
+            didParseCell: (data) => {
+              // Destacar primeira posição (vencedor)
+              if (data.row.index === 0 && data.section === "body") {
+                data.cell.styles.fillColor = [254, 249, 195]; // bg-yellow-100
+                data.cell.styles.fontStyle = "bold";
+              }
+              // Destacar valores de negociação
+              if (data.column.index === 2 && data.section === "body") {
+                const cellText = String(data.cell.raw);
+                if (cellText.includes("*")) {
+                  data.cell.styles.textColor = [22, 163, 74]; // text-green-600
+                }
+              }
             },
           });
 
-          yPosition = (doc as any).lastAutoTable.finalY + 10;
+          yPosition = (doc as any).lastAutoTable.finalY + 8;
+          
+          // Legenda de negociação se houver lances de negociação
+          const temNegociacao = lancesDoItem.some(l => l.tipo_lance === "negociacao");
+          if (temNegociacao) {
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(22, 163, 74);
+            doc.text("* Valor obtido por negociação", margin + 3, yPosition);
+            doc.setTextColor(0, 0, 0);
+            yPosition += 8;
+          }
         }
       });
 
-      // Resumo geral
+      // Resumo geral em nova página
       doc.addPage();
-      doc.setFontSize(14);
-      doc.text("RESUMO - VENCEDORES POR ITEM", doc.internal.pageSize.width / 2, 15, { align: "center" });
+      
+      // Cabeçalho do resumo
+      doc.setFillColor(22, 163, 74); // Verde
+      doc.rect(0, 0, pageWidth, 25, "F");
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("RESUMO - VENCEDORES POR ITEM", pageWidth / 2, 16, { align: "center" });
+      
+      doc.setTextColor(0, 0, 0);
 
       const resumoData = itens.map(item => {
         const vencedor = getVencedorItem(item.numero_item);
-        const rodadas = getRodadasItem(item.numero_item);
+        const isNegociacao = vencedor?.tipo_lance === "negociacao";
+        const valorFormatado = vencedor ? formatCurrency(vencedor.valor_lance) : "-";
+        
         return [
-          item.numero_item,
-          item.descricao.substring(0, 50) + (item.descricao.length > 50 ? "..." : ""),
+          item.numero_item.toString(),
+          item.descricao.substring(0, 45) + (item.descricao.length > 45 ? "..." : ""),
           vencedor?.fornecedores?.razao_social || "Sem lances",
-          vencedor ? formatCurrency(vencedor.valor_lance) : "-",
-          rodadas,
+          isNegociacao ? `${valorFormatado} *` : valorFormatado,
         ];
       });
 
       autoTable(doc, {
-        startY: 25,
-        head: [["Item", "Descrição", "Vencedor", "Menor Lance", "Rodadas"]],
+        startY: 35,
+        head: [["Item", "Descrição", "Vencedor", "Menor Lance"]],
         body: resumoData,
-        theme: "grid",
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [34, 197, 94], textColor: 255 },
+        theme: "striped",
+        styles: { 
+          fontSize: 9,
+          cellPadding: 4,
+        },
+        headStyles: { 
+          fillColor: [22, 163, 74], 
+          textColor: 255,
+          fontStyle: "bold",
+          halign: "center"
+        },
+        columnStyles: {
+          0: { cellWidth: 15, halign: "center", fontStyle: "bold" },
+          1: { cellWidth: 70 },
+          2: { cellWidth: 55 },
+          3: { cellWidth: 35, halign: "right", fontStyle: "bold" },
+        },
+        alternateRowStyles: {
+          fillColor: [240, 253, 244] // bg-green-50
+        },
+        didParseCell: (data) => {
+          // Destacar valores de negociação
+          if (data.column.index === 3 && data.section === "body") {
+            const cellText = String(data.cell.raw);
+            if (cellText.includes("*")) {
+              data.cell.styles.textColor = [22, 163, 74];
+            }
+          }
+        },
       });
+
+      // Legenda no resumo
+      const finalY = (doc as any).lastAutoTable.finalY + 10;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(22, 163, 74);
+      doc.text("* Valor obtido por negociação", margin, finalY);
+      doc.setTextColor(0, 0, 0);
 
       doc.save(`planilha-lances-selecao.pdf`);
       toast.success("Planilha de lances gerada com sucesso!");
@@ -1039,29 +1149,39 @@ export function DialogSessaoLances({
                     <ScrollArea className="h-full">
                       <Table>
                         <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs">Item</TableHead>
-                            <TableHead className="text-xs">Fornecedor</TableHead>
-                            <TableHead className="text-xs text-right">Valor</TableHead>
-                            <TableHead className="text-xs">Rodada</TableHead>
-                            <TableHead className="text-xs">Data/Hora</TableHead>
+                          <TableRow className="bg-primary/10">
+                            <TableHead className="text-xs font-bold">Item</TableHead>
+                            <TableHead className="text-xs font-bold">Fornecedor</TableHead>
+                            <TableHead className="text-xs font-bold text-right">Valor</TableHead>
+                            <TableHead className="text-xs font-bold">Data/Hora</TableHead>
                             <TableHead className="text-xs w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {lances.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={6} className="text-center text-muted-foreground text-xs">
+                              <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
                                 Nenhum lance registrado
                               </TableCell>
                             </TableRow>
                           ) : (
                             lances.map((lance) => (
-                              <TableRow key={lance.id} className={lance.indicativo_lance_vencedor ? "bg-yellow-50" : ""}>
+                              <TableRow key={lance.id} className={lance.indicativo_lance_vencedor ? "bg-yellow-50 dark:bg-yellow-950" : ""}>
                                 <TableCell className="text-xs font-medium">{lance.numero_item || "-"}</TableCell>
-                                <TableCell className="text-xs">{lance.fornecedores?.razao_social}</TableCell>
-                                <TableCell className="text-xs text-right font-bold">{formatCurrency(lance.valor_lance)}</TableCell>
-                                <TableCell className="text-xs">{lance.numero_rodada || 1}</TableCell>
+                                <TableCell className="text-xs">
+                                  <div>{lance.fornecedores?.razao_social}</div>
+                                  <div className="text-muted-foreground text-[10px]">{formatCNPJ(lance.fornecedores?.cnpj || "")}</div>
+                                </TableCell>
+                                <TableCell className="text-xs text-right">
+                                  <span className={`font-bold ${lance.tipo_lance === "negociacao" ? "text-green-600" : ""}`}>
+                                    {formatCurrency(lance.valor_lance)}
+                                  </span>
+                                  {lance.tipo_lance === "negociacao" && (
+                                    <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-300">
+                                      Neg.
+                                    </Badge>
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
                                 <TableCell className="text-xs">
                                   <Button
@@ -1090,32 +1210,41 @@ export function DialogSessaoLances({
                             <p className="text-xs text-muted-foreground">
                               {itens.find(i => i.numero_item === itemSelecionadoLances)?.descricao}
                             </p>
-                            <p className="text-xs mt-1">Rodadas: {getRodadasItem(itemSelecionadoLances)}</p>
                           </div>
                           <Table>
                             <TableHeader>
-                              <TableRow>
-                                <TableHead className="text-xs">Pos.</TableHead>
-                                <TableHead className="text-xs">Fornecedor</TableHead>
-                                <TableHead className="text-xs">CNPJ</TableHead>
-                                <TableHead className="text-xs text-right">Valor</TableHead>
-                                <TableHead className="text-xs">Rodada</TableHead>
+                              <TableRow className="bg-primary/10">
+                                <TableHead className="text-xs font-bold">Pos.</TableHead>
+                                <TableHead className="text-xs font-bold">Fornecedor</TableHead>
+                                <TableHead className="text-xs font-bold text-right">Valor</TableHead>
+                                <TableHead className="text-xs font-bold">Data/Hora</TableHead>
                                 <TableHead className="text-xs w-10"></TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {getLancesDoItem(itemSelecionadoLances).map((lance, idx) => (
-                                <TableRow key={lance.id} className={idx === 0 ? "bg-yellow-50" : ""}>
+                                <TableRow key={lance.id} className={idx === 0 ? "bg-yellow-50 dark:bg-yellow-950" : ""}>
                                   <TableCell className="text-xs">
                                     <div className="flex items-center gap-1">
                                       {idx === 0 && <Trophy className="h-3 w-3 text-yellow-600" />}
                                       {idx + 1}º
                                     </div>
                                   </TableCell>
-                                  <TableCell className="text-xs">{lance.fornecedores?.razao_social}</TableCell>
-                                  <TableCell className="text-xs">{formatCNPJ(lance.fornecedores?.cnpj || "")}</TableCell>
-                                  <TableCell className="text-xs text-right font-bold">{formatCurrency(lance.valor_lance)}</TableCell>
-                                  <TableCell className="text-xs">{lance.numero_rodada || 1}</TableCell>
+                                  <TableCell className="text-xs">
+                                    <div>{lance.fornecedores?.razao_social}</div>
+                                    <div className="text-muted-foreground text-[10px]">{formatCNPJ(lance.fornecedores?.cnpj || "")}</div>
+                                  </TableCell>
+                                  <TableCell className="text-xs text-right">
+                                    <span className={`font-bold ${lance.tipo_lance === "negociacao" ? "text-green-600" : ""}`}>
+                                      {formatCurrency(lance.valor_lance)}
+                                    </span>
+                                    {lance.tipo_lance === "negociacao" && (
+                                      <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-300">
+                                        Neg.
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
                                   <TableCell className="text-xs">
                                     <Button
                                       variant="ghost"
@@ -1130,7 +1259,7 @@ export function DialogSessaoLances({
                               ))}
                               {getLancesDoItem(itemSelecionadoLances).length === 0 && (
                                 <TableRow>
-                                  <TableCell colSpan={6} className="text-center text-muted-foreground text-xs">
+                                  <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
                                     Nenhum lance para este item
                                   </TableCell>
                                 </TableRow>
