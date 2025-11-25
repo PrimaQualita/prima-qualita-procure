@@ -872,8 +872,8 @@ export function DialogSessaoLances({
         // Logo no topo - largura com margem de 1.5mm em cada lado
         const logoMargin = 4.25; // 1.5mm em pontos PDF
         doc.addImage(base64Logo, 'PNG', logoMargin, 0, pageWidth - (logoMargin * 2), logoHeight);
-        // Rodapé no fim - largura total da página
-        doc.addImage(base64Rodape, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
+        // Rodapé no fim - largura com margem de 1.5mm em cada lado
+        doc.addImage(base64Rodape, 'PNG', logoMargin, pageHeight - rodapeHeight, pageWidth - (logoMargin * 2), rodapeHeight);
         yStart = logoHeight + 10; // Aumentar espaçamento entre logo e título
       } catch (logoError) {
         console.warn('Imagem não carregou, usando cabeçalho alternativo:', logoError);
@@ -896,7 +896,8 @@ export function DialogSessaoLances({
             doc.addImage(base64Logo, 'PNG', logoMargin, 0, pageWidth - (logoMargin * 2), logoHeight);
           }
           if (base64Rodape) {
-            doc.addImage(base64Rodape, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
+            const logoMargin = 4.25; // 1.5mm em pontos PDF
+            doc.addImage(base64Rodape, 'PNG', logoMargin, pageHeight - rodapeHeight, pageWidth - (logoMargin * 2), rodapeHeight);
           }
         }
       };
