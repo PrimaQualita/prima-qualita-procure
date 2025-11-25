@@ -754,27 +754,40 @@ const SistemaLancesFornecedor = () => {
                         // Não mostrar itens em negociação aqui se não for para este fornecedor
                         if (emNegociacao && !negociacaoParaMim) return null;
                         
+                        const isSelected = itemSelecionado === numeroItem;
+                        
                         return (
                           <Button
                             key={numeroItem}
                             onClick={() => setItemSelecionado(numeroItem)}
-                            variant={itemSelecionado === numeroItem ? "default" : "outline"}
-                            className={`gap-2 ${
+                            variant="outline"
+                            className={`gap-2 relative transition-all ${
+                              isSelected 
+                                ? 'ring-2 ring-primary ring-offset-2 border-primary bg-primary/10 shadow-md' 
+                                : ''
+                            } ${
                               emNegociacao && negociacaoParaMim 
-                                ? 'border-amber-500 bg-amber-50 hover:bg-amber-100' 
+                                ? isSelected 
+                                  ? 'border-amber-500 bg-amber-100 ring-amber-500' 
+                                  : 'border-amber-500 bg-amber-50 hover:bg-amber-100'
                                 : emFechamento 
-                                  ? 'border-orange-500 bg-orange-50 hover:bg-orange-100' 
+                                  ? isSelected 
+                                    ? 'border-orange-500 bg-orange-100 ring-orange-500' 
+                                    : 'border-orange-500 bg-orange-50 hover:bg-orange-100'
                                   : ''
                             }`}
                             size="lg"
                           >
+                            {isSelected && (
+                              <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-background" />
+                            )}
                             {emNegociacao ? (
                               <Trophy className="h-4 w-4 text-amber-600" />
                             ) : (
-                              <Unlock className="h-4 w-4" />
+                              <Unlock className={`h-4 w-4 ${isSelected ? 'text-primary' : ''}`} />
                             )}
                             <div className="flex flex-col items-start">
-                              <span>Item {numeroItem}</span>
+                              <span className={isSelected ? 'font-bold' : ''}>Item {numeroItem}</span>
                               {emNegociacao && negociacaoParaMim && (
                                 <span className="text-xs text-amber-600 font-semibold">
                                   Negociação
