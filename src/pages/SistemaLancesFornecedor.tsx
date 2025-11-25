@@ -44,6 +44,7 @@ const SistemaLancesFornecedor = () => {
   const [menorValorPropostas, setMenorValorPropostas] = useState<Map<number, number>>(new Map());
   const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map());
   const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map());
+  const [mensagensNaoLidas, setMensagensNaoLidas] = useState<Map<number, number>>(new Map());
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
 
@@ -54,9 +55,10 @@ const SistemaLancesFornecedor = () => {
   }, [propostaId]);
 
   useEffect(() => {
-    if (selecao?.id) {
+    if (selecao?.id && proposta?.fornecedor_id) {
       loadItensAbertos();
       loadLances();
+      loadMensagensNaoLidas();
 
       // Subscrição em tempo real para lances
       const channel = supabase
@@ -95,19 +97,85 @@ const SistemaLancesFornecedor = () => {
           console.log("Status da subscrição itens_abertos:", status);
         });
 
+      // Subscrição para mensagens de negociação - Realtime
+      const channelMensagens = supabase
+        .channel(`mensagens_negociacao_${selecao.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "mensagens_negociacao",
+            filter: `selecao_id=eq.${selecao.id}`,
+          },
+          (payload: any) => {
+            // Só incrementar se a mensagem for do gestor (não do próprio fornecedor)
+            if (payload.new && payload.new.tipo_remetente === 'gestor') {
+              const numeroItem = payload.new.numero_item;
+              // Não incrementar se o chat do item está aberto
+              if (itemSelecionado !== numeroItem) {
+                setMensagensNaoLidas(prev => {
+                  const novo = new Map(prev);
+                  novo.set(numeroItem, (prev.get(numeroItem) || 0) + 1);
+                  return novo;
+                });
+              }
+            }
+          }
+        )
+        .subscribe();
+
       // Polling como fallback a cada 3 segundos para garantir sincronização de itens e lances
       const pollingInterval = setInterval(() => {
         loadItensAbertos();
-        loadLances(); // Também atualiza lances para garantir valor mínimo atualizado
+        loadLances();
       }, 3000);
 
       return () => {
         supabase.removeChannel(channel);
         supabase.removeChannel(channelItens);
+        supabase.removeChannel(channelMensagens);
         clearInterval(pollingInterval);
       };
     }
-  }, [selecao?.id]);
+  }, [selecao?.id, proposta?.fornecedor_id, itemSelecionado]);
+
+  // Limpar mensagens não lidas quando abrir o chat de um item
+  useEffect(() => {
+    if (itemSelecionado !== null) {
+      setMensagensNaoLidas(prev => {
+        const novo = new Map(prev);
+        novo.delete(itemSelecionado);
+        return novo;
+      });
+    }
+  }, [itemSelecionado]);
+
+  const loadMensagensNaoLidas = async () => {
+    if (!selecao?.id || !proposta?.fornecedor_id) return;
+    
+    try {
+      // Buscar contagem de mensagens do gestor para cada item em negociação
+      const { data, error } = await supabase
+        .from("mensagens_negociacao")
+        .select("numero_item")
+        .eq("selecao_id", selecao.id)
+        .eq("fornecedor_id", proposta.fornecedor_id)
+        .eq("tipo_remetente", "gestor");
+
+      if (error) throw error;
+
+      // Contar mensagens por item
+      const contagem = new Map<number, number>();
+      data?.forEach((msg: any) => {
+        contagem.set(msg.numero_item, (contagem.get(msg.numero_item) || 0) + 1);
+      });
+      
+      setMensagensNaoLidas(contagem);
+    } catch (error) {
+      console.error("Erro ao carregar mensagens não lidas:", error);
+    }
+  };
 
   // Atualizar countdown visual a cada 100ms para suavidade
   useEffect(() => {
@@ -862,11 +930,16 @@ const SistemaLancesFornecedor = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="w-full h-7 text-xs border-amber-300"
+                                  className="w-full h-7 text-xs border-amber-300 relative"
                                   onClick={() => setItemSelecionado(numeroItem)}
                                 >
                                   <MessageSquare className="h-3 w-3 mr-1" />
                                   Abrir Chat
+                                  {(mensagensNaoLidas.get(numeroItem) || 0) > 0 && (
+                                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                                      {mensagensNaoLidas.get(numeroItem)}
+                                    </span>
+                                  )}
                                 </Button>
                               )}
                             </>
