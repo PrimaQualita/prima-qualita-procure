@@ -910,8 +910,8 @@ export function DialogSessaoLances({
       const numeroSelecao = selecaoData?.numero_selecao || "-";
       const numeroProcesso = (selecaoData?.processos_compras as any)?.numero_processo_interno || "-";
 
-      // Título principal
-      doc.setTextColor(22, 163, 74);
+      // Título principal - verde do logo
+      doc.setTextColor(0, 128, 128);
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text(`MAPA RESUMO DA SELEÇÃO DE FORNECEDORES ${numeroSelecao}`, landscapeWidth / 2, resumoStartY + 5, { align: "center" });
@@ -1000,12 +1000,14 @@ export function DialogSessaoLances({
         styles: { 
           fontSize: 8,
           cellPadding: 3,
+          valign: "middle", // Centralizar verticalmente
         },
         headStyles: { 
-          fillColor: [22, 163, 74], 
+          fillColor: [0, 128, 128], // Verde do logo
           textColor: 255,
           fontStyle: "bold",
-          halign: "center"
+          halign: "center",
+          valign: "middle"
         },
         columnStyles: {
           0: { cellWidth: 15, halign: "center", fontStyle: "bold" },
@@ -1018,7 +1020,7 @@ export function DialogSessaoLances({
           7: { cellWidth: 30, halign: "right", fontStyle: "bold" },
         },
         alternateRowStyles: {
-          fillColor: [240, 253, 244] // bg-green-50
+          fillColor: [224, 242, 241] // Verde claro do logo
         },
         margin: { top: logoResumoHeight + 20 },
         didDrawPage: () => {
@@ -1037,12 +1039,12 @@ export function DialogSessaoLances({
           if ((data.column.index === 6 || data.column.index === 7) && data.section === "body") {
             const cellText = String(data.cell.raw);
             if (cellText.includes("*")) {
-              data.cell.styles.textColor = [22, 163, 74];
+              data.cell.styles.textColor = [0, 128, 128]; // Verde do logo
             }
           }
           // Estilizar linha de total
           if (data.section === "body" && data.row.index === resumoData.length - 1) {
-            data.cell.styles.fillColor = [22, 163, 74];
+            data.cell.styles.fillColor = [0, 128, 128]; // Verde do logo
             data.cell.styles.textColor = [255, 255, 255];
             data.cell.styles.fontStyle = "bold";
           }
@@ -1053,7 +1055,7 @@ export function DialogSessaoLances({
       let finalY = (doc as any).lastAutoTable.finalY + 10;
       doc.setFontSize(8);
       doc.setFont("helvetica", "italic");
-      doc.setTextColor(22, 163, 74);
+      doc.setTextColor(0, 128, 128); // Verde do logo
       doc.text("* Valor obtido por negociação", margin, finalY);
       doc.setTextColor(0, 0, 0);
 
@@ -1093,7 +1095,7 @@ export function DialogSessaoLances({
         
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(22, 163, 74);
+        doc.setTextColor(0, 128, 128); // Verde do logo
         doc.text("RESUMO POR FORNECEDOR", landscapeWidth / 2, finalY, { align: "center" });
         doc.setTextColor(0, 0, 0);
 
@@ -1105,19 +1107,21 @@ export function DialogSessaoLances({
           styles: { 
             fontSize: 9,
             cellPadding: 4,
+            valign: "middle", // Centralizar verticalmente
           },
           headStyles: { 
-            fillColor: [22, 163, 74], 
+            fillColor: [0, 128, 128], // Verde do logo
             textColor: 255,
             fontStyle: "bold",
-            halign: "center"
+            halign: "center",
+            valign: "middle"
           },
           columnStyles: {
-            0: { halign: "left" },
-            1: { halign: "right", fontStyle: "bold" },
+            0: { halign: "left", valign: "middle" },
+            1: { halign: "right", fontStyle: "bold", valign: "middle" },
           },
           alternateRowStyles: {
-            fillColor: [240, 253, 244]
+            fillColor: [224, 242, 241] // Verde claro do logo
           },
           margin: { left: margin, right: margin, top: logoResumoHeight + 20 },
           didDrawPage: () => {
@@ -1134,7 +1138,7 @@ export function DialogSessaoLances({
           didParseCell: (data) => {
             // Estilizar linha de total
             if (data.section === "body" && data.row.index === resumoFornecedoresData.length - 1) {
-              data.cell.styles.fillColor = [22, 163, 74];
+              data.cell.styles.fillColor = [0, 128, 128]; // Verde do logo
               data.cell.styles.textColor = [255, 255, 255];
               data.cell.styles.fontStyle = "bold";
             }
