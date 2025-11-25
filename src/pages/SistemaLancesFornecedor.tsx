@@ -40,6 +40,7 @@ const SistemaLancesFornecedor = () => {
   const [valorLance, setValorLance] = useState<string>("");
   const [itemSelecionado, setItemSelecionado] = useState<number | null>(null);
   const [itensEstimados, setItensEstimados] = useState<Map<number, number>>(new Map());
+  const [menorValorPropostas, setMenorValorPropostas] = useState<Map<number, number>>(new Map()); // Menor valor ofertado por item das propostas
   const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map()); // Map<numeroItem, tempoExpiracao>
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
@@ -186,6 +187,38 @@ const SistemaLancesFornecedor = () => {
         }
       }
 
+      // Buscar o menor valor de cada item das propostas de TODOS os fornecedores da seleção
+      const { data: todasPropostas, error: propostasError } = await supabase
+        .from("selecao_propostas_fornecedor")
+        .select(`
+          id,
+          selecao_respostas_itens_fornecedor (
+            numero_item,
+            valor_unitario_ofertado
+          )
+        `)
+        .eq("selecao_id", propostaData.selecoes_fornecedores.id);
+
+      if (!propostasError && todasPropostas) {
+        const mapaMenorValor = new Map<number, number>();
+        
+        todasPropostas.forEach((prop: any) => {
+          if (prop.selecao_respostas_itens_fornecedor) {
+            prop.selecao_respostas_itens_fornecedor.forEach((item: any) => {
+              if (item.valor_unitario_ofertado > 0) {
+                const valorAtual = mapaMenorValor.get(item.numero_item);
+                if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
+                  mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
+                }
+              }
+            });
+          }
+        });
+
+        console.log('Menor valor das propostas por item:', Object.fromEntries(mapaMenorValor));
+        setMenorValorPropostas(mapaMenorValor);
+      }
+
       // Verificar se ainda é editável (5 minutos antes da sessão)
       const dataHoraSelecao = new Date(`${propostaData.selecoes_fornecedores.data_sessao_disputa}T${propostaData.selecoes_fornecedores.hora_sessao_disputa}`);
       const cincoMinutosAntes = new Date(dataHoraSelecao.getTime() - 5 * 60 * 1000);
@@ -321,22 +354,28 @@ const SistemaLancesFornecedor = () => {
 
   const getValorMinimoAtual = (numeroItem: number) => {
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
+    const valorMenorProposta = menorValorPropostas.get(numeroItem) || 0;
     const lancesDoItem = getLancesDoItem(numeroItem);
     
     // Filtrar apenas lances classificados (menores ou iguais ao estimado)
     const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
     
-    if (lancesClassificados.length === 0) {
-      // Se não há lances classificados, retornar o valor estimado
-      return valorEstimado;
+    if (lancesClassificados.length > 0) {
+      // Retornar o menor lance classificado
+      const valoresOrdenados = lancesClassificados
+        .map(l => l.valor_lance)
+        .sort((a, b) => a - b);
+      
+      return valoresOrdenados[0];
     }
     
-    // Retornar o menor lance classificado
-    const valoresOrdenados = lancesClassificados
-      .map(l => l.valor_lance)
-      .sort((a, b) => a - b);
+    // Se não há lances, usar o menor valor das propostas dos fornecedores
+    if (valorMenorProposta > 0) {
+      return valorMenorProposta;
+    }
     
-    return valoresOrdenados[0];
+    // Fallback para o valor estimado se não houver propostas
+    return valorEstimado;
   };
 
   const handleEnviarLance = async () => {
