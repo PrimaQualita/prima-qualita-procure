@@ -950,6 +950,66 @@ export type Database = {
           },
         ]
       }
+      fornecedores_inabilitados_selecao: {
+        Row: {
+          created_at: string | null
+          data_inabilitacao: string
+          data_reversao: string | null
+          fornecedor_id: string
+          id: string
+          itens_afetados: number[]
+          motivo_inabilitacao: string
+          motivo_reversao: string | null
+          revertido: boolean | null
+          selecao_id: string
+          usuario_inabilitou_id: string
+          usuario_reverteu_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_inabilitacao?: string
+          data_reversao?: string | null
+          fornecedor_id: string
+          id?: string
+          itens_afetados?: number[]
+          motivo_inabilitacao: string
+          motivo_reversao?: string | null
+          revertido?: boolean | null
+          selecao_id: string
+          usuario_inabilitou_id: string
+          usuario_reverteu_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_inabilitacao?: string
+          data_reversao?: string | null
+          fornecedor_id?: string
+          id?: string
+          itens_afetados?: number[]
+          motivo_inabilitacao?: string
+          motivo_reversao?: string | null
+          revertido?: boolean | null
+          selecao_id?: string
+          usuario_inabilitou_id?: string
+          usuario_reverteu_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fornecedores_inabilitados_selecao_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fornecedores_inabilitados_selecao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores_rejeitados_cotacao: {
         Row: {
           cotacao_id: string

@@ -26,6 +26,14 @@ interface MensagemNegociacao {
   numero_item: number;
 }
 
+interface FornecedorInabilitado {
+  razao_social: string;
+  cnpj: string;
+  itens_afetados: number[];
+  motivo_inabilitacao: string;
+  data_inabilitacao: string;
+}
+
 const formatarProtocoloExibicao = (uuid: string): string => {
   const limpo = uuid.replace(/-/g, '').toUpperCase().substring(0, 16);
   return `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
@@ -177,6 +185,29 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     tipo_remetente: m.tipo_remetente,
     fornecedor_nome: (m.fornecedores as any)?.razao_social || 'Fornecedor',
     numero_item: m.numero_item
+  }));
+
+  // Buscar fornecedores inabilitados
+  const { data: inabilitados, error: inabilitadosError } = await supabase
+    .from('fornecedores_inabilitados_selecao')
+    .select(`
+      itens_afetados,
+      motivo_inabilitacao,
+      data_inabilitacao,
+      fornecedores (
+        razao_social,
+        cnpj
+      )
+    `)
+    .eq('selecao_id', selecaoId)
+    .eq('revertido', false);
+
+  const fornecedoresInabilitados: FornecedorInabilitado[] = (inabilitados || []).map((inab: any) => ({
+    razao_social: inab.fornecedores?.razao_social || '',
+    cnpj: inab.fornecedores?.cnpj || '',
+    itens_afetados: inab.itens_afetados || [],
+    motivo_inabilitacao: inab.motivo_inabilitacao,
+    data_inabilitacao: inab.data_inabilitacao
   }));
 
   // Buscar data/hora de início (primeiro item aberto ou primeira mensagem)
@@ -332,24 +363,26 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  // RESULTADO - Vencedores por item
+  // HABILITADOS - Vencedores por item
   checkNewPage(60);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("RESULTADO", marginLeft, currentY);
+  doc.text("HABILITADOS", marginLeft, currentY);
   currentY += 6;
 
   if (itensVencedores.length > 0) {
     // Agrupar por fornecedor
-    const vencedoresPorFornecedor: Record<string, { nome: string; itens: number[] }> = {};
+    const vencedoresPorFornecedor: Record<string, { nome: string; itens: number[]; valores: number[] }> = {};
     itensVencedores.forEach(item => {
       if (!vencedoresPorFornecedor[item.fornecedor_id]) {
         vencedoresPorFornecedor[item.fornecedor_id] = {
           nome: item.fornecedor_nome,
-          itens: []
+          itens: [],
+          valores: []
         };
       }
       vencedoresPorFornecedor[item.fornecedor_id].itens.push(item.numero_item);
+      vencedoresPorFornecedor[item.fornecedor_id].valores.push(item.valor_final);
     });
 
     doc.setFontSize(10);
@@ -357,7 +390,8 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
     Object.values(vencedoresPorFornecedor).forEach(fornecedor => {
       const itensStr = fornecedor.itens.sort((a, b) => a - b).join(', ');
-      const textoVencedor = `A empresa ${fornecedor.nome} foi declarada VENCEDORA dos itens: ${itensStr}.`;
+      const valorTotal = fornecedor.valores.reduce((a, b) => a + b, 0);
+      const textoVencedor = `A empresa ${fornecedor.nome} foi declarada HABILITADA e VENCEDORA dos itens: ${itensStr}. Valor total: ${formatarMoeda(valorTotal)}.`;
       const linhas = doc.splitTextToSize(textoVencedor, contentWidth);
       linhas.forEach((linha: string) => {
         checkNewPage(6);
@@ -369,10 +403,46 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   } else {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("Nenhum vencedor definido até o momento.", marginLeft, currentY);
+    doc.text("Nenhum fornecedor habilitado até o momento.", marginLeft, currentY);
     currentY += 6;
   }
   currentY += 6;
+
+  // INABILITADOS
+  if (fornecedoresInabilitados.length > 0) {
+    checkNewPage(60);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("INABILITADOS", marginLeft, currentY);
+    currentY += 6;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+
+    fornecedoresInabilitados.forEach(inab => {
+      checkNewPage(20);
+      const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
+      const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA nos itens: ${itensStr}.`;
+      const linhas = doc.splitTextToSize(textoInab, contentWidth);
+      linhas.forEach((linha: string) => {
+        doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
+        currentY += 5;
+      });
+      
+      // Motivo da inabilitação
+      const motivoTexto = `Motivo: ${inab.motivo_inabilitacao}`;
+      const motivoLinhas = doc.splitTextToSize(motivoTexto, contentWidth - 10);
+      doc.setFont("helvetica", "italic");
+      motivoLinhas.forEach((linha: string) => {
+        checkNewPage(5);
+        doc.text(linha, marginLeft + 10, currentY);
+        currentY += 5;
+      });
+      doc.setFont("helvetica", "normal");
+      currentY += 4;
+    });
+    currentY += 4;
+  }
 
   // NEGOCIAÇÃO - Chat
   if (mensagensNegociacao.length > 0) {
@@ -500,6 +570,6 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   return {
     url: publicUrl,
     nome: nomeArquivo,
-    protocolo: protocoloFormatado,
+    protocolo: protocoloFormatado
   };
 }

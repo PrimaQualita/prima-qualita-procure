@@ -15,15 +15,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Clock, XCircle, RefreshCw, Undo2 } from "lucide-react";
+import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Clock, XCircle, RefreshCw, Undo2, UserX, UserCheck, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -67,11 +69,28 @@ interface FornecedorVencedor {
   valorTotal: number;
 }
 
+interface FornecedorInabilitado {
+  id: string;
+  fornecedor_id: string;
+  itens_afetados: number[];
+  motivo_inabilitacao: string;
+  data_inabilitacao: string;
+  revertido: boolean;
+}
+
 interface FornecedorData {
   fornecedor: FornecedorVencedor;
   documentosExistentes: DocumentoExistente[];
   campos: CampoDocumento[];
   todosDocumentosAprovados: boolean;
+  inabilitado?: FornecedorInabilitado;
+}
+
+interface SegundoColocado {
+  numero_item: number;
+  fornecedor_id: string;
+  fornecedor_nome: string;
+  valor_lance: number;
 }
 
 interface DialogAnaliseDocumentalSelecaoProps {
@@ -89,12 +108,24 @@ export function DialogAnaliseDocumentalSelecao({
 }: DialogAnaliseDocumentalSelecaoProps) {
   const [loading, setLoading] = useState(false);
   const [fornecedoresData, setFornecedoresData] = useState<FornecedorData[]>([]);
+  const [fornecedoresInabilitados, setFornecedoresInabilitados] = useState<FornecedorData[]>([]);
   const [novosCampos, setNovosCampos] = useState<Record<string, {nome: string; descricao: string; obrigatorio: boolean}>>({});
   const [datasLimiteDocumentos, setDatasLimiteDocumentos] = useState<Record<string, string>>({});
   const [documentosAprovados, setDocumentosAprovados] = useState<Record<string, boolean>>({});
   const [dialogSolicitarAtualizacao, setDialogSolicitarAtualizacao] = useState(false);
   const [documentoParaAtualizar, setDocumentoParaAtualizar] = useState<{ doc: DocumentoExistente; fornecedorId: string } | null>(null);
   const [motivoAtualizacao, setMotivoAtualizacao] = useState("");
+  
+  // States para inabilitação
+  const [dialogInabilitar, setDialogInabilitar] = useState(false);
+  const [fornecedorParaInabilitar, setFornecedorParaInabilitar] = useState<FornecedorData | null>(null);
+  const [motivoInabilitacao, setMotivoInabilitacao] = useState("");
+  const [segundosColocados, setSegundosColocados] = useState<SegundoColocado[]>([]);
+  
+  // State para reverter inabilitação
+  const [dialogReverterInabilitacao, setDialogReverterInabilitacao] = useState(false);
+  const [inabilitacaoParaReverter, setInabilitacaoParaReverter] = useState<FornecedorData | null>(null);
+  const [motivoReversao, setMotivoReversao] = useState("");
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -123,6 +154,27 @@ export function DialogAnaliseDocumentalSelecao({
         .eq("indicativo_lance_vencedor", true);
 
       if (vencedoresError) throw vencedoresError;
+
+      // Buscar inabilitações ativas
+      const { data: inabilitacoes, error: inabilitacoesError } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoId)
+        .eq("revertido", false);
+
+      if (inabilitacoesError) throw inabilitacoesError;
+
+      const inabilitacoesMap = new Map<string, FornecedorInabilitado>();
+      (inabilitacoes || []).forEach((inab: any) => {
+        inabilitacoesMap.set(inab.fornecedor_id, {
+          id: inab.id,
+          fornecedor_id: inab.fornecedor_id,
+          itens_afetados: inab.itens_afetados,
+          motivo_inabilitacao: inab.motivo_inabilitacao,
+          data_inabilitacao: inab.data_inabilitacao,
+          revertido: inab.revertido,
+        });
+      });
 
       // Agrupar por fornecedor
       const fornecedoresMap = new Map<string, FornecedorVencedor>();
@@ -160,18 +212,24 @@ export function DialogAnaliseDocumentalSelecao({
             documentosExistentes: docs,
             campos: campos,
             todosDocumentosAprovados: todosAprovados,
+            inabilitado: inabilitacoesMap.get(forn.id),
           };
         })
       );
 
+      // Separar habilitados e inabilitados
+      const habilitados = fornecedoresComDados.filter(f => !f.inabilitado);
+      const inabilitados = fornecedoresComDados.filter(f => f.inabilitado);
+
       // Ordenar por menor item vencedor
-      fornecedoresComDados.sort((a, b) => {
+      habilitados.sort((a, b) => {
         const menorA = Math.min(...a.fornecedor.itensVencedores);
         const menorB = Math.min(...b.fornecedor.itensVencedores);
         return menorA - menorB;
       });
 
-      setFornecedoresData(fornecedoresComDados);
+      setFornecedoresData(habilitados);
+      setFornecedoresInabilitados(inabilitados);
     } catch (error) {
       console.error("Erro ao carregar fornecedores vencedores:", error);
       toast.error("Erro ao carregar fornecedores vencedores");
@@ -309,7 +367,7 @@ export function DialogAnaliseDocumentalSelecao({
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .insert({
-          cotacao_id: selecaoId, // Reutilizando a estrutura existente
+          cotacao_id: selecaoId,
           fornecedor_id: fornecedorId,
           nome_campo: novoCampo.nome,
           descricao: novoCampo.descricao || "",
@@ -370,6 +428,493 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
+  const buscarSegundosColocados = async (itens: number[]) => {
+    try {
+      const segundos: SegundoColocado[] = [];
+      
+      for (const item of itens) {
+        // Buscar todos os lances do item ordenados por valor (menor primeiro)
+        const { data: lances, error } = await supabase
+          .from("lances_fornecedores")
+          .select(`
+            valor_lance,
+            fornecedor_id,
+            fornecedores (razao_social)
+          `)
+          .eq("selecao_id", selecaoId)
+          .eq("numero_item", item)
+          .order("valor_lance", { ascending: true });
+        
+        if (error) throw error;
+        
+        // O segundo lance é o segundo colocado
+        if (lances && lances.length > 1) {
+          segundos.push({
+            numero_item: item,
+            fornecedor_id: lances[1].fornecedor_id,
+            fornecedor_nome: (lances[1].fornecedores as any)?.razao_social || "N/A",
+            valor_lance: lances[1].valor_lance,
+          });
+        }
+      }
+      
+      setSegundosColocados(segundos);
+      return segundos;
+    } catch (error) {
+      console.error("Erro ao buscar segundos colocados:", error);
+      return [];
+    }
+  };
+
+  const handleAbrirInabilitacao = async (data: FornecedorData) => {
+    setFornecedorParaInabilitar(data);
+    setMotivoInabilitacao("");
+    await buscarSegundosColocados(data.fornecedor.itensVencedores);
+    setDialogInabilitar(true);
+  };
+
+  const handleInabilitarFornecedor = async () => {
+    if (!fornecedorParaInabilitar || !motivoInabilitacao.trim()) {
+      toast.error("Informe o motivo da inabilitação");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      // Registrar inabilitação
+      const { error: inabError } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .insert({
+          selecao_id: selecaoId,
+          fornecedor_id: fornecedorParaInabilitar.fornecedor.id,
+          itens_afetados: fornecedorParaInabilitar.fornecedor.itensVencedores,
+          motivo_inabilitacao: motivoInabilitacao,
+          usuario_inabilitou_id: user.id,
+        });
+
+      if (inabError) throw inabError;
+
+      // Remover indicativo de vencedor dos itens do fornecedor inabilitado
+      const { error: removeVencedorError } = await supabase
+        .from("lances_fornecedores")
+        .update({ indicativo_lance_vencedor: false })
+        .eq("selecao_id", selecaoId)
+        .eq("fornecedor_id", fornecedorParaInabilitar.fornecedor.id)
+        .in("numero_item", fornecedorParaInabilitar.fornecedor.itensVencedores);
+
+      if (removeVencedorError) throw removeVencedorError;
+
+      // Se tiver segundos colocados, marcar como vencedores
+      for (const segundo of segundosColocados) {
+        // Verificar se o segundo colocado não está inabilitado
+        const { data: segInab } = await supabase
+          .from("fornecedores_inabilitados_selecao")
+          .select("id")
+          .eq("selecao_id", selecaoId)
+          .eq("fornecedor_id", segundo.fornecedor_id)
+          .eq("revertido", false)
+          .single();
+
+        if (!segInab) {
+          // Marcar segundo colocado como vencedor
+          const { error: setVencedorError } = await supabase
+            .from("lances_fornecedores")
+            .update({ indicativo_lance_vencedor: true })
+            .eq("selecao_id", selecaoId)
+            .eq("fornecedor_id", segundo.fornecedor_id)
+            .eq("numero_item", segundo.numero_item);
+
+          if (setVencedorError) {
+            console.error("Erro ao marcar segundo colocado:", setVencedorError);
+          }
+        }
+      }
+
+      toast.success("Fornecedor inabilitado. Segundos colocados assumem os itens.");
+      setDialogInabilitar(false);
+      setFornecedorParaInabilitar(null);
+      setMotivoInabilitacao("");
+      setSegundosColocados([]);
+      loadFornecedoresVencedores();
+      onSuccess?.();
+    } catch (error) {
+      console.error("Erro ao inabilitar fornecedor:", error);
+      toast.error("Erro ao inabilitar fornecedor");
+    }
+  };
+
+  const handleReverterInabilitacao = async () => {
+    if (!inabilitacaoParaReverter?.inabilitado) {
+      toast.error("Inabilitação não encontrada");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      // Reverter a inabilitação
+      const { error: revertError } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .update({
+          revertido: true,
+          data_reversao: new Date().toISOString(),
+          motivo_reversao: motivoReversao || "Reversão solicitada pelo gestor",
+          usuario_reverteu_id: user.id,
+        })
+        .eq("id", inabilitacaoParaReverter.inabilitado.id);
+
+      if (revertError) throw revertError;
+
+      // Remover indicativo de vencedor dos segundos colocados que assumiram
+      for (const item of inabilitacaoParaReverter.inabilitado.itens_afetados) {
+        // Primeiro, remover vencedor atual do item
+        await supabase
+          .from("lances_fornecedores")
+          .update({ indicativo_lance_vencedor: false })
+          .eq("selecao_id", selecaoId)
+          .eq("numero_item", item)
+          .eq("indicativo_lance_vencedor", true);
+      }
+
+      // Restaurar o fornecedor original como vencedor
+      const { error: restoreError } = await supabase
+        .from("lances_fornecedores")
+        .update({ indicativo_lance_vencedor: true })
+        .eq("selecao_id", selecaoId)
+        .eq("fornecedor_id", inabilitacaoParaReverter.fornecedor.id)
+        .in("numero_item", inabilitacaoParaReverter.inabilitado.itens_afetados);
+
+      if (restoreError) throw restoreError;
+
+      toast.success("Inabilitação revertida. Fornecedor restaurado como vencedor.");
+      setDialogReverterInabilitacao(false);
+      setInabilitacaoParaReverter(null);
+      setMotivoReversao("");
+      loadFornecedoresVencedores();
+      onSuccess?.();
+    } catch (error) {
+      console.error("Erro ao reverter inabilitação:", error);
+      toast.error("Erro ao reverter inabilitação");
+    }
+  };
+
+  const renderFornecedorCard = (data: FornecedorData, isInabilitado: boolean = false) => (
+    <Card key={data.fornecedor.id} className={`border-2 ${isInabilitado ? 'border-destructive/50 bg-destructive/5' : ''}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              {data.fornecedor.razao_social}
+              {isInabilitado && (
+                <Badge variant="destructive">
+                  <UserX className="h-3 w-3 mr-1" />
+                  INABILITADO
+                </Badge>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              CNPJ: {formatCNPJ(data.fornecedor.cnpj)} | Email: {data.fornecedor.email}
+            </p>
+            <p className="text-sm mt-1">
+              <span className="font-medium">Itens vencedores:</span>{" "}
+              {data.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}
+            </p>
+            <p className="text-sm">
+              <span className="font-medium">Valor total:</span>{" "}
+              {formatCurrency(data.fornecedor.valorTotal)}
+            </p>
+            {isInabilitado && data.inabilitado && (
+              <p className="text-sm text-destructive mt-2">
+                <span className="font-medium">Motivo:</span> {data.inabilitado.motivo_inabilitacao}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-2 items-end">
+            {!isInabilitado ? (
+              <>
+                <Badge variant={data.todosDocumentosAprovados ? "default" : "secondary"}>
+                  {data.todosDocumentosAprovados ? (
+                    <>
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Documentos OK
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Pendente
+                    </>
+                  )}
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleAbrirInabilitacao(data)}
+                >
+                  <UserX className="h-4 w-4 mr-1" />
+                  Inabilitar Fornecedor
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setInabilitacaoParaReverter(data);
+                  setMotivoReversao("");
+                  setDialogReverterInabilitacao(true);
+                }}
+              >
+                <Undo2 className="h-4 w-4 mr-1" />
+                Reverter Inabilitação
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      
+      {!isInabilitado && (
+        <CardContent className="space-y-4">
+          {/* Documentos do Cadastro */}
+          <div>
+            <h4 className="font-medium mb-2 flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Documentos do Cadastro
+            </h4>
+            {data.documentosExistentes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum documento cadastrado</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Validade</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.documentosExistentes.map((doc) => {
+                    const statusDoc = getStatusDocumento(doc);
+                    return (
+                      <TableRow key={doc.id}>
+                        <TableCell>{doc.tipo_documento}</TableCell>
+                        <TableCell>
+                          {doc.data_validade
+                            ? format(parseISO(doc.data_validade), "dd/MM/yyyy")
+                            : "Sem validade"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              statusDoc.status === "vencido"
+                                ? "destructive"
+                                : statusDoc.status === "proximo_vencer"
+                                ? "secondary"
+                                : "default"
+                            }
+                          >
+                            {statusDoc.label}
+                          </Badge>
+                          {doc.atualizacao_solicitada && (
+                            <Badge variant="outline" className="ml-2">
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              Atualização solicitada
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => window.open(doc.url_arquivo, "_blank")}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {(statusDoc.status === "vencido" || statusDoc.status === "proximo_vencer") && !doc.atualizacao_solicitada && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setDocumentoParaAtualizar({ doc, fornecedorId: data.fornecedor.id });
+                                  setDialogSolicitarAtualizacao(true);
+                                }}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-1" />
+                                Solicitar Atualização
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          {/* Documentos Adicionais Solicitados */}
+          {data.campos.length > 0 && (
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Documentos Adicionais Solicitados
+              </h4>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Documento</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Arquivo</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.campos.map((campo) => (
+                    <TableRow key={campo.id}>
+                      <TableCell>
+                        {campo.nome_campo}
+                        {campo.obrigatorio && <span className="text-red-500 ml-1">*</span>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            campo.status_solicitacao === "aprovado"
+                              ? "default"
+                              : campo.status_solicitacao === "em_analise"
+                              ? "secondary"
+                              : campo.status_solicitacao === "rejeitado"
+                              ? "destructive"
+                              : "outline"
+                          }
+                        >
+                          {campo.status_solicitacao === "aprovado" && <CheckCircle className="h-3 w-3 mr-1" />}
+                          {campo.status_solicitacao === "em_analise" && <Clock className="h-3 w-3 mr-1" />}
+                          {campo.status_solicitacao === "rejeitado" && <XCircle className="h-3 w-3 mr-1" />}
+                          {campo.status_solicitacao || "Pendente"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => window.open(campo.documentos_finalizacao_fornecedor![0].url_arquivo, "_blank")}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Ver
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Aguardando envio</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 && campo.status_solicitacao !== "aprovado" && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleAprovarDocumento(campo.id!)}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Aprovar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleRejeitarDocumento(campo.id!)}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Rejeitar
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {/* Solicitar Novo Documento */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <h4 className="font-medium mb-3 flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Solicitar Documento Adicional
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <Label>Nome do Documento</Label>
+                <Input
+                  placeholder="Ex: Certidão Específica"
+                  value={novosCampos[data.fornecedor.id]?.nome || ""}
+                  onChange={(e) =>
+                    setNovosCampos((prev) => ({
+                      ...prev,
+                      [data.fornecedor.id]: {
+                        ...prev[data.fornecedor.id],
+                        nome: e.target.value,
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <Label>Descrição (opcional)</Label>
+                <Input
+                  placeholder="Instruções para o fornecedor"
+                  value={novosCampos[data.fornecedor.id]?.descricao || ""}
+                  onChange={(e) =>
+                    setNovosCampos((prev) => ({
+                      ...prev,
+                      [data.fornecedor.id]: {
+                        ...prev[data.fornecedor.id],
+                        descricao: e.target.value,
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <Label>Data Limite</Label>
+                <Input
+                  type="date"
+                  value={datasLimiteDocumentos[data.fornecedor.id] || ""}
+                  onChange={(e) =>
+                    setDatasLimiteDocumentos((prev) => ({
+                      ...prev,
+                      [data.fornecedor.id]: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  className="w-full"
+                  onClick={() => handleAdicionarCampo(data.fornecedor.id)}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Solicitar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] h-[95vh]">
@@ -384,275 +929,34 @@ export function DialogAnaliseDocumentalSelecao({
           <div className="space-y-6 pr-4">
             {loading ? (
               <div className="text-center py-8">Carregando fornecedores vencedores...</div>
-            ) : fornecedoresData.length === 0 ? (
+            ) : fornecedoresData.length === 0 && fornecedoresInabilitados.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 Nenhum fornecedor vencedor identificado. Finalize a sessão de lances primeiro.
               </div>
             ) : (
-              fornecedoresData.map((data, index) => (
-                <Card key={data.fornecedor.id} className="border-2">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{data.fornecedor.razao_social}</CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          CNPJ: {formatCNPJ(data.fornecedor.cnpj)} | Email: {data.fornecedor.email}
-                        </p>
-                        <p className="text-sm mt-1">
-                          <span className="font-medium">Itens vencedores:</span>{" "}
-                          {data.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}
-                        </p>
-                        <p className="text-sm">
-                          <span className="font-medium">Valor total:</span>{" "}
-                          {formatCurrency(data.fornecedor.valorTotal)}
-                        </p>
-                      </div>
-                      <Badge variant={data.todosDocumentosAprovados ? "default" : "secondary"}>
-                        {data.todosDocumentosAprovados ? (
-                          <>
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Documentos OK
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Pendente
-                          </>
-                        )}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Documentos do Cadastro */}
-                    <div>
-                      <h4 className="font-medium mb-2 flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Documentos do Cadastro
-                      </h4>
-                      {data.documentosExistentes.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Nenhum documento cadastrado</p>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Tipo</TableHead>
-                              <TableHead>Validade</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Ações</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {data.documentosExistentes.map((doc) => {
-                              const statusDoc = getStatusDocumento(doc);
-                              return (
-                                <TableRow key={doc.id}>
-                                  <TableCell>{doc.tipo_documento}</TableCell>
-                                  <TableCell>
-                                    {doc.data_validade
-                                      ? format(parseISO(doc.data_validade), "dd/MM/yyyy")
-                                      : "Sem validade"}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge
-                                      variant={
-                                        statusDoc.status === "vencido"
-                                          ? "destructive"
-                                          : statusDoc.status === "proximo_vencer"
-                                          ? "secondary"
-                                          : "default"
-                                      }
-                                    >
-                                      {statusDoc.label}
-                                    </Badge>
-                                    {doc.atualizacao_solicitada && (
-                                      <Badge variant="outline" className="ml-2">
-                                        <RefreshCw className="h-3 w-3 mr-1" />
-                                        Atualização solicitada
-                                      </Badge>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => window.open(doc.url_arquivo, "_blank")}
-                                      >
-                                        <Eye className="h-4 w-4" />
-                                      </Button>
-                                      {(statusDoc.status === "vencido" || statusDoc.status === "proximo_vencer") && !doc.atualizacao_solicitada && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => {
-                                            setDocumentoParaAtualizar({ doc, fornecedorId: data.fornecedor.id });
-                                            setDialogSolicitarAtualizacao(true);
-                                          }}
-                                        >
-                                          <RefreshCw className="h-4 w-4 mr-1" />
-                                          Solicitar Atualização
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </div>
+              <>
+                {/* Fornecedores Habilitados */}
+                {fornecedoresData.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2 text-primary">
+                      <UserCheck className="h-5 w-5" />
+                      Fornecedores Habilitados ({fornecedoresData.length})
+                    </h3>
+                    {fornecedoresData.map((data) => renderFornecedorCard(data, false))}
+                  </div>
+                )}
 
-                    {/* Documentos Adicionais Solicitados */}
-                    {data.campos.length > 0 && (
-                      <div>
-                        <h4 className="font-medium mb-2 flex items-center gap-2">
-                          <Plus className="h-4 w-4" />
-                          Documentos Adicionais Solicitados
-                        </h4>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Documento</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Arquivo</TableHead>
-                              <TableHead>Ações</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {data.campos.map((campo) => (
-                              <TableRow key={campo.id}>
-                                <TableCell>
-                                  {campo.nome_campo}
-                                  {campo.obrigatorio && <span className="text-red-500 ml-1">*</span>}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    variant={
-                                      campo.status_solicitacao === "aprovado"
-                                        ? "default"
-                                        : campo.status_solicitacao === "em_analise"
-                                        ? "secondary"
-                                        : campo.status_solicitacao === "rejeitado"
-                                        ? "destructive"
-                                        : "outline"
-                                    }
-                                  >
-                                    {campo.status_solicitacao === "aprovado" && <CheckCircle className="h-3 w-3 mr-1" />}
-                                    {campo.status_solicitacao === "em_analise" && <Clock className="h-3 w-3 mr-1" />}
-                                    {campo.status_solicitacao === "rejeitado" && <XCircle className="h-3 w-3 mr-1" />}
-                                    {campo.status_solicitacao || "Pendente"}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 ? (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => window.open(campo.documentos_finalizacao_fornecedor![0].url_arquivo, "_blank")}
-                                    >
-                                      <Eye className="h-4 w-4 mr-1" />
-                                      Ver
-                                    </Button>
-                                  ) : (
-                                    <span className="text-muted-foreground text-sm">Aguardando envio</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 && campo.status_solicitacao !== "aprovado" && (
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        variant="default"
-                                        onClick={() => handleAprovarDocumento(campo.id!)}
-                                      >
-                                        <CheckCircle className="h-4 w-4 mr-1" />
-                                        Aprovar
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="destructive"
-                                        onClick={() => handleRejeitarDocumento(campo.id!)}
-                                      >
-                                        <XCircle className="h-4 w-4 mr-1" />
-                                        Rejeitar
-                                      </Button>
-                                    </div>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-
-                    {/* Solicitar Novo Documento */}
-                    <div className="border rounded-lg p-4 bg-muted/30">
-                      <h4 className="font-medium mb-3 flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        Solicitar Documento Adicional
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <div>
-                          <Label>Nome do Documento</Label>
-                          <Input
-                            placeholder="Ex: Certidão Específica"
-                            value={novosCampos[data.fornecedor.id]?.nome || ""}
-                            onChange={(e) =>
-                              setNovosCampos((prev) => ({
-                                ...prev,
-                                [data.fornecedor.id]: {
-                                  ...prev[data.fornecedor.id],
-                                  nome: e.target.value,
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label>Descrição (opcional)</Label>
-                          <Input
-                            placeholder="Instruções para o fornecedor"
-                            value={novosCampos[data.fornecedor.id]?.descricao || ""}
-                            onChange={(e) =>
-                              setNovosCampos((prev) => ({
-                                ...prev,
-                                [data.fornecedor.id]: {
-                                  ...prev[data.fornecedor.id],
-                                  descricao: e.target.value,
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label>Data Limite</Label>
-                          <Input
-                            type="date"
-                            value={datasLimiteDocumentos[data.fornecedor.id] || ""}
-                            onChange={(e) =>
-                              setDatasLimiteDocumentos((prev) => ({
-                                ...prev,
-                                [data.fornecedor.id]: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="flex items-end">
-                          <Button
-                            className="w-full"
-                            onClick={() => handleAdicionarCampo(data.fornecedor.id)}
-                          >
-                            <Send className="h-4 w-4 mr-2" />
-                            Solicitar
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                {/* Fornecedores Inabilitados */}
+                {fornecedoresInabilitados.length > 0 && (
+                  <div className="space-y-4 mt-8">
+                    <h3 className="text-lg font-semibold flex items-center gap-2 text-destructive">
+                      <UserX className="h-5 w-5" />
+                      Fornecedores Inabilitados ({fornecedoresInabilitados.length})
+                    </h3>
+                    {fornecedoresInabilitados.map((data) => renderFornecedorCard(data, true))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </ScrollArea>
@@ -682,6 +986,99 @@ export function DialogAnaliseDocumentalSelecao({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleSolicitarAtualizacao}>
               Enviar Solicitação
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para inabilitar fornecedor */}
+      <AlertDialog open={dialogInabilitar} onOpenChange={setDialogInabilitar}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <UserX className="h-5 w-5" />
+              Inabilitar Fornecedor
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Você está prestes a inabilitar o fornecedor{" "}
+                  <strong>{fornecedorParaInabilitar?.fornecedor.razao_social}</strong> na análise documental.
+                </p>
+                
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-sm font-medium">Itens afetados:</p>
+                  <p className="text-sm">{fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}</p>
+                </div>
+
+                {segundosColocados.length > 0 && (
+                  <div className="bg-primary/10 p-3 rounded-lg">
+                    <p className="text-sm font-medium mb-2">Segundos colocados que assumirão os itens:</p>
+                    {segundosColocados.map((seg) => (
+                      <p key={seg.numero_item} className="text-sm">
+                        Item {seg.numero_item}: <strong>{seg.fornecedor_nome}</strong> - {formatCurrency(seg.valor_lance)}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Motivo da Inabilitação *</Label>
+              <Textarea
+                placeholder="Descreva o motivo da inabilitação do fornecedor..."
+                value={motivoInabilitacao}
+                onChange={(e) => setMotivoInabilitacao(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleInabilitarFornecedor}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Confirmar Inabilitação
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para reverter inabilitação */}
+      <AlertDialog open={dialogReverterInabilitacao} onOpenChange={setDialogReverterInabilitacao}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Undo2 className="h-5 w-5" />
+              Reverter Inabilitação
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a reverter a inabilitação do fornecedor{" "}
+              <strong>{inabilitacaoParaReverter?.fornecedor.razao_social}</strong>.
+              O fornecedor será restaurado como vencedor dos itens originais.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Motivo da Reversão (opcional)</Label>
+              <Input
+                placeholder="Ex: Documentação regularizada"
+                value={motivoReversao}
+                onChange={(e) => setMotivoReversao(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReverterInabilitacao}>
+              Confirmar Reversão
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
