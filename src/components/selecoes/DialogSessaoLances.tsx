@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -96,6 +97,9 @@ export function DialogSessaoLances({
 
   // Estado - Chat Privado de Negociação
   const [itemChatPrivado, setItemChatPrivado] = useState<number | null>(null);
+
+  // Estado - Confirmação de exclusão de lance
+  const [confirmDeleteLance, setConfirmDeleteLance] = useState<{ open: boolean; lanceId: string | null }>({ open: false, lanceId: null });
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -598,16 +602,18 @@ export function DialogSessaoLances({
     });
   };
 
-  const handleDeletarLance = async (lanceId: string) => {
-    if (!confirm("Tem certeza que deseja excluir este lance? Esta ação não pode ser desfeita.")) {
-      return;
-    }
+  const handleDeletarLance = (lanceId: string) => {
+    setConfirmDeleteLance({ open: true, lanceId });
+  };
 
+  const confirmarExclusaoLance = async () => {
+    if (!confirmDeleteLance.lanceId) return;
+    
     try {
       const { error } = await supabase
         .from("lances_fornecedores")
         .delete()
-        .eq("id", lanceId);
+        .eq("id", confirmDeleteLance.lanceId);
 
       if (error) throw error;
 
@@ -616,6 +622,8 @@ export function DialogSessaoLances({
     } catch (error) {
       console.error("Erro ao excluir lance:", error);
       toast.error("Erro ao excluir lance");
+    } finally {
+      setConfirmDeleteLance({ open: false, lanceId: null });
     }
   };
 
@@ -750,6 +758,7 @@ export function DialogSessaoLances({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] h-[95vh]">
         <DialogHeader>
@@ -1200,5 +1209,16 @@ export function DialogSessaoLances({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={confirmDeleteLance.open}
+      onOpenChange={(open) => !open && setConfirmDeleteLance({ open: false, lanceId: null })}
+      onConfirm={confirmarExclusaoLance}
+      title="Excluir lance"
+      description="Tem certeza que deseja excluir este lance? Esta ação não pode ser desfeita."
+      confirmText="Excluir"
+      cancelText="Cancelar"
+    />
+    </>
   );
 }
