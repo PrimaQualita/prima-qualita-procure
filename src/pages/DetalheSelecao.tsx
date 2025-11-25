@@ -229,10 +229,6 @@ const DetalheSelecao = () => {
   };
 
   const handleEnviarFornecedores = () => {
-    if (!avisoAnexado || !editalAnexado) {
-      toast.error("É necessário anexar o Aviso de Seleção e o Edital antes de enviar aos fornecedores");
-      return;
-    }
     setDialogEnviarOpen(true);
   };
 
@@ -394,7 +390,6 @@ const DetalheSelecao = () => {
                 variant="default"
                 className="w-full"
                 onClick={handleEnviarFornecedores}
-                disabled={!avisoAnexado || !editalAnexado}
               >
                 <Link className="h-4 w-4 mr-2" />
                 Gerar Link para Fornecedores
