@@ -78,6 +78,7 @@ export function DialogSessaoLances({
   const [salvando, setSalvando] = useState(false);
   const [itensFechados, setItensFechados] = useState<Set<number>>(new Set());
   const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map()); // Map<numeroItem, fornecedorId>
+  const [itensComHistoricoNegociacao, setItensComHistoricoNegociacao] = useState<Map<number, string>>(new Map()); // Todos os itens que tiveram negociação (para histórico)
   const [vencedoresPorItem, setVencedoresPorItem] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
 
   // Estado - Sistema de Lances
@@ -205,6 +206,7 @@ export function DialogSessaoLances({
       const abertos = new Set<number>();
       const fechados = new Set<number>();
       const emNegociacao = new Map<number, string>();
+      const comHistorico = new Map<number, string>();
 
       data?.forEach((item) => {
         if (item.aberto) {
@@ -215,11 +217,16 @@ export function DialogSessaoLances({
         if (item.em_negociacao && item.fornecedor_negociacao_id) {
           emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
         }
+        // Rastrear todos os itens que tiveram negociação (para histórico/ata)
+        if (item.fornecedor_negociacao_id) {
+          comHistorico.set(item.numero_item, item.fornecedor_negociacao_id);
+        }
       });
 
       setItensAbertos(abertos);
       setItensFechados(fechados);
       setItensEmNegociacao(emNegociacao);
+      setItensComHistoricoNegociacao(comHistorico);
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }
@@ -879,6 +886,7 @@ export function DialogSessaoLances({
                             </p>
                             {itensFechadosComVencedor.map((item) => {
                               const vencedor = vencedoresPorItem.get(item.numero_item);
+                              const temHistoricoNegociacao = itensComHistoricoNegociacao.has(item.numero_item);
                               return (
                                 <div key={`avail-${item.numero_item}`} className="p-2 bg-white dark:bg-background rounded-lg border text-xs">
                                   <div className="flex items-start gap-2 mb-2">
@@ -890,16 +898,28 @@ export function DialogSessaoLances({
                                       </p>
                                     </div>
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-amber-500 text-amber-700 hover:bg-amber-100 text-xs w-full"
-                                    onClick={() => handleAbrirNegociacao(item.numero_item)}
-                                    disabled={salvando}
-                                  >
-                                    <Handshake className="h-3 w-3 mr-1" />
-                                    Negociar
-                                  </Button>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-amber-500 text-amber-700 hover:bg-amber-100 text-xs flex-1"
+                                      onClick={() => handleAbrirNegociacao(item.numero_item)}
+                                      disabled={salvando}
+                                    >
+                                      <Handshake className="h-3 w-3 mr-1" />
+                                      Negociar
+                                    </Button>
+                                    {temHistoricoNegociacao && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs"
+                                        onClick={() => setItemChatPrivado(itemChatPrivado === item.numero_item ? null : item.numero_item)}
+                                      >
+                                        <MessagesSquare className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -911,14 +931,14 @@ export function DialogSessaoLances({
                   </CardContent>
                 </Card>
 
-                {/* Chat Privado de Negociação */}
-                {itemChatPrivado !== null && itensEmNegociacao.has(itemChatPrivado) && (
+                {/* Chat Privado de Negociação - também disponível para histórico */}
+                {itemChatPrivado !== null && itensComHistoricoNegociacao.has(itemChatPrivado) && (
                   <Card className="mt-3 border-amber-300 bg-amber-50/50 dark:bg-amber-950/50">
                     <div className="h-[280px]">
                       <ChatNegociacao
                         selecaoId={selecaoId}
                         numeroItem={itemChatPrivado}
-                        fornecedorId={itensEmNegociacao.get(itemChatPrivado)!}
+                        fornecedorId={itensComHistoricoNegociacao.get(itemChatPrivado)!}
                         fornecedorNome={vencedoresPorItem.get(itemChatPrivado)?.razaoSocial || "Fornecedor"}
                         tituloSelecao={tituloSelecao}
                         isGestor={true}
