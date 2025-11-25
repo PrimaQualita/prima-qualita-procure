@@ -38,12 +38,12 @@ const SistemaLancesFornecedor = () => {
   const [salvando, setSalvando] = useState(false);
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
   const [lances, setLances] = useState<any[]>([]);
-  const [valorLance, setValorLance] = useState<string>("");
+  const [valoresLances, setValoresLances] = useState<Map<number, string>>(new Map()); // Map<numeroItem, valorDigitado>
   const [itemSelecionado, setItemSelecionado] = useState<number | null>(null);
   const [itensEstimados, setItensEstimados] = useState<Map<number, number>>(new Map());
-  const [menorValorPropostas, setMenorValorPropostas] = useState<Map<number, number>>(new Map()); // Menor valor ofertado por item das propostas
-  const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map()); // Map<numeroItem, tempoExpiracao>
-  const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map()); // Map<numeroItem, fornecedorId>
+  const [menorValorPropostas, setMenorValorPropostas] = useState<Map<number, number>>(new Map());
+  const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map());
+  const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map());
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
 
@@ -383,14 +383,11 @@ const SistemaLancesFornecedor = () => {
     return valorEstimado;
   };
 
-  const handleEnviarLance = async (isNegociacao: boolean = false) => {
+  const handleEnviarLanceItem = async (numeroItem: number, isNegociacao: boolean = false) => {
+    const valorLance = valoresLances.get(numeroItem) || "";
+    
     if (!valorLance || !proposta || !selecao) {
       toast.error("Preencha o valor do lance");
-      return;
-    }
-
-    if (itemSelecionado === null) {
-      toast.error("Selecione um item para dar lance");
       return;
     }
 
@@ -403,20 +400,20 @@ const SistemaLancesFornecedor = () => {
 
     // Validações apenas para lances normais (não negociação)
     if (!isNegociacao) {
-      const valorEstimado = itensEstimados.get(itemSelecionado) || 0;
+      const valorEstimado = itensEstimados.get(numeroItem) || 0;
       if (valorNumerico > valorEstimado) {
         toast.error(`Lance desclassificado! Valor deve ser menor ou igual ao estimado: R$ ${valorEstimado.toFixed(2).replace('.', ',')}`);
         return;
       }
 
-      const valorMinimoAtual = getValorMinimoAtual(itemSelecionado);
+      const valorMinimoAtual = getValorMinimoAtual(numeroItem);
       if (valorNumerico >= valorMinimoAtual) {
         toast.error(`Seu lance deve ser menor que R$ ${valorMinimoAtual.toFixed(2).replace('.', ',')}`);
         return;
       }
     } else {
       // Para negociação, o valor deve ser menor que o lance vencedor atual
-      const valorMinimoAtual = getValorMinimoAtual(itemSelecionado);
+      const valorMinimoAtual = getValorMinimoAtual(numeroItem);
       if (valorNumerico >= valorMinimoAtual) {
         toast.error(`Valor de negociação deve ser menor que R$ ${valorMinimoAtual.toFixed(2).replace('.', ',')}`);
         return;
@@ -429,7 +426,7 @@ const SistemaLancesFornecedor = () => {
         .insert({
           selecao_id: selecao.id,
           fornecedor_id: proposta.fornecedor_id,
-          numero_item: itemSelecionado,
+          numero_item: numeroItem,
           valor_lance: valorNumerico,
           tipo_lance: isNegociacao ? 'negociacao' : 'lance'
         });
@@ -437,15 +434,28 @@ const SistemaLancesFornecedor = () => {
       if (error) throw error;
 
       toast.success(isNegociacao 
-        ? `Proposta de negociação enviada para o Item ${itemSelecionado}!` 
-        : `Lance enviado para o Item ${itemSelecionado}!`
+        ? `Proposta de negociação enviada para o Item ${numeroItem}!` 
+        : `Lance enviado para o Item ${numeroItem}!`
       );
-      setValorLance("");
+      setValoresLances(prev => {
+        const novo = new Map(prev);
+        novo.delete(numeroItem);
+        return novo;
+      });
       loadLances();
     } catch (error) {
       console.error("Erro ao enviar lance:", error);
       toast.error("Erro ao enviar lance");
     }
+  };
+  
+  const handleValorLanceChange = (numeroItem: number, valor: string) => {
+    const valorFormatado = formatarMoedaInput(valor.replace(/\D/g, ""));
+    setValoresLances(prev => {
+      const novo = new Map(prev);
+      novo.set(numeroItem, valorFormatado);
+      return novo;
+    });
   };
 
   const isItemEmNegociacaoParaMim = (numeroItem: number): boolean => {
@@ -731,106 +741,160 @@ const SistemaLancesFornecedor = () => {
                   Acompanhe os lances e envie suas ofertas para os itens abertos
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Botões de Itens Abertos */}
-                <div>
-                  <Label className="text-sm font-semibold mb-3 block">Itens Abertos para Lances</Label>
-                  {itensAbertos.size === 0 && itensEmNegociacao.size === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                      <Lock className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p>Nenhum item aberto para lances no momento</p>
-                      <p className="text-sm mt-1">Aguarde o gestor abrir os itens</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {/* Itens abertos para lances normais */}
-                      {Array.from(itensAbertos).sort((a, b) => a - b).map((numeroItem) => {
-                        const tempoExpiracao = itensEmFechamento.get(numeroItem);
-                        const emFechamento = tempoExpiracao !== undefined;
-                        const segundosRestantes = emFechamento ? Math.max(0, Math.ceil((tempoExpiracao - Date.now()) / 1000)) : 0;
-                        const emNegociacao = itensEmNegociacao.has(numeroItem);
-                        const negociacaoParaMim = isItemEmNegociacaoParaMim(numeroItem);
-                        
-                        // Não mostrar itens em negociação aqui se não for para este fornecedor
-                        if (emNegociacao && !negociacaoParaMim) return null;
-                        
-                        const isSelected = itemSelecionado === numeroItem;
-                        
-                        return (
-                          <Button
-                            key={numeroItem}
-                            onClick={() => setItemSelecionado(numeroItem)}
-                            variant="outline"
-                            className={`gap-2 relative transition-all ${
-                              isSelected 
-                                ? 'ring-2 ring-primary ring-offset-2 border-primary bg-primary/10 shadow-md' 
-                                : ''
-                            } ${
-                              emNegociacao && negociacaoParaMim 
-                                ? isSelected 
-                                  ? 'border-amber-500 bg-amber-100 ring-amber-500' 
-                                  : 'border-amber-500 bg-amber-50 hover:bg-amber-100'
-                                : emFechamento 
-                                  ? isSelected 
-                                    ? 'border-orange-500 bg-orange-100 ring-orange-500' 
-                                    : 'border-orange-500 bg-orange-50 hover:bg-orange-100'
-                                  : ''
-                            }`}
-                            size="lg"
-                          >
-                            {isSelected && (
-                              <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-background" />
-                            )}
-                            {emNegociacao ? (
-                              <Trophy className="h-4 w-4 text-amber-600" />
-                            ) : (
-                              <Unlock className={`h-4 w-4 ${isSelected ? 'text-primary' : ''}`} />
-                            )}
-                            <div className="flex flex-col items-start">
-                              <span className={isSelected ? 'font-bold' : ''}>Item {numeroItem}</span>
-                              {emNegociacao && negociacaoParaMim && (
-                                <span className="text-xs text-amber-600 font-semibold">
-                                  Negociação
-                                </span>
+              <CardContent className="space-y-4">
+                {/* Grid de Itens com Lances Individuais */}
+                {itensAbertos.size === 0 && itensEmNegociacao.size === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                    <Lock className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm font-medium">Nenhum item aberto para lances</p>
+                    <p className="text-xs mt-1">Aguarde o gestor abrir os itens</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                    {Array.from(itensAbertos).sort((a, b) => a - b).slice(0, 5).map((numeroItem) => {
+                      const tempoExpiracao = itensEmFechamento.get(numeroItem);
+                      const emFechamento = tempoExpiracao !== undefined;
+                      const segundosRestantes = emFechamento ? Math.max(0, Math.ceil((tempoExpiracao - Date.now()) / 1000)) : 0;
+                      const emNegociacao = itensEmNegociacao.has(numeroItem);
+                      const negociacaoParaMim = isItemEmNegociacaoParaMim(numeroItem);
+                      
+                      if (emNegociacao && !negociacaoParaMim) return null;
+                      
+                      const podeParticipar = fornecedorApresentouPropostaNoItem(numeroItem);
+                      const desclassificado = isFornecedorDesclassificadoNoItem(numeroItem);
+                      const valorLanceAtual = valoresLances.get(numeroItem) || "";
+                      
+                      return (
+                        <div
+                          key={numeroItem}
+                          className={`border rounded-lg p-3 space-y-2 ${
+                            emNegociacao && negociacaoParaMim 
+                              ? 'border-amber-400 bg-amber-50' 
+                              : emFechamento 
+                                ? 'border-orange-400 bg-orange-50' 
+                                : 'border-border bg-card'
+                          }`}
+                        >
+                          {/* Header do Item */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              {emNegociacao ? (
+                                <Trophy className="h-3.5 w-3.5 text-amber-600" />
+                              ) : (
+                                <Unlock className="h-3.5 w-3.5 text-primary" />
                               )}
-                              {emFechamento && !emNegociacao && (
-                                <span className="text-xs text-orange-600 font-semibold">
-                                  Fechando em {segundosRestantes}s
-                                </span>
-                              )}
+                              <span className="font-semibold text-sm">Item {numeroItem}</span>
                             </div>
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Aviso de Negociação com Chat Privado */}
+                            {emFechamento && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-400 text-orange-600 bg-orange-100">
+                                {segundosRestantes}s
+                              </Badge>
+                            )}
+                            {emNegociacao && negociacaoParaMim && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-600 bg-amber-100">
+                                Negociação
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          {/* Status de participação */}
+                          {!podeParticipar ? (
+                            <div className="text-center py-2 px-1 bg-muted/50 rounded text-[11px] text-muted-foreground">
+                              Sem proposta neste item
+                            </div>
+                          ) : desclassificado ? (
+                            <div className="text-center py-2 px-1 bg-red-50 rounded text-[11px] text-red-600">
+                              Desclassificado
+                            </div>
+                          ) : (
+                            <>
+                              {/* Valores */}
+                              <div className="space-y-1.5">
+                                <div className="bg-blue-50 rounded px-2 py-1.5">
+                                  <div className="flex items-center gap-1 text-[10px] text-blue-600 mb-0.5">
+                                    <TrendingDown className="h-3 w-3" />
+                                    <span>Mínimo</span>
+                                  </div>
+                                  <p className="font-bold text-sm text-blue-700">
+                                    {formatarMoeda(getValorMinimoAtual(numeroItem))}
+                                  </p>
+                                </div>
+                                
+                                <div className="bg-amber-50 rounded px-2 py-1.5">
+                                  <div className="flex items-center gap-1 text-[10px] text-amber-600 mb-0.5">
+                                    <Trophy className="h-3 w-3" />
+                                    <span>Estimado</span>
+                                  </div>
+                                  <p className="font-bold text-sm text-amber-700">
+                                    {formatarMoeda(itensEstimados.get(numeroItem) || 0)}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Input de Lance */}
+                              <div className="space-y-1.5">
+                                <Input
+                                  type="text"
+                                  placeholder="R$ 0,00"
+                                  value={valorLanceAtual ? `R$ ${valorLanceAtual}` : ""}
+                                  onChange={(e) => handleValorLanceChange(numeroItem, e.target.value)}
+                                  className={`h-8 text-sm font-medium ${
+                                    emNegociacao ? 'border-amber-300' : ''
+                                  }`}
+                                />
+                                <Button 
+                                  onClick={() => handleEnviarLanceItem(numeroItem, emNegociacao && negociacaoParaMim)} 
+                                  size="sm"
+                                  className={`w-full h-7 text-xs ${
+                                    emNegociacao && negociacaoParaMim 
+                                      ? 'bg-amber-600 hover:bg-amber-700' 
+                                      : ''
+                                  }`}
+                                  disabled={!valorLanceAtual}
+                                >
+                                  <Send className="h-3 w-3 mr-1" />
+                                  {emNegociacao && negociacaoParaMim ? 'Negociar' : 'Enviar'}
+                                </Button>
+                              </div>
+                              
+                              {/* Chat de Negociação (se aplicável) */}
+                              {emNegociacao && negociacaoParaMim && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full h-7 text-xs border-amber-300"
+                                  onClick={() => setItemSelecionado(numeroItem)}
+                                >
+                                  <MessageSquare className="h-3 w-3 mr-1" />
+                                  Abrir Chat
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Chat de Negociação Expandido */}
                 {itemSelecionado !== null && isItemEmNegociacaoParaMim(itemSelecionado) && (
-                  <div className="space-y-4">
-                    <div className="border-2 rounded-lg p-6 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="h-12 w-12 rounded-full bg-amber-500 flex items-center justify-center">
-                          <Trophy className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <Label className="text-lg font-bold text-amber-900">Rodada de Negociação - Item {itemSelecionado}</Label>
-                          <p className="text-sm text-amber-700">Você é o vencedor! O comprador deseja negociar um valor menor.</p>
-                        </div>
+                  <div className="border-2 border-amber-300 rounded-lg p-4 bg-amber-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Trophy className="h-4 w-4 text-amber-600" />
+                        <Label className="font-semibold text-amber-900">Chat de Negociação - Item {itemSelecionado}</Label>
                       </div>
-                      <div className="border-t border-amber-200 pt-3 mt-3">
-                        <p className="text-sm text-amber-800 mb-2">
-                          <strong>Seu lance vencedor:</strong> {formatarMoeda(getValorMinimoAtual(itemSelecionado))}
-                        </p>
-                        <p className="text-xs text-amber-600 mt-3 italic">
-                          💡 Envie uma proposta com valor menor se desejar manter a venda. Você não é obrigado a reduzir.
-                        </p>
-                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setItemSelecionado(null)}
+                        className="h-6 px-2 text-xs"
+                      >
+                        Fechar
+                      </Button>
                     </div>
-                    
-                    {/* Chat Privado de Negociação */}
-                    <div className="h-80">
+                    <div className="h-64">
                       <ChatNegociacao
                         selecaoId={selecao.id}
                         numeroItem={itemSelecionado}
@@ -841,158 +905,6 @@ const SistemaLancesFornecedor = () => {
                         codigoAcesso={proposta.codigo_acesso}
                       />
                     </div>
-                  </div>
-                )}
-
-                {/* Valor Mínimo e Estimado do Item Selecionado */}
-                {itemSelecionado !== null && (
-                  <div className="space-y-3">
-                    {!fornecedorApresentouPropostaNoItem(itemSelecionado) ? (
-                      <div className="border-2 rounded-lg p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-gray-300">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="h-12 w-12 rounded-full bg-gray-500 flex items-center justify-center">
-                            <span className="text-2xl text-white">⊘</span>
-                          </div>
-                          <div>
-                            <Label className="text-lg font-bold text-gray-900">Sem Proposta no Item {itemSelecionado}</Label>
-                            <p className="text-sm text-gray-700">Você não pode participar de lances neste item</p>
-                          </div>
-                        </div>
-                        <div className="border-t border-gray-200 pt-3 mt-3">
-                          <p className="text-sm text-gray-800">
-                            <strong>Motivo:</strong> Você não apresentou proposta inicial para este item.
-                          </p>
-                          <p className="text-xs text-gray-600 mt-3 italic">
-                            ℹ️ Apenas itens cotados na proposta inicial podem receber lances.
-                          </p>
-                        </div>
-                      </div>
-                    ) : isFornecedorDesclassificadoNoItem(itemSelecionado) ? (
-                      <div className="border-2 rounded-lg p-6 bg-gradient-to-r from-red-50 to-red-100 border-red-300">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center">
-                            <span className="text-2xl text-white">✕</span>
-                          </div>
-                          <div>
-                            <Label className="text-lg font-bold text-red-900">Desclassificado no Item {itemSelecionado}</Label>
-                            <p className="text-sm text-red-700">Você não pode enviar lances para este item</p>
-                          </div>
-                        </div>
-                        <div className="border-t border-red-200 pt-3 mt-3">
-                          <p className="text-sm text-red-800 mb-2">
-                            <strong>Motivo:</strong> Sua proposta inicial ({formatarMoeda(itens.find(i => i.numero_item === itemSelecionado)?.valor_unitario_ofertado || 0)}) está acima do valor estimado.
-                          </p>
-                          <p className="text-sm text-red-800">
-                            <strong>Valor Estimado:</strong> {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}
-                          </p>
-                          <p className="text-xs text-red-600 mt-3 italic">
-                            ⚠️ Apenas fornecedores com propostas iniciais iguais ou menores ao valor estimado podem participar da disputa deste item.
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-300">
-                          <div className="flex items-center gap-2 mb-2">
-                            <TrendingDown className="h-6 w-6 text-blue-600" />
-                            <Label className="text-sm font-semibold">Valor Mínimo Atual - Item {itemSelecionado}</Label>
-                          </div>
-                          <p className="font-bold text-3xl text-blue-700">
-                            {formatarMoeda(getValorMinimoAtual(itemSelecionado))}
-                          </p>
-                          <p className="text-sm text-blue-600 mt-1">Seu lance deve ser menor que este valor</p>
-                        </div>
-                        
-                        <div className="border-2 rounded-lg p-4 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Trophy className="h-6 w-6 text-amber-600" />
-                            <Label className="text-sm font-semibold">Valor Estimado - Item {itemSelecionado}</Label>
-                          </div>
-                          <p className="font-bold text-3xl text-amber-700">
-                            {formatarMoeda(itensEstimados.get(itemSelecionado) || 0)}
-                          </p>
-                          <p className="text-sm text-amber-600 mt-1">Lances acima deste valor são desclassificados</p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Formulário de Lance / Negociação */}
-                {/* Formulário de Lance / Negociação - Disponível enquanto houver itens abertos */}
-                {(itensAbertos.size > 0 || itensEmNegociacao.size > 0) && (
-                  <div className={`border rounded-lg p-4 ${
-                    itemSelecionado !== null && isItemEmNegociacaoParaMim(itemSelecionado) 
-                      ? 'bg-amber-50 border-amber-300' 
-                      : 'bg-muted/50'
-                  }`}>
-                    <Label className="text-sm font-semibold mb-3 block">
-                      {itemSelecionado !== null && isItemEmNegociacaoParaMim(itemSelecionado) 
-                        ? 'Enviar Proposta de Negociação' 
-                        : 'Enviar Lance'}
-                    </Label>
-                    {itemSelecionado === null ? (
-                      <p className="text-sm text-muted-foreground">Selecione um item acima para enviar seu lance</p>
-                    ) : isItemEmNegociacaoParaMim(itemSelecionado) ? (
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <Input
-                            type="text"
-                            placeholder="R$ 0,00"
-                            value={valorLance ? `R$ ${valorLance}` : ""}
-                            onChange={(e) => {
-                              const valor = e.target.value.replace(/\D/g, "");
-                              setValorLance(formatarMoedaInput(valor));
-                            }}
-                            className="text-lg font-semibold border-amber-300"
-                          />
-                        </div>
-                        <Button 
-                          onClick={() => handleEnviarLance(true)} 
-                          size="lg"
-                          className="bg-amber-600 hover:bg-amber-700"
-                        >
-                          <Send className="mr-2 h-4 w-4" />
-                          Enviar Negociação
-                        </Button>
-                      </div>
-                    ) : !fornecedorApresentouPropostaNoItem(itemSelecionado) ? (
-                      <p className="text-sm text-gray-600 font-medium">Você não pode participar de lances neste item porque não apresentou proposta inicial.</p>
-                    ) : isFornecedorDesclassificadoNoItem(itemSelecionado) ? (
-                      <p className="text-sm text-red-600 font-medium">Você está desclassificado neste item e não pode enviar lances.</p>
-                    ) : (
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <Input
-                            type="text"
-                            placeholder="R$ 0,00"
-                            value={valorLance ? `R$ ${valorLance}` : ""}
-                            onChange={(e) => {
-                              const valor = e.target.value.replace(/\D/g, "");
-                              setValorLance(formatarMoedaInput(valor));
-                            }}
-                            className="text-lg font-semibold"
-                          />
-                        </div>
-                        <Button onClick={() => handleEnviarLance(false)} size="lg">
-                          <Send className="mr-2 h-4 w-4" />
-                          Enviar Lance
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Mensagem quando não há itens abertos para lances */}
-                {itensAbertos.size === 0 && itensEmNegociacao.size === 0 && (
-                  <div className="border rounded-lg p-4 bg-muted/50 border-muted-foreground/30">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Lock className="h-4 w-4" />
-                      <p className="font-semibold">Aguardando abertura de itens</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Os lances serão liberados quando o gestor abrir os itens para disputa
-                    </p>
                   </div>
                 )}
 
