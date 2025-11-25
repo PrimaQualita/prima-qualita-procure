@@ -1036,12 +1036,83 @@ export function DialogSessaoLances({
       });
 
       // Legenda no resumo
-      const finalY = (doc as any).lastAutoTable.finalY + 10;
+      let finalY = (doc as any).lastAutoTable.finalY + 10;
       doc.setFontSize(8);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(22, 163, 74);
       doc.text("* Valor obtido por negociação", margin, finalY);
       doc.setTextColor(0, 0, 0);
+
+      // Calcular totais por fornecedor
+      const totaisPorFornecedor: Record<string, { nome: string; total: number }> = {};
+      itens.forEach(item => {
+        const vencedor = getVencedorItem(item.numero_item);
+        if (vencedor && vencedor.fornecedores?.razao_social) {
+          const fornecedorId = vencedor.fornecedor_id;
+          const quantidade = item.quantidade || 1;
+          const valorTotal = vencedor.valor_lance * quantidade;
+          
+          if (!totaisPorFornecedor[fornecedorId]) {
+            totaisPorFornecedor[fornecedorId] = {
+              nome: vencedor.fornecedores.razao_social,
+              total: 0
+            };
+          }
+          totaisPorFornecedor[fornecedorId].total += valorTotal;
+        }
+      });
+
+      // Preparar dados da tabela de resumo por fornecedor
+      const resumoFornecedoresData = Object.values(totaisPorFornecedor)
+        .sort((a, b) => b.total - a.total) // Ordenar por valor total decrescente
+        .map(f => [f.nome, formatCurrency(f.total)]);
+
+      // Adicionar tabela de resumo por fornecedor
+      if (resumoFornecedoresData.length > 0) {
+        finalY += 15;
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(22, 163, 74);
+        doc.text("RESUMO POR FORNECEDOR", landscapeWidth / 2, finalY, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+
+        autoTable(doc, {
+          startY: finalY + 5,
+          head: [["Fornecedor", "Valor Total"]],
+          body: resumoFornecedoresData,
+          theme: "striped",
+          styles: { 
+            fontSize: 9,
+            cellPadding: 4,
+          },
+          headStyles: { 
+            fillColor: [22, 163, 74], 
+            textColor: 255,
+            fontStyle: "bold",
+            halign: "center"
+          },
+          columnStyles: {
+            0: { cellWidth: 180 },
+            1: { cellWidth: 60, halign: "right", fontStyle: "bold" },
+          },
+          alternateRowStyles: {
+            fillColor: [240, 253, 244]
+          },
+          margin: { left: (landscapeWidth - 240) / 2, right: (landscapeWidth - 240) / 2, top: logoResumoHeight + 20 },
+          didDrawPage: () => {
+            // Adicionar logo em páginas adicionais se necessário
+            const paginaAtual = doc.internal.pages.length - 1;
+            if (!paginasResumoProcessadas.has(paginaAtual)) {
+              paginasResumoProcessadas.add(paginaAtual);
+              if (base64LogoHorizontal) {
+                const logoX = (landscapeWidth - logoResumoWidth) / 2;
+                doc.addImage(base64LogoHorizontal, 'PNG', logoX, 8, logoResumoWidth, logoResumoHeight);
+              }
+            }
+          },
+        });
+      }
 
       doc.save(`planilha-lances-selecao.pdf`);
       toast.success("Planilha de lances gerada com sucesso!");
