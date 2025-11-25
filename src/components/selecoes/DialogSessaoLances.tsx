@@ -754,7 +754,7 @@ export function DialogSessaoLances({
       const numProcesso = (selecaoInfo?.processos_compras as any)?.numero_processo_interno || "-";
 
       // Cabeçalho de texto
-      doc.setTextColor(0, 150, 199); // Azul do logo
+      doc.setTextColor(0, 128, 128); // Verde do logo
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text(`PLANILHA DE LANCES DA SELEÇÃO DE FORNECEDORES ${numSelecao}`, pageWidth / 2, yStart, { align: "center" });
@@ -784,7 +784,7 @@ export function DialogSessaoLances({
           autoTable(doc, {
             startY: yPosition,
             head: [
-              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [232, 247, 252], textColor: [0, 150, 199], halign: "left", fontStyle: "bold", fontSize: 10 } }],
+              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [224, 242, 241], textColor: [0, 128, 128], halign: "left", fontStyle: "bold", fontSize: 10 } }],
               ["Pos.", "Fornecedor", "Valor", "Data/Hora"]
             ],
             body: [[{ content: "Nenhum lance registrado para este item", colSpan: 4, styles: { halign: "center", textColor: [100, 100, 100], fontStyle: "italic" } }]],
@@ -797,7 +797,7 @@ export function DialogSessaoLances({
               valign: "middle",
             },
             headStyles: { 
-              fillColor: [0, 150, 199],
+              fillColor: [0, 128, 128], // Verde do logo
               textColor: 255,
               fontStyle: "bold",
               halign: "center",
@@ -838,7 +838,7 @@ export function DialogSessaoLances({
           autoTable(doc, {
             startY: yPosition,
             head: [
-              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [232, 247, 252], textColor: [0, 150, 199], halign: "left", fontStyle: "bold", fontSize: 10 } }],
+              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [224, 242, 241], textColor: [0, 128, 128], halign: "left", fontStyle: "bold", fontSize: 10 } }],
               ["Pos.", "Fornecedor", "Valor", "Data/Hora"]
             ],
             body: tableData,
@@ -851,7 +851,7 @@ export function DialogSessaoLances({
               valign: "middle",
             },
             headStyles: { 
-              fillColor: [0, 150, 199],
+              fillColor: [0, 128, 128], // Verde do logo
               textColor: 255,
               fontStyle: "bold",
               halign: "center",
@@ -864,7 +864,7 @@ export function DialogSessaoLances({
               3: { cellWidth: 45, halign: "center" },
             },
             alternateRowStyles: {
-              fillColor: [248, 250, 252]
+              fillColor: [224, 242, 241] // Verde claro do logo
             },
             margin: { top: logoHeight + 10, bottom: rodapeHeight + 10 },
             didDrawPage: () => {
