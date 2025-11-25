@@ -88,10 +88,16 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
       )
       .subscribe();
 
+    // Polling como fallback a cada 3 segundos
+    const pollingInterval = setInterval(() => {
+      loadMensagens();
+    }, 3000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollingInterval);
     };
-  }, [selecaoId, codigoAcesso]); // Adicionar codigoAcesso como dependência
+  }, [selecaoId, codigoAcesso]);
 
   useEffect(() => {
     // Auto-scroll para última mensagem
