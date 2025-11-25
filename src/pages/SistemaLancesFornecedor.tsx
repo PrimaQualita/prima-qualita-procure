@@ -398,25 +398,28 @@ const SistemaLancesFornecedor = () => {
 
     setSalvando(true);
     try {
-      // Atualizar cada item
+      // Atualizar cada item usando função SECURITY DEFINER
       console.log("Salvando itens:", itens.map(i => ({ id: i.id, valor: i.valor_unitario_ofertado, marca: i.marca })));
       
       for (const item of itens) {
-        const updateData = {
-          valor_unitario_ofertado: item.valor_unitario_ofertado,
-          marca: item.marca || null,
-          valor_total_item: item.valor_unitario_ofertado * item.quantidade
-        };
-        console.log(`Atualizando item ${item.id}:`, updateData);
+        console.log(`Atualizando item ${item.id}:`, {
+          valor: item.valor_unitario_ofertado,
+          marca: item.marca,
+          total: item.valor_unitario_ofertado * item.quantidade
+        });
         
-        const { error, data } = await supabase
-          .from("selecao_respostas_itens_fornecedor")
-          .update(updateData)
-          .eq("id", item.id)
-          .select();
+        const { data, error } = await supabase.rpc('atualizar_item_proposta_selecao', {
+          p_item_id: item.id,
+          p_proposta_id: propostaId,
+          p_valor_unitario: item.valor_unitario_ofertado,
+          p_marca: item.marca || null,
+          p_valor_total: item.valor_unitario_ofertado * item.quantidade
+        });
 
-        console.log(`Resultado item ${item.id}:`, { error, data });
+        console.log(`Resultado item ${item.id}:`, data);
         if (error) throw error;
+        const result = data as { success: boolean; error?: string } | null;
+        if (result && !result.success) throw new Error(result.error || 'Erro desconhecido');
       }
 
       // Recalcular valor total da proposta
