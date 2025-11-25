@@ -242,7 +242,6 @@ export async function gerarPropostaSelecaoPDF(
       
       const descLines = doc.splitTextToSize(item.descricao, 65);
       const alturaLinha = Math.max(descLines.length * 4, 6);
-      const yCenter = y + (alturaLinha / 2);
       
       // Sombra azul claro alternada (zebra striping)
       if (itemIndex % 2 === 1) {
@@ -260,13 +259,34 @@ export async function gerarPropostaSelecaoPDF(
         doc.line(xPos, y, xPos, y + alturaLinha);
       });
       
-      doc.text(item.numero_item.toString(), colItem, yCenter);
-      doc.text(descLines, colDesc, y + 3);
-      doc.text(item.quantidade.toString(), colQtd, yCenter);
-      doc.text(item.unidade, colUni, yCenter);
-      doc.text(item.marca || '-', colMarca, yCenter);
-      doc.text(formatarMoeda(item.valor_unitario_ofertado), colValorUnit, yCenter);
-      doc.text(formatarMoeda(valorTotalItem), colValorTotal, yCenter);
+      // Centralização vertical para todas as colunas
+      const yVerticalCenter = y + (alturaLinha / 2) + 1;
+      
+      doc.text(item.numero_item.toString(), colItem, yVerticalCenter);
+      
+      // Descrição com alinhamento justificado
+      const descricaoLargura = 65;
+      const descricaoX = colDesc;
+      const descricaoYInicio = y + 3;
+      const espacamentoLinhaDesc = 4;
+      
+      // Renderizar cada linha da descrição com justificação
+      descLines.forEach((linha: string, index: number) => {
+        const yLinha = descricaoYInicio + (index * espacamentoLinhaDesc);
+        // Para última linha ou linhas curtas, usar alinhamento esquerdo
+        if (index === descLines.length - 1 || linha.length < 40) {
+          doc.text(linha, descricaoX, yLinha);
+        } else {
+          // Justificar linhas completas
+          doc.text(linha, descricaoX, yLinha, { align: 'justify', maxWidth: descricaoLargura });
+        }
+      });
+      
+      doc.text(item.quantidade.toString(), colQtd, yVerticalCenter);
+      doc.text(item.unidade, colUni, yVerticalCenter);
+      doc.text(item.marca || '-', colMarca, yVerticalCenter);
+      doc.text(formatarMoeda(item.valor_unitario_ofertado), colValorUnit, yVerticalCenter);
+      doc.text(formatarMoeda(valorTotalItem), colValorTotal, yVerticalCenter);
       
       y += alturaLinha;
       itemIndex++;
