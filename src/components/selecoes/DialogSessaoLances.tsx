@@ -824,8 +824,9 @@ export function DialogSessaoLances({
         base64Rodape = rodapeResult;
         base64LogoHorizontal = logoHorizontalResult;
         
-        // Logo no topo - largura total da página
-        doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
+        // Logo no topo - largura com margem de 1.5mm em cada lado
+        const logoMargin = 4.25; // 1.5mm em pontos PDF
+        doc.addImage(base64Logo, 'PNG', logoMargin, 0, pageWidth - (logoMargin * 2), logoHeight);
         // Rodapé no fim - largura total da página
         doc.addImage(base64Rodape, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
         yStart = logoHeight + 10; // Aumentar espaçamento entre logo e título
@@ -846,7 +847,8 @@ export function DialogSessaoLances({
         if (!paginasProcessadas.has(paginaAtual)) {
           paginasProcessadas.add(paginaAtual);
           if (base64Logo) {
-            doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
+            const logoMargin = 4.25; // 1.5mm em pontos PDF
+            doc.addImage(base64Logo, 'PNG', logoMargin, 0, pageWidth - (logoMargin * 2), logoHeight);
           }
           if (base64Rodape) {
             doc.addImage(base64Rodape, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
