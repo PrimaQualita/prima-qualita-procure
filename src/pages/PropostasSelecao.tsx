@@ -48,7 +48,9 @@ export default function PropostasSelecao() {
   const [processo, setProcesso] = useState<any>(null);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
   const [propostaParaExcluir, setPropostaParaExcluir] = useState<PropostaFornecedor | null>(null);
+  const [propostaParaExcluirCompleta, setPropostaParaExcluirCompleta] = useState<PropostaFornecedor | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmDeleteCompletaOpen, setConfirmDeleteCompletaOpen] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -271,6 +273,11 @@ export default function PropostasSelecao() {
     setConfirmDeleteOpen(true);
   };
 
+  const handleExcluirPropostaCompleta = (proposta: PropostaFornecedor) => {
+    setPropostaParaExcluirCompleta(proposta);
+    setConfirmDeleteCompletaOpen(true);
+  };
+
   const excluirProposta = async () => {
     if (!propostaParaExcluir) return;
     
@@ -317,6 +324,60 @@ export default function PropostasSelecao() {
     } catch (error: any) {
       console.error("❌ Erro ao excluir PDF:", error);
       toast.error(error.message || "Erro ao excluir PDF");
+    }
+  };
+
+  const excluirPropostaCompleta = async () => {
+    if (!propostaParaExcluirCompleta) return;
+    
+    try {
+      console.log("🗑️ Iniciando exclusão completa da proposta:", propostaParaExcluirCompleta.id);
+      
+      // Deletar PDF do storage se existir
+      if (propostaParaExcluirCompleta.url_pdf_proposta) {
+        console.log("🗑️ Deletando PDF do storage...");
+        await supabase.storage
+          .from('processo-anexos')
+          .remove([propostaParaExcluirCompleta.url_pdf_proposta]);
+      }
+
+      // Deletar itens da proposta primeiro
+      console.log("🗑️ Deletando itens da proposta...");
+      const { error: itensError } = await supabase
+        .from('selecao_respostas_itens_fornecedor')
+        .delete()
+        .eq('proposta_id', propostaParaExcluirCompleta.id);
+
+      if (itensError) {
+        console.error("❌ Erro ao deletar itens:", itensError);
+        throw itensError;
+      }
+
+      // Deletar a proposta
+      console.log("🗑️ Deletando proposta...");
+      const { error: propostaError } = await supabase
+        .from('selecao_propostas_fornecedor')
+        .delete()
+        .eq('id', propostaParaExcluirCompleta.id);
+
+      if (propostaError) {
+        console.error("❌ Erro ao deletar proposta:", propostaError);
+        throw propostaError;
+      }
+      
+      console.log("✅ Proposta excluída com sucesso");
+
+      setPropostaParaExcluirCompleta(null);
+      setConfirmDeleteCompletaOpen(false);
+      
+      toast.success("Proposta excluída com sucesso. O fornecedor poderá enviar nova proposta.");
+      
+      // Recarregar propostas
+      await loadPropostas();
+      
+    } catch (error: any) {
+      console.error("❌ Erro ao excluir proposta:", error);
+      toast.error(error.message || "Erro ao excluir proposta");
     }
   };
 
@@ -490,14 +551,24 @@ export default function PropostasSelecao() {
                               </Button>
                             </>
                           ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleVisualizarProposta(proposta.id)}
-                              disabled={gerandoPDF === proposta.id}
-                            >
-                              {gerandoPDF === proposta.id ? "Gerando..." : "Gerar PDF"}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleVisualizarProposta(proposta.id)}
+                                disabled={gerandoPDF === proposta.id}
+                              >
+                                {gerandoPDF === proposta.id ? "Gerando..." : "Gerar PDF"}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleExcluirPropostaCompleta(proposta)}
+                                title="Excluir proposta completa"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </TableCell>
@@ -543,6 +614,26 @@ export default function PropostasSelecao() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={excluirProposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de Confirmação de Exclusão Completa */}
+      <AlertDialog open={confirmDeleteCompletaOpen} onOpenChange={setConfirmDeleteCompletaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Proposta Completa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a proposta completa de <strong>{propostaParaExcluirCompleta?.fornecedor.razao_social}</strong>?
+              <br /><br />
+              <strong className="text-destructive">Atenção:</strong> Esta ação removerá todos os dados da proposta. O fornecedor poderá enviar uma nova proposta, mas só terá acesso à sessão de lances após o reenvio.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirPropostaCompleta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Proposta
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
