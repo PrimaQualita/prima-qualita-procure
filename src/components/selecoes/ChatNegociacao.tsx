@@ -5,8 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Send, Lock, FileText } from "lucide-react";
-import { gerarAtaNegociacaoPDF } from "@/lib/gerarAtaNegociacaoPDF";
+import { Send, Lock } from "lucide-react";
 
 interface MensagemNegociacao {
   id: string;
@@ -44,7 +43,6 @@ export function ChatNegociacao({
   const [novaMensagem, setNovaMensagem] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [gerandoAta, setGerandoAta] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -182,39 +180,6 @@ export function ChatNegociacao({
     }
   };
 
-  const handleGerarAta = async () => {
-    if (mensagens.length === 0) {
-      toast.error("Nenhuma mensagem para gerar a Ata");
-      return;
-    }
-
-    setGerandoAta(true);
-    try {
-      const resultado = await gerarAtaNegociacaoPDF({
-        selecaoId,
-        numeroItem,
-        fornecedorId,
-        fornecedorNome,
-        tituloSelecao,
-        mensagens: mensagens.map(m => ({
-          remetente: m.tipo_remetente === "gestor" ? m.usuario_nome || "Gestor" : m.fornecedor_nome || "Fornecedor",
-          tipoRemetente: m.tipo_remetente,
-          mensagem: m.mensagem,
-          dataHora: m.created_at,
-        })),
-      });
-
-      // Abrir PDF em nova aba
-      window.open(resultado.url, "_blank");
-      toast.success("Ata de Negociação gerada com sucesso!");
-    } catch (error) {
-      console.error("Erro ao gerar ata:", error);
-      toast.error("Erro ao gerar Ata de Negociação");
-    } finally {
-      setGerandoAta(false);
-    }
-  };
-
   const formatDateTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleString("pt-BR", {
       day: "2-digit",
@@ -229,24 +194,10 @@ export function ChatNegociacao({
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="py-2 px-3 border-b">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xs flex items-center gap-2">
-            <Lock className="h-3 w-3 text-amber-600" />
-            Chat Privado - Item {numeroItem}
-          </CardTitle>
-          {isGestor && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleGerarAta}
-              disabled={gerandoAta || mensagens.length === 0}
-              className="text-xs h-7"
-            >
-              <FileText className="h-3 w-3 mr-1" />
-              {gerandoAta ? "Gerando..." : "Gerar Ata"}
-            </Button>
-          )}
-        </div>
+        <CardTitle className="text-xs flex items-center gap-2">
+          <Lock className="h-3 w-3 text-amber-600" />
+          Chat Privado - Item {numeroItem}
+        </CardTitle>
         <p className="text-xs text-muted-foreground truncate">
           Negociação com: {fornecedorNome}
         </p>
