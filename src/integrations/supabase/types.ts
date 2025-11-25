@@ -2046,6 +2046,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      atualizar_item_proposta_selecao: {
+        Args: {
+          p_item_id: string
+          p_marca: string
+          p_proposta_id: string
+          p_valor_total: number
+          p_valor_unitario: number
+        }
+        Returns: Json
+      }
       delete_analise_compliance: {
         Args: { p_cotacao_id: string }
         Returns: undefined
