@@ -205,6 +205,11 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
     doc.rect(15, y - 5, 180, 8, 'F');
     
+    // Borda superior da tabela
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.1);
+    doc.line(15, y - 5, 195, y - 5);
+    
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
@@ -285,9 +290,13 @@ export async function gerarPropostaFornecedorPDF(
       doc.line(125, yTop, 125, yBottom); // Após UNID
       doc.line(150, yTop, 150, yBottom); // Após MARCA
       doc.line(172, yTop, 172, yBottom); // Após VL. UNIT.
+      
+      // Bordas externas da tabela (esquerda e direita)
+      doc.line(15, yTop, 15, yBottom); // Borda esquerda
+      doc.line(195, yTop, 195, yBottom); // Borda direita
 
       // Calcular centro vertical real da célula (baseline do texto)
-      const yCenter = yTop + (alturaLinha / 2) + 2;
+      const yCenter = yTop + (alturaLinha / 2) + 1.5;
       
       // Número do item (centralizado verticalmente)
       doc.text(itemCotacao.numero_item.toString(), 20, yCenter, { align: 'center' });
