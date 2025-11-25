@@ -821,17 +821,18 @@ export function DialogSessaoLances({
 
             {/* Seção de Negociação */}
             {(() => {
-              const itensFechadosComVencedor = itens.filter(
-                (item) => itensFechados.has(item.numero_item) && 
-                         !itensAbertos.has(item.numero_item) && 
-                         vencedoresPorItem.has(item.numero_item) && 
-                         !itensEmNegociacao.has(item.numero_item)
-              );
+              // Todos os itens que podem aparecer na seção de negociação (fechados com vencedor OU em negociação)
+              const itensParaNegociacao = itens.filter(
+                (item) => 
+                  (itensFechados.has(item.numero_item) && 
+                   !itensAbertos.has(item.numero_item) && 
+                   vencedoresPorItem.has(item.numero_item)) ||
+                  itensEmNegociacao.has(item.numero_item)
+              ).sort((a, b) => a.numero_item - b.numero_item); // Manter ordem por número do item
 
-              if (itensFechadosComVencedor.length === 0 && itensEmNegociacao.size === 0) return null;
+              if (itensParaNegociacao.length === 0) return null;
 
               return (
-                <>
                 <Card className="mt-3 bg-amber-50 dark:bg-amber-950 border-amber-200">
                   <CardHeader className="py-2">
                     <CardTitle className="text-xs flex items-center gap-2 text-amber-700 dark:text-amber-300">
@@ -842,49 +843,109 @@ export function DialogSessaoLances({
                   <CardContent className="p-3 pt-0">
                     <ScrollArea className="h-[350px]">
                       <div className="space-y-2 pr-3">
-                        {/* Itens em negociação ativa */}
-                        {Array.from(itensEmNegociacao.entries()).map(([numeroItem, fornecedorId]) => {
+                        {itensParaNegociacao.map((item) => {
+                          const numeroItem = item.numero_item;
+                          const emNegociacaoAtiva = itensEmNegociacao.has(numeroItem);
+                          const fornecedorId = itensEmNegociacao.get(numeroItem) || itensComHistoricoNegociacao.get(numeroItem);
                           const vencedor = vencedoresPorItem.get(numeroItem);
+                          const temHistoricoNegociacao = itensComHistoricoNegociacao.has(numeroItem);
                           const chatAberto = itemChatPrivado === numeroItem;
+
+                          // Item em negociação ativa
+                          if (emNegociacaoAtiva) {
+                            return (
+                              <div key={`neg-${numeroItem}`} className="p-2 bg-amber-100 dark:bg-amber-900 rounded-lg border border-amber-300">
+                                <div className="flex items-start gap-2 mb-2">
+                                  <Badge variant="outline" className="bg-amber-500 text-white border-amber-500 text-xs shrink-0">
+                                    Em Negociação
+                                  </Badge>
+                                  <div className="min-w-0">
+                                    <span className="font-semibold text-xs">Item {numeroItem}</span>
+                                    <p className="text-xs text-amber-700 dark:text-amber-300 truncate">
+                                      {vencedor?.razaoSocial || 'Fornecedor'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setItemChatPrivado(chatAberto ? null : numeroItem)}
+                                    className={`text-xs flex-1 ${chatAberto ? 'bg-amber-200 border-amber-400' : 'border-amber-400 text-amber-700 hover:bg-amber-100'}`}
+                                  >
+                                    <MessagesSquare className="h-3 w-3 mr-1" />
+                                    {chatAberto ? 'Fechar Chat' : 'Chat Privado'}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleFecharNegociacao(numeroItem)}
+                                    disabled={salvando}
+                                    className="text-xs flex-1"
+                                  >
+                                    <Lock className="h-3 w-3 mr-1" />
+                                    Encerrar
+                                  </Button>
+                                </div>
+                                
+                                {/* Chat Inline */}
+                                {chatAberto && fornecedorId && (
+                                  <div className="mt-3 border-t border-amber-300 pt-3">
+                                    <div className="h-[200px] bg-white dark:bg-background rounded-lg border">
+                                      <ChatNegociacao
+                                        selecaoId={selecaoId}
+                                        numeroItem={numeroItem}
+                                        fornecedorId={fornecedorId}
+                                        fornecedorNome={vencedor?.razaoSocial || "Fornecedor"}
+                                        tituloSelecao={tituloSelecao}
+                                        isGestor={true}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          // Item disponível para negociação (fechado, com vencedor, não em negociação)
                           return (
-                            <div key={`neg-${numeroItem}`} className="p-2 bg-amber-100 dark:bg-amber-900 rounded-lg border border-amber-300">
+                            <div key={`avail-${numeroItem}`} className="p-2 bg-white dark:bg-background rounded-lg border text-xs">
                               <div className="flex items-start gap-2 mb-2">
-                                <Badge variant="outline" className="bg-amber-500 text-white border-amber-500 text-xs shrink-0">
-                                  Em Negociação
-                                </Badge>
+                                <Trophy className="h-3 w-3 text-yellow-600 shrink-0 mt-0.5" />
                                 <div className="min-w-0">
-                                  <span className="font-semibold text-xs">Item {numeroItem}</span>
-                                  <p className="text-xs text-amber-700 dark:text-amber-300 truncate">
-                                    {vencedor?.razaoSocial || 'Fornecedor'}
+                                  <span className="font-semibold">Item {numeroItem}</span>
+                                  <p className="text-muted-foreground truncate">
+                                    {vencedor?.razaoSocial} - {vencedor?.valorLance?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex gap-2">
+                              <div className="flex gap-1">
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => setItemChatPrivado(chatAberto ? null : numeroItem)}
-                                  className={`text-xs flex-1 ${chatAberto ? 'bg-amber-200 border-amber-400' : 'border-amber-400 text-amber-700 hover:bg-amber-100'}`}
-                                >
-                                  <MessagesSquare className="h-3 w-3 mr-1" />
-                                  {chatAberto ? 'Fechar Chat' : 'Chat Privado'}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => handleFecharNegociacao(numeroItem)}
+                                  className="border-amber-500 text-amber-700 hover:bg-amber-100 text-xs flex-1"
+                                  onClick={() => handleAbrirNegociacao(numeroItem)}
                                   disabled={salvando}
-                                  className="text-xs flex-1"
                                 >
-                                  <Lock className="h-3 w-3 mr-1" />
-                                  Encerrar
+                                  <Handshake className="h-3 w-3 mr-1" />
+                                  Negociar
                                 </Button>
+                                {temHistoricoNegociacao && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-xs"
+                                    onClick={() => setItemChatPrivado(chatAberto ? null : numeroItem)}
+                                  >
+                                    <MessagesSquare className="h-3 w-3" />
+                                  </Button>
+                                )}
                               </div>
                               
-                              {/* Chat Inline */}
-                              {chatAberto && (
-                                <div className="mt-3 border-t border-amber-300 pt-3">
-                                  <div className="h-[200px] bg-white dark:bg-background rounded-lg border">
+                              {/* Chat Inline para histórico */}
+                              {chatAberto && temHistoricoNegociacao && fornecedorId && (
+                                <div className="mt-3 border-t pt-3">
+                                  <div className="h-[200px] bg-muted/30 rounded-lg border">
                                     <ChatNegociacao
                                       selecaoId={selecaoId}
                                       numeroItem={numeroItem}
@@ -899,78 +960,12 @@ export function DialogSessaoLances({
                             </div>
                           );
                         })}
-
-                        {/* Itens disponíveis para negociação */}
-                        {itensFechadosComVencedor.length > 0 && (
-                          <>
-                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-                              Itens fechados disponíveis para negociação:
-                            </p>
-                            {itensFechadosComVencedor.map((item) => {
-                              const vencedor = vencedoresPorItem.get(item.numero_item);
-                              const temHistoricoNegociacao = itensComHistoricoNegociacao.has(item.numero_item);
-                              const chatAberto = itemChatPrivado === item.numero_item;
-                              return (
-                                <div key={`avail-${item.numero_item}`} className="p-2 bg-white dark:bg-background rounded-lg border text-xs">
-                                  <div className="flex items-start gap-2 mb-2">
-                                    <Trophy className="h-3 w-3 text-yellow-600 shrink-0 mt-0.5" />
-                                    <div className="min-w-0">
-                                      <span className="font-semibold">Item {item.numero_item}</span>
-                                      <p className="text-muted-foreground truncate">
-                                        {vencedor?.razaoSocial} - {vencedor?.valorLance?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-1">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="border-amber-500 text-amber-700 hover:bg-amber-100 text-xs flex-1"
-                                      onClick={() => handleAbrirNegociacao(item.numero_item)}
-                                      disabled={salvando}
-                                    >
-                                      <Handshake className="h-3 w-3 mr-1" />
-                                      Negociar
-                                    </Button>
-                                    {temHistoricoNegociacao && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="text-xs"
-                                        onClick={() => setItemChatPrivado(chatAberto ? null : item.numero_item)}
-                                      >
-                                        <MessagesSquare className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Chat Inline para histórico */}
-                                  {chatAberto && temHistoricoNegociacao && (
-                                    <div className="mt-3 border-t pt-3">
-                                      <div className="h-[200px] bg-muted/30 rounded-lg border">
-                                        <ChatNegociacao
-                                          selecaoId={selecaoId}
-                                          numeroItem={item.numero_item}
-                                          fornecedorId={itensComHistoricoNegociacao.get(item.numero_item)!}
-                                          fornecedorNome={vencedor?.razaoSocial || "Fornecedor"}
-                                          tituloSelecao={tituloSelecao}
-                                          isGestor={true}
-                                        />
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </>
-                        )}
                       </div>
                       <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                   </CardContent>
                 </Card>
-              </>
-            );
+              );
           })()}
           </div>
 
