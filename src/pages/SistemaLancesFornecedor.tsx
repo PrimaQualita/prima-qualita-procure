@@ -327,7 +327,7 @@ const SistemaLancesFornecedor = () => {
     if (!selecao?.id) return;
     
     try {
-      // Buscar TODOS os registros de itens para esta seleção (abertos + em negociação)
+      // Buscar TODOS os registros de itens para esta seleção
       const { data, error } = await supabase
         .from("itens_abertos_lances")
         .select("*")
@@ -335,8 +335,11 @@ const SistemaLancesFornecedor = () => {
 
       if (error) throw error;
 
-      // Itens abertos incluem os normais e os em negociação
-      const abertos = new Set(data?.filter((item: any) => item.aberto).map((item: any) => item.numero_item) || []);
+      // Filtrar APENAS itens com aberto === true (booleano estrito)
+      const itensAbertosFiltrados = data?.filter((item: any) => item.aberto === true) || [];
+      const abertos = new Set(itensAbertosFiltrados.map((item: any) => item.numero_item));
+      
+      console.log("Itens abertos carregados:", Array.from(abertos));
       setItensAbertos(abertos);
 
       // Mapear itens em fechamento com timestamp de expiração
@@ -344,9 +347,10 @@ const SistemaLancesFornecedor = () => {
       const emNegociacao = new Map<number, string>();
       const now = Date.now();
       
-      data?.forEach((item: any) => {
+      // Apenas processar itens que estão REALMENTE abertos
+      itensAbertosFiltrados.forEach((item: any) => {
         // Itens em processo de fechamento
-        if (item.aberto && item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+        if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
           const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
           const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
           
@@ -355,7 +359,7 @@ const SistemaLancesFornecedor = () => {
           }
         }
         
-        // Itens em negociação (podem estar abertos)
+        // Itens em negociação
         if (item.em_negociacao && item.fornecedor_negociacao_id) {
           emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
         }
