@@ -403,12 +403,11 @@ export async function gerarPropostaFornecedorPDF(
     const lineHeight = 15;
 
     // Responsável pela geração
-    console.log('🔍 DEBUG Responsável - CNPJ:', fornecedor.cnpj, 'usuarioNome:', usuarioNome, 'razao_social:', fornecedor.razao_social);
-    const responsavel = (fornecedor.cnpj === '00000000000000' && usuarioNome) 
-      ? usuarioNome
+    // Se for preços públicos (CNPJ 00000000000000), SEMPRE usar o usuário que preencheu
+    // Se for fornecedor normal, usar a razão social do fornecedor
+    const responsavel = fornecedor.cnpj === '00000000000000'
+      ? (usuarioNome || 'Não informado')
       : fornecedor.razao_social;
-    
-    console.log('✅ Responsável definido:', responsavel);
     
     paginaCert.drawText(`Responsável: ${responsavel}`, {
       x: 50,
