@@ -259,10 +259,12 @@ export async function gerarPlanilhaConsolidadaPDF(
       fontSize: 8,
       textColor: [0, 0, 0],
       lineWidth: 0, // Sem bordas
-      cellPadding: 2,
+      cellPadding: { top: 3, right: 2, bottom: 3, left: 2 },
       halign: 'center',
       valign: 'middle',
-      minCellHeight: 8
+      minCellHeight: 10,
+      overflow: 'linebreak',
+      cellWidth: 'wrap'
     },
     alternateRowStyles: {
       fillColor: [207, 238, 247] // Azul claro (paleta Prima Qualitá)
@@ -270,7 +272,12 @@ export async function gerarPlanilhaConsolidadaPDF(
     columnStyles: (() => {
       const styles: any = {
         0: { halign: 'center', cellWidth: 12 },
-        1: { halign: 'justify', cellWidth: 40 },
+        1: { 
+          halign: 'justify', 
+          cellWidth: 40,
+          overflow: 'linebreak',
+          cellPadding: { top: 3, right: 3, bottom: 3, left: 3 }
+        },
         2: { halign: 'center', cellWidth: 12 },
         3: { halign: 'center', cellWidth: 15 }
       };
