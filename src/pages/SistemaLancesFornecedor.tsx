@@ -78,39 +78,13 @@ const SistemaLancesFornecedor = () => {
         .on(
           "postgres_changes",
           {
-            event: "INSERT",
+            event: "*",
             schema: "public",
             table: "itens_abertos_lances",
             filter: `selecao_id=eq.${selecao.id}`,
           },
           (payload) => {
-            console.log("Novo item aberto recebido via realtime:", payload);
-            loadItensAbertos();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "itens_abertos_lances",
-            filter: `selecao_id=eq.${selecao.id}`,
-          },
-          (payload) => {
-            console.log("Item atualizado via realtime:", payload);
-            loadItensAbertos();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "DELETE",
-            schema: "public",
-            table: "itens_abertos_lances",
-            filter: `selecao_id=eq.${selecao.id}`,
-          },
-          (payload) => {
-            console.log("Item removido via realtime:", payload);
+            console.log("Itens abertos atualizado via realtime:", payload);
             loadItensAbertos();
           }
         )
@@ -118,9 +92,15 @@ const SistemaLancesFornecedor = () => {
           console.log("Status da subscrição itens_abertos:", status);
         });
 
+      // Polling como fallback a cada 3 segundos para garantir sincronização
+      const pollingInterval = setInterval(() => {
+        loadItensAbertos();
+      }, 3000);
+
       return () => {
         supabase.removeChannel(channel);
         supabase.removeChannel(channelItens);
+        clearInterval(pollingInterval);
       };
     }
   }, [selecao?.id]);
