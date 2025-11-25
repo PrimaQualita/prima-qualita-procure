@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare, Trash2 } from "lucide-react";
+import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare, Trash2, CheckCircle } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ChatNegociacao } from "./ChatNegociacao";
@@ -69,6 +69,8 @@ interface DialogSessaoLancesProps {
   itens: Item[];
   criterioJulgamento: string;
   tituloSelecao?: string;
+  sessaoFinalizada?: boolean;
+  onFinalizarSessao?: () => void;
 }
 
 export function DialogSessaoLances({
@@ -78,6 +80,8 @@ export function DialogSessaoLances({
   itens,
   criterioJulgamento,
   tituloSelecao = "Seleção de Fornecedores",
+  sessaoFinalizada = false,
+  onFinalizarSessao,
 }: DialogSessaoLancesProps) {
   // Estado - Controle de Itens
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
@@ -655,6 +659,54 @@ export function DialogSessaoLances({
     if (!userProfile) return false;
     if (userProfile.type === "interno") return msg.usuario_id === userProfile.data.id;
     return msg.fornecedor_id === userProfile.data.id;
+  };
+
+  // ========== FINALIZAR SESSÃO ==========
+  const handleFinalizarSessaoInterna = async () => {
+    setSalvando(true);
+    try {
+      // Marcar os lances vencedores
+      const lancesOrdenados = [...lances].sort((a, b) => {
+        if (a.numero_item !== b.numero_item) {
+          return a.numero_item - b.numero_item;
+        }
+        return a.valor_lance - b.valor_lance;
+      });
+
+      // Identificar vencedor de cada item (menor lance)
+      const vencedoresPorItem = new Map<number, string>();
+      lancesOrdenados.forEach(lance => {
+        if (!vencedoresPorItem.has(lance.numero_item)) {
+          vencedoresPorItem.set(lance.numero_item, lance.id);
+        }
+      });
+
+      // Marcar lances vencedores
+      const updates = lances.map(lance => ({
+        id: lance.id,
+        indicativo_lance_vencedor: vencedoresPorItem.get(lance.numero_item) === lance.id
+      }));
+
+      for (const update of updates) {
+        await supabase
+          .from("lances_fornecedores")
+          .update({ indicativo_lance_vencedor: update.indicativo_lance_vencedor })
+          .eq("id", update.id);
+      }
+
+      // Chamar callback de finalização
+      if (onFinalizarSessao) {
+        onFinalizarSessao();
+      }
+
+      toast.success("Sessão finalizada! Análise Documental disponível.");
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Erro ao finalizar sessão:", error);
+      toast.error("Erro ao finalizar sessão");
+    } finally {
+      setSalvando(false);
+    }
   };
 
   // ========== CARREGAR PLANILHAS GERADAS ==========
@@ -1895,6 +1947,25 @@ export function DialogSessaoLances({
             </Card>
           </div>
         </div>
+
+        {/* Botão Finalizar Sessão */}
+        {!sessaoFinalizada && (
+          <div className="mt-4 pt-4 border-t">
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full bg-green-600 hover:bg-green-700"
+              onClick={handleFinalizarSessaoInterna}
+              disabled={salvando}
+            >
+              <CheckCircle className="h-5 w-5 mr-2" />
+              {salvando ? "Finalizando..." : "Finalizar Sessão de Lances"}
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Ao finalizar, a Análise Documental será habilitada
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
 
