@@ -709,6 +709,51 @@ export function DialogSessaoLances({
     }
   };
 
+  // ========== REMARCAR VENCEDORES ==========
+  const handleRemarcarVencedores = async () => {
+    setSalvando(true);
+    try {
+      // Marcar os lances vencedores
+      const lancesOrdenados = [...lances].sort((a, b) => {
+        if (a.numero_item !== b.numero_item) {
+          return a.numero_item - b.numero_item;
+        }
+        return a.valor_lance - b.valor_lance;
+      });
+
+      // Identificar vencedor de cada item (menor lance)
+      const vencedoresPorItem = new Map<number, string>();
+      lancesOrdenados.forEach(lance => {
+        if (!vencedoresPorItem.has(lance.numero_item)) {
+          vencedoresPorItem.set(lance.numero_item, lance.id);
+        }
+      });
+
+      // Primeiro, limpar todos os indicativos
+      await supabase
+        .from("lances_fornecedores")
+        .update({ indicativo_lance_vencedor: false })
+        .eq("selecao_id", selecaoId);
+
+      // Marcar lances vencedores
+      for (const [, lanceId] of vencedoresPorItem) {
+        await supabase
+          .from("lances_fornecedores")
+          .update({ indicativo_lance_vencedor: true })
+          .eq("id", lanceId);
+      }
+
+      toast.success(`${vencedoresPorItem.size} vencedor(es) remarcado(s)!`);
+      await loadLances();
+      await loadVencedoresPorItem();
+    } catch (error) {
+      console.error("Erro ao remarcar vencedores:", error);
+      toast.error("Erro ao remarcar vencedores");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   // ========== CARREGAR PLANILHAS GERADAS ==========
   const loadPlanilhasGeradas = async () => {
     try {
@@ -1950,8 +1995,8 @@ export function DialogSessaoLances({
           </div>
         </div>
 
-        {/* Botão Finalizar Sessão */}
-        {!sessaoFinalizada && (
+        {/* Botão Finalizar Sessão ou Remarcar Vencedores */}
+        {!sessaoFinalizada ? (
           <div className="mt-4 pt-4 border-t">
             <Button
               variant="default"
@@ -1965,6 +2010,22 @@ export function DialogSessaoLances({
             </Button>
             <p className="text-xs text-muted-foreground mt-2 text-center">
               Ao finalizar, a Análise Documental será habilitada
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 pt-4 border-t">
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={handleRemarcarVencedores}
+              disabled={salvando}
+            >
+              <RefreshCw className="h-5 w-5 mr-2" />
+              {salvando ? "Processando..." : "Remarcar Vencedores"}
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Sessão já finalizada - Use para recalcular os vencedores se necessário
             </p>
           </div>
         )}
