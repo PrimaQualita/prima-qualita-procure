@@ -401,109 +401,111 @@ export default function PropostasSelecao() {
               <p className="text-muted-foreground">Nenhuma proposta recebida ainda</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fornecedor</TableHead>
-                  <TableHead>CNPJ</TableHead>
-                  <TableHead className="text-right">Valor Total</TableHead>
-                  <TableHead>Data de Envio</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Proposta PDF</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {propostas.map((proposta) => (
-                  <TableRow key={proposta.id}>
-                    <TableCell className="font-medium">
-                      {proposta.fornecedor.razao_social}
-                    </TableCell>
-                    <TableCell>{formatCNPJ(proposta.fornecedor.cnpj)}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(proposta.valor_total_proposta)}
-                    </TableCell>
-                    <TableCell>
-                      {formatDateTime(proposta.data_envio_proposta)}
-                    </TableCell>
-                    <TableCell>
-                      {proposta.desclassificado ? (
-                        <Badge variant="destructive">Desclassificado</Badge>
-                      ) : (
-                        <Badge variant="default">Classificado</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {proposta.url_pdf_proposta ? (
-                        <div className="flex items-center gap-2 text-sm">
-                          <svg 
-                            className="h-4 w-4 text-muted-foreground" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            viewBox="0 0 24 24"
-                          >
-                            <path 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth={2} 
-                              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" 
-                            />
-                          </svg>
-                          <span className="truncate max-w-[150px]">
-                            proposta_{proposta.fornecedor.cnpj.replace(/[^\d]/g, '').slice(0, 10)}...
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">PDF não gerado</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+            <div className="border border-border/50 rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border/50">
+                    <TableHead className="border-r border-border/50">Fornecedor</TableHead>
+                    <TableHead className="border-r border-border/50">CNPJ</TableHead>
+                    <TableHead className="text-right border-r border-border/50">Valor Total</TableHead>
+                    <TableHead className="border-r border-border/50">Data de Envio</TableHead>
+                    <TableHead className="border-r border-border/50">Status</TableHead>
+                    <TableHead className="border-r border-border/50">Proposta PDF</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {propostas.map((proposta) => (
+                    <TableRow key={proposta.id} className="border-b border-border/50">
+                      <TableCell className="font-medium border-r border-border/50">
+                        {proposta.fornecedor.razao_social}
+                      </TableCell>
+                      <TableCell className="border-r border-border/50">{formatCNPJ(proposta.fornecedor.cnpj)}</TableCell>
+                      <TableCell className="text-right font-medium border-r border-border/50">
+                        {formatCurrency(proposta.valor_total_proposta)}
+                      </TableCell>
+                      <TableCell className="border-r border-border/50">
+                        {formatDateTime(proposta.data_envio_proposta)}
+                      </TableCell>
+                      <TableCell className="border-r border-border/50">
+                        {proposta.desclassificado ? (
+                          <Badge variant="destructive">Desclassificado</Badge>
+                        ) : (
+                          <Badge variant="default">Classificado</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="border-r border-border/50">
                         {proposta.url_pdf_proposta ? (
-                          <>
+                          <div className="flex items-center gap-2 text-sm">
+                            <svg 
+                              className="h-4 w-4 text-muted-foreground" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              viewBox="0 0 24 24"
+                            >
+                              <path 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round" 
+                                strokeWidth={2} 
+                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" 
+                              />
+                            </svg>
+                            <span className="truncate max-w-[150px]">
+                              proposta_{proposta.fornecedor.cnpj.replace(/[^\d]/g, '').slice(0, 10)}...
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">PDF não gerado</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {proposta.url_pdf_proposta ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleVisualizarProposta(proposta.id)}
+                                disabled={gerandoPDF === proposta.id}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                {gerandoPDF === proposta.id ? "Gerando..." : "Ver"}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleBaixarProposta(proposta.id)}
+                                disabled={gerandoPDF === proposta.id}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                {gerandoPDF === proposta.id ? "Gerando..." : "Baixar"}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleExcluirProposta(proposta)}
+                                title="Excluir PDF"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleVisualizarProposta(proposta.id)}
                               disabled={gerandoPDF === proposta.id}
                             >
-                              <Eye className="h-4 w-4 mr-2" />
-                              {gerandoPDF === proposta.id ? "Gerando..." : "Ver"}
+                              {gerandoPDF === proposta.id ? "Gerando..." : "Gerar PDF"}
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleBaixarProposta(proposta.id)}
-                              disabled={gerandoPDF === proposta.id}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              {gerandoPDF === proposta.id ? "Gerando..." : "Baixar"}
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleExcluirProposta(proposta)}
-                              title="Excluir PDF"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleVisualizarProposta(proposta.id)}
-                            disabled={gerandoPDF === proposta.id}
-                          >
-                            {gerandoPDF === proposta.id ? "Gerando..." : "Gerar PDF"}
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
 
           {propostas.some(p => p.motivo_desclassificacao) && (
