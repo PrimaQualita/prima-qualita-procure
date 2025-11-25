@@ -888,19 +888,24 @@ export function DialogSessaoLances({
       const landscapeWidth = doc.internal.pageSize.getWidth();
       const landscapeHeight = doc.internal.pageSize.getHeight();
       
-      // Adicionar logo horizontal no topo da página de resumo
+      // Adicionar logo horizontal centralizado no topo da página de resumo
       const logoResumoHeight = 30;
+      const logoResumoWidth = 80;
+      let resumoStartY = 15;
+      
       if (base64LogoHorizontal) {
-        // Calcular largura proporcional para o logo (altura fixa de 30)
-        const logoResumoWidth = 80; // Largura fixa para manter proporção
-        doc.addImage(base64LogoHorizontal, 'PNG', 10, 5, logoResumoWidth, logoResumoHeight);
+        // Centralizar logo horizontalmente
+        const logoX = (landscapeWidth - logoResumoWidth) / 2;
+        doc.addImage(base64LogoHorizontal, 'PNG', logoX, 8, logoResumoWidth, logoResumoHeight);
+        resumoStartY = 8 + logoResumoHeight + 8; // Logo + espaçamento
       }
       
-      // Título do resumo ao lado do logo
+      // Título do resumo abaixo do logo
       doc.setTextColor(22, 163, 74);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("RESUMO - VENCEDORES POR ITEM", landscapeWidth / 2, 22, { align: "center" });
+      doc.text("RESUMO - VENCEDORES POR ITEM", landscapeWidth / 2, resumoStartY + 5, { align: "center" });
+      resumoStartY += 15;
       
       doc.setTextColor(0, 0, 0);
 
@@ -952,7 +957,7 @@ export function DialogSessaoLances({
       });
 
       autoTable(doc, {
-        startY: 35,
+        startY: resumoStartY,
         head: [["Item", "Descrição", "Vencedor", "Marca", "Qtd.", "Un.", "Valor Unit.", "Valor Total"]],
         body: resumoData,
         theme: "striped",
