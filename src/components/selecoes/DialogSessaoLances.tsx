@@ -16,9 +16,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake } from "lucide-react";
+import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ChatNegociacao } from "./ChatNegociacao";
 
 interface Item {
   numero_item: number;
@@ -60,6 +61,7 @@ interface DialogSessaoLancesProps {
   selecaoId: string;
   itens: Item[];
   criterioJulgamento: string;
+  tituloSelecao?: string;
 }
 
 export function DialogSessaoLances({
@@ -68,6 +70,7 @@ export function DialogSessaoLances({
   selecaoId,
   itens,
   criterioJulgamento,
+  tituloSelecao = "Seleção de Fornecedores",
 }: DialogSessaoLancesProps) {
   // Estado - Controle de Itens
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
@@ -83,12 +86,15 @@ export function DialogSessaoLances({
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [itemSelecionadoLances, setItemSelecionadoLances] = useState<number | null>(null);
 
-  // Estado - Chat
+  // Estado - Chat Geral
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [enviandoMsg, setEnviandoMsg] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Estado - Chat Privado de Negociação
+  const [itemChatPrivado, setItemChatPrivado] = useState<number | null>(null);
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -813,6 +819,7 @@ export function DialogSessaoLances({
               if (itensFechadosComVencedor.length === 0 && itensEmNegociacao.size === 0) return null;
 
               return (
+                <>
                 <Card className="mt-3 bg-amber-50 dark:bg-amber-950 border-amber-200">
                   <CardHeader className="py-2">
                     <CardTitle className="text-xs flex items-center gap-2 text-amber-700 dark:text-amber-300">
@@ -839,16 +846,27 @@ export function DialogSessaoLances({
                                   </p>
                                 </div>
                               </div>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleFecharNegociacao(numeroItem)}
-                                disabled={salvando}
-                                className="text-xs w-full"
-                              >
-                                <Lock className="h-3 w-3 mr-1" />
-                                Encerrar
-                              </Button>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setItemChatPrivado(itemChatPrivado === numeroItem ? null : numeroItem)}
+                                  className={`text-xs flex-1 ${itemChatPrivado === numeroItem ? 'bg-amber-200 border-amber-400' : 'border-amber-400 text-amber-700 hover:bg-amber-100'}`}
+                                >
+                                  <MessagesSquare className="h-3 w-3 mr-1" />
+                                  {itemChatPrivado === numeroItem ? 'Fechar Chat' : 'Chat Privado'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleFecharNegociacao(numeroItem)}
+                                  disabled={salvando}
+                                  className="text-xs flex-1"
+                                >
+                                  <Lock className="h-3 w-3 mr-1" />
+                                  Encerrar
+                                </Button>
+                              </div>
                             </div>
                           );
                         })}
@@ -892,8 +910,25 @@ export function DialogSessaoLances({
                     </ScrollArea>
                   </CardContent>
                 </Card>
-              );
-            })()}
+
+                {/* Chat Privado de Negociação */}
+                {itemChatPrivado !== null && itensEmNegociacao.has(itemChatPrivado) && (
+                  <Card className="mt-3 border-amber-300 bg-amber-50/50 dark:bg-amber-950/50">
+                    <div className="h-[280px]">
+                      <ChatNegociacao
+                        selecaoId={selecaoId}
+                        numeroItem={itemChatPrivado}
+                        fornecedorId={itensEmNegociacao.get(itemChatPrivado)!}
+                        fornecedorNome={vencedoresPorItem.get(itemChatPrivado)?.razaoSocial || "Fornecedor"}
+                        tituloSelecao={tituloSelecao}
+                        isGestor={true}
+                      />
+                    </div>
+                  </Card>
+                )}
+              </>
+            );
+          })()}
           </div>
 
           {/* Coluna Central - Sistema de Lances */}

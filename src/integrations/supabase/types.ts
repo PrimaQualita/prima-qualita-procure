@@ -1233,6 +1233,54 @@ export type Database = {
           },
         ]
       }
+      mensagens_negociacao: {
+        Row: {
+          created_at: string
+          fornecedor_id: string
+          id: string
+          mensagem: string
+          numero_item: number
+          selecao_id: string
+          tipo_remetente: string
+          usuario_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          fornecedor_id: string
+          id?: string
+          mensagem: string
+          numero_item: number
+          selecao_id: string
+          tipo_remetente: string
+          usuario_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          fornecedor_id?: string
+          id?: string
+          mensagem?: string
+          numero_item?: number
+          selecao_id?: string
+          tipo_remetente?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_negociacao_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_negociacao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mensagens_selecao: {
         Row: {
           created_at: string
