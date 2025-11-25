@@ -265,23 +265,14 @@ export async function gerarPropostaFornecedorPDF(
       }
 
       doc.text(itemCotacao.numero_item.toString(), 20, y, { align: 'center' });
-      
-      const descricaoLinhas = doc.splitTextToSize(itemCotacao.descricao, 45);
-      descricaoLinhas.forEach((linha: string, idx: number) => {
-        if (idx === 0) {
-          doc.text(linha, 28, y, { maxWidth: 45, align: 'justify' });
-        } else {
-          doc.text(linha, 28, y + (idx * 4), { maxWidth: 45, align: 'justify' });
-        }
-      });
-      
+      doc.text(itemCotacao.descricao, 28, y, { maxWidth: 45, align: 'justify' });
       doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 95, y, { align: 'center' });
       doc.text(itemCotacao.unidade, 115, y, { align: 'center' });
       doc.text(item.marca || '-', 135, y, { align: 'center' });
       doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 160, y, { align: 'center' });
       doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 185, y, { align: 'center' });
       
-      y += Math.max(6, descricaoLinhas.length * 4);
+      y += 6;
       isAlternate = !isAlternate;
     }
 
