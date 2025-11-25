@@ -889,8 +889,8 @@ export function DialogSessaoLances({
       const landscapeHeight = doc.internal.pageSize.getHeight();
       
       // Adicionar logo horizontal centralizado no topo da página de resumo
-      const logoResumoHeight = 30;
-      const logoResumoWidth = 80;
+      const logoResumoHeight = 22;
+      const logoResumoWidth = 60;
       let resumoStartY = 15;
       
       if (base64LogoHorizontal) {
