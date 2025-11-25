@@ -777,10 +777,12 @@ export function DialogSessaoLances({
           styles: {
             fontSize: 11,
             fontStyle: "bold",
-            textColor: [30, 64, 175],
-            fillColor: [241, 245, 249],
+            textColor: [0, 128, 128], // Azul do logo
+            fillColor: [224, 242, 241], // Azul claro de sombra do logo
             cellPadding: 4,
             halign: "justify",
+            lineColor: [0, 128, 128], // Borda azul do logo
+            lineWidth: 0.5,
           },
           columnStyles: {
             0: { cellWidth: pageWidth - margin * 2 },
@@ -833,7 +835,7 @@ export function DialogSessaoLances({
               lineWidth: 0.1,
             },
             headStyles: { 
-              fillColor: [37, 99, 235], 
+              fillColor: [0, 128, 128], // Azul do logo
               textColor: 255,
               fontStyle: "bold",
               halign: "center"
