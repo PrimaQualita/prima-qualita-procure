@@ -165,9 +165,17 @@ export async function gerarPropostaSelecaoPDF(
     y += 8;
     doc.setTextColor(0, 0, 0);
 
+    // Desenhar borda externa da tabela (perímetro)
+    const tabelaY = y - 5;
+    const alturaHeader = 8;
+    
     // Cabeçalho da tabela com sombra
     doc.setFillColor(30, 159, 204); // Azul do logo
     doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
+    
+    // Bordas do cabeçalho
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
     
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
@@ -180,6 +188,16 @@ export async function gerarPropostaSelecaoPDF(
     const colMarca = margemEsquerda + 125;
     const colValorUnit = margemEsquerda + 148;
     const colValorTotal = margemEsquerda + 168;
+    
+    // Posições das colunas para linhas verticais
+    const colPositions = [
+      margemEsquerda + 13,
+      margemEsquerda + 83,
+      margemEsquerda + 103,
+      margemEsquerda + 123,
+      margemEsquerda + 146,
+      margemEsquerda + 166
+    ];
     
     const headerYCenter = y - 1;
     
@@ -195,12 +213,29 @@ export async function gerarPropostaSelecaoPDF(
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
 
+    // Calcular altura total da tabela primeiro
+    let alturaTotal = 0;
+    const alturasPorItem: number[] = [];
+    for (const item of itensOrdenados) {
+      const descLines = doc.splitTextToSize(item.descricao, 65);
+      const alturaLinha = Math.max(descLines.length * 4, 6);
+      alturasPorItem.push(alturaLinha);
+      alturaTotal += alturaLinha;
+    }
+
     // Linhas da tabela com sombras alternadas
     let itemIndex = 0;
+    let yInicio = y;
     for (const item of itensOrdenados) {
       if (y > 270) {
+        // Fechar tabela na página atual antes de mudar
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.rect(margemEsquerda, tabelaY, larguraUtil, y - tabelaY, 'S');
+        
         doc.addPage();
         y = 20;
+        yInicio = y;
       }
 
       const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
@@ -215,8 +250,15 @@ export async function gerarPropostaSelecaoPDF(
         doc.rect(margemEsquerda, y, larguraUtil, alturaLinha, 'F');
       }
       
+      // Linha horizontal inferior
       doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.3);
       doc.line(margemEsquerda, y + alturaLinha, margemEsquerda + larguraUtil, y + alturaLinha);
+      
+      // Linhas verticais para cada coluna
+      colPositions.forEach(xPos => {
+        doc.line(xPos, y, xPos, y + alturaLinha);
+      });
       
       doc.text(item.numero_item.toString(), colItem, yCenter);
       doc.text(descLines, colDesc, y + 3);
@@ -229,6 +271,16 @@ export async function gerarPropostaSelecaoPDF(
       y += alturaLinha;
       itemIndex++;
     }
+
+    // Desenhar borda externa completa da tabela (perímetro)
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.rect(margemEsquerda, tabelaY, larguraUtil, (y - tabelaY) + alturaHeader, 'S');
+    
+    // Linhas verticais completas da tabela
+    colPositions.forEach(xPos => {
+      doc.line(xPos, tabelaY, xPos, y);
+    });
 
     y += 5;
 
