@@ -688,30 +688,35 @@ export function DialogSessaoLances({
       let yPosition = 45;
 
       lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }) => {
-        // Calcular altura do título com quebra de linha
-        const tituloTexto = `Item ${item.numero_item}: ${item.descricao}`;
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        const maxTituloWidth = pageWidth - margin * 2 - 6;
-        const linhasTitulo = doc.splitTextToSize(tituloTexto, maxTituloWidth);
-        const alturaTitulo = linhasTitulo.length * 5 + 6;
-        
         // Verificar se precisa de nova página
-        const estimatedHeight = alturaTitulo + 10 + (lancesDoItem.length * 10);
+        const estimatedHeight = 40 + (lancesDoItem.length * 10);
         if (yPosition + estimatedHeight > pageHeight - 30) {
           doc.addPage();
           yPosition = 20;
         }
 
-        // Título do item com fundo
-        doc.setFillColor(241, 245, 249); // bg-slate-100
-        doc.rect(margin, yPosition - 5, pageWidth - margin * 2, alturaTitulo, "F");
+        // Título do item usando autoTable para texto justificado
+        const tituloTexto = `Item ${item.numero_item}: ${item.descricao}`;
         
-        doc.setTextColor(30, 64, 175); // text-blue-800
-        doc.text(linhasTitulo, margin + 3, yPosition + 2);
+        autoTable(doc, {
+          startY: yPosition,
+          body: [[tituloTexto]],
+          theme: "plain",
+          styles: {
+            fontSize: 11,
+            fontStyle: "bold",
+            textColor: [30, 64, 175],
+            fillColor: [241, 245, 249],
+            cellPadding: 4,
+            halign: "justify",
+          },
+          columnStyles: {
+            0: { cellWidth: pageWidth - margin * 2 },
+          },
+          margin: { left: margin, right: margin },
+        });
         
-        doc.setTextColor(0, 0, 0);
-        yPosition += alturaTitulo;
+        yPosition = (doc as any).lastAutoTable.finalY + 2;
 
         if (lancesDoItem.length === 0) {
           doc.setFontSize(9);
