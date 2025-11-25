@@ -717,7 +717,7 @@ export function DialogSessaoLances({
         doc.addImage(base64Logo, 'PNG', 0, 0, pageWidth, logoHeight);
         // Rodapé no fim - largura total da página
         doc.addImage(base64Rodape, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
-        yStart = logoHeight + 5;
+        yStart = logoHeight + 10; // Aumentar espaçamento entre logo e título
       } catch (logoError) {
         console.warn('Imagem não carregou, usando cabeçalho alternativo:', logoError);
         doc.setFillColor(37, 99, 235);
@@ -794,12 +794,14 @@ export function DialogSessaoLances({
               cellPadding: 1.5,
               lineColor: [200, 200, 200],
               lineWidth: 0.1,
+              valign: "middle",
             },
             headStyles: { 
               fillColor: [0, 150, 199],
               textColor: 255,
               fontStyle: "bold",
-              halign: "center"
+              halign: "center",
+              valign: "middle"
             },
             columnStyles: {
               0: { cellWidth: 20, halign: "center", fontStyle: "bold" },
@@ -846,12 +848,14 @@ export function DialogSessaoLances({
               cellPadding: 1.5,
               lineColor: [200, 200, 200],
               lineWidth: 0.1,
+              valign: "middle",
             },
             headStyles: { 
               fillColor: [0, 150, 199],
               textColor: 255,
               fontStyle: "bold",
-              halign: "center"
+              halign: "center",
+              valign: "middle"
             },
             columnStyles: {
               0: { cellWidth: 20, halign: "center", fontStyle: "bold" },
