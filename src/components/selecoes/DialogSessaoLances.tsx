@@ -792,8 +792,9 @@ export function DialogSessaoLances({
       });
 
       // Resumo geral em nova página PAISAGEM
-      doc.addPage("landscape");
-      const landscapeWidth = doc.internal.pageSize.width;
+      doc.addPage("a4", "l"); // "l" = landscape
+      const landscapeWidth = doc.internal.pageSize.getWidth();
+      const landscapeHeight = doc.internal.pageSize.getHeight();
       
       // Cabeçalho do resumo
       doc.setFillColor(22, 163, 74); // Verde
