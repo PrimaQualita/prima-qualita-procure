@@ -341,6 +341,11 @@ export function DialogSessaoLances({
 
       if (error) throw error;
 
+      // Fechar o chat se estiver aberto para este item
+      if (itemChatPrivado === numeroItem) {
+        setItemChatPrivado(null);
+      }
+
       toast.success(`Negociação encerrada para o Item ${numeroItem}`);
       await loadItensAbertos();
     } catch (error) {
