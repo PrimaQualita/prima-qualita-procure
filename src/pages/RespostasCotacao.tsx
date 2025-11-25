@@ -855,14 +855,15 @@ export default function RespostasCotacao() {
                               )}
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="destructive"
                               size="sm"
                               onClick={() => {
                                 setRespostaParaExcluir(resposta.id);
                                 setConfirmDeleteRespostaOpen(true);
                               }}
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Excluir Fornecedor
                             </Button>
                           </>
                         )}
