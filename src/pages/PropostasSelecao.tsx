@@ -482,8 +482,10 @@ export default function PropostasSelecao() {
                         {proposta.fornecedor.razao_social}
                       </TableCell>
                       <TableCell className="border-r border-border/50">{formatCNPJ(proposta.fornecedor.cnpj)}</TableCell>
-                      <TableCell className="text-right font-medium border-r border-border/50">
-                        {formatCurrency(proposta.valor_total_proposta)}
+                      <TableCell className="border-r border-border/50">
+                        <div className="text-right font-medium">
+                          {formatCurrency(proposta.valor_total_proposta)}
+                        </div>
                       </TableCell>
                       <TableCell className="border-r border-border/50">
                         {formatDateTime(proposta.data_envio_proposta)}
