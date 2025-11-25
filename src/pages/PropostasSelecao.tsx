@@ -122,11 +122,20 @@ export default function PropostasSelecao() {
         return;
       }
 
+      // Buscar URL mais recente do banco de dados (caso fornecedor tenha atualizado)
+      const { data: propostaAtualizada, error: fetchError } = await supabase
+        .from('selecao_propostas_fornecedor')
+        .select('url_pdf_proposta')
+        .eq('id', propostaId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
       // Se já existe PDF salvo, usar ele diretamente
-      if (proposta.url_pdf_proposta) {
+      if (propostaAtualizada?.url_pdf_proposta) {
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('processo-anexos')
-          .download(proposta.url_pdf_proposta);
+          .download(propostaAtualizada.url_pdf_proposta);
 
         if (downloadError) throw downloadError;
 
@@ -134,6 +143,11 @@ export default function PropostasSelecao() {
         window.open(pdfUrl, '_blank');
         
         toast.success("Proposta carregada com sucesso!");
+        
+        // Atualizar lista local se URL mudou
+        if (propostaAtualizada.url_pdf_proposta !== proposta.url_pdf_proposta) {
+          await loadPropostas();
+        }
       } else {
         // Gerar PDF e salvar URL
         const resultado = await gerarPropostaSelecaoPDF(
@@ -197,11 +211,20 @@ export default function PropostasSelecao() {
         return;
       }
 
+      // Buscar URL mais recente do banco de dados (caso fornecedor tenha atualizado)
+      const { data: propostaAtualizada, error: fetchError } = await supabase
+        .from('selecao_propostas_fornecedor')
+        .select('url_pdf_proposta')
+        .eq('id', propostaId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
       // Se já existe PDF salvo, usar ele diretamente
-      if (proposta.url_pdf_proposta) {
+      if (propostaAtualizada?.url_pdf_proposta) {
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('processo-anexos')
-          .download(proposta.url_pdf_proposta);
+          .download(propostaAtualizada.url_pdf_proposta);
 
         if (downloadError) throw downloadError;
 
@@ -212,6 +235,11 @@ export default function PropostasSelecao() {
         link.click();
         
         toast.success("Proposta baixada com sucesso!");
+        
+        // Atualizar lista local se URL mudou
+        if (propostaAtualizada.url_pdf_proposta !== proposta.url_pdf_proposta) {
+          await loadPropostas();
+        }
       } else {
         // Gerar PDF e salvar URL
         const resultado = await gerarPropostaSelecaoPDF(
