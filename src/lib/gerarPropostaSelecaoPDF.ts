@@ -216,29 +216,29 @@ export async function gerarPropostaSelecaoPDF(
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
     
-    // Posições iniciais das colunas
+    // Posições iniciais das colunas - redistribuídas para caber valores grandes
     const colItem = margemEsquerda + 2;
-    const colDesc = margemEsquerda + 15;
-    const colQtd = margemEsquerda + 85;
-    const colUni = margemEsquerda + 105;
-    const colMarca = margemEsquerda + 125;
-    const colValorUnit = margemEsquerda + 148;
-    const colValorTotal = margemEsquerda + 168;
+    const colDesc = margemEsquerda + 12;        // Descrição mantém largura de 65mm
+    const colQtd = margemEsquerda + 77;         // Coluna mais estreita
+    const colUni = margemEsquerda + 91;         // Coluna mais estreita
+    const colMarca = margemEsquerda + 103;      // Marca
+    const colValorUnit = margemEsquerda + 122;  // Valor Unitário
+    const colValorTotal = margemEsquerda + 147; // Valor Total - mais largo
     
     // Centros das colunas para centralização horizontal
-    const colItemCenter = margemEsquerda + 7;
-    const colQtdCenter = margemEsquerda + 93;
-    const colUniCenter = margemEsquerda + 113;
-    const colMarcaCenter = margemEsquerda + 134;
+    const colItemCenter = margemEsquerda + 5;
+    const colQtdCenter = margemEsquerda + 83;
+    const colUniCenter = margemEsquerda + 96;
+    const colMarcaCenter = margemEsquerda + 112;
     
-    // Posições das colunas para linhas verticais
+    // Posições das colunas para linhas verticais (divisores)
     const colPositions = [
-      margemEsquerda + 13,
-      margemEsquerda + 83,
-      margemEsquerda + 103,
-      margemEsquerda + 123,
-      margemEsquerda + 146,
-      margemEsquerda + 166
+      margemEsquerda + 10,   // Fim Item
+      margemEsquerda + 75,   // Fim Descrição (65mm de largura)
+      margemEsquerda + 89,   // Fim Qtd
+      margemEsquerda + 101,  // Fim Unid
+      margemEsquerda + 120,  // Fim Marca
+      margemEsquerda + 145   // Fim Valor Unitário
     ];
     
     const headerYCenter = y - 1;
@@ -260,7 +260,7 @@ export async function gerarPropostaSelecaoPDF(
     let alturaTotal = 0;
     const alturasPorItem: number[] = [];
     for (const item of itensOrdenados) {
-      const descLines = doc.splitTextToSize(item.descricao, 65);
+      const descLines = doc.splitTextToSize(item.descricao, 63);
       const alturaLinha = Math.max(descLines.length * 4, 6);
       alturasPorItem.push(alturaLinha);
       alturaTotal += alturaLinha;
@@ -283,7 +283,7 @@ export async function gerarPropostaSelecaoPDF(
 
       const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
       
-      const descLines = doc.splitTextToSize(item.descricao, 65);
+      const descLines = doc.splitTextToSize(item.descricao, 63);
       const alturaLinha = Math.max(descLines.length * 4, 6);
       
       // Sombra azul claro alternada (zebra striping)
@@ -309,7 +309,7 @@ export async function gerarPropostaSelecaoPDF(
       doc.text(item.numero_item.toString(), colItemCenter, yVerticalCenter, { align: 'center' });
       
       // Descrição com alinhamento justificado em TODAS as linhas exceto última
-      const descricaoLargura = 65;
+      const descricaoLargura = 63;
       const descricaoX = colDesc;
       const descricaoYInicio = y + 3;
       const espacamentoLinhaDesc = 4;
