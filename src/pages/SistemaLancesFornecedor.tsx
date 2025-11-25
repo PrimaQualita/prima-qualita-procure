@@ -42,6 +42,7 @@ const SistemaLancesFornecedor = () => {
   const [itensEstimados, setItensEstimados] = useState<Map<number, number>>(new Map());
   const [menorValorPropostas, setMenorValorPropostas] = useState<Map<number, number>>(new Map()); // Menor valor ofertado por item das propostas
   const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map()); // Map<numeroItem, tempoExpiracao>
+  const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map()); // Map<numeroItem, fornecedorId>
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
 
@@ -270,9 +271,11 @@ const SistemaLancesFornecedor = () => {
 
       // Mapear itens em fechamento com timestamp de expiração
       const emFechamento = new Map<number, number>();
+      const emNegociacao = new Map<number, string>();
       const now = Date.now();
       
       data?.forEach((item: any) => {
+        // Itens em processo de fechamento
         if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
           const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
           const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
@@ -281,9 +284,15 @@ const SistemaLancesFornecedor = () => {
             emFechamento.set(item.numero_item, tempoExpiracao);
           }
         }
+        
+        // Itens em negociação
+        if (item.em_negociacao && item.fornecedor_negociacao_id) {
+          emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
+        }
       });
       
       setItensEmFechamento(emFechamento);
+      setItensEmNegociacao(emNegociacao);
 
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
@@ -372,7 +381,7 @@ const SistemaLancesFornecedor = () => {
     return valorEstimado;
   };
 
-  const handleEnviarLance = async () => {
+  const handleEnviarLance = async (isNegociacao: boolean = false) => {
     if (!valorLance || !proposta || !selecao) {
       toast.error("Preencha o valor do lance");
       return;
@@ -390,16 +399,26 @@ const SistemaLancesFornecedor = () => {
       return;
     }
 
-    const valorEstimado = itensEstimados.get(itemSelecionado) || 0;
-    if (valorNumerico > valorEstimado) {
-      toast.error(`Lance desclassificado! Valor deve ser menor ou igual ao estimado: R$ ${valorEstimado.toFixed(2).replace('.', ',')}`);
-      return;
-    }
+    // Validações apenas para lances normais (não negociação)
+    if (!isNegociacao) {
+      const valorEstimado = itensEstimados.get(itemSelecionado) || 0;
+      if (valorNumerico > valorEstimado) {
+        toast.error(`Lance desclassificado! Valor deve ser menor ou igual ao estimado: R$ ${valorEstimado.toFixed(2).replace('.', ',')}`);
+        return;
+      }
 
-    const valorMinimoAtual = getValorMinimoAtual(itemSelecionado);
-    if (valorNumerico >= valorMinimoAtual) {
-      toast.error(`Seu lance deve ser menor que R$ ${valorMinimoAtual.toFixed(2).replace('.', ',')}`);
-      return;
+      const valorMinimoAtual = getValorMinimoAtual(itemSelecionado);
+      if (valorNumerico >= valorMinimoAtual) {
+        toast.error(`Seu lance deve ser menor que R$ ${valorMinimoAtual.toFixed(2).replace('.', ',')}`);
+        return;
+      }
+    } else {
+      // Para negociação, o valor deve ser menor que o lance vencedor atual
+      const valorMinimoAtual = getValorMinimoAtual(itemSelecionado);
+      if (valorNumerico >= valorMinimoAtual) {
+        toast.error(`Valor de negociação deve ser menor que R$ ${valorMinimoAtual.toFixed(2).replace('.', ',')}`);
+        return;
+      }
     }
 
     try {
@@ -410,17 +429,26 @@ const SistemaLancesFornecedor = () => {
           fornecedor_id: proposta.fornecedor_id,
           numero_item: itemSelecionado,
           valor_lance: valorNumerico,
+          tipo_lance: isNegociacao ? 'negociacao' : 'lance'
         });
 
       if (error) throw error;
 
-      toast.success(`Lance enviado para o Item ${itemSelecionado}!`);
+      toast.success(isNegociacao 
+        ? `Proposta de negociação enviada para o Item ${itemSelecionado}!` 
+        : `Lance enviado para o Item ${itemSelecionado}!`
+      );
       setValorLance("");
       loadLances();
     } catch (error) {
       console.error("Erro ao enviar lance:", error);
       toast.error("Erro ao enviar lance");
     }
+  };
+
+  const isItemEmNegociacaoParaMim = (numeroItem: number): boolean => {
+    const fornecedorNegociacao = itensEmNegociacao.get(numeroItem);
+    return fornecedorNegociacao === proposta?.fornecedor_id;
   };
 
   const handleUpdateItem = (itemId: string, field: string, value: any) => {
@@ -705,7 +733,7 @@ const SistemaLancesFornecedor = () => {
                 {/* Botões de Itens Abertos */}
                 <div>
                   <Label className="text-sm font-semibold mb-3 block">Itens Abertos para Lances</Label>
-                  {itensAbertos.size === 0 ? (
+                  {itensAbertos.size === 0 && itensEmNegociacao.size === 0 ? (
                     <div className="text-center py-8 text-muted-foreground border rounded-lg">
                       <Lock className="h-12 w-12 mx-auto mb-2 opacity-50" />
                       <p>Nenhum item aberto para lances no momento</p>
@@ -713,23 +741,44 @@ const SistemaLancesFornecedor = () => {
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {/* Itens abertos para lances normais */}
                       {Array.from(itensAbertos).sort((a, b) => a - b).map((numeroItem) => {
                         const tempoExpiracao = itensEmFechamento.get(numeroItem);
                         const emFechamento = tempoExpiracao !== undefined;
                         const segundosRestantes = emFechamento ? Math.max(0, Math.ceil((tempoExpiracao - Date.now()) / 1000)) : 0;
+                        const emNegociacao = itensEmNegociacao.has(numeroItem);
+                        const negociacaoParaMim = isItemEmNegociacaoParaMim(numeroItem);
+                        
+                        // Não mostrar itens em negociação aqui se não for para este fornecedor
+                        if (emNegociacao && !negociacaoParaMim) return null;
                         
                         return (
                           <Button
                             key={numeroItem}
                             onClick={() => setItemSelecionado(numeroItem)}
                             variant={itemSelecionado === numeroItem ? "default" : "outline"}
-                            className={`gap-2 ${emFechamento ? 'border-orange-500 bg-orange-50 hover:bg-orange-100' : ''}`}
+                            className={`gap-2 ${
+                              emNegociacao && negociacaoParaMim 
+                                ? 'border-amber-500 bg-amber-50 hover:bg-amber-100' 
+                                : emFechamento 
+                                  ? 'border-orange-500 bg-orange-50 hover:bg-orange-100' 
+                                  : ''
+                            }`}
                             size="lg"
                           >
-                            <Unlock className="h-4 w-4" />
+                            {emNegociacao ? (
+                              <Trophy className="h-4 w-4 text-amber-600" />
+                            ) : (
+                              <Unlock className="h-4 w-4" />
+                            )}
                             <div className="flex flex-col items-start">
                               <span>Item {numeroItem}</span>
-                              {emFechamento && (
+                              {emNegociacao && negociacaoParaMim && (
+                                <span className="text-xs text-amber-600 font-semibold">
+                                  Negociação
+                                </span>
+                              )}
+                              {emFechamento && !emNegociacao && (
                                 <span className="text-xs text-orange-600 font-semibold">
                                   Fechando em {segundosRestantes}s
                                 </span>
@@ -741,6 +790,29 @@ const SistemaLancesFornecedor = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Aviso de Negociação */}
+                {itemSelecionado !== null && isItemEmNegociacaoParaMim(itemSelecionado) && (
+                  <div className="border-2 rounded-lg p-6 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-12 w-12 rounded-full bg-amber-500 flex items-center justify-center">
+                        <Trophy className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <Label className="text-lg font-bold text-amber-900">Rodada de Negociação - Item {itemSelecionado}</Label>
+                        <p className="text-sm text-amber-700">Você é o vencedor! O comprador deseja negociar um valor menor.</p>
+                      </div>
+                    </div>
+                    <div className="border-t border-amber-200 pt-3 mt-3">
+                      <p className="text-sm text-amber-800 mb-2">
+                        <strong>Seu lance vencedor:</strong> {formatarMoeda(getValorMinimoAtual(itemSelecionado))}
+                      </p>
+                      <p className="text-xs text-amber-600 mt-3 italic">
+                        💡 Envie uma proposta com valor menor se desejar manter a venda. Você não é obrigado a reduzir.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Valor Mínimo e Estimado do Item Selecionado */}
                 {itemSelecionado !== null && (
@@ -816,12 +888,43 @@ const SistemaLancesFornecedor = () => {
                   </div>
                 )}
 
-                {/* Formulário de Lance - Só aparece se não estiver desclassificado */}
-                {itensAbertos.size > 0 && editavel && (
-                  <div className="border rounded-lg p-4 bg-muted/50">
-                    <Label className="text-sm font-semibold mb-3 block">Enviar Lance</Label>
+                {/* Formulário de Lance / Negociação */}
+                {((itensAbertos.size > 0 || itensEmNegociacao.size > 0) && editavel) && (
+                  <div className={`border rounded-lg p-4 ${
+                    itemSelecionado !== null && isItemEmNegociacaoParaMim(itemSelecionado) 
+                      ? 'bg-amber-50 border-amber-300' 
+                      : 'bg-muted/50'
+                  }`}>
+                    <Label className="text-sm font-semibold mb-3 block">
+                      {itemSelecionado !== null && isItemEmNegociacaoParaMim(itemSelecionado) 
+                        ? 'Enviar Proposta de Negociação' 
+                        : 'Enviar Lance'}
+                    </Label>
                     {itemSelecionado === null ? (
                       <p className="text-sm text-muted-foreground">Selecione um item acima para enviar seu lance</p>
+                    ) : isItemEmNegociacaoParaMim(itemSelecionado) ? (
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Input
+                            type="text"
+                            placeholder="R$ 0,00"
+                            value={valorLance ? `R$ ${valorLance}` : ""}
+                            onChange={(e) => {
+                              const valor = e.target.value.replace(/\D/g, "");
+                              setValorLance(formatarMoedaInput(valor));
+                            }}
+                            className="text-lg font-semibold border-amber-300"
+                          />
+                        </div>
+                        <Button 
+                          onClick={() => handleEnviarLance(true)} 
+                          size="lg"
+                          className="bg-amber-600 hover:bg-amber-700"
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          Enviar Negociação
+                        </Button>
+                      </div>
                     ) : !fornecedorApresentouPropostaNoItem(itemSelecionado) ? (
                       <p className="text-sm text-gray-600 font-medium">Você não pode participar de lances neste item porque não apresentou proposta inicial.</p>
                     ) : isFornecedorDesclassificadoNoItem(itemSelecionado) ? (
@@ -840,7 +943,7 @@ const SistemaLancesFornecedor = () => {
                             className="text-lg font-semibold"
                           />
                         </div>
-                        <Button onClick={handleEnviarLance} size="lg">
+                        <Button onClick={() => handleEnviarLance(false)} size="lg">
                           <Send className="mr-2 h-4 w-4" />
                           Enviar Lance
                         </Button>

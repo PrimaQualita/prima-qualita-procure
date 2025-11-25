@@ -13,6 +13,8 @@ interface Lance {
   valor_lance: number;
   data_hora_lance: string;
   indicativo_lance_vencedor: boolean;
+  tipo_lance?: string;
+  numero_item?: number;
   fornecedores: {
     razao_social: string;
     cnpj: string;
@@ -218,6 +220,7 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
                 <TableHead>Fornecedor</TableHead>
                 <TableHead>CNPJ</TableHead>
                 <TableHead className="text-right">Valor do Lance</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Data/Hora</TableHead>
                 <TableHead className="text-center">Status</TableHead>
               </TableRow>
@@ -225,7 +228,7 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
             <TableBody>
               {lances.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     Nenhum lance registrado ainda
                   </TableCell>
                 </TableRow>
@@ -245,6 +248,15 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
                     <TableCell>{formatCNPJ(lance.fornecedores.cnpj)}</TableCell>
                     <TableCell className="text-right font-bold text-lg">
                       {formatCurrency(lance.valor_lance)}
+                    </TableCell>
+                    <TableCell>
+                      {lance.tipo_lance === 'negociacao' ? (
+                        <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
+                          Negociação
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">Lance</Badge>
+                      )}
                     </TableCell>
                     <TableCell>{formatDateTime(lance.data_hora_lance)}</TableCell>
                     <TableCell className="text-center">
