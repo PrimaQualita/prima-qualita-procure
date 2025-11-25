@@ -890,7 +890,8 @@ const SistemaLancesFornecedor = () => {
                 )}
 
                 {/* Formulário de Lance / Negociação */}
-                {((itensAbertos.size > 0 || itensEmNegociacao.size > 0) && editavel) && (
+                {/* Formulário de Lance / Negociação - Disponível enquanto houver itens abertos */}
+                {(itensAbertos.size > 0 || itensEmNegociacao.size > 0) && (
                   <div className={`border rounded-lg p-4 ${
                     itemSelecionado !== null && isItemEmNegociacaoParaMim(itemSelecionado) 
                       ? 'bg-amber-50 border-amber-300' 
@@ -953,14 +954,15 @@ const SistemaLancesFornecedor = () => {
                   </div>
                 )}
 
-                {!editavel && (
-                  <div className="border rounded-lg p-4 bg-destructive/10 border-destructive/30">
-                    <div className="flex items-center gap-2 text-destructive">
+                {/* Mensagem quando não há itens abertos para lances */}
+                {itensAbertos.size === 0 && itensEmNegociacao.size === 0 && (
+                  <div className="border rounded-lg p-4 bg-muted/50 border-muted-foreground/30">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <Lock className="h-4 w-4" />
-                      <p className="font-semibold">Lances bloqueados</p>
+                      <p className="font-semibold">Aguardando abertura de itens</p>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      O prazo para enviar lances encerrou (5 minutos antes da sessão)
+                      Os lances serão liberados quando o gestor abrir os itens para disputa
                     </p>
                   </div>
                 )}
@@ -1059,8 +1061,8 @@ const SistemaLancesFornecedor = () => {
             <CardTitle>Itens da Proposta</CardTitle>
             <CardDescription>
               {editavel 
-                ? "Você pode editar os valores e marcas até 5 minutos antes da sessão de disputa"
-                : "O prazo para edição expirou. Os valores abaixo são apenas para consulta."}
+                ? "Você pode editar os valores e marcas da proposta até 5 minutos antes da sessão de disputa"
+                : "O prazo para edição da proposta expirou. Os valores abaixo são apenas para consulta. Os lances continuam disponíveis enquanto o gestor mantiver os itens abertos."}
             </CardDescription>
           </CardHeader>
           <CardContent>
