@@ -812,15 +812,14 @@ export function DialogSessaoLances({
               if (itensFechadosComVencedor.length === 0 && itensEmNegociacao.size === 0) return null;
 
               return (
-                <Card className="mt-3 bg-amber-50 dark:bg-amber-950 border-amber-200">
+                <Card className="mt-3 bg-amber-50 dark:bg-amber-950 border-amber-200 overflow-hidden">
                   <CardHeader className="py-2">
                     <CardTitle className="text-xs flex items-center gap-2 text-amber-700 dark:text-amber-300">
                       <Handshake className="h-4 w-4" />
                       Rodada de Negociação
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-3 pt-0">
-                    <ScrollArea className="max-h-[200px]">
+                  <CardContent className="p-3 pt-0 max-h-[250px] overflow-y-auto overflow-x-hidden">
                       {/* Itens em negociação ativa */}
                       {Array.from(itensEmNegociacao.entries()).map(([numeroItem, fornecedorId]) => {
                         const vencedor = vencedoresPorItem.get(numeroItem);
@@ -887,7 +886,6 @@ export function DialogSessaoLances({
                           </div>
                         </>
                       )}
-                    </ScrollArea>
                   </CardContent>
                 </Card>
               );
