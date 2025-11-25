@@ -90,10 +90,14 @@ export default function PortalFornecedor() {
 
   const loadSelecoes = async (fornecedorId: string) => {
     try {
+      // Buscar seleções onde o fornecedor enviou proposta
       const { data, error } = await supabase
-        .from("selecao_fornecedor_convites")
+        .from("selecao_propostas_fornecedor")
         .select(`
-          *,
+          id,
+          created_at,
+          data_envio_proposta,
+          selecao_id,
           selecoes_fornecedores (
             id,
             titulo_selecao,
