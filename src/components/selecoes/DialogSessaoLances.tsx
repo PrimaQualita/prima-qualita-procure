@@ -725,31 +725,6 @@ export function DialogSessaoLances({
         return;
       }
 
-      // Se já existe planilha, deletar antes de criar nova
-      if (planilhaGerada) {
-        try {
-          // Extrair caminho do storage da URL
-          const urlParts = planilhaGerada.url_arquivo.split("/storage/v1/object/public/processo-anexos/");
-          const storagePath = urlParts[1];
-          
-          // Deletar arquivo do storage
-          if (storagePath) {
-            await supabase.storage
-              .from("processo-anexos")
-              .remove([storagePath]);
-          }
-          
-          // Deletar registro do banco
-          await supabase
-            .from("planilhas_lances_selecao")
-            .delete()
-            .eq("id", planilhaGerada.id);
-        } catch (error) {
-          console.error("Erro ao deletar planilha antiga:", error);
-          // Continua mesmo se houver erro ao deletar a antiga
-        }
-      }
-
       const doc = new jsPDF("portrait");
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
@@ -1252,12 +1227,27 @@ export function DialogSessaoLances({
       const nomeArquivo = `planilha-lances-selecao-${Date.now()}.pdf`;
       const storagePath = `selecao_${selecaoId}/${nomeArquivo}`;
       
+      // Se já existe planilha, deletar arquivo antigo do storage
+      if (planilhaGerada) {
+        try {
+          const urlParts = planilhaGerada.url_arquivo.split("/storage/v1/object/public/processo-anexos/");
+          const oldStoragePath = urlParts[1];
+          if (oldStoragePath) {
+            await supabase.storage
+              .from("processo-anexos")
+              .remove([oldStoragePath]);
+          }
+        } catch (error) {
+          console.error("Erro ao deletar arquivo antigo:", error);
+        }
+      }
+      
       // Upload para o storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("processo-anexos")
         .upload(storagePath, pdfBlob, {
           contentType: "application/pdf",
-          upsert: false
+          upsert: true
         });
       
       if (uploadError) throw uploadError;
@@ -1270,14 +1260,17 @@ export function DialogSessaoLances({
       // Obter ID do usuário
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Salvar no banco de dados
+      // Usar upsert para atualizar ou inserir no banco
       const { data: planilhaData, error: dbError } = await supabase
         .from("planilhas_lances_selecao")
-        .insert({
+        .upsert({
           selecao_id: selecaoId,
           nome_arquivo: nomeArquivo,
           url_arquivo: urlData.publicUrl,
-          usuario_gerador_id: user?.id
+          usuario_gerador_id: user?.id,
+          data_geracao: new Date().toISOString()
+        }, {
+          onConflict: 'selecao_id'
         })
         .select()
         .single();
