@@ -1514,6 +1514,7 @@ export type Database = {
           data_geracao: string
           id: string
           nome_arquivo: string
+          protocolo: string | null
           selecao_id: string
           url_arquivo: string
           usuario_gerador_id: string | null
@@ -1523,6 +1524,7 @@ export type Database = {
           data_geracao?: string
           id?: string
           nome_arquivo: string
+          protocolo?: string | null
           selecao_id: string
           url_arquivo: string
           usuario_gerador_id?: string | null
@@ -1532,6 +1534,7 @@ export type Database = {
           data_geracao?: string
           id?: string
           nome_arquivo?: string
+          protocolo?: string | null
           selecao_id?: string
           url_arquivo?: string
           usuario_gerador_id?: string | null
