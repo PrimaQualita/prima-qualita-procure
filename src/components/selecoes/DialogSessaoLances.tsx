@@ -1067,6 +1067,12 @@ export function DialogSessaoLances({
         .sort((a, b) => b.total - a.total) // Ordenar por valor total decrescente
         .map(f => [f.nome, formatCurrency(f.total)]);
 
+      // Calcular total geral dos fornecedores
+      const totalGeralFornecedores = Object.values(totaisPorFornecedor).reduce((acc, f) => acc + f.total, 0);
+      
+      // Adicionar linha de valor total
+      resumoFornecedoresData.push(["VALOR TOTAL", formatCurrency(totalGeralFornecedores)]);
+
       // Adicionar tabela de resumo por fornecedor
       if (resumoFornecedoresData.length > 0) {
         finalY += 15;
@@ -1093,13 +1099,13 @@ export function DialogSessaoLances({
             halign: "center"
           },
           columnStyles: {
-            0: { cellWidth: 180 },
-            1: { cellWidth: 60, halign: "right", fontStyle: "bold" },
+            0: { halign: "left" },
+            1: { halign: "right", fontStyle: "bold" },
           },
           alternateRowStyles: {
             fillColor: [240, 253, 244]
           },
-          margin: { left: (landscapeWidth - 240) / 2, right: (landscapeWidth - 240) / 2, top: logoResumoHeight + 20 },
+          margin: { left: margin, right: margin, top: logoResumoHeight + 20 },
           didDrawPage: () => {
             // Adicionar logo em páginas adicionais se necessário
             const paginaAtual = doc.internal.pages.length - 1;
@@ -1109,6 +1115,14 @@ export function DialogSessaoLances({
                 const logoX = (landscapeWidth - logoResumoWidth) / 2;
                 doc.addImage(base64LogoHorizontal, 'PNG', logoX, 8, logoResumoWidth, logoResumoHeight);
               }
+            }
+          },
+          didParseCell: (data) => {
+            // Estilizar linha de total
+            if (data.section === "body" && data.row.index === resumoFornecedoresData.length - 1) {
+              data.cell.styles.fillColor = [22, 163, 74];
+              data.cell.styles.textColor = [255, 255, 255];
+              data.cell.styles.fontStyle = "bold";
             }
           },
         });
