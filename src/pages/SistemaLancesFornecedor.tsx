@@ -453,6 +453,16 @@ const SistemaLancesFornecedor = () => {
           const enderecoCompleto = proposta.fornecedores?.endereco_comercial || '';
           console.log("Gerando novo PDF...");
           
+          // Preparar itens atualizados para passar diretamente
+          const itensParaPDF = itens.map(item => ({
+            numero_item: item.numero_item,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            marca: item.marca,
+            valor_unitario_ofertado: item.valor_unitario_ofertado
+          }));
+          
           const resultado = await gerarPropostaSelecaoPDF(
             propostaId!,
             {
@@ -469,7 +479,8 @@ const SistemaLancesFornecedor = () => {
             valorTotal,
             proposta.observacoes_fornecedor || null,
             selecao?.titulo_selecao || '',
-            proposta.data_envio_proposta || new Date().toISOString()
+            proposta.data_envio_proposta || new Date().toISOString(),
+            itensParaPDF // Passar itens atualizados diretamente
           );
 
           console.log("Resultado da geração do PDF:", resultado);
