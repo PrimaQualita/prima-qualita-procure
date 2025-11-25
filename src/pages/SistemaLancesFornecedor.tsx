@@ -399,21 +399,29 @@ const SistemaLancesFornecedor = () => {
     setSalvando(true);
     try {
       // Atualizar cada item
+      console.log("Salvando itens:", itens.map(i => ({ id: i.id, valor: i.valor_unitario_ofertado, marca: i.marca })));
+      
       for (const item of itens) {
-        const { error } = await supabase
+        const updateData = {
+          valor_unitario_ofertado: item.valor_unitario_ofertado,
+          marca: item.marca || null,
+          valor_total_item: item.valor_unitario_ofertado * item.quantidade
+        };
+        console.log(`Atualizando item ${item.id}:`, updateData);
+        
+        const { error, data } = await supabase
           .from("selecao_respostas_itens_fornecedor")
-          .update({
-            valor_unitario_ofertado: item.valor_unitario_ofertado,
-            marca: item.marca_ofertada || item.marca || null,
-            valor_total_item: item.valor_unitario_ofertado * item.quantidade
-          })
-          .eq("id", item.id);
+          .update(updateData)
+          .eq("id", item.id)
+          .select();
 
+        console.log(`Resultado item ${item.id}:`, { error, data });
         if (error) throw error;
       }
 
       // Recalcular valor total da proposta
       const valorTotal = itens.reduce((acc, item) => acc + (item.valor_unitario_ofertado * item.quantidade), 0);
+      console.log("Valor total calculado:", valorTotal);
       
       const { error: propostaError } = await supabase
         .from("selecao_propostas_fornecedor")
@@ -429,20 +437,14 @@ const SistemaLancesFornecedor = () => {
         toast.info("Atualizando PDF da proposta...");
         
         try {
-          // Deletar PDF antigo do storage
-          const urlAntiga = proposta.url_pdf_proposta;
-          console.log("URL antiga do PDF:", urlAntiga);
+          // Deletar PDF antigo do storage - o URL armazenado já é o path dentro do bucket
+          const pathAntigo = proposta.url_pdf_proposta;
+          console.log("Path antigo do PDF:", pathAntigo);
           
-          // Extrair o path correto do storage
-          const pathMatch = urlAntiga.match(/processo-anexos\/(.+)$/);
-          console.log("Path match:", pathMatch);
-          
-          if (pathMatch) {
-            const deleteResult = await supabase.storage
-              .from("processo-anexos")
-              .remove([pathMatch[1]]);
-            console.log("Resultado da exclusão do PDF antigo:", deleteResult);
-          }
+          const deleteResult = await supabase.storage
+            .from("processo-anexos")
+            .remove([pathAntigo]);
+          console.log("Resultado da exclusão do PDF antigo:", deleteResult);
 
           // Gerar novo PDF com os dados atualizados
           const enderecoCompleto = proposta.fornecedores?.endereco_comercial || '';
