@@ -819,25 +819,12 @@ const ParticiparSelecao = () => {
         console.error("Erro ao invocar função de e-mail:", emailError);
       }
 
-      // Exibir mensagem de sucesso com código de acesso
+      // Exibir mensagem de sucesso simples
       toast.success(
-        <div className="space-y-2">
-          <p className="font-bold">✅ Proposta {propostaExistente ? 'Atualizada' : 'Enviada'} com Sucesso!</p>
-          <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md border border-blue-200 dark:border-blue-800">
-            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Sua Chave de Acesso:</p>
-            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 tracking-wider text-center my-2">
-              {codigoAcesso}
-            </p>
-            <p className="text-xs text-blue-700 dark:text-blue-300">
-              ⚠️ IMPORTANTE: Guarde esta chave! Você precisará dela para futuras consultas. 
-              {!propostaExistente && `Um e-mail de confirmação com sua chave foi enviado para ${emailDestino}.`}
-            </p>
-            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-              📌 Você pode editar sua proposta até 5 minutos antes da sessão.
-            </p>
-          </div>
-        </div>,
-        { duration: 10000 }
+        propostaExistente 
+          ? "Proposta atualizada com sucesso!" 
+          : "Proposta registrada com sucesso!",
+        { duration: 5000 }
       );
       
       setJaEnviouProposta(true);
@@ -1262,19 +1249,50 @@ const ParticiparSelecao = () => {
         ) : (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="text-green-600">✓ Proposta Enviada</CardTitle>
+              <CardTitle className="text-green-600">✓ Proposta Registrada com Sucesso!</CardTitle>
               <CardDescription>
-                Sua proposta foi recebida com sucesso! Aguarde a data e horário da sessão de disputa para participar dos lances.
+                Sua proposta foi recebida e está vinculada ao CNPJ {fornecedor?.cnpj ? formatarCNPJ(fornecedor.cnpj) : dadosEmpresa.cnpj}.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm">
-                  <strong>Data da Sessão:</strong> {selecao?.data_sessao_disputa?.split('T')[0].split('-').reverse().join('/')}
-                </p>
-                <p className="text-sm">
-                  <strong>Horário:</strong> {selecao?.hora_sessao_disputa}
-                </p>
+              <div className="space-y-4">
+                {/* Mostrar botão de cadastro apenas se NÃO estiver autenticado como fornecedor */}
+                {!fornecedor && (
+                  <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                      Cadastre-se para acompanhar suas seleções!
+                    </h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
+                      Ao se cadastrar no sistema com o mesmo CNPJ ({dadosEmpresa.cnpj}), você terá acesso ao menu "Seleção de Fornecedores" onde poderá visualizar todas as seleções que enviou proposta, acompanhar o status e participar de futuras sessões de lances.
+                    </p>
+                    <Button 
+                      onClick={() => navigate("/cadastro-fornecedor")}
+                      className="w-full"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Ir para Cadastro de Fornecedor
+                    </Button>
+                  </div>
+                )}
+
+                {/* Se já está autenticado, mostrar mensagem de acesso ao portal */}
+                {fornecedor && (
+                  <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Você pode acompanhar esta e outras seleções no seu Portal do Fornecedor, no menu "Seleção de Fornecedores".
+                    </p>
+                  </div>
+                )}
+
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">Informações da Sessão:</p>
+                  <p className="text-sm">
+                    <strong>Data da Sessão:</strong> {selecao?.data_sessao_disputa?.split('T')[0].split('-').reverse().join('/')}
+                  </p>
+                  <p className="text-sm">
+                    <strong>Horário:</strong> {selecao?.hora_sessao_disputa}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
