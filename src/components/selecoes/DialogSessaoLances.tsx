@@ -21,6 +21,7 @@ import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageS
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ChatNegociacao } from "./ChatNegociacao";
+import capaLogo from "@/assets/capa-processo-logo.png";
 
 interface Item {
   numero_item: number;
@@ -663,19 +664,46 @@ export function DialogSessaoLances({
       const pageHeight = doc.internal.pageSize.height;
       const margin = 15;
       
-      // Cabeçalho estilizado
-      doc.setFillColor(37, 99, 235); // Azul
-      doc.rect(0, 0, pageWidth, 35, "F");
+      // Carregar logo e adicionar no topo
+      const loadLogoImage = (): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              resolve(canvas.toDataURL('image/png'));
+            } else {
+              reject(new Error('Erro ao criar canvas'));
+            }
+          };
+          img.onerror = () => reject(new Error('Erro ao carregar logo'));
+          img.src = capaLogo;
+        });
+      };
+
+      const base64Logo = await loadLogoImage();
       
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
+      // Logo no topo - largura total da página
+      const logoWidth = pageWidth;
+      const logoHeight = 40;
+      doc.addImage(base64Logo, 'PNG', 0, 0, logoWidth, logoHeight);
+      
+      // Cabeçalho de texto abaixo do logo
+      doc.setTextColor(37, 99, 235);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("PLANILHA DE LANCES DA SELEÇÃO", pageWidth / 2, 15, { align: "center" });
+      doc.text("PLANILHA DE LANCES DA SELEÇÃO", pageWidth / 2, 50, { align: "center" });
       
+      doc.setTextColor(80, 80, 80);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Critério de Julgamento: ${criterioJulgamento === "por_item" ? "Menor Preço por Item" : criterioJulgamento === "global" ? "Menor Preço Global" : criterioJulgamento === "por_lote" ? "Menor Preço por Lote" : criterioJulgamento}`, pageWidth / 2, 24, { align: "center" });
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, pageWidth / 2, 31, { align: "center" });
+      doc.text(`Critério de Julgamento: ${criterioJulgamento === "por_item" ? "Menor Preço por Item" : criterioJulgamento === "global" ? "Menor Preço Global" : criterioJulgamento === "por_lote" ? "Menor Preço por Lote" : criterioJulgamento}`, pageWidth / 2, 58, { align: "center" });
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, pageWidth / 2, 64, { align: "center" });
 
       doc.setTextColor(0, 0, 0);
 
@@ -685,7 +713,7 @@ export function DialogSessaoLances({
         return { item, lances: lancesItem };
       });
 
-      let yPosition = 45;
+      let yPosition = 72;
 
       lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }) => {
         // Título do item usando autoTable para texto justificado
