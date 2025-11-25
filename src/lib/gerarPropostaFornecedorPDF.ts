@@ -258,14 +258,22 @@ export async function gerarPropostaFornecedorPDF(
       const valorUnitario = item.valor_unitario_ofertado;
       const valorTotalItem = valorUnitario * itemCotacao.quantidade;
 
-      // Fundo alternado para linhas
+      // Fundo alternado
       if (isAlternate) {
         doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
         doc.rect(15, y - 4, 180, 6, 'F');
       }
 
+      // Número do item
       doc.text(itemCotacao.numero_item.toString(), 20, y, { align: 'center' });
-      doc.text(itemCotacao.descricao, 28, y, { maxWidth: 45, align: 'justify' });
+      
+      // Descrição (limitada para evitar overflow)
+      const descLimitada = itemCotacao.descricao.length > 60 
+        ? itemCotacao.descricao.substring(0, 57) + '...' 
+        : itemCotacao.descricao;
+      doc.text(descLimitada, 28, y, { maxWidth: 45 });
+      
+      // Demais colunas
       doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 95, y, { align: 'center' });
       doc.text(itemCotacao.unidade, 115, y, { align: 'center' });
       doc.text(item.marca || '-', 135, y, { align: 'center' });
@@ -275,7 +283,6 @@ export async function gerarPropostaFornecedorPDF(
       y += 6;
       isAlternate = !isAlternate;
     }
-
 
     // Linha de separação
     y += 2;
