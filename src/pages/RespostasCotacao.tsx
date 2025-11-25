@@ -408,12 +408,35 @@ export default function RespostasCotacao() {
       }
 
       // Se não existe, gerar novo PDF
+      // Buscar dados do usuário logado quando for preços públicos
+      let usuarioNome: string | undefined;
+      let usuarioCpf: string | undefined;
+      
+      if (resposta.fornecedor.cnpj === '00000000000000') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("nome_completo, cpf")
+            .eq("id", user.id)
+            .single();
+          
+          if (profile) {
+            usuarioNome = profile.nome_completo;
+            usuarioCpf = profile.cpf;
+          }
+        }
+      }
+      
       const resultado = await gerarPropostaFornecedorPDF(
         respostaId,
         resposta.fornecedor,
         resposta.valor_total_anual_ofertado,
         resposta.observacoes_fornecedor,
-        cotacao.titulo_cotacao
+        cotacao.titulo_cotacao,
+        [],
+        usuarioNome,
+        usuarioCpf
       );
 
       // Criar registro do anexo em anexos_cotacao_fornecedor
@@ -464,12 +487,35 @@ export default function RespostasCotacao() {
         return;
       }
 
+      // Buscar dados do usuário logado quando for preços públicos
+      let usuarioNome: string | undefined;
+      let usuarioCpf: string | undefined;
+      
+      if (resposta.fornecedor.cnpj === '00000000000000') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("nome_completo, cpf")
+            .eq("id", user.id)
+            .single();
+          
+          if (profile) {
+            usuarioNome = profile.nome_completo;
+            usuarioCpf = profile.cpf;
+          }
+        }
+      }
+      
       const resultado = await gerarPropostaFornecedorPDF(
         respostaId,
         resposta.fornecedor,
         resposta.valor_total_anual_ofertado,
         resposta.observacoes_fornecedor,
-        cotacao.titulo_cotacao
+        cotacao.titulo_cotacao,
+        [],
+        usuarioNome,
+        usuarioCpf
       );
 
       // Buscar o arquivo do storage
