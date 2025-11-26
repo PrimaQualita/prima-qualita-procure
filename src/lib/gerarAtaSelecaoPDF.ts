@@ -420,20 +420,26 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       body: tabelaEmpresas,
       theme: 'grid',
       headStyles: { 
-        fillColor: [0, 102, 153], 
+        fillColor: [0, 128, 64], // Verde do logo
         fontSize: 9,
         halign: 'center',
-        valign: 'middle'
+        valign: 'middle',
+        textColor: [255, 255, 255]
       },
       bodyStyles: { 
         fontSize: 8,
-        valign: 'middle'
+        valign: 'middle',
+        textColor: [0, 0, 0]
+      },
+      alternateRowStyles: {
+        fillColor: [230, 245, 230] // Verde bem clarinho
       },
       margin: { left: marginLeft, right: marginRight },
+      tableWidth: contentWidth,
       columnStyles: {
-        0: { cellWidth: 65, halign: 'justify' },
-        1: { cellWidth: 50, halign: 'center' },
-        2: { cellWidth: 55, halign: 'center' }
+        0: { halign: 'left', cellWidth: 'auto' },
+        1: { halign: 'center', cellWidth: 'auto' },
+        2: { halign: 'center', cellWidth: 'auto' }
       },
       didDrawPage: () => {
         addLogo();
