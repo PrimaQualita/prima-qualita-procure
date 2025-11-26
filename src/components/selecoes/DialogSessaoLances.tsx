@@ -2008,7 +2008,7 @@ export function DialogSessaoLances({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 pt-0">
-                    <ScrollAreaWithArrows className="h-[250px]" orientation="vertical" scrollStep={80}>
+                    <ScrollAreaWithArrows className="h-[250px]" orientation="both" scrollStep={80}>
                       <div className="space-y-2">
                         {itensParaNegociacao.map((item) => {
                           const numeroItem = item.numero_item;
