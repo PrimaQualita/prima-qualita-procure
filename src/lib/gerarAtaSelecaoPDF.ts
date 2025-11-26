@@ -878,11 +878,13 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginLeft = 40;
   const marginRight = 40;
   
-  // Encontrar posição abaixo da certificação digital
-  // A certificação está aproximadamente em Y=470 na última página (considerando Y invertido no pdf-lib)
-  let currentY = 200; // Ajustar conforme necessário para iniciar logo abaixo da certificação
+  // pdf-lib: Y=0 é o FUNDO da página, Y aumenta para cima
+  // Analisando a imagem: certificação está em ~200pt do topo = 842-200 = 642pt pdf-lib
+  // Com altura de ~70pt, termina em ~572pt pdf-lib
+  // Termo de aceite deve começar em ~550pt (com margem de 20pt)
+  let currentY = 340;
   
-  const footerLimit = 80;
+  const footerLimit = 60;
 
   // Função para criar nova página com logo e rodapé
   const checkNewPage = async (espacoNecessario: number) => {
