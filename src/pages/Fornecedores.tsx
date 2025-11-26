@@ -93,7 +93,6 @@ export default function Fornecedores() {
   const [acao, setAcao] = useState<"aprovar" | "reprovar" | null>(null);
   
   const [certificado, setCertificado] = useState<File | null>(null);
-  const [relatorioKPMG, setRelatorioKPMG] = useState<File | null>(null);
   const [dataValidadeCertificado, setDataValidadeCertificado] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [processando, setProcessando] = useState(false);
@@ -287,7 +286,6 @@ export default function Fornecedores() {
     setAcao(null);
     setObservacoes("");
     setCertificado(null);
-    setRelatorioKPMG(null);
     setDataValidadeCertificado("");
     
     const { data: docs } = await supabase
@@ -384,8 +382,8 @@ export default function Fornecedores() {
   const handleProcessarAvaliacao = async () => {
     if (!fornecedorSelecionado || !acao) return;
 
-    if (acao === "aprovar" && (!certificado || !relatorioKPMG || !dataValidadeCertificado)) {
-      toast.error("Para aprovar, é necessário anexar o Certificado, o Relatório da KPMG e informar a data de validade do certificado");
+    if (acao === "aprovar" && (!certificado || !dataValidadeCertificado)) {
+      toast.error("Para aprovar, é necessário anexar o Certificado e informar a data de validade do certificado");
       return;
     }
 
@@ -437,41 +435,6 @@ export default function Fornecedores() {
           console.warn("Certificado não foi selecionado!");
         }
 
-        // Upload relatório KPMG
-        if (relatorioKPMG) {
-          console.log("Iniciando upload do relatório KPMG...");
-          const kpmgFileName = `fornecedor_${fornecedorSelecionado.id}/relatorio_kpmg_${Date.now()}.pdf`;
-          const { error: kpmgUploadError } = await supabase.storage
-            .from("processo-anexos")
-            .upload(kpmgFileName, relatorioKPMG);
-
-          if (kpmgUploadError) {
-            console.error("Erro ao fazer upload do relatório KPMG:", kpmgUploadError);
-            throw kpmgUploadError;
-          }
-
-          const { data: { publicUrl: kpmgUrl } } = supabase.storage
-            .from("processo-anexos")
-            .getPublicUrl(kpmgFileName);
-
-          console.log("Relatório KPMG upado, salvando no banco:", kpmgUrl);
-
-          const { error: kpmgInsertError } = await supabase.from("documentos_fornecedor").insert({
-            fornecedor_id: fornecedorSelecionado.id,
-            tipo_documento: "relatorio_kpmg",
-            nome_arquivo: relatorioKPMG.name,
-            url_arquivo: kpmgUrl,
-            em_vigor: true
-          });
-
-          if (kpmgInsertError) {
-            console.error("Erro ao inserir relatório KPMG no banco:", kpmgInsertError);
-            throw kpmgInsertError;
-          }
-          console.log("Relatório KPMG salvo com sucesso!");
-        } else {
-          console.warn("Relatório KPMG não foi selecionado!");
-        }
       }
 
       // Atualizar fornecedor
@@ -1073,16 +1036,6 @@ export default function Fornecedores() {
                       {certificado.name}
                     </p>
                   )}
-                </div>
-
-                <div>
-                  <Label htmlFor="relatorio_kpmg">Relatório da KPMG *</Label>
-                  <Input
-                    id="relatorio_kpmg"
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setRelatorioKPMG(e.target.files?.[0] || null)}
-                  />
                 </div>
 
                 <div>
