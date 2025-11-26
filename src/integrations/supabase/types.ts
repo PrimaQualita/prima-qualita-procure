@@ -1095,6 +1095,8 @@ export type Database = {
           fornecedor_negociacao_id: string | null
           id: string
           iniciando_fechamento: boolean | null
+          nao_negociar: boolean | null
+          negociacao_concluida: boolean | null
           numero_item: number
           segundos_para_fechar: number | null
           selecao_id: string
@@ -1109,6 +1111,8 @@ export type Database = {
           fornecedor_negociacao_id?: string | null
           id?: string
           iniciando_fechamento?: boolean | null
+          nao_negociar?: boolean | null
+          negociacao_concluida?: boolean | null
           numero_item: number
           segundos_para_fechar?: number | null
           selecao_id: string
@@ -1123,6 +1127,8 @@ export type Database = {
           fornecedor_negociacao_id?: string | null
           id?: string
           iniciando_fechamento?: boolean | null
+          nao_negociar?: boolean | null
+          negociacao_concluida?: boolean | null
           numero_item?: number
           segundos_para_fechar?: number | null
           selecao_id?: string
