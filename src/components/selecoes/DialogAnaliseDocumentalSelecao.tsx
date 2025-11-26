@@ -114,6 +114,7 @@ export function DialogAnaliseDocumentalSelecao({
   const [novosCampos, setNovosCampos] = useState<Record<string, {nome: string; descricao: string; obrigatorio: boolean}>>({});
   const [datasLimiteDocumentos, setDatasLimiteDocumentos] = useState<Record<string, string>>({});
   const [documentosAprovados, setDocumentosAprovados] = useState<Record<string, boolean>>({});
+  const [cotacaoRelacionadaId, setCotacaoRelacionadaId] = useState<string | null>(null);
   const [dialogSolicitarAtualizacao, setDialogSolicitarAtualizacao] = useState(false);
   const [documentoParaAtualizar, setDocumentoParaAtualizar] = useState<{ doc: DocumentoExistente; fornecedorId: string } | null>(null);
   const [motivoAtualizacao, setMotivoAtualizacao] = useState("");
@@ -151,13 +152,17 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (selecaoError) throw selecaoError;
 
+      // Salvar cotacao_relacionada_id para uso em outras funções
+      const cotacaoId = selecaoData?.cotacao_relacionada_id;
+      setCotacaoRelacionadaId(cotacaoId || null);
+
       // Buscar itens da cotação relacionada para obter quantidades
       let itensQuantidades: Record<number, number> = {};
-      if (selecaoData?.cotacao_relacionada_id) {
+      if (cotacaoId) {
         const { data: itensData } = await supabase
           .from("itens_cotacao")
           .select("numero_item, quantidade")
-          .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+          .eq("cotacao_id", cotacaoId);
         
         (itensData || []).forEach((item: any) => {
           itensQuantidades[item.numero_item] = item.quantidade;
@@ -232,7 +237,7 @@ export function DialogAnaliseDocumentalSelecao({
         fornecedoresArray.map(async (forn) => {
           const [docs, campos] = await Promise.all([
             loadDocumentosFornecedor(forn.id),
-            loadCamposFornecedor(forn.id),
+            loadCamposFornecedor(forn.id, cotacaoId),
           ]);
 
           const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
@@ -317,16 +322,22 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
-  const loadCamposFornecedor = async (fornecedorId: string): Promise<CampoDocumento[]> => {
+  const loadCamposFornecedor = async (fornecedorId: string, cotacaoId?: string | null): Promise<CampoDocumento[]> => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("campos_documentos_finalizacao")
         .select(`
           *,
           documentos_finalizacao_fornecedor (*)
         `)
-        .eq("fornecedor_id", fornecedorId)
-        .order("ordem");
+        .eq("fornecedor_id", fornecedorId);
+      
+      // Filtrar por cotacao_id se disponível
+      if (cotacaoId) {
+        query = query.eq("cotacao_id", cotacaoId);
+      }
+      
+      const { data, error } = await query.order("ordem");
 
       if (error) throw error;
       return data || [];
@@ -425,12 +436,17 @@ export function DialogAnaliseDocumentalSelecao({
     }
 
     try {
+      if (!cotacaoRelacionadaId) {
+        toast.error("Cotação relacionada não encontrada");
+        return;
+      }
+      
       const dataLimite = datasLimiteDocumentos[fornecedorId];
       
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .insert({
-          cotacao_id: selecaoId,
+          cotacao_id: cotacaoRelacionadaId,
           fornecedor_id: fornecedorId,
           nome_campo: novoCampo.nome,
           descricao: novoCampo.descricao || "",
