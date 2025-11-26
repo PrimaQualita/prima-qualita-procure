@@ -670,20 +670,9 @@ export default function PortalFornecedor() {
                 </CardContent>
               </Card>
 
-              {/* Gestão de Documentos - Apenas para aprovados */}
-              {fornecedor?.status_aprovacao === 'aprovado' && (
+              {/* Gestão de Documentos - Disponível para todos os fornecedores */}
+              {fornecedor?.id && (
                 <GestaoDocumentosFornecedor fornecedorId={fornecedor.id} />
-              )}
-              
-              {/* Mensagem para pendentes */}
-              {fornecedor?.status_aprovacao === 'pendente' && (
-                <Card className="border-yellow-500/50 bg-yellow-500/5">
-                  <CardContent className="pt-6">
-                    <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                      📄 A gestão de documentos estará disponível após aprovação do seu cadastro pelo gestor.
-                    </p>
-                  </CardContent>
-                </Card>
               )}
             </div>
           </TabsContent>
