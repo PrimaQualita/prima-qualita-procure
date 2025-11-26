@@ -1265,10 +1265,27 @@ export function DialogAnaliseDocumentalSelecao({
                 )}
                 
                 {recurso.status_recurso === "deferido" && (
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-200 space-y-2">
-                    <Badge className="bg-green-500 mb-2">Recurso Deferido</Badge>
+                  <div className="bg-green-50 p-3 rounded-lg border border-green-200 space-y-3">
+                    <Badge className="bg-green-500">Recurso Deferido</Badge>
+                    
+                    {/* Quadro com texto do Recurso */}
+                    {recurso.motivo_recurso && (
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <p className="text-xs font-semibold text-green-700 mb-1">Razões do Recurso:</p>
+                        <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
+                          {recurso.motivo_recurso}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Quadro com texto da Resposta */}
                     {recurso.resposta_gestor && (
-                      <p className="text-sm text-green-700">{recurso.resposta_gestor}</p>
+                      <div className="bg-white p-3 rounded border border-green-300">
+                        <p className="text-xs font-semibold text-green-700 mb-1">Resposta do Gestor:</p>
+                        <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
+                          {recurso.resposta_gestor}
+                        </div>
+                      </div>
                     )}
                     
                     {/* PDFs do Recurso e Resposta */}
@@ -1318,10 +1335,27 @@ export function DialogAnaliseDocumentalSelecao({
                 )}
                 
                 {recurso.status_recurso === "indeferido" && (
-                  <div className="bg-red-50 p-3 rounded-lg border border-red-200 space-y-2">
-                    <Badge variant="destructive" className="mb-2">Recurso Indeferido</Badge>
+                  <div className="bg-red-50 p-3 rounded-lg border border-red-200 space-y-3">
+                    <Badge variant="destructive">Recurso Indeferido</Badge>
+                    
+                    {/* Quadro com texto do Recurso */}
+                    {recurso.motivo_recurso && (
+                      <div className="bg-white p-3 rounded border border-red-300">
+                        <p className="text-xs font-semibold text-red-700 mb-1">Razões do Recurso:</p>
+                        <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
+                          {recurso.motivo_recurso}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Quadro com texto da Resposta */}
                     {recurso.resposta_gestor && (
-                      <p className="text-sm text-red-700">{recurso.resposta_gestor}</p>
+                      <div className="bg-white p-3 rounded border border-red-300">
+                        <p className="text-xs font-semibold text-red-700 mb-1">Resposta do Gestor:</p>
+                        <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
+                          {recurso.resposta_gestor}
+                        </div>
+                      </div>
                     )}
                     
                     {/* PDFs do Recurso e Resposta */}
