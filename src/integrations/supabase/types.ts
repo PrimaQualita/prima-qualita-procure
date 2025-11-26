@@ -289,6 +289,13 @@ export type Database = {
             referencedRelation: "atas_selecao"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "atas_assinaturas_usuario_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       atas_selecao: {
