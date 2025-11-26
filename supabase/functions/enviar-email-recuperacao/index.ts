@@ -60,7 +60,7 @@ const handler = async (req: Request): Promise<Response> => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Prima Qualitá <onboarding@resend.dev>",
+        from: "Prima Qualitá Saúde <noreply@primaqualitasaude.org>",
         to: [email],
         subject: "Recuperação de Senha - Sistema de Compras Prima Qualitá",
         html: `
