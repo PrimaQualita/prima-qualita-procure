@@ -715,43 +715,56 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   console.log('PDF carregado, total de páginas:', pdfDoc.getPageCount());
 
-  // Adicionar nova página de assinaturas
-  const page = pdfDoc.addPage([595, 842]); // A4
+  // Pegar a última página existente (onde está a certificação digital)
+  const pages = pdfDoc.getPages();
+  let page = pages[pages.length - 1];
   const { width, height } = page.getSize();
   const marginLeft = 40;
   const marginRight = 40;
-  let currentY = height - 50;
+  
+  // Começar logo abaixo da certificação digital (posição estimada)
+  // A certificação termina aproximadamente em Y = 100-120, então começamos acima do rodapé
+  let currentY = 95; // Logo abaixo da certificação e acima do rodapé
 
-  // Título
-  page.drawText('TERMO DE ACEITE E ASSINATURA DIGITAL', {
-    x: marginLeft,
-    y: currentY,
-    size: 14,
-    font: helveticaBold,
-    color: rgb(0.13, 0.27, 0.53),
-  });
-  currentY -= 30;
+  // Verificar se há espaço suficiente para pelo menos o título e uma assinatura
+  const espacoNecessario = 30 + (assinaturasFormatadas.length * 65);
+  
+  // Se não houver espaço suficiente na página atual, criar nova página
+  if (espacoNecessario > 80) {
+    page = pdfDoc.addPage([595, 842]);
+    currentY = height - 50;
+    
+    // Título
+    page.drawText('TERMO DE ACEITE E ASSINATURA DIGITAL', {
+      x: marginLeft,
+      y: currentY,
+      size: 14,
+      font: helveticaBold,
+      color: rgb(0.13, 0.27, 0.53),
+    });
+    currentY -= 25;
 
-  // Subtítulo
-  page.drawText(`Ata de Seleção - Protocolo: ${ata.protocolo}`, {
-    x: marginLeft,
-    y: currentY,
-    size: 10,
-    font: helveticaFont,
-    color: rgb(0.3, 0.3, 0.3),
-  });
-  currentY -= 25;
+    // Subtítulo
+    page.drawText(`Ata de Selecao - Protocolo: ${ata.protocolo}`, {
+      x: marginLeft,
+      y: currentY,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    currentY -= 20;
 
-  // Linha separadora
-  page.drawLine({
-    start: { x: marginLeft, y: currentY },
-    end: { x: width - marginRight, y: currentY },
-    thickness: 1,
-    color: rgb(0.8, 0.8, 0.8),
-  });
-  currentY -= 25;
+    // Linha separadora
+    page.drawLine({
+      start: { x: marginLeft, y: currentY },
+      end: { x: width - marginRight, y: currentY },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+    currentY -= 20;
+  }
 
-  // Lista de assinaturas
+  // Lista de assinaturas - título
   page.drawText('ASSINATURAS DOS FORNECEDORES VENCEDORES', {
     x: marginLeft,
     y: currentY,
@@ -759,17 +772,23 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     font: helveticaBold,
     color: rgb(0, 0, 0),
   });
-  currentY -= 20;
+  currentY -= 18;
 
   for (const assinatura of assinaturasFormatadas) {
     // Box para cada assinatura
-    const boxHeight = 55;
+    const boxHeight = 50;
     const boxY = currentY - boxHeight;
+
+    // Verificar se precisa nova página
+    if (currentY - boxHeight < 60) {
+      page = pdfDoc.addPage([595, 842]);
+      currentY = height - 50;
+    }
 
     // Fundo do box
     page.drawRectangle({
       x: marginLeft,
-      y: boxY,
+      y: currentY - boxHeight,
       width: width - marginLeft - marginRight,
       height: boxHeight,
       color: assinatura.status_assinatura === 'aceito' ? rgb(0.95, 1, 0.95) : rgb(1, 0.98, 0.9),
@@ -780,7 +799,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     // Nome da empresa
     page.drawText(assinatura.razao_social, {
       x: marginLeft + 10,
-      y: currentY - 15,
+      y: currentY - 14,
       size: 10,
       font: helveticaBold,
       color: rgb(0, 0, 0),
@@ -789,7 +808,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     // CNPJ
     page.drawText(`CNPJ: ${formatarCNPJ(assinatura.cnpj)}`, {
       x: marginLeft + 10,
-      y: currentY - 28,
+      y: currentY - 26,
       size: 9,
       font: helveticaFont,
       color: rgb(0.3, 0.3, 0.3),
@@ -800,7 +819,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       const dataFormatada = new Date(assinatura.data_assinatura).toLocaleString('pt-BR');
       page.drawText(`[OK] ACEITO DIGITALMENTE em ${dataFormatada}`, {
         x: marginLeft + 10,
-        y: currentY - 42,
+        y: currentY - 40,
         size: 9,
         font: helveticaBold,
         color: rgb(0.1, 0.5, 0.1),
@@ -808,46 +827,48 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     } else {
       page.drawText('[...] Pendente de assinatura', {
         x: marginLeft + 10,
-        y: currentY - 42,
+        y: currentY - 40,
         size: 9,
         font: helveticaFont,
         color: rgb(0.7, 0.5, 0),
       });
     }
 
-    currentY -= (boxHeight + 10);
-
-    // Se não houver mais espaço, adicionar nova página
-    if (currentY < 100) {
-      const newPage = pdfDoc.addPage([595, 842]);
-      currentY = height - 50;
-    }
+    currentY -= (boxHeight + 8);
   }
 
-  // Rodapé com informações de verificação
-  const footerY = 50;
-  page.drawLine({
-    start: { x: marginLeft, y: footerY + 20 },
-    end: { x: width - marginRight, y: footerY + 20 },
-    thickness: 0.5,
-    color: rgb(0.8, 0.8, 0.8),
-  });
+  // Rodapé com informações de verificação (apenas em páginas adicionadas)
+  // A página original já possui rodapé, então só adiciona em páginas novas
+  if (pdfDoc.getPageCount() > pages.length) {
+    const allPages = pdfDoc.getPages();
+    for (let i = pages.length; i < allPages.length; i++) {
+      const p = allPages[i];
+      const footerY = 50;
+      
+      p.drawLine({
+        start: { x: marginLeft, y: footerY + 20 },
+        end: { x: width - marginRight, y: footerY + 20 },
+        thickness: 0.5,
+        color: rgb(0.8, 0.8, 0.8),
+      });
 
-  page.drawText('Este documento possui certificação digital conforme Lei 14.063/2020', {
-    x: marginLeft,
-    y: footerY,
-    size: 8,
-    font: helveticaFont,
-    color: rgb(0.5, 0.5, 0.5),
-  });
+      p.drawText('Este documento possui certificacao digital conforme Lei 14.063/2020', {
+        x: marginLeft,
+        y: footerY,
+        size: 8,
+        font: helveticaFont,
+        color: rgb(0.5, 0.5, 0.5),
+      });
 
-  page.drawText('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', {
-    x: marginLeft,
-    y: footerY - 12,
-    size: 7,
-    font: helveticaFont,
-    color: rgb(0.5, 0.5, 0.5),
-  });
+      p.drawText('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', {
+        x: marginLeft,
+        y: footerY - 12,
+        size: 7,
+        font: helveticaFont,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+    }
+  }
 
   // Salvar PDF modificado
   const modifiedPdfBytes = await pdfDoc.save();
