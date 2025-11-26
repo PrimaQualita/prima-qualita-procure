@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare, Trash2, CheckCircle } from "lucide-react";
+import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare, Trash2, CheckCircle, Ban } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ChatNegociacao } from "./ChatNegociacao";
@@ -90,6 +90,7 @@ export function DialogSessaoLances({
   const [itensFechados, setItensFechados] = useState<Set<number>>(new Set());
   const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map()); // Map<numeroItem, fornecedorId>
   const [itensComHistoricoNegociacao, setItensComHistoricoNegociacao] = useState<Map<number, string>>(new Map()); // Todos os itens que tiveram negociação (para histórico)
+  const [itensNegociacaoConcluida, setItensNegociacaoConcluida] = useState<Set<number>>(new Set()); // Itens que já foram negociados ou marcados como "não negociar"
   const [vencedoresPorItem, setVencedoresPorItem] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
 
   // Estado - Sistema de Lances
@@ -225,6 +226,7 @@ export function DialogSessaoLances({
       const fechados = new Set<number>();
       const emNegociacao = new Map<number, string>();
       const comHistorico = new Map<number, string>();
+      const concluidos = new Set<number>();
 
       data?.forEach((item) => {
         if (item.aberto) {
@@ -239,12 +241,17 @@ export function DialogSessaoLances({
         if (item.fornecedor_negociacao_id) {
           comHistorico.set(item.numero_item, item.fornecedor_negociacao_id);
         }
+        // Rastrear itens com negociação concluída ou marcados como "não negociar"
+        if (item.negociacao_concluida || item.nao_negociar) {
+          concluidos.add(item.numero_item);
+        }
       });
 
       setItensAbertos(abertos);
       setItensFechados(fechados);
       setItensEmNegociacao(emNegociacao);
       setItensComHistoricoNegociacao(comHistorico);
+      setItensNegociacaoConcluida(concluidos);
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }
@@ -352,7 +359,8 @@ export function DialogSessaoLances({
         .update({
           aberto: false,
           em_negociacao: false,
-          data_fechamento: new Date().toISOString()
+          data_fechamento: new Date().toISOString(),
+          negociacao_concluida: true // Marcar que a negociação foi concluída
         })
         .eq("selecao_id", selecaoId)
         .eq("numero_item", numeroItem);
@@ -369,6 +377,51 @@ export function DialogSessaoLances({
     } catch (error) {
       console.error("Erro ao fechar negociação:", error);
       toast.error("Erro ao fechar negociação");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleNaoNegociar = async (numeroItem: number) => {
+    setSalvando(true);
+    try {
+      // Verificar se já existe registro do item
+      const { data: existente } = await supabase
+        .from("itens_abertos_lances")
+        .select("id")
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem)
+        .maybeSingle();
+
+      if (existente) {
+        const { error } = await supabase
+          .from("itens_abertos_lances")
+          .update({
+            nao_negociar: true,
+            negociacao_concluida: true
+          })
+          .eq("id", existente.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("itens_abertos_lances")
+          .insert({
+            selecao_id: selecaoId,
+            numero_item: numeroItem,
+            aberto: false,
+            nao_negociar: true,
+            negociacao_concluida: true
+          });
+
+        if (error) throw error;
+      }
+
+      toast.success(`Item ${numeroItem} marcado como "Não Negociar"`);
+      await loadItensAbertos();
+    } catch (error) {
+      console.error("Erro ao marcar não negociar:", error);
+      toast.error("Erro ao marcar item");
     } finally {
       setSalvando(false);
     }
@@ -1577,14 +1630,24 @@ export function DialogSessaoLances({
 
             {/* Seção de Negociação */}
             {(() => {
-              // Todos os itens que podem aparecer na seção de negociação (fechados com vencedor OU em negociação)
+              // Itens para negociação: fechados com vencedor, NÃO em negociação ativa, e NÃO com negociação concluída
+              // OU itens atualmente em negociação ativa
               const itensParaNegociacao = itens.filter(
-                (item) => 
-                  (itensFechados.has(item.numero_item) && 
-                   !itensAbertos.has(item.numero_item) && 
-                   vencedoresPorItem.has(item.numero_item)) ||
-                  itensEmNegociacao.has(item.numero_item)
-              ).sort((a, b) => a.numero_item - b.numero_item); // Manter ordem por número do item
+                (item) => {
+                  // Item em negociação ativa sempre aparece
+                  if (itensEmNegociacao.has(item.numero_item)) {
+                    return true;
+                  }
+                  // Item com negociação concluída ou "não negociar" NÃO deve aparecer
+                  if (itensNegociacaoConcluida.has(item.numero_item)) {
+                    return false;
+                  }
+                  // Item fechado com vencedor identificado
+                  return itensFechados.has(item.numero_item) && 
+                         !itensAbertos.has(item.numero_item) && 
+                         vencedoresPorItem.has(item.numero_item);
+                }
+              ).sort((a, b) => a.numero_item - b.numero_item);
 
               if (itensParaNegociacao.length === 0) return null;
 
@@ -1685,6 +1748,15 @@ export function DialogSessaoLances({
                                 >
                                   <Handshake className="h-3 w-3 mr-1" />
                                   Negociar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-gray-400 text-gray-600 hover:bg-gray-100 text-xs"
+                                  onClick={() => handleNaoNegociar(numeroItem)}
+                                  disabled={salvando}
+                                >
+                                  <Ban className="h-3 w-3" />
                                 </Button>
                                 {temHistoricoNegociacao && (
                                   <Button
