@@ -702,7 +702,7 @@ export function DialogAnaliseDocumentalSelecao({
         toast.success("Fornecedor inabilitado. Itens reabertos para negociação com os segundos colocados.");
         onReabrirNegociacao(itensAfetados, fornecedorParaInabilitar.fornecedor.id);
       } else {
-        // Se tiver segundos colocados, marcar como vencedores
+        // Se tiver segundos colocados, marcar como vencedores e atualizar negociação
         for (const segundo of segundosColocados) {
           // Verificar se o segundo colocado não está inabilitado
           const { data: segInab } = await supabase
@@ -725,6 +725,17 @@ export function DialogAnaliseDocumentalSelecao({
             if (setVencedorError) {
               console.error("Erro ao marcar segundo colocado:", setVencedorError);
             }
+
+            // Atualizar o fornecedor de negociação para o segundo colocado
+            await supabase
+              .from("itens_abertos_lances")
+              .update({
+                fornecedor_negociacao_id: segundo.fornecedor_id,
+                em_negociacao: true,
+                negociacao_concluida: false,
+              })
+              .eq("selecao_id", selecaoId)
+              .eq("numero_item", segundo.numero_item);
           }
         }
         toast.success("Fornecedor inabilitado. Segundos colocados assumem os itens.");
