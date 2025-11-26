@@ -158,7 +158,7 @@ export function DialogAnaliseDocumentalSelecao({
   const [respostaRecurso, setRespostaRecurso] = useState("");
   const [deferirRecurso, setDeferirRecurso] = useState(true);
   const [gerandoPdfRecurso, setGerandoPdfRecurso] = useState(false);
-  const [selecaoInfo, setSelecaoInfo] = useState<{titulo: string; numero: string} | null>(null);
+  const [selecaoInfo, setSelecaoInfo] = useState<{titulo: string; numero: string; numeroProcesso: string} | null>(null);
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -178,15 +178,28 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (selecaoError) throw selecaoError;
 
-      // Salvar info da seleção para uso no PDF
-      setSelecaoInfo({
-        titulo: selecaoData?.titulo_selecao || "",
-        numero: selecaoData?.numero_selecao || ""
-      });
-
       // Salvar cotacao_relacionada_id para uso em outras funções
       const cotacaoId = selecaoData?.cotacao_relacionada_id;
       setCotacaoRelacionadaId(cotacaoId || null);
+
+      // Buscar o número do processo através da cotação
+      let numeroProcesso = "";
+      if (cotacaoId) {
+        const { data: cotacaoData } = await supabase
+          .from("cotacoes_precos")
+          .select("processos_compras (numero_processo_interno)")
+          .eq("id", cotacaoId)
+          .single();
+        
+        numeroProcesso = (cotacaoData as any)?.processos_compras?.numero_processo_interno || "";
+      }
+
+      // Salvar info da seleção para uso no PDF
+      setSelecaoInfo({
+        titulo: selecaoData?.titulo_selecao || "",
+        numero: selecaoData?.numero_selecao || "",
+        numeroProcesso
+      });
 
       // Buscar itens da cotação relacionada para obter quantidades
       let itensQuantidades: Record<number, number> = {};
@@ -386,7 +399,7 @@ export function DialogAnaliseDocumentalSelecao({
           profileData?.nome_completo || "Gestor",
           profileData?.cpf || "",
           inabilitacao?.fornecedores?.razao_social || "Fornecedor",
-          selecaoInfo?.numero || ""
+          selecaoInfo?.numeroProcesso || ""
         );
 
         if (pdfResult?.url) {
@@ -429,7 +442,7 @@ export function DialogAnaliseDocumentalSelecao({
         recurso.motivo_recurso,
         fornecedor.razao_social,
         fornecedor.cnpj,
-        selecaoInfo?.numero || "",
+        selecaoInfo?.numeroProcesso || "",
         inabilitacao.motivo_inabilitacao
       );
       await supabase.from("recursos_inabilitacao_selecao").update({
@@ -458,7 +471,7 @@ export function DialogAnaliseDocumentalSelecao({
         profileData?.nome_completo || "Gestor",
         profileData?.cpf || "",
         fornecedor.razao_social,
-        selecaoInfo?.numero || ""
+        selecaoInfo?.numeroProcesso || ""
       );
       await supabase.from("recursos_inabilitacao_selecao").update({
         url_pdf_resposta: pdfResult.url,

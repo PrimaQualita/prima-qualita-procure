@@ -61,6 +61,7 @@ const SistemaLancesFornecedor = () => {
   
   // Estado para documentos rejeitados
   const [documentosRejeitados, setDocumentosRejeitados] = useState<any[]>([]);
+  const [numeroProcesso, setNumeroProcesso] = useState<string>("");
 
   // CRÍTICO: Filtrar lances excluindo fornecedores inabilitados de forma reativa
   // Isso garante que sempre que lances ou fornecedoresInabilitados mudam, os lances são refiltrados
@@ -376,7 +377,7 @@ const SistemaLancesFornecedor = () => {
           motivoRecurso,
           proposta?.fornecedores?.razao_social || "Fornecedor",
           proposta?.fornecedores?.cnpj || "",
-          selecao?.numero_selecao || "",
+          numeroProcesso || "",
           minhaInabilitacao?.motivo_inabilitacao || ""
         );
         pdfUrl = pdfResult.url;
@@ -475,7 +476,16 @@ const SistemaLancesFornecedor = () => {
       setProposta(propostaData);
       setSelecao(propostaData.selecoes_fornecedores);
 
-      // Buscar valores estimados da PLANILHA CONSOLIDADA mais recente
+      // Buscar número do processo através da cotação relacionada
+      if (propostaData.selecoes_fornecedores?.cotacao_relacionada_id) {
+        const { data: cotacaoData } = await supabase
+          .from("cotacoes_precos")
+          .select("processos_compras (numero_processo_interno)")
+          .eq("id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
+          .single();
+        
+        setNumeroProcesso((cotacaoData as any)?.processos_compras?.numero_processo_interno || "");
+      }
       if (propostaData.selecoes_fornecedores.cotacao_relacionada_id) {
         const { data: planilhaData, error: planilhaError } = await supabase
           .from("planilhas_consolidadas")
