@@ -790,17 +790,20 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (restoreError) throw restoreError;
 
-      // Atualizar itens_abertos_lances para devolver o fornecedor de negociação ao fornecedor original
-      // Isso é necessário para que o fornecedor correto apareça em negociação
+      // Atualizar itens_abertos_lances para fechar os itens e devolver ao fornecedor original
+      // Se o item estava em negociação apenas por causa da inabilitação, deve fechar
       const { error: updateItensError } = await supabase
         .from("itens_abertos_lances")
         .update({ 
-          fornecedor_negociacao_id: inabilitacaoParaReverter.fornecedor.id 
+          fornecedor_negociacao_id: inabilitacaoParaReverter.fornecedor.id,
+          em_negociacao: false,
+          negociacao_concluida: true,
+          nao_negociar: true,
+          aberto: false,
+          data_fechamento: new Date().toISOString()
         })
         .eq("selecao_id", selecaoId)
-        .in("numero_item", inabilitacaoParaReverter.inabilitado.itens_afetados)
-        .eq("em_negociacao", true)
-        .eq("negociacao_concluida", false);
+        .in("numero_item", inabilitacaoParaReverter.inabilitado.itens_afetados);
 
       if (updateItensError) {
         console.error("Erro ao atualizar itens de negociação:", updateItensError);
