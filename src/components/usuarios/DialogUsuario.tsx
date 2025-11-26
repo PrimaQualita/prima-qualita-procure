@@ -282,6 +282,19 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="cargo">Cargo</Label>
+              <Input
+                id="cargo"
+                value={cargo}
+                onChange={(e) => setCargo(e.target.value)}
+                placeholder="Ex: Gerente de Compras, Analista, etc."
+              />
+              <p className="text-xs text-muted-foreground">
+                O cargo será exibido nas assinaturas digitais
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label>Perfil *</Label>
               <RadioGroup value={role} onValueChange={(value) => setRole(value as "gestor" | "colaborador")}>
                 <div className="flex items-center space-x-2">
@@ -325,19 +338,8 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               </Label>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="cargo">Cargo</Label>
-              <Input
-                id="cargo"
-                value={cargo}
-                onChange={(e) => setCargo(e.target.value)}
-                placeholder="Ex: Gerente de Compras, Analista, etc."
-              />
-              <p className="text-xs text-muted-foreground">
-                O cargo será exibido nas assinaturas digitais
-              </p>
-            </div>
           </div>
+
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
