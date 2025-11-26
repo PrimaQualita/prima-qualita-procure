@@ -572,60 +572,6 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   doc.text("Este documento possui certificação digital conforme Lei 14.063/2020", marginLeft + 5, certTextY);
   doc.setTextColor(0, 0, 0);
 
-  // Atualizar currentY após a certificação
-  currentY = certY + certHeight + 10;
-
-  // Seção de Assinaturas dos Fornecedores Vencedores
-  // Buscar fornecedores vencedores para criar a seção de assinaturas
-  const fornecedoresVencedoresIds = [...new Set(itensVencedores.map(iv => iv.fornecedor_id))];
-  
-  if (fornecedoresVencedoresIds.length > 0) {
-    // Buscar dados completos dos fornecedores
-    const { data: fornecedoresVencedores } = await supabase
-      .from('fornecedores')
-      .select('id, razao_social, cnpj')
-      .in('id', fornecedoresVencedoresIds);
-
-    if (fornecedoresVencedores && fornecedoresVencedores.length > 0) {
-      // Título da seção
-      checkNewPage(25);
-      currentY += 5;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(33, 69, 135);
-      doc.text("ASSINATURAS DOS FORNECEDORES VENCEDORES", marginLeft, currentY);
-      doc.setTextColor(0, 0, 0);
-      currentY += 8;
-
-      // Box para cada fornecedor
-      for (const fornecedor of fornecedoresVencedores) {
-        const boxHeight = 18;
-        checkNewPage(boxHeight + 5);
-        
-        // Fundo amarelo claro (pendente)
-        doc.setFillColor(255, 250, 230);
-        doc.setDrawColor(230, 180, 50);
-        doc.roundedRect(marginLeft, currentY, contentWidth, boxHeight, 2, 2, 'FD');
-        
-        // Nome e CNPJ
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.text(fornecedor.razao_social || '', marginLeft + 5, currentY + 7);
-        
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        doc.text(`CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`, marginLeft + 5, currentY + 13);
-        
-        // Status pendente
-        doc.setTextColor(180, 130, 0);
-        doc.text("[...] Pendente de assinatura", marginLeft + contentWidth - 60, currentY + 10);
-        doc.setTextColor(0, 0, 0);
-        
-        currentY += boxHeight + 3;
-      }
-    }
-  }
-
   // Rodapé
   addFooter();
 
