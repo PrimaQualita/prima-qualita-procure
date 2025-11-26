@@ -420,7 +420,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       body: tabelaEmpresas,
       theme: 'grid',
       headStyles: { 
-        fillColor: [0, 128, 64], // Verde do logo
+        fillColor: [0, 128, 128], // Verde do logo (teal)
         fontSize: 9,
         halign: 'center',
         valign: 'middle',
@@ -432,7 +432,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         textColor: [0, 0, 0]
       },
       alternateRowStyles: {
-        fillColor: [230, 245, 230] // Verde bem clarinho
+        fillColor: [224, 242, 241] // Verde claro do logo
       },
       margin: { left: marginLeft, right: marginRight },
       tableWidth: contentWidth,
