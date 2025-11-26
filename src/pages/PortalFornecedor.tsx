@@ -9,7 +9,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck, Pencil } from "lucide-react";
+import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck, Pencil, RefreshCw, XCircle, Eye } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
 import { NotificacaoRejeicao } from "@/components/fornecedores/NotificacaoRejeicao";
@@ -31,6 +42,10 @@ export default function PortalFornecedor() {
   const [dialogEditarCadastroOpen, setDialogEditarCadastroOpen] = useState(false);
   const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
   const [assinaturaParaAssinar, setAssinaturaParaAssinar] = useState<string | null>(null);
+
+  const [dialogRejeicaoDocumentoOpen, setDialogRejeicaoDocumentoOpen] = useState(false);
+  const [documentoParaRejeitar, setDocumentoParaRejeitar] = useState<{ id: string; nome: string; tipoSelecao: boolean } | null>(null);
+  const [motivoRejeicaoDocumento, setMotivoRejeicaoDocumento] = useState("");
 
   useEffect(() => {
     checkAuth();
@@ -187,6 +202,7 @@ export default function PortalFornecedor() {
       // Buscar documentos solicitados em cotações de preços (não seleções)
       // Status "pendente" = recém solicitado pelo gestor, aguardando envio
       // Status "rejeitado" = recusado pelo gestor e precisa ser reenviado
+      // Status "em_analise" = enviado pelo fornecedor, pode atualizar
       const { data: camposSolicitados, error: camposError } = await supabase
         .from("campos_documentos_finalizacao")
         .select(`
@@ -204,7 +220,7 @@ export default function PortalFornecedor() {
         .eq("fornecedor_id", fornecedorId)
         .not("cotacao_id", "is", null)
         .is("selecao_id", null)
-        .in("status_solicitacao", ["pendente", "rejeitado"]);
+        .in("status_solicitacao", ["pendente", "rejeitado", "em_analise"]);
 
       if (camposError) {
         console.error("❌ Erro ao buscar campos solicitados:", camposError);
@@ -219,6 +235,15 @@ export default function PortalFornecedor() {
         return;
       }
 
+      // Buscar documentos já enviados
+      const { data: docsEnviados } = await supabase
+        .from("documentos_finalizacao_fornecedor")
+        .select("*")
+        .eq("fornecedor_id", fornecedorId)
+        .in("campo_documento_id", camposSolicitados.map(c => c.id));
+
+      const docsEnviadosMap = new Map(docsEnviados?.map(d => [d.campo_documento_id, d]) || []);
+
       // Agrupar por cotação
       const cotacoesMap = new Map();
       
@@ -231,12 +256,11 @@ export default function PortalFornecedor() {
           });
         }
 
-        // Se está nesta lista, significa que está com status "enviado" ou "rejeitado"
-        // ou seja, ainda não foi enviado pelo fornecedor ou precisa ser reenviado
+        const docEnviado = docsEnviadosMap.get(campo.id);
         cotacoesMap.get(campo.cotacao_id).campos_documentos_finalizacao.push({
           ...campo,
-          enviado: false, // Status "enviado" ou "rejeitado" = documento não enviado
-          arquivo: null
+          enviado: campo.status_solicitacao === "em_analise",
+          arquivo: docEnviado || null
         });
       }
 
@@ -255,6 +279,7 @@ export default function PortalFornecedor() {
       // Buscar documentos solicitados em seleções de fornecedores
       // Status "pendente" = recém solicitado pelo gestor, aguardando envio
       // Status "rejeitado" = recusado pelo gestor e precisa ser reenviado
+      // Status "em_analise" = enviado pelo fornecedor, pode atualizar
       const { data: camposSolicitados, error: camposError } = await supabase
         .from("campos_documentos_finalizacao")
         .select(`
@@ -271,7 +296,7 @@ export default function PortalFornecedor() {
         `)
         .eq("fornecedor_id", fornecedorId)
         .not("selecao_id", "is", null)
-        .in("status_solicitacao", ["pendente", "rejeitado"]);
+        .in("status_solicitacao", ["pendente", "rejeitado", "em_analise"]);
 
       if (camposError) {
         console.error("❌ Erro ao buscar campos solicitados de seleção:", camposError);
@@ -286,6 +311,15 @@ export default function PortalFornecedor() {
         return;
       }
 
+      // Buscar documentos já enviados
+      const { data: docsEnviados } = await supabase
+        .from("documentos_finalizacao_fornecedor")
+        .select("*")
+        .eq("fornecedor_id", fornecedorId)
+        .in("campo_documento_id", camposSolicitados.map(c => c.id));
+
+      const docsEnviadosMap = new Map(docsEnviados?.map(d => [d.campo_documento_id, d]) || []);
+
       // Agrupar por seleção
       const selecoesMap = new Map();
       
@@ -299,10 +333,11 @@ export default function PortalFornecedor() {
           });
         }
 
+        const docEnviado = docsEnviadosMap.get(campo.id);
         selecoesMap.get(campo.selecao_id).campos_documentos_finalizacao.push({
           ...campo,
-          enviado: false,
-          arquivo: null
+          enviado: campo.status_solicitacao === "em_analise",
+          arquivo: docEnviado || null
         });
       }
 
@@ -560,6 +595,41 @@ export default function PortalFornecedor() {
     } catch (error: any) {
       console.error("❌ Erro ao fazer upload:", error);
       toast.error("Erro ao enviar documento");
+    }
+  };
+
+  const handleRecusarDocumento = async () => {
+    if (!documentoParaRejeitar || !motivoRejeicaoDocumento.trim()) {
+      toast.error("Informe o motivo da recusa");
+      return;
+    }
+
+    try {
+      // Atualizar status do campo para "recusado_fornecedor" com o motivo
+      const { error } = await supabase
+        .from('campos_documentos_finalizacao')
+        .update({ 
+          status_solicitacao: 'recusado_fornecedor',
+          descricao: `${documentoParaRejeitar.nome} - RECUSADO PELO FORNECEDOR: ${motivoRejeicaoDocumento}`
+        })
+        .eq('id', documentoParaRejeitar.id);
+
+      if (error) throw error;
+
+      toast.success("Solicitação recusada com sucesso");
+      setDialogRejeicaoDocumentoOpen(false);
+      setDocumentoParaRejeitar(null);
+      setMotivoRejeicaoDocumento("");
+
+      // Recarregar lista
+      if (documentoParaRejeitar.tipoSelecao) {
+        await loadDocumentosPendentesSelecao(fornecedor.id);
+      } else {
+        await loadDocumentosPendentes(fornecedor.id);
+      }
+    } catch (error: any) {
+      console.error("Erro ao recusar documento:", error);
+      toast.error("Erro ao recusar documento");
     }
   };
 
@@ -872,6 +942,11 @@ export default function PortalFornecedor() {
                                         ✓ Documento Enviado
                                       </Badge>
                                     )}
+                                  {campo.status_solicitacao === "rejeitado" && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      ⚠️ Gestor solicitou reenvio
+                                    </Badge>
+                                  )}
                                   </div>
                                   {campo.descricao && (
                                     <p className="text-sm text-muted-foreground mb-3">{campo.descricao}</p>
@@ -890,28 +965,72 @@ export default function PortalFornecedor() {
                                     </div>
                                   )}
                                 </div>
-                                {!campo.enviado && (
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="file"
-                                      accept=".pdf"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) handleUploadDocumento(campo.id, file);
-                                      }}
-                                      className="hidden"
-                                      id={`upload-${campo.id}`}
-                                    />
-                                    <Button
-                                      size="sm"
-                                      onClick={() => document.getElementById(`upload-${campo.id}`)?.click()}
-                                      className="bg-orange-600 hover:bg-orange-700"
-                                    >
-                                      <Upload className="h-4 w-4 mr-2" />
-                                      Enviar PDF
-                                    </Button>
-                                  </div>
-                                )}
+                                <div className="flex flex-col gap-2">
+                                  {campo.enviado ? (
+                                    <>
+                                      {/* Documento já enviado - botões Visualizar e Atualizar */}
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => campo.arquivo && window.open(campo.arquivo.url_arquivo, "_blank")}
+                                      >
+                                        <Eye className="h-4 w-4 mr-2" />
+                                        Visualizar
+                                      </Button>
+                                      <Input
+                                        type="file"
+                                        accept=".pdf"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) handleUploadDocumento(campo.id, file);
+                                        }}
+                                        className="hidden"
+                                        id={`update-${campo.id}`}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => document.getElementById(`update-${campo.id}`)?.click()}
+                                      >
+                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                        Atualizar
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {/* Documento não enviado - botões Enviar e Recusar */}
+                                      <Input
+                                        type="file"
+                                        accept=".pdf"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) handleUploadDocumento(campo.id, file);
+                                        }}
+                                        className="hidden"
+                                        id={`upload-${campo.id}`}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => document.getElementById(`upload-${campo.id}`)?.click()}
+                                        className="bg-orange-600 hover:bg-orange-700"
+                                      >
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Enviar PDF
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => {
+                                          setDocumentoParaRejeitar({ id: campo.id, nome: campo.nome_campo, tipoSelecao: false });
+                                          setDialogRejeicaoDocumentoOpen(true);
+                                        }}
+                                      >
+                                        <XCircle className="h-4 w-4 mr-2" />
+                                        Recusar
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -1012,6 +1131,11 @@ export default function PortalFornecedor() {
                                         ✓ Documento Enviado
                                       </Badge>
                                     )}
+                                  {campo.status_solicitacao === "rejeitado" && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      ⚠️ Gestor solicitou reenvio
+                                    </Badge>
+                                  )}
                                   </div>
                                   {campo.descricao && (
                                     <p className="text-sm text-muted-foreground mb-3">{campo.descricao}</p>
@@ -1030,28 +1154,72 @@ export default function PortalFornecedor() {
                                     </div>
                                   )}
                                 </div>
-                                {!campo.enviado && (
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="file"
-                                      accept=".pdf"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) handleUploadDocumentoSelecao(campo.id, file);
-                                      }}
-                                      className="hidden"
-                                      id={`upload-selecao-${campo.id}`}
-                                    />
-                                    <Button
-                                      size="sm"
-                                      onClick={() => document.getElementById(`upload-selecao-${campo.id}`)?.click()}
-                                      className="bg-blue-600 hover:bg-blue-700"
-                                    >
-                                      <Upload className="h-4 w-4 mr-2" />
-                                      Enviar PDF
-                                    </Button>
-                                  </div>
-                                )}
+                                <div className="flex flex-col gap-2">
+                                  {campo.enviado ? (
+                                    <>
+                                      {/* Documento já enviado - botões Visualizar e Atualizar */}
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => campo.arquivo && window.open(campo.arquivo.url_arquivo, "_blank")}
+                                      >
+                                        <Eye className="h-4 w-4 mr-2" />
+                                        Visualizar
+                                      </Button>
+                                      <Input
+                                        type="file"
+                                        accept=".pdf"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) handleUploadDocumentoSelecao(campo.id, file);
+                                        }}
+                                        className="hidden"
+                                        id={`update-selecao-${campo.id}`}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => document.getElementById(`update-selecao-${campo.id}`)?.click()}
+                                      >
+                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                        Atualizar
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {/* Documento não enviado - botões Enviar e Recusar */}
+                                      <Input
+                                        type="file"
+                                        accept=".pdf"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) handleUploadDocumentoSelecao(campo.id, file);
+                                        }}
+                                        className="hidden"
+                                        id={`upload-selecao-${campo.id}`}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => document.getElementById(`upload-selecao-${campo.id}`)?.click()}
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                      >
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Enviar PDF
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => {
+                                          setDocumentoParaRejeitar({ id: campo.id, nome: campo.nome_campo, tipoSelecao: true });
+                                          setDialogRejeicaoDocumentoOpen(true);
+                                        }}
+                                      >
+                                        <XCircle className="h-4 w-4 mr-2" />
+                                        Recusar
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -1162,6 +1330,43 @@ export default function PortalFornecedor() {
           loading={assinandoAta !== null}
         />
       )}
+
+      {/* Dialog de confirmação de recusa de documento */}
+      <AlertDialog open={dialogRejeicaoDocumentoOpen} onOpenChange={setDialogRejeicaoDocumentoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recusar Solicitação de Documento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está recusando a solicitação do documento: <strong>{documentoParaRejeitar?.nome}</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium">Motivo da recusa (obrigatório)</label>
+            <Textarea
+              placeholder="Informe o motivo pelo qual você não pode enviar este documento..."
+              value={motivoRejeicaoDocumento}
+              onChange={(e) => setMotivoRejeicaoDocumento(e.target.value)}
+              className="mt-2"
+              rows={4}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDocumentoParaRejeitar(null);
+              setMotivoRejeicaoDocumento("");
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleRecusarDocumento}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={!motivoRejeicaoDocumento.trim()}
+            >
+              Confirmar Recusa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
