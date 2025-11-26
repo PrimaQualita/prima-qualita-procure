@@ -206,6 +206,7 @@ export type Database = {
           id: string
           ip_assinatura: string | null
           observacao: string | null
+          responsaveis_assinantes: Json | null
           status_assinatura: string
         }
         Insert: {
@@ -217,6 +218,7 @@ export type Database = {
           id?: string
           ip_assinatura?: string | null
           observacao?: string | null
+          responsaveis_assinantes?: Json | null
           status_assinatura?: string
         }
         Update: {
@@ -228,6 +230,7 @@ export type Database = {
           id?: string
           ip_assinatura?: string | null
           observacao?: string | null
+          responsaveis_assinantes?: Json | null
           status_assinatura?: string
         }
         Relationships: [
