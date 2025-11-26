@@ -166,28 +166,37 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     .eq('selecao_id', selecaoId)
     .eq('indicativo_lance_vencedor', true);
 
-  // Buscar itens da cotação relacionada para descrições
+  // Buscar itens da cotação relacionada para descrições E quantidades
   let itensDescricoes: Record<number, string> = {};
+  let itensQuantidades: Record<number, number> = {};
   if (selecao.cotacao_relacionada_id) {
     const { data: itensCotacao } = await supabase
       .from('itens_cotacao')
-      .select('numero_item, descricao')
+      .select('numero_item, descricao, quantidade')
       .eq('cotacao_id', selecao.cotacao_relacionada_id);
     
     if (itensCotacao) {
       itensCotacao.forEach(item => {
         itensDescricoes[item.numero_item] = item.descricao;
+        itensQuantidades[item.numero_item] = Number(item.quantidade) || 1;
       });
     }
   }
 
-  const itensVencedores: ItemVencedor[] = (lancesVencedores || []).map(lance => ({
-    numero_item: lance.numero_item || 0,
-    descricao: itensDescricoes[lance.numero_item || 0] || `Item ${lance.numero_item}`,
-    fornecedor_id: lance.fornecedor_id,
-    fornecedor_nome: (lance.fornecedores as any)?.razao_social || '',
-    valor_final: lance.valor_lance
-  }));
+  // Calcular valor total = valor_unitario × quantidade
+  const itensVencedores: ItemVencedor[] = (lancesVencedores || []).map(lance => {
+    const quantidade = itensQuantidades[lance.numero_item || 0] || 1;
+    const valorUnitario = lance.valor_lance;
+    const valorTotal = valorUnitario * quantidade;
+    
+    return {
+      numero_item: lance.numero_item || 0,
+      descricao: itensDescricoes[lance.numero_item || 0] || `Item ${lance.numero_item}`,
+      fornecedor_id: lance.fornecedor_id,
+      fornecedor_nome: (lance.fornecedores as any)?.razao_social || '',
+      valor_final: valorTotal // Agora é o valor TOTAL (unitário × quantidade)
+    };
+  });
 
   // Buscar mensagens de negociação
   const { data: mensagens, error: mensagensError } = await supabase
@@ -388,7 +397,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       },
       margin: { left: marginLeft, right: marginRight },
       columnStyles: {
-        0: { cellWidth: 65, halign: 'left' },
+        0: { cellWidth: 65, halign: 'justify' },
         1: { cellWidth: 50, halign: 'center' },
         2: { cellWidth: 55, halign: 'center' }
       },
