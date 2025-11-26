@@ -728,6 +728,7 @@ interface Assinatura {
   data_assinatura: string;
   ip_assinatura: string;
   status_assinatura: string;
+  cargo?: string;
 }
 
 export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
@@ -787,19 +788,19 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     .order('data_assinatura', { ascending: true });
 
   // Buscar dados dos perfis separadamente para evitar problemas com join
-  let profilesMap: Record<string, { nome_completo: string; cpf: string }> = {};
+  let profilesMap: Record<string, { nome_completo: string; cpf: string; cargo?: string }> = {};
   if (assinaturasUsuarios && assinaturasUsuarios.length > 0) {
     const usuarioIds = assinaturasUsuarios.map(a => a.usuario_id);
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, nome_completo, cpf')
+      .select('id, nome_completo, cpf, cargo')
       .in('id', usuarioIds);
     
     if (profiles) {
       profilesMap = profiles.reduce((acc, p) => {
-        acc[p.id] = { nome_completo: p.nome_completo, cpf: p.cpf };
+        acc[p.id] = { nome_completo: p.nome_completo, cpf: p.cpf, cargo: (p as any).cargo };
         return acc;
-      }, {} as Record<string, { nome_completo: string; cpf: string }>);
+      }, {} as Record<string, { nome_completo: string; cpf: string; cargo?: string }>);
     }
   }
 
@@ -832,7 +833,8 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       tipo: 'usuario' as const,
       data_assinatura: a.data_assinatura || '',
       ip_assinatura: a.ip_assinatura || '',
-      status_assinatura: a.status_assinatura
+      status_assinatura: a.status_assinatura,
+      cargo: profile?.cargo || undefined
     };
   });
 
@@ -920,7 +922,9 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   currentY -= 18;
 
   for (const assinatura of todasAssinaturas) {
-    const boxHeight = 50;
+    // Altura do box depende se tem cargo ou não
+    const temCargo = assinatura.tipo === 'usuario' && assinatura.cargo;
+    const boxHeight = temCargo ? 62 : 50;
     
     if (await checkNewPage(boxHeight + 10)) {
       // Nova página criada
@@ -947,21 +951,36 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       color: rgb(0, 0, 0),
     });
 
+    let nextY = currentY - 26;
+
+    // Cargo (apenas para usuários internos)
+    if (assinatura.tipo === 'usuario' && assinatura.cargo) {
+      page.drawText(`Cargo: ${assinatura.cargo}`, {
+        x: marginLeft + 10,
+        y: nextY,
+        size: 9,
+        font: helveticaFont,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+      nextY -= 12;
+    }
+
     // Identificação (CNPJ ou CPF)
     page.drawText(assinatura.tipo === 'fornecedor' ? `CNPJ: ${assinatura.identificacao}` : assinatura.identificacao, {
       x: marginLeft + 10,
-      y: currentY - 26,
+      y: nextY,
       size: 9,
       font: helveticaFont,
       color: rgb(0.3, 0.3, 0.3),
     });
+    nextY -= 14;
 
     // Status e data
     if (assinatura.status_assinatura === 'aceito' && assinatura.data_assinatura) {
       const dataFormatada = new Date(assinatura.data_assinatura).toLocaleString('pt-BR');
       page.drawText(`[OK] ACEITO DIGITALMENTE em ${dataFormatada}`, {
         x: marginLeft + 10,
-        y: currentY - 40,
+        y: nextY,
         size: 9,
         font: helveticaBold,
         color: rgb(0.1, 0.5, 0.1),
@@ -969,7 +988,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     } else {
       page.drawText('[...] Pendente de assinatura', {
         x: marginLeft + 10,
-        y: currentY - 40,
+        y: nextY,
         size: 9,
         font: helveticaFont,
         color: rgb(0.7, 0.5, 0),

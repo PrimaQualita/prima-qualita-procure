@@ -1795,6 +1795,7 @@ export type Database = {
         Row: {
           ativo: boolean | null
           avatar_url: string | null
+          cargo: string | null
           compliance: boolean | null
           cpf: string
           created_at: string | null
@@ -1813,6 +1814,7 @@ export type Database = {
         Insert: {
           ativo?: boolean | null
           avatar_url?: string | null
+          cargo?: string | null
           compliance?: boolean | null
           cpf: string
           created_at?: string | null
@@ -1831,6 +1833,7 @@ export type Database = {
         Update: {
           ativo?: boolean | null
           avatar_url?: string | null
+          cargo?: string | null
           compliance?: boolean | null
           cpf?: string
           created_at?: string | null

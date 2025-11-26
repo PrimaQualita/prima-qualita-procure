@@ -39,6 +39,9 @@ interface Usuario {
   data_nascimento?: string;
   ativo: boolean;
   role?: string;
+  cargo?: string;
+  responsavel_legal?: boolean;
+  compliance?: boolean;
 }
 
 const Usuarios = () => {
@@ -272,6 +275,7 @@ const Usuarios = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
+                    <TableHead>Cargo</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>CPF</TableHead>
                     <TableHead>Perfil</TableHead>
@@ -284,6 +288,7 @@ const Usuarios = () => {
                   {usuariosFiltrados.map((usuario) => (
                     <TableRow key={usuario.id}>
                       <TableCell className="font-medium">{usuario.nome_completo}</TableCell>
+                      <TableCell className="text-muted-foreground">{usuario.cargo || '-'}</TableCell>
                       <TableCell>{usuario.email}</TableCell>
                       <TableCell>{mascaraCPF(usuario.cpf)}</TableCell>
                       <TableCell>
