@@ -228,22 +228,18 @@ export const gerarRespostaRecursoPDF = async (
   y += 8;
   
   // Verificar espaço para certificação (certificação logo após o texto)
-  if (y > pageHeight - 60) {
+  if (y > pageHeight - 50) {
     doc.addPage();
     adicionarLogoERodape();
     y = 35;
   }
   
-  // Certificação Digital
-  const { adicionarCertificacaoDigital } = await import('./certificacaoDigital');
-  const hash = btoa(protocolo + dataHora).substring(0, 32).toUpperCase();
+  // Certificação Digital Simplificada
+  const { adicionarCertificacaoSimplificada } = await import('./certificacaoSimplificada');
   
-  adicionarCertificacaoDigital(doc, {
+  adicionarCertificacaoSimplificada(doc, {
     protocolo,
-    dataHora,
     responsavel: usuarioNome,
-    cpf: usuarioCpf,
-    hash,
     linkVerificacao: `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`
   }, y);
   
