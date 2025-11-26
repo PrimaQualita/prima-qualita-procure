@@ -196,10 +196,63 @@ export type Database = {
           },
         ]
       }
+      atas_assinaturas_fornecedor: {
+        Row: {
+          ata_id: string
+          created_at: string
+          data_assinatura: string | null
+          data_notificacao: string | null
+          fornecedor_id: string
+          id: string
+          ip_assinatura: string | null
+          observacao: string | null
+          status_assinatura: string
+        }
+        Insert: {
+          ata_id: string
+          created_at?: string
+          data_assinatura?: string | null
+          data_notificacao?: string | null
+          fornecedor_id: string
+          id?: string
+          ip_assinatura?: string | null
+          observacao?: string | null
+          status_assinatura?: string
+        }
+        Update: {
+          ata_id?: string
+          created_at?: string
+          data_assinatura?: string | null
+          data_notificacao?: string | null
+          fornecedor_id?: string
+          id?: string
+          ip_assinatura?: string | null
+          observacao?: string | null
+          status_assinatura?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atas_assinaturas_fornecedor_ata_id_fkey"
+            columns: ["ata_id"]
+            isOneToOne: false
+            referencedRelation: "atas_selecao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atas_assinaturas_fornecedor_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       atas_selecao: {
         Row: {
           created_at: string
+          data_envio_fornecedores: string | null
           data_geracao: string
+          enviada_fornecedores: boolean | null
           id: string
           nome_arquivo: string
           protocolo: string
@@ -209,7 +262,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          data_envio_fornecedores?: string | null
           data_geracao?: string
+          enviada_fornecedores?: boolean | null
           id?: string
           nome_arquivo: string
           protocolo: string
@@ -219,7 +274,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          data_envio_fornecedores?: string | null
           data_geracao?: string
+          enviada_fornecedores?: boolean | null
           id?: string
           nome_arquivo?: string
           protocolo?: string

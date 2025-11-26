@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, Eye, Trash2, SendHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
@@ -55,6 +55,9 @@ const DetalheSelecao = () => {
   const [dialogSessaoOpen, setDialogSessaoOpen] = useState(false);
   const [dialogAnaliseDocumentalOpen, setDialogAnaliseDocumentalOpen] = useState(false);
   const [gerandoAta, setGerandoAta] = useState(false);
+  const [atasGeradas, setAtasGeradas] = useState<any[]>([]);
+  const [enviandoAta, setEnviandoAta] = useState<string | null>(null);
+  const [confirmDeleteAta, setConfirmDeleteAta] = useState<string | null>(null);
 
   useEffect(() => {
     if (selecaoId) {
@@ -91,6 +94,9 @@ const DetalheSelecao = () => {
 
       // Carregar documentos anexados
       await loadDocumentosAnexados();
+
+      // Carregar atas geradas
+      await loadAtasGeradas();
 
     } catch (error) {
       console.error("Erro ao carregar seleção:", error);
@@ -227,6 +233,103 @@ const DetalheSelecao = () => {
       }
     } catch (error) {
       console.error("Erro ao carregar documentos:", error);
+    }
+  };
+
+  const loadAtasGeradas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("atas_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoId)
+        .order("data_geracao", { ascending: false });
+
+      if (error) throw error;
+      setAtasGeradas(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar atas:", error);
+    }
+  };
+
+  const handleDeleteAta = async (ataId: string) => {
+    try {
+      const ata = atasGeradas.find(a => a.id === ataId);
+      if (ata) {
+        // Deletar do storage
+        const storagePath = `atas-selecao/${selecaoId}/${ata.nome_arquivo}`;
+        await supabase.storage.from("processo-anexos").remove([storagePath]);
+      }
+
+      // Deletar do banco
+      const { error } = await supabase
+        .from("atas_selecao")
+        .delete()
+        .eq("id", ataId);
+
+      if (error) throw error;
+
+      toast.success("Ata excluída com sucesso!");
+      await loadAtasGeradas();
+    } catch (error) {
+      console.error("Erro ao excluir ata:", error);
+      toast.error("Erro ao excluir ata");
+    } finally {
+      setConfirmDeleteAta(null);
+    }
+  };
+
+  const handleEnviarAtaFornecedores = async (ataId: string) => {
+    setEnviandoAta(ataId);
+    try {
+      // Buscar fornecedores vencedores da seleção
+      const { data: lancesVencedores, error: lancesError } = await supabase
+        .from("lances_fornecedores")
+        .select("fornecedor_id")
+        .eq("selecao_id", selecaoId)
+        .eq("indicativo_lance_vencedor", true);
+
+      if (lancesError) throw lancesError;
+
+      if (!lancesVencedores || lancesVencedores.length === 0) {
+        toast.error("Nenhum fornecedor vencedor encontrado para enviar a ata");
+        return;
+      }
+
+      // IDs únicos de fornecedores
+      const fornecedorIds = [...new Set(lancesVencedores.map(l => l.fornecedor_id))];
+
+      // Criar registros de assinatura para cada fornecedor
+      const assinaturas = fornecedorIds.map(fornecedorId => ({
+        ata_id: ataId,
+        fornecedor_id: fornecedorId,
+        status_assinatura: 'pendente',
+        data_notificacao: new Date().toISOString(),
+      }));
+
+      const { error: insertError } = await supabase
+        .from("atas_assinaturas_fornecedor")
+        .upsert(assinaturas, { onConflict: 'ata_id,fornecedor_id' });
+
+      if (insertError) throw insertError;
+
+      // Atualizar ata como enviada
+      const { error: updateError } = await supabase
+        .from("atas_selecao")
+        .update({
+          enviada_fornecedores: true,
+          data_envio_fornecedores: new Date().toISOString(),
+        })
+        .eq("id", ataId);
+
+      if (updateError) throw updateError;
+
+      toast.success(`Ata enviada para ${fornecedorIds.length} fornecedor(es)! Eles receberão notificação para assinar.`);
+      await loadAtasGeradas();
+    } catch (error) {
+      console.error("Erro ao enviar ata:", error);
+      toast.error("Erro ao enviar ata aos fornecedores");
+    } finally {
+      setEnviandoAta(null);
     }
   };
 
@@ -473,8 +576,8 @@ const DetalheSelecao = () => {
               setGerandoAta(true);
               try {
                 const resultado = await gerarAtaSelecaoPDF(selecaoId!);
-                window.open(resultado.url, "_blank");
                 toast.success("Ata gerada com sucesso!");
+                await loadAtasGeradas();
               } catch (error) {
                 console.error("Erro ao gerar ata:", error);
                 toast.error("Erro ao gerar Ata");
@@ -486,6 +589,63 @@ const DetalheSelecao = () => {
             <FileCheck className="h-5 w-5 mr-2" />
             {gerandoAta ? "Gerando..." : "Gerar Ata"}
           </Button>
+
+          {/* Atas Geradas */}
+          {atasGeradas.length > 0 && (
+            <Card className="mt-4">
+              <CardHeader className="py-3">
+                <CardTitle className="text-base">Atas Geradas</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <div className="space-y-2">
+                  {atasGeradas.map((ata) => (
+                    <div key={ata.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{ata.nome_arquivo}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Gerada em: {new Date(ata.data_geracao).toLocaleString("pt-BR")}
+                          {ata.enviada_fornecedores && (
+                            <span className="ml-2 text-green-600">• Enviada aos fornecedores</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => window.open(ata.url_arquivo, "_blank")}
+                          title="Visualizar"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => setConfirmDeleteAta(ata.id)}
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        {!ata.enviada_fornecedores && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleEnviarAtaFornecedores(ata.id)}
+                            disabled={enviandoAta === ata.id}
+                            title="Enviar aos Fornecedores"
+                          >
+                            <SendHorizontal className="h-4 w-4 mr-1" />
+                            {enviandoAta === ata.id ? "Enviando..." : "Enviar"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Itens da Cotação */}
@@ -695,6 +855,26 @@ const DetalheSelecao = () => {
                   loadDocumentosAnexados();
                 }
               }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de exclusão de Ata */}
+      <AlertDialog open={!!confirmDeleteAta} onOpenChange={(open) => !open && setConfirmDeleteAta(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta Ata? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmDeleteAta && handleDeleteAta(confirmDeleteAta)}
             >
               Excluir
             </AlertDialogAction>

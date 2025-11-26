@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle } from "lucide-react";
+import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
 import { NotificacaoRejeicao } from "@/components/fornecedores/NotificacaoRejeicao";
@@ -20,6 +20,8 @@ export default function PortalFornecedor() {
   const [cotacoes, setCotacoes] = useState<any[]>([]);
   const [selecoes, setSelecoes] = useState<any[]>([]);
   const [documentosPendentes, setDocumentosPendentes] = useState<any[]>([]);
+  const [atasPendentes, setAtasPendentes] = useState<any[]>([]);
+  const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<string>("");
 
@@ -94,6 +96,7 @@ export default function PortalFornecedor() {
     await loadCotacoes(fornecedorData.id);
     await loadSelecoes(fornecedorData.id);
     await loadDocumentosPendentes(fornecedorData.id);
+    await loadAtasPendentes(fornecedorData.id);
     setLoading(false);
   };
 
@@ -231,6 +234,59 @@ export default function PortalFornecedor() {
       setDocumentosPendentes(documentosAgrupados);
     } catch (error: any) {
       console.error("❌ Erro ao carregar documentos pendentes:", error);
+    }
+  };
+
+  const loadAtasPendentes = async (fornecedorId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("atas_assinaturas_fornecedor")
+        .select(`
+          *,
+          atas_selecao (
+            id,
+            protocolo,
+            nome_arquivo,
+            url_arquivo,
+            data_geracao,
+            selecao_id,
+            selecoes_fornecedores (
+              numero_selecao,
+              titulo_selecao
+            )
+          )
+        `)
+        .eq("fornecedor_id", fornecedorId)
+        .eq("status_assinatura", "pendente");
+
+      if (error) throw error;
+      setAtasPendentes(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar atas pendentes:", error);
+    }
+  };
+
+  const handleAssinarAta = async (assinaturaId: string) => {
+    setAssinandoAta(assinaturaId);
+    try {
+      const { error } = await supabase
+        .from("atas_assinaturas_fornecedor")
+        .update({
+          status_assinatura: "aceito",
+          data_assinatura: new Date().toISOString(),
+          ip_assinatura: "browser", // Poderia capturar IP real via API
+        })
+        .eq("id", assinaturaId);
+
+      if (error) throw error;
+
+      toast.success("Ata assinada digitalmente com sucesso!");
+      await loadAtasPendentes(fornecedor.id);
+    } catch (error) {
+      console.error("Erro ao assinar ata:", error);
+      toast.error("Erro ao assinar ata");
+    } finally {
+      setAssinandoAta(null);
     }
   };
 
@@ -379,6 +435,55 @@ export default function PortalFornecedor() {
                   <p className="text-sm text-orange-600 dark:text-orange-300">
                     Acesse a aba "Cotações de Preços" ou "Seleções" para visualizar e enviar os documentos solicitados.
                   </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Alerta de Atas Pendentes de Assinatura */}
+        {atasPendentes.length > 0 && (
+          <Card className="mb-6 border-blue-500/50 bg-blue-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <FileCheck className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-blue-700 dark:text-blue-400 mb-3">
+                    📋 Você possui {atasPendentes.length} ata(s) pendente(s) de assinatura digital!
+                  </p>
+                  <div className="space-y-3">
+                    {atasPendentes.map((assinatura) => (
+                      <div key={assinatura.id} className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg border">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">
+                            Seleção: {assinatura.atas_selecao?.selecoes_fornecedores?.numero_selecao || "N/A"} - {assinatura.atas_selecao?.selecoes_fornecedores?.titulo_selecao || "Sem título"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Protocolo: {assinatura.atas_selecao?.protocolo?.substring(0, 16).toUpperCase().replace(/(.{4})/g, '$1-').slice(0, -1)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(assinatura.atas_selecao?.url_arquivo, "_blank")}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Ver Ata
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleAssinarAta(assinatura.id)}
+                            disabled={assinandoAta === assinatura.id}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            {assinandoAta === assinatura.id ? "Assinando..." : "Aceitar/Assinar"}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </CardContent>
