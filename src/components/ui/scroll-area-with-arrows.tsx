@@ -47,58 +47,69 @@ export function ScrollAreaWithArrows({
   const showHorizontal = orientation === "horizontal" || orientation === "both";
 
   return (
-    <div className={cn("relative", className)} ref={scrollRef}>
-      {/* Vertical arrows */}
+    <div className={cn("flex flex-col overflow-hidden", className)} ref={scrollRef}>
+      {/* Top arrow */}
       {showVertical && (
-        <>
+        <div className="flex justify-center py-1 flex-shrink-0">
           <Button
             variant="ghost"
             size="sm"
-            className="absolute top-0 right-1 z-10 h-5 w-5 p-0 bg-background/80 hover:bg-background border shadow-sm"
+            className="h-5 w-8 p-0 bg-muted hover:bg-muted/80 border shadow-sm"
             onClick={() => scrollBy("up")}
           >
             <ChevronUp className="h-3 w-3" />
           </Button>
+        </div>
+      )}
+
+      {/* Horizontal left arrow + ScrollArea + Horizontal right arrow */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {showHorizontal && (
+          <div className="flex items-center px-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-5 p-0 bg-muted hover:bg-muted/80 border shadow-sm"
+              onClick={() => scrollBy("left")}
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+
+        <ScrollArea className="flex-1 h-full">
+          {children}
+          {showVertical && <ScrollBar orientation="vertical" />}
+          {showHorizontal && <ScrollBar orientation="horizontal" />}
+        </ScrollArea>
+
+        {showHorizontal && (
+          <div className="flex items-center px-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-5 p-0 bg-muted hover:bg-muted/80 border shadow-sm"
+              onClick={() => scrollBy("right")}
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom arrow */}
+      {showVertical && (
+        <div className="flex justify-center py-1 flex-shrink-0">
           <Button
             variant="ghost"
             size="sm"
-            className="absolute bottom-0 right-1 z-10 h-5 w-5 p-0 bg-background/80 hover:bg-background border shadow-sm"
+            className="h-5 w-8 p-0 bg-muted hover:bg-muted/80 border shadow-sm"
             onClick={() => scrollBy("down")}
           >
             <ChevronDown className="h-3 w-3" />
           </Button>
-        </>
-      )}
-
-      {/* Horizontal arrows */}
-      {showHorizontal && (
-        <>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute left-0 bottom-1 z-10 h-5 w-5 p-0 bg-background/80 hover:bg-background border shadow-sm"
-            onClick={() => scrollBy("left")}
-          >
-            <ChevronLeft className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute right-6 bottom-1 z-10 h-5 w-5 p-0 bg-background/80 hover:bg-background border shadow-sm"
-            onClick={() => scrollBy("right")}
-          >
-            <ChevronRight className="h-3 w-3" />
-          </Button>
-        </>
-      )}
-
-      <ScrollArea className="h-full w-full">
-        <div className={cn(showVertical && "pr-6", showHorizontal && "pb-4")}>
-          {children}
         </div>
-        {showVertical && <ScrollBar orientation="vertical" />}
-        {showHorizontal && <ScrollBar orientation="horizontal" />}
-      </ScrollArea>
+      )}
     </div>
   );
 }
