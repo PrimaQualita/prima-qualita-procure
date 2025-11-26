@@ -1,7 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
-import logoRecurso from '@/assets/logo-recurso.png';
-import rodapeRecurso from '@/assets/rodape-recurso.png';
+import logoPrimaQualita from '@/assets/prima-qualita-logo-horizontal.png';
 
 interface RecursoResult {
   url: string;
@@ -65,24 +64,17 @@ export const gerarRecursoPDF = async (
   const margemTexto = 20;
   const larguraUtil = pageWidth - (margemTexto * 2);
   
-  // Carregar imagens
-  const [base64Logo, base64Rodape] = await Promise.all([
-    loadImageAsBase64(logoRecurso),
-    loadImageAsBase64(rodapeRecurso)
-  ]);
+  // Carregar logo verde
+  const base64Logo = await loadImageAsBase64(logoPrimaQualita);
   
-  // Função para adicionar logo e rodapé
-  const adicionarLogoERodape = () => {
-    const logoWidth = pageWidth - (margemLateral * 2);
-    const logoHeight = 20;
-    doc.addImage(base64Logo, 'PNG', margemLateral, margemLateral, logoWidth, logoHeight);
-    
-    const rodapeWidth = pageWidth - (margemLateral * 2);
-    const rodapeHeight = 25;
-    doc.addImage(base64Rodape, 'PNG', margemLateral, pageHeight - rodapeHeight - margemLateral, rodapeWidth, rodapeHeight);
+  // Função para adicionar logo centralizado no topo
+  const adicionarLogo = () => {
+    const logoWidth = 60;
+    const logoHeight = 15;
+    doc.addImage(base64Logo, 'PNG', (pageWidth - logoWidth) / 2, 10, logoWidth, logoHeight);
   };
   
-  adicionarLogoERodape();
+  adicionarLogo();
   
   // Título
   let y = 35;
@@ -97,27 +89,27 @@ export const gerarRecursoPDF = async (
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text('Processo: ', margemTexto, y);
+  doc.text('Processo:', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(numeroProcesso, margemTexto + doc.getTextWidth('Processo: '), y);
+  doc.text(' ' + numeroProcesso, margemTexto + doc.getTextWidth('Processo:'), y);
   
   y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.text('Recorrente: ', margemTexto, y);
+  doc.text('Recorrente:', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(fornecedorNome, margemTexto + doc.getTextWidth('Recorrente: '), y);
+  doc.text(' ' + fornecedorNome, margemTexto + doc.getTextWidth('Recorrente:'), y);
   
   y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.text('CNPJ: ', margemTexto, y);
+  doc.text('CNPJ:', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(fornecedorCnpj, margemTexto + doc.getTextWidth('CNPJ: '), y);
+  doc.text(' ' + fornecedorCnpj, margemTexto + doc.getTextWidth('CNPJ:'), y);
   
   y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.text('Data: ', margemTexto, y);
+  doc.text('Data:', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(dataHora, margemTexto + doc.getTextWidth('Data: '), y);
+  doc.text(' ' + dataHora, margemTexto + doc.getTextWidth('Data:'), y);
   
   y += 12;
   
@@ -131,13 +123,13 @@ export const gerarRecursoPDF = async (
   doc.setTextColor(0, 0, 0);
   
   const linhasMotivo = doc.splitTextToSize(motivoInabilitacao, larguraUtil);
-  const maxY = pageHeight - 40;
+  const maxY = pageHeight - 30;
   const lineHeight = 5;
   
   linhasMotivo.forEach((linha: string) => {
     if (y > maxY) {
       doc.addPage();
-      adicionarLogoERodape();
+      adicionarLogo();
       y = 35;
     }
     doc.text(linha, margemTexto, y);
@@ -169,7 +161,7 @@ export const gerarRecursoPDF = async (
     lines.forEach((line: string, lineIndex: number) => {
       if (y > maxY) {
         doc.addPage();
-        adicionarLogoERodape();
+        adicionarLogo();
         y = 35;
       }
       
@@ -203,12 +195,12 @@ export const gerarRecursoPDF = async (
     });
   });
   
-  y += 15;
+  y += 8;
   
-  // Verificar espaço para certificação
-  if (y > pageHeight - 70) {
+  // Verificar espaço para certificação (logo após o texto)
+  if (y > pageHeight - 60) {
     doc.addPage();
-    adicionarLogoERodape();
+    adicionarLogo();
     y = 35;
   }
   
