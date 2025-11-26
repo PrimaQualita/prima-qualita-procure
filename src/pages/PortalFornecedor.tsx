@@ -689,7 +689,7 @@ export default function PortalFornecedor() {
                           </div>
                           <Button 
                             size="sm" 
-                            onClick={() => navigate(`/participar-selecao?id=${convite.selecao_id}`)}
+                            onClick={() => navigate(`/sistema-lances-fornecedor?proposta=${convite.id}`)}
                           >
                             Participar/Editar Proposta
                           </Button>
