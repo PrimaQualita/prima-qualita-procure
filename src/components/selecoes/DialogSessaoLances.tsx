@@ -90,6 +90,7 @@ export function DialogSessaoLances({
   const [salvando, setSalvando] = useState(false);
   const [itensFechados, setItensFechados] = useState<Set<number>>(new Set());
   const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map()); // Map<numeroItem, fornecedorId>
+  const [fornecedoresNegociacao, setFornecedoresNegociacao] = useState<Map<number, { fornecedorId: string; razaoSocial: string }>>(new Map()); // Map<numeroItem, {fornecedorId, razaoSocial}>
   const [itensComHistoricoNegociacao, setItensComHistoricoNegociacao] = useState<Map<number, string>>(new Map()); // Todos os itens que tiveram negociação (para histórico)
   const [itensNegociacaoConcluida, setItensNegociacaoConcluida] = useState<Set<number>>(new Set()); // Itens que já foram negociados ou marcados como "não negociar"
   const [vencedoresPorItem, setVencedoresPorItem] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
@@ -260,7 +261,13 @@ export function DialogSessaoLances({
     try {
       const { data, error } = await supabase
         .from("itens_abertos_lances")
-        .select("*")
+        .select(`
+          *,
+          fornecedores:fornecedor_negociacao_id (
+            id,
+            razao_social
+          )
+        `)
         .eq("selecao_id", selecaoId);
 
       if (error) throw error;
@@ -268,6 +275,7 @@ export function DialogSessaoLances({
       const abertos = new Set<number>();
       const fechados = new Set<number>();
       const emNegociacao = new Map<number, string>();
+      const fornecedoresNeg = new Map<number, { fornecedorId: string; razaoSocial: string }>();
       const comHistorico = new Map<number, string>();
       const concluidos = new Set<number>();
       const emFechamento = new Map<number, number>();
@@ -291,10 +299,26 @@ export function DialogSessaoLances({
         }
         if (item.em_negociacao && item.fornecedor_negociacao_id) {
           emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
+          // Salvar dados do fornecedor em negociação
+          const fornecedor = item.fornecedores as any;
+          if (fornecedor) {
+            fornecedoresNeg.set(item.numero_item, {
+              fornecedorId: fornecedor.id,
+              razaoSocial: fornecedor.razao_social || "Fornecedor"
+            });
+          }
         }
         // Rastrear todos os itens que tiveram negociação (para histórico/ata)
         if (item.fornecedor_negociacao_id) {
           comHistorico.set(item.numero_item, item.fornecedor_negociacao_id);
+          // Salvar dados do fornecedor para histórico também
+          const fornecedor = item.fornecedores as any;
+          if (fornecedor && !fornecedoresNeg.has(item.numero_item)) {
+            fornecedoresNeg.set(item.numero_item, {
+              fornecedorId: fornecedor.id,
+              razaoSocial: fornecedor.razao_social || "Fornecedor"
+            });
+          }
         }
         // Rastrear itens com negociação concluída ou marcados como "não negociar"
         if (item.negociacao_concluida || item.nao_negociar) {
@@ -305,6 +329,7 @@ export function DialogSessaoLances({
       setItensAbertos(abertos);
       setItensFechados(fechados);
       setItensEmNegociacao(emNegociacao);
+      setFornecedoresNegociacao(fornecedoresNeg);
       setItensComHistoricoNegociacao(comHistorico);
       setItensNegociacaoConcluida(concluidos);
       setItensEmFechamento(emFechamento);
@@ -2043,8 +2068,11 @@ export function DialogSessaoLances({
                           const emNegociacaoAtiva = itensEmNegociacao.has(numeroItem);
                           const fornecedorId = itensEmNegociacao.get(numeroItem) || itensComHistoricoNegociacao.get(numeroItem);
                           const vencedor = vencedoresPorItem.get(numeroItem);
+                          const fornecedorNegociando = fornecedoresNegociacao.get(numeroItem);
                           const temHistoricoNegociacao = itensComHistoricoNegociacao.has(numeroItem);
                           const chatAberto = itemChatPrivado === numeroItem;
+                          // Usar nome do fornecedor em negociação se disponível, senão usar vencedor
+                          const nomeFornecedor = fornecedorNegociando?.razaoSocial || vencedor?.razaoSocial || 'Fornecedor';
 
                           if (emNegociacaoAtiva) {
                             return (
@@ -2056,7 +2084,7 @@ export function DialogSessaoLances({
                                   <div className="min-w-0">
                                     <span className="font-semibold text-xs">Item {numeroItem}</span>
                                     <p className="text-xs text-amber-700 dark:text-amber-300 truncate">
-                                      {vencedor?.razaoSocial || 'Fornecedor'}
+                                      {nomeFornecedor}
                                     </p>
                                   </div>
                                 </div>
@@ -2088,7 +2116,7 @@ export function DialogSessaoLances({
                                         selecaoId={selecaoId}
                                         numeroItem={numeroItem}
                                         fornecedorId={fornecedorId}
-                                        fornecedorNome={vencedor?.razaoSocial || "Fornecedor"}
+                                        fornecedorNome={nomeFornecedor}
                                         tituloSelecao={tituloSelecao}
                                         isGestor={true}
                                       />
