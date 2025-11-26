@@ -519,7 +519,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // Calcular altura necessária para o conteúdo
   doc.setFontSize(8);
   const urlLines = doc.splitTextToSize(verificationUrl, contentWidth - 10);
-  const certHeight = 50 + (urlLines.length * 3.5);
+  const certHeight = 38 + (urlLines.length * 3.5);
   
   const certY = currentY;
   
