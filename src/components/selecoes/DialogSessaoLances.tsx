@@ -1602,7 +1602,7 @@ export function DialogSessaoLances({
                   </Button>
                 </div>
 
-                <ScrollArea className="flex-1">
+                <ScrollAreaWithArrows className="flex-1" orientation="vertical" scrollStep={60}>
                   <div className="space-y-2 pr-2">
                     {itens.map((item) => {
                       const estaAberto = itensAbertos.has(item.numero_item);
@@ -1647,8 +1647,7 @@ export function DialogSessaoLances({
                       );
                     })}
                   </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                </ScrollAreaWithArrows>
 
                 <div className="flex gap-2 mt-3 pt-3 border-t">
                   <Button size="sm" className="flex-1 text-xs" onClick={handleAbrirItens} disabled={salvando || itensSelecionados.size === 0}>
@@ -2029,8 +2028,8 @@ export function DialogSessaoLances({
               </CardHeader>
               {!chatCollapsed && (
                 <CardContent className="flex-1 flex flex-col overflow-hidden p-3 pt-0">
-                  <ScrollArea className="flex-1 pr-2" ref={scrollRef}>
-                    <div className="space-y-3">
+                  <ScrollAreaWithArrows className="flex-1" orientation="vertical" scrollStep={60}>
+                    <div className="space-y-3 pr-2">
                       {mensagens.length === 0 ? (
                         <p className="text-center text-muted-foreground py-4 text-xs">
                           Nenhuma mensagem ainda
@@ -2058,7 +2057,7 @@ export function DialogSessaoLances({
                         ))
                       )}
                     </div>
-                  </ScrollArea>
+                  </ScrollAreaWithArrows>
 
                   <div className="flex gap-2 mt-3 pt-3 border-t">
                     <Input
