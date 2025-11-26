@@ -23,6 +23,7 @@ export default function PortalFornecedor() {
   const [cotacoes, setCotacoes] = useState<any[]>([]);
   const [selecoes, setSelecoes] = useState<any[]>([]);
   const [documentosPendentes, setDocumentosPendentes] = useState<any[]>([]);
+  const [documentosPendentesSelecao, setDocumentosPendentesSelecao] = useState<any[]>([]);
   const [atasPendentes, setAtasPendentes] = useState<any[]>([]);
   const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
@@ -102,6 +103,7 @@ export default function PortalFornecedor() {
     await loadCotacoes(fornecedorData.id);
     await loadSelecoes(fornecedorData.id);
     await loadDocumentosPendentes(fornecedorData.id);
+    await loadDocumentosPendentesSelecao(fornecedorData.id);
     await loadAtasPendentes(fornecedorData.id);
     setLoading(false);
   };
@@ -180,9 +182,9 @@ export default function PortalFornecedor() {
 
   const loadDocumentosPendentes = async (fornecedorId: string) => {
     try {
-      console.log("🔍 Carregando documentos pendentes para fornecedor:", fornecedorId);
+      console.log("🔍 Carregando documentos pendentes de cotação para fornecedor:", fornecedorId);
       
-      // Buscar documentos solicitados na finalização do processo
+      // Buscar documentos solicitados em cotações de preços (não seleções)
       // Status "pendente" = recém solicitado pelo gestor, aguardando envio
       // Status "rejeitado" = recusado pelo gestor e precisa ser reenviado
       const { data: camposSolicitados, error: camposError } = await supabase
@@ -199,6 +201,7 @@ export default function PortalFornecedor() {
           )
         `)
         .eq("fornecedor_id", fornecedorId)
+        .not("cotacao_id", "is", null)
         .in("status_solicitacao", ["pendente", "rejeitado"]);
 
       if (camposError) {
@@ -240,6 +243,72 @@ export default function PortalFornecedor() {
       setDocumentosPendentes(documentosAgrupados);
     } catch (error: any) {
       console.error("❌ Erro ao carregar documentos pendentes:", error);
+    }
+  };
+
+  const loadDocumentosPendentesSelecao = async (fornecedorId: string) => {
+    try {
+      console.log("🔍 Carregando documentos pendentes de seleção para fornecedor:", fornecedorId);
+      
+      // Buscar documentos solicitados em seleções de fornecedores
+      // Status "pendente" = recém solicitado pelo gestor, aguardando envio
+      // Status "rejeitado" = recusado pelo gestor e precisa ser reenviado
+      const { data: camposSolicitados, error: camposError } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select(`
+          id,
+          nome_campo,
+          descricao,
+          obrigatorio,
+          selecao_id,
+          status_solicitacao,
+          selecoes_fornecedores (
+            titulo_selecao,
+            numero_selecao
+          )
+        `)
+        .eq("fornecedor_id", fornecedorId)
+        .not("selecao_id", "is", null)
+        .in("status_solicitacao", ["pendente", "rejeitado"]);
+
+      if (camposError) {
+        console.error("❌ Erro ao buscar campos solicitados de seleção:", camposError);
+        throw camposError;
+      }
+
+      console.log("📋 Campos de seleção encontrados:", camposSolicitados);
+
+      if (!camposSolicitados || camposSolicitados.length === 0) {
+        console.log("ℹ️ Nenhum documento pendente de seleção encontrado");
+        setDocumentosPendentesSelecao([]);
+        return;
+      }
+
+      // Agrupar por seleção
+      const selecoesMap = new Map();
+      
+      for (const campo of camposSolicitados) {
+        if (!selecoesMap.has(campo.selecao_id)) {
+          selecoesMap.set(campo.selecao_id, {
+            id: campo.selecao_id,
+            titulo_selecao: campo.selecoes_fornecedores?.titulo_selecao || "Seleção sem título",
+            numero_selecao: campo.selecoes_fornecedores?.numero_selecao || "",
+            campos_documentos_finalizacao: []
+          });
+        }
+
+        selecoesMap.get(campo.selecao_id).campos_documentos_finalizacao.push({
+          ...campo,
+          enviado: false,
+          arquivo: null
+        });
+      }
+
+      const documentosAgrupados = Array.from(selecoesMap.values());
+      console.log("✅ Documentos de seleção agrupados:", documentosAgrupados);
+      setDocumentosPendentesSelecao(documentosAgrupados);
+    } catch (error: any) {
+      console.error("❌ Erro ao carregar documentos pendentes de seleção:", error);
     }
   };
 
@@ -407,6 +476,84 @@ export default function PortalFornecedor() {
       
       console.log("🔄 Recarregando lista de documentos pendentes...");
       await loadDocumentosPendentes(fornecedor.id);
+      console.log("✅ Lista recarregada!");
+    } catch (error: any) {
+      console.error("❌ Erro ao fazer upload:", error);
+      toast.error("Erro ao enviar documento");
+    }
+  };
+
+  const handleUploadDocumentoSelecao = async (campoId: string, file: File) => {
+    console.log("🚀 Iniciando upload de documento de seleção:", { campoId, fileName: file.name, fornecedor: fornecedor?.id });
+    
+    if (!fornecedor) {
+      console.error("❌ Fornecedor não encontrado");
+      toast.error("Fornecedor não identificado");
+      return;
+    }
+
+    try {
+      console.log("📤 Fazendo upload para storage...");
+      const fileExt = file.name.split('.').pop();
+      const fileName = `fornecedor_${fornecedor.id}/${campoId}_selecao_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('processo-anexos')
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error("❌ Erro no upload do storage:", uploadError);
+        throw uploadError;
+      }
+
+      console.log("✅ Upload no storage concluído");
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('processo-anexos')
+        .getPublicUrl(fileName);
+
+      console.log("📝 Salvando registro do documento...");
+      
+      // Usar upsert para inserir ou atualizar automaticamente
+      const { error: upsertError } = await supabase
+        .from('documentos_finalizacao_fornecedor')
+        .upsert({
+          fornecedor_id: fornecedor.id,
+          campo_documento_id: campoId,
+          url_arquivo: publicUrl,
+          nome_arquivo: file.name,
+          data_upload: new Date().toISOString()
+        }, {
+          onConflict: 'fornecedor_id,campo_documento_id'
+        });
+
+      if (upsertError) {
+        console.error("❌ Erro ao salvar documento:", upsertError);
+        throw upsertError;
+      }
+
+      console.log("✅ Documento salvo no banco");
+      console.log("🔄 Atualizando status do campo...");
+
+      // Atualizar status do campo para "em_analise"
+      const { error: updateError } = await supabase
+        .from('campos_documentos_finalizacao')
+        .update({ 
+          status_solicitacao: 'em_analise',
+          data_conclusao: new Date().toISOString()
+        })
+        .eq('id', campoId);
+
+      if (updateError) {
+        console.error("❌ Erro ao atualizar status:", updateError);
+        throw updateError;
+      }
+
+      console.log("✅ Status atualizado com sucesso!");
+      toast.success("Documento enviado com sucesso!");
+      
+      console.log("🔄 Recarregando lista de documentos pendentes de seleção...");
+      await loadDocumentosPendentesSelecao(fornecedor.id);
       console.log("✅ Lista recarregada!");
     } catch (error: any) {
       console.error("❌ Erro ao fazer upload:", error);
@@ -821,53 +968,143 @@ export default function PortalFornecedor() {
           </TabsContent>
 
           <TabsContent value="selecoes">
-            <Card>
-              <CardHeader>
-                <CardTitle>Minhas Seleções de Fornecedores</CardTitle>
-                <CardDescription>
-                  Processos seletivos em que você apresentou proposta
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {selecoes.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    Você ainda não foi convidado para nenhuma seleção.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {selecoes.map((convite) => (
-                      <div key={convite.id} className="p-4 border rounded-lg">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="font-semibold">
-                              {convite.selecoes_fornecedores?.titulo_selecao}
-                            </h3>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {convite.selecoes_fornecedores?.descricao}
-                            </p>
-                            <div className="flex gap-4 mt-3 text-sm">
-                              <span>
-                                Data: {convite.selecoes_fornecedores?.data_sessao_disputa?.split('-').reverse().join('/')}
-                              </span>
-                              <span>
-                                Horário: {convite.selecoes_fornecedores?.hora_sessao_disputa}
-                              </span>
-                              {getStatusSelecaoBadge(convite.selecoes_fornecedores?.status_selecao)}
+            <div className="space-y-6">
+              {/* Documentos Pendentes de Seleções */}
+              {documentosPendentesSelecao.length > 0 && (
+                <Card className="border-blue-500/50 bg-blue-500/10">
+                  <CardHeader>
+                    <CardTitle className="text-blue-700 dark:text-blue-400">
+                      📋 Documentos Solicitados - Seleção de Fornecedores
+                    </CardTitle>
+                    <CardDescription className="text-blue-600 dark:text-blue-300">
+                      Você foi selecionado como vencedor! Envie os documentos solicitados para conclusão do processo.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {documentosPendentesSelecao.map((selecao: any) => (
+                      <div key={selecao.id} className="border rounded-lg p-4 bg-background">
+                        <div className="mb-4">
+                          <h4 className="font-semibold text-lg">
+                            {selecao.numero_selecao ? `${selecao.numero_selecao} - ` : ""}{selecao.titulo_selecao}
+                          </h4>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Seleção de Fornecedores - Documentos Adicionais
+                          </p>
+                        </div>
+                        <div className="space-y-3">
+                          {selecao.campos_documentos_finalizacao.map((campo: any) => (
+                            <div key={campo.id} className="p-4 bg-muted/30 rounded-lg border-2 border-dashed">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p className="font-medium text-base">{campo.nome_campo}</p>
+                                    {campo.obrigatorio && (
+                                      <Badge variant="destructive" className="text-xs">Obrigatório</Badge>
+                                    )}
+                                    {campo.enviado && (
+                                      <Badge className="bg-green-600 text-white text-xs">
+                                        ✓ Documento Enviado
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {campo.descricao && (
+                                    <p className="text-sm text-muted-foreground mb-3">{campo.descricao}</p>
+                                  )}
+                                  {campo.arquivo && (
+                                    <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                                      <a 
+                                        href={campo.arquivo.url_arquivo} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-green-700 dark:text-green-400 hover:underline flex items-center gap-2"
+                                      >
+                                        <FileText className="h-4 w-4" />
+                                        {campo.arquivo.nome_arquivo}
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                                {!campo.enviado && (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="file"
+                                      accept=".pdf"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleUploadDocumentoSelecao(campo.id, file);
+                                      }}
+                                      className="hidden"
+                                      id={`upload-selecao-${campo.id}`}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={() => document.getElementById(`upload-selecao-${campo.id}`)?.click()}
+                                      className="bg-blue-600 hover:bg-blue-700"
+                                    >
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Enviar PDF
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <Button 
-                            size="sm" 
-                            onClick={() => navigate(`/sistema-lances-fornecedor?proposta=${convite.id}`)}
-                          >
-                            Participar/Editar Proposta
-                          </Button>
+                          ))}
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Lista de Seleções */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Minhas Seleções de Fornecedores</CardTitle>
+                  <CardDescription>
+                    Processos seletivos em que você apresentou proposta
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {selecoes.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      Você ainda não foi convidado para nenhuma seleção.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {selecoes.map((convite) => (
+                        <div key={convite.id} className="p-4 border rounded-lg">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold">
+                                {convite.selecoes_fornecedores?.titulo_selecao}
+                              </h3>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {convite.selecoes_fornecedores?.descricao}
+                              </p>
+                              <div className="flex gap-4 mt-3 text-sm">
+                                <span>
+                                  Data: {convite.selecoes_fornecedores?.data_sessao_disputa?.split('-').reverse().join('/')}
+                                </span>
+                                <span>
+                                  Horário: {convite.selecoes_fornecedores?.hora_sessao_disputa}
+                                </span>
+                                {getStatusSelecaoBadge(convite.selecoes_fornecedores?.status_selecao)}
+                              </div>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              onClick={() => navigate(`/sistema-lances-fornecedor?proposta=${convite.id}`)}
+                            >
+                              Participar/Editar Proposta
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="contato">
