@@ -669,20 +669,25 @@ export function DialogAnaliseDocumentalSelecao({
       const itensAfetados = fornecedorParaInabilitar.fornecedor.itensVencedores;
 
       if (reabrirParaNegociacao && onReabrirNegociacao) {
-        // Reabrir itens para negociação
+        // Reabrir itens para negociação com o segundo colocado
         for (const item of itensAfetados) {
+          // Encontrar o segundo colocado para este item
+          const segundoColocado = segundosColocados.find(s => s.numero_item === item);
+          
           await supabase
             .from("itens_abertos_lances")
             .update({
               aberto: true,
               em_negociacao: true,
+              nao_negociar: false,
               data_fechamento: null,
               negociacao_concluida: false,
+              fornecedor_negociacao_id: segundoColocado?.fornecedor_id || null,
             })
             .eq("selecao_id", selecaoId)
             .eq("numero_item", item);
         }
-        toast.success("Fornecedor inabilitado. Itens reabertos para negociação.");
+        toast.success("Fornecedor inabilitado. Itens reabertos para negociação com os segundos colocados.");
         onReabrirNegociacao(itensAfetados, fornecedorParaInabilitar.fornecedor.id);
       } else {
         // Se tiver segundos colocados, marcar como vencedores
