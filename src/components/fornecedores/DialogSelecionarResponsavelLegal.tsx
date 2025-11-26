@@ -74,10 +74,12 @@ export function DialogSelecionarResponsavelLegal({
                 id={`responsavel-${index}`}
                 checked={selecionados.includes(nome)}
                 onCheckedChange={() => handleToggle(nome)}
+                onClick={(e) => e.stopPropagation()}
               />
               <Label
                 htmlFor={`responsavel-${index}`}
                 className="flex-1 cursor-pointer font-medium"
+                onClick={(e) => e.stopPropagation()}
               >
                 {nome}
               </Label>
