@@ -753,6 +753,7 @@ export function DialogSessaoLances({
   };
 
   const getLancesDoItem = (numeroItem: number) => {
+    // Lances já vem filtrados de fornecedores inabilitados do loadLances
     return lances.filter(l => l.numero_item === numeroItem);
   };
 
