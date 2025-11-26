@@ -192,7 +192,7 @@ export const gerarRecursoPDF = async (
   adicionarCertificacaoSimplificada(doc, {
     protocolo,
     responsavel: fornecedorNome,
-    linkVerificacao: `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`
+    linkVerificacao: `${window.location.origin}/verificar-documento?protocolo=${protocolo}`
   }, y);
   
   // Gerar PDF como blob

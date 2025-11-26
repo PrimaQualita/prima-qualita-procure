@@ -68,6 +68,7 @@ const App = () => (
           <Route path="/incluir-precos-publicos" element={<IncluirPrecosPublicos />} />
           <Route path="/verificar-proposta" element={<VerificarProposta />} />
           <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
+          <Route path="/verificar-documento" element={<VerificarAutorizacao />} />
           <Route path="/verificar-planilha" element={<VerificarPlanilha />} />
           <Route path="/verificar-documento" element={<VerificarDocumento />} />
           <Route path="/verificar-encaminhamento" element={<VerificarEncaminhamento />} />
