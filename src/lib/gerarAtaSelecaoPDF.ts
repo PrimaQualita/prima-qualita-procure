@@ -713,7 +713,8 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  console.log('PDF carregado, total de páginas:', pdfDoc.getPageCount());
+  const originalPageCount = pdfDoc.getPageCount();
+  console.log('PDF carregado, total de páginas:', originalPageCount);
 
   // Pegar a última página existente (onde está a certificação digital)
   const pages = pdfDoc.getPages();
@@ -722,67 +723,37 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginLeft = 40;
   const marginRight = 40;
   
-  // Começar logo abaixo da certificação digital (posição estimada)
-  // A certificação termina aproximadamente em Y = 100-120, então começamos acima do rodapé
-  let currentY = 95; // Logo abaixo da certificação e acima do rodapé
+  // Começar logo abaixo da certificação digital
+  // A certificação termina aproximadamente em Y = 100, começamos um pouco acima do rodapé
+  let currentY = 85;
 
-  // Verificar se há espaço suficiente para pelo menos o título e uma assinatura
-  const espacoNecessario = 30 + (assinaturasFormatadas.length * 65);
-  
-  // Se não houver espaço suficiente na página atual, criar nova página
-  if (espacoNecessario > 80) {
-    page = pdfDoc.addPage([595, 842]);
-    currentY = height - 50;
-    
-    // Título
-    page.drawText('TERMO DE ACEITE E ASSINATURA DIGITAL', {
-      x: marginLeft,
-      y: currentY,
-      size: 14,
-      font: helveticaBold,
-      color: rgb(0.13, 0.27, 0.53),
-    });
-    currentY -= 25;
+  // Função para verificar e criar nova página se necessário
+  const checkNewPage = (espacoNecessario: number) => {
+    if (currentY - espacoNecessario < 70) {
+      page = pdfDoc.addPage([595, 842]);
+      currentY = height - 50;
+      return true;
+    }
+    return false;
+  };
 
-    // Subtítulo
-    page.drawText(`Ata de Selecao - Protocolo: ${ata.protocolo}`, {
-      x: marginLeft,
-      y: currentY,
-      size: 10,
-      font: helveticaFont,
-      color: rgb(0.3, 0.3, 0.3),
-    });
-    currentY -= 20;
-
-    // Linha separadora
-    page.drawLine({
-      start: { x: marginLeft, y: currentY },
-      end: { x: width - marginRight, y: currentY },
-      thickness: 1,
-      color: rgb(0.8, 0.8, 0.8),
-    });
-    currentY -= 20;
-  }
-
-  // Lista de assinaturas - título
+  // Título - ASSINATURAS DOS FORNECEDORES VENCEDORES
+  checkNewPage(25);
   page.drawText('ASSINATURAS DOS FORNECEDORES VENCEDORES', {
     x: marginLeft,
     y: currentY,
     size: 11,
     font: helveticaBold,
-    color: rgb(0, 0, 0),
+    color: rgb(0.13, 0.27, 0.53),
   });
   currentY -= 18;
 
   for (const assinatura of assinaturasFormatadas) {
-    // Box para cada assinatura
     const boxHeight = 50;
-    const boxY = currentY - boxHeight;
-
-    // Verificar se precisa nova página
-    if (currentY - boxHeight < 60) {
-      page = pdfDoc.addPage([595, 842]);
-      currentY = height - 50;
+    
+    // Verificar se precisa nova página antes de desenhar
+    if (checkNewPage(boxHeight + 10)) {
+      // Se criou nova página, não precisa fazer nada extra
     }
 
     // Fundo do box
@@ -839,9 +810,9 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   // Rodapé com informações de verificação (apenas em páginas adicionadas)
   // A página original já possui rodapé, então só adiciona em páginas novas
-  if (pdfDoc.getPageCount() > pages.length) {
+  if (pdfDoc.getPageCount() > originalPageCount) {
     const allPages = pdfDoc.getPages();
-    for (let i = pages.length; i < allPages.length; i++) {
+    for (let i = originalPageCount; i < allPages.length; i++) {
       const p = allPages[i];
       const footerY = 50;
       
