@@ -618,7 +618,7 @@ export default function PortalFornecedor() {
 
       <div className="container mx-auto px-4 py-8">
         {/* Alerta de Documentos Pendentes */}
-        {documentosPendentes.length > 0 && (
+        {(documentosPendentes.length > 0 || documentosPendentesSelecao.length > 0) && (
           <Card className="mb-6 border-orange-500/50 bg-orange-500/10">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
@@ -628,7 +628,11 @@ export default function PortalFornecedor() {
                     ⚠️ Você possui documentos pendentes de envio!
                   </p>
                   <p className="text-sm text-orange-600 dark:text-orange-300">
-                    Acesse a aba "Cotações de Preços" ou "Seleções" para visualizar e enviar os documentos solicitados.
+                    Acesse a aba {documentosPendentes.length > 0 && documentosPendentesSelecao.length > 0 
+                      ? '"Cotações de Preços" ou "Seleções"' 
+                      : documentosPendentes.length > 0 
+                        ? '"Cotações de Preços"' 
+                        : '"Seleções"'} para visualizar e enviar os documentos solicitados.
                   </p>
                 </div>
               </div>
