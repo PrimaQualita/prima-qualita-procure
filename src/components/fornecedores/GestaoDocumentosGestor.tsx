@@ -31,8 +31,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, ExternalLink, AlertCircle, Edit, Trash2, RefreshCw } from "lucide-react";
+import { FileText, ExternalLink, AlertCircle, Edit, Trash2, RefreshCw, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays, startOfDay, parseISO, format } from "date-fns";
 
@@ -333,9 +340,9 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right space-x-2">
+                    <TableCell className="text-right">
                       {doc && (
-                        <>
+                        <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -368,34 +375,39 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
                             <ExternalLink className="h-4 w-4 mr-1" />
                             Ver
                           </Button>
-                          {docConfig.temValidade && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleAbrirDialogEditar(doc)}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Editar Validade
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAbrirDialogSolicitarAtualizacao(doc)}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-1" />
-                            Solicitar Atualização
-                          </Button>
-                          {docConfig.tipo === "certificado_gestor" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDocumentoParaExcluir(doc)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          )}
-                        </>
+                          
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {docConfig.temValidade && (
+                                <DropdownMenuItem onClick={() => handleAbrirDialogEditar(doc)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Editar Validade
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => handleAbrirDialogSolicitarAtualizacao(doc)}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Solicitar Atualização
+                              </DropdownMenuItem>
+                              {docConfig.tipo === "certificado_gestor" && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => setDocumentoParaExcluir(doc)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
