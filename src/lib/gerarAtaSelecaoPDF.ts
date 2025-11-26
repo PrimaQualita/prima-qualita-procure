@@ -724,10 +724,9 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginRight = 40;
   
   // Em pdf-lib, Y=0 é o fundo da página, Y=842 é o topo (A4)
-  // A certificação (box cinza) termina aproximadamente em Y = 250-300
-  // O rodapé está em Y = ~45
+  // A certificação (box cinza) termina aproximadamente em Y = 450-500
   // Começar as assinaturas logo abaixo da certificação
-  let currentY = 280;
+  let currentY = 470;
   
   // Limite inferior antes do rodapé
   const footerLimit = 50;
