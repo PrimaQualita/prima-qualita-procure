@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X, AlertCircle, Clock } from "lucide-react";
+import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X, AlertCircle, Clock, FileX } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatNegociacao } from "@/components/selecoes/ChatNegociacao";
 import { toast } from "sonner";
@@ -57,6 +57,9 @@ const SistemaLancesFornecedor = () => {
   const [motivoRecurso, setMotivoRecurso] = useState("");
   const [enviandoRecurso, setEnviandoRecurso] = useState(false);
   const [tempoRestanteRecurso, setTempoRestanteRecurso] = useState<number | null>(null);
+  
+  // Estado para documentos rejeitados
+  const [documentosRejeitados, setDocumentosRejeitados] = useState<any[]>([]);
 
   // CRÍTICO: Filtrar lances excluindo fornecedores inabilitados de forma reativa
   // Isso garante que sempre que lances ou fornecedoresInabilitados mudam, os lances são refiltrados
@@ -89,6 +92,7 @@ const SistemaLancesFornecedor = () => {
       loadLances();
       loadMensagensNaoLidas();
       loadMinhaInabilitacao();
+      loadDocumentosRejeitados();
 
       // Subscrição em tempo real para lances
       const channel = supabase
@@ -285,7 +289,25 @@ const SistemaLancesFornecedor = () => {
     }
   };
 
-  // Função para calcular próximo dia útil
+  // Função para carregar documentos rejeitados do fornecedor
+  const loadDocumentosRejeitados = async () => {
+    if (!selecao?.id || !proposta?.fornecedor_id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("*")
+        .eq("selecao_id", selecao.id)
+        .eq("fornecedor_id", proposta.fornecedor_id)
+        .eq("status_solicitacao", "rejeitado");
+
+      if (error) throw error;
+      
+      setDocumentosRejeitados(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar documentos rejeitados:", error);
+    }
+  };
   const calcularProximoDiaUtil = (dataBase: Date, diasUteis: number): Date => {
     const result = new Date(dataBase);
     let diasAdicionados = 0;
@@ -1287,6 +1309,17 @@ const SistemaLancesFornecedor = () => {
               ) : null}
             </CardContent>
           </Card>
+        )}
+
+        {/* Aviso Compacto de Documentos Rejeitados */}
+        {documentosRejeitados.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
+            <FileX className="h-4 w-4 text-red-500 flex-shrink-0" />
+            <span className="text-sm text-red-700">
+              <span className="font-medium">{documentosRejeitados.length} documento(s) rejeitado(s):</span>{" "}
+              {documentosRejeitados.map(d => d.nome_campo).join(", ")}
+            </span>
+          </div>
         )}
 
         {/* Informações da Seleção */}
