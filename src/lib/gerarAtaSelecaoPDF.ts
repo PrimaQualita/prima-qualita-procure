@@ -729,6 +729,7 @@ interface Assinatura {
   ip_assinatura: string;
   status_assinatura: string;
   cargo?: string;
+  responsaveisLegais?: string[];
 }
 
 export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
@@ -752,7 +753,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const urlOriginal = ata.url_arquivo_original || ata.url_arquivo.split('?')[0];
   console.log('URL original para download:', urlOriginal);
 
-  // Buscar assinaturas de fornecedores
+  // Buscar assinaturas de fornecedores com responsaveis_legais
   const { data: assinaturasFornecedores, error: assinaturasFornError } = await supabase
     .from('atas_assinaturas_fornecedor')
     .select(`
@@ -763,7 +764,8 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       status_assinatura,
       fornecedores (
         razao_social,
-        cnpj
+        cnpj,
+        responsaveis_legais
       )
     `)
     .eq('ata_id', ataId)
@@ -813,15 +815,20 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   console.log('Assinaturas de usuários encontradas:', assinaturasUsuarios?.length || 0);
 
   // Formatar assinaturas de fornecedores
-  const assinaturasFormatadas: Assinatura[] = (assinaturasFornecedores || []).map(a => ({
-    id: a.id,
-    nome: (a.fornecedores as any)?.razao_social || '',
-    identificacao: formatarCNPJ((a.fornecedores as any)?.cnpj || ''),
-    tipo: 'fornecedor' as const,
-    data_assinatura: a.data_assinatura || '',
-    ip_assinatura: a.ip_assinatura || '',
-    status_assinatura: a.status_assinatura
-  }));
+  const assinaturasFormatadas: Assinatura[] = (assinaturasFornecedores || []).map(a => {
+    const fornecedor = a.fornecedores as any;
+    const responsaveisLegais = fornecedor?.responsaveis_legais as string[] || [];
+    return {
+      id: a.id,
+      nome: fornecedor?.razao_social || '',
+      identificacao: formatarCNPJ(fornecedor?.cnpj || ''),
+      tipo: 'fornecedor' as const,
+      data_assinatura: a.data_assinatura || '',
+      ip_assinatura: a.ip_assinatura || '',
+      status_assinatura: a.status_assinatura,
+      responsaveisLegais: responsaveisLegais.length > 0 ? responsaveisLegais : undefined
+    };
+  });
 
   // Adicionar assinaturas de usuários usando o map de profiles
   const assinaturasUsuariosFormatadas: Assinatura[] = (assinaturasUsuarios || []).map(a => {
@@ -922,9 +929,15 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   currentY -= 18;
 
   for (const assinatura of todasAssinaturas) {
-    // Altura do box depende se tem cargo ou não
+    // Altura do box depende se tem cargo (usuários) ou responsáveis legais (fornecedores)
     const temCargo = assinatura.tipo === 'usuario' && assinatura.cargo;
-    const boxHeight = temCargo ? 62 : 50;
+    const temResponsaveis = assinatura.tipo === 'fornecedor' && assinatura.responsaveisLegais && assinatura.responsaveisLegais.length > 0;
+    const numResponsaveis = temResponsaveis ? assinatura.responsaveisLegais!.length : 0;
+    
+    // Calcular altura: base 50 + 12 por cargo/responsável adicional
+    let boxHeight = 50;
+    if (temCargo) boxHeight += 12;
+    if (temResponsaveis) boxHeight += 12 + (numResponsaveis * 11);
     
     if (await checkNewPage(boxHeight + 10)) {
       // Nova página criada
@@ -963,6 +976,29 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
         color: rgb(0.3, 0.3, 0.3),
       });
       nextY -= 12;
+    }
+
+    // Responsáveis Legais (apenas para fornecedores)
+    if (assinatura.tipo === 'fornecedor' && assinatura.responsaveisLegais && assinatura.responsaveisLegais.length > 0) {
+      page.drawText(`Responsável(is) Legal(is):`, {
+        x: marginLeft + 10,
+        y: nextY,
+        size: 8,
+        font: helveticaBold,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+      nextY -= 11;
+      
+      for (const resp of assinatura.responsaveisLegais) {
+        page.drawText(`• ${resp}`, {
+          x: marginLeft + 15,
+          y: nextY,
+          size: 8,
+          font: helveticaFont,
+          color: rgb(0.3, 0.3, 0.3),
+        });
+        nextY -= 11;
+      }
     }
 
     // Identificação (CNPJ ou CPF)

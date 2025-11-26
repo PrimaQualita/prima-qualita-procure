@@ -29,10 +29,14 @@ import { CheckCircle, XCircle, FileText, Upload } from "lucide-react";
 interface Fornecedor {
   id: string;
   razao_social: string;
+  nome_fantasia: string | null;
   cnpj: string;
   email: string;
+  telefone: string;
+  endereco_comercial: string | null;
   status_aprovacao: string;
   data_cadastro: string;
+  responsaveis_legais: any;
 }
 
 export default function AprovacaoFornecedores() {
@@ -305,12 +309,65 @@ export default function AprovacaoFornecedores() {
             </DialogHeader>
 
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+              {/* Dados Cadastrais */}
+              <div className="space-y-2">
+                <h3 className="font-semibold">Dados Cadastrais</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm p-3 border rounded bg-muted/30">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Razão Social</p>
+                    <p className="font-medium">{selectedFornecedor?.razao_social}</p>
+                  </div>
+                  {selectedFornecedor?.nome_fantasia && (
+                    <div>
+                      <p className="text-muted-foreground text-xs">Nome Fantasia</p>
+                      <p className="font-medium">{selectedFornecedor.nome_fantasia}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-muted-foreground text-xs">CNPJ</p>
+                    <p className="font-medium">{selectedFornecedor?.cnpj}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">E-mail</p>
+                    <p className="font-medium">{selectedFornecedor?.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Telefone</p>
+                    <p className="font-medium">{selectedFornecedor?.telefone}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground text-xs">Endereço Comercial</p>
+                    <p className="font-medium">{selectedFornecedor?.endereco_comercial || '-'}</p>
+                  </div>
+                  {selectedFornecedor?.responsaveis_legais && Array.isArray(selectedFornecedor.responsaveis_legais) && selectedFornecedor.responsaveis_legais.length > 0 && (
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground text-xs">Responsável(is) Legal(is)</p>
+                      <ul className="font-medium list-disc list-inside">
+                        {selectedFornecedor.responsaveis_legais.map((resp: string, idx: number) => (
+                          <li key={idx}>{resp}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-muted-foreground text-xs">Data de Cadastro</p>
+                    <p className="font-medium">{selectedFornecedor?.data_cadastro ? new Date(selectedFornecedor.data_cadastro).toLocaleString('pt-BR') : '-'}</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Documentos já enviados pelo fornecedor */}
               <div className="space-y-2">
                 <h3 className="font-semibold">Documentos do Fornecedor</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   {documentosFornecedor.map((doc) => (
-                    <div key={doc.id} className="flex items-center gap-2 p-2 border rounded">
+                    <a 
+                      key={doc.id} 
+                      href={doc.url_arquivo} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-2 border rounded hover:bg-muted/50 transition-colors"
+                    >
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <div className="flex-1">
                          <p className="font-medium text-xs">{doc.tipo_documento}</p>
@@ -320,7 +377,7 @@ export default function AprovacaoFornecedores() {
                            </p>
                          )}
                       </div>
-                    </div>
+                    </a>
                   ))}
                 </div>
               </div>

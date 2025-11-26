@@ -1042,6 +1042,7 @@ export type Database = {
           nomes_socios_cotistas: string | null
           observacoes_gestor: string | null
           razao_social: string
+          responsaveis_legais: Json | null
           segmento_atividade: string | null
           status_aprovacao: string | null
           telefone: string
@@ -1064,6 +1065,7 @@ export type Database = {
           nomes_socios_cotistas?: string | null
           observacoes_gestor?: string | null
           razao_social: string
+          responsaveis_legais?: Json | null
           segmento_atividade?: string | null
           status_aprovacao?: string | null
           telefone: string
@@ -1086,6 +1088,7 @@ export type Database = {
           nomes_socios_cotistas?: string | null
           observacoes_gestor?: string | null
           razao_social?: string
+          responsaveis_legais?: Json | null
           segmento_atividade?: string | null
           status_aprovacao?: string | null
           telefone?: string
