@@ -143,19 +143,19 @@ export const gerarRespostaRecursoPDF = async (
   doc.setTextColor(0, 0, 0);
   doc.text('Processo: ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(numeroProcesso, margemTexto + doc.getTextWidth('Processo: '), y);
+  doc.text(' ' + numeroProcesso, margemTexto + doc.getTextWidth('Processo:'), y);
   
   y += 6;
   doc.setFont('helvetica', 'bold');
   doc.text('Fornecedor: ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(fornecedorNome, margemTexto + doc.getTextWidth('Fornecedor: '), y);
+  doc.text(' ' + fornecedorNome, margemTexto + doc.getTextWidth('Fornecedor:'), y);
   
   y += 6;
   doc.setFont('helvetica', 'bold');
   doc.text('Decisão: ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  const decisaoTexto = decisao === 'provimento' ? 'DAR PROVIMENTO AO RECURSO' : 'NEGAR PROVIMENTO AO RECURSO';
+  const decisaoTexto = decisao === 'provimento' ? ' DAR PROVIMENTO AO RECURSO' : ' NEGAR PROVIMENTO AO RECURSO';
   doc.text(decisaoTexto, margemTexto + doc.getTextWidth('Decisão: '), y);
   
   y += 12;
@@ -225,10 +225,10 @@ export const gerarRespostaRecursoPDF = async (
     });
   });
   
-  y += 15;
+  y += 8;
   
-  // Verificar espaço para certificação
-  if (y > pageHeight - 70) {
+  // Verificar espaço para certificação (certificação logo após o texto)
+  if (y > pageHeight - 60) {
     doc.addPage();
     adicionarLogoERodape();
     y = 35;
