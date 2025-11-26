@@ -689,9 +689,9 @@ export default function PortalFornecedor() {
                           </div>
                           <Button 
                             size="sm" 
-                            disabled={convite.selecoes_fornecedores?.status_selecao !== "em_andamento"}
+                            onClick={() => navigate(`/participar-selecao?id=${convite.selecao_id}`)}
                           >
-                            Participar
+                            Participar/Editar Proposta
                           </Button>
                         </div>
                       </div>
