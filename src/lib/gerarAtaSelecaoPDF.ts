@@ -820,12 +820,15 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const modifiedPdfBytes = await pdfDoc.save();
   const pdfBlob = new Blob([new Uint8Array(modifiedPdfBytes) as BlobPart], { type: 'application/pdf' });
 
-  // Extrair o path do storage da URL
-  const urlParts = ata.url_arquivo.split('/processo-anexos/');
+  // Extrair o path do storage da URL (remover query parameters se existirem)
+  const urlSemParams = ata.url_arquivo.split('?')[0];
+  const urlParts = urlSemParams.split('/processo-anexos/');
   if (urlParts.length < 2) {
     throw new Error('URL do arquivo inválida');
   }
   const storagePath = urlParts[1];
+
+  console.log('Atualizando PDF em:', storagePath);
 
   // Upload do PDF atualizado
   const { error: uploadError } = await supabase.storage
@@ -838,6 +841,22 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   if (uploadError) {
     console.error('Erro ao fazer upload do PDF atualizado:', uploadError);
     throw uploadError;
+  }
+
+  // Atualizar URL no banco com cache-busting timestamp
+  const { data: { publicUrl } } = supabase.storage
+    .from('processo-anexos')
+    .getPublicUrl(storagePath);
+
+  const urlComTimestamp = `${publicUrl}?t=${Date.now()}`;
+
+  const { error: updateError } = await supabase
+    .from('atas_selecao')
+    .update({ url_arquivo: urlComTimestamp })
+    .eq('id', ataId);
+
+  if (updateError) {
+    console.error('Erro ao atualizar URL da ata:', updateError);
   }
 
   console.log('PDF da ata atualizado com sucesso com as assinaturas');
