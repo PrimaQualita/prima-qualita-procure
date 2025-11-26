@@ -604,6 +604,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       protocolo: protocolo,
       nome_arquivo: nomeArquivo,
       url_arquivo: publicUrl,
+      url_arquivo_original: publicUrl, // Armazena URL original para reconstrução
       usuario_gerador_id: user?.id || null,
       data_geracao: new Date().toISOString()
     });
@@ -630,6 +631,9 @@ interface Assinatura {
 }
 
 export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
+  console.log('=== INICIANDO ATUALIZAÇÃO DA ATA COM ASSINATURAS ===');
+  console.log('Ata ID:', ataId);
+  
   // Buscar dados da ata
   const { data: ata, error: ataError } = await supabase
     .from('atas_selecao')
@@ -641,6 +645,12 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     console.error('Erro ao buscar ata:', ataError);
     throw new Error('Erro ao buscar dados da ata');
   }
+
+  console.log('Ata encontrada:', ata.nome_arquivo);
+  
+  // Usar URL original se disponível, senão usar URL atual sem parâmetros
+  const urlOriginal = ata.url_arquivo_original || ata.url_arquivo.split('?')[0];
+  console.log('URL original para download:', urlOriginal);
 
   // Buscar todas as assinaturas desta ata
   const { data: assinaturas, error: assinaturasError } = await supabase
@@ -663,6 +673,8 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     throw new Error('Erro ao buscar assinaturas');
   }
 
+  console.log('Assinaturas encontradas:', assinaturas?.length);
+
   const assinaturasFormatadas: Assinatura[] = (assinaturas || []).map(a => ({
     fornecedor_id: a.fornecedor_id,
     razao_social: (a.fornecedores as any)?.razao_social || '',
@@ -672,15 +684,36 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     status_assinatura: a.status_assinatura
   }));
 
-  // Buscar PDF existente
-  const response = await fetch(ata.url_arquivo);
-  const existingPdfBytes = await response.arrayBuffer();
+  // Extrair o path do storage da URL ORIGINAL
+  const urlParts = urlOriginal.split('/processo-anexos/');
+  if (urlParts.length < 2) {
+    console.error('URL inválida:', urlOriginal);
+    throw new Error('URL do arquivo inválida');
+  }
+  const storagePath = urlParts[1];
+  console.log('Storage path:', storagePath);
+
+  // Baixar PDF ORIGINAL diretamente do storage (sem página de assinaturas)
+  const { data: fileData, error: downloadError } = await supabase.storage
+    .from('processo-anexos')
+    .download(storagePath);
+
+  if (downloadError || !fileData) {
+    console.error('Erro ao baixar PDF:', downloadError);
+    throw new Error('Erro ao baixar PDF existente: ' + downloadError?.message);
+  }
+
+  console.log('PDF original baixado com sucesso, tamanho:', fileData.size);
+
+  const existingPdfBytes = await fileData.arrayBuffer();
 
   // Usar pdf-lib para modificar o PDF existente
   const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
   const pdfDoc = await PDFDocument.load(existingPdfBytes);
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  console.log('PDF carregado, total de páginas:', pdfDoc.getPageCount());
 
   // Adicionar nova página de assinaturas
   const page = pdfDoc.addPage([595, 842]); // A4
@@ -820,20 +853,14 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const modifiedPdfBytes = await pdfDoc.save();
   const pdfBlob = new Blob([new Uint8Array(modifiedPdfBytes) as BlobPart], { type: 'application/pdf' });
 
-  // Extrair o path do storage da URL (remover query parameters se existirem)
-  const urlSemParams = ata.url_arquivo.split('?')[0];
-  const urlParts = urlSemParams.split('/processo-anexos/');
-  if (urlParts.length < 2) {
-    throw new Error('URL do arquivo inválida');
-  }
-  const storagePath = urlParts[1];
+  // Usar path separado para o PDF com assinaturas (não sobrescrever o original)
+  const storagePathAssinado = storagePath.replace('.pdf', '-assinado.pdf');
+  console.log('Fazendo upload do PDF com assinaturas em:', storagePathAssinado);
 
-  console.log('Atualizando PDF em:', storagePath);
-
-  // Upload do PDF atualizado
+  // Upload do PDF atualizado (com assinaturas)
   const { error: uploadError } = await supabase.storage
     .from('processo-anexos')
-    .upload(storagePath, pdfBlob, {
+    .upload(storagePathAssinado, pdfBlob, {
       contentType: 'application/pdf',
       upsert: true,
     });
@@ -846,9 +873,10 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   // Atualizar URL no banco com cache-busting timestamp
   const { data: { publicUrl } } = supabase.storage
     .from('processo-anexos')
-    .getPublicUrl(storagePath);
+    .getPublicUrl(storagePathAssinado);
 
   const urlComTimestamp = `${publicUrl}?t=${Date.now()}`;
+  console.log('Nova URL com timestamp:', urlComTimestamp);
 
   const { error: updateError } = await supabase
     .from('atas_selecao')
@@ -857,7 +885,8 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   if (updateError) {
     console.error('Erro ao atualizar URL da ata:', updateError);
+    throw updateError;
   }
 
-  console.log('PDF da ata atualizado com sucesso com as assinaturas');
+  console.log('=== PDF DA ATA ATUALIZADO COM SUCESSO ===');
 }

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
 import { NotificacaoRejeicao } from "@/components/fornecedores/NotificacaoRejeicao";
 import { Input } from "@/components/ui/input";
+import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 
 export default function PortalFornecedor() {
   const navigate = useNavigate();
@@ -291,20 +292,15 @@ export default function PortalFornecedor() {
       if (error) throw error;
 
       // Atualizar o PDF da ata com a nova assinatura
-      try {
-        const { atualizarAtaComAssinaturas } = await import("@/lib/gerarAtaSelecaoPDF");
-        await atualizarAtaComAssinaturas(assinaturaData.ata_id);
-        console.log("PDF da ata atualizado com assinatura");
-      } catch (pdfError) {
-        console.error("Erro ao atualizar PDF da ata:", pdfError);
-        // Não bloqueia o fluxo se falhar a atualização do PDF
-      }
+      console.log("Iniciando atualização do PDF da ata:", assinaturaData.ata_id);
+      await atualizarAtaComAssinaturas(assinaturaData.ata_id);
+      console.log("PDF da ata atualizado com sucesso!");
 
       toast.success("Ata assinada digitalmente com sucesso!");
       await loadAtasPendentes(fornecedor.id);
     } catch (error) {
       console.error("Erro ao assinar ata:", error);
-      toast.error("Erro ao assinar ata");
+      toast.error("Erro ao assinar ata: " + (error as Error).message);
     } finally {
       setAssinandoAta(null);
     }
