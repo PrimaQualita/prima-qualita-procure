@@ -798,7 +798,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     // Status e data
     if (assinatura.status_assinatura === 'aceito' && assinatura.data_assinatura) {
       const dataFormatada = new Date(assinatura.data_assinatura).toLocaleString('pt-BR');
-      page.drawText(`✓ ACEITO DIGITALMENTE em ${dataFormatada}`, {
+      page.drawText(`[OK] ACEITO DIGITALMENTE em ${dataFormatada}`, {
         x: marginLeft + 10,
         y: currentY - 42,
         size: 9,
@@ -806,7 +806,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
         color: rgb(0.1, 0.5, 0.1),
       });
     } else {
-      page.drawText('⏳ Pendente de assinatura', {
+      page.drawText('[...] Pendente de assinatura', {
         x: marginLeft + 10,
         y: currentY - 42,
         size: 9,
