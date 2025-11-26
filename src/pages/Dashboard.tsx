@@ -23,6 +23,7 @@ const Dashboard = () => {
   const [isCompliance, setIsCompliance] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [processosPendentesCompliance, setProcessosPendentesCompliance] = useState(0);
+  const [avaliacoesCadastroPendentes, setAvaliacoesCadastroPendentes] = useState(0);
   const [atasPendentesAssinatura, setAtasPendentesAssinatura] = useState<any[]>([]);
   const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   
@@ -66,6 +67,7 @@ const Dashboard = () => {
         
         if (profileData.compliance || profileData.responsavel_legal) {
           loadProcessosPendentesCompliance();
+          loadAvaliacoesCadastroPendentes();
         }
       }
     } catch (error) {
@@ -85,6 +87,20 @@ const Dashboard = () => {
       setProcessosPendentesCompliance(count || 0);
     } catch (error) {
       console.error("Erro ao carregar processos pendentes:", error);
+    }
+  };
+
+  const loadAvaliacoesCadastroPendentes = async () => {
+    try {
+      const { count, error } = await supabase
+        .from("avaliacoes_cadastro_fornecedor")
+        .select("*", { count: "exact", head: true })
+        .eq("status_avaliacao", "pendente");
+
+      if (error) throw error;
+      setAvaliacoesCadastroPendentes(count || 0);
+    } catch (error) {
+      console.error("Erro ao carregar avaliações pendentes:", error);
     }
   };
 
@@ -507,6 +523,16 @@ const Dashboard = () => {
             <AlertTitle>Processos Pendentes de Compliance</AlertTitle>
             <AlertDescription>
               Você tem {processosPendentesCompliance} processo(s) aguardando análise no menu Compliance.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {isCompliance && avaliacoesCadastroPendentes > 0 && (
+          <Alert className="mb-6 border-orange-500 bg-orange-50 text-orange-900 dark:bg-orange-950/50 dark:text-orange-100 dark:border-orange-700">
+            <AlertCircle className="h-4 w-4 text-orange-500" />
+            <AlertTitle className="text-orange-900 dark:text-orange-100">Cadastros de Fornecedores Pendentes</AlertTitle>
+            <AlertDescription className="text-orange-800 dark:text-orange-200">
+              Você tem {avaliacoesCadastroPendentes} cadastro(s) de fornecedor aguardando análise de Due Diligence no menu Compliance.
             </AlertDescription>
           </Alert>
         )}

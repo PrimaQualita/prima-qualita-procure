@@ -24,7 +24,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { CheckCircle, XCircle, FileText, Upload } from "lucide-react";
+import { CheckCircle, XCircle, FileText, Upload, Send, Clock, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Fornecedor {
   id: string;
@@ -54,10 +55,13 @@ export default function AprovacaoFornecedores() {
   const [processando, setProcessando] = useState(false);
   const [documentosFornecedor, setDocumentosFornecedor] = useState<any[]>([]);
   const [respostasDueDiligence, setRespostasDueDiligence] = useState<any[]>([]);
+  const [avaliacoesCompliance, setAvaliacoesCompliance] = useState<Record<string, any>>({});
+  const [enviandoCompliance, setEnviandoCompliance] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
     loadFornecedores();
+    loadAvaliacoesCompliance();
   }, []);
 
   const checkAuth = async () => {
@@ -95,6 +99,56 @@ export default function AprovacaoFornecedores() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadAvaliacoesCompliance = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("avaliacoes_cadastro_fornecedor")
+        .select("*");
+
+      if (error) throw error;
+      
+      const avaliacoesMap: Record<string, any> = {};
+      data?.forEach((av: any) => {
+        avaliacoesMap[av.fornecedor_id] = av;
+      });
+      setAvaliacoesCompliance(avaliacoesMap);
+    } catch (error) {
+      console.error("Erro ao carregar avaliações:", error);
+    }
+  };
+
+  const handleEnviarCompliance = async (fornecedor: Fornecedor) => {
+    setEnviandoCompliance(fornecedor.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { error } = await supabase
+        .from("avaliacoes_cadastro_fornecedor")
+        .insert({
+          fornecedor_id: fornecedor.id,
+          enviado_por_id: user.id,
+          status_avaliacao: "pendente",
+        });
+
+      if (error) throw error;
+
+      toast.success("Cadastro enviado ao Compliance para análise!");
+      loadAvaliacoesCompliance();
+    } catch (error: any) {
+      console.error("Erro ao enviar ao compliance:", error);
+      toast.error(error.message || "Erro ao enviar ao compliance");
+    } finally {
+      setEnviandoCompliance(null);
+    }
+  };
+
+  const getStatusCompliance = (fornecedorId: string) => {
+    const avaliacao = avaliacoesCompliance[fornecedorId];
+    if (!avaliacao) return null;
+    return avaliacao.status_avaliacao;
   };
 
   const handleAbrirDialog = async (fornecedor: Fornecedor, tipoAcao: "aprovar" | "reprovar") => {
@@ -252,45 +306,91 @@ export default function AprovacaoFornecedores() {
                   <TableHead>E-mail</TableHead>
                   <TableHead>Data Cadastro</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Compliance</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {fornecedores.map((fornecedor) => (
-                  <TableRow key={fornecedor.id}>
-                    <TableCell className="font-medium">{fornecedor.razao_social}</TableCell>
-                    <TableCell>{fornecedor.cnpj}</TableCell>
-                    <TableCell>{fornecedor.email}</TableCell>
-                    <TableCell>
-                      {new Date(fornecedor.data_cadastro).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(fornecedor.status_aprovacao)}</TableCell>
-                    <TableCell className="text-right">
-                      {fornecedor.status_aprovacao === "pendente" && (
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-green-600 hover:text-green-700"
-                            onClick={() => handleAbrirDialog(fornecedor, "aprovar")}
+                {fornecedores.map((fornecedor) => {
+                  const statusCompliance = getStatusCompliance(fornecedor.id);
+                  const avaliacaoCompliance = avaliacoesCompliance[fornecedor.id];
+                  
+                  return (
+                    <TableRow key={fornecedor.id}>
+                      <TableCell className="font-medium">{fornecedor.razao_social}</TableCell>
+                      <TableCell>{fornecedor.cnpj}</TableCell>
+                      <TableCell>{fornecedor.email}</TableCell>
+                      <TableCell>
+                        {new Date(fornecedor.data_cadastro).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(fornecedor.status_aprovacao)}</TableCell>
+                      <TableCell>
+                        {statusCompliance === "pendente" && (
+                          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Aguardando
+                          </Badge>
+                        )}
+                        {statusCompliance === "respondido" && (
+                          <Badge 
+                            variant="outline" 
+                            className={avaliacaoCompliance?.classificacao_risco === "satisfatorio" 
+                              ? "bg-green-500/10 text-green-600" 
+                              : "bg-red-500/10 text-red-600"
+                            }
                           >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Aprovar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 hover:text-red-700"
-                            onClick={() => handleAbrirDialog(fornecedor, "reprovar")}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Reprovar
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                            {avaliacaoCompliance?.classificacao_risco === "satisfatorio" 
+                              ? "Satisfatório" 
+                              : "Não Satisfatório"
+                            }
+                          </Badge>
+                        )}
+                        {!statusCompliance && fornecedor.status_aprovacao === "pendente" && (
+                          <span className="text-muted-foreground text-xs">Não enviado</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {fornecedor.status_aprovacao === "pendente" && (
+                          <div className="flex gap-2 justify-end flex-wrap">
+                            {!statusCompliance && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEnviarCompliance(fornecedor)}
+                                disabled={enviandoCompliance === fornecedor.id}
+                              >
+                                <Send className="h-4 w-4 mr-1" />
+                                {enviandoCompliance === fornecedor.id ? "Enviando..." : "Enviar ao Compliance"}
+                              </Button>
+                            )}
+                            {(statusCompliance === "respondido" || !statusCompliance) && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-green-600 hover:text-green-700"
+                                  onClick={() => handleAbrirDialog(fornecedor, "aprovar")}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Aprovar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => handleAbrirDialog(fornecedor, "reprovar")}
+                                >
+                                  <XCircle className="h-4 w-4 mr-1" />
+                                  Reprovar
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
