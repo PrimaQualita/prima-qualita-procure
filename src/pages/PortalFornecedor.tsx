@@ -206,7 +206,7 @@ export default function PortalFornecedor() {
         .eq("fornecedor_id", fornecedorId)
         .not("cotacao_id", "is", null)
         .is("selecao_id", null)
-        .in("status_solicitacao", ["pendente", "rejeitado", "em_analise"]);
+        .in("status_solicitacao", ["pendente", "em_analise"]);
 
       if (camposError) {
         console.error("❌ Erro ao buscar campos solicitados:", camposError);
@@ -264,8 +264,8 @@ export default function PortalFornecedor() {
       
       // Buscar documentos solicitados em seleções de fornecedores
       // Status "pendente" = recém solicitado pelo gestor, aguardando envio
-      // Status "rejeitado" = recusado pelo gestor e precisa ser reenviado
-      // Status "em_analise" = enviado pelo fornecedor, pode atualizar
+      // Status "em_analise" = enviado pelo fornecedor, em análise
+      // IMPORTANTE: "rejeitado" NÃO deve mostrar alerta de pendente, só quando gestor solicitar atualização
       const { data: camposSolicitados, error: camposError } = await supabase
         .from("campos_documentos_finalizacao")
         .select(`
@@ -282,7 +282,7 @@ export default function PortalFornecedor() {
         `)
         .eq("fornecedor_id", fornecedorId)
         .not("selecao_id", "is", null)
-        .in("status_solicitacao", ["pendente", "rejeitado", "em_analise"]);
+        .in("status_solicitacao", ["pendente", "em_analise"]);
 
       if (camposError) {
         console.error("❌ Erro ao buscar campos solicitados de seleção:", camposError);

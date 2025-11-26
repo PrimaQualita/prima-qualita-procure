@@ -1982,6 +1982,89 @@ export type Database = {
           },
         ]
       }
+      recursos_inabilitacao_selecao: {
+        Row: {
+          created_at: string
+          data_abertura_recurso: string
+          data_envio_recurso: string | null
+          data_limite_fornecedor: string
+          data_limite_gestor: string | null
+          data_resposta_gestor: string | null
+          fornecedor_id: string
+          id: string
+          inabilitacao_id: string
+          motivo_recurso: string
+          resposta_gestor: string | null
+          selecao_id: string
+          status_recurso: string
+          updated_at: string
+          usuario_gestor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_abertura_recurso?: string
+          data_envio_recurso?: string | null
+          data_limite_fornecedor: string
+          data_limite_gestor?: string | null
+          data_resposta_gestor?: string | null
+          fornecedor_id: string
+          id?: string
+          inabilitacao_id: string
+          motivo_recurso: string
+          resposta_gestor?: string | null
+          selecao_id: string
+          status_recurso?: string
+          updated_at?: string
+          usuario_gestor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_abertura_recurso?: string
+          data_envio_recurso?: string | null
+          data_limite_fornecedor?: string
+          data_limite_gestor?: string | null
+          data_resposta_gestor?: string | null
+          fornecedor_id?: string
+          id?: string
+          inabilitacao_id?: string
+          motivo_recurso?: string
+          resposta_gestor?: string | null
+          selecao_id?: string
+          status_recurso?: string
+          updated_at?: string
+          usuario_gestor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recursos_inabilitacao_selecao_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recursos_inabilitacao_selecao_inabilitacao_id_fkey"
+            columns: ["inabilitacao_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores_inabilitados_selecao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recursos_inabilitacao_selecao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recursos_inabilitacao_selecao_usuario_gestor_id_fkey"
+            columns: ["usuario_gestor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       relatorios_finais: {
         Row: {
           cotacao_id: string
