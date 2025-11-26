@@ -22,6 +22,7 @@ import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
 import { DialogAnexarDocumentoSelecao } from "@/components/selecoes/DialogAnexarDocumentoSelecao";
 import { DialogSessaoLances } from "@/components/selecoes/DialogSessaoLances";
 import { DialogAnaliseDocumentalSelecao } from "@/components/selecoes/DialogAnaliseDocumentalSelecao";
+import { DialogEnviarAtaAssinatura } from "@/components/selecoes/DialogEnviarAtaAssinatura";
 import { gerarAtaSelecaoPDF } from "@/lib/gerarAtaSelecaoPDF";
 
 interface Item {
@@ -56,8 +57,9 @@ const DetalheSelecao = () => {
   const [dialogAnaliseDocumentalOpen, setDialogAnaliseDocumentalOpen] = useState(false);
   const [gerandoAta, setGerandoAta] = useState(false);
   const [atasGeradas, setAtasGeradas] = useState<any[]>([]);
-  const [enviandoAta, setEnviandoAta] = useState<string | null>(null);
   const [confirmDeleteAta, setConfirmDeleteAta] = useState<string | null>(null);
+  const [dialogEnviarAtaAssinaturaOpen, setDialogEnviarAtaAssinaturaOpen] = useState(false);
+  const [ataParaEnviar, setAtaParaEnviar] = useState<string | null>(null);
 
   useEffect(() => {
     if (selecaoId) {
@@ -316,59 +318,9 @@ const DetalheSelecao = () => {
     }
   };
 
-  const handleEnviarAtaFornecedores = async (ataId: string) => {
-    setEnviandoAta(ataId);
-    try {
-      // Buscar fornecedores vencedores da seleção
-      const { data: lancesVencedores, error: lancesError } = await supabase
-        .from("lances_fornecedores")
-        .select("fornecedor_id")
-        .eq("selecao_id", selecaoId)
-        .eq("indicativo_lance_vencedor", true);
-
-      if (lancesError) throw lancesError;
-
-      if (!lancesVencedores || lancesVencedores.length === 0) {
-        toast.error("Nenhum fornecedor vencedor encontrado para enviar a ata");
-        return;
-      }
-
-      // IDs únicos de fornecedores
-      const fornecedorIds = [...new Set(lancesVencedores.map(l => l.fornecedor_id))];
-
-      // Criar registros de assinatura para cada fornecedor
-      const assinaturas = fornecedorIds.map(fornecedorId => ({
-        ata_id: ataId,
-        fornecedor_id: fornecedorId,
-        status_assinatura: 'pendente',
-        data_notificacao: new Date().toISOString(),
-      }));
-
-      const { error: insertError } = await supabase
-        .from("atas_assinaturas_fornecedor")
-        .upsert(assinaturas, { onConflict: 'ata_id,fornecedor_id' });
-
-      if (insertError) throw insertError;
-
-      // Atualizar ata como enviada
-      const { error: updateError } = await supabase
-        .from("atas_selecao")
-        .update({
-          enviada_fornecedores: true,
-          data_envio_fornecedores: new Date().toISOString(),
-        })
-        .eq("id", ataId);
-
-      if (updateError) throw updateError;
-
-      toast.success(`Ata enviada para ${fornecedorIds.length} fornecedor(es)! Eles receberão notificação para assinar.`);
-      await loadAtasGeradas();
-    } catch (error) {
-      console.error("Erro ao enviar ata:", error);
-      toast.error("Erro ao enviar ata aos fornecedores");
-    } finally {
-      setEnviandoAta(null);
-    }
+  const handleAbrirEnviarAtaAssinatura = (ataId: string) => {
+    setAtaParaEnviar(ataId);
+    setDialogEnviarAtaAssinaturaOpen(true);
   };
 
   const handleEnviarFornecedores = () => {
@@ -669,12 +621,11 @@ const DetalheSelecao = () => {
                           <Button
                             size="sm"
                             variant="default"
-                            onClick={() => handleEnviarAtaFornecedores(ata.id)}
-                            disabled={enviandoAta === ata.id}
+                            onClick={() => handleAbrirEnviarAtaAssinatura(ata.id)}
                             title="Enviar para Assinatura"
                           >
                             <SendHorizontal className="h-4 w-4 mr-1" />
-                            {enviandoAta === ata.id ? "Enviando..." : "Enviar para Assinatura"}
+                            Enviar para Assinatura
                           </Button>
                         )}
                       </div>
@@ -919,6 +870,20 @@ const DetalheSelecao = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog para enviar ata para assinatura */}
+      {ataParaEnviar && (
+        <DialogEnviarAtaAssinatura
+          open={dialogEnviarAtaAssinaturaOpen}
+          onOpenChange={(open) => {
+            setDialogEnviarAtaAssinaturaOpen(open);
+            if (!open) setAtaParaEnviar(null);
+          }}
+          ataId={ataParaEnviar}
+          selecaoId={selecaoId!}
+          onSuccess={loadAtasGeradas}
+        />
+      )}
     </div>
   );
 };
