@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { DialogConsultarProposta } from "@/components/cotacoes/DialogConsultarProposta";
 import { DialogEditarCadastroFornecedor } from "@/components/fornecedores/DialogEditarCadastroFornecedor";
+import { DialogSelecionarResponsavelLegal } from "@/components/fornecedores/DialogSelecionarResponsavelLegal";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,8 @@ export default function PortalFornecedor() {
   const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<string>("");
   const [dialogEditarCadastroOpen, setDialogEditarCadastroOpen] = useState(false);
+  const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
+  const [assinaturaParaAssinar, setAssinaturaParaAssinar] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -270,6 +273,22 @@ export default function PortalFornecedor() {
   };
 
   const handleAssinarAta = async (assinaturaId: string) => {
+    // Verificar se há múltiplos responsáveis legais
+    const responsaveisLegais = fornecedor?.responsaveis_legais || [];
+    
+    if (Array.isArray(responsaveisLegais) && responsaveisLegais.length > 1) {
+      // Abrir diálogo para seleção
+      setAssinaturaParaAssinar(assinaturaId);
+      setDialogResponsavelLegalOpen(true);
+      return;
+    }
+
+    // Se houver apenas um ou nenhum, usar o responsável existente ou vazio
+    const responsaveis = responsaveisLegais.length === 1 ? responsaveisLegais : [];
+    await executarAssinatura(assinaturaId, responsaveis);
+  };
+
+  const executarAssinatura = async (assinaturaId: string, responsaveisAssinantes: string[]) => {
     setAssinandoAta(assinaturaId);
     try {
       // Buscar o ata_id associado a esta assinatura
@@ -288,6 +307,7 @@ export default function PortalFornecedor() {
           status_assinatura: "aceito",
           data_assinatura: new Date().toISOString(),
           ip_assinatura: "browser",
+          responsaveis_assinantes: responsaveisAssinantes,
         })
         .eq("id", assinaturaId);
 
@@ -305,6 +325,14 @@ export default function PortalFornecedor() {
       toast.error("Erro ao assinar ata: " + (error as Error).message);
     } finally {
       setAssinandoAta(null);
+      setDialogResponsavelLegalOpen(false);
+      setAssinaturaParaAssinar(null);
+    }
+  };
+
+  const handleConfirmarResponsavelLegal = async (selecionados: string[]) => {
+    if (assinaturaParaAssinar) {
+      await executarAssinatura(assinaturaParaAssinar, selecionados);
     }
   };
 
@@ -889,6 +917,17 @@ export default function PortalFornecedor() {
           onOpenChange={setDialogEditarCadastroOpen}
           fornecedor={fornecedor}
           onSave={() => checkAuth()}
+        />
+      )}
+
+      {/* Dialog para selecionar responsável legal ao assinar */}
+      {fornecedor && (
+        <DialogSelecionarResponsavelLegal
+          open={dialogResponsavelLegalOpen}
+          onOpenChange={setDialogResponsavelLegalOpen}
+          responsaveisLegais={fornecedor.responsaveis_legais || []}
+          onConfirm={handleConfirmarResponsavelLegal}
+          loading={assinandoAta !== null}
         />
       )}
     </div>

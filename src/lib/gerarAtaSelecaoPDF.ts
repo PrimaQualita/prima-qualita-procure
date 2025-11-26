@@ -753,7 +753,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const urlOriginal = ata.url_arquivo_original || ata.url_arquivo.split('?')[0];
   console.log('URL original para download:', urlOriginal);
 
-  // Buscar assinaturas de fornecedores com responsaveis_legais
+  // Buscar assinaturas de fornecedores com responsaveis_legais e responsaveis_assinantes
   const { data: assinaturasFornecedores, error: assinaturasFornError } = await supabase
     .from('atas_assinaturas_fornecedor')
     .select(`
@@ -762,6 +762,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       data_assinatura,
       ip_assinatura,
       status_assinatura,
+      responsaveis_assinantes,
       fornecedores (
         razao_social,
         cnpj,
@@ -817,7 +818,11 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   // Formatar assinaturas de fornecedores
   const assinaturasFormatadas: Assinatura[] = (assinaturasFornecedores || []).map(a => {
     const fornecedor = a.fornecedores as any;
+    // Usar responsaveis_assinantes se disponível (quem efetivamente assinou), senão usar responsaveis_legais do cadastro
+    const responsaveisAssinantes = (a as any).responsaveis_assinantes as string[] || [];
     const responsaveisLegais = fornecedor?.responsaveis_legais as string[] || [];
+    const responsaveisParaExibir = responsaveisAssinantes.length > 0 ? responsaveisAssinantes : responsaveisLegais;
+    
     return {
       id: a.id,
       nome: fornecedor?.razao_social || '',
@@ -826,7 +831,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       data_assinatura: a.data_assinatura || '',
       ip_assinatura: a.ip_assinatura || '',
       status_assinatura: a.status_assinatura,
-      responsaveisLegais: responsaveisLegais.length > 0 ? responsaveisLegais : undefined
+      responsaveisLegais: responsaveisParaExibir.length > 0 ? responsaveisParaExibir : undefined
     };
   });
 
