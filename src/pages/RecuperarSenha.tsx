@@ -73,8 +73,12 @@ const RecuperarSenha = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/recuperar-senha`,
+      // Chamar nossa edge function personalizada
+      const { data, error } = await supabase.functions.invoke('enviar-email-recuperacao', {
+        body: {
+          email: email,
+          redirectTo: `${window.location.origin}/recuperar-senha`,
+        },
       });
 
       if (error) throw error;
@@ -85,6 +89,7 @@ const RecuperarSenha = () => {
         description: "Verifique sua caixa de entrada e clique no link para redefinir sua senha.",
       });
     } catch (error: any) {
+      console.error("Erro ao enviar email:", error);
       toast({
         title: "Erro ao enviar e-mail",
         description: error.message || "Não foi possível enviar o e-mail. Verifique o endereço informado.",
