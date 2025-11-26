@@ -1218,27 +1218,27 @@ const SistemaLancesFornecedor = () => {
                               {emNegociacao && negociacaoParaMim && (
                                 <div className="space-y-1.5">
                                   <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="w-full h-7 text-[10px] px-1"
+                                    onClick={() => handleRecusarNegociacao(numeroItem)}
+                                  >
+                                    <X className="h-3 w-3 mr-0.5 flex-shrink-0" />
+                                    Recusar
+                                  </Button>
+                                  <Button
                                     variant="outline"
                                     size="sm"
-                                    className="w-full h-7 text-xs border-amber-300 relative"
+                                    className="w-full h-7 text-[10px] border-amber-300 relative px-1"
                                     onClick={() => setItemSelecionado(numeroItem)}
                                   >
-                                    <MessageSquare className="h-3 w-3 mr-1" />
-                                    Abrir Chat
+                                    <MessageSquare className="h-3 w-3 mr-0.5 flex-shrink-0" />
+                                    Chat
                                     {(mensagensNaoLidas.get(numeroItem) || 0) > 0 && (
                                       <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
                                         {mensagensNaoLidas.get(numeroItem)}
                                       </span>
                                     )}
-                                  </Button>
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    className="w-full h-7 text-xs"
-                                    onClick={() => handleRecusarNegociacao(numeroItem)}
-                                  >
-                                    <X className="h-3 w-3 mr-1" />
-                                    Recusar Negociação
                                   </Button>
                                 </div>
                               )}
