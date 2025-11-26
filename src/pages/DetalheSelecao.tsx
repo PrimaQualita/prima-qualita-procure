@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, Eye, Trash2, SendHorizontal } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, Eye, Trash2, SendHorizontal, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
@@ -23,7 +23,7 @@ import { DialogAnexarDocumentoSelecao } from "@/components/selecoes/DialogAnexar
 import { DialogSessaoLances } from "@/components/selecoes/DialogSessaoLances";
 import { DialogAnaliseDocumentalSelecao } from "@/components/selecoes/DialogAnaliseDocumentalSelecao";
 import { DialogEnviarAtaAssinatura } from "@/components/selecoes/DialogEnviarAtaAssinatura";
-import { gerarAtaSelecaoPDF } from "@/lib/gerarAtaSelecaoPDF";
+import { gerarAtaSelecaoPDF, atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 
 interface Item {
   id: string;
@@ -60,6 +60,7 @@ const DetalheSelecao = () => {
   const [confirmDeleteAta, setConfirmDeleteAta] = useState<string | null>(null);
   const [dialogEnviarAtaAssinaturaOpen, setDialogEnviarAtaAssinaturaOpen] = useState(false);
   const [ataParaEnviar, setAtaParaEnviar] = useState<string | null>(null);
+  const [atualizandoPDF, setAtualizandoPDF] = useState<string | null>(null);
 
   useEffect(() => {
     if (selecaoId) {
@@ -351,6 +352,20 @@ const DetalheSelecao = () => {
   const handleAbrirEnviarAtaAssinatura = (ataId: string) => {
     setAtaParaEnviar(ataId);
     setDialogEnviarAtaAssinaturaOpen(true);
+  };
+
+  const handleAtualizarPDFAta = async (ataId: string) => {
+    setAtualizandoPDF(ataId);
+    try {
+      await atualizarAtaComAssinaturas(ataId);
+      toast.success("PDF da ata atualizado com as assinaturas!");
+      await loadAtasGeradas();
+    } catch (error) {
+      console.error("Erro ao atualizar PDF:", error);
+      toast.error("Erro ao atualizar PDF: " + (error as Error).message);
+    } finally {
+      setAtualizandoPDF(null);
+    }
   };
 
   const handleEnviarFornecedores = () => {
@@ -647,6 +662,18 @@ const DetalheSelecao = () => {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                        {ata.enviada_fornecedores && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAtualizarPDFAta(ata.id)}
+                            disabled={atualizandoPDF === ata.id}
+                            title="Atualizar PDF com Assinaturas"
+                          >
+                            <RefreshCw className={`h-4 w-4 mr-1 ${atualizandoPDF === ata.id ? 'animate-spin' : ''}`} />
+                            {atualizandoPDF === ata.id ? "Atualizando..." : "Atualizar PDF"}
+                          </Button>
+                        )}
                         {!ata.enviada_fornecedores && (
                           <Button
                             size="sm"
