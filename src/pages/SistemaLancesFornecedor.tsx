@@ -46,6 +46,7 @@ const SistemaLancesFornecedor = () => {
   const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map());
   const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map());
   const [mensagensNaoLidas, setMensagensNaoLidas] = useState<Map<number, number>>(new Map());
+  const [fornecedoresInabilitados, setFornecedoresInabilitados] = useState<Set<string>>(new Set());
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
 
@@ -259,11 +260,25 @@ const SistemaLancesFornecedor = () => {
         }
       }
 
-      // Buscar o menor valor de cada item das propostas de TODOS os fornecedores da seleção
+      // Buscar fornecedores inabilitados da seleção
+      const { data: inabilitados, error: inabilitadosError } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id")
+        .eq("selecao_id", propostaData.selecoes_fornecedores.id)
+        .eq("revertido", false);
+
+      const fornecedoresInabilitadosIds = new Set(
+        (inabilitados || []).map((f: any) => f.fornecedor_id)
+      );
+      setFornecedoresInabilitados(fornecedoresInabilitadosIds);
+      console.log('Fornecedores inabilitados na seleção:', Array.from(fornecedoresInabilitadosIds));
+
+      // Buscar o menor valor de cada item das propostas de TODOS os fornecedores da seleção (exceto inabilitados)
       const { data: todasPropostas, error: propostasError } = await supabase
         .from("selecao_propostas_fornecedor")
         .select(`
           id,
+          fornecedor_id,
           selecao_respostas_itens_fornecedor (
             numero_item,
             valor_unitario_ofertado
@@ -275,6 +290,12 @@ const SistemaLancesFornecedor = () => {
         const mapaMenorValor = new Map<number, number>();
         
         todasPropostas.forEach((prop: any) => {
+          // Excluir propostas de fornecedores inabilitados
+          if (fornecedoresInabilitadosIds.has(prop.fornecedor_id)) {
+            console.log('Excluindo proposta do fornecedor inabilitado:', prop.fornecedor_id);
+            return;
+          }
+          
           if (prop.selecao_respostas_itens_fornecedor) {
             prop.selecao_respostas_itens_fornecedor.forEach((item: any) => {
               if (item.valor_unitario_ofertado > 0) {
@@ -287,7 +308,7 @@ const SistemaLancesFornecedor = () => {
           }
         });
 
-        console.log('Menor valor das propostas por item:', Object.fromEntries(mapaMenorValor));
+        console.log('Menor valor das propostas por item (excluindo inabilitados):', Object.fromEntries(mapaMenorValor));
         setMenorValorPropostas(mapaMenorValor);
       }
 
@@ -384,6 +405,18 @@ const SistemaLancesFornecedor = () => {
     if (!selecao?.id) return;
 
     try {
+      // Buscar fornecedores inabilitados da seleção
+      const { data: inabilitados } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id")
+        .eq("selecao_id", selecao.id)
+        .eq("revertido", false);
+
+      const inabilitadosIds = new Set(
+        (inabilitados || []).map((f: any) => f.fornecedor_id)
+      );
+      setFornecedoresInabilitados(inabilitadosIds);
+
       const { data, error } = await supabase
         .from("lances_fornecedores")
         .select(`
@@ -399,7 +432,12 @@ const SistemaLancesFornecedor = () => {
 
       if (error) throw error;
 
-      setLances(data || []);
+      // Filtrar lances de fornecedores inabilitados
+      const lancesFiltrados = (data || []).filter(
+        (lance: any) => !inabilitadosIds.has(lance.fornecedor_id)
+      );
+
+      setLances(lancesFiltrados);
     } catch (error) {
       console.error("Erro ao carregar lances:", error);
     }
