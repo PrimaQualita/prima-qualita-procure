@@ -177,6 +177,8 @@ export const gerarRespostaRecursoPDF = async (
   const lineHeight = 5;
   
   const paragraphs = textoResposta.split('\n\n');
+  const espacoNormal = doc.getTextWidth(' ');
+  const espacoMaximo = espacoNormal * 3; // Máximo 3x o espaço normal
   
   paragraphs.forEach((paragraph, pIndex) => {
     if (pIndex > 0) {
@@ -196,22 +198,28 @@ export const gerarRespostaRecursoPDF = async (
       const isLastLine = lineIndex === lines.length - 1;
       const words = line.trim().split(/\s+/);
       
-      if (isLastLine || words.length <= 1) {
-        doc.text(line, margemTexto, y);
-      } else {
-        // Justificar a linha
+      // Justificar apenas se não for última linha, tiver mais de 3 palavras,
+      // e o espaço calculado não for exagerado
+      if (!isLastLine && words.length > 3) {
         const textWidth = doc.getTextWidth(words.join(''));
         const totalSpaceNeeded = larguraUtil - textWidth;
         const spaceCount = words.length - 1;
         const spaceWidth = totalSpaceNeeded / spaceCount;
         
-        let currentX = margemTexto;
-        words.forEach((word, wordIndex) => {
-          doc.text(word, currentX, y);
-          if (wordIndex < words.length - 1) {
-            currentX += doc.getTextWidth(word) + spaceWidth;
-          }
-        });
+        // Se o espaço ficar muito grande, usar alinhamento normal
+        if (spaceWidth <= espacoMaximo) {
+          let currentX = margemTexto;
+          words.forEach((word, wordIndex) => {
+            doc.text(word, currentX, y);
+            if (wordIndex < words.length - 1) {
+              currentX += doc.getTextWidth(word) + spaceWidth;
+            }
+          });
+        } else {
+          doc.text(line, margemTexto, y);
+        }
+      } else {
+        doc.text(line, margemTexto, y);
       }
       y += lineHeight;
     });
