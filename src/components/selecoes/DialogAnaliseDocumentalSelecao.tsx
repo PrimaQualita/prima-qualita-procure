@@ -986,6 +986,14 @@ export function DialogAnaliseDocumentalSelecao({
                                   <XCircle className="h-4 w-4 mr-1" />
                                   Rejeitar
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleSolicitarAtualizacaoDocumento(campo.id!)}
+                                >
+                                  <RefreshCw className="h-4 w-4 mr-1" />
+                                  Solicitar Atualização
+                                </Button>
                               </>
                             )}
                             {campo.status_solicitacao === "aprovado" && (
