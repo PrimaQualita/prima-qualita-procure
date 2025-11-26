@@ -519,6 +519,7 @@ export function DialogAnaliseCompliance({
         onConfirm={handleDelete}
         confirmText="Deletar"
         cancelText="Cancelar"
+        variant="destructive"
       />
     </>
   );
