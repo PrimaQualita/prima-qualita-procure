@@ -138,6 +138,11 @@ export function DialogAnaliseDocumentalSelecao({
   const [dialogRejeitarDocumento, setDialogRejeitarDocumento] = useState(false);
   const [campoParaRejeitar, setCampoParaRejeitar] = useState<string | null>(null);
   const [motivoRejeicaoDocumento, setMotivoRejeicaoDocumento] = useState("");
+  
+  // State para solicitar atualização de documento adicional com motivo
+  const [dialogSolicitarAtualizacaoDocumento, setDialogSolicitarAtualizacaoDocumento] = useState(false);
+  const [campoParaAtualizacao, setCampoParaAtualizacao] = useState<string | null>(null);
+  const [motivoAtualizacaoDocumento, setMotivoAtualizacaoDocumento] = useState("");
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -522,19 +527,28 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
-  const handleSolicitarAtualizacaoDocumento = async (campoId: string) => {
+  const handleSolicitarAtualizacaoDocumento = async () => {
+    if (!campoParaAtualizacao || !motivoAtualizacaoDocumento.trim()) {
+      toast.error("Informe o motivo da solicitação de atualização");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .update({
           status_solicitacao: "pendente",
           data_aprovacao: null,
+          descricao: motivoAtualizacaoDocumento,
         })
-        .eq("id", campoId);
+        .eq("id", campoParaAtualizacao);
 
       if (error) throw error;
 
       toast.success("Solicitação de atualização enviada ao fornecedor");
+      setDialogSolicitarAtualizacaoDocumento(false);
+      setCampoParaAtualizacao(null);
+      setMotivoAtualizacaoDocumento("");
       loadFornecedoresVencedores();
     } catch (error) {
       console.error("Erro ao solicitar atualização:", error);
@@ -989,7 +1003,11 @@ export function DialogAnaliseDocumentalSelecao({
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleSolicitarAtualizacaoDocumento(campo.id!)}
+                                  onClick={() => {
+                                    setCampoParaAtualizacao(campo.id!);
+                                    setMotivoAtualizacaoDocumento("");
+                                    setDialogSolicitarAtualizacaoDocumento(true);
+                                  }}
                                 >
                                   <RefreshCw className="h-4 w-4 mr-1" />
                                   Solicitar Atualização
@@ -1000,7 +1018,11 @@ export function DialogAnaliseDocumentalSelecao({
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleSolicitarAtualizacaoDocumento(campo.id!)}
+                                onClick={() => {
+                                  setCampoParaAtualizacao(campo.id!);
+                                  setMotivoAtualizacaoDocumento("");
+                                  setDialogSolicitarAtualizacaoDocumento(true);
+                                }}
                               >
                                 <RefreshCw className="h-4 w-4 mr-1" />
                                 Solicitar Atualização
@@ -1353,6 +1375,40 @@ export function DialogAnaliseDocumentalSelecao({
               className="bg-destructive hover:bg-destructive/90"
             >
               Confirmar Rejeição
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para solicitar atualização de documento com motivo */}
+      <AlertDialog open={dialogSolicitarAtualizacaoDocumento} onOpenChange={setDialogSolicitarAtualizacaoDocumento}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              Solicitar Atualização do Documento
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Informe o motivo da solicitação de atualização. O fornecedor receberá a notificação e poderá reenviar o documento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Motivo da Solicitação de Atualização *</Label>
+              <Textarea
+                placeholder="Descreva o motivo da solicitação de atualização do documento..."
+                value={motivoAtualizacaoDocumento}
+                onChange={(e) => setMotivoAtualizacaoDocumento(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSolicitarAtualizacaoDocumento}>
+              Confirmar Solicitação
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
