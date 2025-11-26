@@ -57,6 +57,7 @@ const Selecoes = () => {
   const processoIdParam = searchParams.get("processo");
   
   const [loading, setLoading] = useState(true);
+  const [loadingProcessos, setLoadingProcessos] = useState(false);
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
   const [processos, setProcessos] = useState<Processo[]>([]);
@@ -139,6 +140,9 @@ const Selecoes = () => {
   };
 
   const loadProcessos = async (contratoId: string) => {
+    setLoadingProcessos(true);
+    setProcessos([]);
+    
     const { data, error } = await supabase
       .from("processos_compras")
       .select("*")
@@ -149,56 +153,72 @@ const Selecoes = () => {
     if (error) {
       toast.error("Erro ao carregar processos");
       console.error(error);
+      setLoadingProcessos(false);
       return;
     }
 
-    // Para cada processo, buscar o valor da planilha consolidada mais recente
-    const processosComValor = await Promise.all(
-      (data || []).map(async (processo) => {
-        // Buscar cotação do processo
-        const { data: cotacao } = await supabase
-          .from("cotacoes_precos")
-          .select("id")
-          .eq("processo_compra_id", processo.id)
-          .single();
+    // Primeiro mostrar os processos sem o valor da planilha para carregar rápido
+    setProcessos((data || []).map(p => ({ ...p, valor_planilha: 0 })));
+    setLoadingProcessos(false);
 
-        if (!cotacao) {
-          return { ...processo, valor_planilha: 0 };
-        }
+    // Depois carregar os valores das planilhas em segundo plano (lazy loading)
+    if (data && data.length > 0) {
+      const processosIds = data.map(p => p.id);
+      
+      // Buscar todas as cotações de uma vez
+      const { data: cotacoes } = await supabase
+        .from("cotacoes_precos")
+        .select("id, processo_compra_id")
+        .in("processo_compra_id", processosIds);
 
-        // Buscar planilha consolidada mais recente
-        const { data: planilha } = await supabase
+      if (cotacoes && cotacoes.length > 0) {
+        const cotacoesIds = cotacoes.map(c => c.id);
+        
+        // Buscar todas as planilhas consolidadas de uma vez
+        const { data: planilhas } = await supabase
           .from("planilhas_consolidadas")
-          .select("fornecedores_incluidos")
-          .eq("cotacao_id", cotacao.id)
-          .order("data_geracao", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .select("cotacao_id, fornecedores_incluidos, data_geracao")
+          .in("cotacao_id", cotacoesIds)
+          .order("data_geracao", { ascending: false });
 
-        if (!planilha?.fornecedores_incluidos) {
-          return { ...processo, valor_planilha: 0 };
-        }
+        if (planilhas) {
+          // Agrupar planilhas por cotação e pegar a mais recente de cada
+          const planilhasPorCotacao = new Map<string, any>();
+          planilhas.forEach(p => {
+            if (!planilhasPorCotacao.has(p.cotacao_id)) {
+              planilhasPorCotacao.set(p.cotacao_id, p);
+            }
+          });
 
-        // Calcular valor total da planilha
-        let valorTotal = 0;
-        if (Array.isArray(planilha.fornecedores_incluidos)) {
-          planilha.fornecedores_incluidos.forEach((fornecedor: any) => {
-            if (fornecedor.itens && Array.isArray(fornecedor.itens)) {
-              fornecedor.itens.forEach((item: any) => {
-                const valorItem = parseFloat(item.valor_total || 0);
-                if (!isNaN(valorItem)) {
-                  valorTotal += valorItem;
+          // Calcular valores e atualizar processos
+          const processosAtualizados = data.map(processo => {
+            const cotacao = cotacoes.find(c => c.processo_compra_id === processo.id);
+            if (!cotacao) return { ...processo, valor_planilha: 0 };
+
+            const planilha = planilhasPorCotacao.get(cotacao.id);
+            if (!planilha?.fornecedores_incluidos) return { ...processo, valor_planilha: 0 };
+
+            let valorTotal = 0;
+            if (Array.isArray(planilha.fornecedores_incluidos)) {
+              planilha.fornecedores_incluidos.forEach((fornecedor: any) => {
+                if (fornecedor.itens && Array.isArray(fornecedor.itens)) {
+                  fornecedor.itens.forEach((item: any) => {
+                    const valorItem = parseFloat(item.valor_total || 0);
+                    if (!isNaN(valorItem)) {
+                      valorTotal += valorItem;
+                    }
+                  });
                 }
               });
             }
+
+            return { ...processo, valor_planilha: valorTotal };
           });
+
+          setProcessos(processosAtualizados);
         }
-
-        return { ...processo, valor_planilha: valorTotal };
-      })
-    );
-
-    setProcessos(processosComValor);
+      }
+    }
   };
 
   const loadSelecoes = async (processoId: string) => {
@@ -335,7 +355,16 @@ const Selecoes = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {processos.length === 0 ? (
+                  {loadingProcessos ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-8">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          <span className="text-muted-foreground">Carregando processos...</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : processos.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={3} className="text-center text-muted-foreground">
                         Nenhum processo que requer seleção de fornecedores encontrado neste contrato
