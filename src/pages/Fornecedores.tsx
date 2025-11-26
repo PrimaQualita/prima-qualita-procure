@@ -51,8 +51,13 @@ interface Fornecedor {
   id: string;
   user_id?: string;
   razao_social: string;
+  nome_fantasia?: string | null;
   cnpj: string;
   email: string;
+  telefone: string;
+  endereco_comercial?: string | null;
+  segmento_atividade?: string | null;
+  responsaveis_legais?: any;
   status_aprovacao: string;
   data_cadastro: string;
   data_validade_certificado?: string;
@@ -800,6 +805,69 @@ export default function Fornecedores() {
           </DialogHeader>
 
           <div className="space-y-6">
+            {/* Dados Cadastrais do Fornecedor */}
+            {fornecedorSelecionado && (
+              <div>
+                <h3 className="font-semibold mb-2">Dados Cadastrais</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm p-4 border rounded-lg bg-muted/30">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Razão Social</p>
+                    <p className="font-medium">{fornecedorSelecionado.razao_social}</p>
+                  </div>
+                  {fornecedorSelecionado.nome_fantasia && (
+                    <div>
+                      <p className="text-muted-foreground text-xs">Nome Fantasia</p>
+                      <p className="font-medium">{fornecedorSelecionado.nome_fantasia}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-muted-foreground text-xs">CNPJ</p>
+                    <p className="font-medium">{fornecedorSelecionado.cnpj}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">E-mail</p>
+                    <p className="font-medium">{fornecedorSelecionado.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Telefone</p>
+                    <p className="font-medium">{fornecedorSelecionado.telefone || '-'}</p>
+                  </div>
+                  {fornecedorSelecionado.segmento_atividade && (
+                    <div>
+                      <p className="text-muted-foreground text-xs">Segmento de Atividade</p>
+                      <p className="font-medium">{fornecedorSelecionado.segmento_atividade}</p>
+                    </div>
+                  )}
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground text-xs">Endereço Comercial</p>
+                    <p className="font-medium">{fornecedorSelecionado.endereco_comercial || '-'}</p>
+                  </div>
+                  {fornecedorSelecionado.responsaveis_legais && Array.isArray(fornecedorSelecionado.responsaveis_legais) && fornecedorSelecionado.responsaveis_legais.length > 0 && (
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground text-xs">Responsável(is) Legal(is)</p>
+                      <ul className="font-medium list-disc list-inside">
+                        {fornecedorSelecionado.responsaveis_legais.map((resp: string, idx: number) => (
+                          <li key={idx}>{resp}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-muted-foreground text-xs">Data de Cadastro</p>
+                    <p className="font-medium">
+                      {fornecedorSelecionado.data_cadastro 
+                        ? new Date(fornecedorSelecionado.data_cadastro).toLocaleString('pt-BR') 
+                        : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Status</p>
+                    {getStatusBadge(fornecedorSelecionado.status_aprovacao)}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Gestão de Documentos pelo Gestor */}
             {fornecedorSelecionado && (
               <div>
