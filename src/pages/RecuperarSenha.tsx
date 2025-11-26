@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,24 +8,67 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { RequisitosSenha } from "@/components/RequisitosSenha";
 import { validarSenhaForte } from "@/lib/validators";
-import { Eye, EyeOff, ArrowLeft, Mail, KeyRound } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, Mail, CheckCircle } from "lucide-react";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 
 const RecuperarSenha = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [step, setStep] = useState<"email" | "code">("email");
+  const [step, setStep] = useState<"email" | "sent" | "reset">("email");
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
 
-  const handleSendCode = async (e: React.FormEvent) => {
+  useEffect(() => {
+    // Verificar se o usuário chegou através do link de recuperação
+    const checkRecoverySession = async () => {
+      // Detectar hash fragment do URL (tokens do Supabase)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const type = hashParams.get('type');
+      
+      if (accessToken && type === 'recovery') {
+        // Usuário veio do link de recuperação, mostrar formulário de nova senha
+        setStep("reset");
+        return;
+      }
+
+      // Verificar também via query params (caso o redirect seja diferente)
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      
+      if (code) {
+        try {
+          // Trocar o code por uma sessão
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!error) {
+            setStep("reset");
+            return;
+          }
+        } catch (e) {
+          console.error("Erro ao processar código:", e);
+        }
+      }
+    };
+
+    checkRecoverySession();
+
+    // Escutar eventos de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setStep("reset");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -36,15 +79,15 @@ const RecuperarSenha = () => {
 
       if (error) throw error;
 
+      setStep("sent");
       toast({
-        title: "Código enviado!",
-        description: "Verifique seu e-mail para obter o código de recuperação.",
+        title: "E-mail enviado!",
+        description: "Verifique sua caixa de entrada e clique no link para redefinir sua senha.",
       });
-      setStep("code");
     } catch (error: any) {
       toast({
-        title: "Erro ao enviar código",
-        description: error.message || "Não foi possível enviar o código. Verifique o e-mail informado.",
+        title: "Erro ao enviar e-mail",
+        description: error.message || "Não foi possível enviar o e-mail. Verifique o endereço informado.",
         variant: "destructive",
       });
     } finally {
@@ -77,31 +120,24 @@ const RecuperarSenha = () => {
     setLoading(true);
 
     try {
-      // Verificar o código OTP
-      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: code,
-        type: "recovery",
-      });
-
-      if (verifyError) throw verifyError;
-
-      // Atualizar a senha
+      // Atualizar a senha do usuário autenticado via link
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
       if (updateError) throw updateError;
 
-      // Atualizar profile para marcar que não é mais primeiro acesso
-      if (verifyData.user) {
+      // Obter o usuário atual para atualizar profile
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
         await supabase
           .from("profiles")
           .update({
             primeiro_acesso: false,
             senha_temporaria: false,
           })
-          .eq("id", verifyData.user.id);
+          .eq("id", user.id);
       }
 
       toast({
@@ -109,13 +145,13 @@ const RecuperarSenha = () => {
         description: "Você já pode fazer login com sua nova senha.",
       });
 
-      // Fazer logout para garantir que o usuário faça login com a nova senha
+      // Fazer logout e redirecionar para login
       await supabase.auth.signOut();
       navigate("/auth");
     } catch (error: any) {
       toast({
         title: "Erro ao redefinir senha",
-        description: error.message || "Código inválido ou expirado. Solicite um novo código.",
+        description: error.message || "Não foi possível redefinir a senha. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -135,17 +171,18 @@ const RecuperarSenha = () => {
           <div className="flex justify-center">
             <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-16" />
           </div>
-          <CardTitle className="text-2xl text-center">Recuperar Senha</CardTitle>
+          <CardTitle className="text-2xl text-center">
+            {step === "reset" ? "Nova Senha" : "Recuperar Senha"}
+          </CardTitle>
           <CardDescription className="text-center">
-            {step === "email" 
-              ? "Informe seu e-mail cadastrado para receber o código de recuperação"
-              : "Digite o código recebido por e-mail e sua nova senha"
-            }
+            {step === "email" && "Informe seu e-mail cadastrado para receber o link de recuperação"}
+            {step === "sent" && "Verifique seu e-mail"}
+            {step === "reset" && "Digite sua nova senha"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {step === "email" ? (
-            <form onSubmit={handleSendCode} className="space-y-4">
+          {step === "email" && (
+            <form onSubmit={handleSendEmail} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail cadastrado</Label>
                 <div className="relative">
@@ -163,7 +200,7 @@ const RecuperarSenha = () => {
               </div>
               
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Enviando..." : "Enviar Código"}
+                {loading ? "Enviando..." : "Enviar Link de Recuperação"}
               </Button>
               
               <Button
@@ -176,24 +213,45 @@ const RecuperarSenha = () => {
                 Voltar para o login
               </Button>
             </form>
-          ) : (
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="code">Código de recuperação</Label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="code"
-                    type="text"
-                    placeholder="Digite o código recebido"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
+          )}
 
+          {step === "sent" && (
+            <div className="space-y-4 text-center">
+              <div className="flex justify-center">
+                <CheckCircle className="h-16 w-16 text-primary" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Enviamos um e-mail para <strong>{email}</strong> com um link para redefinir sua senha.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Clique no link do e-mail para continuar. Verifique também sua pasta de spam.
+                </p>
+              </div>
+              
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setStep("email")}
+              >
+                Enviar novamente
+              </Button>
+              
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => navigate("/auth")}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar para o login
+              </Button>
+            </div>
+          )}
+
+          {step === "reset" && (
+            <form onSubmit={handleResetPassword} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="new-password">Nova Senha</Label>
                 <div className="relative">
@@ -240,16 +298,6 @@ const RecuperarSenha = () => {
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Redefinindo..." : "Redefinir Senha"}
-              </Button>
-              
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => setStep("email")}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar
               </Button>
             </form>
           )}
