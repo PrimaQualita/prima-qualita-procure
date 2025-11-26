@@ -707,7 +707,8 @@ export function DialogAnaliseDocumentalSelecao({
             .eq("numero_item", item);
         }
         toast.success("Fornecedor inabilitado. Itens reabertos para negociação com os segundos colocados.");
-        onReabrirNegociacao(itensAfetados, fornecedorInabId);
+        // NÃO chamar onReabrirNegociacao aqui pois já fizemos o update com o segundo colocado correto
+        // A callback em DetalheSelecao.tsx sobrescreveria com o fornecedor errado
       } else {
         // Processar cada item afetado
         for (const item of itensAfetados) {
