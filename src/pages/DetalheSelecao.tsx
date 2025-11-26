@@ -633,10 +633,10 @@ const DetalheSelecao = () => {
                             variant="default"
                             onClick={() => handleEnviarAtaFornecedores(ata.id)}
                             disabled={enviandoAta === ata.id}
-                            title="Enviar aos Fornecedores"
+                            title="Enviar para Assinatura"
                           >
                             <SendHorizontal className="h-4 w-4 mr-1" />
-                            {enviandoAta === ata.id ? "Enviando..." : "Enviar"}
+                            {enviandoAta === ata.id ? "Enviando..." : "Enviar para Assinatura"}
                           </Button>
                         )}
                       </div>
