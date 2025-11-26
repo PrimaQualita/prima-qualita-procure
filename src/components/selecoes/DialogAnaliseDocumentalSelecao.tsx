@@ -441,6 +441,16 @@ export function DialogAnaliseDocumentalSelecao({
         return;
       }
       
+      // Buscar maior ordem existente para esta cotação
+      const { data: maxOrdemData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("ordem")
+        .eq("cotacao_id", cotacaoRelacionadaId)
+        .order("ordem", { ascending: false })
+        .limit(1);
+      
+      const proximaOrdem = (maxOrdemData?.[0]?.ordem ?? 0) + 1;
+      
       const dataLimite = datasLimiteDocumentos[fornecedorId];
       
       const { error } = await supabase
@@ -451,7 +461,7 @@ export function DialogAnaliseDocumentalSelecao({
           nome_campo: novoCampo.nome,
           descricao: novoCampo.descricao || "",
           obrigatorio: novoCampo.obrigatorio ?? true,
-          ordem: 99,
+          ordem: proximaOrdem,
           status_solicitacao: "pendente",
           data_solicitacao: dataLimite || null,
         });
