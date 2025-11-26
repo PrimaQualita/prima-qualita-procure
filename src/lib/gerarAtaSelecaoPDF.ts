@@ -78,6 +78,38 @@ const formatarDataHora = (dataStr: string): string => {
   });
 };
 
+// Função para desenhar texto justificado
+const drawJustifiedText = (doc: jsPDF, text: string, x: number, y: number, maxWidth: number, lineHeight: number = 5): number => {
+  const lines = doc.splitTextToSize(text, maxWidth);
+  let currentY = y;
+  
+  lines.forEach((line: string, index: number) => {
+    const isLastLine = index === lines.length - 1;
+    const words = line.trim().split(/\s+/);
+    
+    if (isLastLine || words.length <= 1) {
+      // Última linha ou linha com uma palavra: alinhada à esquerda
+      doc.text(line, x, currentY);
+    } else {
+      // Justificar: distribuir espaço entre palavras
+      const lineWidth = doc.getTextWidth(line.trim());
+      const totalSpaceNeeded = maxWidth - lineWidth + (words.length - 1) * doc.getTextWidth(' ');
+      const spaceWidth = totalSpaceNeeded / (words.length - 1);
+      
+      let currentX = x;
+      words.forEach((word, wordIndex) => {
+        doc.text(word, currentX, currentY);
+        if (wordIndex < words.length - 1) {
+          currentX += doc.getTextWidth(word) + spaceWidth;
+        }
+      });
+    }
+    currentY += lineHeight;
+  });
+  
+  return currentY;
+};
+
 // Função para carregar imagem como base64
 const loadImageAsBase64 = async (src: string): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -338,12 +370,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   const objetoTexto = selecao.descricao || (selecao.processos_compras as any)?.objeto_resumido || selecao.titulo_selecao;
-  const objetoLinhas = doc.splitTextToSize(objetoTexto, contentWidth);
-  objetoLinhas.forEach((linha: string) => {
-    checkNewPage(6);
-    doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
-    currentY += 5;
-  });
+  currentY = drawJustifiedText(doc, objetoTexto, marginLeft, currentY, contentWidth, 5);
   currentY += 8;
 
   // 3 - PREÂMBULO DE ABERTURA
@@ -358,12 +385,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   
   const preambulo = `Aos ${formatarDataExtenso(selecao.data_sessao_disputa)}, às ${formatarHora(selecao.hora_sessao_disputa)} horas, através do Sistema de Compras da Prima Qualitá Saúde, reuniu-se a Comissão do Departamento de Compras para conduzir a Sessão Pública de Seleção de Fornecedores nº ${selecao.numero_selecao || '---'}, referente ao Processo nº ${(selecao.processos_compras as any)?.numero_processo_interno || '---'}.`;
   
-  const preambuloLinhas = doc.splitTextToSize(preambulo, contentWidth);
-  preambuloLinhas.forEach((linha: string) => {
-    checkNewPage(6);
-    doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
-    currentY += 5;
-  });
+  currentY = drawJustifiedText(doc, preambulo, marginLeft, currentY, contentWidth, 5);
   currentY += 8;
 
   // 4 - EMPRESAS PARTICIPANTES
@@ -433,12 +455,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     doc.setFont("helvetica", "normal");
     const nomesHabilitados = fornecedoresHabilitados.map(f => f.razao_social).join('; ');
     const textoHabilitados = `Foram habilitadas as seguintes empresas: ${nomesHabilitados}.`;
-    const linhasHabilitados = doc.splitTextToSize(textoHabilitados, contentWidth);
-    linhasHabilitados.forEach((linha: string) => {
-      checkNewPage(6);
-      doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
-      currentY += 5;
-    });
+    currentY = drawJustifiedText(doc, textoHabilitados, marginLeft, currentY, contentWidth, 5);
   } else {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
@@ -462,12 +479,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       checkNewPage(20);
       const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
       const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA nos itens: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
-      const linhas = doc.splitTextToSize(textoInab, contentWidth);
-      linhas.forEach((linha: string) => {
-        checkNewPage(5);
-        doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
-        currentY += 5;
-      });
+      currentY = drawJustifiedText(doc, textoInab, marginLeft, currentY, contentWidth, 5);
       currentY += 3;
     });
     currentY += 5;
@@ -503,12 +515,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       checkNewPage(15);
       const itensStr = fornecedor.itens.sort((a, b) => a - b).join(', ');
       const textoVencedor = `• ${fornecedor.nome} - Itens: ${itensStr} - Valor Total: ${formatarMoeda(fornecedor.valorTotal)}.`;
-      const linhas = doc.splitTextToSize(textoVencedor, contentWidth - 5);
-      linhas.forEach((linha: string) => {
-        checkNewPage(5);
-        doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
-        currentY += 5;
-      });
+      currentY = drawJustifiedText(doc, textoVencedor, marginLeft, currentY, contentWidth - 5, 5);
       currentY += 2;
     });
   } else {
@@ -533,12 +540,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   if (itensNegociados.length > 0) {
     const itensNegociadosStr = itensNegociados.join(', ');
     const textoNegociacao = `Foram realizadas negociações nos seguintes itens: ${itensNegociadosStr}.`;
-    const linhasNegociacao = doc.splitTextToSize(textoNegociacao, contentWidth);
-    linhasNegociacao.forEach((linha: string) => {
-      checkNewPage(5);
-      doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
-      currentY += 5;
-    });
+    currentY = drawJustifiedText(doc, textoNegociacao, marginLeft, currentY, contentWidth, 5);
   } else {
     doc.text("Não houve negociações durante esta sessão.", marginLeft, currentY);
     currentY += 6;
@@ -558,12 +560,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   
   // Texto padrão sobre intenção de recursos (por enquanto sem dados de recursos)
   const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento de cada fase do certame, nenhuma empresa manifestou intenção de interpor recurso.`;
-  const linhasRecursos = doc.splitTextToSize(textoRecursos, contentWidth);
-  linhasRecursos.forEach((linha: string) => {
-    checkNewPage(5);
-    doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
-    currentY += 5;
-  });
+  currentY = drawJustifiedText(doc, textoRecursos, marginLeft, currentY, contentWidth, 5);
   currentY += 8;
 
   // 10 - ENCERRAMENTO
@@ -581,12 +578,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const horaGeracaoFormatada = dataHoraGeracao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   
   const encerramento = `Nada mais havendo a tratar, foi encerrada a sessão pública às ${horaGeracaoFormatada} horas do dia ${dataGeracaoFormatada}, lavrando-se a presente Ata que registra todos os atos praticados durante a Sessão Pública de Seleção de Fornecedores através do Sistema de Compras da Prima Qualitá Saúde.`;
-  const encerramentoLinhas = doc.splitTextToSize(encerramento, contentWidth);
-  encerramentoLinhas.forEach((linha: string) => {
-    checkNewPage(5);
-    doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
-    currentY += 5;
-  });
+  currentY = drawJustifiedText(doc, encerramento, marginLeft, currentY, contentWidth, 5);
   currentY += 15;
 
   // CERTIFICAÇÃO DIGITAL
