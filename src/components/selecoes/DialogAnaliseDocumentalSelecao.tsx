@@ -527,6 +527,27 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
+  const handleReverterDecisao = async (campoId: string) => {
+    try {
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({
+          status_solicitacao: "em_analise",
+          data_aprovacao: null,
+          descricao: null,
+        })
+        .eq("id", campoId);
+
+      if (error) throw error;
+
+      toast.success("Decisão revertida");
+      loadFornecedoresVencedores();
+    } catch (error) {
+      console.error("Erro ao reverter decisão:", error);
+      toast.error("Erro ao reverter decisão");
+    }
+  };
+
   const handleSolicitarAtualizacaoDocumento = async () => {
     if (!campoParaAtualizacao || !motivoAtualizacaoDocumento.trim()) {
       toast.error("Informe o motivo da solicitação de atualização");
@@ -1000,11 +1021,7 @@ export function DialogAnaliseDocumentalSelecao({
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => {
-                                    setCampoParaAtualizacao(campo.id!);
-                                    setMotivoAtualizacaoDocumento("");
-                                    setDialogSolicitarAtualizacaoDocumento(true);
-                                  }}
+                                  onClick={() => handleReverterDecisao(campo.id!)}
                                 >
                                   <RefreshCw className="h-4 w-4 mr-1" />
                                   Reverter Decisão
