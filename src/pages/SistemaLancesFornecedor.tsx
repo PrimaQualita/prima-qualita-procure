@@ -914,14 +914,38 @@ const SistemaLancesFornecedor = () => {
                             <>
                               {/* Valores */}
                               <div className="space-y-1.5">
-                                <div className="bg-blue-50 rounded px-2 py-1.5">
-                                  <div className="flex items-center gap-1 text-[10px] text-blue-600 mb-0.5">
-                                    <TrendingDown className="h-3 w-3" />
+                                {/* Card Mínimo - fica verde quando vencendo */}
+                                <div className={`rounded px-2 py-1.5 ${
+                                  isFornecedorVencendoItem(numeroItem) 
+                                    ? 'bg-green-50 border border-green-200' 
+                                    : 'bg-blue-50'
+                                }`}>
+                                  <div className={`flex items-center gap-1 text-[10px] mb-0.5 ${
+                                    isFornecedorVencendoItem(numeroItem) 
+                                      ? 'text-green-600' 
+                                      : 'text-blue-600'
+                                  }`}>
+                                    {isFornecedorVencendoItem(numeroItem) ? (
+                                      <Trophy className="h-3 w-3" />
+                                    ) : (
+                                      <TrendingDown className="h-3 w-3" />
+                                    )}
                                     <span>Mínimo</span>
                                   </div>
-                                  <p className="font-bold text-sm text-blue-700">
+                                  <p className={`font-bold text-sm ${
+                                    isFornecedorVencendoItem(numeroItem) 
+                                      ? 'text-green-700' 
+                                      : 'text-blue-700'
+                                  }`}>
                                     {formatarMoeda(getValorMinimoAtual(numeroItem))}
                                   </p>
+                                  {/* Indicador de Liderança dentro do card */}
+                                  {isFornecedorVencendoItem(numeroItem) && (
+                                    <div className="flex items-center gap-1 mt-1 text-[10px] text-green-600 font-semibold">
+                                      <Trophy className="h-3 w-3" />
+                                      <span>Você está vencendo!</span>
+                                    </div>
+                                  )}
                                 </div>
                                 
                                 <div className="bg-amber-50 rounded px-2 py-1.5">
@@ -933,14 +957,6 @@ const SistemaLancesFornecedor = () => {
                                     {formatarMoeda(itensEstimados.get(numeroItem) || 0)}
                                   </p>
                                 </div>
-                                
-                                {/* Indicador de Liderança */}
-                                {isFornecedorVencendoItem(numeroItem) && (
-                                  <div className="bg-green-100 border border-green-300 rounded px-2 py-1.5 flex items-center justify-center gap-1.5">
-                                    <Trophy className="h-4 w-4 text-green-600" />
-                                    <span className="text-xs font-semibold text-green-700">Você está vencendo!</span>
-                                  </div>
-                                )}
                               </div>
                               {/* Input de Lance */}
                               <div className="space-y-1.5">
