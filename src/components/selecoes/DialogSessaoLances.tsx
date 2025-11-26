@@ -455,6 +455,16 @@ export function DialogSessaoLances({
       return;
     }
 
+    // Verificar limite de 10 itens abertos
+    const totalAbertos = itensAbertos.size;
+    const novosParaAbrir = Array.from(itensSelecionados).filter(num => !itensAbertos.has(num)).length;
+    
+    if (totalAbertos + novosParaAbrir > 10) {
+      const disponiveis = 10 - totalAbertos;
+      toast.error(`Limite de 10 itens abertos por vez. Você pode abrir mais ${disponiveis} item(ns).`);
+      return;
+    }
+
     setSalvando(true);
     try {
       const { data: existentes } = await supabase
