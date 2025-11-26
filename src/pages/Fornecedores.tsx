@@ -34,8 +34,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircle, Send, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
 
 interface Pergunta {
@@ -97,6 +98,8 @@ export default function Fornecedores() {
   const [observacoes, setObservacoes] = useState("");
   const [processando, setProcessando] = useState(false);
   const [extraindoDataCertificado, setExtraindoDataCertificado] = useState(false);
+  const [avaliacoesCompliance, setAvaliacoesCompliance] = useState<Record<string, any>>({});
+  const [enviandoCompliance, setEnviandoCompliance] = useState<string | null>(null);
   
   const [formDataPergunta, setFormDataPergunta] = useState({
     texto_pergunta: "",
@@ -126,7 +129,58 @@ export default function Fornecedores() {
     setIsGestor(!!roleData);
     loadPerguntas();
     loadFornecedores();
+    loadAvaliacoesCompliance();
     setLoading(false);
+  };
+
+  const loadAvaliacoesCompliance = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("avaliacoes_cadastro_fornecedor")
+        .select("*");
+
+      if (error) throw error;
+      
+      const avaliacoesMap: Record<string, any> = {};
+      data?.forEach((av: any) => {
+        avaliacoesMap[av.fornecedor_id] = av;
+      });
+      setAvaliacoesCompliance(avaliacoesMap);
+    } catch (error) {
+      console.error("Erro ao carregar avaliações:", error);
+    }
+  };
+
+  const handleEnviarCompliance = async (fornecedorId: string) => {
+    setEnviandoCompliance(fornecedorId);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { error } = await supabase
+        .from("avaliacoes_cadastro_fornecedor")
+        .insert({
+          fornecedor_id: fornecedorId,
+          enviado_por_id: user.id,
+          status_avaliacao: "pendente",
+        });
+
+      if (error) throw error;
+
+      toast.success("Cadastro enviado ao Compliance para análise!");
+      loadAvaliacoesCompliance();
+    } catch (error: any) {
+      console.error("Erro ao enviar ao compliance:", error);
+      toast.error(error.message || "Erro ao enviar ao compliance");
+    } finally {
+      setEnviandoCompliance(null);
+    }
+  };
+
+  const getStatusCompliance = (fornecedorId: string) => {
+    const avaliacao = avaliacoesCompliance[fornecedorId];
+    if (!avaliacao) return null;
+    return avaliacao.status_avaliacao;
   };
 
   const loadPerguntas = async () => {
@@ -910,30 +964,82 @@ export default function Fornecedores() {
               )}
             </div>
 
-            {/* Ação */}
-            <div>
-              <Label>Decisão</Label>
-              <div className="flex gap-2 mt-2">
-                <Button
-                  type="button"
-                  variant={acao === "aprovar" ? "default" : "outline"}
-                  onClick={() => setAcao("aprovar")}
-                  className="flex-1"
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Aprovar
-                </Button>
-                <Button
-                  type="button"
-                  variant={acao === "reprovar" ? "destructive" : "outline"}
-                  onClick={() => setAcao("reprovar")}
-                  className="flex-1"
-                >
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Reprovar
-                </Button>
+            {/* Status Compliance */}
+            {fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
+              <div className="space-y-3">
+                <Label>Compliance</Label>
+                {(() => {
+                  const statusCompliance = getStatusCompliance(fornecedorSelecionado.id);
+                  const avaliacaoCompliance = avaliacoesCompliance[fornecedorSelecionado.id];
+                  
+                  if (statusCompliance === "pendente") {
+                    return (
+                      <Alert className="bg-yellow-500/10 border-yellow-500/30">
+                        <Clock className="h-4 w-4 text-yellow-600" />
+                        <AlertDescription className="text-yellow-600">
+                          Aguardando análise do Compliance
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  }
+                  
+                  if (statusCompliance === "respondido") {
+                    return (
+                      <Alert className={avaliacaoCompliance?.classificacao_risco === "satisfatorio" 
+                        ? "bg-green-500/10 border-green-500/30" 
+                        : "bg-red-500/10 border-red-500/30"
+                      }>
+                        <CheckCircle className={`h-4 w-4 ${avaliacaoCompliance?.classificacao_risco === "satisfatorio" ? "text-green-600" : "text-red-600"}`} />
+                        <AlertDescription className={avaliacaoCompliance?.classificacao_risco === "satisfatorio" ? "text-green-600" : "text-red-600"}>
+                          Compliance: {avaliacaoCompliance?.classificacao_risco === "satisfatorio" ? "Satisfatório" : "Não Satisfatório"}
+                          {avaliacaoCompliance?.score_risco_total !== null && ` (Score: ${avaliacaoCompliance.score_risco_total})`}
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  }
+                  
+                  return (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleEnviarCompliance(fornecedorSelecionado.id)}
+                      disabled={enviandoCompliance === fornecedorSelecionado.id}
+                      className="w-full"
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      {enviandoCompliance === fornecedorSelecionado.id ? "Enviando..." : "Enviar ao Compliance"}
+                    </Button>
+                  );
+                })()}
               </div>
-            </div>
+            )}
+
+            {/* Ação */}
+            {fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
+              <div>
+                <Label>Decisão</Label>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    type="button"
+                    variant={acao === "aprovar" ? "default" : "outline"}
+                    onClick={() => setAcao("aprovar")}
+                    className="flex-1"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Aprovar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={acao === "reprovar" ? "destructive" : "outline"}
+                    onClick={() => setAcao("reprovar")}
+                    className="flex-1"
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Reprovar
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Campos de aprovação */}
             {acao === "aprovar" && (
