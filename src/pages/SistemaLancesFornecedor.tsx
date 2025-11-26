@@ -417,6 +417,43 @@ const SistemaLancesFornecedor = () => {
       );
       setFornecedoresInabilitados(inabilitadosIds);
 
+      // Recalcular menor valor das propostas excluindo inabilitados
+      const { data: todasPropostas } = await supabase
+        .from("selecao_propostas_fornecedor")
+        .select(`
+          id,
+          fornecedor_id,
+          selecao_respostas_itens_fornecedor (
+            numero_item,
+            valor_unitario_ofertado
+          )
+        `)
+        .eq("selecao_id", selecao.id);
+
+      if (todasPropostas) {
+        const mapaMenorValor = new Map<number, number>();
+        
+        todasPropostas.forEach((prop: any) => {
+          // Excluir propostas de fornecedores inabilitados
+          if (inabilitadosIds.has(prop.fornecedor_id)) {
+            return;
+          }
+          
+          if (prop.selecao_respostas_itens_fornecedor) {
+            prop.selecao_respostas_itens_fornecedor.forEach((item: any) => {
+              if (item.valor_unitario_ofertado > 0) {
+                const valorAtual = mapaMenorValor.get(item.numero_item);
+                if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
+                  mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
+                }
+              }
+            });
+          }
+        });
+
+        setMenorValorPropostas(mapaMenorValor);
+      }
+
       const { data, error } = await supabase
         .from("lances_fornecedores")
         .select(`
