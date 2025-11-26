@@ -483,6 +483,34 @@ export function DialogSessaoLances({
     }
   };
 
+  const handleReabrirParaNegociacao = async (numeroItem: number, fornecedorId: string) => {
+    setSalvando(true);
+    try {
+      const { error } = await supabase
+        .from("itens_abertos_lances")
+        .update({
+          aberto: true,
+          em_negociacao: true,
+          nao_negociar: false,
+          negociacao_concluida: false,
+          data_fechamento: null,
+          fornecedor_negociacao_id: fornecedorId,
+        })
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem);
+
+      if (error) throw error;
+
+      toast.success(`Item ${numeroItem} reaberto para negociação`);
+      await loadItensAbertos();
+    } catch (error) {
+      console.error("Erro ao reabrir para negociação:", error);
+      toast.error("Erro ao reabrir para negociação");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const handleToggleItem = (numeroItem: number) => {
     const novos = new Set(itensSelecionados);
     if (novos.has(numeroItem)) {
@@ -2104,6 +2132,61 @@ export function DialogSessaoLances({
                                   <Ban className="h-3 w-3" />
                                 </Button>
                               </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </ScrollAreaWithArrows>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
+            {/* Itens Concluídos - Podem ser Reabertos */}
+            {(() => {
+              const itensConcluidos = itens.filter(
+                (item) => itensNegociacaoConcluida.has(item.numero_item) && 
+                          vencedoresPorItem.has(item.numero_item) &&
+                          !itensEmNegociacao.has(item.numero_item)
+              ).sort((a, b) => a.numero_item - b.numero_item);
+
+              if (itensConcluidos.length === 0) return null;
+
+              return (
+                <Card className="bg-gray-50 dark:bg-gray-900 border-gray-200 flex-shrink-0">
+                  <CardHeader className="py-2">
+                    <CardTitle className="text-xs flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <CheckCircle className="h-4 w-4" />
+                      Itens Concluídos ({itensConcluidos.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <ScrollAreaWithArrows className="h-[120px]" orientation="both" scrollStep={80}>
+                      <div className="space-y-2">
+                        {itensConcluidos.map((item) => {
+                          const numeroItem = item.numero_item;
+                          const vencedor = vencedoresPorItem.get(numeroItem);
+
+                          return (
+                            <div key={`done-${numeroItem}`} className="p-2 bg-white dark:bg-background rounded-lg border text-xs flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <Badge variant="outline" className="bg-gray-100 text-gray-700 text-[10px] shrink-0">
+                                  Item {numeroItem}
+                                </Badge>
+                                <span className="text-muted-foreground truncate text-[10px]">
+                                  {vencedor?.razaoSocial}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-blue-500 text-blue-700 hover:bg-blue-100 text-[10px] h-6 px-2"
+                                onClick={() => handleReabrirParaNegociacao(numeroItem, vencedor?.fornecedorId || "")}
+                                disabled={salvando || !vencedor?.fornecedorId}
+                              >
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Reabrir
+                              </Button>
                             </div>
                           );
                         })}
