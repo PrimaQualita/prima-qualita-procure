@@ -66,6 +66,44 @@ const DetalheSelecao = () => {
     }
   }, [selecaoId]);
 
+  // Realtime subscription para atualizar atas quando assinaturas mudam
+  useEffect(() => {
+    if (!selecaoId) return;
+
+    const channel = supabase
+      .channel(`atas-selecao-${selecaoId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'atas_selecao',
+          filter: `selecao_id=eq.${selecaoId}`
+        },
+        () => {
+          console.log('Ata atualizada - recarregando...');
+          loadAtasGeradas();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'atas_assinaturas_fornecedor'
+        },
+        () => {
+          console.log('Assinatura atualizada - recarregando atas...');
+          loadAtasGeradas();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selecaoId]);
+
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
