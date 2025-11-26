@@ -31,7 +31,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FileText, ExternalLink, AlertCircle, Edit, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { FileText, ExternalLink, AlertCircle, Edit, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays, startOfDay, parseISO, format } from "date-fns";
 
@@ -71,6 +72,9 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
   const [novaDataValidade, setNovaDataValidade] = useState("");
   const [processando, setProcessando] = useState(false);
   const [documentoParaExcluir, setDocumentoParaExcluir] = useState<Documento | null>(null);
+  const [dialogSolicitarAtualizacao, setDialogSolicitarAtualizacao] = useState(false);
+  const [documentoSolicitarAtualizacao, setDocumentoSolicitarAtualizacao] = useState<Documento | null>(null);
+  const [motivoAtualizacao, setMotivoAtualizacao] = useState("");
 
   useEffect(() => {
     loadDocumentos();
@@ -215,6 +219,46 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
     return DOCUMENTOS_VALIDADE.find(d => d.tipo === tipo)?.label || tipo;
   };
 
+  const handleAbrirDialogSolicitarAtualizacao = (doc: Documento) => {
+    setDocumentoSolicitarAtualizacao(doc);
+    setMotivoAtualizacao("");
+    setDialogSolicitarAtualizacao(true);
+  };
+
+  const handleSolicitarAtualizacao = async () => {
+    if (!documentoSolicitarAtualizacao) return;
+
+    if (!motivoAtualizacao.trim()) {
+      toast.error("Informe o motivo da solicitação de atualização");
+      return;
+    }
+
+    setProcessando(true);
+    try {
+      const { error } = await supabase
+        .from("documentos_fornecedor")
+        .update({ 
+          atualizacao_solicitada: true,
+          motivo_solicitacao_atualizacao: motivoAtualizacao.trim(),
+          data_solicitacao_atualizacao: new Date().toISOString()
+        })
+        .eq("id", documentoSolicitarAtualizacao.id);
+
+      if (error) throw error;
+
+      toast.success("Solicitação de atualização enviada com sucesso!");
+      setDialogSolicitarAtualizacao(false);
+      setDocumentoSolicitarAtualizacao(null);
+      setMotivoAtualizacao("");
+      loadDocumentos();
+    } catch (error: any) {
+      console.error("Erro ao solicitar atualização:", error);
+      toast.error("Erro ao solicitar atualização");
+    } finally {
+      setProcessando(false);
+    }
+  };
+
   const getDocumentoMaisRecente = (tipo: string) => {
     return documentos.find(d => d.tipo_documento === tipo && d.em_vigor);
   };
@@ -334,6 +378,14 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
                               Editar Validade
                             </Button>
                           )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAbrirDialogSolicitarAtualizacao(doc)}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                            Solicitar Atualização
+                          </Button>
                           {docConfig.tipo === "certificado_gestor" && (
                             <Button
                               variant="ghost"
@@ -392,6 +444,50 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
               disabled={processando}
             >
               {processando ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para solicitar atualização */}
+      <Dialog open={dialogSolicitarAtualizacao} onOpenChange={setDialogSolicitarAtualizacao}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Solicitar Atualização de Documento</DialogTitle>
+            <DialogDescription>
+              {documentoSolicitarAtualizacao && getTipoDocumentoLabel(documentoSolicitarAtualizacao.tipo_documento)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="motivo_atualizacao">Motivo da Solicitação *</Label>
+              <Textarea
+                id="motivo_atualizacao"
+                placeholder="Informe o motivo pelo qual o documento precisa ser atualizado..."
+                value={motivoAtualizacao}
+                onChange={(e) => setMotivoAtualizacao(e.target.value)}
+                rows={4}
+              />
+              <p className="text-sm text-muted-foreground">
+                O fornecedor será notificado para enviar uma nova versão do documento
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogSolicitarAtualizacao(false)}
+              disabled={processando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSolicitarAtualizacao}
+              disabled={processando}
+            >
+              {processando ? "Enviando..." : "Solicitar Atualização"}
             </Button>
           </DialogFooter>
         </DialogContent>
