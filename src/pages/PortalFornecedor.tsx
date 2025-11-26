@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { DialogConsultarProposta } from "@/components/cotacoes/DialogConsultarProposta";
+import { DialogEditarCadastroFornecedor } from "@/components/fornecedores/DialogEditarCadastroFornecedor";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck } from "lucide-react";
+import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
 import { NotificacaoRejeicao } from "@/components/fornecedores/NotificacaoRejeicao";
@@ -25,6 +26,7 @@ export default function PortalFornecedor() {
   const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<string>("");
+  const [dialogEditarCadastroOpen, setDialogEditarCadastroOpen] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -552,11 +554,21 @@ export default function PortalFornecedor() {
             <div className="space-y-6">
               {/* Informações do Cadastro */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Informações do Cadastro</CardTitle>
-                  <CardDescription>
-                    Dados do seu cadastro como fornecedor
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Informações do Cadastro</CardTitle>
+                    <CardDescription>
+                      Dados do seu cadastro como fornecedor
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDialogEditarCadastroOpen(true)}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 gap-4">
@@ -565,8 +577,16 @@ export default function PortalFornecedor() {
                       <p className="font-medium">{fornecedor?.razao_social}</p>
                     </div>
                     <div>
+                      <p className="text-sm text-muted-foreground">Nome Fantasia</p>
+                      <p className="font-medium">{fornecedor?.nome_fantasia || "-"}</p>
+                    </div>
+                    <div>
                       <p className="text-sm text-muted-foreground">CNPJ</p>
                       <p className="font-medium">{fornecedor?.cnpj}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Telefone</p>
+                      <p className="font-medium">{fornecedor?.telefone || "-"}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">E-mail</p>
@@ -588,6 +608,16 @@ export default function PortalFornecedor() {
                          fornecedor?.status_aprovacao === 'pendente' ? 'Pendente' : 'Reprovado'}
                       </Badge>
                     </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">Endereço</p>
+                      <p className="font-medium">{fornecedor?.endereco_comercial || "-"}</p>
+                    </div>
+                    {fornecedor?.responsaveis_legais && Array.isArray(fornecedor.responsaveis_legais) && fornecedor.responsaveis_legais.length > 0 && (
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">Responsáveis Legais</p>
+                        <p className="font-medium">{fornecedor.responsaveis_legais.join(", ")}</p>
+                      </div>
+                    )}
                     {fornecedor?.status_aprovacao === 'aprovado' && (
                       <>
                         <div>
@@ -849,6 +879,16 @@ export default function PortalFornecedor() {
           onOpenChange={setDialogConsultarOpen}
           cotacaoId={cotacaoSelecionada}
           fornecedorId={fornecedor.id}
+        />
+      )}
+
+      {/* Dialog para editar cadastro */}
+      {fornecedor && (
+        <DialogEditarCadastroFornecedor
+          open={dialogEditarCadastroOpen}
+          onOpenChange={setDialogEditarCadastroOpen}
+          fornecedor={fornecedor}
+          onSave={() => checkAuth()}
         />
       )}
     </div>
