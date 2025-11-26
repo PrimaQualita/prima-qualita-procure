@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,25 @@ const SistemaLancesFornecedor = () => {
   const [fornecedoresInabilitados, setFornecedoresInabilitados] = useState<Set<string>>(new Set());
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
+
+  // CRÍTICO: Filtrar lances excluindo fornecedores inabilitados de forma reativa
+  // Isso garante que sempre que lances ou fornecedoresInabilitados mudam, os lances são refiltrados
+  const lancesFiltrados = useMemo(() => {
+    // SEMPRE filtrar, mesmo que fornecedoresInabilitados esteja vazio inicialmente
+    // porque os lances podem já ter sido carregados antes dos inabilitados
+    const resultado = lances.filter(lance => {
+      const fornecedorIdStr = String(lance.fornecedor_id);
+      const isInabilitado = fornecedoresInabilitados.has(fornecedorIdStr);
+      return !isInabilitado;
+    });
+    
+    // Log apenas quando há diferença
+    if (resultado.length !== lances.length) {
+      console.log(`[useMemo lancesFiltrados] Filtrou ${lances.length - resultado.length} lances de fornecedores inabilitados`);
+    }
+    
+    return resultado;
+  }, [lances, fornecedoresInabilitados]);
 
   useEffect(() => {
     if (propostaId) {
@@ -493,16 +512,9 @@ const SistemaLancesFornecedor = () => {
     }
   };
 
-  // Filtrar lances do item excluindo fornecedores inabilitados
-  // Usa comparação de strings para evitar problemas de tipo
+  // Filtrar lances do item - usa lancesFiltrados que já exclui fornecedores inabilitados
   const getLancesDoItem = (numeroItem: number) => {
-    return lances.filter(l => {
-      if (l.numero_item !== numeroItem) return false;
-      
-      // Comparação SEMPRE como string
-      const fornecedorIdStr = String(l.fornecedor_id);
-      return !fornecedoresInabilitados.has(fornecedorIdStr);
-    });
+    return lancesFiltrados.filter(l => l.numero_item === numeroItem);
   };
 
   const fornecedorApresentouPropostaNoItem = (numeroItem: number): boolean => {
@@ -536,18 +548,11 @@ const SistemaLancesFornecedor = () => {
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const valorMenorProposta = menorValorPropostas.get(numeroItem) || 0;
     
-    // FILTRAR LANCES: Excluir TODOS os fornecedores inabilitados
-    // O estado lances já foi filtrado em loadLances, mas vamos garantir aqui também
-    const lancesDoItemFiltrados = lances.filter(l => {
-      if (l.numero_item !== numeroItem) return false;
-      
-      // Comparação SEMPRE como string
-      const fornecedorIdStr = String(l.fornecedor_id);
-      return !fornecedoresInabilitados.has(fornecedorIdStr);
-    });
+    // Usar lancesFiltrados (já filtrado pelo useMemo acima)
+    const lancesDoItem = lancesFiltrados.filter(l => l.numero_item === numeroItem);
     
     // Filtrar apenas lances classificados (menores ou iguais ao estimado)
-    const lancesClassificados = lancesDoItemFiltrados.filter(l => l.valor_lance <= valorEstimado);
+    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
     
     if (lancesClassificados.length > 0) {
       // Retornar o menor lance classificado
