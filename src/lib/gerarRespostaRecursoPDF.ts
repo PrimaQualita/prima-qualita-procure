@@ -149,9 +149,10 @@ export const gerarRespostaRecursoPDF = async (
   if (numeroSelecao) {
     y += 6;
     doc.setFont('helvetica', 'bold');
-    doc.text('Seleção de Fornecedores:  ', margemTexto, y);
+    const labelSelecao = 'Seleção de Fornecedores:';
+    doc.text(labelSelecao, margemTexto, y);
     doc.setFont('helvetica', 'normal');
-    doc.text(numeroSelecao, margemTexto + doc.getTextWidth('Seleção de Fornecedores:  '), y);
+    doc.text('  ' + numeroSelecao, margemTexto + doc.getTextWidth(labelSelecao), y);
   }
   
   y += 6;
@@ -234,7 +235,7 @@ export const gerarRespostaRecursoPDF = async (
     });
   });
   
-  y += 8;
+  y += 4;
   
   // Verificar espaço para certificação (certificação logo após o texto)
   if (y > pageHeight - 50) {
