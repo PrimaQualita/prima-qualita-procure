@@ -734,7 +734,8 @@ export function DialogAnaliseDocumentalSelecao({
                 .eq("numero_item", segundoColocado.numero_item);
 
               // Atualizar o fornecedor de negociação para o segundo colocado
-              await supabase
+              console.log(`Atualizando item ${item} para fornecedor_negociacao_id = ${segundoColocado.fornecedor_id}`);
+              const { error: updateItemError } = await supabase
                 .from("itens_abertos_lances")
                 .update({
                   fornecedor_negociacao_id: segundoColocado.fornecedor_id,
@@ -745,6 +746,12 @@ export function DialogAnaliseDocumentalSelecao({
                 })
                 .eq("selecao_id", selecaoId)
                 .eq("numero_item", item);
+              
+              if (updateItemError) {
+                console.error(`Erro ao atualizar item ${item}:`, updateItemError);
+              } else {
+                console.log(`Item ${item} atualizado com sucesso para ${segundoColocado.fornecedor_nome}`);
+              }
             } else {
               // Segundo colocado também inabilitado - fechar item
               await supabase
