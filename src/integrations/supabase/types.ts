@@ -247,6 +247,50 @@ export type Database = {
           },
         ]
       }
+      atas_assinaturas_usuario: {
+        Row: {
+          ata_id: string
+          created_at: string
+          data_assinatura: string | null
+          data_notificacao: string | null
+          id: string
+          ip_assinatura: string | null
+          observacao: string | null
+          status_assinatura: string
+          usuario_id: string
+        }
+        Insert: {
+          ata_id: string
+          created_at?: string
+          data_assinatura?: string | null
+          data_notificacao?: string | null
+          id?: string
+          ip_assinatura?: string | null
+          observacao?: string | null
+          status_assinatura?: string
+          usuario_id: string
+        }
+        Update: {
+          ata_id?: string
+          created_at?: string
+          data_assinatura?: string | null
+          data_notificacao?: string | null
+          id?: string
+          ip_assinatura?: string | null
+          observacao?: string | null
+          status_assinatura?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atas_assinaturas_usuario_ata_id_fkey"
+            columns: ["ata_id"]
+            isOneToOne: false
+            referencedRelation: "atas_selecao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       atas_selecao: {
         Row: {
           created_at: string

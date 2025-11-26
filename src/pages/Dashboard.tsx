@@ -22,6 +22,7 @@ const Dashboard = () => {
   const [isCompliance, setIsCompliance] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [processosPendentesCompliance, setProcessosPendentesCompliance] = useState(0);
+  const [atasPendentesAssinatura, setAtasPendentesAssinatura] = useState<any[]>([]);
   
   // Filtros Gráfico 1 - Pizza
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear().toString());
@@ -43,6 +44,7 @@ const Dashboard = () => {
   useEffect(() => {
     loadData();
     checkComplianceRole();
+    loadAtasPendentesAssinatura();
   }, []);
 
   const checkComplianceRole = async () => {
@@ -81,6 +83,37 @@ const Dashboard = () => {
       setProcessosPendentesCompliance(count || 0);
     } catch (error) {
       console.error("Erro ao carregar processos pendentes:", error);
+    }
+  };
+
+  const loadAtasPendentesAssinatura = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("atas_assinaturas_usuario")
+        .select(`
+          id,
+          ata_id,
+          data_notificacao,
+          atas_selecao (
+            nome_arquivo,
+            url_arquivo,
+            selecoes_fornecedores (
+              numero_selecao,
+              titulo_selecao
+            )
+          )
+        `)
+        .eq("usuario_id", user.id)
+        .eq("status_assinatura", "pendente")
+        .order("data_notificacao", { ascending: false });
+
+      if (error) throw error;
+      setAtasPendentesAssinatura(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar atas pendentes:", error);
     }
   };
 
@@ -433,6 +466,33 @@ const Dashboard = () => {
             <AlertTitle>Processos Pendentes de Compliance</AlertTitle>
             <AlertDescription>
               Você tem {processosPendentesCompliance} processo(s) aguardando análise no menu Compliance.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {atasPendentesAssinatura.length > 0 && (
+          <Alert className="mb-6 border-amber-500 bg-amber-50 text-amber-900">
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <AlertTitle className="text-amber-900">Atas Pendentes de Assinatura</AlertTitle>
+            <AlertDescription className="text-amber-800">
+              Você tem {atasPendentesAssinatura.length} ata(s) aguardando sua assinatura:
+              <ul className="mt-2 list-disc list-inside space-y-1">
+                {atasPendentesAssinatura.slice(0, 3).map((ata: any) => (
+                  <li key={ata.id}>
+                    <a 
+                      href={ata.atas_selecao?.url_arquivo} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="underline hover:text-amber-600"
+                    >
+                      {ata.atas_selecao?.selecoes_fornecedores?.numero_selecao || 'Seleção'} - {ata.atas_selecao?.selecoes_fornecedores?.titulo_selecao || ata.atas_selecao?.nome_arquivo}
+                    </a>
+                  </li>
+                ))}
+                {atasPendentesAssinatura.length > 3 && (
+                  <li>... e mais {atasPendentesAssinatura.length - 3} ata(s)</li>
+                )}
+              </ul>
             </AlertDescription>
           </Alert>
         )}
