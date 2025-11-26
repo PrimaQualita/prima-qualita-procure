@@ -258,6 +258,7 @@ export type Database = {
           protocolo: string
           selecao_id: string
           url_arquivo: string
+          url_arquivo_original: string | null
           usuario_gerador_id: string | null
         }
         Insert: {
@@ -270,6 +271,7 @@ export type Database = {
           protocolo: string
           selecao_id: string
           url_arquivo: string
+          url_arquivo_original?: string | null
           usuario_gerador_id?: string | null
         }
         Update: {
@@ -282,6 +284,7 @@ export type Database = {
           protocolo?: string
           selecao_id?: string
           url_arquivo?: string
+          url_arquivo_original?: string | null
           usuario_gerador_id?: string | null
         }
         Relationships: [
