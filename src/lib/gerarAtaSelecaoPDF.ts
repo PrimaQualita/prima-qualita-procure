@@ -512,23 +512,37 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
   // Certificação Digital
   currentY += 15;
-  checkNewPage(50);
+  checkNewPage(60);
 
-  const certY = currentY;
-  const certHeight = 40;
+  const verificationUrl = `${window.location.origin}/verificar-ata?protocolo=${protocolo}`;
   
-  doc.setDrawColor(150);
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(marginLeft, certY, contentWidth, certHeight, 3, 3, 'FD');
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("CERTIFICAÇÃO DIGITAL", marginLeft + contentWidth / 2, certY + 8, { align: "center" });
-
+  // Calcular altura necessária para o conteúdo
   doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
+  const urlLines = doc.splitTextToSize(verificationUrl, contentWidth - 10);
+  const certHeight = 50 + (urlLines.length * 3.5);
   
-  let certTextY = certY + 16;
+  const certY = currentY;
+  
+  // Fundo cinza
+  doc.setFillColor(245, 245, 245);
+  doc.rect(marginLeft, certY, contentWidth, certHeight, 'F');
+  
+  // Borda
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(marginLeft, certY, contentWidth, certHeight, 'S');
+
+  // Título em azul escuro
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 139);
+  doc.text("CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO", marginLeft + contentWidth / 2, certY + 8, { align: "center" });
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(0, 0, 0);
+  
+  let certTextY = certY + 17;
   
   // Protocolo
   doc.text(`Protocolo: ${protocoloFormatado}`, marginLeft + 5, certTextY);
@@ -536,14 +550,26 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   
   // Responsável
   doc.text(`Responsável: ${nomeResponsavel}`, marginLeft + 5, certTextY);
-  certTextY += 5;
+  certTextY += 6;
   
-  // Verificação - URL como link único clicável
-  const verificationUrl = `${window.location.origin}/verificar-ata?protocolo=${protocolo}`;
-  doc.text("Verificação: ", marginLeft + 5, certTextY);
-  const labelWidth = doc.getTextWidth("Verificação: ");
+  // Verificação - Label
+  doc.setFont("helvetica", "bold");
+  doc.text("Verificar autenticidade em:", marginLeft + 5, certTextY);
+  certTextY += 4;
+  
+  // URL como link clicável com quebra de linha
+  doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 255);
-  doc.textWithLink(verificationUrl, marginLeft + 5 + labelWidth, certTextY, { url: verificationUrl });
+  doc.setFontSize(8);
+  urlLines.forEach((linha: string, index: number) => {
+    doc.textWithLink(linha, marginLeft + 5, certTextY + (index * 3.5), { url: verificationUrl });
+  });
+  certTextY += urlLines.length * 3.5 + 2;
+  
+  // Texto legal
+  doc.setTextColor(80, 80, 80);
+  doc.setFontSize(7);
+  doc.text("Este documento possui certificação digital conforme Lei 14.063/2020", marginLeft + 5, certTextY);
   doc.setTextColor(0, 0, 0);
 
   // Rodapé
