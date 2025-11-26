@@ -690,10 +690,10 @@ export function DialogAnaliseDocumentalSelecao({
             .from("itens_abertos_lances")
             .update({
               aberto: true,
-              em_negociacao: true,
-              nao_negociar: false,
-              data_fechamento: null,
-              negociacao_concluida: false,
+              em_negociacao: segundoColocado ? true : false,
+              nao_negociar: !segundoColocado,
+              data_fechamento: segundoColocado ? null : new Date().toISOString(),
+              negociacao_concluida: !segundoColocado,
               fornecedor_negociacao_id: segundoColocado?.fornecedor_id || null,
             })
             .eq("selecao_id", selecaoId)
@@ -702,43 +702,61 @@ export function DialogAnaliseDocumentalSelecao({
         toast.success("Fornecedor inabilitado. Itens reabertos para negociação com os segundos colocados.");
         onReabrirNegociacao(itensAfetados, fornecedorParaInabilitar.fornecedor.id);
       } else {
-        // Se tiver segundos colocados, marcar como vencedores e atualizar negociação
-        for (const segundo of segundosColocados) {
-          // Verificar se o segundo colocado não está inabilitado
-          const { data: segInab } = await supabase
-            .from("fornecedores_inabilitados_selecao")
-            .select("id")
-            .eq("selecao_id", selecaoId)
-            .eq("fornecedor_id", segundo.fornecedor_id)
-            .eq("revertido", false)
-            .maybeSingle();
-
-          if (!segInab) {
-            // Marcar segundo colocado como vencedor
-            const { error: setVencedorError } = await supabase
-              .from("lances_fornecedores")
-              .update({ indicativo_lance_vencedor: true })
+        // Processar cada item afetado
+        for (const item of itensAfetados) {
+          const segundoColocado = segundosColocados.find(s => s.numero_item === item);
+          
+          if (segundoColocado) {
+            // Verificar se o segundo colocado não está inabilitado
+            const { data: segInab } = await supabase
+              .from("fornecedores_inabilitados_selecao")
+              .select("id")
               .eq("selecao_id", selecaoId)
-              .eq("fornecedor_id", segundo.fornecedor_id)
-              .eq("numero_item", segundo.numero_item);
+              .eq("fornecedor_id", segundoColocado.fornecedor_id)
+              .eq("revertido", false)
+              .maybeSingle();
 
-            if (setVencedorError) {
-              console.error("Erro ao marcar segundo colocado:", setVencedorError);
+            if (!segInab) {
+              // Marcar segundo colocado como vencedor
+              await supabase
+                .from("lances_fornecedores")
+                .update({ indicativo_lance_vencedor: true })
+                .eq("selecao_id", selecaoId)
+                .eq("fornecedor_id", segundoColocado.fornecedor_id)
+                .eq("numero_item", segundoColocado.numero_item);
+
+              // Atualizar o fornecedor de negociação para o segundo colocado
+              await supabase
+                .from("itens_abertos_lances")
+                .update({
+                  fornecedor_negociacao_id: segundoColocado.fornecedor_id,
+                  em_negociacao: true,
+                  negociacao_concluida: false,
+                })
+                .eq("selecao_id", selecaoId)
+                .eq("numero_item", item);
             }
-
-            // Atualizar o fornecedor de negociação para o segundo colocado
+          } else {
+            // Sem segundo colocado - fechar item sem negociação
             await supabase
               .from("itens_abertos_lances")
               .update({
-                fornecedor_negociacao_id: segundo.fornecedor_id,
-                em_negociacao: true,
-                negociacao_concluida: false,
+                fornecedor_negociacao_id: null,
+                em_negociacao: false,
+                negociacao_concluida: true,
+                nao_negociar: true,
+                aberto: false,
+                data_fechamento: new Date().toISOString(),
               })
               .eq("selecao_id", selecaoId)
-              .eq("numero_item", segundo.numero_item);
+              .eq("numero_item", item);
           }
         }
-        toast.success("Fornecedor inabilitado. Segundos colocados assumem os itens.");
+        
+        const temSegundos = segundosColocados.length > 0;
+        toast.success(temSegundos 
+          ? "Fornecedor inabilitado. Segundos colocados assumem os itens."
+          : "Fornecedor inabilitado. Itens sem segundo colocado foram fechados.");
       }
 
       setDialogInabilitar(false);
