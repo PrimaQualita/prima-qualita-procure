@@ -723,13 +723,17 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginLeft = 40;
   const marginRight = 40;
   
-  // Começar logo abaixo da certificação digital
-  // A certificação termina aproximadamente em Y = 100, começamos um pouco acima do rodapé
-  let currentY = 85;
+  // A certificação digital termina aproximadamente em Y = 100-110
+  // O rodapé começa em Y = ~50-60
+  // Vamos começar as assinaturas logo abaixo da certificação
+  let currentY = 95;
+  
+  // Limite inferior antes do rodapé
+  const footerLimit = 55;
 
   // Função para verificar e criar nova página se necessário
   const checkNewPage = (espacoNecessario: number) => {
-    if (currentY - espacoNecessario < 70) {
+    if (currentY - espacoNecessario < footerLimit) {
       page = pdfDoc.addPage([595, 842]);
       currentY = height - 50;
       return true;
@@ -737,14 +741,26 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     return false;
   };
 
-  // Título - ASSINATURAS DOS FORNECEDORES VENCEDORES
-  checkNewPage(25);
-  page.drawText('ASSINATURAS DOS FORNECEDORES VENCEDORES', {
+  // Título com referência ao protocolo da ata
+  const tituloHeight = 35;
+  checkNewPage(tituloHeight);
+  
+  page.drawText('TERMO DE ACEITE E ASSINATURA DIGITAL', {
     x: marginLeft,
     y: currentY,
     size: 11,
     font: helveticaBold,
     color: rgb(0.13, 0.27, 0.53),
+  });
+  currentY -= 14;
+  
+  // Subtítulo com protocolo da ata
+  page.drawText(`Ata de Seleção - Protocolo: ${ata.protocolo}`, {
+    x: marginLeft,
+    y: currentY,
+    size: 9,
+    font: helveticaFont,
+    color: rgb(0.4, 0.4, 0.4),
   });
   currentY -= 18;
 
