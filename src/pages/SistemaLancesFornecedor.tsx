@@ -535,6 +535,27 @@ const SistemaLancesFornecedor = () => {
     return fornecedorNegociacao === proposta?.fornecedor_id;
   };
 
+  const isFornecedorVencendoItem = (numeroItem: number): boolean => {
+    if (!proposta?.fornecedor_id) return false;
+    
+    const valorEstimado = itensEstimados.get(numeroItem) || 0;
+    const lancesDoItem = getLancesDoItem(numeroItem);
+    
+    // Filtrar apenas lances classificados (menores ou iguais ao estimado)
+    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+    
+    if (lancesClassificados.length === 0) return false;
+    
+    // Ordenar por menor valor e desempate por data (mais antigo ganha)
+    const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
+      if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+      return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
+    });
+    
+    // Verificar se o lance vencedor é do fornecedor atual
+    return lancesOrdenados[0]?.fornecedor_id === proposta.fornecedor_id;
+  };
+
   const handleUpdateItem = (itemId: string, field: string, value: any) => {
     setItens(prev => prev.map(item => {
       if (item.id === itemId) {
@@ -912,8 +933,15 @@ const SistemaLancesFornecedor = () => {
                                     {formatarMoeda(itensEstimados.get(numeroItem) || 0)}
                                   </p>
                                 </div>
+                                
+                                {/* Indicador de Liderança */}
+                                {isFornecedorVencendoItem(numeroItem) && (
+                                  <div className="bg-green-100 border border-green-300 rounded px-2 py-1.5 flex items-center justify-center gap-1.5">
+                                    <Trophy className="h-4 w-4 text-green-600" />
+                                    <span className="text-xs font-semibold text-green-700">Você está vencendo!</span>
+                                  </div>
+                                )}
                               </div>
-                              
                               {/* Input de Lance */}
                               <div className="space-y-1.5">
                                 <Input
