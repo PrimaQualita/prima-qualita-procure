@@ -120,6 +120,9 @@ export function DialogSessaoLances({
   // Estado - Confirmação de exclusão de lance
   const [confirmDeleteLance, setConfirmDeleteLance] = useState<{ open: boolean; lanceId: string | null }>({ open: false, lanceId: null });
 
+  // Estado - Confirmação de exclusão de planilha
+  const [confirmDeletePlanilha, setConfirmDeletePlanilha] = useState<{ open: boolean; planilhaId: string | null; urlArquivo: string | null }>({ open: false, planilhaId: null, urlArquivo: null });
+
   // Estado - Planilhas de Lances geradas (múltiplas)
   const [planilhasGeradas, setPlanilhasGeradas] = useState<{ id: string; nome_arquivo: string; url_arquivo: string; data_geracao: string; protocolo: string }[]>([]);
 
@@ -1055,7 +1058,12 @@ export function DialogSessaoLances({
   };
 
   // ========== DELETAR PLANILHA ==========
-  const handleDeletarPlanilha = async (planilhaId: string, urlArquivo: string) => {
+  const handleDeletarPlanilha = async () => {
+    if (!confirmDeletePlanilha.planilhaId || !confirmDeletePlanilha.urlArquivo) return;
+    
+    const planilhaId = confirmDeletePlanilha.planilhaId;
+    const urlArquivo = confirmDeletePlanilha.urlArquivo;
+    
     try {
       // Extrair caminho do storage da URL
       const urlParts = urlArquivo.split("/storage/v1/object/public/processo-anexos/");
@@ -1084,6 +1092,8 @@ export function DialogSessaoLances({
     } catch (error) {
       console.error("Erro ao deletar planilha:", error);
       toast.error("Erro ao deletar planilha");
+    } finally {
+      setConfirmDeletePlanilha({ open: false, planilhaId: null, urlArquivo: null });
     }
   };
 
@@ -1957,7 +1967,7 @@ export function DialogSessaoLances({
                                 <Button
                                   variant="destructive"
                                   size="sm"
-                                  onClick={() => handleDeletarPlanilha(planilha.id, planilha.url_arquivo)}
+                                  onClick={() => setConfirmDeletePlanilha({ open: true, planilhaId: planilha.id, urlArquivo: planilha.url_arquivo })}
                                   className="h-7 px-2"
                                 >
                                   <Trash2 className="h-3 w-3" />
@@ -2416,6 +2426,16 @@ export function DialogSessaoLances({
       onConfirm={confirmarExclusaoLance}
       title="Excluir lance"
       description="Tem certeza que deseja excluir este lance? Esta ação não pode ser desfeita."
+      confirmText="Excluir"
+      cancelText="Cancelar"
+    />
+
+    <ConfirmDialog
+      open={confirmDeletePlanilha.open}
+      onOpenChange={(open) => !open && setConfirmDeletePlanilha({ open: false, planilhaId: null, urlArquivo: null })}
+      onConfirm={handleDeletarPlanilha}
+      title="Excluir Planilha"
+      description="Tem certeza que deseja excluir esta planilha de lances? Esta ação não pode ser desfeita."
       confirmText="Excluir"
       cancelText="Cancelar"
     />
