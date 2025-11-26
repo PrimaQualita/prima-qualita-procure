@@ -487,6 +487,8 @@ export default function VerificarAutorizacao() {
                        tipoDocumento === 'compliance' ? 'Análise de Riscos e Conformidades Autêntica' :
                        tipoDocumento === 'planilha' ? 'Planilha Consolidada Autêntica' :
                        tipoDocumento === 'encaminhamento' ? 'Encaminhamento de Processo Autêntico' :
+                       tipoDocumento === 'recurso' ? 'Recurso de Inabilitação Autêntico' :
+                       tipoDocumento === 'resposta_recurso' ? 'Resposta de Recurso Autêntica' :
                        'Autorização Autêntica'}
                     </CardTitle>
                     <CardDescription>Documento verificado e válido</CardDescription>
@@ -511,6 +513,8 @@ export default function VerificarAutorizacao() {
                      tipoDocumento === 'compliance' ? 'Análise de Riscos e Conformidades' :
                      tipoDocumento === 'planilha' ? 'Planilha Consolidada' :
                      tipoDocumento === 'encaminhamento' ? 'Encaminhamento de Processo' :
+                     tipoDocumento === 'recurso' ? 'Recurso de Inabilitação' :
+                     tipoDocumento === 'resposta_recurso' ? 'Resposta de Recurso' :
                      autorizacao.tipo_autorizacao === 'compra_direta' ? 'Autorização - Compra Direta' : 'Autorização - Seleção de Fornecedores'}
                   </p>
                 </div>
