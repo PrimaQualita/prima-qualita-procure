@@ -185,20 +185,23 @@ export async function gerarAtaNegociacaoPDF({
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   
-  const certContent = [
-    `Protocolo: ${protocoloFormatado}`,
-    `Responsável: ${nomeResponsavel}`,
-    `Verificação: ${window.location.origin}/verificar-ata?protocolo=${protocolo}`,
-  ];
-
   let certTextY = certY + 16;
-  certContent.forEach(line => {
-    const lines = doc.splitTextToSize(line, contentWidth - 10);
-    lines.forEach((l: string) => {
-      doc.text(l, marginLeft + 5, certTextY);
-      certTextY += 5;
-    });
-  });
+  
+  // Protocolo
+  doc.text(`Protocolo: ${protocoloFormatado}`, marginLeft + 5, certTextY);
+  certTextY += 5;
+  
+  // Responsável
+  doc.text(`Responsável: ${nomeResponsavel}`, marginLeft + 5, certTextY);
+  certTextY += 5;
+  
+  // Verificação - URL como link único clicável
+  const verificationUrl = `${window.location.origin}/verificar-ata?protocolo=${protocolo}`;
+  doc.text("Verificação: ", marginLeft + 5, certTextY);
+  const labelWidth = doc.getTextWidth("Verificação: ");
+  doc.setTextColor(0, 0, 255);
+  doc.textWithLink(verificationUrl, marginLeft + 5 + labelWidth, certTextY, { url: verificationUrl });
+  doc.setTextColor(0, 0, 0);
 
   // Rodapé
   addFooter();
