@@ -13,7 +13,8 @@ export const gerarRecursoPDF = async (
   fornecedorNome: string,
   fornecedorCnpj: string,
   numeroProcesso: string,
-  motivoInabilitacao: string
+  motivoInabilitacao: string,
+  numeroSelecao?: string
 ): Promise<RecursoResult> => {
   console.log('[PDF] Iniciando geração - Recurso de Inabilitação');
   
@@ -62,27 +63,35 @@ export const gerarRecursoPDF = async (
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text('Processo: ', margemTexto, y);
+  doc.text('Processo:  ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(numeroProcesso, margemTexto + doc.getTextWidth('Processo: '), y);
+  doc.text(numeroProcesso, margemTexto + doc.getTextWidth('Processo:  '), y);
+  
+  if (numeroSelecao) {
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Seleção:  ', margemTexto, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(numeroSelecao, margemTexto + doc.getTextWidth('Seleção:  '), y);
+  }
   
   y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.text('Recorrente: ', margemTexto, y);
+  doc.text('Recorrente:  ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(fornecedorNome, margemTexto + doc.getTextWidth('Recorrente: '), y);
+  doc.text(fornecedorNome, margemTexto + doc.getTextWidth('Recorrente:  '), y);
   
   y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.text('CNPJ: ', margemTexto, y);
+  doc.text('CNPJ:  ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(fornecedorCnpj, margemTexto + doc.getTextWidth('CNPJ: '), y);
+  doc.text(fornecedorCnpj, margemTexto + doc.getTextWidth('CNPJ:  '), y);
   
   y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.text('Data: ', margemTexto, y);
+  doc.text('Data:  ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(dataHora, margemTexto + doc.getTextWidth('Data: '), y);
+  doc.text(dataHora, margemTexto + doc.getTextWidth('Data:  '), y);
   
   y += 12;
   

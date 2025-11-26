@@ -378,7 +378,8 @@ const SistemaLancesFornecedor = () => {
           proposta?.fornecedores?.razao_social || "Fornecedor",
           proposta?.fornecedores?.cnpj || "",
           numeroProcesso || "",
-          minhaInabilitacao?.motivo_inabilitacao || ""
+          minhaInabilitacao?.motivo_inabilitacao || "",
+          selecao?.numero_selecao || ""
         );
         pdfUrl = pdfResult.url;
         pdfFileName = pdfResult.fileName;
