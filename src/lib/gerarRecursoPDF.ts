@@ -70,9 +70,9 @@ export const gerarRecursoPDF = async (
   if (numeroSelecao) {
     y += 6;
     doc.setFont('helvetica', 'bold');
-    doc.text('Seleção:  ', margemTexto, y);
+    doc.text('Seleção de Fornecedores:  ', margemTexto, y);
     doc.setFont('helvetica', 'normal');
-    doc.text(numeroSelecao, margemTexto + doc.getTextWidth('Seleção:  '), y);
+    doc.text(numeroSelecao, margemTexto + doc.getTextWidth('Seleção de Fornecedores:  '), y);
   }
   
   y += 6;
