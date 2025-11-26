@@ -1815,8 +1815,8 @@ export function DialogAnaliseDocumentalSelecao({
 
       {/* Dialog para responder recurso de inabilitação */}
       <AlertDialog open={dialogResponderRecurso} onOpenChange={setDialogResponderRecurso}>
-        <AlertDialogContent className="max-w-lg">
-          <AlertDialogHeader>
+        <AlertDialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+          <AlertDialogHeader className="flex-shrink-0">
             <AlertDialogTitle className="flex items-center gap-2 text-primary">
               <Gavel className="h-5 w-5" />
               Responder Recurso de Inabilitação
@@ -1826,9 +1826,9 @@ export function DialogAnaliseDocumentalSelecao({
             </AlertDialogDescription>
           </AlertDialogHeader>
           
-          <div className="space-y-4 py-4">
+          <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-2">
             {recursoParaResponder && (
-              <div className="bg-muted/50 p-3 rounded-lg border">
+              <div className="bg-muted/50 p-3 rounded-lg border max-h-48 overflow-y-auto">
                 <p className="text-xs text-muted-foreground mb-1">Razões do fornecedor:</p>
                 <p className="text-sm whitespace-pre-wrap">{recursoParaResponder.motivo_recurso}</p>
               </div>
