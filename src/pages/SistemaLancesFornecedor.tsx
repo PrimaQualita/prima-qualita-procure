@@ -822,8 +822,8 @@ const SistemaLancesFornecedor = () => {
                     <p className="text-xs mt-1">Aguarde o gestor abrir os itens</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-                    {Array.from(itensAbertos).sort((a, b) => a - b).slice(0, 5).map((numeroItem) => {
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {Array.from(itensAbertos).sort((a, b) => a - b).slice(0, 10).map((numeroItem) => {
                       const tempoExpiracao = itensEmFechamento.get(numeroItem);
                       const emFechamento = tempoExpiracao !== undefined;
                       const segundosRestantes = emFechamento ? Math.max(0, Math.ceil((tempoExpiracao - Date.now()) / 1000)) : 0;
