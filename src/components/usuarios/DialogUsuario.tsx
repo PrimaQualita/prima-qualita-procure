@@ -25,6 +25,7 @@ interface Usuario {
   ativo: boolean;
   role?: string;
   responsavel_legal?: boolean;
+  cargo?: string;
 }
 
 interface DialogUsuarioProps {
@@ -44,6 +45,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [role, setRole] = useState<"gestor" | "colaborador">("colaborador");
   const [responsavelLegal, setResponsavelLegal] = useState(false);
   const [compliance, setCompliance] = useState(false);
+  const [cargo, setCargo] = useState("");
 
   // Carregar dados do usuário quando for edição
   useEffect(() => {
@@ -55,6 +57,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
       setRole((usuarioEdit.role as "gestor" | "colaborador") || "colaborador");
       setResponsavelLegal(usuarioEdit.responsavel_legal || false);
       setCompliance((usuarioEdit as any).compliance || false);
+      setCargo((usuarioEdit as any).cargo || "");
     } else {
       resetForm();
     }
@@ -68,6 +71,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setRole("colaborador");
     setResponsavelLegal(false);
     setCompliance(false);
+    setCargo("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,6 +108,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             data_nascimento: dataNascimento,
             responsavel_legal: responsavelLegal,
             compliance: compliance,
+            cargo: cargo || null,
           })
           .eq("id", usuarioEdit.id);
 
@@ -174,6 +179,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               role,
               responsavelLegal,
               compliance,
+              cargo,
             },
           }
         );
@@ -317,6 +323,19 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               <Label htmlFor="compliance" className="font-normal cursor-pointer">
                 Compliance
               </Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cargo">Cargo</Label>
+              <Input
+                id="cargo"
+                value={cargo}
+                onChange={(e) => setCargo(e.target.value)}
+                placeholder="Ex: Gerente de Compras, Analista, etc."
+              />
+              <p className="text-xs text-muted-foreground">
+                O cargo será exibido nas assinaturas digitais
+              </p>
             </div>
           </div>
 

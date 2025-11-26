@@ -36,6 +36,7 @@ const createUserSchema = z.object({
   role: z.enum(['gestor', 'colaborador']),
   responsavelLegal: z.boolean().optional(),
   compliance: z.boolean().optional(),
+  cargo: z.string().max(100).optional(),
 });
 
 serve(async (req) => {
@@ -67,7 +68,7 @@ serve(async (req) => {
       }
     );
 
-    const { email, password, nomeCompleto, cpf, dataNascimento, role, responsavelLegal, compliance } = createUserSchema.parse(await req.json());
+    const { email, password, nomeCompleto, cpf, dataNascimento, role, responsavelLegal, compliance, cargo } = createUserSchema.parse(await req.json());
 
     // Verificar se o usuário já existe
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
@@ -126,6 +127,7 @@ serve(async (req) => {
           ativo: true,
           responsavel_legal: responsavelLegal || false,
           compliance: compliance || false,
+          cargo: cargo || null,
         },
       ]);
 
@@ -143,6 +145,7 @@ serve(async (req) => {
           ativo: true,
           responsavel_legal: responsavelLegal || false,
           compliance: compliance || false,
+          cargo: cargo || null,
         })
         .eq("id", userId);
 
