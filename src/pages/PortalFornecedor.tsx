@@ -31,23 +31,41 @@ export default function PortalFornecedor() {
   useEffect(() => {
     if (!fornecedor) return;
 
+    console.log("🔄 Iniciando subscription realtime para seleções...");
+
     const channel = supabase
-      .channel('selecoes-updates')
+      .channel(`selecoes-fornecedor-${fornecedor.id}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'selecoes_fornecedores'
         },
-        () => {
+        (payload) => {
+          console.log("📡 Recebido UPDATE em selecoes_fornecedores:", payload);
           // Recarregar seleções quando houver mudanças
           loadSelecoes(fornecedor.id);
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'selecoes_fornecedores'
+        },
+        (payload) => {
+          console.log("📡 Recebido INSERT em selecoes_fornecedores:", payload);
+          loadSelecoes(fornecedor.id);
+        }
+      )
+      .subscribe((status) => {
+        console.log("📡 Status subscription realtime:", status);
+      });
 
     return () => {
+      console.log("🛑 Removendo subscription realtime...");
       supabase.removeChannel(channel);
     };
   }, [fornecedor]);
@@ -115,6 +133,8 @@ export default function PortalFornecedor() {
 
   const loadSelecoes = async (fornecedorId: string) => {
     try {
+      console.log("📋 Carregando seleções para fornecedor:", fornecedorId);
+      
       // Buscar seleções onde o fornecedor enviou proposta
       const { data, error } = await supabase
         .from("selecao_propostas_fornecedor")
@@ -136,8 +156,15 @@ export default function PortalFornecedor() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      
+      console.log("✅ Seleções carregadas:", data);
+      data?.forEach(s => {
+        console.log(`  - ${s.selecoes_fornecedores?.titulo_selecao}: Data=${s.selecoes_fornecedores?.data_sessao_disputa}, Hora=${s.selecoes_fornecedores?.hora_sessao_disputa}`);
+      });
+      
       setSelecoes(data || []);
     } catch (error: any) {
+      console.error("❌ Erro ao carregar seleções:", error);
       toast.error("Erro ao carregar seleções");
     }
   };
