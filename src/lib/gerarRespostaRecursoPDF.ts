@@ -152,7 +152,7 @@ export const gerarRespostaRecursoPDF = async (
     const labelSelecao = 'Seleção de Fornecedores:';
     doc.text(labelSelecao, margemTexto, y);
     doc.setFont('helvetica', 'normal');
-    doc.text('  ' + numeroSelecao, margemTexto + doc.getTextWidth(labelSelecao), y);
+    doc.text('   ' + numeroSelecao, margemTexto + doc.getTextWidth(labelSelecao), y);
   }
   
   y += 6;
