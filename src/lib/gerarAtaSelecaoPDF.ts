@@ -185,7 +185,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const empresasParticipantes: EmpresaParticipante[] = (propostas || []).map(p => ({
     razao_social: (p.fornecedores as any)?.razao_social || '',
     cnpj: (p.fornecedores as any)?.cnpj || '',
-    email: (p.fornecedores as any)?.email || '',
+    email: ((p.fornecedores as any)?.email || '').toLowerCase(),
     fornecedor_id: p.fornecedor_id
   }));
 
