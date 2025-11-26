@@ -325,6 +325,7 @@ export default function VerificarAutorizacao() {
 
         setAutorizacao({
           ...recursoData,
+          protocolo: recursoData.protocolo_recurso,
           data_geracao: recursoData.data_envio_recurso,
           usuario: { nome_completo: fornecedor?.razao_social }
         });
@@ -368,6 +369,7 @@ export default function VerificarAutorizacao() {
 
         setAutorizacao({
           ...respostaRecursoData,
+          protocolo: respostaRecursoData.protocolo_resposta,
           data_geracao: respostaRecursoData.data_resposta_gestor,
           usuario
         });
@@ -557,7 +559,7 @@ export default function VerificarAutorizacao() {
                   <strong>Validade Legal:</strong> Este documento possui validade legal conforme Lei 14.063/2020
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Hash de Verificação: {autorizacao.protocolo.replace(/-/g, '').substring(0, 32).toUpperCase()}
+                  Hash de Verificação: {autorizacao.protocolo?.replace(/-/g, '').substring(0, 32).toUpperCase() || 'N/A'}
                 </p>
               </div>
             </CardContent>
