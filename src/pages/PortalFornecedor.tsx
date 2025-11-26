@@ -27,6 +27,31 @@ export default function PortalFornecedor() {
     checkAuth();
   }, []);
 
+  // Realtime subscription para atualizar seleções automaticamente
+  useEffect(() => {
+    if (!fornecedor) return;
+
+    const channel = supabase
+      .channel('selecoes-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'selecoes_fornecedores'
+        },
+        () => {
+          // Recarregar seleções quando houver mudanças
+          loadSelecoes(fornecedor.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fornecedor]);
+
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
