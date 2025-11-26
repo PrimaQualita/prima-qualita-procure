@@ -38,6 +38,7 @@ import DetalheSelecao from "./pages/DetalheSelecao";
 import ParticiparSelecao from "./pages/ParticiparSelecao";
 import PropostasSelecao from "./pages/PropostasSelecao";
 import SistemaLancesFornecedor from "./pages/SistemaLancesFornecedor";
+import RecuperarSenha from "./pages/RecuperarSenha";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/troca-senha" element={<TrocaSenha />} />
+          <Route path="/recuperar-senha" element={<RecuperarSenha />} />
           <Route path="/cadastro-fornecedor" element={<CadastroFornecedor />} />
           <Route path="/aprovacao-fornecedores" element={<AprovacaoFornecedores />} />
           <Route path="/perguntas-due-diligence" element={<PerguntasDueDiligence />} />
