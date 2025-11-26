@@ -72,6 +72,24 @@ const DetalheSelecao = () => {
   useEffect(() => {
     if (!selecaoId) return;
 
+    const regenerarPDFSeNecessario = async (payload: any) => {
+      // Se uma assinatura foi atualizada para "aceito", regenerar o PDF
+      if (payload.new?.status_assinatura === 'aceito' && payload.old?.status_assinatura !== 'aceito') {
+        console.log('Nova assinatura detectada - regenerando PDF...');
+        const ataId = payload.new.ata_id;
+        if (ataId) {
+          try {
+            const { atualizarAtaComAssinaturas } = await import('@/lib/gerarAtaSelecaoPDF');
+            await atualizarAtaComAssinaturas(ataId);
+            console.log('PDF regenerado com sucesso!');
+          } catch (error) {
+            console.error('Erro ao regenerar PDF:', error);
+          }
+        }
+      }
+      loadAtasGeradas();
+    };
+
     const channel = supabase
       .channel(`atas-selecao-${selecaoId}`)
       .on(
@@ -90,13 +108,25 @@ const DetalheSelecao = () => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'atas_assinaturas_fornecedor'
         },
-        () => {
-          console.log('Assinatura atualizada - recarregando atas...');
-          loadAtasGeradas();
+        (payload) => {
+          console.log('Assinatura de fornecedor atualizada:', payload);
+          regenerarPDFSeNecessario(payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'atas_assinaturas_usuario'
+        },
+        (payload) => {
+          console.log('Assinatura de usuário atualizada:', payload);
+          regenerarPDFSeNecessario(payload);
         }
       )
       .subscribe();
