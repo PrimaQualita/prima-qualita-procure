@@ -267,11 +267,12 @@ const SistemaLancesFornecedor = () => {
         .eq("selecao_id", propostaData.selecoes_fornecedores.id)
         .eq("revertido", false);
 
-      const fornecedoresInabilitadosIds = new Set(
-        (inabilitados || []).map((f: any) => f.fornecedor_id)
+      // CRÍTICO: Converter SEMPRE para String para garantir comparações corretas
+      const fornecedoresInabilitadosIds = new Set<string>(
+        (inabilitados || []).map((f: any) => String(f.fornecedor_id))
       );
       setFornecedoresInabilitados(fornecedoresInabilitadosIds);
-      console.log('Fornecedores inabilitados na seleção:', Array.from(fornecedoresInabilitadosIds));
+      console.log('Fornecedores inabilitados na seleção (strings):', Array.from(fornecedoresInabilitadosIds));
 
       // Buscar o menor valor de cada item das propostas de TODOS os fornecedores da seleção (exceto inabilitados)
       const { data: todasPropostas, error: propostasError } = await supabase
@@ -290,9 +291,10 @@ const SistemaLancesFornecedor = () => {
         const mapaMenorValor = new Map<number, number>();
         
         todasPropostas.forEach((prop: any) => {
-          // Excluir propostas de fornecedores inabilitados
-          if (fornecedoresInabilitadosIds.has(prop.fornecedor_id)) {
-            console.log('Excluindo proposta do fornecedor inabilitado:', prop.fornecedor_id);
+          // CRÍTICO: Usar String() para comparação consistente
+          const fornecedorIdStr = String(prop.fornecedor_id);
+          if (fornecedoresInabilitadosIds.has(fornecedorIdStr)) {
+            console.log('Excluindo proposta do fornecedor inabilitado:', fornecedorIdStr);
             return;
           }
           
@@ -492,19 +494,14 @@ const SistemaLancesFornecedor = () => {
   };
 
   // Filtrar lances do item excluindo fornecedores inabilitados
-  // Usa comparação segura de strings para evitar problemas de tipo
+  // Usa comparação de strings para evitar problemas de tipo
   const getLancesDoItem = (numeroItem: number) => {
     return lances.filter(l => {
       if (l.numero_item !== numeroItem) return false;
       
-      // Verificar se o fornecedor está inabilitado usando comparação de string
-      const fornecedorId = String(l.fornecedor_id);
-      for (const inabilitadoId of fornecedoresInabilitados) {
-        if (String(inabilitadoId) === fornecedorId) {
-          return false; // Excluir lance de fornecedor inabilitado
-        }
-      }
-      return true;
+      // Comparação SEMPRE como string
+      const fornecedorIdStr = String(l.fornecedor_id);
+      return !fornecedoresInabilitados.has(fornecedorIdStr);
     });
   };
 
@@ -539,18 +536,14 @@ const SistemaLancesFornecedor = () => {
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const valorMenorProposta = menorValorPropostas.get(numeroItem) || 0;
     
-    // IMPORTANTE: Filtrar lances excluindo TODOS os fornecedores inabilitados
-    // Usar filtro direto aqui para garantir que sempre funcione
+    // FILTRAR LANCES: Excluir TODOS os fornecedores inabilitados
+    // O estado lances já foi filtrado em loadLances, mas vamos garantir aqui também
     const lancesDoItemFiltrados = lances.filter(l => {
       if (l.numero_item !== numeroItem) return false;
-      // Verificar se o fornecedor está inabilitado - usar comparação direta de string
-      const fornecedorId = String(l.fornecedor_id);
-      for (const inabilitadoId of fornecedoresInabilitados) {
-        if (String(inabilitadoId) === fornecedorId) {
-          return false; // Excluir lance de fornecedor inabilitado
-        }
-      }
-      return true;
+      
+      // Comparação SEMPRE como string
+      const fornecedorIdStr = String(l.fornecedor_id);
+      return !fornecedoresInabilitados.has(fornecedorIdStr);
     });
     
     // Filtrar apenas lances classificados (menores ou iguais ao estimado)
@@ -565,7 +558,7 @@ const SistemaLancesFornecedor = () => {
       return valoresOrdenados[0];
     }
     
-    // Se não há lances classificados válidos, usar o menor valor das propostas
+    // Se não há lances classificados válidos, usar o menor valor das propostas (já filtrado de inabilitados)
     if (valorMenorProposta > 0) {
       return valorMenorProposta;
     }
