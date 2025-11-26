@@ -202,6 +202,8 @@ export function DialogAvaliacaoCadastro({
     switch (classificacao) {
       case "satisfatorio":
         return "Satisfatório (Baixo Risco)";
+      case "medio":
+        return "Médio Risco";
       case "nao_satisfatorio":
         return "Não Satisfatório (Alto Risco)";
       default:
@@ -352,6 +354,7 @@ export function DialogAvaliacaoCadastro({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="satisfatorio">Satisfatório (Baixo Risco)</SelectItem>
+                        <SelectItem value="medio">Médio Risco</SelectItem>
                         <SelectItem value="nao_satisfatorio">Não Satisfatório (Alto Risco)</SelectItem>
                       </SelectContent>
                     </Select>

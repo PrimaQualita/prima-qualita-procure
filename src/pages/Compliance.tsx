@@ -490,8 +490,21 @@ export default function Compliance() {
                           </TableCell>
                           <TableCell>
                             {avaliacao.classificacao_risco ? (
-                              <Badge variant={avaliacao.classificacao_risco === "satisfatorio" ? "default" : "destructive"}>
-                                {avaliacao.classificacao_risco === "satisfatorio" ? "Satisfatório" : "Não Satisfatório"}
+                              <Badge 
+                                variant="outline"
+                                className={
+                                  avaliacao.classificacao_risco === "satisfatorio" 
+                                    ? "bg-green-500/10 text-green-600 border-green-500/30" 
+                                    : avaliacao.classificacao_risco === "medio"
+                                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                                    : "bg-red-500/10 text-red-600 border-red-500/30"
+                                }
+                              >
+                                {avaliacao.classificacao_risco === "satisfatorio" 
+                                  ? "Baixo" 
+                                  : avaliacao.classificacao_risco === "medio"
+                                  ? "Médio"
+                                  : "Alto"}
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>

@@ -984,14 +984,28 @@ export default function Fornecedores() {
                   }
                   
                   if (statusCompliance === "respondido") {
+                    const classificacao = avaliacaoCompliance?.classificacao_risco;
+                    const corClasse = classificacao === "satisfatorio" 
+                      ? "bg-green-500/10 border-green-500/30" 
+                      : classificacao === "medio"
+                      ? "bg-yellow-500/10 border-yellow-500/30"
+                      : "bg-red-500/10 border-red-500/30";
+                    const corTexto = classificacao === "satisfatorio" 
+                      ? "text-green-600" 
+                      : classificacao === "medio"
+                      ? "text-yellow-600"
+                      : "text-red-600";
+                    const labelRisco = classificacao === "satisfatorio" 
+                      ? "Baixo Risco" 
+                      : classificacao === "medio"
+                      ? "Médio Risco"
+                      : "Alto Risco";
+                    
                     return (
-                      <Alert className={avaliacaoCompliance?.classificacao_risco === "satisfatorio" 
-                        ? "bg-green-500/10 border-green-500/30" 
-                        : "bg-red-500/10 border-red-500/30"
-                      }>
-                        <CheckCircle className={`h-4 w-4 ${avaliacaoCompliance?.classificacao_risco === "satisfatorio" ? "text-green-600" : "text-red-600"}`} />
-                        <AlertDescription className={avaliacaoCompliance?.classificacao_risco === "satisfatorio" ? "text-green-600" : "text-red-600"}>
-                          Compliance: {avaliacaoCompliance?.classificacao_risco === "satisfatorio" ? "Satisfatório" : "Não Satisfatório"}
+                      <Alert className={corClasse}>
+                        <CheckCircle className={`h-4 w-4 ${corTexto}`} />
+                        <AlertDescription className={corTexto}>
+                          Compliance: {labelRisco}
                           {avaliacaoCompliance?.score_risco_total !== null && ` (Score: ${avaliacaoCompliance.score_risco_total})`}
                         </AlertDescription>
                       </Alert>

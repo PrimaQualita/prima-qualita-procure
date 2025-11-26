@@ -334,14 +334,19 @@ export default function AprovacaoFornecedores() {
                         {statusCompliance === "respondido" && (
                           <Badge 
                             variant="outline" 
-                            className={avaliacaoCompliance?.classificacao_risco === "satisfatorio" 
-                              ? "bg-green-500/10 text-green-600" 
-                              : "bg-red-500/10 text-red-600"
+                            className={
+                              avaliacaoCompliance?.classificacao_risco === "satisfatorio" 
+                                ? "bg-green-500/10 text-green-600" 
+                                : avaliacaoCompliance?.classificacao_risco === "medio"
+                                ? "bg-yellow-500/10 text-yellow-600"
+                                : "bg-red-500/10 text-red-600"
                             }
                           >
                             {avaliacaoCompliance?.classificacao_risco === "satisfatorio" 
-                              ? "Satisfatório" 
-                              : "Não Satisfatório"
+                              ? "Baixo Risco" 
+                              : avaliacaoCompliance?.classificacao_risco === "medio"
+                              ? "Médio Risco"
+                              : "Alto Risco"
                             }
                           </Badge>
                         )}
