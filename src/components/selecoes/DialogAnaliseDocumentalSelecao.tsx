@@ -30,6 +30,7 @@ import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Downloa
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
+import { gerarRecursoPDF } from "@/lib/gerarRecursoPDF";
 
 interface DocumentoExistente {
   id: string;
@@ -418,6 +419,57 @@ export function DialogAnaliseDocumentalSelecao({
       toast.error("Erro ao responder recurso");
     } finally {
       setGerandoPdfRecurso(false);
+    }
+  };
+
+  const handleGerarPdfRecurso = async (recurso: any, inabilitacao: any, fornecedor: any) => {
+    try {
+      toast.info("Gerando PDF do recurso...");
+      const pdfResult = await gerarRecursoPDF(
+        recurso.motivo_recurso,
+        fornecedor.razao_social,
+        fornecedor.cnpj,
+        selecaoInfo?.numero || "",
+        inabilitacao.motivo_inabilitacao
+      );
+      await supabase.from("recursos_inabilitacao_selecao").update({
+        url_pdf_recurso: pdfResult.url,
+        nome_arquivo_recurso: pdfResult.fileName
+      }).eq("id", recurso.id);
+      loadRecursosInabilitacao();
+      toast.success("PDF do recurso gerado!");
+      window.open(pdfResult.url, "_blank");
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast.error("Erro ao gerar PDF do recurso");
+    }
+  };
+
+  const handleGerarPdfResposta = async (recurso: any, fornecedor: any) => {
+    try {
+      toast.info("Gerando PDF da resposta...");
+      const { data: userData } = await supabase.auth.getUser();
+      const { data: profileData } = await supabase.from("profiles").select("nome_completo, cpf").eq("id", userData?.user?.id).single();
+      
+      const pdfResult = await gerarRespostaRecursoPDF(
+        recurso.status_recurso === "deferido" ? "provimento" : "negado",
+        recurso.resposta_gestor || "",
+        profileData?.nome_completo || "Gestor",
+        profileData?.cpf || "",
+        fornecedor.razao_social,
+        selecaoInfo?.numero || ""
+      );
+      await supabase.from("recursos_inabilitacao_selecao").update({
+        url_pdf_resposta: pdfResult.url,
+        nome_arquivo_resposta: pdfResult.fileName,
+        protocolo_resposta: pdfResult.protocolo
+      }).eq("id", recurso.id);
+      loadRecursosInabilitacao();
+      toast.success("PDF da resposta gerado!");
+      window.open(pdfResult.url, "_blank");
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast.error("Erro ao gerar PDF da resposta");
     }
   };
 
@@ -1221,7 +1273,7 @@ export function DialogAnaliseDocumentalSelecao({
                     
                     {/* PDFs do Recurso e Resposta */}
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {recurso.url_pdf_recurso && (
+                      {recurso.url_pdf_recurso ? (
                         <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
                           <FileText className="h-3 w-3 text-amber-600" />
                           <span>Recurso</span>
@@ -1229,22 +1281,19 @@ export function DialogAnaliseDocumentalSelecao({
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_recurso} download>
-                              <Download className="h-3 w-3" />
-                            </a>
+                            <a href={recurso.url_pdf_recurso} download><Download className="h-3 w-3" /></a>
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive hover:text-destructive" onClick={async () => {
-                            if (confirm("Deseja excluir o PDF do recurso?")) {
-                              await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_recurso: null, nome_arquivo_recurso: null }).eq("id", recurso.id);
-                              loadRecursosInabilitacao();
-                              toast.success("PDF excluído");
-                            }
-                          }}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={async () => {
+                            if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_recurso: null, nome_arquivo_recurso: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
+                          }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor)}>
+                          <FileDown className="h-3 w-3 mr-1" />
+                          Gerar PDF Recurso
+                        </Button>
                       )}
-                      {recurso.url_pdf_resposta && (
+                      {recurso.url_pdf_resposta ? (
                         <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
                           <FileText className="h-3 w-3 text-green-600" />
                           <span>Resposta</span>
@@ -1252,20 +1301,17 @@ export function DialogAnaliseDocumentalSelecao({
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_resposta} download>
-                              <Download className="h-3 w-3" />
-                            </a>
+                            <a href={recurso.url_pdf_resposta} download><Download className="h-3 w-3" /></a>
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive hover:text-destructive" onClick={async () => {
-                            if (confirm("Deseja excluir o PDF da resposta?")) {
-                              await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_resposta: null, nome_arquivo_resposta: null, protocolo_resposta: null }).eq("id", recurso.id);
-                              loadRecursosInabilitacao();
-                              toast.success("PDF excluído");
-                            }
-                          }}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={async () => {
+                            if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_resposta: null, nome_arquivo_resposta: null, protocolo_resposta: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
+                          }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => handleGerarPdfResposta(recurso, data.fornecedor)}>
+                          <FileDown className="h-3 w-3 mr-1" />
+                          Gerar PDF Resposta
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -1280,7 +1326,7 @@ export function DialogAnaliseDocumentalSelecao({
                     
                     {/* PDFs do Recurso e Resposta */}
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {recurso.url_pdf_recurso && (
+                      {recurso.url_pdf_recurso ? (
                         <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
                           <FileText className="h-3 w-3 text-amber-600" />
                           <span>Recurso</span>
@@ -1294,8 +1340,13 @@ export function DialogAnaliseDocumentalSelecao({
                             if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_recurso: null, nome_arquivo_recurso: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
                           }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor)}>
+                          <FileDown className="h-3 w-3 mr-1" />
+                          Gerar PDF Recurso
+                        </Button>
                       )}
-                      {recurso.url_pdf_resposta && (
+                      {recurso.url_pdf_resposta ? (
                         <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
                           <FileText className="h-3 w-3 text-red-600" />
                           <span>Resposta</span>
@@ -1309,6 +1360,11 @@ export function DialogAnaliseDocumentalSelecao({
                             if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_resposta: null, nome_arquivo_resposta: null, protocolo_resposta: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
                           }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => handleGerarPdfResposta(recurso, data.fornecedor)}>
+                          <FileDown className="h-3 w-3 mr-1" />
+                          Gerar PDF Resposta
+                        </Button>
                       )}
                     </div>
                   </div>
