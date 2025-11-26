@@ -977,8 +977,41 @@ export function DialogAnaliseDocumentalSelecao({
                       </TableCell>
                       <TableCell>
                         {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 && (
-                          <div className="flex gap-2">
-                            {campo.status_solicitacao !== "aprovado" && (
+                          <div className="flex gap-2 items-center">
+                            {/* Status aprovado ou rejeitado - mostrar badge e botão de reversão */}
+                            {(campo.status_solicitacao === "aprovado" || campo.status_solicitacao === "rejeitado") ? (
+                              <>
+                                <Badge 
+                                  variant={campo.status_solicitacao === "aprovado" ? "default" : "destructive"}
+                                  className={campo.status_solicitacao === "aprovado" ? "bg-green-500" : ""}
+                                >
+                                  {campo.status_solicitacao === "aprovado" ? (
+                                    <>
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Documento OK
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="h-3 w-3 mr-1" />
+                                      Rejeitado
+                                    </>
+                                  )}
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setCampoParaAtualizacao(campo.id!);
+                                    setMotivoAtualizacaoDocumento("");
+                                    setDialogSolicitarAtualizacaoDocumento(true);
+                                  }}
+                                >
+                                  <RefreshCw className="h-4 w-4 mr-1" />
+                                  Reverter Decisão
+                                </Button>
+                              </>
+                            ) : (
+                              /* Status em_analise ou pendente - mostrar botões de ação */
                               <>
                                 <Button
                                   size="sm"
@@ -1013,20 +1046,6 @@ export function DialogAnaliseDocumentalSelecao({
                                   Solicitar Atualização
                                 </Button>
                               </>
-                            )}
-                            {campo.status_solicitacao === "aprovado" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setCampoParaAtualizacao(campo.id!);
-                                  setMotivoAtualizacaoDocumento("");
-                                  setDialogSolicitarAtualizacaoDocumento(true);
-                                }}
-                              >
-                                <RefreshCw className="h-4 w-4 mr-1" />
-                                Solicitar Atualização
-                              </Button>
                             )}
                           </div>
                         )}
