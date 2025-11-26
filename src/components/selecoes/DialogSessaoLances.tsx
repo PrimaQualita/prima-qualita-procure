@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare, Trash2, CheckCircle, Ban, ChevronDown, ChevronUp, Bell } from "lucide-react";
+import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare, Trash2, CheckCircle, Ban, ChevronDown, ChevronUp, Bell, Timer } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ChatNegociacao } from "./ChatNegociacao";
@@ -93,6 +93,7 @@ export function DialogSessaoLances({
   const [itensComHistoricoNegociacao, setItensComHistoricoNegociacao] = useState<Map<number, string>>(new Map()); // Todos os itens que tiveram negociação (para histórico)
   const [itensNegociacaoConcluida, setItensNegociacaoConcluida] = useState<Set<number>>(new Set()); // Itens que já foram negociados ou marcados como "não negociar"
   const [vencedoresPorItem, setVencedoresPorItem] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
+  const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map()); // Map<numeroItem, tempoExpiracao>
 
   // Estado - Sistema de Lances
   const [lances, setLances] = useState<Lance[]>([]);
@@ -179,6 +180,44 @@ export function DialogSessaoLances({
     }
   }, [mensagens]);
 
+  // Atualizar countdown dos itens em fechamento
+  useEffect(() => {
+    if (itensEmFechamento.size === 0) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      
+      setItensEmFechamento(prev => {
+        const novo = new Map(prev);
+        let algumItemExpirou = false;
+
+        novo.forEach((tempoExpiracao, numeroItem) => {
+          if (tempoExpiracao <= now) {
+            novo.delete(numeroItem);
+            algumItemExpirou = true;
+          }
+        });
+
+        if (algumItemExpirou) {
+          loadItensAbertos();
+        }
+
+        return novo;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [itensEmFechamento.size]);
+
+  // Função para formatar tempo restante
+  const formatarTempoRestante = (tempoExpiracao: number) => {
+    const agora = Date.now();
+    const restante = Math.max(0, Math.floor((tempoExpiracao - agora) / 1000));
+    const minutos = Math.floor(restante / 60);
+    const segundos = restante % 60;
+    return `${minutos}:${segundos.toString().padStart(2, '0')}`;
+  };
+
   // Verificar fechamento automático dos itens
   const verificarFechamentoAutomatico = async () => {
     try {
@@ -231,10 +270,22 @@ export function DialogSessaoLances({
       const emNegociacao = new Map<number, string>();
       const comHistorico = new Map<number, string>();
       const concluidos = new Set<number>();
+      const emFechamento = new Map<number, number>();
+      const now = Date.now();
 
       data?.forEach((item) => {
         if (item.aberto) {
           abertos.add(item.numero_item);
+          
+          // Verificar se está em processo de fechamento
+          if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+            const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
+            const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
+            
+            if (tempoExpiracao > now) {
+              emFechamento.set(item.numero_item, tempoExpiracao);
+            }
+          }
         } else {
           fechados.add(item.numero_item);
         }
@@ -256,6 +307,7 @@ export function DialogSessaoLances({
       setItensEmNegociacao(emNegociacao);
       setItensComHistoricoNegociacao(comHistorico);
       setItensNegociacaoConcluida(concluidos);
+      setItensEmFechamento(emFechamento);
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }
@@ -528,8 +580,11 @@ export function DialogSessaoLances({
       const TEMPO_FECHAMENTO = 120;
       const agora = new Date().toISOString();
       
+      console.log("Iniciando fechamento para itens:", itensParaFechar);
+      console.log("Data de início:", agora);
+      
       // Atualizar todos os itens selecionados de uma vez
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("itens_abertos_lances")
         .update({
           iniciando_fechamento: true,
@@ -538,14 +593,23 @@ export function DialogSessaoLances({
         })
         .eq("selecao_id", selecaoId)
         .eq("aberto", true)
-        .in("numero_item", itensParaFechar);
+        .in("numero_item", itensParaFechar)
+        .select();
+      
+      console.log("Resultado do update:", data, error);
       
       if (error) {
         console.error("Erro ao iniciar fechamento dos itens:", error);
         throw error;
       }
       
-      console.log(`Fechamento iniciado para itens: ${itensParaFechar.join(", ")} às ${agora}`);
+      if (!data || data.length === 0) {
+        console.warn("Nenhum item foi atualizado!");
+        toast.error("Nenhum item foi atualizado. Verifique se os itens estão abertos.");
+        return;
+      }
+      
+      console.log(`Fechamento iniciado para ${data.length} itens às ${agora}`);
 
       // Agendar fechamento automático para cada item
       itensParaFechar.forEach((numeroItem) => {
@@ -563,11 +627,13 @@ export function DialogSessaoLances({
           
           if (error) {
             console.error(`Erro ao fechar item ${numeroItem}:`, error);
+          } else {
+            console.log(`Item ${numeroItem} fechado automaticamente`);
           }
         }, TEMPO_FECHAMENTO * 1000);
       });
 
-      toast.success(`${itensParaFechar.length} item(ns) entrando em processo de fechamento (2 minutos)`);
+      toast.success(`${data.length} item(ns) entrando em processo de fechamento (2 minutos)`);
       await loadItensAbertos();
       setItensSelecionados(new Set());
     } catch (error) {
@@ -1634,12 +1700,17 @@ export function DialogSessaoLances({
                       const estaAberto = itensAbertos.has(item.numero_item);
                       const estaSelecionado = itensSelecionados.has(item.numero_item);
                       const lancesItem = getLancesDoItem(item.numero_item);
+                      const emFechamento = itensEmFechamento.get(item.numero_item);
 
                       return (
                         <div
                           key={item.numero_item}
                           className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                            estaAberto ? "bg-green-50 border-green-300 dark:bg-green-950" : "bg-background hover:bg-muted"
+                            emFechamento 
+                              ? "bg-amber-50 border-amber-400 dark:bg-amber-950" 
+                              : estaAberto 
+                                ? "bg-green-50 border-green-300 dark:bg-green-950" 
+                                : "bg-background hover:bg-muted"
                           } ${itemSelecionadoLances === item.numero_item ? "ring-2 ring-primary" : ""}`}
                           onClick={() => setItemSelecionadoLances(item.numero_item)}
                         >
@@ -1653,7 +1724,9 @@ export function DialogSessaoLances({
                             <Label htmlFor={`item-${item.numero_item}`} className="cursor-pointer">
                               <div className="flex items-center gap-1">
                                 <span className="font-semibold text-xs">Item {item.numero_item}</span>
-                                {estaAberto ? (
+                                {emFechamento ? (
+                                  <Timer className="h-3 w-3 text-amber-600 animate-pulse" />
+                                ) : estaAberto ? (
                                   <Unlock className="h-3 w-3 text-green-600" />
                                 ) : (
                                   <Lock className="h-3 w-3 text-muted-foreground" />
@@ -1667,6 +1740,13 @@ export function DialogSessaoLances({
                               <p className="text-xs text-muted-foreground mt-0.5 truncate">
                                 {item.descricao}
                               </p>
+                              {/* Countdown de fechamento */}
+                              {emFechamento && (
+                                <div className="flex items-center gap-1 mt-1 text-amber-700 font-semibold text-xs">
+                                  <Timer className="h-3 w-3" />
+                                  <span>Fechando em {formatarTempoRestante(emFechamento)}</span>
+                                </div>
+                              )}
                             </Label>
                           </div>
                         </div>
