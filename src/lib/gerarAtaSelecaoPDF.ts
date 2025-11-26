@@ -2,6 +2,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import logoImg from '@/assets/capa-processo-logo.png';
+import rodapeImg from '@/assets/capa-processo-rodape.png';
 
 interface EmpresaParticipante {
   razao_social: string;
@@ -76,7 +78,31 @@ const formatarDataHora = (dataStr: string): string => {
   });
 };
 
+// Função para carregar imagem como base64
+const loadImageAsBase64 = async (src: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+};
+
 export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: string; nome: string; protocolo: string }> {
+  // Carregar imagens
+  const [logoBase64, rodapeBase64] = await Promise.all([
+    loadImageAsBase64(logoImg),
+    loadImageAsBase64(rodapeImg)
+  ]);
+
   // Buscar dados da seleção
   const { data: selecao, error: selecaoError } = await supabase
     .from('selecoes_fornecedores')
@@ -187,6 +213,9 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     numero_item: m.numero_item
   }));
 
+  // Obter itens que tiveram negociação (números únicos)
+  const itensNegociados = [...new Set(mensagensNegociacao.map(m => m.numero_item))].sort((a, b) => a - b);
+
   // Buscar fornecedores inabilitados
   const { data: inabilitados, error: inabilitadosError } = await supabase
     .from('fornecedores_inabilitados_selecao')
@@ -224,16 +253,18 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // Buscar usuário gerador
   const { data: { user } } = await supabase.auth.getUser();
   let nomeResponsavel = "Sistema";
+  let cpfResponsavel = "";
   
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("nome_completo")
+      .select("nome_completo, cpf")
       .eq("id", user.id)
       .single();
     
     if (profile) {
       nomeResponsavel = profile.nome_completo;
+      cpfResponsavel = profile.cpf || "";
     }
   }
 
@@ -241,48 +272,58 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
-  const marginLeft = 20;
-  const marginRight = 20;
+  const marginLeft = 15;
+  const marginRight = 15;
   const contentWidth = pageWidth - marginLeft - marginRight;
-  let currentY = 20;
-
+  
   const protocolo = uuidv4();
   const protocoloFormatado = formatarProtocoloExibicao(protocolo);
+  const dataHoraGeracao = new Date();
+
+  // Dimensões do logo e rodapé
+  const logoHeight = 25;
+  const rodapeHeight = 20;
+  const contentStartY = logoHeight + 10;
+  const contentEndY = pageHeight - rodapeHeight - 10;
+  
+  let currentY = contentStartY;
+
+  // Função para adicionar logo
+  const addLogo = () => {
+    doc.addImage(logoBase64, 'PNG', 0, 0, pageWidth, logoHeight);
+  };
 
   // Função para adicionar rodapé
-  const addFooter = () => {
-    doc.setFontSize(8);
-    doc.setTextColor(128);
-    doc.text(
-      "Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040",
-      pageWidth / 2,
-      pageHeight - 10,
-      { align: "center" }
-    );
-    doc.setTextColor(0);
+  const addRodape = () => {
+    doc.addImage(rodapeBase64, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
   };
 
   // Função para verificar e adicionar nova página
-  const checkNewPage = (requiredHeight: number = 40) => {
-    if (currentY + requiredHeight > pageHeight - 30) {
-      addFooter();
+  const checkNewPage = (requiredHeight: number = 20) => {
+    if (currentY + requiredHeight > contentEndY) {
+      addRodape();
       doc.addPage();
-      currentY = 20;
+      addLogo();
+      currentY = contentStartY;
       return true;
     }
     return false;
   };
 
-  // Título
+  // Primeira página - Logo e Rodapé
+  addLogo();
+
+  // 1 - TÍTULO
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
   doc.text(`ATA DA SESSÃO PÚBLICA DA SELEÇÃO DE FORNECEDORES Nº ${selecao.numero_selecao || '---'}`, pageWidth / 2, currentY, { align: "center" });
   currentY += 12;
 
-  // OBJETO
+  // 2 - OBJETO
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("OBJETO", marginLeft, currentY);
+  doc.text("1. OBJETO", marginLeft, currentY);
   currentY += 6;
 
   doc.setFontSize(10);
@@ -294,19 +335,19 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
     currentY += 5;
   });
-  currentY += 6;
+  currentY += 8;
 
-  // PREÂMBULO
+  // 3 - PREÂMBULO DE ABERTURA
   checkNewPage(50);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("PREÂMBULO", marginLeft, currentY);
+  doc.text("2. PREÂMBULO DE ABERTURA", marginLeft, currentY);
   currentY += 6;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   
-  const preambulo = `Aos ${formatarDataExtenso(selecao.data_sessao_disputa)}, às ${formatarHora(selecao.hora_sessao_disputa)} horas, reuniu-se a Comissão do Departamento de Compras para atuar na Sessão Pública de Seleção de Fornecedores nº ${selecao.numero_selecao || '---'}, e Processo nº ${(selecao.processos_compras as any)?.numero_processo_interno || '---'}.`;
+  const preambulo = `Aos ${formatarDataExtenso(selecao.data_sessao_disputa)}, às ${formatarHora(selecao.hora_sessao_disputa)} horas, através do Sistema de Compras da Prima Qualitá Saúde, reuniu-se a Comissão do Departamento de Compras para conduzir a Sessão Pública de Seleção de Fornecedores nº ${selecao.numero_selecao || '---'}, referente ao Processo nº ${(selecao.processos_compras as any)?.numero_processo_interno || '---'}.`;
   
   const preambuloLinhas = doc.splitTextToSize(preambulo, contentWidth);
   preambuloLinhas.forEach((linha: string) => {
@@ -314,106 +355,95 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
     currentY += 5;
   });
-  currentY += 4;
-
-  // Início da sessão
-  doc.text(`Início da sessão: ${formatarDataHora(dataHoraInicio)}`, marginLeft, currentY);
   currentY += 8;
 
-  // Lista de empresas participantes
+  // 4 - EMPRESAS PARTICIPANTES
+  checkNewPage(60);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("3. EMPRESAS PARTICIPANTES", marginLeft, currentY);
+  currentY += 6;
+
   if (empresasParticipantes.length > 0) {
-    const nomesEmpresas = empresasParticipantes.map(e => e.razao_social).join(', ');
-    const participacaoTexto = `Participaram do certame as empresas: ${nomesEmpresas}.`;
-    const participacaoLinhas = doc.splitTextToSize(participacaoTexto, contentWidth);
-    participacaoLinhas.forEach((linha: string) => {
+    const tabelaEmpresas = empresasParticipantes.map(e => [
+      e.razao_social,
+      formatarCNPJ(e.cnpj),
+      e.email
+    ]);
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [['EMPRESA', 'CNPJ', 'E-MAIL']],
+      body: tabelaEmpresas,
+      theme: 'grid',
+      headStyles: { 
+        fillColor: [0, 102, 153], 
+        fontSize: 9,
+        halign: 'center',
+        valign: 'middle'
+      },
+      bodyStyles: { 
+        fontSize: 8,
+        valign: 'middle'
+      },
+      margin: { left: marginLeft, right: marginRight },
+      columnStyles: {
+        0: { cellWidth: 65, halign: 'left' },
+        1: { cellWidth: 50, halign: 'center' },
+        2: { cellWidth: 55, halign: 'center' }
+      },
+      didDrawPage: () => {
+        addLogo();
+        addRodape();
+      }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 10;
+  } else {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Nenhuma empresa participou desta seleção.", marginLeft, currentY);
+    currentY += 10;
+  }
+
+  // 5 - HABILITADOS
+  checkNewPage(40);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("4. HABILITADOS", marginLeft, currentY);
+  currentY += 6;
+
+  // Fornecedores participantes que não foram inabilitados
+  const fornecedoresInabilitadosIds = fornecedoresInabilitados.map(f => f.cnpj);
+  const fornecedoresHabilitados = empresasParticipantes.filter(e => 
+    !fornecedoresInabilitadosIds.includes(e.cnpj)
+  );
+
+  if (fornecedoresHabilitados.length > 0) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const nomesHabilitados = fornecedoresHabilitados.map(f => f.razao_social).join('; ');
+    const textoHabilitados = `Foram habilitadas as seguintes empresas: ${nomesHabilitados}.`;
+    const linhasHabilitados = doc.splitTextToSize(textoHabilitados, contentWidth);
+    linhasHabilitados.forEach((linha: string) => {
       checkNewPage(6);
       doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
       currentY += 5;
     });
-  }
-  currentY += 8;
-
-  // Tabela de empresas participantes
-  checkNewPage(60);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text("EMPRESAS PARTICIPANTES", marginLeft, currentY);
-  currentY += 6;
-
-  const tabelaEmpresas = empresasParticipantes.map(e => [
-    e.razao_social,
-    formatarCNPJ(e.cnpj),
-    e.email
-  ]);
-
-  autoTable(doc, {
-    startY: currentY,
-    head: [['EMPRESA', 'CNPJ', 'E-MAIL']],
-    body: tabelaEmpresas,
-    theme: 'grid',
-    headStyles: { fillColor: [66, 66, 66], fontSize: 9 },
-    bodyStyles: { fontSize: 8 },
-    margin: { left: marginLeft, right: marginRight },
-    columnStyles: {
-      0: { cellWidth: 70 },
-      1: { cellWidth: 45 },
-      2: { cellWidth: 55 }
-    }
-  });
-
-  currentY = (doc as any).lastAutoTable.finalY + 10;
-
-  // HABILITADOS - Vencedores por item
-  checkNewPage(60);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text("HABILITADOS", marginLeft, currentY);
-  currentY += 6;
-
-  if (itensVencedores.length > 0) {
-    // Agrupar por fornecedor
-    const vencedoresPorFornecedor: Record<string, { nome: string; itens: number[]; valores: number[] }> = {};
-    itensVencedores.forEach(item => {
-      if (!vencedoresPorFornecedor[item.fornecedor_id]) {
-        vencedoresPorFornecedor[item.fornecedor_id] = {
-          nome: item.fornecedor_nome,
-          itens: [],
-          valores: []
-        };
-      }
-      vencedoresPorFornecedor[item.fornecedor_id].itens.push(item.numero_item);
-      vencedoresPorFornecedor[item.fornecedor_id].valores.push(item.valor_final);
-    });
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-
-    Object.values(vencedoresPorFornecedor).forEach(fornecedor => {
-      const itensStr = fornecedor.itens.sort((a, b) => a - b).join(', ');
-      const valorTotal = fornecedor.valores.reduce((a, b) => a + b, 0);
-      const textoVencedor = `A empresa ${fornecedor.nome} foi declarada HABILITADA e VENCEDORA dos itens: ${itensStr}. Valor total: ${formatarMoeda(valorTotal)}.`;
-      const linhas = doc.splitTextToSize(textoVencedor, contentWidth);
-      linhas.forEach((linha: string) => {
-        checkNewPage(6);
-        doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
-        currentY += 5;
-      });
-      currentY += 3;
-    });
   } else {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("Nenhum fornecedor habilitado até o momento.", marginLeft, currentY);
+    doc.text("Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY);
     currentY += 6;
   }
-  currentY += 6;
+  currentY += 8;
 
-  // INABILITADOS
+  // 6 - INABILITADOS (apenas se houver)
   if (fornecedoresInabilitados.length > 0) {
-    checkNewPage(60);
+    checkNewPage(40);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("INABILITADOS", marginLeft, currentY);
+    doc.text("5. INABILITADOS", marginLeft, currentY);
     currentY += 6;
 
     doc.setFontSize(10);
@@ -422,104 +452,142 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     fornecedoresInabilitados.forEach(inab => {
       checkNewPage(20);
       const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
-      const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA nos itens: ${itensStr}.`;
+      const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA nos itens: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
       const linhas = doc.splitTextToSize(textoInab, contentWidth);
       linhas.forEach((linha: string) => {
+        checkNewPage(5);
         doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
         currentY += 5;
       });
-      
-      // Motivo da inabilitação
-      const motivoTexto = `Motivo: ${inab.motivo_inabilitacao}`;
-      const motivoLinhas = doc.splitTextToSize(motivoTexto, contentWidth - 10);
-      doc.setFont("helvetica", "italic");
-      motivoLinhas.forEach((linha: string) => {
-        checkNewPage(5);
-        doc.text(linha, marginLeft + 10, currentY);
-        currentY += 5;
-      });
-      doc.setFont("helvetica", "normal");
-      currentY += 4;
+      currentY += 3;
     });
-    currentY += 4;
+    currentY += 5;
   }
 
-  // NEGOCIAÇÃO - Chat
-  if (mensagensNegociacao.length > 0) {
-    checkNewPage(50);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("REGISTRO DE NEGOCIAÇÃO", marginLeft, currentY);
-    currentY += 8;
-
-    // Agrupar mensagens por item
-    const mensagensPorItem: Record<number, MensagemNegociacao[]> = {};
-    mensagensNegociacao.forEach(msg => {
-      if (!mensagensPorItem[msg.numero_item]) {
-        mensagensPorItem[msg.numero_item] = [];
-      }
-      mensagensPorItem[msg.numero_item].push(msg);
-    });
-
-    Object.keys(mensagensPorItem).sort((a, b) => Number(a) - Number(b)).forEach(itemNum => {
-      checkNewPage(30);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text(`Item ${itemNum}:`, marginLeft, currentY);
-      currentY += 5;
-
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-
-      mensagensPorItem[Number(itemNum)].forEach(msg => {
-        checkNewPage(15);
-        const remetente = msg.tipo_remetente === 'gestor' ? 'Comissão' : msg.fornecedor_nome;
-        const dataHora = formatarDataHora(msg.created_at);
-        
-        doc.setFont("helvetica", "bold");
-        doc.text(`[${dataHora}] ${remetente}:`, marginLeft + 5, currentY);
-        currentY += 4;
-        
-        doc.setFont("helvetica", "normal");
-        const msgLinhas = doc.splitTextToSize(msg.mensagem, contentWidth - 10);
-        msgLinhas.forEach((linha: string) => {
-          checkNewPage(5);
-          doc.text(linha, marginLeft + 10, currentY);
-          currentY += 4;
-        });
-        currentY += 2;
-      });
-      currentY += 4;
-    });
-  }
-
-  // ENCERRAMENTO
+  // 7 - VENCEDOR(ES)
   checkNewPage(40);
-  currentY += 5;
+  const secaoVencedor = fornecedoresInabilitados.length > 0 ? "6" : "5";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("ENCERRAMENTO", marginLeft, currentY);
+  doc.text(`${secaoVencedor}. VENCEDOR(ES)`, marginLeft, currentY);
+  currentY += 6;
+
+  if (itensVencedores.length > 0) {
+    // Agrupar por fornecedor
+    const vencedoresPorFornecedor: Record<string, { nome: string; itens: number[]; valorTotal: number }> = {};
+    itensVencedores.forEach(item => {
+      if (!vencedoresPorFornecedor[item.fornecedor_id]) {
+        vencedoresPorFornecedor[item.fornecedor_id] = {
+          nome: item.fornecedor_nome,
+          itens: [],
+          valorTotal: 0
+        };
+      }
+      vencedoresPorFornecedor[item.fornecedor_id].itens.push(item.numero_item);
+      vencedoresPorFornecedor[item.fornecedor_id].valorTotal += item.valor_final;
+    });
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+
+    Object.values(vencedoresPorFornecedor).forEach(fornecedor => {
+      checkNewPage(15);
+      const itensStr = fornecedor.itens.sort((a, b) => a - b).join(', ');
+      const textoVencedor = `• ${fornecedor.nome} - Itens: ${itensStr} - Valor Total: ${formatarMoeda(fornecedor.valorTotal)}.`;
+      const linhas = doc.splitTextToSize(textoVencedor, contentWidth - 5);
+      linhas.forEach((linha: string) => {
+        checkNewPage(5);
+        doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
+        currentY += 5;
+      });
+      currentY += 2;
+    });
+  } else {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Nenhum vencedor foi declarado até o momento.", marginLeft, currentY);
+    currentY += 6;
+  }
+  currentY += 8;
+
+  // 8 - NEGOCIAÇÕES
+  checkNewPage(40);
+  const secaoNegociacao = fornecedoresInabilitados.length > 0 ? "7" : "6";
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${secaoNegociacao}. NEGOCIAÇÕES`, marginLeft, currentY);
   currentY += 6;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  const encerramento = `Nada mais a ser tratado, foi lavrada a presente Ata que registra todos os atos praticados durante a Sessão Pública de Seleção de Fornecedores.`;
-  const encerramentoLinhas = doc.splitTextToSize(encerramento, contentWidth);
-  encerramentoLinhas.forEach((linha: string) => {
+  
+  if (itensNegociados.length > 0) {
+    const itensNegociadosStr = itensNegociados.join(', ');
+    const textoNegociacao = `Foram realizadas negociações nos seguintes itens: ${itensNegociadosStr}.`;
+    const linhasNegociacao = doc.splitTextToSize(textoNegociacao, contentWidth);
+    linhasNegociacao.forEach((linha: string) => {
+      checkNewPage(5);
+      doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
+      currentY += 5;
+    });
+  } else {
+    doc.text("Não houve negociações durante esta sessão.", marginLeft, currentY);
+    currentY += 6;
+  }
+  currentY += 8;
+
+  // 9 - INTENÇÃO DE RECURSOS
+  checkNewPage(50);
+  const secaoRecursos = fornecedoresInabilitados.length > 0 ? "8" : "7";
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${secaoRecursos}. INTENÇÃO DE RECURSOS`, marginLeft, currentY);
+  currentY += 6;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  
+  // Texto padrão sobre intenção de recursos (por enquanto sem dados de recursos)
+  const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento de cada fase do certame, nenhuma empresa manifestou intenção de interpor recurso.`;
+  const linhasRecursos = doc.splitTextToSize(textoRecursos, contentWidth);
+  linhasRecursos.forEach((linha: string) => {
+    checkNewPage(5);
     doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
     currentY += 5;
   });
+  currentY += 8;
 
-  // Certificação Digital
+  // 10 - ENCERRAMENTO
+  checkNewPage(50);
+  const secaoEncerramento = fornecedoresInabilitados.length > 0 ? "9" : "8";
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${secaoEncerramento}. ENCERRAMENTO`, marginLeft, currentY);
+  currentY += 6;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  
+  const dataGeracaoFormatada = dataHoraGeracao.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const horaGeracaoFormatada = dataHoraGeracao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  
+  const encerramento = `Nada mais havendo a tratar, foi encerrada a sessão pública às ${horaGeracaoFormatada} horas do dia ${dataGeracaoFormatada}, lavrando-se a presente Ata que registra todos os atos praticados durante a Sessão Pública de Seleção de Fornecedores através do Sistema de Compras da Prima Qualitá Saúde.`;
+  const encerramentoLinhas = doc.splitTextToSize(encerramento, contentWidth);
+  encerramentoLinhas.forEach((linha: string) => {
+    checkNewPage(5);
+    doc.text(linha, marginLeft, currentY, { align: "justify", maxWidth: contentWidth });
+    currentY += 5;
+  });
   currentY += 15;
-  checkNewPage(60);
+
+  // CERTIFICAÇÃO DIGITAL
+  checkNewPage(70);
 
   const verificationUrl = `${window.location.origin}/verificar-ata?protocolo=${protocolo}`;
   
-  // Calcular altura necessária para o conteúdo
   doc.setFontSize(8);
   const urlLines = doc.splitTextToSize(verificationUrl, contentWidth - 10);
-  const certHeight = 38 + (urlLines.length * 3.5);
+  const certHeight = 50 + (urlLines.length * 3.5);
   
   const certY = currentY;
   
@@ -536,7 +604,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 139);
-  doc.text("CERTIFICAÇÃO DIGITAL - AUTENTICIDADE DO DOCUMENTO", marginLeft + contentWidth / 2, certY + 8, { align: "center" });
+  doc.text("CERTIFICAÇÃO DIGITAL", marginLeft + contentWidth / 2, certY + 8, { align: "center" });
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
@@ -548,23 +616,28 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   doc.text(`Protocolo: ${protocoloFormatado}`, marginLeft + 5, certTextY);
   certTextY += 5;
   
+  // Data e hora
+  doc.text(`Data/Hora: ${formatarDataHora(dataHoraGeracao.toISOString())}`, marginLeft + 5, certTextY);
+  certTextY += 5;
+  
   // Responsável
-  doc.text(`Responsável: ${nomeResponsavel}`, marginLeft + 5, certTextY);
-  certTextY += 6;
+  const responsavelTexto = cpfResponsavel ? `${nomeResponsavel} (CPF: ${cpfResponsavel})` : nomeResponsavel;
+  doc.text(`Responsável: ${responsavelTexto}`, marginLeft + 5, certTextY);
+  certTextY += 7;
   
   // Verificação - Label
   doc.setFont("helvetica", "bold");
   doc.text("Verificar autenticidade em:", marginLeft + 5, certTextY);
   certTextY += 4;
   
-  // URL como link clicável com quebra de linha
+  // URL como link clicável
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 255);
   doc.setFontSize(8);
   urlLines.forEach((linha: string, index: number) => {
     doc.textWithLink(linha, marginLeft + 5, certTextY + (index * 3.5), { url: verificationUrl });
   });
-  certTextY += urlLines.length * 3.5 + 2;
+  certTextY += urlLines.length * 3.5 + 3;
   
   // Texto legal
   doc.setTextColor(80, 80, 80);
@@ -572,8 +645,8 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   doc.text("Este documento possui certificação digital conforme Lei 14.063/2020", marginLeft + 5, certTextY);
   doc.setTextColor(0, 0, 0);
 
-  // Rodapé
-  addFooter();
+  // Rodapé da última página
+  addRodape();
 
   // Salvar PDF
   const pdfBlob = doc.output('blob');
@@ -604,14 +677,13 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       protocolo: protocolo,
       nome_arquivo: nomeArquivo,
       url_arquivo: publicUrl,
-      url_arquivo_original: publicUrl, // Armazena URL original para reconstrução
+      url_arquivo_original: publicUrl,
       usuario_gerador_id: user?.id || null,
       data_geracao: new Date().toISOString()
     });
 
   if (insertError) {
     console.error('Erro ao salvar registro da ata:', insertError);
-    // Não lançamos erro para não impedir o fluxo, apenas logamos
   }
 
   return {
@@ -648,7 +720,6 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   console.log('Ata encontrada:', ata.nome_arquivo);
   
-  // Usar URL original se disponível, senão usar URL atual sem parâmetros
   const urlOriginal = ata.url_arquivo_original || ata.url_arquivo.split('?')[0];
   console.log('URL original para download:', urlOriginal);
 
@@ -693,7 +764,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const storagePath = urlParts[1];
   console.log('Storage path:', storagePath);
 
-  // Baixar PDF ORIGINAL diretamente do storage (sem página de assinaturas)
+  // Baixar PDF ORIGINAL diretamente do storage
   const { data: fileData, error: downloadError } = await supabase.storage
     .from('processo-anexos')
     .download(storagePath);
@@ -716,34 +787,32 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const originalPageCount = pdfDoc.getPageCount();
   console.log('PDF carregado, total de páginas:', originalPageCount);
 
-  // Pegar a última página existente (onde está a certificação digital)
+  // Pegar a última página existente
   const pages = pdfDoc.getPages();
   let page = pages[pages.length - 1];
   const { width, height } = page.getSize();
   const marginLeft = 40;
   const marginRight = 40;
   
-  // Em pdf-lib, Y=0 é o fundo da página, Y=842 é o topo (A4)
-  // A certificação (box cinza) termina aproximadamente em Y = 450-500
-  // Começar as assinaturas logo abaixo da certificação
-  let currentY = 470;
+  // Encontrar posição abaixo da certificação digital
+  // A certificação está aproximadamente em Y=470 na última página (considerando Y invertido no pdf-lib)
+  let currentY = 200; // Ajustar conforme necessário para iniciar logo abaixo da certificação
   
-  // Limite inferior antes do rodapé
-  const footerLimit = 50;
+  const footerLimit = 80;
 
-  // Função para verificar e criar nova página se necessário
-  const checkNewPage = (espacoNecessario: number) => {
+  // Função para criar nova página com logo e rodapé
+  const checkNewPage = async (espacoNecessario: number) => {
     if (currentY - espacoNecessario < footerLimit) {
       page = pdfDoc.addPage([595, 842]);
-      currentY = height - 50;
+      currentY = height - 80;
       return true;
     }
     return false;
   };
 
-  // Título com referência ao protocolo da ata
+  // Título do termo de aceite
   const tituloHeight = 35;
-  checkNewPage(tituloHeight);
+  await checkNewPage(tituloHeight);
   
   page.drawText('TERMO DE ACEITE E ASSINATURA DIGITAL', {
     x: marginLeft,
@@ -754,7 +823,6 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   });
   currentY -= 14;
   
-  // Subtítulo com protocolo da ata formatado (mesmo formato da certificação)
   const protocoloFormatado = formatarProtocoloExibicao(ata.protocolo);
   page.drawText(`Ata de Seleção - Protocolo: ${protocoloFormatado}`, {
     x: marginLeft,
@@ -768,9 +836,8 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   for (const assinatura of assinaturasFormatadas) {
     const boxHeight = 50;
     
-    // Verificar se precisa nova página antes de desenhar
-    if (checkNewPage(boxHeight + 10)) {
-      // Se criou nova página, não precisa fazer nada extra
+    if (await checkNewPage(boxHeight + 10)) {
+      // Nova página criada
     }
 
     // Fundo do box
@@ -825,8 +892,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     currentY -= (boxHeight + 8);
   }
 
-  // Rodapé com informações de verificação (apenas em páginas adicionadas)
-  // A página original já possui rodapé, então só adiciona em páginas novas
+  // Rodapé em páginas adicionadas
   if (pdfDoc.getPageCount() > originalPageCount) {
     const allPages = pdfDoc.getPages();
     for (let i = originalPageCount; i < allPages.length; i++) {
@@ -840,7 +906,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
         color: rgb(0.8, 0.8, 0.8),
       });
 
-      p.drawText('Este documento possui certificacao digital conforme Lei 14.063/2020', {
+      p.drawText('Este documento possui certificação digital conforme Lei 14.063/2020', {
         x: marginLeft,
         y: footerY,
         size: 8,
@@ -862,11 +928,9 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const modifiedPdfBytes = await pdfDoc.save();
   const pdfBlob = new Blob([new Uint8Array(modifiedPdfBytes) as BlobPart], { type: 'application/pdf' });
 
-  // Usar path separado para o PDF com assinaturas (não sobrescrever o original)
   const storagePathAssinado = storagePath.replace('.pdf', '-assinado.pdf');
   console.log('Fazendo upload do PDF com assinaturas em:', storagePathAssinado);
 
-  // Upload do PDF atualizado (com assinaturas)
   const { error: uploadError } = await supabase.storage
     .from('processo-anexos')
     .upload(storagePathAssinado, pdfBlob, {
@@ -879,7 +943,6 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     throw uploadError;
   }
 
-  // Atualizar URL no banco com cache-busting timestamp
   const { data: { publicUrl } } = supabase.storage
     .from('processo-anexos')
     .getPublicUrl(storagePathAssinado);
