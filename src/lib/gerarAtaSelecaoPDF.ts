@@ -781,14 +781,27 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       usuario_id,
       data_assinatura,
       ip_assinatura,
-      status_assinatura,
-      profiles:usuario_id (
-        nome_completo,
-        cpf
-      )
+      status_assinatura
     `)
     .eq('ata_id', ataId)
     .order('data_assinatura', { ascending: true });
+
+  // Buscar dados dos perfis separadamente para evitar problemas com join
+  let profilesMap: Record<string, { nome_completo: string; cpf: string }> = {};
+  if (assinaturasUsuarios && assinaturasUsuarios.length > 0) {
+    const usuarioIds = assinaturasUsuarios.map(a => a.usuario_id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, nome_completo, cpf')
+      .in('id', usuarioIds);
+    
+    if (profiles) {
+      profilesMap = profiles.reduce((acc, p) => {
+        acc[p.id] = { nome_completo: p.nome_completo, cpf: p.cpf };
+        return acc;
+      }, {} as Record<string, { nome_completo: string; cpf: string }>);
+    }
+  }
 
   if (assinaturasUserError) {
     console.error('Erro ao buscar assinaturas de usuários:', assinaturasUserError);
@@ -809,16 +822,19 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     status_assinatura: a.status_assinatura
   }));
 
-  // Adicionar assinaturas de usuários
-  const assinaturasUsuariosFormatadas: Assinatura[] = (assinaturasUsuarios || []).map(a => ({
-    id: a.id,
-    nome: (a.profiles as any)?.nome_completo || '',
-    identificacao: `CPF: ${formatarCPF((a.profiles as any)?.cpf || '')}`,
-    tipo: 'usuario' as const,
-    data_assinatura: a.data_assinatura || '',
-    ip_assinatura: a.ip_assinatura || '',
-    status_assinatura: a.status_assinatura
-  }));
+  // Adicionar assinaturas de usuários usando o map de profiles
+  const assinaturasUsuariosFormatadas: Assinatura[] = (assinaturasUsuarios || []).map(a => {
+    const profile = profilesMap[a.usuario_id];
+    return {
+      id: a.id,
+      nome: profile?.nome_completo || '',
+      identificacao: `CPF: ${formatarCPF(profile?.cpf || '')}`,
+      tipo: 'usuario' as const,
+      data_assinatura: a.data_assinatura || '',
+      ip_assinatura: a.ip_assinatura || '',
+      status_assinatura: a.status_assinatura
+    };
+  });
 
   // Combinar todas as assinaturas
   const todasAssinaturas = [...assinaturasFormatadas, ...assinaturasUsuariosFormatadas];
