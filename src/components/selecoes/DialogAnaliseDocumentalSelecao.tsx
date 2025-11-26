@@ -143,6 +143,9 @@ export function DialogAnaliseDocumentalSelecao({
   const [dialogSolicitarAtualizacaoDocumento, setDialogSolicitarAtualizacaoDocumento] = useState(false);
   const [campoParaAtualizacao, setCampoParaAtualizacao] = useState<string | null>(null);
   const [motivoAtualizacaoDocumento, setMotivoAtualizacaoDocumento] = useState("");
+  
+  // State para aprovação geral do fornecedor
+  const [fornecedoresAprovadosGeral, setFornecedoresAprovadosGeral] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -790,40 +793,69 @@ export function DialogAnaliseDocumentalSelecao({
           <div className="flex flex-col gap-2 items-end">
             {!isInabilitado ? (
               <>
-                <Badge variant={data.todosDocumentosAprovados ? "default" : "secondary"}>
-                  {data.todosDocumentosAprovados ? (
-                    <>
+                {fornecedoresAprovadosGeral.has(data.fornecedor.id) ? (
+                  /* Fornecedor já aprovado - mostrar badge e botão de reversão */
+                  <>
+                    <Badge variant="default" className="bg-green-500">
                       <CheckCircle className="h-3 w-3 mr-1" />
-                      Documentos OK
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      Pendente
-                    </>
-                  )}
-                </Badge>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="default"
-                    disabled={!data.todosDocumentosAprovados}
-                    onClick={() => {
-                      toast.success(`Fornecedor ${data.fornecedor.razao_social} aprovado com sucesso!`);
-                    }}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Aprovar Fornecedor
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleAbrirInabilitacao(data)}
-                  >
-                    <UserX className="h-4 w-4 mr-1" />
-                    Inabilitar
-                  </Button>
-                </div>
+                      Fornecedor Aprovado
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setFornecedoresAprovadosGeral(prev => {
+                          const newSet = new Set(prev);
+                          newSet.delete(data.fornecedor.id);
+                          return newSet;
+                        });
+                        toast.success("Aprovação revertida");
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                      Reverter Decisão
+                    </Button>
+                  </>
+                ) : (
+                  /* Fornecedor ainda não aprovado - mostrar status e botões */
+                  <>
+                    <Badge variant={data.todosDocumentosAprovados ? "default" : "secondary"}>
+                      {data.todosDocumentosAprovados ? (
+                        <>
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Documentos OK
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Pendente
+                        </>
+                      )}
+                    </Badge>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={!data.todosDocumentosAprovados}
+                        onClick={() => {
+                          setFornecedoresAprovadosGeral(prev => new Set(prev).add(data.fornecedor.id));
+                          toast.success(`Fornecedor ${data.fornecedor.razao_social} aprovado com sucesso!`);
+                        }}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Aprovar Fornecedor
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleAbrirInabilitacao(data)}
+                      >
+                        <UserX className="h-4 w-4 mr-1" />
+                        Inabilitar
+                      </Button>
+                    </div>
+                  </>
+                )}
               </>
             ) : (
               <div className="flex flex-col gap-2">
