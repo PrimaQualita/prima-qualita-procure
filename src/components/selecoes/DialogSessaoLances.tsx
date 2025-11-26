@@ -1602,8 +1602,8 @@ export function DialogSessaoLances({
                   </Button>
                 </div>
 
-                <ScrollAreaWithArrows className="flex-1" orientation="vertical" scrollStep={60}>
-                  <div className="space-y-2 pr-2">
+                <ScrollAreaWithArrows className="flex-1" orientation="both" scrollStep={60}>
+                  <div className="space-y-2 pr-2 min-w-max">
                     {itens.map((item) => {
                       const estaAberto = itensAbertos.has(item.numero_item);
                       const estaSelecionado = itensSelecionados.has(item.numero_item);
