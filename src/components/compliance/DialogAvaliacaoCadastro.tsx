@@ -24,13 +24,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { FileText, Upload, ExternalLink } from "lucide-react";
 
-interface Fornecedor {
-  id: string;
-  razao_social: string;
-  cnpj: string;
-  email: string;
-}
-
 interface Avaliacao {
   id: string;
   fornecedor_id: string;
@@ -39,7 +32,12 @@ interface Avaliacao {
   classificacao_risco: string | null;
   observacoes_compliance: string | null;
   data_envio: string;
-  fornecedor?: Fornecedor;
+  fornecedor?: {
+    id?: string;
+    razao_social: string;
+    cnpj: string;
+    email: string;
+  };
 }
 
 interface DialogAvaliacaoCadastroProps {
