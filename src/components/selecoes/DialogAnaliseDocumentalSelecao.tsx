@@ -133,6 +133,11 @@ export function DialogAnaliseDocumentalSelecao({
   // State para reabrir negociação
   const [dialogReabrirNegociacao, setDialogReabrirNegociacao] = useState(false);
   const [inabilitacaoParaReabrirNegociacao, setInabilitacaoParaReabrirNegociacao] = useState<FornecedorData | null>(null);
+  
+  // State para rejeição de documento com motivo
+  const [dialogRejeitarDocumento, setDialogRejeitarDocumento] = useState(false);
+  const [campoParaRejeitar, setCampoParaRejeitar] = useState<string | null>(null);
+  const [motivoRejeicaoDocumento, setMotivoRejeicaoDocumento] = useState("");
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -488,23 +493,52 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
-  const handleRejeitarDocumento = async (campoId: string) => {
+  const handleRejeitarDocumento = async () => {
+    if (!campoParaRejeitar || !motivoRejeicaoDocumento.trim()) {
+      toast.error("Informe o motivo da rejeição");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .update({
           status_solicitacao: "rejeitado",
           data_aprovacao: null,
+          descricao: motivoRejeicaoDocumento,
+        })
+        .eq("id", campoParaRejeitar);
+
+      if (error) throw error;
+
+      toast.success("Documento rejeitado - fornecedor pode reenviar");
+      setDialogRejeitarDocumento(false);
+      setCampoParaRejeitar(null);
+      setMotivoRejeicaoDocumento("");
+      loadFornecedoresVencedores();
+    } catch (error) {
+      console.error("Erro ao rejeitar documento:", error);
+      toast.error("Erro ao rejeitar documento");
+    }
+  };
+
+  const handleSolicitarAtualizacaoDocumento = async (campoId: string) => {
+    try {
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .update({
+          status_solicitacao: "pendente",
+          data_aprovacao: null,
         })
         .eq("id", campoId);
 
       if (error) throw error;
 
-      toast.success("Documento rejeitado - fornecedor pode reenviar");
+      toast.success("Solicitação de atualização enviada ao fornecedor");
       loadFornecedoresVencedores();
     } catch (error) {
-      console.error("Erro ao rejeitar documento:", error);
-      toast.error("Erro ao rejeitar documento");
+      console.error("Erro ao solicitar atualização:", error);
+      toast.error("Erro ao solicitar atualização");
     }
   };
 
@@ -928,24 +962,42 @@ export function DialogAnaliseDocumentalSelecao({
                         )}
                       </TableCell>
                       <TableCell>
-                        {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 && campo.status_solicitacao !== "aprovado" && (
+                        {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 && (
                           <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => handleAprovarDocumento(campo.id!)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Aprovar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleRejeitarDocumento(campo.id!)}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Rejeitar
-                            </Button>
+                            {campo.status_solicitacao !== "aprovado" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleAprovarDocumento(campo.id!)}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Aprovar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => {
+                                    setCampoParaRejeitar(campo.id!);
+                                    setMotivoRejeicaoDocumento("");
+                                    setDialogRejeitarDocumento(true);
+                                  }}
+                                >
+                                  <XCircle className="h-4 w-4 mr-1" />
+                                  Rejeitar
+                                </Button>
+                              </>
+                            )}
+                            {campo.status_solicitacao === "aprovado" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSolicitarAtualizacaoDocumento(campo.id!)}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-1" />
+                                Solicitar Atualização
+                              </Button>
+                            )}
                           </div>
                         )}
                       </TableCell>
@@ -1256,6 +1308,43 @@ export function DialogAnaliseDocumentalSelecao({
             >
               <Gavel className="h-4 w-4 mr-1" />
               Reabrir Sessão de Lances
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para rejeição de documento com motivo */}
+      <AlertDialog open={dialogRejeitarDocumento} onOpenChange={setDialogRejeitarDocumento}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-5 w-5" />
+              Rejeitar Documento
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Informe o motivo da rejeição. O fornecedor poderá reenviar o documento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Motivo da Rejeição *</Label>
+              <Textarea
+                placeholder="Descreva o motivo da rejeição do documento..."
+                value={motivoRejeicaoDocumento}
+                onChange={(e) => setMotivoRejeicaoDocumento(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleRejeitarDocumento}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Confirmar Rejeição
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

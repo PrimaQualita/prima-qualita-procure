@@ -9,18 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck, Pencil, RefreshCw, XCircle, Eye } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck, Pencil, RefreshCw, Eye } from "lucide-react";
 import { toast } from "sonner";
 import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
 import { NotificacaoRejeicao } from "@/components/fornecedores/NotificacaoRejeicao";
@@ -43,9 +32,6 @@ export default function PortalFornecedor() {
   const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
   const [assinaturaParaAssinar, setAssinaturaParaAssinar] = useState<string | null>(null);
 
-  const [dialogRejeicaoDocumentoOpen, setDialogRejeicaoDocumentoOpen] = useState(false);
-  const [documentoParaRejeitar, setDocumentoParaRejeitar] = useState<{ id: string; nome: string; tipoSelecao: boolean } | null>(null);
-  const [motivoRejeicaoDocumento, setMotivoRejeicaoDocumento] = useState("");
 
   useEffect(() => {
     checkAuth();
@@ -598,41 +584,6 @@ export default function PortalFornecedor() {
     }
   };
 
-  const handleRecusarDocumento = async () => {
-    if (!documentoParaRejeitar || !motivoRejeicaoDocumento.trim()) {
-      toast.error("Informe o motivo da recusa");
-      return;
-    }
-
-    try {
-      // Atualizar status do campo para "recusado_fornecedor" com o motivo
-      const { error } = await supabase
-        .from('campos_documentos_finalizacao')
-        .update({ 
-          status_solicitacao: 'recusado_fornecedor',
-          descricao: `${documentoParaRejeitar.nome} - RECUSADO PELO FORNECEDOR: ${motivoRejeicaoDocumento}`
-        })
-        .eq('id', documentoParaRejeitar.id);
-
-      if (error) throw error;
-
-      toast.success("Solicitação recusada com sucesso");
-      setDialogRejeicaoDocumentoOpen(false);
-      setDocumentoParaRejeitar(null);
-      setMotivoRejeicaoDocumento("");
-
-      // Recarregar lista
-      if (documentoParaRejeitar.tipoSelecao) {
-        await loadDocumentosPendentesSelecao(fornecedor.id);
-      } else {
-        await loadDocumentosPendentes(fornecedor.id);
-      }
-    } catch (error: any) {
-      console.error("Erro ao recusar documento:", error);
-      toast.error("Erro ao recusar documento");
-    }
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
@@ -998,7 +949,7 @@ export default function PortalFornecedor() {
                                     </>
                                   ) : (
                                     <>
-                                      {/* Documento não enviado - botões Enviar e Recusar */}
+                                      {/* Documento não enviado - botão Enviar */}
                                       <Input
                                         type="file"
                                         accept=".pdf"
@@ -1016,17 +967,6 @@ export default function PortalFornecedor() {
                                       >
                                         <Upload className="h-4 w-4 mr-2" />
                                         Enviar PDF
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="destructive"
-                                        onClick={() => {
-                                          setDocumentoParaRejeitar({ id: campo.id, nome: campo.nome_campo, tipoSelecao: false });
-                                          setDialogRejeicaoDocumentoOpen(true);
-                                        }}
-                                      >
-                                        <XCircle className="h-4 w-4 mr-2" />
-                                        Recusar
                                       </Button>
                                     </>
                                   )}
@@ -1187,7 +1127,7 @@ export default function PortalFornecedor() {
                                     </>
                                   ) : (
                                     <>
-                                      {/* Documento não enviado - botões Enviar e Recusar */}
+                                      {/* Documento não enviado - botão Enviar */}
                                       <Input
                                         type="file"
                                         accept=".pdf"
@@ -1205,17 +1145,6 @@ export default function PortalFornecedor() {
                                       >
                                         <Upload className="h-4 w-4 mr-2" />
                                         Enviar PDF
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="destructive"
-                                        onClick={() => {
-                                          setDocumentoParaRejeitar({ id: campo.id, nome: campo.nome_campo, tipoSelecao: true });
-                                          setDialogRejeicaoDocumentoOpen(true);
-                                        }}
-                                      >
-                                        <XCircle className="h-4 w-4 mr-2" />
-                                        Recusar
                                       </Button>
                                     </>
                                   )}
@@ -1330,43 +1259,6 @@ export default function PortalFornecedor() {
           loading={assinandoAta !== null}
         />
       )}
-
-      {/* Dialog de confirmação de recusa de documento */}
-      <AlertDialog open={dialogRejeicaoDocumentoOpen} onOpenChange={setDialogRejeicaoDocumentoOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Recusar Solicitação de Documento</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você está recusando a solicitação do documento: <strong>{documentoParaRejeitar?.nome}</strong>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-4">
-            <label className="text-sm font-medium">Motivo da recusa (obrigatório)</label>
-            <Textarea
-              placeholder="Informe o motivo pelo qual você não pode enviar este documento..."
-              value={motivoRejeicaoDocumento}
-              onChange={(e) => setMotivoRejeicaoDocumento(e.target.value)}
-              className="mt-2"
-              rows={4}
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setDocumentoParaRejeitar(null);
-              setMotivoRejeicaoDocumento("");
-            }}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleRecusarDocumento}
-              className="bg-red-600 hover:bg-red-700"
-              disabled={!motivoRejeicaoDocumento.trim()}
-            >
-              Confirmar Recusa
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
