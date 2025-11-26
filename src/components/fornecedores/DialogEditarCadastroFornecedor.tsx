@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -55,10 +56,9 @@ export function DialogEditarCadastroFornecedor({
     cep: "",
     segmento_atividade: "",
     nome_socio_administrador: "",
-    nomes_socios_cotistas: "",
   });
   const [responsaveisLegais, setResponsaveisLegais] = useState<string[]>([""]);
-
+  const [aceitouDeclaracao, setAceitouDeclaracao] = useState(true);
   useEffect(() => {
     if (open && fornecedor) {
       // Parse address from endereco_comercial
@@ -106,7 +106,6 @@ export function DialogEditarCadastroFornecedor({
         cep,
         segmento_atividade: fornecedor.segmento_atividade || "",
         nome_socio_administrador: fornecedor.nome_socio_administrador || "",
-        nomes_socios_cotistas: fornecedor.nomes_socios_cotistas || "",
       });
 
       // Load responsaveis_legais
@@ -166,7 +165,6 @@ export function DialogEditarCadastroFornecedor({
           endereco_comercial: enderecoCompleto,
           segmento_atividade: formData.segmento_atividade || null,
           nome_socio_administrador: formData.nome_socio_administrador || null,
-          nomes_socios_cotistas: formData.nomes_socios_cotistas || null,
           responsaveis_legais: responsaveisValidos,
         })
         .eq("id", fornecedor.id);
@@ -339,7 +337,7 @@ export function DialogEditarCadastroFornecedor({
             </div>
           </div>
 
-          {/* Sócios */}
+          {/* Sócio Administrador */}
           <div className="space-y-4">
             <h3 className="font-semibold text-lg border-b pb-2">Informações Societárias</h3>
             
@@ -349,16 +347,6 @@ export function DialogEditarCadastroFornecedor({
                 id="nome_socio_administrador"
                 value={formData.nome_socio_administrador}
                 onChange={(e) => setFormData({ ...formData, nome_socio_administrador: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="nomes_socios_cotistas">Nomes dos Sócios Cotistas</Label>
-              <Input
-                id="nomes_socios_cotistas"
-                value={formData.nomes_socios_cotistas}
-                onChange={(e) => setFormData({ ...formData, nomes_socios_cotistas: e.target.value })}
-                placeholder="Separe por vírgula se houver mais de um"
               />
             </div>
           </div>
@@ -401,6 +389,23 @@ export function DialogEditarCadastroFornecedor({
             </div>
           </div>
 
+          {/* Declaração de Responsabilidade */}
+          <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                id="declaracao"
+                checked={aceitouDeclaracao}
+                onCheckedChange={(checked) => setAceitouDeclaracao(checked === true)}
+              />
+              <label
+                htmlFor="declaracao"
+                className="text-sm leading-relaxed cursor-pointer"
+              >
+                <strong>DECLARAÇÃO DE RESPONSABILIDADE:</strong> Declaro que a senha de acesso ao sistema é pessoal e intransferível, sendo de minha inteira responsabilidade a sua guarda e sigilo. Todas as operações realizadas no sistema com minhas credenciais de acesso são de minha responsabilidade e serão consideradas como realizadas em nome do(s) Responsável(is) Legal(is) acima identificado(s).
+              </label>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button
               type="button"
@@ -409,7 +414,7 @@ export function DialogEditarCadastroFornecedor({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !aceitouDeclaracao}>
               {loading ? "Salvando..." : "Salvar Alterações"}
             </Button>
           </DialogFooter>

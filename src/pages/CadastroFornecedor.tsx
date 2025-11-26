@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { validarCNPJ, mascaraCNPJ } from "@/lib/validators";
@@ -55,7 +56,7 @@ export default function CadastroFornecedor() {
   });
   
   const [responsaveisLegais, setResponsaveisLegais] = useState<string[]>([""]);
-
+  const [aceitouDeclaracao, setAceitouDeclaracao] = useState(false);
   const [documentos, setDocumentos] = useState<Record<string, DocumentoUpload>>({
     contrato_social: { tipo: "contrato_social", label: "Contrato Social Consolidado (Última Alteração)", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     cartao_cnpj: { tipo: "cartao_cnpj", label: "Cartão CNPJ", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
@@ -929,6 +930,23 @@ export default function CadastroFornecedor() {
                 </div>
               </div>
 
+              {/* Declaração de Responsabilidade */}
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="declaracao"
+                    checked={aceitouDeclaracao}
+                    onCheckedChange={(checked) => setAceitouDeclaracao(checked === true)}
+                  />
+                  <label
+                    htmlFor="declaracao"
+                    className="text-sm leading-relaxed cursor-pointer"
+                  >
+                    <strong>DECLARAÇÃO DE RESPONSABILIDADE:</strong> Declaro que a senha de acesso ao sistema é pessoal e intransferível, sendo de minha inteira responsabilidade a sua guarda e sigilo. Todas as operações realizadas no sistema com minhas credenciais de acesso são de minha responsabilidade e serão consideradas como realizadas em nome do(s) Responsável(is) Legal(is) acima identificado(s).
+                  </label>
+                </div>
+              </div>
+
               <div className="flex gap-3">
                 <Button
                   type="button"
@@ -939,7 +957,7 @@ export default function CadastroFornecedor() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={loading} className="flex-1">
+                <Button type="submit" disabled={loading || !aceitouDeclaracao} className="flex-1">
                   {loading ? "Processando..." : "Enviar Cadastro"}
                 </Button>
               </div>
