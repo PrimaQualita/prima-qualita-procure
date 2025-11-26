@@ -26,9 +26,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Clock, XCircle, RefreshCw, Undo2, UserX, UserCheck, MessageSquare, Handshake, Gavel } from "lucide-react";
+import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Clock, XCircle, RefreshCw, Undo2, UserX, UserCheck, MessageSquare, Handshake, Gavel, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
 
 interface DocumentoExistente {
   id: string;
@@ -155,6 +156,8 @@ export function DialogAnaliseDocumentalSelecao({
   const [recursoParaResponder, setRecursoParaResponder] = useState<any>(null);
   const [respostaRecurso, setRespostaRecurso] = useState("");
   const [deferirRecurso, setDeferirRecurso] = useState(true);
+  const [gerandoPdfRecurso, setGerandoPdfRecurso] = useState(false);
+  const [selecaoInfo, setSelecaoInfo] = useState<{titulo: string; numero: string} | null>(null);
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -168,11 +171,17 @@ export function DialogAnaliseDocumentalSelecao({
       // Buscar dados da seleção e itens para obter quantidades
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
-        .select("cotacao_relacionada_id")
+        .select("cotacao_relacionada_id, titulo_selecao, numero_selecao")
         .eq("id", selecaoId)
         .single();
 
       if (selecaoError) throw selecaoError;
+
+      // Salvar info da seleção para uso no PDF
+      setSelecaoInfo({
+        titulo: selecaoData?.titulo_selecao || "",
+        numero: selecaoData?.numero_selecao || ""
+      });
 
       // Salvar cotacao_relacionada_id para uso em outras funções
       const cotacaoId = selecaoData?.cotacao_relacionada_id;
@@ -321,15 +330,32 @@ export function DialogAnaliseDocumentalSelecao({
   const handleResponderRecurso = async (deferido: boolean) => {
     if (!recursoParaResponder) return;
 
+    setGerandoPdfRecurso(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
+      
+      // Buscar dados do usuário gestor
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("nome_completo, cpf")
+        .eq("id", userData?.user?.id)
+        .single();
+
+      // Buscar dados do fornecedor e inabilitação
+      const { data: inabilitacao } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("*, fornecedores(razao_social, cnpj)")
+        .eq("id", recursoParaResponder.inabilitacao_id)
+        .single();
+
+      const dataRespostaGestor = new Date().toISOString();
       
       const { error } = await supabase
         .from("recursos_inabilitacao_selecao")
         .update({
           status_recurso: deferido ? "deferido" : "indeferido",
           resposta_gestor: respostaRecurso,
-          data_resposta_gestor: new Date().toISOString(),
+          data_resposta_gestor: dataRespostaGestor,
           usuario_gestor_id: userData?.user?.id
         })
         .eq("id", recursoParaResponder.id);
@@ -351,6 +377,26 @@ export function DialogAnaliseDocumentalSelecao({
         if (revertError) throw revertError;
       }
 
+      // Gerar PDF da resposta ao recurso
+      try {
+        const pdfResult = await gerarRespostaRecursoPDF(
+          deferido ? "provimento" : "negado",
+          respostaRecurso,
+          profileData?.nome_completo || "Gestor",
+          profileData?.cpf || "",
+          inabilitacao?.fornecedores?.razao_social || "Fornecedor",
+          selecaoInfo?.numero || ""
+        );
+
+        if (pdfResult?.url) {
+          // PDF gerado com sucesso - abrir em nova aba
+          window.open(pdfResult.url, "_blank");
+        }
+      } catch (pdfError) {
+        console.error("Erro ao gerar PDF:", pdfError);
+        // Não bloqueia o processo se o PDF falhar
+      }
+
       toast.success(`Recurso ${deferido ? "deferido" : "indeferido"} com sucesso!`);
       setDialogResponderRecurso(false);
       setRecursoParaResponder(null);
@@ -360,6 +406,8 @@ export function DialogAnaliseDocumentalSelecao({
     } catch (error) {
       console.error("Erro ao responder recurso:", error);
       toast.error("Erro ao responder recurso");
+    } finally {
+      setGerandoPdfRecurso(false);
     }
   };
 
@@ -1760,6 +1808,96 @@ export function DialogAnaliseDocumentalSelecao({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleSolicitarAtualizacaoDocumento}>
               Confirmar Solicitação
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para responder recurso de inabilitação */}
+      <AlertDialog open={dialogResponderRecurso} onOpenChange={setDialogResponderRecurso}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-primary">
+              <Gavel className="h-5 w-5" />
+              Responder Recurso de Inabilitação
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Analise as razões apresentadas pelo fornecedor e fundamenta sua decisão.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {recursoParaResponder && (
+              <div className="bg-muted/50 p-3 rounded-lg border">
+                <p className="text-xs text-muted-foreground mb-1">Razões do fornecedor:</p>
+                <p className="text-sm whitespace-pre-wrap">{recursoParaResponder.motivo_recurso}</p>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label className="font-semibold">Decisão *</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="decisao"
+                    checked={deferirRecurso}
+                    onChange={() => setDeferirRecurso(true)}
+                    className="w-4 h-4 text-primary"
+                  />
+                  <span className="text-sm font-medium text-green-700">Deferir (Aceitar)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="decisao"
+                    checked={!deferirRecurso}
+                    onChange={() => setDeferirRecurso(false)}
+                    className="w-4 h-4 text-destructive"
+                  />
+                  <span className="text-sm font-medium text-red-700">Indeferir (Rejeitar)</span>
+                </label>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="font-semibold">Fundamentação da Decisão *</Label>
+              <Textarea
+                placeholder="Justifique sua decisão detalhadamente..."
+                value={respostaRecurso}
+                onChange={(e) => setRespostaRecurso(e.target.value)}
+                rows={5}
+                className="resize-none"
+              />
+            </div>
+            
+            {deferirRecurso && (
+              <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                <p className="text-sm text-green-700">
+                  <strong>Atenção:</strong> Ao deferir o recurso, a inabilitação será automaticamente revertida e o fornecedor voltará a participar da seleção.
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={gerandoPdfRecurso}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => handleResponderRecurso(deferirRecurso)}
+              disabled={!respostaRecurso.trim() || gerandoPdfRecurso}
+              className={deferirRecurso ? "bg-green-600 hover:bg-green-700" : "bg-destructive hover:bg-destructive/90"}
+            >
+              {gerandoPdfRecurso ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4 mr-1" />
+                  {deferirRecurso ? "Deferir Recurso" : "Indeferir Recurso"}
+                </>
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
