@@ -1,6 +1,5 @@
 import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
-import logoPrimaQualita from '@/assets/prima-qualita-logo-horizontal.png';
 
 interface RecursoResult {
   url: string;
@@ -8,28 +7,6 @@ interface RecursoResult {
   protocolo: string;
   storagePath: string;
 }
-
-// Função auxiliar para converter imagem em base64
-const loadImageAsBase64 = (src: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } else {
-        reject(new Error('Erro ao criar canvas'));
-      }
-    };
-    img.onerror = () => reject(new Error('Erro ao carregar imagem'));
-    img.src = src;
-  });
-};
 
 export const gerarRecursoPDF = async (
   motivoRecurso: string,
@@ -60,30 +37,26 @@ export const gerarRecursoPDF = async (
   
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margemLateral = 1.5;
   const margemTexto = 20;
   const larguraUtil = pageWidth - (margemTexto * 2);
   
-  // Carregar logo verde
-  const base64Logo = await loadImageAsBase64(logoPrimaQualita);
-  
-  // Função para adicionar logo centralizado no topo
-  const adicionarLogo = () => {
-    const logoWidth = 60;
-    const logoHeight = 15;
-    doc.addImage(base64Logo, 'PNG', (pageWidth - logoWidth) / 2, 10, logoWidth, logoHeight);
+  // Função para adicionar faixa verde no topo com título
+  const adicionarFaixaVerde = () => {
+    // Faixa verde (cor do logo Prima Qualitá: #008080 - teal)
+    doc.setFillColor(0, 128, 128);
+    doc.rect(0, 0, pageWidth, 20, 'F');
+    
+    // Título dentro da faixa
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('RECURSO DE INABILITAÇÃO', pageWidth / 2, 13, { align: 'center' });
   };
   
-  adicionarLogo();
+  adicionarFaixaVerde();
   
-  // Título
-  let y = 35;
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 128, 128);
-  doc.text('RECURSO DE INABILITAÇÃO', pageWidth / 2, y, { align: 'center' });
-  
-  y += 12;
+  // Informações do processo
+  let y = 30;
   
   // Informações do processo
   doc.setFontSize(10);
@@ -129,8 +102,8 @@ export const gerarRecursoPDF = async (
   linhasMotivo.forEach((linha: string) => {
     if (y > maxY) {
       doc.addPage();
-      adicionarLogo();
-      y = 35;
+      adicionarFaixaVerde();
+      y = 30;
     }
     doc.text(linha, margemTexto, y);
     y += lineHeight;
@@ -161,8 +134,8 @@ export const gerarRecursoPDF = async (
     lines.forEach((line: string, lineIndex: number) => {
       if (y > maxY) {
         doc.addPage();
-        adicionarLogo();
-        y = 35;
+        adicionarFaixaVerde();
+        y = 30;
       }
       
       const isLastLine = lineIndex === lines.length - 1;
@@ -197,11 +170,11 @@ export const gerarRecursoPDF = async (
   
   y += 8;
   
-  // Verificar espaço para certificação (logo após o texto)
+  // Verificar espaço para certificação
   if (y > pageHeight - 50) {
     doc.addPage();
-    adicionarLogo();
-    y = 35;
+    adicionarFaixaVerde();
+    y = 30;
   }
   
   // Certificação Digital Simplificada
