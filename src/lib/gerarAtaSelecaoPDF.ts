@@ -619,3 +619,226 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     protocolo: protocoloFormatado
   };
 }
+
+interface Assinatura {
+  fornecedor_id: string;
+  razao_social: string;
+  cnpj: string;
+  data_assinatura: string;
+  ip_assinatura: string;
+  status_assinatura: string;
+}
+
+export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
+  // Buscar dados da ata
+  const { data: ata, error: ataError } = await supabase
+    .from('atas_selecao')
+    .select('*, selecoes_fornecedores(*)')
+    .eq('id', ataId)
+    .single();
+
+  if (ataError || !ata) {
+    console.error('Erro ao buscar ata:', ataError);
+    throw new Error('Erro ao buscar dados da ata');
+  }
+
+  // Buscar todas as assinaturas desta ata
+  const { data: assinaturas, error: assinaturasError } = await supabase
+    .from('atas_assinaturas_fornecedor')
+    .select(`
+      fornecedor_id,
+      data_assinatura,
+      ip_assinatura,
+      status_assinatura,
+      fornecedores (
+        razao_social,
+        cnpj
+      )
+    `)
+    .eq('ata_id', ataId)
+    .order('data_assinatura', { ascending: true });
+
+  if (assinaturasError) {
+    console.error('Erro ao buscar assinaturas:', assinaturasError);
+    throw new Error('Erro ao buscar assinaturas');
+  }
+
+  const assinaturasFormatadas: Assinatura[] = (assinaturas || []).map(a => ({
+    fornecedor_id: a.fornecedor_id,
+    razao_social: (a.fornecedores as any)?.razao_social || '',
+    cnpj: (a.fornecedores as any)?.cnpj || '',
+    data_assinatura: a.data_assinatura || '',
+    ip_assinatura: a.ip_assinatura || '',
+    status_assinatura: a.status_assinatura
+  }));
+
+  // Buscar PDF existente
+  const response = await fetch(ata.url_arquivo);
+  const existingPdfBytes = await response.arrayBuffer();
+
+  // Usar pdf-lib para modificar o PDF existente
+  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+  const pdfDoc = await PDFDocument.load(existingPdfBytes);
+  const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Adicionar nova página de assinaturas
+  const page = pdfDoc.addPage([595, 842]); // A4
+  const { width, height } = page.getSize();
+  const marginLeft = 40;
+  const marginRight = 40;
+  let currentY = height - 50;
+
+  // Título
+  page.drawText('TERMO DE ACEITE E ASSINATURA DIGITAL', {
+    x: marginLeft,
+    y: currentY,
+    size: 14,
+    font: helveticaBold,
+    color: rgb(0.13, 0.27, 0.53),
+  });
+  currentY -= 30;
+
+  // Subtítulo
+  page.drawText(`Ata de Seleção - Protocolo: ${ata.protocolo}`, {
+    x: marginLeft,
+    y: currentY,
+    size: 10,
+    font: helveticaFont,
+    color: rgb(0.3, 0.3, 0.3),
+  });
+  currentY -= 25;
+
+  // Linha separadora
+  page.drawLine({
+    start: { x: marginLeft, y: currentY },
+    end: { x: width - marginRight, y: currentY },
+    thickness: 1,
+    color: rgb(0.8, 0.8, 0.8),
+  });
+  currentY -= 25;
+
+  // Lista de assinaturas
+  page.drawText('ASSINATURAS DOS FORNECEDORES VENCEDORES', {
+    x: marginLeft,
+    y: currentY,
+    size: 11,
+    font: helveticaBold,
+    color: rgb(0, 0, 0),
+  });
+  currentY -= 20;
+
+  for (const assinatura of assinaturasFormatadas) {
+    // Box para cada assinatura
+    const boxHeight = 55;
+    const boxY = currentY - boxHeight;
+
+    // Fundo do box
+    page.drawRectangle({
+      x: marginLeft,
+      y: boxY,
+      width: width - marginLeft - marginRight,
+      height: boxHeight,
+      color: assinatura.status_assinatura === 'aceito' ? rgb(0.95, 1, 0.95) : rgb(1, 0.98, 0.9),
+      borderColor: assinatura.status_assinatura === 'aceito' ? rgb(0.2, 0.7, 0.2) : rgb(0.9, 0.7, 0.2),
+      borderWidth: 1,
+    });
+
+    // Nome da empresa
+    page.drawText(assinatura.razao_social, {
+      x: marginLeft + 10,
+      y: currentY - 15,
+      size: 10,
+      font: helveticaBold,
+      color: rgb(0, 0, 0),
+    });
+
+    // CNPJ
+    page.drawText(`CNPJ: ${formatarCNPJ(assinatura.cnpj)}`, {
+      x: marginLeft + 10,
+      y: currentY - 28,
+      size: 9,
+      font: helveticaFont,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+
+    // Status e data
+    if (assinatura.status_assinatura === 'aceito' && assinatura.data_assinatura) {
+      const dataFormatada = new Date(assinatura.data_assinatura).toLocaleString('pt-BR');
+      page.drawText(`✓ ACEITO DIGITALMENTE em ${dataFormatada}`, {
+        x: marginLeft + 10,
+        y: currentY - 42,
+        size: 9,
+        font: helveticaBold,
+        color: rgb(0.1, 0.5, 0.1),
+      });
+    } else {
+      page.drawText('⏳ Pendente de assinatura', {
+        x: marginLeft + 10,
+        y: currentY - 42,
+        size: 9,
+        font: helveticaFont,
+        color: rgb(0.7, 0.5, 0),
+      });
+    }
+
+    currentY -= (boxHeight + 10);
+
+    // Se não houver mais espaço, adicionar nova página
+    if (currentY < 100) {
+      const newPage = pdfDoc.addPage([595, 842]);
+      currentY = height - 50;
+    }
+  }
+
+  // Rodapé com informações de verificação
+  const footerY = 50;
+  page.drawLine({
+    start: { x: marginLeft, y: footerY + 20 },
+    end: { x: width - marginRight, y: footerY + 20 },
+    thickness: 0.5,
+    color: rgb(0.8, 0.8, 0.8),
+  });
+
+  page.drawText('Este documento possui certificação digital conforme Lei 14.063/2020', {
+    x: marginLeft,
+    y: footerY,
+    size: 8,
+    font: helveticaFont,
+    color: rgb(0.5, 0.5, 0.5),
+  });
+
+  page.drawText('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', {
+    x: marginLeft,
+    y: footerY - 12,
+    size: 7,
+    font: helveticaFont,
+    color: rgb(0.5, 0.5, 0.5),
+  });
+
+  // Salvar PDF modificado
+  const modifiedPdfBytes = await pdfDoc.save();
+  const pdfBlob = new Blob([new Uint8Array(modifiedPdfBytes) as BlobPart], { type: 'application/pdf' });
+
+  // Extrair o path do storage da URL
+  const urlParts = ata.url_arquivo.split('/processo-anexos/');
+  if (urlParts.length < 2) {
+    throw new Error('URL do arquivo inválida');
+  }
+  const storagePath = urlParts[1];
+
+  // Upload do PDF atualizado
+  const { error: uploadError } = await supabase.storage
+    .from('processo-anexos')
+    .upload(storagePath, pdfBlob, {
+      contentType: 'application/pdf',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    console.error('Erro ao fazer upload do PDF atualizado:', uploadError);
+    throw uploadError;
+  }
+
+  console.log('PDF da ata atualizado com sucesso com as assinaturas');
+}

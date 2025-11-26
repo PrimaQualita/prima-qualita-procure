@@ -269,16 +269,36 @@ export default function PortalFornecedor() {
   const handleAssinarAta = async (assinaturaId: string) => {
     setAssinandoAta(assinaturaId);
     try {
+      // Buscar o ata_id associado a esta assinatura
+      const { data: assinaturaData, error: assinaturaError } = await supabase
+        .from("atas_assinaturas_fornecedor")
+        .select("ata_id")
+        .eq("id", assinaturaId)
+        .single();
+
+      if (assinaturaError) throw assinaturaError;
+
+      // Atualizar o status da assinatura
       const { error } = await supabase
         .from("atas_assinaturas_fornecedor")
         .update({
           status_assinatura: "aceito",
           data_assinatura: new Date().toISOString(),
-          ip_assinatura: "browser", // Poderia capturar IP real via API
+          ip_assinatura: "browser",
         })
         .eq("id", assinaturaId);
 
       if (error) throw error;
+
+      // Atualizar o PDF da ata com a nova assinatura
+      try {
+        const { atualizarAtaComAssinaturas } = await import("@/lib/gerarAtaSelecaoPDF");
+        await atualizarAtaComAssinaturas(assinaturaData.ata_id);
+        console.log("PDF da ata atualizado com assinatura");
+      } catch (pdfError) {
+        console.error("Erro ao atualizar PDF da ata:", pdfError);
+        // Não bloqueia o fluxo se falhar a atualização do PDF
+      }
 
       toast.success("Ata assinada digitalmente com sucesso!");
       await loadAtasPendentes(fornecedor.id);
