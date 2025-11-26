@@ -254,15 +254,15 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     numero_item: m.numero_item
   }));
 
-  // Buscar itens que tiveram negociação CONCLUÍDA com êxito
-  const { data: itensNegociacaoConcluida } = await supabase
-    .from('itens_abertos_lances')
+  // Buscar itens que tiveram negociação com ÊXITO (lances do tipo 'negociacao' registrados)
+  const { data: lancesNegociacao } = await supabase
+    .from('lances_fornecedores')
     .select('numero_item')
     .eq('selecao_id', selecaoId)
-    .eq('negociacao_concluida', true);
+    .eq('tipo_lance', 'negociacao');
 
-  const itensNegociados = (itensNegociacaoConcluida || [])
-    .map(i => i.numero_item)
+  const itensNegociados = [...new Set((lancesNegociacao || []).map(l => l.numero_item))]
+    .filter(n => n !== null)
     .sort((a, b) => a - b);
 
   // Buscar fornecedores inabilitados
