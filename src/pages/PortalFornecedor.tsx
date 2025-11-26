@@ -888,18 +888,38 @@ export default function PortalFornecedor() {
                                     {campo.obrigatorio && (
                                       <Badge variant="destructive" className="text-xs">Obrigatório</Badge>
                                     )}
-                                    {campo.enviado && (
+                                    {campo.status_solicitacao === "aprovado" && (
                                       <Badge className="bg-green-600 text-white text-xs">
-                                        ✓ Documento Enviado
+                                        ✓ Aprovado
                                       </Badge>
                                     )}
-                                  {campo.status_solicitacao === "rejeitado" && (
-                                    <Badge variant="destructive" className="text-xs">
-                                      ⚠️ Gestor solicitou reenvio
-                                    </Badge>
-                                  )}
+                                    {campo.status_solicitacao === "em_analise" && (
+                                      <Badge className="bg-blue-600 text-white text-xs">
+                                        ⏳ Em Análise
+                                      </Badge>
+                                    )}
+                                    {campo.status_solicitacao === "rejeitado" && (
+                                      <Badge variant="destructive" className="text-xs">
+                                        ❌ Rejeitado
+                                      </Badge>
+                                    )}
+                                    {campo.status_solicitacao === "pendente" && campo.enviado && (
+                                      <Badge className="bg-orange-600 text-white text-xs">
+                                        🔄 Atualização Solicitada
+                                      </Badge>
+                                    )}
                                   </div>
-                                  {campo.descricao && (
+                                  {campo.descricao && campo.status_solicitacao === "rejeitado" && (
+                                    <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+                                      <strong>Motivo da rejeição:</strong> {campo.descricao}
+                                    </p>
+                                  )}
+                                  {campo.descricao && campo.status_solicitacao === "pendente" && campo.enviado && (
+                                    <p className="text-sm text-orange-600 dark:text-orange-400 mb-3">
+                                      <strong>Motivo da solicitação:</strong> {campo.descricao}
+                                    </p>
+                                  )}
+                                  {campo.descricao && campo.status_solicitacao !== "rejeitado" && campo.status_solicitacao !== "pendente" && (
                                     <p className="text-sm text-muted-foreground mb-3">{campo.descricao}</p>
                                   )}
                                   {campo.arquivo && (
@@ -917,39 +937,21 @@ export default function PortalFornecedor() {
                                   )}
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                  {campo.enviado ? (
+                                  {/* Visualizar - sempre disponível se tem arquivo */}
+                                  {campo.arquivo && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => window.open(campo.arquivo.url_arquivo, "_blank")}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Visualizar
+                                    </Button>
+                                  )}
+                                  
+                                  {/* Enviar/Atualizar - apenas quando status é "pendente" */}
+                                  {campo.status_solicitacao === "pendente" && (
                                     <>
-                                      {/* Documento já enviado - botões Visualizar e Atualizar */}
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => campo.arquivo && window.open(campo.arquivo.url_arquivo, "_blank")}
-                                      >
-                                        <Eye className="h-4 w-4 mr-2" />
-                                        Visualizar
-                                      </Button>
-                                      <Input
-                                        type="file"
-                                        accept=".pdf"
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0];
-                                          if (file) handleUploadDocumento(campo.id, file);
-                                        }}
-                                        className="hidden"
-                                        id={`update-${campo.id}`}
-                                      />
-                                      <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={() => document.getElementById(`update-${campo.id}`)?.click()}
-                                      >
-                                        <RefreshCw className="h-4 w-4 mr-2" />
-                                        Atualizar
-                                      </Button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      {/* Documento não enviado - botão Enviar */}
                                       <Input
                                         type="file"
                                         accept=".pdf"
@@ -966,7 +968,7 @@ export default function PortalFornecedor() {
                                         className="bg-orange-600 hover:bg-orange-700"
                                       >
                                         <Upload className="h-4 w-4 mr-2" />
-                                        Enviar PDF
+                                        {campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
                                       </Button>
                                     </>
                                   )}
@@ -1066,18 +1068,38 @@ export default function PortalFornecedor() {
                                     {campo.obrigatorio && (
                                       <Badge variant="destructive" className="text-xs">Obrigatório</Badge>
                                     )}
-                                    {campo.enviado && (
+                                    {campo.status_solicitacao === "aprovado" && (
                                       <Badge className="bg-green-600 text-white text-xs">
-                                        ✓ Documento Enviado
+                                        ✓ Aprovado
                                       </Badge>
                                     )}
-                                  {campo.status_solicitacao === "rejeitado" && (
-                                    <Badge variant="destructive" className="text-xs">
-                                      ⚠️ Gestor solicitou reenvio
-                                    </Badge>
-                                  )}
+                                    {campo.status_solicitacao === "em_analise" && (
+                                      <Badge className="bg-blue-600 text-white text-xs">
+                                        ⏳ Em Análise
+                                      </Badge>
+                                    )}
+                                    {campo.status_solicitacao === "rejeitado" && (
+                                      <Badge variant="destructive" className="text-xs">
+                                        ❌ Rejeitado
+                                      </Badge>
+                                    )}
+                                    {campo.status_solicitacao === "pendente" && campo.enviado && (
+                                      <Badge className="bg-orange-600 text-white text-xs">
+                                        🔄 Atualização Solicitada
+                                      </Badge>
+                                    )}
                                   </div>
-                                  {campo.descricao && (
+                                  {campo.descricao && campo.status_solicitacao === "rejeitado" && (
+                                    <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+                                      <strong>Motivo da rejeição:</strong> {campo.descricao}
+                                    </p>
+                                  )}
+                                  {campo.descricao && campo.status_solicitacao === "pendente" && campo.enviado && (
+                                    <p className="text-sm text-orange-600 dark:text-orange-400 mb-3">
+                                      <strong>Motivo da solicitação:</strong> {campo.descricao}
+                                    </p>
+                                  )}
+                                  {campo.descricao && campo.status_solicitacao !== "rejeitado" && campo.status_solicitacao !== "pendente" && (
                                     <p className="text-sm text-muted-foreground mb-3">{campo.descricao}</p>
                                   )}
                                   {campo.arquivo && (
@@ -1095,39 +1117,21 @@ export default function PortalFornecedor() {
                                   )}
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                  {campo.enviado ? (
+                                  {/* Visualizar - sempre disponível se tem arquivo */}
+                                  {campo.arquivo && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => window.open(campo.arquivo.url_arquivo, "_blank")}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Visualizar
+                                    </Button>
+                                  )}
+                                  
+                                  {/* Enviar/Atualizar - apenas quando status é "pendente" */}
+                                  {campo.status_solicitacao === "pendente" && (
                                     <>
-                                      {/* Documento já enviado - botões Visualizar e Atualizar */}
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => campo.arquivo && window.open(campo.arquivo.url_arquivo, "_blank")}
-                                      >
-                                        <Eye className="h-4 w-4 mr-2" />
-                                        Visualizar
-                                      </Button>
-                                      <Input
-                                        type="file"
-                                        accept=".pdf"
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0];
-                                          if (file) handleUploadDocumentoSelecao(campo.id, file);
-                                        }}
-                                        className="hidden"
-                                        id={`update-selecao-${campo.id}`}
-                                      />
-                                      <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={() => document.getElementById(`update-selecao-${campo.id}`)?.click()}
-                                      >
-                                        <RefreshCw className="h-4 w-4 mr-2" />
-                                        Atualizar
-                                      </Button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      {/* Documento não enviado - botão Enviar */}
                                       <Input
                                         type="file"
                                         accept=".pdf"
@@ -1144,7 +1148,7 @@ export default function PortalFornecedor() {
                                         className="bg-blue-600 hover:bg-blue-700"
                                       >
                                         <Upload className="h-4 w-4 mr-2" />
-                                        Enviar PDF
+                                        {campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
                                       </Button>
                                     </>
                                   )}
