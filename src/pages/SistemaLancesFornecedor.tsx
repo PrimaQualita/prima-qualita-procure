@@ -920,27 +920,31 @@ const SistemaLancesFornecedor = () => {
                                     ? 'bg-green-50 border border-green-200' 
                                     : 'bg-blue-50'
                                 }`}>
-                                  <div className={`flex items-center gap-1 text-[10px] mb-0.5 ${
-                                    isFornecedorVencendoItem(numeroItem) 
-                                      ? 'text-green-600' 
-                                      : 'text-blue-600'
-                                  }`}>
-                                    <TrendingDown className="h-3 w-3" />
-                                    <span>Mínimo</span>
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <div className={`flex items-center gap-1 text-[10px] mb-0.5 ${
+                                        isFornecedorVencendoItem(numeroItem) 
+                                          ? 'text-green-600' 
+                                          : 'text-blue-600'
+                                      }`}>
+                                        <TrendingDown className="h-3 w-3" />
+                                        <span>Mínimo</span>
+                                      </div>
+                                      <p className={`font-bold text-sm ${
+                                        isFornecedorVencendoItem(numeroItem) 
+                                          ? 'text-green-700' 
+                                          : 'text-blue-700'
+                                      }`}>
+                                        {formatarMoeda(getValorMinimoAtual(numeroItem))}
+                                      </p>
+                                    </div>
                                     {isFornecedorVencendoItem(numeroItem) && (
-                                      <>
-                                        <Trophy className="h-3 w-3 ml-1" />
-                                        <span className="font-semibold">Vencendo!</span>
-                                      </>
+                                      <div className="flex flex-col items-center text-green-600">
+                                        <Trophy className="h-4 w-4" />
+                                        <span className="text-[8px] font-semibold">Vencendo!</span>
+                                      </div>
                                     )}
                                   </div>
-                                  <p className={`font-bold text-sm ${
-                                    isFornecedorVencendoItem(numeroItem) 
-                                      ? 'text-green-700' 
-                                      : 'text-blue-700'
-                                  }`}>
-                                    {formatarMoeda(getValorMinimoAtual(numeroItem))}
-                                  </p>
                                 </div>
                                 
                                 <div className="bg-amber-50 rounded px-2 py-1.5">
