@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare } from "lucide-react";
+import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X } from "lucide-react";
 import { ChatNegociacao } from "@/components/selecoes/ChatNegociacao";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -653,6 +653,47 @@ const SistemaLancesFornecedor = () => {
       toast.error("Erro ao enviar lance");
     }
   };
+
+  const handleRecusarNegociacao = async (numeroItem: number) => {
+    if (!selecao?.id || !proposta?.fornecedor_id) {
+      toast.error("Erro ao recusar negociação");
+      return;
+    }
+
+    try {
+      // Fechar o item - fornecedor recusou negociar
+      const { error } = await supabase
+        .from("itens_abertos_lances")
+        .update({
+          em_negociacao: false,
+          negociacao_concluida: true,
+          aberto: false,
+          data_fechamento: new Date().toISOString()
+        })
+        .eq("selecao_id", selecao.id)
+        .eq("numero_item", numeroItem);
+
+      if (error) throw error;
+
+      // Registrar a recusa como mensagem no chat
+      await supabase
+        .from("mensagens_negociacao")
+        .insert({
+          selecao_id: selecao.id,
+          fornecedor_id: proposta.fornecedor_id,
+          numero_item: numeroItem,
+          mensagem: "❌ Fornecedor recusou a negociação e encerrou o item.",
+          tipo_remetente: "fornecedor"
+        });
+
+      toast.success(`Negociação do Item ${numeroItem} recusada e encerrada`);
+      setItemSelecionado(null);
+      loadItensAbertos();
+    } catch (error) {
+      console.error("Erro ao recusar negociação:", error);
+      toast.error("Erro ao recusar negociação");
+    }
+  };
   
   const handleValorLanceChange = (numeroItem: number, valor: string) => {
     const valorFormatado = formatarMoedaInput(valor.replace(/\D/g, ""));
@@ -1173,22 +1214,33 @@ const SistemaLancesFornecedor = () => {
                                 </Button>
                               </div>
                               
-                              {/* Chat de Negociação (se aplicável) */}
+                              {/* Botões de Negociação (se aplicável) */}
                               {emNegociacao && negociacaoParaMim && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full h-7 text-xs border-amber-300 relative"
-                                  onClick={() => setItemSelecionado(numeroItem)}
-                                >
-                                  <MessageSquare className="h-3 w-3 mr-1" />
-                                  Abrir Chat
-                                  {(mensagensNaoLidas.get(numeroItem) || 0) > 0 && (
-                                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
-                                      {mensagensNaoLidas.get(numeroItem)}
-                                    </span>
-                                  )}
-                                </Button>
+                                <div className="space-y-1.5">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full h-7 text-xs border-amber-300 relative"
+                                    onClick={() => setItemSelecionado(numeroItem)}
+                                  >
+                                    <MessageSquare className="h-3 w-3 mr-1" />
+                                    Abrir Chat
+                                    {(mensagensNaoLidas.get(numeroItem) || 0) > 0 && (
+                                      <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                                        {mensagensNaoLidas.get(numeroItem)}
+                                      </span>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="w-full h-7 text-xs"
+                                    onClick={() => handleRecusarNegociacao(numeroItem)}
+                                  >
+                                    <X className="h-3 w-3 mr-1" />
+                                    Recusar Negociação
+                                  </Button>
+                                </div>
                               )}
                             </>
                           )}
@@ -1206,14 +1258,25 @@ const SistemaLancesFornecedor = () => {
                         <Trophy className="h-4 w-4 text-amber-600" />
                         <Label className="font-semibold text-amber-900">Chat de Negociação - Item {itemSelecionado}</Label>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setItemSelecionado(null)}
-                        className="h-6 px-2 text-xs"
-                      >
-                        Fechar
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleRecusarNegociacao(itemSelecionado)}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Recusar
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setItemSelecionado(null)}
+                          className="h-6 px-2 text-xs"
+                        >
+                          Fechar
+                        </Button>
+                      </div>
                     </div>
                     <div className="h-64">
                       <ChatNegociacao
