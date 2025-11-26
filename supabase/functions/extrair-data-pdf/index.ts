@@ -7,6 +7,68 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função auxiliar para verificar se há padrões de data no texto
+function hasDatePattern(text: string): boolean {
+  const datePatterns = [
+    /\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4}/,  // DD/MM/YYYY
+    /\d{4}[\/\-\.]\d{2}[\/\-\.]\d{2}/,  // YYYY-MM-DD
+    /\d{1,2}\s+de\s+\w+\s+de\s+\d{4}/i, // DD de Mês de YYYY
+  ];
+  return datePatterns.some(pattern => pattern.test(text));
+}
+
+// Função auxiliar para extrair intervalo de datas (CRF FGTS)
+function extractDateRange(text: string): string | null {
+  // Padrão para intervalo: DD/MM/YYYY a DD/MM/YYYY ou DD/MM/YYYY A DD/MM/YYYY
+  const intervalPatterns = [
+    /(\d{2})[\/\-](\d{2})[\/\-](\d{4})\s*[aA]\s*(\d{2})[\/\-](\d{2})[\/\-](\d{4})/g,
+    /(\d{2})\/(\d{2})\/(\d{4})\s+[aA]\s+(\d{2})\/(\d{2})\/(\d{4})/g,
+  ];
+  
+  for (const pattern of intervalPatterns) {
+    pattern.lastIndex = 0;
+    const match = pattern.exec(text);
+    if (match) {
+      // Pegar a SEGUNDA data (data final do período)
+      const day = parseInt(match[4]);
+      const month = parseInt(match[5]);
+      const year = parseInt(match[6]);
+      
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+  }
+  return null;
+}
+
+// Função auxiliar para extrair data explícita de validade
+function extractExplicitDate(text: string): string | null {
+  const normalizedText = text.replace(/\s+/g, ' ').trim();
+  
+  // Padrões de validade explícita
+  const validadePatterns = [
+    /[Vv]alidade[:\s]+(\d{2})[\/\-](\d{2})[\/\-](\d{4})/,
+    /[Vv]álida?\s+até[:\s]+(\d{2})[\/\-](\d{2})[\/\-](\d{4})/,
+    /[Vv]encimento[:\s]+(\d{2})[\/\-](\d{2})[\/\-](\d{4})/,
+    /[Vv]áli[do]a?\s+por.*?até[:\s]+(\d{2})[\/\-](\d{2})[\/\-](\d{4})/,
+  ];
+  
+  for (const pattern of validadePatterns) {
+    const match = pattern.exec(normalizedText);
+    if (match) {
+      const day = parseInt(match[1]);
+      const month = parseInt(match[2]);
+      const year = parseInt(match[3]);
+      
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -44,9 +106,31 @@ serve(async (req) => {
     console.log('Texto extraído do PDF (primeiros 500 caracteres):', pdfText.substring(0, 500));
     console.log('Tamanho total do texto:', pdfText.length);
     
-    // Para PDFs com pouco texto (digitalizados), retornar para preenchimento manual
-    if (pdfText.trim().length < 50) {
-      console.log('⚠️ PDF digitalizado detectado - retornando null para preenchimento manual');
+    // PRIMEIRO: Tentar extrair data de intervalo (CRF FGTS) - sempre pega a segunda data
+    const dateRangeResult = extractDateRange(pdfText);
+    if (dateRangeResult) {
+      console.log('✅ Data de intervalo encontrada (segunda data):', dateRangeResult);
+      return new Response(
+        JSON.stringify({ dataValidade: dateRangeResult, isScanned: false }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // SEGUNDO: Tentar extrair data de validade explícita
+    const explicitDateResult = extractExplicitDate(pdfText);
+    if (explicitDateResult) {
+      console.log('✅ Data de validade explícita encontrada:', explicitDateResult);
+      return new Response(
+        JSON.stringify({ dataValidade: explicitDateResult, isScanned: false }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Verificar se é PDF digitalizado SEM dados de data
+    // Só marca como digitalizado se o texto for muito curto E não tiver padrão de data
+    const hasDate = hasDatePattern(pdfText);
+    if (pdfText.trim().length < 30 && !hasDate) {
+      console.log('⚠️ PDF digitalizado detectado (sem texto extraível) - retornando null para preenchimento manual');
       
       return new Response(
         JSON.stringify({ 
@@ -58,7 +142,7 @@ serve(async (req) => {
       );
     }
     
-    // Usar IA para interpretar o texto completo e extrair a data de validade
+    // TERCEIRO: Usar IA para interpretar o texto completo e extrair a data de validade
     console.log('🤖 Usando IA para interpretar a certidão...');
     
     try {
@@ -72,14 +156,14 @@ serve(async (req) => {
 Analise o texto da certidão abaixo e extraia a DATA DE VALIDADE.
 
 A data de validade pode estar em diversos formatos:
-1. Data explícita: "válida até DD/MM/AAAA" ou "vencimento: DD/MM/AAAA"
+1. Data explícita: "válida até DD/MM/AAAA" ou "vencimento: DD/MM/AAAA" ou "Validade: DD/MM/AAAA"
 2. Período relativo: "válida por X dias a partir da emissão" - neste caso, encontre a data de emissão e calcule
-3. Intervalo de datas (CRF FGTS): "DD/MM/AAAA a DD/MM/AAAA" - pegue sempre a ÚLTIMA data
+3. Intervalo de datas (CRF FGTS): "DD/MM/AAAA a DD/MM/AAAA" - pegue SEMPRE a SEGUNDA/ÚLTIMA data (data final do período)
 4. Outros formatos que indicam validade
 
-IMPORTANTE:
+MUITO IMPORTANTE:
+- Para CRF FGTS ou qualquer documento com intervalo de datas (ex: "10/02/2026 a 09/03/2026"), pegue SEMPRE a ÚLTIMA data do período (09/03/2026 neste exemplo)
 - Se houver "X dias a partir da emissão", encontre a data de emissão (geralmente no final: "Cidade-UF, DD de Mês de AAAA") e CALCULE a data de validade
-- Para CRF FGTS com intervalo, pegue sempre a data FINAL do período
 - Retorne APENAS a data de validade final no formato YYYY-MM-DD
 - Se não encontrar validade, retorne null
 
@@ -132,18 +216,7 @@ Retorne APENAS no formato JSON: {"dataValidade": "YYYY-MM-DD"} ou {"dataValidade
       console.log('Tentando com lógica de fallback...');
     }
     
-    // Normalizar texto
-    const normalizedText = pdfText
-      .replace(/(\d)\s+(\d)/g, '$1$2')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    const datePatterns = [
-      /(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/g,
-      /(\d{2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi,
-      /(\d{4})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{2})/g,
-    ];
-    
+    // QUARTO: Fallback - Procurar por validade relativa (ex: "válida por X dias")
     const monthNames: { [key: string]: number } = {
       'janeiro': 1, 'fevereiro': 2, 'março': 3, 'marco': 3, 'abril': 4,
       'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8,
@@ -152,7 +225,6 @@ Retorne APENAS no formato JSON: {"dataValidade": "YYYY-MM-DD"} ou {"dataValidade
       'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
     };
     
-    // Primeiro, procurar por validade relativa (ex: "válida por X dias")
     const validadeRelativaPattern = /válida?\s+por\s+(\d+)\s*\(?\w*\)?\s*dias?\s+a\s+partir\s+da\s+data\s+de\s+emissão/gi;
     const matchRelativa = validadeRelativaPattern.exec(pdfText);
     
@@ -161,119 +233,105 @@ Retorne APENAS no formato JSON: {"dataValidade": "YYYY-MM-DD"} ou {"dataValidade
       console.log(`📝 Encontrado prazo de validade: ${diasValidade} dias`);
       
       // Procurar pela data de emissão no documento
-      // Padrão comum: "Cidade-UF, DD de MÊS de AAAA"
-      const emissaoPattern = /(\w+(?:-\w+)?),\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi;
-      const matchEmissao = emissaoPattern.exec(pdfText);
+      // Estratégia: procurar padrão "Cidade-UF, DD de MÊS de AAAA" ou pegar a última data do documento
+      const emissaoPatterns = [
+        /(\w+(?:-\w+)?),\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi,
+        /emitida?\s+em[:\s]+(\d{2})[\/\-](\d{2})[\/\-](\d{4})/gi,
+        /emissão[:\s]+(\d{2})[\/\-](\d{2})[\/\-](\d{4})/gi,
+      ];
       
-      if (matchEmissao) {
-        const dia = parseInt(matchEmissao[2]);
-        const mesNome = matchEmissao[3].toLowerCase();
-        const ano = parseInt(matchEmissao[4]);
-        const mes = monthNames[mesNome];
+      let dataEmissaoEncontrada: Date | null = null;
+      
+      for (const pattern of emissaoPatterns) {
+        pattern.lastIndex = 0;
+        let match;
+        while ((match = pattern.exec(pdfText)) !== null) {
+          let dia: number, mes: number, ano: number;
+          
+          if (match[0].includes(' de ')) {
+            // Formato: Cidade, DD de MÊS de AAAA
+            dia = parseInt(match[2]);
+            const mesNome = match[3].toLowerCase();
+            ano = parseInt(match[4]);
+            mes = monthNames[mesNome] || 0;
+          } else {
+            // Formato: DD/MM/YYYY
+            dia = parseInt(match[1]);
+            mes = parseInt(match[2]);
+            ano = parseInt(match[3]);
+          }
+          
+          if (mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31 && ano >= 2020) {
+            dataEmissaoEncontrada = new Date(ano, mes - 1, dia);
+          }
+        }
+      }
+      
+      // Se não encontrou com padrões específicos, pegar a última data do documento
+      if (!dataEmissaoEncontrada) {
+        const todasDatas = pdfText.matchAll(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/g);
+        const datasArray = Array.from(todasDatas);
         
-        if (mes && dia >= 1 && dia <= 31 && ano >= 2020) {
-          // Calcular data de validade somando os dias
-          const dataEmissao = new Date(ano, mes - 1, dia);
-          const dataValidade = new Date(dataEmissao);
-          dataValidade.setDate(dataValidade.getDate() + diasValidade);
+        if (datasArray.length > 0) {
+          const ultimaData = datasArray[datasArray.length - 1];
+          const dia = parseInt(ultimaData[1]);
+          const mes = parseInt(ultimaData[2]);
+          const ano = parseInt(ultimaData[3]);
           
-          const validadeFormatada = `${dataValidade.getFullYear()}-${String(dataValidade.getMonth() + 1).padStart(2, '0')}-${String(dataValidade.getDate()).padStart(2, '0')}`;
-          
-          console.log(`✅ Data de emissão: ${dia}/${mes}/${ano}`);
-          console.log(`✅ Data de validade calculada: ${validadeFormatada} (${diasValidade} dias após emissão)`);
-          
+          if (mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31 && ano >= 2020) {
+            dataEmissaoEncontrada = new Date(ano, mes - 1, dia);
+            console.log(`📝 Usando última data do documento como emissão: ${dia}/${mes}/${ano}`);
+          }
+        }
+      }
+      
+      if (dataEmissaoEncontrada) {
+        const dataValidadeCalc = new Date(dataEmissaoEncontrada);
+        dataValidadeCalc.setDate(dataValidadeCalc.getDate() + diasValidade);
+        
+        dataValidade = `${dataValidadeCalc.getFullYear()}-${String(dataValidadeCalc.getMonth() + 1).padStart(2, '0')}-${String(dataValidadeCalc.getDate()).padStart(2, '0')}`;
+        
+        console.log(`✅ Data de emissão: ${dataEmissaoEncontrada.toLocaleDateString('pt-BR')}`);
+        console.log(`✅ Data de validade calculada: ${dataValidade} (${diasValidade} dias após emissão)`);
+        
+        return new Response(
+          JSON.stringify({ dataValidade, isScanned: false }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    
+    // QUINTO: Procurar qualquer data próxima a palavras-chave de validade
+    const validadeKeywords = ['validade', 'válida', 'valida', 'vencimento', 'vigência', 'vigencia'];
+    
+    for (const keyword of validadeKeywords) {
+      const keywordIndex = pdfText.toLowerCase().indexOf(keyword.toLowerCase());
+      if (keywordIndex !== -1) {
+        const context = pdfText.substring(keywordIndex, keywordIndex + 200);
+        
+        // Verificar se há intervalo de datas no contexto
+        const intervalResult = extractDateRange(context);
+        if (intervalResult) {
+          console.log(`✅ Intervalo de datas encontrado próximo a "${keyword}":`, intervalResult);
           return new Response(
-            JSON.stringify({ dataValidade: validadeFormatada, isScanned: false }),
+            JSON.stringify({ dataValidade: intervalResult, isScanned: false }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-      }
-    }
-    const validadeExplicitaPatterns = [
-      /válida?\s+até[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
-      /valida?\s+ate[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
-      /vencimento[:\s]+(\d{2})[\/\-\.\s]{1,3}(\d{2})[\/\-\.\s]{1,3}(\d{4})/gi,
-    ];
-    
-    for (const pattern of validadeExplicitaPatterns) {
-      pattern.lastIndex = 0;
-      let match = pattern.exec(normalizedText);
-      if (!match) {
-        pattern.lastIndex = 0;
-        match = pattern.exec(pdfText);
-      }
-      
-      if (match) {
-        const day = parseInt(match[1]);
-        const month = parseInt(match[2]);
-        const year = parseInt(match[3]);
         
-        if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
-          dataValidade = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          console.log(`✅ Data de validade EXPLÍCITA encontrada: ${dataValidade}`);
-          break;
-        }
-      }
-    }
-    
-    // Se não encontrou, procurar por contexto de validade
-    if (!dataValidade) {
-      const validadeKeywords = ['validade', 'válida até', 'valida ate', 'vencimento'];
-      
-      for (const keyword of validadeKeywords) {
-        const keywordIndex = pdfText.toLowerCase().indexOf(keyword.toLowerCase());
-        if (keywordIndex !== -1) {
-          const context = pdfText.substring(keywordIndex, keywordIndex + 200);
+        // Procurar data simples no contexto
+        const datePattern = /(\d{2})[\/\-](\d{2})[\/\-](\d{4})/;
+        const match = datePattern.exec(context);
+        
+        if (match) {
+          const day = parseInt(match[1]);
+          const month = parseInt(match[2]);
+          const year = parseInt(match[3]);
           
-          // CRF FGTS - intervalo de datas
-          if (tipoDocumento === 'crf_fgts') {
-            const intervalPattern = /(\d{2})[\/\-](\d{2})[\/\-](\d{4})\s+a\s+(\d{2})[\/\-](\d{2})[\/\-](\d{4})/i;
-            const intervalMatch = intervalPattern.exec(context);
-            
-            if (intervalMatch) {
-              const day = parseInt(intervalMatch[4]);
-              const month = parseInt(intervalMatch[5]);
-              const year = parseInt(intervalMatch[6]);
-              
-              if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
-                dataValidade = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                console.log('✅ CRF FGTS - Data final do intervalo:', dataValidade);
-                break;
-              }
-            }
-          }
-          
-          // Extrair primeira data do contexto
-          if (!dataValidade) {
-            for (const pattern of datePatterns) {
-              pattern.lastIndex = 0;
-              const match = pattern.exec(context);
-              
-              if (match) {
-                let day: number, month: number, year: number;
-                
-                if (match[0].toLowerCase().includes('de') && isNaN(parseInt(match[2]))) {
-                  day = parseInt(match[1]);
-                  month = monthNames[match[2].toLowerCase().trim()] || 0;
-                  year = parseInt(match[3]);
-                } else if (match[1].length === 4) {
-                  year = parseInt(match[1]);
-                  month = parseInt(match[2]);
-                  day = parseInt(match[3]);
-                } else {
-                  day = parseInt(match[1]);
-                  month = parseInt(match[2]);
-                  year = parseInt(match[3]);
-                }
-                
-                if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
-                  dataValidade = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                  console.log(`✅ Data encontrada próxima a "${keyword}":`, dataValidade);
-                  break;
-                }
-              }
-            }
-            if (dataValidade) break;
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2100) {
+            dataValidade = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            console.log(`✅ Data encontrada próxima a "${keyword}":`, dataValidade);
+            break;
           }
         }
       }
