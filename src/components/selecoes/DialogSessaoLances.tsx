@@ -513,12 +513,22 @@ export function DialogSessaoLances({
       return;
     }
 
+    // Filtrar apenas itens que estão abertos
+    const itensParaFechar = Array.from(itensSelecionados).filter(numeroItem => 
+      itensAbertos.has(numeroItem)
+    );
+
+    if (itensParaFechar.length === 0) {
+      toast.error("Nenhum dos itens selecionados está aberto");
+      return;
+    }
+
     setSalvando(true);
     try {
       const TEMPO_FECHAMENTO = 120;
       
-      const updates = Array.from(itensSelecionados).map(async (numeroItem) => {
-        return supabase
+      const updates = itensParaFechar.map(async (numeroItem) => {
+        const { error } = await supabase
           .from("itens_abertos_lances")
           .update({
             iniciando_fechamento: true,
@@ -526,22 +536,39 @@ export function DialogSessaoLances({
             segundos_para_fechar: TEMPO_FECHAMENTO,
           })
           .eq("selecao_id", selecaoId)
-          .eq("numero_item", numeroItem);
+          .eq("numero_item", numeroItem)
+          .eq("aberto", true);
+        
+        if (error) {
+          console.error(`Erro ao iniciar fechamento do item ${numeroItem}:`, error);
+          throw error;
+        }
+        return numeroItem;
       });
 
       await Promise.all(updates);
 
-      Array.from(itensSelecionados).forEach(async (numeroItem) => {
+      // Agendar fechamento automático para cada item
+      itensParaFechar.forEach((numeroItem) => {
         setTimeout(async () => {
-          await supabase
+          const { error } = await supabase
             .from("itens_abertos_lances")
-            .update({ aberto: false, data_fechamento: new Date().toISOString(), iniciando_fechamento: false })
+            .update({ 
+              aberto: false, 
+              data_fechamento: new Date().toISOString(), 
+              iniciando_fechamento: false 
+            })
             .eq("selecao_id", selecaoId)
-            .eq("numero_item", numeroItem);
+            .eq("numero_item", numeroItem)
+            .eq("iniciando_fechamento", true);
+          
+          if (error) {
+            console.error(`Erro ao fechar item ${numeroItem}:`, error);
+          }
         }, TEMPO_FECHAMENTO * 1000);
       });
 
-      toast.success(`${itensSelecionados.size} item(ns) entrando em processo de fechamento (2 minutos)`);
+      toast.success(`${itensParaFechar.length} item(ns) entrando em processo de fechamento (2 minutos)`);
       await loadItensAbertos();
       setItensSelecionados(new Set());
     } catch (error) {
