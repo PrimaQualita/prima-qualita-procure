@@ -53,6 +53,8 @@ export default function CadastroFornecedor() {
     senha: "",
     confirmar_senha: "",
   });
+  
+  const [responsaveisLegais, setResponsaveisLegais] = useState<string[]>([""]);
 
   const [documentos, setDocumentos] = useState<Record<string, DocumentoUpload>>({
     contrato_social: { tipo: "contrato_social", label: "Contrato Social Consolidado (Última Alteração)", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
@@ -362,6 +364,7 @@ export default function CadastroFornecedor() {
         await supabase.from('respostas_due_diligence_fornecedor').delete().eq('fornecedor_id', fornecedorOrfaoId);
 
         // Atualizar o registro órfão com dados completos
+        const responsaveisValidos = responsaveisLegais.filter(r => r.trim() !== '');
         const { data: fornecedorAtualizado, error: updateError } = await supabase
           .from("fornecedores")
           .update({
@@ -374,7 +377,8 @@ export default function CadastroFornecedor() {
             email: formData.email,
             status_aprovacao: 'pendente',
             ativo: false,
-            data_cadastro: new Date().toISOString()
+            data_cadastro: new Date().toISOString(),
+            responsaveis_legais: responsaveisValidos
           })
           .eq('id', fornecedorOrfaoId)
           .select()
@@ -390,6 +394,7 @@ export default function CadastroFornecedor() {
       } else {
         // CRIAR novo registro de fornecedor
         console.log('=== CRIANDO NOVO REGISTRO DE FORNECEDOR ===');
+        const responsaveisValidos = responsaveisLegais.filter(r => r.trim() !== '');
         const { data: fornecedorNovo, error: fornecedorError } = await supabase
           .from("fornecedores")
           .insert([{
@@ -401,7 +406,8 @@ export default function CadastroFornecedor() {
             telefone: formData.telefone,
             email: formData.email,
             status_aprovacao: 'pendente',
-            ativo: false
+            ativo: false,
+            responsaveis_legais: responsaveisValidos
           }])
           .select()
           .single();
@@ -507,7 +513,7 @@ export default function CadastroFornecedor() {
       });
       
       setRespostas({});
-      
+      setResponsaveisLegais([""]);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
       setTimeout(() => {
@@ -756,6 +762,51 @@ export default function CadastroFornecedor() {
                       minLength={8}
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Responsáveis Legais */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Responsável(is) Legal(is)</h3>
+                <p className="text-sm text-muted-foreground">
+                  Informe o nome completo do(s) responsável(is) legal(is) da empresa conforme consta no Contrato Social.
+                </p>
+                <div className="space-y-3">
+                  {responsaveisLegais.map((resp, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={resp}
+                        onChange={(e) => {
+                          const novosResp = [...responsaveisLegais];
+                          novosResp[index] = e.target.value;
+                          setResponsaveisLegais(novosResp);
+                        }}
+                        placeholder={`Nome completo do Responsável Legal ${index + 1}`}
+                        required={index === 0}
+                      />
+                      {responsaveisLegais.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            const novosResp = responsaveisLegais.filter((_, i) => i !== index);
+                            setResponsaveisLegais(novosResp);
+                          }}
+                        >
+                          ✕
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setResponsaveisLegais([...responsaveisLegais, ""])}
+                    className="w-full"
+                  >
+                    + Adicionar outro Responsável Legal
+                  </Button>
                 </div>
               </div>
 
