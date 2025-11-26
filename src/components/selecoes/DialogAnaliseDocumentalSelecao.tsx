@@ -434,7 +434,8 @@ export function DialogAnaliseDocumentalSelecao({
       );
       await supabase.from("recursos_inabilitacao_selecao").update({
         url_pdf_recurso: pdfResult.url,
-        nome_arquivo_recurso: pdfResult.fileName
+        nome_arquivo_recurso: pdfResult.fileName,
+        protocolo_recurso: pdfResult.protocolo
       }).eq("id", recurso.id);
       loadRecursosInabilitacao();
       toast.success("PDF do recurso gerado!");

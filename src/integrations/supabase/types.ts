@@ -1996,6 +1996,7 @@ export type Database = {
           motivo_recurso: string
           nome_arquivo_recurso: string | null
           nome_arquivo_resposta: string | null
+          protocolo_recurso: string | null
           protocolo_resposta: string | null
           resposta_gestor: string | null
           selecao_id: string
@@ -2018,6 +2019,7 @@ export type Database = {
           motivo_recurso: string
           nome_arquivo_recurso?: string | null
           nome_arquivo_resposta?: string | null
+          protocolo_recurso?: string | null
           protocolo_resposta?: string | null
           resposta_gestor?: string | null
           selecao_id: string
@@ -2040,6 +2042,7 @@ export type Database = {
           motivo_recurso?: string
           nome_arquivo_recurso?: string | null
           nome_arquivo_resposta?: string | null
+          protocolo_recurso?: string | null
           protocolo_resposta?: string | null
           resposta_gestor?: string | null
           selecao_id?: string

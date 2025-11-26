@@ -370,6 +370,7 @@ const SistemaLancesFornecedor = () => {
       // Gerar PDF do recurso
       let pdfUrl = null;
       let pdfFileName = null;
+      let pdfProtocolo = null;
       try {
         const pdfResult = await gerarRecursoPDF(
           motivoRecurso,
@@ -380,6 +381,7 @@ const SistemaLancesFornecedor = () => {
         );
         pdfUrl = pdfResult.url;
         pdfFileName = pdfResult.fileName;
+        pdfProtocolo = pdfResult.protocolo;
       } catch (pdfError) {
         console.error("Erro ao gerar PDF do recurso:", pdfError);
         // Não bloqueia o envio se o PDF falhar
@@ -393,7 +395,8 @@ const SistemaLancesFornecedor = () => {
           status_recurso: "enviado",
           data_limite_gestor: dataLimiteGestor.toISOString(),
           url_pdf_recurso: pdfUrl,
-          nome_arquivo_recurso: pdfFileName
+          nome_arquivo_recurso: pdfFileName,
+          protocolo_recurso: pdfProtocolo
         })
         .eq("id", meuRecurso.id);
 
