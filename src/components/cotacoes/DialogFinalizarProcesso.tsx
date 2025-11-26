@@ -3186,6 +3186,7 @@ export function DialogFinalizarProcesso({
           }
           confirmText="Excluir Encaminhamento"
           cancelText="Cancelar"
+          variant="destructive"
         />
 
         <ConfirmDialog
@@ -3200,6 +3201,7 @@ export function DialogFinalizarProcesso({
           }
           confirmText="Excluir Autorização"
           cancelText="Cancelar"
+          variant="destructive"
         />
 
         <ConfirmDialog
@@ -3214,6 +3216,7 @@ export function DialogFinalizarProcesso({
           }
           confirmText="Excluir Relatório"
           cancelText="Cancelar"
+          variant="destructive"
         />
 
         <ConfirmDialog

@@ -2428,6 +2428,7 @@ export function DialogSessaoLances({
       description="Tem certeza que deseja excluir este lance? Esta ação não pode ser desfeita."
       confirmText="Excluir"
       cancelText="Cancelar"
+      variant="destructive"
     />
 
     <ConfirmDialog
@@ -2438,6 +2439,7 @@ export function DialogSessaoLances({
       description="Tem certeza que deseja excluir esta planilha de lances? Esta ação não pode ser desfeita."
       confirmText="Excluir"
       cancelText="Cancelar"
+      variant="destructive"
     />
     </>
   );
