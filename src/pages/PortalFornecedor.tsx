@@ -195,6 +195,7 @@ export default function PortalFornecedor() {
           descricao,
           obrigatorio,
           cotacao_id,
+          selecao_id,
           status_solicitacao,
           cotacoes_precos (
             titulo_cotacao
@@ -202,6 +203,7 @@ export default function PortalFornecedor() {
         `)
         .eq("fornecedor_id", fornecedorId)
         .not("cotacao_id", "is", null)
+        .is("selecao_id", null)
         .in("status_solicitacao", ["pendente", "rejeitado"]);
 
       if (camposError) {
