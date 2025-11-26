@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X } from "lucide-react";
+import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X, AlertCircle, Clock } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { ChatNegociacao } from "@/components/selecoes/ChatNegociacao";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -49,6 +50,13 @@ const SistemaLancesFornecedor = () => {
   const [fornecedoresInabilitados, setFornecedoresInabilitados] = useState<Set<string>>(new Set());
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
+  
+  // Estados para recurso de inabilitação
+  const [minhaInabilitacao, setMinhaInabilitacao] = useState<any>(null);
+  const [meuRecurso, setMeuRecurso] = useState<any>(null);
+  const [motivoRecurso, setMotivoRecurso] = useState("");
+  const [enviandoRecurso, setEnviandoRecurso] = useState(false);
+  const [tempoRestanteRecurso, setTempoRestanteRecurso] = useState<number | null>(null);
 
   // CRÍTICO: Filtrar lances excluindo fornecedores inabilitados de forma reativa
   // Isso garante que sempre que lances ou fornecedoresInabilitados mudam, os lances são refiltrados
@@ -80,6 +88,7 @@ const SistemaLancesFornecedor = () => {
       loadItensAbertos();
       loadLances();
       loadMensagensNaoLidas();
+      loadMinhaInabilitacao();
 
       // Subscrição em tempo real para lances
       const channel = supabase
@@ -145,6 +154,23 @@ const SistemaLancesFornecedor = () => {
           }
         )
         .subscribe();
+        
+      // Subscrição para inabilitações - Realtime
+      const channelInabilitacoes = supabase
+        .channel(`inabilitacoes_${selecao.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "fornecedores_inabilitados_selecao",
+            filter: `selecao_id=eq.${selecao.id}`,
+          },
+          () => {
+            loadMinhaInabilitacao();
+          }
+        )
+        .subscribe();
 
       // Polling como fallback a cada 3 segundos para garantir sincronização de itens e lances
       const pollingInterval = setInterval(() => {
@@ -156,6 +182,7 @@ const SistemaLancesFornecedor = () => {
         supabase.removeChannel(channel);
         supabase.removeChannel(channelItens);
         supabase.removeChannel(channelMensagens);
+        supabase.removeChannel(channelInabilitacoes);
         clearInterval(pollingInterval);
       };
     }
@@ -198,7 +225,162 @@ const SistemaLancesFornecedor = () => {
     }
   };
 
-  // Atualizar countdown visual a cada 100ms para suavidade
+  const loadMinhaInabilitacao = async () => {
+    if (!selecao?.id || !proposta?.fornecedor_id) return;
+    
+    try {
+      // Verificar se eu fui inabilitado
+      const { data: inabilitacao, error: inabError } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("*")
+        .eq("selecao_id", selecao.id)
+        .eq("fornecedor_id", proposta.fornecedor_id)
+        .eq("revertido", false)
+        .maybeSingle();
+
+      if (inabError) throw inabError;
+      
+      setMinhaInabilitacao(inabilitacao);
+      
+      if (inabilitacao) {
+        // Buscar se já existe recurso
+        const { data: recurso, error: recursoError } = await supabase
+          .from("recursos_inabilitacao_selecao")
+          .select("*")
+          .eq("inabilitacao_id", inabilitacao.id)
+          .maybeSingle();
+          
+        if (recursoError) throw recursoError;
+        
+        if (recurso) {
+          setMeuRecurso(recurso);
+        } else {
+          // Criar recurso automaticamente se ainda não existe
+          // Data limite: 1 dia útil após inabilitação
+          const dataInabilitacao = new Date(inabilitacao.data_inabilitacao);
+          const dataLimite = calcularProximoDiaUtil(dataInabilitacao, 1);
+          
+          const { data: novoRecurso, error: criarError } = await supabase
+            .from("recursos_inabilitacao_selecao")
+            .insert({
+              inabilitacao_id: inabilitacao.id,
+              selecao_id: selecao.id,
+              fornecedor_id: proposta.fornecedor_id,
+              motivo_recurso: "",
+              data_limite_fornecedor: dataLimite.toISOString(),
+              status_recurso: "aguardando_envio"
+            })
+            .select()
+            .single();
+            
+          if (!criarError && novoRecurso) {
+            setMeuRecurso(novoRecurso);
+          }
+        }
+      } else {
+        setMeuRecurso(null);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar inabilitação:", error);
+    }
+  };
+
+  // Função para calcular próximo dia útil
+  const calcularProximoDiaUtil = (dataBase: Date, diasUteis: number): Date => {
+    const result = new Date(dataBase);
+    let diasAdicionados = 0;
+    
+    while (diasAdicionados < diasUteis) {
+      result.setDate(result.getDate() + 1);
+      const diaSemana = result.getDay();
+      // Pular sábado (6) e domingo (0)
+      if (diaSemana !== 0 && diaSemana !== 6) {
+        diasAdicionados++;
+      }
+    }
+    
+    return result;
+  };
+
+  // Countdown para o tempo restante do recurso
+  useEffect(() => {
+    if (!meuRecurso || meuRecurso.status_recurso !== "aguardando_envio") {
+      setTempoRestanteRecurso(null);
+      return;
+    }
+
+    const calcularTempoRestante = () => {
+      const dataLimite = new Date(meuRecurso.data_limite_fornecedor).getTime();
+      const agora = Date.now();
+      const diferenca = dataLimite - agora;
+      
+      if (diferenca <= 0) {
+        setTempoRestanteRecurso(0);
+        // Atualizar status para expirado
+        supabase
+          .from("recursos_inabilitacao_selecao")
+          .update({ status_recurso: "expirado" })
+          .eq("id", meuRecurso.id)
+          .then(() => loadMinhaInabilitacao());
+      } else {
+        setTempoRestanteRecurso(Math.floor(diferenca / 1000));
+      }
+    };
+
+    calcularTempoRestante();
+    const interval = setInterval(calcularTempoRestante, 1000);
+
+    return () => clearInterval(interval);
+  }, [meuRecurso]);
+
+  const handleEnviarRecurso = async () => {
+    if (!meuRecurso || !motivoRecurso.trim()) {
+      toast.error("Informe o motivo do recurso");
+      return;
+    }
+
+    setEnviandoRecurso(true);
+    try {
+      const dataEnvio = new Date();
+      const dataLimiteGestor = calcularProximoDiaUtil(dataEnvio, 1);
+
+      const { error } = await supabase
+        .from("recursos_inabilitacao_selecao")
+        .update({
+          motivo_recurso: motivoRecurso,
+          data_envio_recurso: dataEnvio.toISOString(),
+          status_recurso: "enviado",
+          data_limite_gestor: dataLimiteGestor.toISOString()
+        })
+        .eq("id", meuRecurso.id);
+
+      if (error) throw error;
+
+      toast.success("Recurso enviado com sucesso!");
+      setMotivoRecurso("");
+      loadMinhaInabilitacao();
+    } catch (error) {
+      console.error("Erro ao enviar recurso:", error);
+      toast.error("Erro ao enviar recurso");
+    } finally {
+      setEnviandoRecurso(false);
+    }
+  };
+
+  const formatarTempoRestante = (segundos: number): string => {
+    const horas = Math.floor(segundos / 3600);
+    const minutos = Math.floor((segundos % 3600) / 60);
+    const segs = segundos % 60;
+    
+    if (horas > 0) {
+      return `${horas}h ${minutos}m ${segs}s`;
+    }
+    if (minutos > 0) {
+      return `${minutos}m ${segs}s`;
+    }
+    return `${segs}s`;
+  };
+
   useEffect(() => {
     if (itensEmFechamento.size === 0) return;
 
@@ -1004,6 +1186,108 @@ const SistemaLancesFornecedor = () => {
             Voltar
           </Button>
         </div>
+
+        {/* Alerta de Inabilitação com Recurso */}
+        {minhaInabilitacao && meuRecurso && (
+          <Card className="border-red-500/50 bg-red-500/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-5 w-5" />
+                Você foi inabilitado nesta seleção
+              </CardTitle>
+              <CardDescription className="text-red-600">
+                Motivo: {minhaInabilitacao.motivo_inabilitacao}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {meuRecurso.status_recurso === "aguardando_envio" && tempoRestanteRecurso !== null && tempoRestanteRecurso > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded-lg">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      Tempo restante para manifestar recurso: {formatarTempoRestante(tempoRestanteRecurso)}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="motivoRecurso">Razões do Recurso</Label>
+                    <Textarea
+                      id="motivoRecurso"
+                      placeholder="Descreva detalhadamente as razões pelas quais você discorda da inabilitação..."
+                      value={motivoRecurso}
+                      onChange={(e) => setMotivoRecurso(e.target.value)}
+                      rows={5}
+                      className="resize-none"
+                    />
+                  </div>
+                  
+                  <Button 
+                    onClick={handleEnviarRecurso}
+                    disabled={enviandoRecurso || !motivoRecurso.trim()}
+                    className="w-full"
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    {enviandoRecurso ? "Enviando..." : "Enviar Recurso"}
+                  </Button>
+                </div>
+              ) : meuRecurso.status_recurso === "aguardando_envio" && (tempoRestanteRecurso === null || tempoRestanteRecurso <= 0) ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="font-medium">Prazo para recurso expirado</p>
+                  <p className="text-sm">O prazo de 1 dia útil para apresentar recurso expirou.</p>
+                </div>
+              ) : meuRecurso.status_recurso === "expirado" ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="font-medium">Prazo para recurso expirado</p>
+                  <p className="text-sm">O prazo de 1 dia útil para apresentar recurso expirou.</p>
+                </div>
+              ) : meuRecurso.status_recurso === "enviado" ? (
+                <div className="space-y-3">
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm font-medium text-blue-700 mb-1">Recurso Enviado</p>
+                    <p className="text-sm text-blue-600">
+                      Seu recurso foi enviado em {format(new Date(meuRecurso.data_envio_recurso), "dd/MM/yyyy 'às' HH:mm")}
+                    </p>
+                    <p className="text-sm text-blue-600 mt-2">
+                      Aguardando análise do gestor.
+                    </p>
+                  </div>
+                  <div className="bg-muted p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Suas razões:</p>
+                    <p className="text-sm whitespace-pre-wrap">{meuRecurso.motivo_recurso}</p>
+                  </div>
+                </div>
+              ) : meuRecurso.status_recurso === "deferido" ? (
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm font-medium text-green-700 mb-1">✅ Recurso Deferido</p>
+                  <p className="text-sm text-green-600">
+                    Seu recurso foi aceito pelo gestor.
+                  </p>
+                  {meuRecurso.resposta_gestor && (
+                    <div className="mt-2 pt-2 border-t border-green-200">
+                      <p className="text-xs text-green-600 mb-1">Resposta do gestor:</p>
+                      <p className="text-sm text-green-700 whitespace-pre-wrap">{meuRecurso.resposta_gestor}</p>
+                    </div>
+                  )}
+                </div>
+              ) : meuRecurso.status_recurso === "indeferido" ? (
+                <div className="bg-red-50 p-3 rounded-lg">
+                  <p className="text-sm font-medium text-red-700 mb-1">❌ Recurso Indeferido</p>
+                  <p className="text-sm text-red-600">
+                    Seu recurso foi rejeitado pelo gestor.
+                  </p>
+                  {meuRecurso.resposta_gestor && (
+                    <div className="mt-2 pt-2 border-t border-red-200">
+                      <p className="text-xs text-red-600 mb-1">Resposta do gestor:</p>
+                      <p className="text-sm text-red-700 whitespace-pre-wrap">{meuRecurso.resposta_gestor}</p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Informações da Seleção */}
         <Card>

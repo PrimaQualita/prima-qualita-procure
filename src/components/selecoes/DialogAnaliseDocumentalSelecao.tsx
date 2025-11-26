@@ -148,6 +148,13 @@ export function DialogAnaliseDocumentalSelecao({
   
   // State para aprovação geral do fornecedor
   const [fornecedoresAprovadosGeral, setFornecedoresAprovadosGeral] = useState<Set<string>>(new Set());
+  
+  // States para recursos de inabilitação
+  const [recursosInabilitacao, setRecursosInabilitacao] = useState<Record<string, any>>({});
+  const [dialogResponderRecurso, setDialogResponderRecurso] = useState(false);
+  const [recursoParaResponder, setRecursoParaResponder] = useState<any>(null);
+  const [respostaRecurso, setRespostaRecurso] = useState("");
+  const [deferirRecurso, setDeferirRecurso] = useState(true);
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -285,6 +292,74 @@ export function DialogAnaliseDocumentalSelecao({
       toast.error("Erro ao carregar fornecedores vencedores");
     } finally {
       setLoading(false);
+    }
+    
+    // Carregar recursos de inabilitação
+    loadRecursosInabilitacao();
+  };
+
+  const loadRecursosInabilitacao = async () => {
+    try {
+      const { data: recursos, error } = await supabase
+        .from("recursos_inabilitacao_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoId);
+
+      if (error) throw error;
+
+      // Criar mapa de recursos por inabilitacao_id
+      const recursosMap: Record<string, any> = {};
+      (recursos || []).forEach((recurso: any) => {
+        recursosMap[recurso.inabilitacao_id] = recurso;
+      });
+      setRecursosInabilitacao(recursosMap);
+    } catch (error) {
+      console.error("Erro ao carregar recursos:", error);
+    }
+  };
+
+  const handleResponderRecurso = async (deferido: boolean) => {
+    if (!recursoParaResponder) return;
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from("recursos_inabilitacao_selecao")
+        .update({
+          status_recurso: deferido ? "deferido" : "indeferido",
+          resposta_gestor: respostaRecurso,
+          data_resposta_gestor: new Date().toISOString(),
+          usuario_gestor_id: userData?.user?.id
+        })
+        .eq("id", recursoParaResponder.id);
+
+      if (error) throw error;
+
+      // Se deferido, reverter a inabilitação automaticamente
+      if (deferido) {
+        const { error: revertError } = await supabase
+          .from("fornecedores_inabilitados_selecao")
+          .update({
+            revertido: true,
+            motivo_reversao: `Recurso deferido: ${respostaRecurso}`,
+            data_reversao: new Date().toISOString(),
+            usuario_reverteu_id: userData?.user?.id
+          })
+          .eq("id", recursoParaResponder.inabilitacao_id);
+
+        if (revertError) throw revertError;
+      }
+
+      toast.success(`Recurso ${deferido ? "deferido" : "indeferido"} com sucesso!`);
+      setDialogResponderRecurso(false);
+      setRecursoParaResponder(null);
+      setRespostaRecurso("");
+      loadFornecedoresVencedores();
+      onSuccess?.();
+    } catch (error) {
+      console.error("Erro ao responder recurso:", error);
+      toast.error("Erro ao responder recurso");
     }
   };
 
@@ -1013,6 +1088,75 @@ export function DialogAnaliseDocumentalSelecao({
           </div>
         </div>
       </CardHeader>
+      
+      {/* Seção de Recurso para Fornecedores Inabilitados */}
+      {isInabilitado && data.inabilitado && recursosInabilitacao[data.inabilitado.id] && (
+        <CardContent className="pt-0 border-t mt-3">
+          {(() => {
+            const recurso = recursosInabilitacao[data.inabilitado!.id];
+            return (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm flex items-center gap-2">
+                  <Gavel className="h-4 w-4" />
+                  Recurso de Inabilitação
+                </h4>
+                
+                {recurso.status_recurso === "aguardando_envio" && (
+                  <Badge variant="outline">Aguardando envio do fornecedor</Badge>
+                )}
+                
+                {recurso.status_recurso === "expirado" && (
+                  <Badge variant="secondary">Prazo expirado - Sem recurso</Badge>
+                )}
+                
+                {recurso.status_recurso === "enviado" && (
+                  <div className="space-y-2 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                    <div className="flex items-center justify-between">
+                      <Badge className="bg-amber-500">Recurso Pendente de Análise</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Enviado em: {format(new Date(recurso.data_envio_recurso), "dd/MM/yyyy 'às' HH:mm")}
+                      </span>
+                    </div>
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-700 mb-1">Razões do fornecedor:</p>
+                      <p className="whitespace-pre-wrap text-amber-900">{recurso.motivo_recurso}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setRecursoParaResponder(recurso);
+                        setRespostaRecurso("");
+                        setDialogResponderRecurso(true);
+                      }}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-1" />
+                      Responder Recurso
+                    </Button>
+                  </div>
+                )}
+                
+                {recurso.status_recurso === "deferido" && (
+                  <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                    <Badge className="bg-green-500 mb-2">Recurso Deferido</Badge>
+                    {recurso.resposta_gestor && (
+                      <p className="text-sm text-green-700">{recurso.resposta_gestor}</p>
+                    )}
+                  </div>
+                )}
+                
+                {recurso.status_recurso === "indeferido" && (
+                  <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                    <Badge variant="destructive" className="mb-2">Recurso Indeferido</Badge>
+                    {recurso.resposta_gestor && (
+                      <p className="text-sm text-red-700">{recurso.resposta_gestor}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </CardContent>
+      )}
       
       {!isInabilitado && (
         <CardContent className="space-y-4">
