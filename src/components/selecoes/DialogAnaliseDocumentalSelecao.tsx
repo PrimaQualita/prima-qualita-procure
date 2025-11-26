@@ -580,12 +580,13 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
-  const buscarSegundosColocados = async (itens: number[]) => {
+  const buscarSegundosColocados = async (itens: number[], fornecedorExcluirId: string) => {
     try {
       const segundos: SegundoColocado[] = [];
       
       for (const item of itens) {
         // Buscar todos os lances do item ordenados por valor (menor primeiro)
+        // Excluir o fornecedor que está sendo inabilitado
         const { data: lances, error } = await supabase
           .from("lances_fornecedores")
           .select(`
@@ -595,17 +596,18 @@ export function DialogAnaliseDocumentalSelecao({
           `)
           .eq("selecao_id", selecaoId)
           .eq("numero_item", item)
+          .neq("fornecedor_id", fornecedorExcluirId)
           .order("valor_lance", { ascending: true });
         
         if (error) throw error;
         
-        // O segundo lance é o segundo colocado
-        if (lances && lances.length > 1) {
+        // O primeiro lance (após excluir o fornecedor inabilitado) é o segundo colocado
+        if (lances && lances.length > 0) {
           segundos.push({
             numero_item: item,
-            fornecedor_id: lances[1].fornecedor_id,
-            fornecedor_nome: (lances[1].fornecedores as any)?.razao_social || "N/A",
-            valor_lance: lances[1].valor_lance,
+            fornecedor_id: lances[0].fornecedor_id,
+            fornecedor_nome: (lances[0].fornecedores as any)?.razao_social || "N/A",
+            valor_lance: lances[0].valor_lance,
           });
         }
       }
@@ -621,7 +623,7 @@ export function DialogAnaliseDocumentalSelecao({
   const handleAbrirInabilitacao = async (data: FornecedorData) => {
     setFornecedorParaInabilitar(data);
     setMotivoInabilitacao("");
-    await buscarSegundosColocados(data.fornecedor.itensVencedores);
+    await buscarSegundosColocados(data.fornecedor.itensVencedores, data.fornecedor.id);
     setDialogInabilitar(true);
   };
 
@@ -877,7 +879,7 @@ export function DialogAnaliseDocumentalSelecao({
                     variant="default"
                     onClick={async () => {
                       setInabilitacaoParaReabrirNegociacao(data);
-                      await buscarSegundosColocados(data.inabilitado?.itens_afetados || []);
+                      await buscarSegundosColocados(data.inabilitado?.itens_afetados || [], data.fornecedor.id);
                       setDialogReabrirNegociacao(true);
                     }}
                   >
