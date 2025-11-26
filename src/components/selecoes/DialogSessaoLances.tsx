@@ -526,27 +526,26 @@ export function DialogSessaoLances({
     setSalvando(true);
     try {
       const TEMPO_FECHAMENTO = 120;
+      const agora = new Date().toISOString();
       
-      const updates = itensParaFechar.map(async (numeroItem) => {
-        const { error } = await supabase
-          .from("itens_abertos_lances")
-          .update({
-            iniciando_fechamento: true,
-            data_inicio_fechamento: new Date().toISOString(),
-            segundos_para_fechar: TEMPO_FECHAMENTO,
-          })
-          .eq("selecao_id", selecaoId)
-          .eq("numero_item", numeroItem)
-          .eq("aberto", true);
-        
-        if (error) {
-          console.error(`Erro ao iniciar fechamento do item ${numeroItem}:`, error);
-          throw error;
-        }
-        return numeroItem;
-      });
-
-      await Promise.all(updates);
+      // Atualizar todos os itens selecionados de uma vez
+      const { error } = await supabase
+        .from("itens_abertos_lances")
+        .update({
+          iniciando_fechamento: true,
+          data_inicio_fechamento: agora,
+          segundos_para_fechar: TEMPO_FECHAMENTO,
+        })
+        .eq("selecao_id", selecaoId)
+        .eq("aberto", true)
+        .in("numero_item", itensParaFechar);
+      
+      if (error) {
+        console.error("Erro ao iniciar fechamento dos itens:", error);
+        throw error;
+      }
+      
+      console.log(`Fechamento iniciado para itens: ${itensParaFechar.join(", ")} às ${agora}`);
 
       // Agendar fechamento automático para cada item
       itensParaFechar.forEach((numeroItem) => {
