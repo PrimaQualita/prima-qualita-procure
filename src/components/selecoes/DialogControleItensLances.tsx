@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Gavel, Lock, Unlock, Handshake, Trophy } from "lucide-react";
+import { Gavel, Lock, Unlock, Handshake, Trophy, Ban } from "lucide-react";
 import { ChatSelecao } from "./ChatSelecao";
 import { Badge } from "@/components/ui/badge";
 
@@ -37,6 +37,7 @@ export function DialogControleItensLances({
   const [salvando, setSalvando] = useState(false);
   const [itensSelecionados, setItensSelecionados] = useState<Set<number>>(new Set());
   const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map()); // Map<numeroItem, fornecedorId>
+  const [itensNegociacaoConcluida, setItensNegociacaoConcluida] = useState<Set<number>>(new Set()); // Itens que já foram negociados
   const [vencedoresPorItem, setVencedoresPorItem] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
 
   useEffect(() => {
@@ -133,6 +134,15 @@ export function DialogControleItensLances({
         }
       });
       setItensEmNegociacao(emNegociacao);
+
+      // Mapear itens com negociação concluída ou marcados como "não negociar"
+      const concluidos = new Set<number>();
+      data?.forEach((item) => {
+        if (item.negociacao_concluida || item.nao_negociar) {
+          concluidos.add(item.numero_item);
+        }
+      });
+      setItensNegociacaoConcluida(concluidos);
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }
@@ -368,7 +378,8 @@ export function DialogControleItensLances({
         .update({
           aberto: false,
           em_negociacao: false,
-          data_fechamento: new Date().toISOString()
+          data_fechamento: new Date().toISOString(),
+          negociacao_concluida: true // Marcar que a negociação foi concluída
         })
         .eq("selecao_id", selecaoId)
         .eq("numero_item", numeroItem);
@@ -385,6 +396,51 @@ export function DialogControleItensLances({
     }
   };
 
+  const handleNaoNegociar = async (numeroItem: number) => {
+    setSalvando(true);
+    try {
+      // Verificar se já existe registro do item
+      const { data: existente } = await supabase
+        .from("itens_abertos_lances")
+        .select("id")
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem)
+        .maybeSingle();
+
+      if (existente) {
+        const { error } = await supabase
+          .from("itens_abertos_lances")
+          .update({
+            nao_negociar: true,
+            negociacao_concluida: true
+          })
+          .eq("id", existente.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("itens_abertos_lances")
+          .insert({
+            selecao_id: selecaoId,
+            numero_item: numeroItem,
+            aberto: false,
+            nao_negociar: true,
+            negociacao_concluida: true
+          });
+
+        if (error) throw error;
+      }
+
+      toast.success(`Item ${numeroItem} marcado como "Não Negociar"`);
+      await loadItensAbertos();
+    } catch (error) {
+      console.error("Erro ao marcar não negociar:", error);
+      toast.error("Erro ao marcar item");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return value.toLocaleString("pt-BR", {
       style: "currency",
@@ -393,8 +449,13 @@ export function DialogControleItensLances({
   };
 
   // Itens fechados com vencedor (candidatos a negociação)
+  // Excluir itens que já tiveram negociação concluída ou foram marcados como "não negociar"
   const itensFechadosComVencedor = itens.filter(
-    (item) => !itensAbertos.has(item.numero_item) && vencedoresPorItem.has(item.numero_item) && !itensEmNegociacao.has(item.numero_item)
+    (item) => 
+      !itensAbertos.has(item.numero_item) && 
+      vencedoresPorItem.has(item.numero_item) && 
+      !itensEmNegociacao.has(item.numero_item) &&
+      !itensNegociacaoConcluida.has(item.numero_item)
   );
 
   return (
@@ -559,16 +620,28 @@ export function DialogControleItensLances({
                                 </p>
                               </div>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-amber-500 text-amber-700 hover:bg-amber-100"
-                              onClick={() => handleAbrirNegociacao(item.numero_item)}
-                              disabled={salvando}
-                            >
-                              <Handshake className="h-4 w-4 mr-1" />
-                              Abrir Negociação
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-amber-500 text-amber-700 hover:bg-amber-100"
+                                onClick={() => handleAbrirNegociacao(item.numero_item)}
+                                disabled={salvando}
+                              >
+                                <Handshake className="h-4 w-4 mr-1" />
+                                Negociar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-gray-400 text-gray-600 hover:bg-gray-100"
+                                onClick={() => handleNaoNegociar(item.numero_item)}
+                                disabled={salvando}
+                              >
+                                <Ban className="h-4 w-4 mr-1" />
+                                Não Negociar
+                              </Button>
+                            </div>
                           </div>
                         );
                       })}
