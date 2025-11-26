@@ -438,7 +438,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   }
 
   // 5 - HABILITADOS
-  checkNewPage(40);
+  checkNewPage(25);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("4. HABILITADOS", marginLeft, currentY);
@@ -453,16 +453,21 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   if (fornecedoresHabilitados.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    const nomesHabilitados = fornecedoresHabilitados.map(f => f.razao_social).join('; ');
-    const textoHabilitados = `Foram habilitadas as seguintes empresas: ${nomesHabilitados}.`;
-    currentY = drawJustifiedText(doc, textoHabilitados, marginLeft, currentY, contentWidth, 5);
+    doc.text("Foram habilitadas as seguintes empresas:", marginLeft, currentY);
+    currentY += 6;
+    
+    fornecedoresHabilitados.forEach(f => {
+      checkNewPage(8);
+      doc.text(`• ${f.razao_social}`, marginLeft, currentY);
+      currentY += 5;
+    });
   } else {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text("Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY);
     currentY += 6;
   }
-  currentY += 8;
+  currentY += 6;
 
   // 6 - INABILITADOS (apenas se houver)
   if (fornecedoresInabilitados.length > 0) {
@@ -486,7 +491,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   }
 
   // 7 - VENCEDOR(ES)
-  checkNewPage(40);
+  checkNewPage(20);
   const secaoVencedor = fornecedoresInabilitados.length > 0 ? "6" : "5";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
@@ -527,7 +532,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   currentY += 8;
 
   // 8 - NEGOCIAÇÕES
-  checkNewPage(40);
+  checkNewPage(20);
   const secaoNegociacao = fornecedoresInabilitados.length > 0 ? "7" : "6";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
@@ -548,7 +553,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   currentY += 8;
 
   // 9 - INTENÇÃO DE RECURSOS
-  checkNewPage(50);
+  checkNewPage(25);
   const secaoRecursos = fornecedoresInabilitados.length > 0 ? "8" : "7";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
