@@ -224,6 +224,23 @@ export async function gerarAtaNegociacaoPDF({
     .from('processo-anexos')
     .getPublicUrl(storagePath);
 
+  // Salvar registro da ata na tabela para verificação
+  const { error: insertError } = await supabase
+    .from('atas_selecao')
+    .insert({
+      selecao_id: selecaoId,
+      protocolo: protocolo,
+      nome_arquivo: nomeArquivo,
+      url_arquivo: publicUrl,
+      usuario_gerador_id: user?.id || null,
+      data_geracao: new Date().toISOString()
+    });
+
+  if (insertError) {
+    console.error('Erro ao salvar registro da ata:', insertError);
+    // Não lançamos erro para não impedir o fluxo, apenas logamos
+  }
+
   return {
     url: publicUrl,
     nome: nomeArquivo,
