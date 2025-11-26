@@ -723,13 +723,14 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginLeft = 40;
   const marginRight = 40;
   
-  // A certificação digital termina aproximadamente em Y = 150-180
-  // O rodapé começa em Y = ~50
-  // Vamos começar as assinaturas logo abaixo da certificação (subindo a posição)
-  let currentY = 160;
+  // Em pdf-lib, Y=0 é o fundo da página, Y=842 é o topo (A4)
+  // A certificação digital termina aproximadamente em Y = 90-100 (acima do rodapé)
+  // O rodapé está em Y = ~45-50
+  // Começar as assinaturas logo abaixo da certificação
+  let currentY = 90;
   
   // Limite inferior antes do rodapé
-  const footerLimit = 50;
+  const footerLimit = 45;
 
   // Função para verificar e criar nova página se necessário
   const checkNewPage = (espacoNecessario: number) => {
