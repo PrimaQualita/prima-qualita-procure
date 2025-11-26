@@ -254,8 +254,16 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     numero_item: m.numero_item
   }));
 
-  // Obter itens que tiveram negociação (números únicos)
-  const itensNegociados = [...new Set(mensagensNegociacao.map(m => m.numero_item))].sort((a, b) => a - b);
+  // Buscar itens que tiveram negociação CONCLUÍDA com êxito
+  const { data: itensNegociacaoConcluida } = await supabase
+    .from('itens_abertos_lances')
+    .select('numero_item')
+    .eq('selecao_id', selecaoId)
+    .eq('negociacao_concluida', true);
+
+  const itensNegociados = (itensNegociacaoConcluida || [])
+    .map(i => i.numero_item)
+    .sort((a, b) => a - b);
 
   // Buscar fornecedores inabilitados
   const { data: inabilitados, error: inabilitadosError } = await supabase
