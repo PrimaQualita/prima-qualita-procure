@@ -198,7 +198,7 @@ export function ChatNegociacao({
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col p-2 overflow-hidden min-h-0">
-        <ScrollAreaWithArrows className="flex-1 min-h-0 h-full" orientation="vertical">
+        <ScrollAreaWithArrows className="flex-1 min-h-0 h-full" orientation="both">
           <div className="space-y-2 pr-2">
             {mensagens.length === 0 ? (
               <p className="text-center text-xs text-muted-foreground py-4">
