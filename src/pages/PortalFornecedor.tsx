@@ -679,7 +679,7 @@ export default function PortalFornecedor() {
                             </p>
                             <div className="flex gap-4 mt-3 text-sm">
                               <span>
-                                Data: {new Date(convite.selecoes_fornecedores?.data_sessao_disputa).toLocaleDateString()}
+                                Data: {convite.selecoes_fornecedores?.data_sessao_disputa?.split('-').reverse().join('/')}
                               </span>
                               <span>
                                 Horário: {convite.selecoes_fornecedores?.hora_sessao_disputa}
