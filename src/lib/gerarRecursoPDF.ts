@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import logoRecurso from '@/assets/logo-recurso.png';
 import rodapeRecurso from '@/assets/rodape-recurso.png';
 
-interface RespostaRecursoResult {
+interface RecursoResult {
   url: string;
   fileName: string;
   protocolo: string;
@@ -32,56 +32,14 @@ const loadImageAsBase64 = (src: string): Promise<string> => {
   });
 };
 
-// Função para justificar texto de forma mais natural
-const justifyText = (doc: jsPDF, text: string, x: number, y: number, width: number, lineHeight: number): number => {
-  const paragraphs = text.split('\n\n');
-  let currentY = y;
-  
-  paragraphs.forEach((paragraph, pIndex) => {
-    if (pIndex > 0) {
-      currentY += lineHeight * 0.5; // Espaço entre parágrafos
-    }
-    
-    const lines = doc.splitTextToSize(paragraph.trim(), width);
-    
-    lines.forEach((line: string, lineIndex: number) => {
-      const isLastLine = lineIndex === lines.length - 1;
-      const words = line.trim().split(/\s+/);
-      
-      if (isLastLine || words.length <= 1) {
-        // Última linha do parágrafo ou linha com apenas uma palavra - alinhamento à esquerda
-        doc.text(line, x, currentY);
-      } else {
-        // Justificar a linha
-        const textWidth = doc.getTextWidth(words.join(''));
-        const totalSpaceNeeded = width - textWidth;
-        const spaceCount = words.length - 1;
-        const spaceWidth = totalSpaceNeeded / spaceCount;
-        
-        let currentX = x;
-        words.forEach((word, wordIndex) => {
-          doc.text(word, currentX, currentY);
-          if (wordIndex < words.length - 1) {
-            currentX += doc.getTextWidth(word) + spaceWidth;
-          }
-        });
-      }
-      currentY += lineHeight;
-    });
-  });
-  
-  return currentY;
-};
-
-export const gerarRespostaRecursoPDF = async (
-  decisao: 'provimento' | 'negado',
-  textoResposta: string,
-  usuarioNome: string,
-  usuarioCpf: string,
+export const gerarRecursoPDF = async (
+  motivoRecurso: string,
   fornecedorNome: string,
-  numeroProcesso: string
-): Promise<RespostaRecursoResult> => {
-  console.log('[PDF] Iniciando geração - Resposta de Recurso');
+  fornecedorCnpj: string,
+  numeroProcesso: string,
+  motivoInabilitacao: string
+): Promise<RecursoResult> => {
+  console.log('[PDF] Iniciando geração - Recurso de Inabilitação');
   
   const agora = new Date();
   const dataHora = agora.toLocaleString('pt-BR', { 
@@ -103,8 +61,8 @@ export const gerarRespostaRecursoPDF = async (
   
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margemLateral = 1.5; // 1.5mm das bordas para logo e rodapé
-  const margemTexto = 20; // margem para o texto
+  const margemLateral = 1.5;
+  const margemTexto = 20;
   const larguraUtil = pageWidth - (margemTexto * 2);
   
   // Carregar imagens
@@ -113,16 +71,14 @@ export const gerarRespostaRecursoPDF = async (
     loadImageAsBase64(rodapeRecurso)
   ]);
   
-  // Função para adicionar logo e rodapé em todas as páginas
+  // Função para adicionar logo e rodapé
   const adicionarLogoERodape = () => {
-    // Logo no topo - expandido nas margens laterais de 1.5mm
     const logoWidth = pageWidth - (margemLateral * 2);
-    const logoHeight = 20; // Altura proporcional
+    const logoHeight = 20;
     doc.addImage(base64Logo, 'PNG', margemLateral, margemLateral, logoWidth, logoHeight);
     
-    // Rodapé no final - expandido nas margens laterais de 1.5mm
     const rodapeWidth = pageWidth - (margemLateral * 2);
-    const rodapeHeight = 25; // Altura proporcional
+    const rodapeHeight = 25;
     doc.addImage(base64Rodape, 'PNG', margemLateral, pageHeight - rodapeHeight - margemLateral, rodapeWidth, rodapeHeight);
   };
   
@@ -132,8 +88,8 @@ export const gerarRespostaRecursoPDF = async (
   let y = 35;
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 128, 128); // Cor verde/teal
-  doc.text('RESPOSTA DE RECURSO', pageWidth / 2, y, { align: 'center' });
+  doc.setTextColor(0, 128, 128);
+  doc.text('RECURSO DE INABILITAÇÃO', pageWidth / 2, y, { align: 'center' });
   
   y += 12;
   
@@ -147,36 +103,59 @@ export const gerarRespostaRecursoPDF = async (
   
   y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.text('Fornecedor: ', margemTexto, y);
+  doc.text('Recorrente: ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(fornecedorNome, margemTexto + doc.getTextWidth('Fornecedor: '), y);
+  doc.text(fornecedorNome, margemTexto + doc.getTextWidth('Recorrente: '), y);
   
   y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.text('Decisão: ', margemTexto, y);
+  doc.text('CNPJ: ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  const decisaoTexto = decisao === 'provimento' ? 'DAR PROVIMENTO AO RECURSO' : 'NEGAR PROVIMENTO AO RECURSO';
-  doc.text(decisaoTexto, margemTexto + doc.getTextWidth('Decisão: '), y);
+  doc.text(fornecedorCnpj, margemTexto + doc.getTextWidth('CNPJ: '), y);
+  
+  y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Data: ', margemTexto, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(dataHora, margemTexto + doc.getTextWidth('Data: '), y);
   
   y += 12;
   
-  // Fundamentação - título em negrito
+  // Motivo da Inabilitação
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 128, 128); // Cor verde/teal
-  doc.text('FUNDAMENTAÇÃO:', margemTexto, y);
+  doc.setTextColor(0, 128, 128);
+  doc.text('MOTIVO DA INABILITAÇÃO:', margemTexto, y);
   
   y += 8;
-  
-  // Texto da fundamentação - justificado
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(10);
   
-  // Função para verificar quebra de página durante o texto
-  const maxY = pageHeight - 40; // Espaço para rodapé
+  const linhasMotivo = doc.splitTextToSize(motivoInabilitacao, larguraUtil);
+  const maxY = pageHeight - 40;
   const lineHeight = 5;
   
-  const paragraphs = textoResposta.split('\n\n');
+  linhasMotivo.forEach((linha: string) => {
+    if (y > maxY) {
+      doc.addPage();
+      adicionarLogoERodape();
+      y = 35;
+    }
+    doc.text(linha, margemTexto, y);
+    y += lineHeight;
+  });
+  
+  y += 10;
+  
+  // Razões do Recurso
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 128, 128);
+  doc.text('RAZÕES DO RECURSO:', margemTexto, y);
+  
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  
+  const paragraphs = motivoRecurso.split('\n\n');
   
   paragraphs.forEach((paragraph, pIndex) => {
     if (pIndex > 0) {
@@ -186,7 +165,6 @@ export const gerarRespostaRecursoPDF = async (
     const lines = doc.splitTextToSize(paragraph.trim(), larguraUtil);
     
     lines.forEach((line: string, lineIndex: number) => {
-      // Verificar se precisa de nova página
       if (y > maxY) {
         doc.addPage();
         adicionarLogoERodape();
@@ -199,7 +177,6 @@ export const gerarRespostaRecursoPDF = async (
       if (isLastLine || words.length <= 1) {
         doc.text(line, margemTexto, y);
       } else {
-        // Justificar a linha
         const textWidth = doc.getTextWidth(words.join(''));
         const totalSpaceNeeded = larguraUtil - textWidth;
         const spaceCount = words.length - 1;
@@ -233,16 +210,16 @@ export const gerarRespostaRecursoPDF = async (
   adicionarCertificacaoDigital(doc, {
     protocolo,
     dataHora,
-    responsavel: usuarioNome,
-    cpf: usuarioCpf,
+    responsavel: fornecedorNome,
+    cpf: fornecedorCnpj,
     hash,
     linkVerificacao: `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`
   }, y);
   
   // Gerar PDF como blob
   const pdfBlob = doc.output('blob');
-  const fileName = `resposta_recurso_${numeroProcesso.replace(/\//g, '-')}_${Date.now()}.pdf`;
-  const storagePath = `recursos/respostas/${fileName}`;
+  const fileName = `recurso_${numeroProcesso.replace(/\//g, '-')}_${Date.now()}.pdf`;
+  const storagePath = `recursos/enviados/${fileName}`;
   
   console.log('[PDF] Fazendo upload para storage:', storagePath);
   
@@ -256,7 +233,7 @@ export const gerarRespostaRecursoPDF = async (
   
   if (uploadError) {
     console.error('[PDF] Erro no upload:', uploadError);
-    throw new Error('Erro ao fazer upload da resposta de recurso');
+    throw new Error('Erro ao fazer upload do recurso');
   }
   
   console.log('[PDF] Upload concluído:', uploadData);
@@ -266,7 +243,7 @@ export const gerarRespostaRecursoPDF = async (
     .from('processo-anexos')
     .getPublicUrl(storagePath);
   
-  console.log('[PDF] Resposta de recurso gerada com sucesso');
+  console.log('[PDF] Recurso gerado com sucesso');
   
   return {
     url: urlData.publicUrl,

@@ -1994,10 +1994,15 @@ export type Database = {
           id: string
           inabilitacao_id: string
           motivo_recurso: string
+          nome_arquivo_recurso: string | null
+          nome_arquivo_resposta: string | null
+          protocolo_resposta: string | null
           resposta_gestor: string | null
           selecao_id: string
           status_recurso: string
           updated_at: string
+          url_pdf_recurso: string | null
+          url_pdf_resposta: string | null
           usuario_gestor_id: string | null
         }
         Insert: {
@@ -2011,10 +2016,15 @@ export type Database = {
           id?: string
           inabilitacao_id: string
           motivo_recurso: string
+          nome_arquivo_recurso?: string | null
+          nome_arquivo_resposta?: string | null
+          protocolo_resposta?: string | null
           resposta_gestor?: string | null
           selecao_id: string
           status_recurso?: string
           updated_at?: string
+          url_pdf_recurso?: string | null
+          url_pdf_resposta?: string | null
           usuario_gestor_id?: string | null
         }
         Update: {
@@ -2028,10 +2038,15 @@ export type Database = {
           id?: string
           inabilitacao_id?: string
           motivo_recurso?: string
+          nome_arquivo_recurso?: string | null
+          nome_arquivo_resposta?: string | null
+          protocolo_resposta?: string | null
           resposta_gestor?: string | null
           selecao_id?: string
           status_recurso?: string
           updated_at?: string
+          url_pdf_recurso?: string | null
+          url_pdf_resposta?: string | null
           usuario_gestor_id?: string | null
         }
         Relationships: [
