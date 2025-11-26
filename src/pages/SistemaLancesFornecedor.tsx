@@ -423,23 +423,39 @@ const SistemaLancesFornecedor = () => {
   };
 
   const loadLances = async () => {
-    if (!selecao?.id) return;
+    if (!selecao?.id) {
+      console.log('loadLances: selecao.id não disponível');
+      return;
+    }
 
     try {
+      console.log('loadLances: Buscando inabilitados para selecao_id:', selecao.id);
+      
       // Buscar fornecedores inabilitados da seleção
-      const { data: inabilitados } = await supabase
+      const { data: inabilitados, error: inabilitadosError } = await supabase
         .from("fornecedores_inabilitados_selecao")
         .select("fornecedor_id")
         .eq("selecao_id", selecao.id)
         .eq("revertido", false);
 
+      if (inabilitadosError) {
+        console.error('Erro ao buscar inabilitados:', inabilitadosError);
+      }
+      
+      console.log('loadLances: Dados retornados de inabilitados:', inabilitados);
+
       // Converter para Set de STRINGS para garantir comparação correta
       const inabilitadosIds = new Set<string>(
         (inabilitados || []).map((f: any) => String(f.fornecedor_id))
       );
-      setFornecedoresInabilitados(inabilitadosIds);
       
-      console.log('Fornecedores inabilitados carregados:', Array.from(inabilitadosIds));
+      // CRÍTICO: Só atualizar se houver mudança para evitar loops infinitos
+      // mas sempre atualizar se tiver dados novos
+      if (inabilitadosIds.size > 0 || fornecedoresInabilitados.size !== inabilitadosIds.size) {
+        setFornecedoresInabilitados(inabilitadosIds);
+      }
+      
+      console.log('loadLances: Fornecedores inabilitados (Set):', Array.from(inabilitadosIds), 'tamanho:', inabilitadosIds.size);
 
       // Recalcular menor valor das propostas excluindo inabilitados
       const { data: todasPropostas } = await supabase
