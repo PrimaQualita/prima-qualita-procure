@@ -586,9 +586,19 @@ export function DialogAnaliseDocumentalSelecao({
     try {
       const segundos: SegundoColocado[] = [];
       
+      // Buscar todos os fornecedores inabilitados nesta seleção
+      const { data: inabilitados } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id")
+        .eq("selecao_id", selecaoId)
+        .eq("revertido", false);
+      
+      const inabilitadosIds = new Set(inabilitados?.map(i => i.fornecedor_id) || []);
+      // Adicionar também o fornecedor que está sendo inabilitado agora
+      inabilitadosIds.add(fornecedorExcluirId);
+      
       for (const item of itens) {
         // Buscar todos os lances do item ordenados por valor (menor primeiro)
-        // Excluir o fornecedor que está sendo inabilitado
         const { data: lances, error } = await supabase
           .from("lances_fornecedores")
           .select(`
@@ -598,18 +608,20 @@ export function DialogAnaliseDocumentalSelecao({
           `)
           .eq("selecao_id", selecaoId)
           .eq("numero_item", item)
-          .neq("fornecedor_id", fornecedorExcluirId)
           .order("valor_lance", { ascending: true });
         
         if (error) throw error;
         
-        // O primeiro lance (após excluir o fornecedor inabilitado) é o segundo colocado
-        if (lances && lances.length > 0) {
+        // Filtrar para excluir todos os fornecedores inabilitados
+        const lancesValidos = lances?.filter(l => !inabilitadosIds.has(l.fornecedor_id)) || [];
+        
+        // O primeiro lance válido é o segundo colocado
+        if (lancesValidos.length > 0) {
           segundos.push({
             numero_item: item,
-            fornecedor_id: lances[0].fornecedor_id,
-            fornecedor_nome: (lances[0].fornecedores as any)?.razao_social || "N/A",
-            valor_lance: lances[0].valor_lance,
+            fornecedor_id: lancesValidos[0].fornecedor_id,
+            fornecedor_nome: (lancesValidos[0].fornecedores as any)?.razao_social || "N/A",
+            valor_lance: lancesValidos[0].valor_lance,
           });
         }
       }
