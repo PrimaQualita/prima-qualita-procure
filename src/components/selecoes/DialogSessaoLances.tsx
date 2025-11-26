@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollAreaWithArrows } from "@/components/ui/scroll-area-with-arrows";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -1892,8 +1893,8 @@ export function DialogSessaoLances({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 pt-0">
-                    <ScrollArea className="max-h-[250px]">
-                      <div className="space-y-2 pr-3">
+                    <ScrollAreaWithArrows className="h-[250px]" orientation="vertical" scrollStep={80}>
+                      <div className="space-y-2">
                         {itensParaNegociacao.map((item) => {
                           const numeroItem = item.numero_item;
                           const emNegociacaoAtiva = itensEmNegociacao.has(numeroItem);
@@ -1992,8 +1993,7 @@ export function DialogSessaoLances({
                           );
                         })}
                       </div>
-                      <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
+                    </ScrollAreaWithArrows>
                   </CardContent>
                 </Card>
               );
