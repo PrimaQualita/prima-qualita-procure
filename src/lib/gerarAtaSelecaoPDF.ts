@@ -362,31 +362,35 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // Primeira página - Logo e Rodapé
   addLogo();
 
+  // Espaçamento padrão entre seções
+  const espacoEntreSecoes = 6;
+  const espacoAposTitulo = 5;
+
   // 1 - TÍTULO
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
   doc.text(`ATA DA SESSÃO PÚBLICA DA SELEÇÃO DE FORNECEDORES Nº ${selecao.numero_selecao || '---'}`, pageWidth / 2, currentY, { align: "center" });
-  currentY += 12;
+  currentY += 10;
 
   // 2 - OBJETO
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("1. OBJETO", marginLeft, currentY);
-  currentY += 6;
+  currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   const objetoTexto = selecao.descricao || (selecao.processos_compras as any)?.objeto_resumido || selecao.titulo_selecao;
   currentY = drawJustifiedText(doc, objetoTexto, marginLeft, currentY, contentWidth, 5);
-  currentY += 8;
+  currentY += espacoEntreSecoes;
 
   // 3 - PREÂMBULO DE ABERTURA
-  checkNewPage(50);
+  checkNewPage(15);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("2. PREÂMBULO DE ABERTURA", marginLeft, currentY);
-  currentY += 6;
+  currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -394,14 +398,14 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const preambulo = `Aos ${formatarDataExtenso(selecao.data_sessao_disputa)}, às ${formatarHora(selecao.hora_sessao_disputa)} horas, através do Sistema de Compras da Prima Qualitá Saúde, reuniu-se a Comissão do Departamento de Compras para conduzir a Sessão Pública de Seleção de Fornecedores nº ${selecao.numero_selecao || '---'}, referente ao Processo nº ${(selecao.processos_compras as any)?.numero_processo_interno || '---'}.`;
   
   currentY = drawJustifiedText(doc, preambulo, marginLeft, currentY, contentWidth, 5);
-  currentY += 8;
+  currentY += espacoEntreSecoes;
 
   // 4 - EMPRESAS PARTICIPANTES
-  checkNewPage(60);
+  checkNewPage(15);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("3. EMPRESAS PARTICIPANTES", marginLeft, currentY);
-  currentY += 6;
+  currentY += espacoAposTitulo;
 
   if (empresasParticipantes.length > 0) {
     const tabelaEmpresas = empresasParticipantes.map(e => [
@@ -437,20 +441,20 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       }
     });
 
-    currentY = (doc as any).lastAutoTable.finalY + 10;
+    currentY = (doc as any).lastAutoTable.finalY + espacoEntreSecoes;
   } else {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text("Nenhuma empresa participou desta seleção.", marginLeft, currentY);
-    currentY += 10;
+    currentY += espacoEntreSecoes;
   }
 
   // 5 - HABILITADOS
-  checkNewPage(25);
+  checkNewPage(10);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("4. HABILITADOS", marginLeft, currentY);
-  currentY += 6;
+  currentY += espacoAposTitulo;
 
   // Fornecedores participantes que não foram inabilitados
   const fornecedoresInabilitadosIds = fornecedoresInabilitados.map(f => f.cnpj);
@@ -462,10 +466,10 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text("Foram habilitadas as seguintes empresas:", marginLeft, currentY);
-    currentY += 6;
+    currentY += 5;
     
     fornecedoresHabilitados.forEach(f => {
-      checkNewPage(8);
+      checkNewPage(6);
       doc.text(`• ${f.razao_social}`, marginLeft, currentY);
       currentY += 5;
     });
@@ -473,38 +477,37 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text("Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY);
-    currentY += 6;
+    currentY += 5;
   }
-  currentY += 6;
+  currentY += espacoEntreSecoes;
 
   // 6 - INABILITADOS (apenas se houver)
   if (fornecedoresInabilitados.length > 0) {
-    checkNewPage(40);
+    checkNewPage(10);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("5. INABILITADOS", marginLeft, currentY);
-    currentY += 6;
+    currentY += espacoAposTitulo;
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
 
     fornecedoresInabilitados.forEach(inab => {
-      checkNewPage(20);
+      checkNewPage(10);
       const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
       const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA nos itens: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
       currentY = drawJustifiedText(doc, textoInab, marginLeft, currentY, contentWidth, 5);
-      currentY += 3;
     });
-    currentY += 5;
+    currentY += espacoEntreSecoes;
   }
 
   // 7 - VENCEDOR(ES)
-  checkNewPage(20);
+  checkNewPage(10);
   const secaoVencedor = fornecedoresInabilitados.length > 0 ? "6" : "5";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text(`${secaoVencedor}. VENCEDOR(ES)`, marginLeft, currentY);
-  currentY += 6;
+  currentY += espacoAposTitulo;
 
   if (itensVencedores.length > 0) {
     // Agrupar por fornecedor
@@ -525,27 +528,26 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     doc.setFont("helvetica", "normal");
 
     Object.values(vencedoresPorFornecedor).forEach(fornecedor => {
-      checkNewPage(15);
+      checkNewPage(6);
       const itensStr = fornecedor.itens.sort((a, b) => a - b).join(', ');
       const textoVencedor = `• ${fornecedor.nome} - Itens: ${itensStr} - Valor Total: ${formatarMoeda(fornecedor.valorTotal)}.`;
       currentY = drawJustifiedText(doc, textoVencedor, marginLeft, currentY, contentWidth - 5, 5);
-      currentY += 2;
     });
   } else {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text("Nenhum vencedor foi declarado até o momento.", marginLeft, currentY);
-    currentY += 6;
+    currentY += 5;
   }
-  currentY += 8;
+  currentY += espacoEntreSecoes;
 
   // 8 - NEGOCIAÇÕES
-  checkNewPage(20);
+  checkNewPage(10);
   const secaoNegociacao = fornecedoresInabilitados.length > 0 ? "7" : "6";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text(`${secaoNegociacao}. NEGOCIAÇÕES`, marginLeft, currentY);
-  currentY += 6;
+  currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -556,17 +558,17 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     currentY = drawJustifiedText(doc, textoNegociacao, marginLeft, currentY, contentWidth, 5);
   } else {
     doc.text("Não houve negociações durante esta sessão.", marginLeft, currentY);
-    currentY += 6;
+    currentY += 5;
   }
-  currentY += 8;
+  currentY += espacoEntreSecoes;
 
   // 9 - INTENÇÃO DE RECURSOS
-  checkNewPage(25);
+  checkNewPage(10);
   const secaoRecursos = fornecedoresInabilitados.length > 0 ? "8" : "7";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text(`${secaoRecursos}. INTENÇÃO DE RECURSOS`, marginLeft, currentY);
-  currentY += 6;
+  currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -574,15 +576,15 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // Texto padrão sobre intenção de recursos (por enquanto sem dados de recursos)
   const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento de cada fase do certame, nenhuma empresa manifestou intenção de interpor recurso.`;
   currentY = drawJustifiedText(doc, textoRecursos, marginLeft, currentY, contentWidth, 5);
-  currentY += 8;
+  currentY += espacoEntreSecoes;
 
   // 10 - ENCERRAMENTO
-  checkNewPage(50);
+  checkNewPage(10);
   const secaoEncerramento = fornecedoresInabilitados.length > 0 ? "9" : "8";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text(`${secaoEncerramento}. ENCERRAMENTO`, marginLeft, currentY);
-  currentY += 6;
+  currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -592,7 +594,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   
   const encerramento = `Nada mais havendo a tratar, foi encerrada a sessão pública às ${horaGeracaoFormatada} horas do dia ${dataGeracaoFormatada}, lavrando-se a presente Ata que registra todos os atos praticados durante a Sessão Pública de Seleção de Fornecedores através do Sistema de Compras da Prima Qualitá Saúde.`;
   currentY = drawJustifiedText(doc, encerramento, marginLeft, currentY, contentWidth, 5);
-  currentY += 15;
+  currentY += espacoEntreSecoes;
 
   // CERTIFICAÇÃO DIGITAL
   checkNewPage(70);
