@@ -472,7 +472,8 @@ export function DialogAnaliseDocumentalSelecao({
         profileData?.nome_completo || "Gestor",
         profileData?.cpf || "",
         fornecedor.razao_social,
-        selecaoInfo?.numeroProcesso || ""
+        selecaoInfo?.numeroProcesso || "",
+        selecaoInfo?.numero || ""
       );
       await supabase.from("recursos_inabilitacao_selecao").update({
         url_pdf_resposta: pdfResult.url,
