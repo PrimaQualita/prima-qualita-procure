@@ -412,10 +412,13 @@ const SistemaLancesFornecedor = () => {
         .eq("selecao_id", selecao.id)
         .eq("revertido", false);
 
-      const inabilitadosIds = new Set(
-        (inabilitados || []).map((f: any) => f.fornecedor_id)
+      // Converter para Set de STRINGS para garantir comparação correta
+      const inabilitadosIds = new Set<string>(
+        (inabilitados || []).map((f: any) => String(f.fornecedor_id))
       );
       setFornecedoresInabilitados(inabilitadosIds);
+      
+      console.log('Fornecedores inabilitados carregados:', Array.from(inabilitadosIds));
 
       // Recalcular menor valor das propostas excluindo inabilitados
       const { data: todasPropostas } = await supabase
@@ -434,8 +437,9 @@ const SistemaLancesFornecedor = () => {
         const mapaMenorValor = new Map<number, number>();
         
         todasPropostas.forEach((prop: any) => {
-          // Excluir propostas de fornecedores inabilitados
-          if (inabilitadosIds.has(prop.fornecedor_id)) {
+          // Excluir propostas de fornecedores inabilitados - comparar como string
+          if (inabilitadosIds.has(String(prop.fornecedor_id))) {
+            console.log('Excluindo proposta de fornecedor inabilitado:', prop.fornecedor_id);
             return;
           }
           
@@ -451,6 +455,7 @@ const SistemaLancesFornecedor = () => {
           }
         });
 
+        console.log('Menor valor por item (sem inabilitados):', Object.fromEntries(mapaMenorValor));
         setMenorValorPropostas(mapaMenorValor);
       }
 
@@ -469,10 +474,16 @@ const SistemaLancesFornecedor = () => {
 
       if (error) throw error;
 
-      // Filtrar lances de fornecedores inabilitados
-      const lancesFiltrados = (data || []).filter(
-        (lance: any) => !inabilitadosIds.has(lance.fornecedor_id)
-      );
+      // Filtrar lances de fornecedores inabilitados - comparar como string
+      const lancesFiltrados = (data || []).filter((lance: any) => {
+        const isInabilitado = inabilitadosIds.has(String(lance.fornecedor_id));
+        if (isInabilitado) {
+          console.log('Excluindo lance de fornecedor inabilitado:', lance.fornecedor_id, 'item:', lance.numero_item, 'valor:', lance.valor_lance);
+        }
+        return !isInabilitado;
+      });
+      
+      console.log('Total lances originais:', data?.length, 'Total após filtro:', lancesFiltrados.length);
 
       setLances(lancesFiltrados);
     } catch (error) {
@@ -481,11 +492,20 @@ const SistemaLancesFornecedor = () => {
   };
 
   // Filtrar lances do item excluindo fornecedores inabilitados
+  // Usa comparação segura de strings para evitar problemas de tipo
   const getLancesDoItem = (numeroItem: number) => {
-    return lances.filter(l => 
-      l.numero_item === numeroItem && 
-      !fornecedoresInabilitados.has(l.fornecedor_id)
-    );
+    return lances.filter(l => {
+      if (l.numero_item !== numeroItem) return false;
+      
+      // Verificar se o fornecedor está inabilitado usando comparação de string
+      const fornecedorId = String(l.fornecedor_id);
+      for (const inabilitadoId of fornecedoresInabilitados) {
+        if (String(inabilitadoId) === fornecedorId) {
+          return false; // Excluir lance de fornecedor inabilitado
+        }
+      }
+      return true;
+    });
   };
 
   const fornecedorApresentouPropostaNoItem = (numeroItem: number): boolean => {
@@ -519,11 +539,22 @@ const SistemaLancesFornecedor = () => {
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const valorMenorProposta = menorValorPropostas.get(numeroItem) || 0;
     
-    // getLancesDoItem já filtra inabilitados
-    const lancesDoItem = getLancesDoItem(numeroItem);
+    // IMPORTANTE: Filtrar lances excluindo TODOS os fornecedores inabilitados
+    // Usar filtro direto aqui para garantir que sempre funcione
+    const lancesDoItemFiltrados = lances.filter(l => {
+      if (l.numero_item !== numeroItem) return false;
+      // Verificar se o fornecedor está inabilitado - usar comparação direta de string
+      const fornecedorId = String(l.fornecedor_id);
+      for (const inabilitadoId of fornecedoresInabilitados) {
+        if (String(inabilitadoId) === fornecedorId) {
+          return false; // Excluir lance de fornecedor inabilitado
+        }
+      }
+      return true;
+    });
     
     // Filtrar apenas lances classificados (menores ou iguais ao estimado)
-    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+    const lancesClassificados = lancesDoItemFiltrados.filter(l => l.valor_lance <= valorEstimado);
     
     if (lancesClassificados.length > 0) {
       // Retornar o menor lance classificado
@@ -534,7 +565,7 @@ const SistemaLancesFornecedor = () => {
       return valoresOrdenados[0];
     }
     
-    // Se não há lances, usar o menor valor das propostas (já filtrado de inabilitados)
+    // Se não há lances classificados válidos, usar o menor valor das propostas
     if (valorMenorProposta > 0) {
       return valorMenorProposta;
     }
