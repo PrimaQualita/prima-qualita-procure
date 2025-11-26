@@ -431,6 +431,73 @@ export type Database = {
           },
         ]
       }
+      avaliacoes_cadastro_fornecedor: {
+        Row: {
+          classificacao_risco: string | null
+          created_at: string | null
+          data_envio: string
+          data_resposta: string | null
+          enviado_por_id: string | null
+          fornecedor_id: string
+          id: string
+          observacoes_compliance: string | null
+          score_risco_total: number | null
+          status_avaliacao: string
+          updated_at: string | null
+          usuario_compliance_id: string | null
+        }
+        Insert: {
+          classificacao_risco?: string | null
+          created_at?: string | null
+          data_envio?: string
+          data_resposta?: string | null
+          enviado_por_id?: string | null
+          fornecedor_id: string
+          id?: string
+          observacoes_compliance?: string | null
+          score_risco_total?: number | null
+          status_avaliacao?: string
+          updated_at?: string | null
+          usuario_compliance_id?: string | null
+        }
+        Update: {
+          classificacao_risco?: string | null
+          created_at?: string | null
+          data_envio?: string
+          data_resposta?: string | null
+          enviado_por_id?: string | null
+          fornecedor_id?: string
+          id?: string
+          observacoes_compliance?: string | null
+          score_risco_total?: number | null
+          status_avaliacao?: string
+          updated_at?: string | null
+          usuario_compliance_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avaliacoes_cadastro_fornecedor_enviado_por_id_fkey"
+            columns: ["enviado_por_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_cadastro_fornecedor_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_cadastro_fornecedor_usuario_compliance_id_fkey"
+            columns: ["usuario_compliance_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campos_documentos_finalizacao: {
         Row: {
           cotacao_id: string

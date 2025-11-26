@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FileText, Eye, Download, ChevronRight, ArrowLeft, FileCheck, Edit, Trash2 } from "lucide-react";
+import { FileText, Eye, Download, ChevronRight, ArrowLeft, FileCheck, Edit, Trash2, Users, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
 import { DialogAnaliseCompliance } from "@/components/compliance/DialogAnaliseCompliance";
+import { DialogAvaliacaoCadastro } from "@/components/compliance/DialogAvaliacaoCadastro";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -46,33 +53,78 @@ interface ProcessoCompliance {
   tem_analise: boolean;
 }
 
+interface AvaliacaoCadastro {
+  id: string;
+  fornecedor_id: string;
+  status_avaliacao: string;
+  score_risco_total: number | null;
+  classificacao_risco: string | null;
+  observacoes_compliance: string | null;
+  data_envio: string;
+  data_resposta: string | null;
+  fornecedor?: {
+    razao_social: string;
+    cnpj: string;
+    email: string;
+  };
+}
+
 export default function Compliance() {
   const [contratos, setContratos] = useState<ContratoGestao[]>([]);
   const [contratoSelecionado, setContratoSelecionado] = useState<ContratoGestao | null>(null);
   const [processos, setProcessos] = useState<Record<string, ProcessoCompliance[]>>({});
+  const [avaliacoesCadastro, setAvaliacoesCadastro] = useState<AvaliacaoCadastro[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
+  const [filtroAvaliacoes, setFiltroAvaliacoes] = useState("");
   const [analiseDialogOpen, setAnaliseDialogOpen] = useState(false);
+  const [avaliacaoDialogOpen, setAvaliacaoDialogOpen] = useState(false);
   const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoCompliance | null>(null);
+  const [avaliacaoSelecionada, setAvaliacaoSelecionada] = useState<AvaliacaoCadastro | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [analiseParaDeletar, setAnaliseParaDeletar] = useState<string | null>(null);
   const [modoEdicao, setModoEdicao] = useState(false);
+  const [activeTab, setActiveTab] = useState("processos");
 
   useEffect(() => {
     loadData();
+    loadAvaliacoesCadastro();
     
-    // Recarregar quando a página recebe foco (volta de outra página)
     const handleFocus = () => {
-      console.log("🔄 Compliance: Página recebeu foco, recarregando dados...");
       loadData();
+      loadAvaliacoesCadastro();
     };
     
     window.addEventListener('focus', handleFocus);
-    
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
+
+  const loadAvaliacoesCadastro = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("avaliacoes_cadastro_fornecedor")
+        .select(`
+          *,
+          fornecedor:fornecedores (razao_social, cnpj, email)
+        `)
+        .order("data_envio", { ascending: false });
+
+      if (error) throw error;
+      setAvaliacoesCadastro(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar avaliações de cadastro:", error);
+    }
+  };
+
+  const handleAbrirAvaliacaoCadastro = (avaliacao: AvaliacaoCadastro) => {
+    setAvaliacaoSelecionada(avaliacao);
+    setAvaliacaoDialogOpen(true);
+  };
+
+  const avaliacoesFiltradas = avaliacoesCadastro.filter((av) =>
+    av.fornecedor?.razao_social?.toLowerCase().includes(filtroAvaliacoes.toLowerCase()) ||
+    av.fornecedor?.cnpj?.includes(filtroAvaliacoes)
+  );
 
   const loadData = async () => {
     try {
@@ -316,16 +368,39 @@ export default function Compliance() {
             <CardHeader>
               <CardTitle>Compliance</CardTitle>
               <CardDescription>
-                Gerencie processos enviados ao compliance
+                Gerencie análises de processos e cadastros de fornecedores
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Input
-                placeholder="Buscar por nome ou ente federativo..."
-                value={filtro}
-                onChange={(e) => setFiltro(e.target.value)}
-                className="mb-4"
-              />
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="processos" className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4" />
+                    Análises de Processos
+                    {Object.values(processos).flat().filter(p => !p.respondido_compliance).length > 0 && (
+                      <Badge variant="destructive" className="ml-1">
+                        {Object.values(processos).flat().filter(p => !p.respondido_compliance).length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="cadastros" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Avaliação de Cadastros
+                    {avaliacoesCadastro.filter(a => a.status_avaliacao === "pendente").length > 0 && (
+                      <Badge variant="destructive" className="ml-1">
+                        {avaliacoesCadastro.filter(a => a.status_avaliacao === "pendente").length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="processos">
+                  <Input
+                    placeholder="Buscar por nome ou ente federativo..."
+                    value={filtro}
+                    onChange={(e) => setFiltro(e.target.value)}
+                    className="mb-4"
+                  />
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -380,6 +455,69 @@ export default function Compliance() {
                   Nenhum contrato encontrado
                 </p>
               )}
+                </TabsContent>
+
+                <TabsContent value="cadastros">
+                  <Input
+                    placeholder="Buscar por razão social ou CNPJ..."
+                    value={filtroAvaliacoes}
+                    onChange={(e) => setFiltroAvaliacoes(e.target.value)}
+                    className="mb-4"
+                  />
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fornecedor</TableHead>
+                        <TableHead>CNPJ</TableHead>
+                        <TableHead>Data Envio</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Classificação</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {avaliacoesFiltradas.map((avaliacao) => (
+                        <TableRow key={avaliacao.id}>
+                          <TableCell className="font-medium">{avaliacao.fornecedor?.razao_social}</TableCell>
+                          <TableCell>{avaliacao.fornecedor?.cnpj}</TableCell>
+                          <TableCell>{formatarData(avaliacao.data_envio)}</TableCell>
+                          <TableCell>
+                            {avaliacao.status_avaliacao === "pendente" ? (
+                              <Badge variant="destructive">Pendente</Badge>
+                            ) : (
+                              <Badge variant="default">Respondido</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {avaliacao.classificacao_risco ? (
+                              <Badge variant={avaliacao.classificacao_risco === "satisfatorio" ? "default" : "destructive"}>
+                                {avaliacao.classificacao_risco === "satisfatorio" ? "Satisfatório" : "Não Satisfatório"}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAbrirAvaliacaoCadastro(avaliacao)}
+                            >
+                              {avaliacao.status_avaliacao === "pendente" ? "Analisar" : "Ver Análise"}
+                              <ChevronRight className="ml-2 h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {avaliacoesFiltradas.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">
+                      Nenhuma avaliação de cadastro encontrada
+                    </p>
+                  )}
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         ) : (
@@ -531,6 +669,13 @@ export default function Compliance() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <DialogAvaliacaoCadastro
+          open={avaliacaoDialogOpen}
+          onOpenChange={setAvaliacaoDialogOpen}
+          avaliacao={avaliacaoSelecionada}
+          onSuccess={() => loadAvaliacoesCadastro()}
+        />
       </div>
     </div>
   );
