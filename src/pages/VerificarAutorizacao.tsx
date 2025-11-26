@@ -17,7 +17,7 @@ export default function VerificarAutorizacao() {
   const [protocolo, setProtocolo] = useState(searchParams.get("protocolo") || "");
   const [loading, setLoading] = useState(false);
   const [autorizacao, setAutorizacao] = useState<any>(null);
-  const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | 'compliance' | 'planilha' | 'encaminhamento' | null>(null);
+  const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | 'compliance' | 'planilha' | 'encaminhamento' | 'recurso' | 'resposta_recurso' | null>(null);
   const [buscaRealizada, setBuscaRealizada] = useState(false);
 
   const verificarAutorizacao = async (protocoloParam?: string) => {
@@ -293,6 +293,88 @@ export default function VerificarAutorizacao() {
 
         toast({
           title: "Encaminhamento de Processo verificado",
+          description: "Documento autêntico encontrado no sistema",
+        });
+        return;
+      }
+
+      // 6. Recursos de Inabilitação (Recurso do Fornecedor)
+      console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_inabilitacao_selecao (recurso)...');
+      // @ts-ignore - Supabase type inference too deep
+      const recursoResult = await supabase
+        .from('recursos_inabilitacao_selecao')
+        .select('*')
+        .eq('protocolo_recurso', protocoloLimpo)
+        .maybeSingle();
+      const recursoData = recursoResult.data as any;
+      const recursoError = recursoResult.error;
+
+      console.log('📋 [VERIFICAÇÃO] Resultado recursos_inabilitacao_selecao (recurso):', { 
+        encontrado: !!recursoData, 
+        erro: recursoError?.message 
+      });
+
+      if (recursoData && !recursoError) {
+        console.log('✅ [VERIFICAÇÃO] Recurso de Inabilitação encontrado!');
+        
+        const { data: fornecedor } = await supabase
+          .from('fornecedores')
+          .select('razao_social, cnpj')
+          .eq('id', recursoData.fornecedor_id)
+          .single();
+
+        setAutorizacao({
+          ...recursoData,
+          data_geracao: recursoData.data_envio_recurso,
+          usuario: { nome_completo: fornecedor?.razao_social }
+        });
+        setTipoDocumento('recurso');
+
+        toast({
+          title: "Recurso de Inabilitação verificado",
+          description: "Documento autêntico encontrado no sistema",
+        });
+        return;
+      }
+
+      // 7. Recursos de Inabilitação (Resposta do Gestor)
+      console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_inabilitacao_selecao (resposta)...');
+      // @ts-ignore - Supabase type inference too deep
+      const respostaRecursoResult = await supabase
+        .from('recursos_inabilitacao_selecao')
+        .select('*')
+        .eq('protocolo_resposta', protocoloLimpo)
+        .maybeSingle();
+      const respostaRecursoData = respostaRecursoResult.data as any;
+      const respostaRecursoError = respostaRecursoResult.error;
+
+      console.log('📋 [VERIFICAÇÃO] Resultado recursos_inabilitacao_selecao (resposta):', { 
+        encontrado: !!respostaRecursoData, 
+        erro: respostaRecursoError?.message 
+      });
+
+      if (respostaRecursoData && !respostaRecursoError) {
+        console.log('✅ [VERIFICAÇÃO] Resposta de Recurso encontrada!');
+        
+        let usuario = null;
+        if (respostaRecursoData.usuario_gestor_id) {
+          const { data: usuarioData } = await supabase
+            .from('profiles')
+            .select('nome_completo, cpf')
+            .eq('id', respostaRecursoData.usuario_gestor_id)
+            .single();
+          usuario = usuarioData;
+        }
+
+        setAutorizacao({
+          ...respostaRecursoData,
+          data_geracao: respostaRecursoData.data_resposta_gestor,
+          usuario
+        });
+        setTipoDocumento('resposta_recurso');
+
+        toast({
+          title: "Resposta de Recurso verificada",
           description: "Documento autêntico encontrado no sistema",
         });
         return;
