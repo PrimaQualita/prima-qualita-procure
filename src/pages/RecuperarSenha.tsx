@@ -73,15 +73,22 @@ const RecuperarSenha = () => {
     setLoading(true);
 
     try {
-      // Chamar nossa edge function personalizada
-      const { data, error } = await supabase.functions.invoke('enviar-email-recuperacao', {
+      // Tentar enviar via edge function personalizada primeiro
+      const { data, error: fnError } = await supabase.functions.invoke('enviar-email-recuperacao', {
         body: {
           email: email,
           redirectTo: `${window.location.origin}/recuperar-senha`,
         },
       });
 
-      if (error) throw error;
+      // Se falhar (ex: domínio não verificado), usar método padrão do Supabase
+      if (fnError || data?.error) {
+        console.log("Usando método padrão do Supabase para recuperação de senha");
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/recuperar-senha`,
+        });
+        if (resetError) throw resetError;
+      }
 
       setStep("sent");
       toast({
