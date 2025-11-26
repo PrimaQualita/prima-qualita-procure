@@ -443,7 +443,8 @@ export function DialogAnaliseDocumentalSelecao({
         fornecedor.razao_social,
         fornecedor.cnpj,
         selecaoInfo?.numeroProcesso || "",
-        inabilitacao.motivo_inabilitacao
+        inabilitacao.motivo_inabilitacao,
+        selecaoInfo?.numero || ""
       );
       await supabase.from("recursos_inabilitacao_selecao").update({
         url_pdf_recurso: pdfResult.url,
