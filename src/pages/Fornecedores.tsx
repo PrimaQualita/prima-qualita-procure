@@ -964,14 +964,44 @@ export default function Fornecedores() {
                       ? "Médio Risco"
                       : "Alto Risco";
                     
+                    // Buscar documento KPMG do compliance nos documentos do fornecedor
+                    const docKPMG = documentosFornecedor.find(d => d.tipo_documento === "relatorio_kpmg_compliance");
+                    
                     return (
-                      <Alert className={corClasse}>
-                        <CheckCircle className={`h-4 w-4 ${corTexto}`} />
-                        <AlertDescription className={corTexto}>
-                          Compliance: {labelRisco}
-                          {avaliacaoCompliance?.score_risco_total !== null && ` (Score: ${avaliacaoCompliance.score_risco_total})`}
-                        </AlertDescription>
-                      </Alert>
+                      <div className="space-y-3">
+                        <Alert className={corClasse}>
+                          <CheckCircle className={`h-4 w-4 ${corTexto}`} />
+                          <AlertDescription className={corTexto}>
+                            Compliance: {labelRisco}
+                            {avaliacaoCompliance?.score_risco_total !== null && ` (Score: ${avaliacaoCompliance.score_risco_total})`}
+                          </AlertDescription>
+                        </Alert>
+                        
+                        {/* Relatório KPMG do Compliance */}
+                        {docKPMG && (
+                          <div className="p-3 border rounded-lg bg-muted/50">
+                            <p className="text-sm font-medium mb-2">Relatório KPMG (Compliance)</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(docKPMG.url_arquivo, "_blank")}
+                            >
+                              <FileText className="mr-2 h-4 w-4" />
+                              Visualizar Relatório
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {/* Observações do Compliance */}
+                        {avaliacaoCompliance?.observacoes_compliance && (
+                          <div className="p-3 border rounded-lg bg-muted/50">
+                            <p className="text-sm font-medium mb-1">Observações do Compliance</p>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {avaliacaoCompliance.observacoes_compliance}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     );
                   }
                   
