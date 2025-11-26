@@ -915,35 +915,33 @@ const SistemaLancesFornecedor = () => {
                               {/* Valores */}
                               <div className="space-y-1.5">
                                 {/* Card Mínimo - fica verde quando vencendo */}
-                                <div className={`rounded px-2 py-1.5 ${
+                                <div className={`rounded px-2 py-1.5 flex items-center justify-between ${
                                   isFornecedorVencendoItem(numeroItem) 
                                     ? 'bg-green-50 border border-green-200' 
                                     : 'bg-blue-50'
                                 }`}>
-                                  <div className={`flex items-center gap-1 text-[10px] mb-0.5 ${
-                                    isFornecedorVencendoItem(numeroItem) 
-                                      ? 'text-green-600' 
-                                      : 'text-blue-600'
-                                  }`}>
-                                    {isFornecedorVencendoItem(numeroItem) ? (
-                                      <Trophy className="h-3 w-3" />
-                                    ) : (
+                                  <div>
+                                    <div className={`flex items-center gap-1 text-[10px] mb-0.5 ${
+                                      isFornecedorVencendoItem(numeroItem) 
+                                        ? 'text-green-600' 
+                                        : 'text-blue-600'
+                                    }`}>
                                       <TrendingDown className="h-3 w-3" />
-                                    )}
-                                    <span>Mínimo</span>
+                                      <span>Mínimo</span>
+                                    </div>
+                                    <p className={`font-bold text-sm ${
+                                      isFornecedorVencendoItem(numeroItem) 
+                                        ? 'text-green-700' 
+                                        : 'text-blue-700'
+                                    }`}>
+                                      {formatarMoeda(getValorMinimoAtual(numeroItem))}
+                                    </p>
                                   </div>
-                                  <p className={`font-bold text-sm ${
-                                    isFornecedorVencendoItem(numeroItem) 
-                                      ? 'text-green-700' 
-                                      : 'text-blue-700'
-                                  }`}>
-                                    {formatarMoeda(getValorMinimoAtual(numeroItem))}
-                                  </p>
-                                  {/* Indicador de Liderança dentro do card */}
+                                  {/* Indicador de Liderança ao lado */}
                                   {isFornecedorVencendoItem(numeroItem) && (
-                                    <div className="flex items-center gap-1 mt-1 text-[10px] text-green-600 font-semibold">
-                                      <Trophy className="h-3 w-3" />
-                                      <span>Você está vencendo!</span>
+                                    <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold">
+                                      <Trophy className="h-4 w-4" />
+                                      <span className="whitespace-nowrap">Você está<br/>vencendo!</span>
                                     </div>
                                   )}
                                 </div>
