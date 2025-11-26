@@ -237,7 +237,7 @@ export function DialogAnaliseDocumentalSelecao({
         fornecedoresArray.map(async (forn) => {
           const [docs, campos] = await Promise.all([
             loadDocumentosFornecedor(forn.id),
-            loadCamposFornecedor(forn.id, cotacaoId),
+            loadCamposFornecedor(forn.id),
           ]);
 
           const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
@@ -322,22 +322,18 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
-  const loadCamposFornecedor = async (fornecedorId: string, cotacaoId?: string | null): Promise<CampoDocumento[]> => {
+  const loadCamposFornecedor = async (fornecedorId: string): Promise<CampoDocumento[]> => {
     try {
-      let query = supabase
+      // Para seleção de fornecedores, buscar por selecao_id
+      const { data, error } = await supabase
         .from("campos_documentos_finalizacao")
         .select(`
           *,
           documentos_finalizacao_fornecedor (*)
         `)
-        .eq("fornecedor_id", fornecedorId);
-      
-      // Filtrar por cotacao_id se disponível
-      if (cotacaoId) {
-        query = query.eq("cotacao_id", cotacaoId);
-      }
-      
-      const { data, error } = await query.order("ordem");
+        .eq("fornecedor_id", fornecedorId)
+        .eq("selecao_id", selecaoId)
+        .order("ordem");
 
       if (error) throw error;
       return data || [];
@@ -436,16 +432,11 @@ export function DialogAnaliseDocumentalSelecao({
     }
 
     try {
-      if (!cotacaoRelacionadaId) {
-        toast.error("Cotação relacionada não encontrada");
-        return;
-      }
-      
-      // Buscar maior ordem existente para esta cotação
+      // Buscar maior ordem existente para esta seleção
       const { data: maxOrdemData } = await supabase
         .from("campos_documentos_finalizacao")
         .select("ordem")
-        .eq("cotacao_id", cotacaoRelacionadaId)
+        .eq("selecao_id", selecaoId)
         .order("ordem", { ascending: false })
         .limit(1);
       
@@ -456,7 +447,7 @@ export function DialogAnaliseDocumentalSelecao({
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .insert({
-          cotacao_id: cotacaoRelacionadaId,
+          selecao_id: selecaoId,
           fornecedor_id: fornecedorId,
           nome_campo: novoCampo.nome,
           descricao: novoCampo.descricao || "",

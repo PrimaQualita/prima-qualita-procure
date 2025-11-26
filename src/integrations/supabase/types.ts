@@ -500,7 +500,7 @@ export type Database = {
       }
       campos_documentos_finalizacao: {
         Row: {
-          cotacao_id: string
+          cotacao_id: string | null
           created_at: string | null
           data_aprovacao: string | null
           data_conclusao: string | null
@@ -511,10 +511,11 @@ export type Database = {
           nome_campo: string
           obrigatorio: boolean | null
           ordem: number
+          selecao_id: string | null
           status_solicitacao: string | null
         }
         Insert: {
-          cotacao_id: string
+          cotacao_id?: string | null
           created_at?: string | null
           data_aprovacao?: string | null
           data_conclusao?: string | null
@@ -525,10 +526,11 @@ export type Database = {
           nome_campo: string
           obrigatorio?: boolean | null
           ordem?: number
+          selecao_id?: string | null
           status_solicitacao?: string | null
         }
         Update: {
-          cotacao_id?: string
+          cotacao_id?: string | null
           created_at?: string | null
           data_aprovacao?: string | null
           data_conclusao?: string | null
@@ -539,6 +541,7 @@ export type Database = {
           nome_campo?: string
           obrigatorio?: boolean | null
           ordem?: number
+          selecao_id?: string | null
           status_solicitacao?: string | null
         }
         Relationships: [
@@ -554,6 +557,13 @@ export type Database = {
             columns: ["fornecedor_id"]
             isOneToOne: false
             referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campos_documentos_finalizacao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
             referencedColumns: ["id"]
           },
         ]
