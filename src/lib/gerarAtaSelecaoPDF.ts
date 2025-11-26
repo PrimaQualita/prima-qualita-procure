@@ -754,8 +754,9 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   });
   currentY -= 14;
   
-  // Subtítulo com protocolo da ata
-  page.drawText(`Ata de Seleção - Protocolo: ${ata.protocolo}`, {
+  // Subtítulo com protocolo da ata formatado (mesmo formato da certificação)
+  const protocoloFormatado = formatarProtocoloExibicao(ata.protocolo);
+  page.drawText(`Ata de Seleção - Protocolo: ${protocoloFormatado}`, {
     x: marginLeft,
     y: currentY,
     size: 9,
