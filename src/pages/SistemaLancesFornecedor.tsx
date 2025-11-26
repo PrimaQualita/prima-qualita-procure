@@ -37,6 +37,7 @@ const SistemaLancesFornecedor = () => {
   const [editavel, setEditavel] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
+  const [itensFechados, setItensFechados] = useState<Set<number>>(new Set());
   const [lances, setLances] = useState<any[]>([]);
   const [valoresLances, setValoresLances] = useState<Map<number, string>>(new Map()); // Map<numeroItem, valorDigitado>
   const [itemSelecionado, setItemSelecionado] = useState<number | null>(null);
@@ -339,8 +340,14 @@ const SistemaLancesFornecedor = () => {
       const itensAbertosFiltrados = data?.filter((item: any) => item.aberto === true) || [];
       const abertos = new Set(itensAbertosFiltrados.map((item: any) => item.numero_item));
       
+      // Filtrar itens fechados (aberto === false)
+      const itensFechadosFiltrados = data?.filter((item: any) => item.aberto === false) || [];
+      const fechados = new Set(itensFechadosFiltrados.map((item: any) => item.numero_item));
+      
       console.log("Itens abertos carregados:", Array.from(abertos));
+      console.log("Itens fechados carregados:", Array.from(fechados));
       setItensAbertos(abertos);
+      setItensFechados(fechados);
 
       // Mapear itens em fechamento com timestamp de expiração
       const emFechamento = new Map<number, number>();
@@ -554,6 +561,63 @@ const SistemaLancesFornecedor = () => {
     
     // Verificar se o lance vencedor é do fornecedor atual
     return lancesOrdenados[0]?.fornecedor_id === proposta.fornecedor_id;
+  };
+
+  // Verifica se o fornecedor venceu um item fechado
+  const getItensVencidosPeloFornecedor = (): number[] => {
+    if (!proposta?.fornecedor_id) return [];
+    
+    const itensVencidos: number[] = [];
+    
+    itensFechados.forEach(numeroItem => {
+      const valorEstimado = itensEstimados.get(numeroItem) || 0;
+      const lancesDoItem = getLancesDoItem(numeroItem);
+      
+      // Filtrar apenas lances classificados (menores ou iguais ao estimado)
+      const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+      
+      if (lancesClassificados.length > 0) {
+        // Ordenar por menor valor e desempate por data (mais antigo ganha)
+        const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
+          if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+          return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
+        });
+        
+        // Verificar se o lance vencedor é do fornecedor atual
+        if (lancesOrdenados[0]?.fornecedor_id === proposta.fornecedor_id) {
+          itensVencidos.push(numeroItem);
+        }
+      } else {
+        // Se não há lances, verificar proposta inicial
+        const itemProposta = itens.find(i => i.numero_item === numeroItem);
+        if (itemProposta && itemProposta.valor_unitario_ofertado > 0 && itemProposta.valor_unitario_ofertado <= valorEstimado) {
+          // Verificar se é o menor valor entre todas as propostas
+          const menorValor = menorValorPropostas.get(numeroItem);
+          if (menorValor && itemProposta.valor_unitario_ofertado === menorValor) {
+            itensVencidos.push(numeroItem);
+          }
+        }
+      }
+    });
+    
+    return itensVencidos.sort((a, b) => a - b);
+  };
+
+  const getValorVencedorItem = (numeroItem: number): number => {
+    const valorEstimado = itensEstimados.get(numeroItem) || 0;
+    const lancesDoItem = getLancesDoItem(numeroItem);
+    
+    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+    
+    if (lancesClassificados.length > 0) {
+      const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
+        if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+        return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
+      });
+      return lancesOrdenados[0]?.valor_lance || 0;
+    }
+    
+    return menorValorPropostas.get(numeroItem) || 0;
   };
 
   const handleUpdateItem = (itemId: string, field: string, value: any) => {
@@ -1036,6 +1100,93 @@ const SistemaLancesFornecedor = () => {
                         codigoAcesso={proposta.codigo_acesso}
                       />
                     </div>
+                  </div>
+                )}
+
+                {/* Seção de Itens Vencidos pelo Fornecedor */}
+                {itensFechados.size > 0 && (
+                  <div className="mt-6 pt-4 border-t">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Trophy className="h-5 w-5 text-green-600" />
+                      <h3 className="font-semibold text-green-700">Itens Fechados - Resultado</h3>
+                    </div>
+                    
+                    {getItensVencidosPeloFornecedor().length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-green-600 mb-3">
+                          Parabéns! Você venceu {getItensVencidosPeloFornecedor().length} item(ns):
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                          {getItensVencidosPeloFornecedor().map((numeroItem) => {
+                            const item = itens.find(i => i.numero_item === numeroItem);
+                            const valorVencedor = getValorVencedorItem(numeroItem);
+                            
+                            return (
+                              <div
+                                key={numeroItem}
+                                className="border-2 border-green-400 bg-green-50 rounded-lg p-3 space-y-2"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <Trophy className="h-3.5 w-3.5 text-green-600" />
+                                    <span className="font-semibold text-sm text-green-700">Item {numeroItem}</span>
+                                  </div>
+                                  <Badge className="text-[10px] px-1.5 py-0 bg-green-600">
+                                    Vencedor
+                                  </Badge>
+                                </div>
+                                
+                                <div className="text-xs text-muted-foreground line-clamp-2">
+                                  {item?.descricao || ""}
+                                </div>
+                                
+                                <div className="bg-green-100 rounded px-2 py-1.5">
+                                  <div className="text-[10px] text-green-600 mb-0.5">Valor Vencedor</div>
+                                  <p className="font-bold text-sm text-green-700">
+                                    {formatarMoeda(valorVencedor)}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {Array.from(itensFechados).sort((a, b) => a - b).map((numeroItem) => {
+                          const item = itens.find(i => i.numero_item === numeroItem);
+                          const valorVencedor = getValorVencedorItem(numeroItem);
+                          
+                          return (
+                            <div
+                              key={numeroItem}
+                              className="border border-muted bg-muted/30 rounded-lg p-3 space-y-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="font-semibold text-sm text-muted-foreground">Item {numeroItem}</span>
+                                </div>
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                  Fechado
+                                </Badge>
+                              </div>
+                              
+                              <div className="text-xs text-muted-foreground line-clamp-2">
+                                {item?.descricao || ""}
+                              </div>
+                              
+                              <div className="bg-muted/50 rounded px-2 py-1.5">
+                                <div className="text-[10px] text-muted-foreground mb-0.5">Valor Vencedor</div>
+                                <p className="font-bold text-sm text-muted-foreground">
+                                  {formatarMoeda(valorVencedor)}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
