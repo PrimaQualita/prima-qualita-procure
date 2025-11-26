@@ -98,6 +98,8 @@ export function DialogSessaoLances({
 
   // Estado - Sistema de Lances
   const [lances, setLances] = useState<Lance[]>([]);
+  const [lancesCompletos, setLancesCompletos] = useState<Lance[]>([]); // Todos os lances incluindo inabilitados
+  const [fornecedoresInabilitadosIds, setFornecedoresInabilitadosIds] = useState<Set<string>>(new Set());
   const [loadingLances, setLoadingLances] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [itemSelecionadoLances, setItemSelecionadoLances] = useState<number | null>(null);
@@ -723,9 +725,10 @@ export function DialogSessaoLances({
         .eq("selecao_id", selecaoId)
         .eq("revertido", false);
 
-      const fornecedoresInabilitadosIds = new Set(
+      const inabilitadosIds = new Set(
         (inabilitados || []).map((f: any) => f.fornecedor_id)
       );
+      setFornecedoresInabilitadosIds(inabilitadosIds);
 
       const { data, error } = await supabase
         .from("lances_fornecedores")
@@ -737,9 +740,12 @@ export function DialogSessaoLances({
 
       if (error) throw error;
       
-      // Filtrar lances de fornecedores inabilitados
+      // Armazenar todos os lances (para planilha)
+      setLancesCompletos(data || []);
+      
+      // Filtrar lances de fornecedores inabilitados (para exibição e cálculos)
       const lancesFiltrados = (data || []).filter(
-        (lance: any) => !fornecedoresInabilitadosIds.has(lance.fornecedor_id)
+        (lance: any) => !inabilitadosIds.has(lance.fornecedor_id)
       );
       
       setLances(lancesFiltrados);
@@ -755,6 +761,11 @@ export function DialogSessaoLances({
   const getLancesDoItem = (numeroItem: number) => {
     // Lances já vem filtrados de fornecedores inabilitados do loadLances
     return lances.filter(l => l.numero_item === numeroItem);
+  };
+
+  // Função para pegar TODOS os lances do item (incluindo inabilitados) - para planilha
+  const getLancesCompletosDoItem = (numeroItem: number) => {
+    return lancesCompletos.filter(l => l.numero_item === numeroItem);
   };
 
   const getVencedorItem = (numeroItem: number) => {
@@ -1079,7 +1090,7 @@ export function DialogSessaoLances({
   // ========== GERAR PLANILHA DE LANCES ==========
   const handleGerarPlanilhaLances = async () => {
     try {
-      if (lances.length === 0) {
+      if (lancesCompletos.length === 0) {
         toast.error("Nenhum lance registrado para gerar planilha");
         return;
       }
@@ -1194,13 +1205,14 @@ export function DialogSessaoLances({
 
       doc.setTextColor(0, 0, 0);
 
-      // Agrupar lances por item
+      // Agrupar lances por item - USANDO TODOS OS LANCES (incluindo inabilitados)
       const lancesGroupedByItem = itens.map(item => {
-        const lancesItem = getLancesDoItem(item.numero_item);
+        const lancesItem = getLancesCompletosDoItem(item.numero_item);
         return { item, lances: lancesItem };
       });
 
       let yPosition = yStart + 22;
+      let temInabilitado = false; // Flag para legenda de inabilitados
 
       lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }) => {
         const tituloTexto = `Item ${item.numero_item}: ${item.descricao}`;
@@ -1243,23 +1255,41 @@ export function DialogSessaoLances({
           });
           yPosition = (doc as any).lastAutoTable.finalY + 8;
         } else {
-          const tableData = lancesDoItem.map((lance, idx) => {
+          // Verificar se há fornecedores inabilitados neste item
+          const temInabilitadoNoItem = lancesDoItem.some(l => fornecedoresInabilitadosIds.has(l.fornecedor_id));
+          if (temInabilitadoNoItem) temInabilitado = true;
+
+          // Reordenar: fornecedores válidos primeiro (ordenados por valor), inabilitados depois
+          const lancesValidos = lancesDoItem.filter(l => !fornecedoresInabilitadosIds.has(l.fornecedor_id));
+          const lancesInabilitados = lancesDoItem.filter(l => fornecedoresInabilitadosIds.has(l.fornecedor_id));
+          const lancesOrdenados = [...lancesValidos, ...lancesInabilitados];
+
+          const tableData = lancesOrdenados.map((lance, idx) => {
             const isNegociacao = lance.tipo_lance === "negociacao";
             const valorFormatado = formatCurrency(lance.valor_lance);
+            const isInabilitado = fornecedoresInabilitadosIds.has(lance.fornecedor_id);
             
-            return [
-              `${idx + 1}º`,
-              `${lance.fornecedores?.razao_social || "N/A"}\n${formatCNPJ(lance.fornecedores?.cnpj || "")}`,
-              isNegociacao ? `${valorFormatado} *` : valorFormatado,
-              new Date(lance.data_hora_lance).toLocaleString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit"
-              }),
-            ];
+            // Posição: só conta para fornecedores válidos
+            const posicaoExibida = isInabilitado ? "-" : `${lancesValidos.findIndex(l => l.id === lance.id) + 1}º`;
+            
+            return {
+              data: [
+                posicaoExibida,
+                `${lance.fornecedores?.razao_social || "N/A"}\n${formatCNPJ(lance.fornecedores?.cnpj || "")}`,
+                isNegociacao ? `${valorFormatado} *` : valorFormatado,
+                new Date(lance.data_hora_lance).toLocaleString("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit"
+                }),
+              ],
+              isInabilitado,
+              isNegociacao,
+              isVencedor: !isInabilitado && lancesValidos.findIndex(l => l.id === lance.id) === 0
+            };
           });
 
           autoTable(doc, {
@@ -1268,7 +1298,7 @@ export function DialogSessaoLances({
               [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [224, 242, 241], textColor: [0, 128, 128], halign: "left", fontStyle: "bold", fontSize: 10 } }],
               ["Pos.", "Fornecedor", "Valor", "Data/Hora"]
             ],
-            body: tableData,
+            body: tableData.map(row => row.data),
             theme: "striped",
             styles: { 
               fontSize: 8, 
@@ -1299,15 +1329,21 @@ export function DialogSessaoLances({
               adicionarLogoERodapeNovaPagina();
             },
             didParseCell: (data) => {
-              // Destacar primeira posição (vencedor)
-              if (data.row.index === 0 && data.section === "body") {
-                data.cell.styles.fillColor = [254, 249, 195];
-                data.cell.styles.fontStyle = "bold";
-              }
-              // Destacar valores de negociação
-              if (data.column.index === 2 && data.section === "body") {
-                const cellText = String(data.cell.raw);
-                if (cellText.includes("*")) {
+              if (data.section === "body") {
+                const rowInfo = tableData[data.row.index];
+                
+                // Destacar fornecedores inabilitados em vermelho
+                if (rowInfo?.isInabilitado) {
+                  data.cell.styles.textColor = [220, 38, 38]; // Vermelho
+                  data.cell.styles.fillColor = [254, 226, 226]; // Fundo vermelho claro
+                }
+                // Destacar primeira posição (vencedor) - apenas se não for inabilitado
+                else if (rowInfo?.isVencedor) {
+                  data.cell.styles.fillColor = [254, 249, 195];
+                  data.cell.styles.fontStyle = "bold";
+                }
+                // Destacar valores de negociação
+                if (data.column.index === 2 && rowInfo?.isNegociacao && !rowInfo?.isInabilitado) {
                   data.cell.styles.textColor = [22, 163, 74];
                 }
               }
@@ -1324,7 +1360,19 @@ export function DialogSessaoLances({
             doc.setTextColor(22, 163, 74);
             doc.text("* Valor obtido por negociação", margin + 3, yPosition);
             doc.setTextColor(0, 0, 0);
+            yPosition += 5;
+          }
+          
+          // Legenda de fornecedor inabilitado se houver
+          if (temInabilitadoNoItem) {
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(220, 38, 38);
+            doc.text("Linhas em vermelho indicam empresa inabilitada", margin + 3, yPosition);
+            doc.setTextColor(0, 0, 0);
             yPosition += 8;
+          } else if (temNegociacao) {
+            yPosition += 3;
           }
         }
       });
