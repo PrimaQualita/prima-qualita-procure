@@ -389,6 +389,16 @@ export function DialogAnaliseDocumentalSelecao({
         );
 
         if (pdfResult?.url) {
+          // Salvar URL do PDF no recurso
+          await supabase
+            .from("recursos_inabilitacao_selecao")
+            .update({
+              url_pdf_resposta: pdfResult.url,
+              nome_arquivo_resposta: pdfResult.fileName,
+              protocolo_resposta: pdfResult.protocolo
+            })
+            .eq("id", recursoParaResponder.id);
+
           // PDF gerado com sucesso - abrir em nova aba
           window.open(pdfResult.url, "_blank");
         }
@@ -1169,6 +1179,25 @@ export function DialogAnaliseDocumentalSelecao({
                       <p className="font-medium text-amber-700 mb-1">Razões do fornecedor:</p>
                       <p className="whitespace-pre-wrap text-amber-900">{recurso.motivo_recurso}</p>
                     </div>
+                    
+                    {/* PDF do Recurso do Fornecedor */}
+                    {recurso.url_pdf_recurso && (
+                      <div className="flex items-center gap-2 bg-white p-2 rounded border">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <span className="text-sm flex-1">{recurso.nome_arquivo_recurso || "Recurso do Fornecedor"}</span>
+                        <Button size="sm" variant="outline" onClick={() => window.open(recurso.url_pdf_recurso, '_blank')}>
+                          <Eye className="h-3 w-3 mr-1" />
+                          Ver
+                        </Button>
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={recurso.url_pdf_recurso} download={recurso.nome_arquivo_recurso}>
+                            <Download className="h-3 w-3 mr-1" />
+                            Baixar
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                    
                     <Button
                       size="sm"
                       onClick={() => {
@@ -1184,20 +1213,104 @@ export function DialogAnaliseDocumentalSelecao({
                 )}
                 
                 {recurso.status_recurso === "deferido" && (
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                  <div className="bg-green-50 p-3 rounded-lg border border-green-200 space-y-2">
                     <Badge className="bg-green-500 mb-2">Recurso Deferido</Badge>
                     {recurso.resposta_gestor && (
                       <p className="text-sm text-green-700">{recurso.resposta_gestor}</p>
                     )}
+                    
+                    {/* PDFs do Recurso e Resposta */}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {recurso.url_pdf_recurso && (
+                        <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
+                          <FileText className="h-3 w-3 text-amber-600" />
+                          <span>Recurso</span>
+                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => window.open(recurso.url_pdf_recurso, '_blank')}>
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
+                            <a href={recurso.url_pdf_recurso} download>
+                              <Download className="h-3 w-3" />
+                            </a>
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive hover:text-destructive" onClick={async () => {
+                            if (confirm("Deseja excluir o PDF do recurso?")) {
+                              await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_recurso: null, nome_arquivo_recurso: null }).eq("id", recurso.id);
+                              loadRecursosInabilitacao();
+                              toast.success("PDF excluído");
+                            }
+                          }}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {recurso.url_pdf_resposta && (
+                        <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
+                          <FileText className="h-3 w-3 text-green-600" />
+                          <span>Resposta</span>
+                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => window.open(recurso.url_pdf_resposta, '_blank')}>
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
+                            <a href={recurso.url_pdf_resposta} download>
+                              <Download className="h-3 w-3" />
+                            </a>
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive hover:text-destructive" onClick={async () => {
+                            if (confirm("Deseja excluir o PDF da resposta?")) {
+                              await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_resposta: null, nome_arquivo_resposta: null, protocolo_resposta: null }).eq("id", recurso.id);
+                              loadRecursosInabilitacao();
+                              toast.success("PDF excluído");
+                            }
+                          }}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
                 
                 {recurso.status_recurso === "indeferido" && (
-                  <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                  <div className="bg-red-50 p-3 rounded-lg border border-red-200 space-y-2">
                     <Badge variant="destructive" className="mb-2">Recurso Indeferido</Badge>
                     {recurso.resposta_gestor && (
                       <p className="text-sm text-red-700">{recurso.resposta_gestor}</p>
                     )}
+                    
+                    {/* PDFs do Recurso e Resposta */}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {recurso.url_pdf_recurso && (
+                        <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
+                          <FileText className="h-3 w-3 text-amber-600" />
+                          <span>Recurso</span>
+                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => window.open(recurso.url_pdf_recurso, '_blank')}>
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
+                            <a href={recurso.url_pdf_recurso} download><Download className="h-3 w-3" /></a>
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={async () => {
+                            if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_recurso: null, nome_arquivo_recurso: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
+                          }}><Trash2 className="h-3 w-3" /></Button>
+                        </div>
+                      )}
+                      {recurso.url_pdf_resposta && (
+                        <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
+                          <FileText className="h-3 w-3 text-red-600" />
+                          <span>Resposta</span>
+                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => window.open(recurso.url_pdf_resposta, '_blank')}>
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
+                            <a href={recurso.url_pdf_resposta} download><Download className="h-3 w-3" /></a>
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={async () => {
+                            if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_resposta: null, nome_arquivo_resposta: null, protocolo_resposta: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
+                          }}><Trash2 className="h-3 w-3" /></Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

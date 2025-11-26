@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ChatSelecao } from "@/components/selecoes/ChatSelecao";
 import { gerarPropostaSelecaoPDF } from "@/lib/gerarPropostaSelecaoPDF";
+import { gerarRecursoPDF } from "@/lib/gerarRecursoPDF";
 
 interface Item {
   id: string;
@@ -366,13 +367,33 @@ const SistemaLancesFornecedor = () => {
       const dataEnvio = new Date();
       const dataLimiteGestor = calcularProximoDiaUtil(dataEnvio, 1);
 
+      // Gerar PDF do recurso
+      let pdfUrl = null;
+      let pdfFileName = null;
+      try {
+        const pdfResult = await gerarRecursoPDF(
+          motivoRecurso,
+          proposta?.fornecedores?.razao_social || "Fornecedor",
+          proposta?.fornecedores?.cnpj || "",
+          selecao?.numero_selecao || "",
+          minhaInabilitacao?.motivo_inabilitacao || ""
+        );
+        pdfUrl = pdfResult.url;
+        pdfFileName = pdfResult.fileName;
+      } catch (pdfError) {
+        console.error("Erro ao gerar PDF do recurso:", pdfError);
+        // Não bloqueia o envio se o PDF falhar
+      }
+
       const { error } = await supabase
         .from("recursos_inabilitacao_selecao")
         .update({
           motivo_recurso: motivoRecurso,
           data_envio_recurso: dataEnvio.toISOString(),
           status_recurso: "enviado",
-          data_limite_gestor: dataLimiteGestor.toISOString()
+          data_limite_gestor: dataLimiteGestor.toISOString(),
+          url_pdf_recurso: pdfUrl,
+          nome_arquivo_recurso: pdfFileName
         })
         .eq("id", meuRecurso.id);
 
