@@ -516,7 +516,7 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (error) throw error;
 
-      toast.success("Documento rejeitado - fornecedor pode reenviar");
+      toast.success("Documento rejeitado");
       setDialogRejeitarDocumento(false);
       setCampoParaRejeitar(null);
       setMotivoRejeicaoDocumento("");
