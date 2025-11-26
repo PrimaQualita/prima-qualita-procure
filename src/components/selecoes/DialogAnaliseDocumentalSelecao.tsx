@@ -159,6 +159,9 @@ export function DialogAnaliseDocumentalSelecao({
   const [deferirRecurso, setDeferirRecurso] = useState(true);
   const [gerandoPdfRecurso, setGerandoPdfRecurso] = useState(false);
   const [selecaoInfo, setSelecaoInfo] = useState<{titulo: string; numero: string; numeroProcesso: string} | null>(null);
+  
+  // State para confirmar exclusão de PDF
+  const [confirmDeletePdf, setConfirmDeletePdf] = useState<{ open: boolean; recursoId: string | null; tipo: 'recurso' | 'resposta' | null }>({ open: false, recursoId: null, tipo: null });
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -701,6 +704,26 @@ export function DialogAnaliseDocumentalSelecao({
     } catch (error) {
       console.error("Erro ao aprovar documento:", error);
       toast.error("Erro ao aprovar documento");
+    }
+  };
+
+  // Handler para excluir PDF de recurso/resposta
+  const handleExcluirPdfRecurso = async () => {
+    if (!confirmDeletePdf.recursoId || !confirmDeletePdf.tipo) return;
+    
+    try {
+      if (confirmDeletePdf.tipo === 'recurso') {
+        await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_recurso: null, nome_arquivo_recurso: null, protocolo_recurso: null }).eq("id", confirmDeletePdf.recursoId);
+      } else {
+        await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_resposta: null, nome_arquivo_resposta: null, protocolo_resposta: null }).eq("id", confirmDeletePdf.recursoId);
+      }
+      toast.success("PDF excluído com sucesso");
+      loadRecursosInabilitacao();
+    } catch (error) {
+      console.error("Erro ao excluir PDF:", error);
+      toast.error("Erro ao excluir PDF");
+    } finally {
+      setConfirmDeletePdf({ open: false, recursoId: null, tipo: null });
     }
   };
 
@@ -1316,8 +1339,8 @@ export function DialogAnaliseDocumentalSelecao({
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
                             <a href={recurso.url_pdf_recurso} download><Download className="h-3 w-3" /></a>
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={async () => {
-                            if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_recurso: null, nome_arquivo_recurso: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
+                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'recurso' });
                           }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       ) : (
@@ -1336,8 +1359,8 @@ export function DialogAnaliseDocumentalSelecao({
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
                             <a href={recurso.url_pdf_resposta} download><Download className="h-3 w-3" /></a>
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={async () => {
-                            if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_resposta: null, nome_arquivo_resposta: null, protocolo_resposta: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
+                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'resposta' });
                           }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       ) : (
@@ -1386,8 +1409,8 @@ export function DialogAnaliseDocumentalSelecao({
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
                             <a href={recurso.url_pdf_recurso} download><Download className="h-3 w-3" /></a>
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={async () => {
-                            if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_recurso: null, nome_arquivo_recurso: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
+                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'recurso' });
                           }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       ) : (
@@ -1406,8 +1429,8 @@ export function DialogAnaliseDocumentalSelecao({
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
                             <a href={recurso.url_pdf_resposta} download><Download className="h-3 w-3" /></a>
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={async () => {
-                            if (confirm("Excluir PDF?")) { await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_resposta: null, nome_arquivo_resposta: null, protocolo_resposta: null }).eq("id", recurso.id); loadRecursosInabilitacao(); }
+                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
+                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'resposta' });
                           }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       ) : (
@@ -2117,6 +2140,24 @@ export function DialogAnaliseDocumentalSelecao({
                   {deferirRecurso ? "Deferir Recurso" : "Indeferir Recurso"}
                 </>
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para excluir PDF */}
+      <AlertDialog open={confirmDeletePdf.open} onOpenChange={(open) => !open && setConfirmDeletePdf({ open: false, recursoId: null, tipo: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir PDF</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este PDF de {confirmDeletePdf.tipo === 'recurso' ? 'recurso' : 'resposta'}? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleExcluirPdfRecurso} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
