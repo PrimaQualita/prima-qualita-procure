@@ -46,6 +46,11 @@ const formatarCNPJ = (cnpj: string): string => {
   return numeros.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
 };
 
+const formatarCPF = (cpf: string): string => {
+  const numeros = cpf.replace(/\D/g, '');
+  return numeros.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+};
+
 const formatarMoeda = (valor: number): string => {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
@@ -716,9 +721,10 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 }
 
 interface Assinatura {
-  fornecedor_id: string;
-  razao_social: string;
-  cnpj: string;
+  id: string;
+  nome: string;
+  identificacao: string;
+  tipo: 'fornecedor' | 'usuario';
   data_assinatura: string;
   ip_assinatura: string;
   status_assinatura: string;
@@ -745,10 +751,11 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const urlOriginal = ata.url_arquivo_original || ata.url_arquivo.split('?')[0];
   console.log('URL original para download:', urlOriginal);
 
-  // Buscar todas as assinaturas desta ata
-  const { data: assinaturas, error: assinaturasError } = await supabase
+  // Buscar assinaturas de fornecedores
+  const { data: assinaturasFornecedores, error: assinaturasFornError } = await supabase
     .from('atas_assinaturas_fornecedor')
     .select(`
+      id,
       fornecedor_id,
       data_assinatura,
       ip_assinatura,
@@ -761,21 +768,60 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     .eq('ata_id', ataId)
     .order('data_assinatura', { ascending: true });
 
-  if (assinaturasError) {
-    console.error('Erro ao buscar assinaturas:', assinaturasError);
-    throw new Error('Erro ao buscar assinaturas');
+  if (assinaturasFornError) {
+    console.error('Erro ao buscar assinaturas de fornecedores:', assinaturasFornError);
+    throw new Error('Erro ao buscar assinaturas de fornecedores');
   }
 
-  console.log('Assinaturas encontradas:', assinaturas?.length);
+  // Buscar assinaturas de usuários internos
+  const { data: assinaturasUsuarios, error: assinaturasUserError } = await supabase
+    .from('atas_assinaturas_usuario')
+    .select(`
+      id,
+      usuario_id,
+      data_assinatura,
+      ip_assinatura,
+      status_assinatura,
+      profiles:usuario_id (
+        nome_completo,
+        cpf
+      )
+    `)
+    .eq('ata_id', ataId)
+    .order('data_assinatura', { ascending: true });
 
-  const assinaturasFormatadas: Assinatura[] = (assinaturas || []).map(a => ({
-    fornecedor_id: a.fornecedor_id,
-    razao_social: (a.fornecedores as any)?.razao_social || '',
-    cnpj: (a.fornecedores as any)?.cnpj || '',
+  if (assinaturasUserError) {
+    console.error('Erro ao buscar assinaturas de usuários:', assinaturasUserError);
+    // Não lançar erro, continuar apenas com fornecedores se houver erro
+  }
+
+  console.log('Assinaturas de fornecedores encontradas:', assinaturasFornecedores?.length || 0);
+  console.log('Assinaturas de usuários encontradas:', assinaturasUsuarios?.length || 0);
+
+  // Formatar assinaturas de fornecedores
+  const assinaturasFormatadas: Assinatura[] = (assinaturasFornecedores || []).map(a => ({
+    id: a.id,
+    nome: (a.fornecedores as any)?.razao_social || '',
+    identificacao: formatarCNPJ((a.fornecedores as any)?.cnpj || ''),
+    tipo: 'fornecedor' as const,
     data_assinatura: a.data_assinatura || '',
     ip_assinatura: a.ip_assinatura || '',
     status_assinatura: a.status_assinatura
   }));
+
+  // Adicionar assinaturas de usuários
+  const assinaturasUsuariosFormatadas: Assinatura[] = (assinaturasUsuarios || []).map(a => ({
+    id: a.id,
+    nome: (a.profiles as any)?.nome_completo || '',
+    identificacao: `CPF: ${formatarCPF((a.profiles as any)?.cpf || '')}`,
+    tipo: 'usuario' as const,
+    data_assinatura: a.data_assinatura || '',
+    ip_assinatura: a.ip_assinatura || '',
+    status_assinatura: a.status_assinatura
+  }));
+
+  // Combinar todas as assinaturas
+  const todasAssinaturas = [...assinaturasFormatadas, ...assinaturasUsuariosFormatadas];
 
   // Extrair o path do storage da URL ORIGINAL
   const urlParts = urlOriginal.split('/processo-anexos/');
@@ -855,7 +901,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   });
   currentY -= 18;
 
-  for (const assinatura of assinaturasFormatadas) {
+  for (const assinatura of todasAssinaturas) {
     const boxHeight = 50;
     
     if (await checkNewPage(boxHeight + 10)) {
@@ -873,8 +919,9 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       borderWidth: 1,
     });
 
-    // Nome da empresa
-    page.drawText(assinatura.razao_social, {
+    // Nome e tipo
+    const tipoLabel = assinatura.tipo === 'fornecedor' ? '[FORNECEDOR]' : '[USUÁRIO INTERNO]';
+    page.drawText(`${tipoLabel} ${assinatura.nome}`, {
       x: marginLeft + 10,
       y: currentY - 14,
       size: 10,
@@ -882,8 +929,8 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       color: rgb(0, 0, 0),
     });
 
-    // CNPJ
-    page.drawText(`CNPJ: ${formatarCNPJ(assinatura.cnpj)}`, {
+    // Identificação (CNPJ ou CPF)
+    page.drawText(assinatura.tipo === 'fornecedor' ? `CNPJ: ${assinatura.identificacao}` : assinatura.identificacao, {
       x: marginLeft + 10,
       y: currentY - 26,
       size: 9,
