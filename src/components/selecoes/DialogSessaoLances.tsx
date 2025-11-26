@@ -340,6 +340,17 @@ export function DialogSessaoLances({
 
   const loadVencedoresPorItem = async () => {
     try {
+      // Buscar fornecedores inabilitados da seleção
+      const { data: inabilitados } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id")
+        .eq("selecao_id", selecaoId)
+        .eq("revertido", false);
+
+      const fornecedoresInabilitadosIds = new Set(
+        (inabilitados || []).map((f: any) => f.fornecedor_id)
+      );
+
       // Buscar lances
       const { data: lancesData, error: lancesError } = await supabase
         .from("lances_fornecedores")
@@ -349,8 +360,13 @@ export function DialogSessaoLances({
 
       if (lancesError) throw lancesError;
 
+      // Filtrar lances de fornecedores inabilitados
+      const lancesFiltrados = (lancesData || []).filter(
+        (lance) => !fornecedoresInabilitadosIds.has(lance.fornecedor_id)
+      );
+
       // Buscar fornecedores
-      const fornecedorIds = [...new Set(lancesData?.map(l => l.fornecedor_id) || [])];
+      const fornecedorIds = [...new Set(lancesFiltrados.map(l => l.fornecedor_id))];
       
       const { data: fornecedoresData, error: fornecedoresError } = await supabase
         .from("fornecedores")
@@ -361,10 +377,10 @@ export function DialogSessaoLances({
 
       const fornecedoresMap = new Map(fornecedoresData?.map(f => [f.id, f.razao_social]) || []);
 
-      // Identificar vencedor por item (menor lance)
+      // Identificar vencedor por item (menor lance - excluindo inabilitados)
       const vencedores = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
       
-      lancesData?.forEach((lance) => {
+      lancesFiltrados.forEach((lance) => {
         if (!vencedores.has(lance.numero_item)) {
           vencedores.set(lance.numero_item, {
             fornecedorId: lance.fornecedor_id,
@@ -700,6 +716,17 @@ export function DialogSessaoLances({
   // ========== FUNÇÕES DO SISTEMA DE LANCES ==========
   const loadLances = async () => {
     try {
+      // Buscar fornecedores inabilitados
+      const { data: inabilitados } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id")
+        .eq("selecao_id", selecaoId)
+        .eq("revertido", false);
+
+      const fornecedoresInabilitadosIds = new Set(
+        (inabilitados || []).map((f: any) => f.fornecedor_id)
+      );
+
       const { data, error } = await supabase
         .from("lances_fornecedores")
         .select(`*, fornecedores (razao_social, cnpj)`)
@@ -709,7 +736,13 @@ export function DialogSessaoLances({
         .order("data_hora_lance", { ascending: true });
 
       if (error) throw error;
-      setLances(data || []);
+      
+      // Filtrar lances de fornecedores inabilitados
+      const lancesFiltrados = (data || []).filter(
+        (lance: any) => !fornecedoresInabilitadosIds.has(lance.fornecedor_id)
+      );
+      
+      setLances(lancesFiltrados);
       // Atualizar vencedores quando lances mudam
       loadVencedoresPorItem();
     } catch (error) {
