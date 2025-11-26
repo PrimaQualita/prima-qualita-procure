@@ -790,6 +790,22 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (restoreError) throw restoreError;
 
+      // Atualizar itens_abertos_lances para devolver o fornecedor de negociação ao fornecedor original
+      // Isso é necessário para que o fornecedor correto apareça em negociação
+      const { error: updateItensError } = await supabase
+        .from("itens_abertos_lances")
+        .update({ 
+          fornecedor_negociacao_id: inabilitacaoParaReverter.fornecedor.id 
+        })
+        .eq("selecao_id", selecaoId)
+        .in("numero_item", inabilitacaoParaReverter.inabilitado.itens_afetados)
+        .eq("em_negociacao", true)
+        .eq("negociacao_concluida", false);
+
+      if (updateItensError) {
+        console.error("Erro ao atualizar itens de negociação:", updateItensError);
+      }
+
       toast.success("Inabilitação revertida. Fornecedor restaurado como vencedor.");
       setDialogReverterInabilitacao(false);
       setInabilitacaoParaReverter(null);
