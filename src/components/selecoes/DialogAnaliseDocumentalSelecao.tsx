@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -124,6 +125,7 @@ export function DialogAnaliseDocumentalSelecao({
   const [fornecedorParaInabilitar, setFornecedorParaInabilitar] = useState<FornecedorData | null>(null);
   const [motivoInabilitacao, setMotivoInabilitacao] = useState("");
   const [segundosColocados, setSegundosColocados] = useState<SegundoColocado[]>([]);
+  const [reabrirParaNegociacao, setReabrirParaNegociacao] = useState(false);
   
   // State para reverter inabilitação
   const [dialogReverterInabilitacao, setDialogReverterInabilitacao] = useState(false);
@@ -623,6 +625,7 @@ export function DialogAnaliseDocumentalSelecao({
   const handleAbrirInabilitacao = async (data: FornecedorData) => {
     setFornecedorParaInabilitar(data);
     setMotivoInabilitacao("");
+    setReabrirParaNegociacao(false);
     await buscarSegundosColocados(data.fornecedor.itensVencedores, data.fornecedor.id);
     setDialogInabilitar(true);
   };
@@ -663,36 +666,57 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (removeVencedorError) throw removeVencedorError;
 
-      // Se tiver segundos colocados, marcar como vencedores
-      for (const segundo of segundosColocados) {
-        // Verificar se o segundo colocado não está inabilitado
-        const { data: segInab } = await supabase
-          .from("fornecedores_inabilitados_selecao")
-          .select("id")
-          .eq("selecao_id", selecaoId)
-          .eq("fornecedor_id", segundo.fornecedor_id)
-          .eq("revertido", false)
-          .single();
+      const itensAfetados = fornecedorParaInabilitar.fornecedor.itensVencedores;
 
-        if (!segInab) {
-          // Marcar segundo colocado como vencedor
-          const { error: setVencedorError } = await supabase
-            .from("lances_fornecedores")
-            .update({ indicativo_lance_vencedor: true })
+      if (reabrirParaNegociacao && onReabrirNegociacao) {
+        // Reabrir itens para negociação
+        for (const item of itensAfetados) {
+          await supabase
+            .from("itens_abertos_lances")
+            .update({
+              aberto: true,
+              em_negociacao: true,
+              data_fechamento: null,
+              negociacao_concluida: false,
+            })
+            .eq("selecao_id", selecaoId)
+            .eq("numero_item", item);
+        }
+        toast.success("Fornecedor inabilitado. Itens reabertos para negociação.");
+        onReabrirNegociacao(itensAfetados, fornecedorParaInabilitar.fornecedor.id);
+      } else {
+        // Se tiver segundos colocados, marcar como vencedores
+        for (const segundo of segundosColocados) {
+          // Verificar se o segundo colocado não está inabilitado
+          const { data: segInab } = await supabase
+            .from("fornecedores_inabilitados_selecao")
+            .select("id")
             .eq("selecao_id", selecaoId)
             .eq("fornecedor_id", segundo.fornecedor_id)
-            .eq("numero_item", segundo.numero_item);
+            .eq("revertido", false)
+            .maybeSingle();
 
-          if (setVencedorError) {
-            console.error("Erro ao marcar segundo colocado:", setVencedorError);
+          if (!segInab) {
+            // Marcar segundo colocado como vencedor
+            const { error: setVencedorError } = await supabase
+              .from("lances_fornecedores")
+              .update({ indicativo_lance_vencedor: true })
+              .eq("selecao_id", selecaoId)
+              .eq("fornecedor_id", segundo.fornecedor_id)
+              .eq("numero_item", segundo.numero_item);
+
+            if (setVencedorError) {
+              console.error("Erro ao marcar segundo colocado:", setVencedorError);
+            }
           }
         }
+        toast.success("Fornecedor inabilitado. Segundos colocados assumem os itens.");
       }
 
-      toast.success("Fornecedor inabilitado. Segundos colocados assumem os itens.");
       setDialogInabilitar(false);
       setFornecedorParaInabilitar(null);
       setMotivoInabilitacao("");
+      setReabrirParaNegociacao(false);
       setSegundosColocados([]);
       loadFornecedoresVencedores();
       onSuccess?.();
@@ -1296,6 +1320,22 @@ export function DialogAnaliseDocumentalSelecao({
                 rows={4}
               />
             </div>
+            
+            {onReabrirNegociacao && (
+              <div className="flex items-center space-x-2 p-3 bg-primary/10 rounded-lg">
+                <Checkbox
+                  id="reabrirNegociacao"
+                  checked={reabrirParaNegociacao}
+                  onCheckedChange={(checked) => setReabrirParaNegociacao(checked === true)}
+                />
+                <label
+                  htmlFor="reabrirNegociacao"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Reabrir itens para negociação após inabilitação
+                </label>
+              </div>
+            )}
           </div>
           
           <AlertDialogFooter>
