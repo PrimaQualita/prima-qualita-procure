@@ -638,7 +638,9 @@ export function DialogAnaliseDocumentalSelecao({
     setFornecedorParaInabilitar(data);
     setMotivoInabilitacao("");
     setReabrirParaNegociacao(false);
-    await buscarSegundosColocados(data.fornecedor.itensVencedores, data.fornecedor.id);
+    // Buscar segundos colocados e esperar resultado
+    const segundos = await buscarSegundosColocados(data.fornecedor.itensVencedores, data.fornecedor.id);
+    console.log("Segundos colocados encontrados:", segundos);
     setDialogInabilitar(true);
   };
 
@@ -655,13 +657,20 @@ export function DialogAnaliseDocumentalSelecao({
         return;
       }
 
+      const itensAfetados = fornecedorParaInabilitar.fornecedor.itensVencedores;
+      const fornecedorInabId = fornecedorParaInabilitar.fornecedor.id;
+
+      // RECALCULAR segundos colocados AGORA para garantir dados frescos
+      const segundosAtualizados = await buscarSegundosColocados(itensAfetados, fornecedorInabId);
+      console.log("Segundos colocados recalculados na inabilitação:", segundosAtualizados);
+
       // Registrar inabilitação
       const { error: inabError } = await supabase
         .from("fornecedores_inabilitados_selecao")
         .insert({
           selecao_id: selecaoId,
-          fornecedor_id: fornecedorParaInabilitar.fornecedor.id,
-          itens_afetados: fornecedorParaInabilitar.fornecedor.itensVencedores,
+          fornecedor_id: fornecedorInabId,
+          itens_afetados: itensAfetados,
           motivo_inabilitacao: motivoInabilitacao,
           usuario_inabilitou_id: user.id,
         });
@@ -673,18 +682,16 @@ export function DialogAnaliseDocumentalSelecao({
         .from("lances_fornecedores")
         .update({ indicativo_lance_vencedor: false })
         .eq("selecao_id", selecaoId)
-        .eq("fornecedor_id", fornecedorParaInabilitar.fornecedor.id)
-        .in("numero_item", fornecedorParaInabilitar.fornecedor.itensVencedores);
+        .eq("fornecedor_id", fornecedorInabId)
+        .in("numero_item", itensAfetados);
 
       if (removeVencedorError) throw removeVencedorError;
-
-      const itensAfetados = fornecedorParaInabilitar.fornecedor.itensVencedores;
 
       if (reabrirParaNegociacao && onReabrirNegociacao) {
         // Reabrir itens para negociação com o segundo colocado
         for (const item of itensAfetados) {
-          // Encontrar o segundo colocado para este item
-          const segundoColocado = segundosColocados.find(s => s.numero_item === item);
+          const segundoColocado = segundosAtualizados.find(s => s.numero_item === item);
+          console.log(`Item ${item}: segundo colocado = `, segundoColocado);
           
           await supabase
             .from("itens_abertos_lances")
@@ -700,11 +707,12 @@ export function DialogAnaliseDocumentalSelecao({
             .eq("numero_item", item);
         }
         toast.success("Fornecedor inabilitado. Itens reabertos para negociação com os segundos colocados.");
-        onReabrirNegociacao(itensAfetados, fornecedorParaInabilitar.fornecedor.id);
+        onReabrirNegociacao(itensAfetados, fornecedorInabId);
       } else {
         // Processar cada item afetado
         for (const item of itensAfetados) {
-          const segundoColocado = segundosColocados.find(s => s.numero_item === item);
+          const segundoColocado = segundosAtualizados.find(s => s.numero_item === item);
+          console.log(`Item ${item} (sem reabrir): segundo colocado = `, segundoColocado);
           
           if (segundoColocado) {
             // Verificar se o segundo colocado não está inabilitado
@@ -732,6 +740,22 @@ export function DialogAnaliseDocumentalSelecao({
                   fornecedor_negociacao_id: segundoColocado.fornecedor_id,
                   em_negociacao: true,
                   negociacao_concluida: false,
+                  aberto: true,
+                  data_fechamento: null,
+                })
+                .eq("selecao_id", selecaoId)
+                .eq("numero_item", item);
+            } else {
+              // Segundo colocado também inabilitado - fechar item
+              await supabase
+                .from("itens_abertos_lances")
+                .update({
+                  fornecedor_negociacao_id: null,
+                  em_negociacao: false,
+                  negociacao_concluida: true,
+                  nao_negociar: true,
+                  aberto: false,
+                  data_fechamento: new Date().toISOString(),
                 })
                 .eq("selecao_id", selecaoId)
                 .eq("numero_item", item);
@@ -753,7 +777,7 @@ export function DialogAnaliseDocumentalSelecao({
           }
         }
         
-        const temSegundos = segundosColocados.length > 0;
+        const temSegundos = segundosAtualizados.length > 0;
         toast.success(temSegundos 
           ? "Fornecedor inabilitado. Segundos colocados assumem os itens."
           : "Fornecedor inabilitado. Itens sem segundo colocado foram fechados.");
