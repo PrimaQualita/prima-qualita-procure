@@ -480,8 +480,12 @@ const SistemaLancesFornecedor = () => {
     }
   };
 
+  // Filtrar lances do item excluindo fornecedores inabilitados
   const getLancesDoItem = (numeroItem: number) => {
-    return lances.filter(l => l.numero_item === numeroItem);
+    return lances.filter(l => 
+      l.numero_item === numeroItem && 
+      !fornecedoresInabilitados.has(l.fornecedor_id)
+    );
   };
 
   const fornecedorApresentouPropostaNoItem = (numeroItem: number): boolean => {
@@ -514,6 +518,8 @@ const SistemaLancesFornecedor = () => {
   const getValorMinimoAtual = (numeroItem: number) => {
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const valorMenorProposta = menorValorPropostas.get(numeroItem) || 0;
+    
+    // getLancesDoItem já filtra inabilitados
     const lancesDoItem = getLancesDoItem(numeroItem);
     
     // Filtrar apenas lances classificados (menores ou iguais ao estimado)
@@ -528,7 +534,7 @@ const SistemaLancesFornecedor = () => {
       return valoresOrdenados[0];
     }
     
-    // Se não há lances, usar o menor valor das propostas dos fornecedores
+    // Se não há lances, usar o menor valor das propostas (já filtrado de inabilitados)
     if (valorMenorProposta > 0) {
       return valorMenorProposta;
     }
