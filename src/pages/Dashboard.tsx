@@ -8,11 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, FileText, CheckCircle } from "lucide-react";
 import html2pdf from "html2pdf.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { SolicitacoesAutorizacao } from "@/components/dashboard/SolicitacoesAutorizacao";
+import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -23,6 +24,7 @@ const Dashboard = () => {
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [processosPendentesCompliance, setProcessosPendentesCompliance] = useState(0);
   const [atasPendentesAssinatura, setAtasPendentesAssinatura] = useState<any[]>([]);
+  const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   
   // Filtros Gráfico 1 - Pizza
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear().toString());
@@ -100,6 +102,7 @@ const Dashboard = () => {
           atas_selecao (
             nome_arquivo,
             url_arquivo,
+            protocolo,
             selecoes_fornecedores (
               numero_selecao,
               titulo_selecao
@@ -114,6 +117,44 @@ const Dashboard = () => {
       setAtasPendentesAssinatura(data || []);
     } catch (error) {
       console.error("Erro ao carregar atas pendentes:", error);
+    }
+  };
+
+  const handleAssinarAtaUsuario = async (assinaturaId: string, ataId: string) => {
+    setAssinandoAta(assinaturaId);
+    try {
+      // Atualizar o status da assinatura
+      const { error } = await supabase
+        .from("atas_assinaturas_usuario")
+        .update({
+          status_assinatura: "aceito",
+          data_assinatura: new Date().toISOString(),
+          ip_assinatura: "browser",
+        })
+        .eq("id", assinaturaId);
+
+      if (error) throw error;
+
+      // Atualizar o PDF da ata com a nova assinatura
+      console.log("Iniciando atualização do PDF da ata:", ataId);
+      await atualizarAtaComAssinaturas(ataId);
+      console.log("PDF da ata atualizado com sucesso!");
+
+      toast({
+        title: "Sucesso",
+        description: "Ata assinada digitalmente com sucesso!",
+      });
+      
+      await loadAtasPendentesAssinatura();
+    } catch (error) {
+      console.error("Erro ao assinar ata:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao assinar ata: " + (error as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setAssinandoAta(null);
     }
   };
 
@@ -471,28 +512,45 @@ const Dashboard = () => {
         )}
 
         {atasPendentesAssinatura.length > 0 && (
-          <Alert className="mb-6 border-amber-500 bg-amber-50 text-amber-900">
+          <Alert className="mb-6 border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100 dark:border-amber-700">
             <AlertCircle className="h-4 w-4 text-amber-500" />
-            <AlertTitle className="text-amber-900">Atas Pendentes de Assinatura</AlertTitle>
-            <AlertDescription className="text-amber-800">
+            <AlertTitle className="text-amber-900 dark:text-amber-100">Atas Pendentes de Assinatura</AlertTitle>
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
               Você tem {atasPendentesAssinatura.length} ata(s) aguardando sua assinatura:
-              <ul className="mt-2 list-disc list-inside space-y-1">
-                {atasPendentesAssinatura.slice(0, 3).map((ata: any) => (
-                  <li key={ata.id}>
-                    <a 
-                      href={ata.atas_selecao?.url_arquivo} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="underline hover:text-amber-600"
-                    >
-                      {ata.atas_selecao?.selecoes_fornecedores?.numero_selecao || 'Seleção'} - {ata.atas_selecao?.selecoes_fornecedores?.titulo_selecao || ata.atas_selecao?.nome_arquivo}
-                    </a>
-                  </li>
+              <div className="mt-3 space-y-3">
+                {atasPendentesAssinatura.map((ata: any) => (
+                  <div key={ata.id} className="flex items-center justify-between p-3 bg-white/70 dark:bg-gray-800/50 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-amber-900 dark:text-amber-100">
+                        Seleção: {ata.atas_selecao?.selecoes_fornecedores?.numero_selecao || 'N/A'} - {ata.atas_selecao?.selecoes_fornecedores?.titulo_selecao || ata.atas_selecao?.nome_arquivo}
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        Protocolo: {ata.atas_selecao?.protocolo?.substring(0, 16).toUpperCase().replace(/(.{4})/g, '$1-').slice(0, -1)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white dark:bg-gray-800"
+                        onClick={() => window.open(ata.atas_selecao?.url_arquivo, "_blank")}
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        Ver Ata
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleAssinarAtaUsuario(ata.id, ata.ata_id)}
+                        disabled={assinandoAta === ata.id}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        {assinandoAta === ata.id ? "Assinando..." : "Aceitar/Assinar"}
+                      </Button>
+                    </div>
+                  </div>
                 ))}
-                {atasPendentesAssinatura.length > 3 && (
-                  <li>... e mais {atasPendentesAssinatura.length - 3} ata(s)</li>
-                )}
-              </ul>
+              </div>
             </AlertDescription>
           </Alert>
         )}
