@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollAreaWithArrows } from "@/components/ui/scroll-area-with-arrows";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Send, Lock } from "lucide-react";
@@ -43,7 +43,7 @@ export function ChatNegociacao({
   const [novaMensagem, setNovaMensagem] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  
 
   useEffect(() => {
     loadUserProfile();
@@ -69,12 +69,6 @@ export function ChatNegociacao({
     };
   }, [selecaoId, numeroItem, fornecedorId]);
 
-  // Auto-scroll
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [mensagens]);
 
   const loadUserProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -204,8 +198,8 @@ export function ChatNegociacao({
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col p-2 overflow-hidden">
-        <ScrollArea className="flex-1 pr-2" ref={scrollRef as any}>
-          <div className="space-y-2">
+        <ScrollAreaWithArrows className="flex-1" orientation="both">
+          <div className="space-y-2 pr-2">
             {mensagens.length === 0 ? (
               <p className="text-center text-xs text-muted-foreground py-4">
                 Nenhuma mensagem ainda. Inicie a negociação!
@@ -243,7 +237,7 @@ export function ChatNegociacao({
               })
             )}
           </div>
-        </ScrollArea>
+        </ScrollAreaWithArrows>
 
         <div className="flex gap-2 mt-2 pt-2 border-t">
           <Input
