@@ -1198,19 +1198,62 @@ export function DialogSessaoLances({
   const handleFinalizarSessaoInterna = async () => {
     setSalvando(true);
     try {
-      // Marcar os lances vencedores
-      const lancesOrdenados = [...lances].sort((a, b) => {
-        if (a.numero_item !== b.numero_item) {
-          return a.numero_item - b.numero_item;
-        }
-        return a.valor_lance - b.valor_lance;
+      // Buscar fornecedores inabilitados
+      const { data: inabilitados } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id, itens_afetados")
+        .eq("selecao_id", selecaoId)
+        .eq("revertido", false);
+
+      const inabilitacoesPorFornecedor = new Map<string, number[]>();
+      (inabilitados || []).forEach((f: any) => {
+        inabilitacoesPorFornecedor.set(f.fornecedor_id, f.itens_afetados || []);
       });
 
-      // Identificar vencedor de cada item (menor lance)
+      // Determinar se critério é desconto
+      const isDesconto = criterioJulgamento === "desconto";
+      
+      // Filtrar lances excluindo fornecedores inabilitados por item
+      const lancesFiltrados = lances.filter((lance) => {
+        const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
+        if (!itensInabilitados) return true;
+        return !itensInabilitados.includes(lance.numero_item);
+      });
+
+      // Identificar vencedor de cada item com priorização de negociação
       const vencedoresPorItem = new Map<number, string>();
-      lancesOrdenados.forEach(lance => {
-        if (!vencedoresPorItem.has(lance.numero_item)) {
-          vencedoresPorItem.set(lance.numero_item, lance.id);
+      
+      // Agrupar lances por item
+      const lancesPorItem = new Map<number, typeof lancesFiltrados>();
+      lancesFiltrados.forEach(lance => {
+        if (!lancesPorItem.has(lance.numero_item)) {
+          lancesPorItem.set(lance.numero_item, []);
+        }
+        lancesPorItem.get(lance.numero_item)!.push(lance);
+      });
+
+      // Para cada item, ordenar e escolher vencedor
+      lancesPorItem.forEach((lancesDoItem, numeroItem) => {
+        const lancesOrdenados = lancesDoItem.sort((a, b) => {
+          // 1. Priorizar negociação
+          if (a.tipo_lance === 'negociacao' && b.tipo_lance !== 'negociacao') return -1;
+          if (a.tipo_lance !== 'negociacao' && b.tipo_lance === 'negociacao') return 1;
+          
+          // 2. Ordenar por valor baseado no critério
+          if (isDesconto) {
+            // Desconto: maior é melhor
+            if (b.valor_lance !== a.valor_lance) return b.valor_lance - a.valor_lance;
+          } else {
+            // Preço: menor é melhor
+            if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+          }
+          
+          // 3. Desempate por data
+          return new Date(a.data_hora_lance || 0).getTime() - new Date(b.data_hora_lance || 0).getTime();
+        });
+
+        if (lancesOrdenados.length > 0) {
+          vencedoresPorItem.set(numeroItem, lancesOrdenados[0].id);
         }
       });
 
@@ -1246,19 +1289,62 @@ export function DialogSessaoLances({
   const handleRemarcarVencedores = async () => {
     setSalvando(true);
     try {
-      // Marcar os lances vencedores
-      const lancesOrdenados = [...lances].sort((a, b) => {
-        if (a.numero_item !== b.numero_item) {
-          return a.numero_item - b.numero_item;
-        }
-        return a.valor_lance - b.valor_lance;
+      // Buscar fornecedores inabilitados
+      const { data: inabilitados } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id, itens_afetados")
+        .eq("selecao_id", selecaoId)
+        .eq("revertido", false);
+
+      const inabilitacoesPorFornecedor = new Map<string, number[]>();
+      (inabilitados || []).forEach((f: any) => {
+        inabilitacoesPorFornecedor.set(f.fornecedor_id, f.itens_afetados || []);
       });
 
-      // Identificar vencedor de cada item (menor lance)
+      // Determinar se critério é desconto
+      const isDesconto = criterioJulgamento === "desconto";
+      
+      // Filtrar lances excluindo fornecedores inabilitados por item
+      const lancesFiltrados = lances.filter((lance) => {
+        const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
+        if (!itensInabilitados) return true;
+        return !itensInabilitados.includes(lance.numero_item);
+      });
+
+      // Identificar vencedor de cada item com priorização de negociação
       const vencedoresPorItem = new Map<number, string>();
-      lancesOrdenados.forEach(lance => {
-        if (!vencedoresPorItem.has(lance.numero_item)) {
-          vencedoresPorItem.set(lance.numero_item, lance.id);
+      
+      // Agrupar lances por item
+      const lancesPorItem = new Map<number, typeof lancesFiltrados>();
+      lancesFiltrados.forEach(lance => {
+        if (!lancesPorItem.has(lance.numero_item)) {
+          lancesPorItem.set(lance.numero_item, []);
+        }
+        lancesPorItem.get(lance.numero_item)!.push(lance);
+      });
+
+      // Para cada item, ordenar e escolher vencedor
+      lancesPorItem.forEach((lancesDoItem, numeroItem) => {
+        const lancesOrdenados = lancesDoItem.sort((a, b) => {
+          // 1. Priorizar negociação
+          if (a.tipo_lance === 'negociacao' && b.tipo_lance !== 'negociacao') return -1;
+          if (a.tipo_lance !== 'negociacao' && b.tipo_lance === 'negociacao') return 1;
+          
+          // 2. Ordenar por valor baseado no critério
+          if (isDesconto) {
+            // Desconto: maior é melhor
+            if (b.valor_lance !== a.valor_lance) return b.valor_lance - a.valor_lance;
+          } else {
+            // Preço: menor é melhor
+            if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+          }
+          
+          // 3. Desempate por data
+          return new Date(a.data_hora_lance || 0).getTime() - new Date(b.data_hora_lance || 0).getTime();
+        });
+
+        if (lancesOrdenados.length > 0) {
+          vencedoresPorItem.set(numeroItem, lancesOrdenados[0].id);
         }
       });
 
