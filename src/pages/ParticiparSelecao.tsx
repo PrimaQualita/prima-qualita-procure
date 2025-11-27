@@ -370,17 +370,35 @@ const ParticiparSelecao = () => {
         return;
       }
 
+      // Verificar critério de julgamento da cotação
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select("criterio_julgamento")
+        .eq("id", cotacaoId)
+        .single();
+      
+      const isDesconto = cotacaoData?.criterio_julgamento === "desconto";
+
       const fornecedoresArray = planilha.fornecedores_incluidos as any[];
-      const menoresValoresPorItem = new Map<number, number>();
+      const valoresPorItem = new Map<number, number>();
 
       fornecedoresArray.forEach((fornecedor: any) => {
         if (fornecedor.itens) {
           fornecedor.itens.forEach((item: any) => {
-            const valorAtual = menoresValoresPorItem.get(item.numero_item);
-            const valorItem = item.valor_unitario || 0;
+            const valorAtual = valoresPorItem.get(item.numero_item);
+            // Para desconto, buscar o MAIOR percentual; para valores, buscar o MENOR valor
+            const valorItem = isDesconto ? (item.percentual_desconto || 0) : (item.valor_unitario || 0);
             
-            if (!valorAtual || valorItem < valorAtual) {
-              menoresValoresPorItem.set(item.numero_item, valorItem);
+            if (isDesconto) {
+              // Maior desconto
+              if (!valorAtual || valorItem > valorAtual) {
+                valoresPorItem.set(item.numero_item, valorItem);
+              }
+            } else {
+              // Menor valor
+              if (!valorAtual || valorItem < valorAtual) {
+                valoresPorItem.set(item.numero_item, valorItem);
+              }
             }
           });
         }
@@ -389,8 +407,8 @@ const ParticiparSelecao = () => {
       const todosItens: Item[] = [];
 
       itensOriginais.forEach((itemOriginal) => {
-        const valorEstimado = menoresValoresPorItem.get(itemOriginal.numero_item) || 0;
-        const valorTotalItem = valorEstimado * itemOriginal.quantidade;
+        const valorEstimado = valoresPorItem.get(itemOriginal.numero_item) || 0;
+        const valorTotalItem = isDesconto ? 0 : (valorEstimado * itemOriginal.quantidade);
         
         todosItens.push({
           id: itemOriginal.id,
@@ -1271,22 +1289,26 @@ const ParticiparSelecao = () => {
                                      <>
                                        <TableCell className="text-right">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
                                         <TableCell>
-                                          <Input
-                                            id={`input-valor-${item.id}`}
-                                            key={`valor-lote-${item.id}`}
-                                            type="text"
-                                            inputMode="decimal"
-                                            placeholder="0,00%"
-                                            value={respostas[item.id]?.valor_display || ""}
-                                            onChange={(e) => {
-                                              const valor = e.target.value;
-                                              setRespostas(prev => ({
-                                                ...prev,
-                                                [item.id]: { ...prev[item.id], valor_display: valor }
-                                              }));
-                                            }}
-                                            onBlur={(e) => handleValorBlur(item.id, e.target.value)}
-                                          />
+                                          <div className="relative">
+                                            <Input
+                                              id={`input-valor-${item.id}`}
+                                              key={`valor-lote-${item.id}`}
+                                              type="text"
+                                              inputMode="decimal"
+                                              placeholder="0,00"
+                                              value={respostas[item.id]?.valor_display || ""}
+                                              onChange={(e) => {
+                                                const valor = e.target.value;
+                                                setRespostas(prev => ({
+                                                  ...prev,
+                                                  [item.id]: { ...prev[item.id], valor_display: valor }
+                                                }));
+                                              }}
+                                              onBlur={(e) => handleValorBlur(item.id, e.target.value)}
+                                              className="pr-8"
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">%</span>
+                                          </div>
                                         </TableCell>
                                      </>
                                    ) : (
@@ -1337,22 +1359,26 @@ const ParticiparSelecao = () => {
                                <>
                                  <TableCell className="text-right">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
                                   <TableCell>
-                                    <Input
-                                      id={`input-valor-${item.id}`}
-                                      key={`valor-item-${item.id}`}
-                                      type="text"
-                                      inputMode="decimal"
-                                      placeholder="0,00%"
-                                      value={respostas[item.id]?.valor_display || ""}
-                                      onChange={(e) => {
-                                        const valor = e.target.value;
-                                        setRespostas(prev => ({
-                                          ...prev,
-                                          [item.id]: { ...prev[item.id], valor_display: valor }
-                                        }));
-                                      }}
-                                      onBlur={(e) => handleValorBlur(item.id, e.target.value)}
-                                    />
+                                    <div className="relative">
+                                      <Input
+                                        id={`input-valor-${item.id}`}
+                                        key={`valor-item-${item.id}`}
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder="0,00"
+                                        value={respostas[item.id]?.valor_display || ""}
+                                        onChange={(e) => {
+                                          const valor = e.target.value;
+                                          setRespostas(prev => ({
+                                            ...prev,
+                                            [item.id]: { ...prev[item.id], valor_display: valor }
+                                          }));
+                                        }}
+                                        onBlur={(e) => handleValorBlur(item.id, e.target.value)}
+                                        className="pr-8"
+                                      />
+                                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">%</span>
+                                    </div>
                                   </TableCell>
                                </>
                              ) : (
