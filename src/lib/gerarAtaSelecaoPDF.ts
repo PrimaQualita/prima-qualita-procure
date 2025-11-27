@@ -711,7 +711,9 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     fornecedoresInabilitados.forEach(inab => {
       checkNewPage(10);
       const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
-      const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA nos itens: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
+      const qtdItens = inab.itens_afetados.length;
+      const textoItem = qtdItens === 1 ? 'no item' : 'nos itens';
+      const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA ${textoItem}: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
       currentY = drawJustifiedText(doc, textoInab, marginLeft, currentY, contentWidth, 6.25);
     });
   }
@@ -1456,7 +1458,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   // Salvar PDF modificado
   const modifiedPdfBytes = await pdfDoc.save();
-  const modifiedBlob = new Blob([modifiedPdfBytes.buffer], { type: 'application/pdf' });
+  const modifiedBlob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
 
   // Upload do PDF modificado (sobrescrevendo o atual)
   const newStoragePath = storagePath.replace('.pdf', '-assinado.pdf');
