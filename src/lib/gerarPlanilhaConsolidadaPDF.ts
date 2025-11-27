@@ -95,7 +95,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   dadosProtocolo: DadosProtocolo,
   calculosPorItem: Record<number, 'menor' | 'media' | 'mediana'> = {},
   criterioJulgamento?: string
-): Promise<Blob> {
+): Promise<{ blob: Blob; estimativas: Record<number, number> }> {
+  const estimativasCalculadas: Record<number, number> = {};
   const doc = new jsPDF({ 
     orientation: 'landscape',
     unit: 'mm',
@@ -312,6 +313,9 @@ export async function gerarPlanilhaConsolidadaPDF(
       
       const valorTotalEstimativa = valorEstimativa * item.quantidade;
       
+      // CRÍTICO: Armazenar estimativa calculada
+      estimativasCalculadas[item.numero_item] = valorEstimativa;
+      
       // Se critério é desconto, mostrar percentual (inclusive zero)
       if (criterioJulgamento === 'desconto') {
         linha.estimativa = formatarPercentual(valorEstimativa);
@@ -322,6 +326,7 @@ export async function gerarPlanilhaConsolidadaPDF(
       totalGeralEstimativa += valorTotalEstimativa;
     } else {
       linha.estimativa = '-';
+      estimativasCalculadas[item.numero_item] = 0;
     }
 
     linhas.push(linha);
@@ -486,5 +491,6 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setFontSize(8);
   doc.text(`Verifique em: ${linkVerificacao}`, margemEsquerda + 3, y2);
 
-  return doc.output('blob');
+  console.log('📊 Estimativas calculadas no PDF:', estimativasCalculadas);
+  return { blob: doc.output('blob'), estimativas: estimativasCalculadas };
 }

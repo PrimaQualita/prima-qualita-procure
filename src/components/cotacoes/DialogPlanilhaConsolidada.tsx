@@ -440,7 +440,7 @@ export function DialogPlanilhaConsolidada({
       
       console.log('📊 Critérios finais por item (número):', criteriosPorItemNumero);
       
-      const pdfBlob = await gerarPlanilhaConsolidadaPDF(
+      const resultado = await gerarPlanilhaConsolidadaPDF(
         processo,
         cotacao,
         itensFormatados,
@@ -449,6 +449,11 @@ export function DialogPlanilhaConsolidada({
         criteriosPorItemNumero,
         criterioJulgamento
       );
+      
+      const pdfBlob = resultado.blob;
+      const estimativasCalculadas = resultado.estimativas;
+      
+      console.log('📊 Estimativas recebidas da geração do PDF:', estimativasCalculadas);
       
       toast.info("💾 Salvando planilha", {
         description: "Armazenando arquivo...",
@@ -652,7 +657,8 @@ export function DialogPlanilhaConsolidada({
           usuario_gerador_id: user?.id,
           data_geracao: new Date().toISOString(),
           protocolo: dadosProtocolo.protocolo,
-          fornecedores_incluidos: fornecedoresIncluidos
+          fornecedores_incluidos: fornecedoresIncluidos,
+          estimativas_itens: estimativasCalculadas
         });
 
       if (dbError) throw dbError;
