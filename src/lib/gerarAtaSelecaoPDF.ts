@@ -1220,6 +1220,9 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   doc.setFontSize(7);
   doc.text("Este documento possui certificação digital conforme Lei 14.063/2020", marginLeft + 5, certTextY);
   doc.setTextColor(0, 0, 0);
+  
+  // Atualizar currentY para posicionar após a certificação
+  currentY = certY + certHeight + espacoEntreSecoes;
 
   // Rodapé da última página
   addRodape();
@@ -1439,7 +1442,11 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginLeft = 40;
   const marginRight = 40;
   
-  let currentY = 390;
+  // Calcular posição inicial: logo abaixo do final da certificação
+  // A certificação termina aproximadamente em 390 no jsPDF
+  // No pdf-lib, o sistema de coordenadas é invertido (y=0 é embaixo)
+  // Precisamos posicionar o termo de aceite na próxima linha após a certificação
+  let currentY = 350; // Posição ajustada para ficar abaixo da certificação
   const footerLimit = 60;
 
   // Função para criar nova página
