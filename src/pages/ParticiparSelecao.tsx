@@ -1270,17 +1270,24 @@ const ParticiparSelecao = () => {
                                    {criterioJulgamento === "desconto" ? (
                                      <>
                                        <TableCell className="text-right">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
-                                       <TableCell>
-                                         <Input
-                                           id={`input-valor-${item.id}`}
-                                           key={`valor-lote-${item.id}`}
-                                           type="text"
-                                           inputMode="decimal"
-                                           placeholder="0,00%"
-                                           defaultValue={respostas[item.id]?.valor_display || "0,00%"}
-                                           onBlur={(e) => handleValorBlur(item.id, e.target.value)}
-                                         />
-                                       </TableCell>
+                                        <TableCell>
+                                          <Input
+                                            id={`input-valor-${item.id}`}
+                                            key={`valor-lote-${item.id}`}
+                                            type="text"
+                                            inputMode="decimal"
+                                            placeholder="0,00%"
+                                            value={respostas[item.id]?.valor_display || ""}
+                                            onChange={(e) => {
+                                              const valor = e.target.value;
+                                              setRespostas(prev => ({
+                                                ...prev,
+                                                [item.id]: { ...prev[item.id], valor_display: valor }
+                                              }));
+                                            }}
+                                            onBlur={(e) => handleValorBlur(item.id, e.target.value)}
+                                          />
+                                        </TableCell>
                                      </>
                                    ) : (
                                      <>
@@ -1329,17 +1336,24 @@ const ParticiparSelecao = () => {
                              {criterioJulgamento === "desconto" ? (
                                <>
                                  <TableCell className="text-right">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
-                                 <TableCell>
-                                   <Input
-                                     id={`input-valor-${item.id}`}
-                                     key={`valor-item-${item.id}`}
-                                     type="text"
-                                     inputMode="decimal"
-                                     placeholder="0,00%"
-                                     defaultValue={respostas[item.id]?.valor_display || "0,00%"}
-                                     onBlur={(e) => handleValorBlur(item.id, e.target.value)}
-                                   />
-                                 </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      id={`input-valor-${item.id}`}
+                                      key={`valor-item-${item.id}`}
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="0,00%"
+                                      value={respostas[item.id]?.valor_display || ""}
+                                      onChange={(e) => {
+                                        const valor = e.target.value;
+                                        setRespostas(prev => ({
+                                          ...prev,
+                                          [item.id]: { ...prev[item.id], valor_display: valor }
+                                        }));
+                                      }}
+                                      onBlur={(e) => handleValorBlur(item.id, e.target.value)}
+                                    />
+                                  </TableCell>
                                </>
                              ) : (
                                <>
