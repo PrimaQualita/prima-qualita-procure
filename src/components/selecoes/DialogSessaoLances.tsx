@@ -1409,34 +1409,9 @@ export function DialogSessaoLances({
 
       console.log("✅ Remarcação concluída - vencedores atualizados no banco");
       
-      // Disparar evento customizado para atualizar análise documental
-      window.dispatchEvent(new CustomEvent('vencedores-remarcados'));
-      
       // Recarregar dados locais
       await loadLances();
       await loadVencedoresPorItem();
-      
-      // Broadcast para forçar reload na Análise Documental
-      console.log("📡 Enviando broadcast para atualizar Análise Documental...");
-      const broadcastChannel = supabase.channel(`remarcar_vencedores_${selecaoId}`);
-      
-      // CRÍTICO: Subscribe antes de enviar broadcast
-      await broadcastChannel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log("✅ Canal broadcast subscrito, enviando mensagem...");
-          await broadcastChannel.send({
-            type: 'broadcast',
-            event: 'vencedores_remarcados',
-            payload: { selecao_id: selecaoId, timestamp: new Date().toISOString() }
-          });
-          console.log("📡 Broadcast enviado com sucesso!");
-          
-          // Aguardar para garantir entrega
-          setTimeout(() => {
-            supabase.removeChannel(broadcastChannel);
-          }, 500);
-        }
-      });
       
       toast.success(`${itensUnicos.length} item(ns) processado(s). Vencedores atualizados!`);
     } catch (error) {
