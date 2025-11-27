@@ -248,17 +248,19 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
     const colWidths = [80, 50, 40];
     const tableX = marginLeft;
     
-    // Header
+    // Desenhar retângulos do cabeçalho
     doc.rect(tableX, yPosition, colWidths[0], 8, "F");
+    doc.rect(tableX + colWidths[0], yPosition, colWidths[1], 8, "F");
+    doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], 8, "F");
+    
+    // Texto do cabeçalho
     doc.text("Empresa", tableX + 2, yPosition + 5.5);
     
-    doc.rect(tableX + colWidths[0], yPosition, colWidths[1], 8, "F");
     const headerItens = "Itens Vencedores";
     const headerItensWidth = doc.getTextWidth(headerItens);
     doc.text(headerItens, tableX + colWidths[0] + (colWidths[1] - headerItensWidth) / 2, yPosition + 5.5);
     
-    doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], 8, "F");
-    const labelColuna3 = isDesconto ? "Desconto" : "Valor (R$)";
+    const labelColuna3 = isDesconto ? "Desconto Vencedor" : "Valor (R$)";
     const headerValorWidth = doc.getTextWidth(labelColuna3);
     doc.text(labelColuna3, tableX + colWidths[0] + colWidths[1] + (colWidths[2] - headerValorWidth) / 2, yPosition + 5.5);
     
@@ -274,13 +276,14 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
       doc.setFillColor(bgColor, bgColor, bgColor);
       
       const linhasEmpresa = doc.splitTextToSize(linha[0], colWidths[0] - 4);
-      const linhasItens = doc.splitTextToSize(linha[1], colWidths[1] - 4);
-      const maxLinhas = Math.max(linhasEmpresa.length, linhasItens.length, 1);
+      const linhasItens = linha[1];
+      const linhasValor = linha[2];
+      const maxLinhas = Math.max(linhasEmpresa.length, 1);
       const altura = maxLinhas * 5 + 2;
 
-      doc.rect(tableX, yPosition, colWidths[0], altura, "F");
-      doc.rect(tableX + colWidths[0], yPosition, colWidths[1], altura, "F");
-      doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], altura, "F");
+      doc.rect(tableX, yPosition, colWidths[0], altura);
+      doc.rect(tableX + colWidths[0], yPosition, colWidths[1], altura);
+      doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], altura);
 
       doc.text(linhasEmpresa, tableX + 2, yPosition + 4);
       

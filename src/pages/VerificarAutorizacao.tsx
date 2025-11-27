@@ -26,6 +26,11 @@ export default function VerificarAutorizacao() {
   const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | 'compliance' | 'planilha' | 'encaminhamento' | 'homologacao' | 'recurso' | 'resposta_recurso' | null>(null);
   const [buscaRealizada, setBuscaRealizada] = useState(false);
 
+  // Função auxiliar para normalizar protocolo (primeiros 16 chars sem hífens)
+  const normalizarProtocolo = (proto: string): string => {
+    return proto.replace(/-/g, '').toUpperCase().substring(0, 16);
+  };
+
   const verificarAutorizacao = async (protocoloParam?: string) => {
     const protocoloParaBuscar = protocoloParam || protocolo;
     
@@ -44,19 +49,23 @@ export default function VerificarAutorizacao() {
     setTipoDocumento(null);
     
     const protocoloLimpo = protocoloParaBuscar.trim();
+    const protocoloNormalizado = normalizarProtocolo(protocoloLimpo);
     console.log('🔍 [VERIFICAÇÃO] Iniciando busca');
     console.log('📋 [VERIFICAÇÃO] Protocolo original:', protocoloParaBuscar);
     console.log('✨ [VERIFICAÇÃO] Protocolo limpo:', protocoloLimpo);
+    console.log('🔧 [VERIFICAÇÃO] Protocolo normalizado (16 chars):', protocoloNormalizado);
     console.log('📏 [VERIFICAÇÃO] Tamanho:', protocoloLimpo.length);
     
     try {
       // 1. Autorizações de Processo
       console.log('🔎 [VERIFICAÇÃO] Buscando em autorizacoes_processo...');
-      const { data: autData, error: autError } = await supabase
+      const { data: allAutData, error: autError } = await supabase
         .from('autorizacoes_processo')
-        .select('*')
-        .eq('protocolo', protocoloLimpo)
-        .maybeSingle();
+        .select('*');
+      
+      const autData = allAutData?.find(doc => 
+        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
+      );
 
       console.log('📄 [VERIFICAÇÃO] Resultado autorizacoes_processo:', { 
         encontrado: !!autData, 
@@ -64,7 +73,7 @@ export default function VerificarAutorizacao() {
         dados: autData 
       });
 
-      if (autData && !autError) {
+      if (autData) {
         console.log('✅ [VERIFICAÇÃO] Autorização encontrada!');
         const { data: cotacao } = await supabase
           .from('cotacoes_precos')
@@ -104,11 +113,13 @@ export default function VerificarAutorizacao() {
 
       // 2. Relatórios Finais
       console.log('🔎 [VERIFICAÇÃO] Buscando em relatorios_finais...');
-      const { data: relData, error: relError } = await supabase
+      const { data: allRelData, error: relError } = await supabase
         .from('relatorios_finais')
-        .select('*')
-        .eq('protocolo', protocoloLimpo)
-        .maybeSingle();
+        .select('*');
+      
+      const relData = allRelData?.find(doc => 
+        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
+      );
 
       console.log('📋 [VERIFICAÇÃO] Resultado relatorios_finais:', { 
         encontrado: !!relData, 
@@ -116,7 +127,7 @@ export default function VerificarAutorizacao() {
         dados: relData 
       });
 
-      if (relData && !relError) {
+      if (relData) {
         console.log('✅ [VERIFICAÇÃO] Relatório Final encontrado!');
         const { data: cotacao } = await supabase
           .from('cotacoes_precos')
@@ -156,11 +167,13 @@ export default function VerificarAutorizacao() {
 
       // 3. Análises de Compliance
       console.log('🔎 [VERIFICAÇÃO] Buscando em analises_compliance...');
-      const { data: compData, error: compError } = await supabase
+      const { data: allCompData, error: compError } = await supabase
         .from('analises_compliance')
-        .select('*')
-        .eq('protocolo', protocoloLimpo)
-        .maybeSingle();
+        .select('*');
+      
+      const compData = allCompData?.find(doc => 
+        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
+      );
 
       console.log('📋 [VERIFICAÇÃO] Resultado analises_compliance:', { 
         encontrado: !!compData, 
@@ -168,7 +181,7 @@ export default function VerificarAutorizacao() {
         dados: compData 
       });
 
-      if (compData && !compError) {
+      if (compData) {
         console.log('✅ [VERIFICAÇÃO] Análise de Compliance encontrada!');
         
         const { data: usuario } = await supabase
@@ -192,13 +205,14 @@ export default function VerificarAutorizacao() {
 
       // 4. Planilhas Consolidadas (SEMPRE PEGAR A MAIS RECENTE)
       console.log('🔎 [VERIFICAÇÃO] Buscando em planilhas_consolidadas...');
-      const { data: planData, error: planError } = await supabase
+      const { data: allPlanData, error: planError } = await supabase
         .from('planilhas_consolidadas')
         .select('*')
-        .eq('protocolo', protocoloLimpo)
-        .order('data_geracao', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('data_geracao', { ascending: false });
+      
+      const planData = allPlanData?.find(doc => 
+        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
+      );
 
       console.log('📋 [VERIFICAÇÃO] Resultado planilhas_consolidadas:', { 
         encontrado: !!planData, 
@@ -206,7 +220,7 @@ export default function VerificarAutorizacao() {
         dados: planData 
       });
 
-      if (planData && !planError) {
+      if (planData) {
         console.log('✅ [VERIFICAÇÃO] Planilha Consolidada encontrada!');
 
         const { data: cotacao } = await supabase
@@ -247,11 +261,13 @@ export default function VerificarAutorizacao() {
 
       // 5. Encaminhamentos de Processo
       console.log('🔎 [VERIFICAÇÃO] Buscando em encaminhamentos_processo...');
-      const { data: encData, error: encError } = await supabase
+      const { data: allEncData, error: encError } = await supabase
         .from('encaminhamentos_processo')
-        .select('*')
-        .eq('protocolo', protocoloLimpo)
-        .maybeSingle();
+        .select('*');
+      
+      const encData = allEncData?.find(doc => 
+        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
+      );
 
       console.log('📋 [VERIFICAÇÃO] Resultado encaminhamentos_processo:', { 
         encontrado: !!encData, 
@@ -259,7 +275,7 @@ export default function VerificarAutorizacao() {
         dados: encData 
       });
 
-      if (encData && !encError) {
+      if (encData) {
         console.log('✅ [VERIFICAÇÃO] Encaminhamento de Processo encontrado!');
 
         let cotacao = null;
@@ -306,11 +322,13 @@ export default function VerificarAutorizacao() {
 
       // 6. Homologações de Seleção
       console.log('🔎 [VERIFICAÇÃO] Buscando em homologacoes_selecao...');
-      const { data: homologacaoData, error: homologacaoError } = await supabase
+      const { data: allHomologacaoData, error: homologacaoError } = await supabase
         .from('homologacoes_selecao')
-        .select('*')
-        .eq('protocolo', protocoloLimpo)
-        .maybeSingle();
+        .select('*');
+      
+      const homologacaoData = allHomologacaoData?.find(doc => 
+        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
+      );
 
       console.log('📋 [VERIFICAÇÃO] Resultado homologacoes_selecao:', { 
         encontrado: !!homologacaoData, 
@@ -318,7 +336,7 @@ export default function VerificarAutorizacao() {
         dados: homologacaoData 
       });
 
-      if (homologacaoData && !homologacaoError) {
+      if (homologacaoData) {
         console.log('✅ [VERIFICAÇÃO] Homologação encontrada!');
         
         const { data: selecao } = await supabase
@@ -366,18 +384,20 @@ export default function VerificarAutorizacao() {
       // @ts-ignore - Supabase type inference too deep
       const recursoResult = await supabase
         .from('recursos_inabilitacao_selecao')
-        .select('*')
-        .eq('protocolo_recurso', protocoloLimpo)
-        .maybeSingle();
-      const recursoData = recursoResult.data as any;
+        .select('*');
+      const allRecursoData = recursoResult.data as any;
       const recursoError = recursoResult.error;
+      
+      const recursoData = allRecursoData?.find((doc: any) => 
+        normalizarProtocolo(doc.protocolo_recurso || '') === protocoloNormalizado
+      );
 
       console.log('📋 [VERIFICAÇÃO] Resultado recursos_inabilitacao_selecao (recurso):', { 
         encontrado: !!recursoData, 
         erro: recursoError?.message 
       });
 
-      if (recursoData && !recursoError) {
+      if (recursoData) {
         console.log('✅ [VERIFICAÇÃO] Recurso de Inabilitação encontrado!');
         
         const { data: fornecedor } = await supabase
@@ -401,23 +421,25 @@ export default function VerificarAutorizacao() {
         return;
       }
 
-      // 7. Recursos de Inabilitação (Resposta do Gestor)
+      // 8. Recursos de Inabilitação (Resposta do Gestor)
       console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_inabilitacao_selecao (resposta)...');
       // @ts-ignore - Supabase type inference too deep
       const respostaRecursoResult = await supabase
         .from('recursos_inabilitacao_selecao')
-        .select('*')
-        .eq('protocolo_resposta', protocoloLimpo)
-        .maybeSingle();
-      const respostaRecursoData = respostaRecursoResult.data as any;
+        .select('*');
+      const allRespostaRecursoData = respostaRecursoResult.data as any;
       const respostaRecursoError = respostaRecursoResult.error;
+      
+      const respostaRecursoData = allRespostaRecursoData?.find((doc: any) => 
+        normalizarProtocolo(doc.protocolo_resposta || '') === protocoloNormalizado
+      );
 
       console.log('📋 [VERIFICAÇÃO] Resultado recursos_inabilitacao_selecao (resposta):', { 
         encontrado: !!respostaRecursoData, 
         erro: respostaRecursoError?.message 
       });
 
-      if (respostaRecursoData && !respostaRecursoError) {
+      if (respostaRecursoData) {
         console.log('✅ [VERIFICAÇÃO] Resposta de Recurso encontrada!');
         
         let usuario = null;
