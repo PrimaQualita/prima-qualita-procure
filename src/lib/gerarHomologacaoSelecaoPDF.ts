@@ -9,7 +9,7 @@ const formatarProtocoloExibicao = (uuid: string): string => {
   return `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
 };
 
-export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
+export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPrecos: boolean = true) {
   try {
     // Buscar dados da seleção e processo
     const { data: selecao, error: selecaoError } = await supabase
@@ -198,7 +198,7 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
     const contratoNumero = processo.numero_processo_interno?.split('/')[0] || "XXX";
     const contratoAno = processo.numero_processo_interno?.split('/')[1] || "XXXX";
 
-    const textoHomologacao = `HOMOLOGO, nos termos da legislação em vigor, o Processo Interno nº ${processo.numero_processo_interno}, por meio da Seleção de Fornecedores nº ${selecao.numero_selecao}, cujo objeto consiste em ${objetoLimpo} vinculados ao Contrato de Gestão ${contratoNumero}/${contratoAno}, firmado com o município de ${enteFederativo}, pelo critério de ${criterioTexto}, pelo Sistema de Registro de Preços, para atender as necessidades das unidades gerenciadas pela OS Prima Qualitá Saúde por meio de seus Contratos de Gestão, em favor das empresas:`;
+    const textoHomologacao = `HOMOLOGO, nos termos da legislação em vigor, o Processo Interno nº ${processo.numero_processo_interno}, por meio da Seleção de Fornecedores nº ${selecao.numero_selecao}, cujo objeto consiste em ${objetoLimpo} vinculados ao Contrato de Gestão ${contratoNumero}/${contratoAno}, firmado com o município de ${enteFederativo}, pelo critério de ${criterioTexto}${isRegistroPrecos ? ', pelo Sistema de Registro de Preços' : ''}, para atender as necessidades das unidades gerenciadas pela OS Prima Qualitá Saúde por meio de seus Contratos de Gestão, em favor das empresas:`;
 
     const linhasTexto = doc.splitTextToSize(textoHomologacao, contentWidth);
     linhasTexto.forEach((linha: string, index: number) => {
@@ -245,7 +245,9 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
 
-    const colWidths = [80, 50, 40];
+    // Largura total da tabela = contentWidth
+    const tableWidth = contentWidth;
+    const colWidths = [tableWidth * 0.47, tableWidth * 0.29, tableWidth * 0.24]; // 47%, 29%, 24%
     const tableX = marginLeft;
     
     // Desenhar retângulos do cabeçalho com bordas cinzas

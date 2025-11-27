@@ -68,6 +68,7 @@ const DetalheSelecao = () => {
   const [gerandoHomologacao, setGerandoHomologacao] = useState(false);
   const [homologacoesGeradas, setHomologacoesGeradas] = useState<any[]>([]);
   const [confirmDeleteHomologacao, setConfirmDeleteHomologacao] = useState<string | null>(null);
+  const [dialogRegistroPrecos, setDialogRegistroPrecos] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -770,19 +771,7 @@ const DetalheSelecao = () => {
             size="lg"
             className="w-full mt-4"
             disabled={gerandoHomologacao}
-            onClick={async () => {
-              setGerandoHomologacao(true);
-              try {
-                await gerarHomologacaoSelecaoPDF(selecaoId!);
-                toast.success("Homologação gerada com sucesso!");
-                await loadHomologacoesGeradas();
-              } catch (error) {
-                console.error("Erro ao gerar homologação:", error);
-                toast.error("Erro ao gerar Homologação");
-              } finally {
-                setGerandoHomologacao(false);
-              }
-            }}
+            onClick={() => setDialogRegistroPrecos(true)}
           >
             <FileCheck className="h-5 w-5 mr-2" />
             {gerandoHomologacao ? "Gerando..." : "Gerar Homologação"}
@@ -1133,6 +1122,57 @@ const DetalheSelecao = () => {
           onSuccess={loadAtasGeradas}
         />
       )}
+
+      {/* Dialog para perguntar se é Registro de Preços */}
+      <AlertDialog open={dialogRegistroPrecos} onOpenChange={setDialogRegistroPrecos}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Registro de Preços</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta homologação é para Registro de Preços?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setDialogRegistroPrecos(false);
+                setGerandoHomologacao(true);
+                try {
+                  await gerarHomologacaoSelecaoPDF(selecaoId!, false);
+                  toast.success("Homologação gerada com sucesso!");
+                  await loadHomologacoesGeradas();
+                } catch (error) {
+                  console.error("Erro ao gerar homologação:", error);
+                  toast.error("Erro ao gerar Homologação");
+                } finally {
+                  setGerandoHomologacao(false);
+                }
+              }}
+            >
+              Não
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={async () => {
+                setDialogRegistroPrecos(false);
+                setGerandoHomologacao(true);
+                try {
+                  await gerarHomologacaoSelecaoPDF(selecaoId!, true);
+                  toast.success("Homologação gerada com sucesso!");
+                  await loadHomologacoesGeradas();
+                } catch (error) {
+                  console.error("Erro ao gerar homologação:", error);
+                  toast.error("Erro ao gerar Homologação");
+                } finally {
+                  setGerandoHomologacao(false);
+                }
+              }}
+            >
+              Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
