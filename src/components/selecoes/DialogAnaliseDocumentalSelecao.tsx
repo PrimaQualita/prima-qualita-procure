@@ -100,6 +100,7 @@ interface DialogAnaliseDocumentalSelecaoProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selecaoId: string;
+  forceReload?: number;
   onSuccess?: () => void;
   onReabrirNegociacao?: (itens: number[], fornecedorId: string) => void;
 }
@@ -108,6 +109,7 @@ export function DialogAnaliseDocumentalSelecao({
   open,
   onOpenChange,
   selecaoId,
+  forceReload = 0,
   onSuccess,
   onReabrirNegociacao,
 }: DialogAnaliseDocumentalSelecaoProps) {
@@ -185,10 +187,11 @@ export function DialogAnaliseDocumentalSelecao({
   useEffect(() => {
     if (open && selecaoId) {
       console.log("🔄 Carregando dados da análise documental...");
+      console.log("🔄 [ANÁLISE DOC] forceReload contador:", forceReload);
       loadFornecedoresVencedores();
       loadRecursosInabilitacao();
     }
-  }, [open, selecaoId]);
+  }, [open, selecaoId, forceReload]);
 
   // Listener realtime para mudanças em lances - ÚNICO mecanismo de atualização
   useEffect(() => {

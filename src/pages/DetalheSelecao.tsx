@@ -61,6 +61,7 @@ const DetalheSelecao = () => {
   const [dialogEnviarAtaAssinaturaOpen, setDialogEnviarAtaAssinaturaOpen] = useState(false);
   const [ataParaEnviar, setAtaParaEnviar] = useState<string | null>(null);
   const [atualizandoPDF, setAtualizandoPDF] = useState<string | null>(null);
+  const [forceReloadVencedores, setForceReloadVencedores] = useState(0);
 
   useEffect(() => {
     if (selecaoId) {
@@ -799,12 +800,17 @@ const DetalheSelecao = () => {
         criterioJulgamento={selecao?.criterios_julgamento || processo?.criterio_julgamento || "Menor Preço Global"}
         sessaoFinalizada={selecao?.sessao_finalizada || false}
         onFinalizarSessao={handleFinalizarSessao}
+        onVencedoresAtualizados={() => {
+          console.log("📢 [DETALHE] Vencedores atualizados! Forçando reload...");
+          setForceReloadVencedores(prev => prev + 1);
+        }}
       />
 
       <DialogAnaliseDocumentalSelecao
         open={dialogAnaliseDocumentalOpen}
         onOpenChange={setDialogAnaliseDocumentalOpen}
         selecaoId={selecaoId!}
+        forceReload={forceReloadVencedores}
         onReabrirNegociacao={async (itensParaReabrir, fornecedorId) => {
           try {
             // Reabrir os itens para lances
