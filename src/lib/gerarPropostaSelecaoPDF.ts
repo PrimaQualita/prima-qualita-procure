@@ -81,7 +81,8 @@ export async function gerarPropostaSelecaoPDF(
   observacoes: string | null,
   tituloSelecao: string,
   dataEnvioProposta: string,
-  itensAtualizados?: Array<{ numero_item: number; descricao: string; quantidade: number; unidade: string; marca: string | null; valor_unitario_ofertado: number }>
+  itensAtualizados?: Array<{ numero_item: number; descricao: string; quantidade: number; unidade: string; marca: string | null; valor_unitario_ofertado: number }>,
+  criterioJulgamento?: string
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
     // Verificar se já existe protocolo para esta proposta
@@ -238,30 +239,42 @@ export async function gerarPropostaSelecaoPDF(
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
     
-    // Posições iniciais das colunas - redistribuídas para caber valores grandes
+    // Definir colunas baseado no critério de julgamento
+    const isDesconto = criterioJulgamento === "desconto";
+    
+    // Posições iniciais das colunas
     const colItem = margemEsquerda + 2;
-    const colDesc = margemEsquerda + 12;        // Descrição mantém largura de 65mm
-    const colQtd = margemEsquerda + 77;         // Coluna mais estreita
-    const colUni = margemEsquerda + 91;         // Coluna mais estreita
-    const colMarca = margemEsquerda + 103;      // Marca
-    const colValorUnit = margemEsquerda + 122;  // Valor Unitário
-    const colValorTotal = margemEsquerda + 147; // Valor Total - mais largo
+    const colDesc = margemEsquerda + 12;
+    const colQtd = margemEsquerda + 77;
+    const colUni = margemEsquerda + 91;
+    const colMarca = margemEsquerda + 103;
+    const colValorUnit = margemEsquerda + 122;
+    const colValorTotal = isDesconto ? undefined : margemEsquerda + 147;
     
-    // Centros das colunas para centralização horizontal (calculados a partir dos divisores)
+    // Centros das colunas
     const colItemCenter = margemEsquerda + 5;
-    const colQtdCenter = margemEsquerda + 82;   // Centro entre 75 e 89
-    const colUniCenter = margemEsquerda + 95;   // Centro entre 89 e 101
-    const colMarcaCenter = margemEsquerda + 110.5; // Centro entre 101 e 120
+    const colQtdCenter = margemEsquerda + 82;
+    const colUniCenter = margemEsquerda + 95;
+    const colMarcaCenter = margemEsquerda + 110.5;
+    const colDescontoCenter = isDesconto ? margemEsquerda + 133 : undefined;
     
-    // Posições das colunas para linhas verticais (divisores)
-    const colPositions = [
-      margemEsquerda + 10,   // Fim Item
-      margemEsquerda + 75,   // Fim Descrição (65mm de largura)
-      margemEsquerda + 89,   // Fim Qtd
-      margemEsquerda + 101,  // Fim Unid
-      margemEsquerda + 120,  // Fim Marca
-      margemEsquerda + 145   // Fim Valor Unitário
-    ];
+    // Posições das linhas verticais (divisores)
+    const colPositions = isDesconto 
+      ? [
+          margemEsquerda + 10,   // Fim Item
+          margemEsquerda + 75,   // Fim Descrição
+          margemEsquerda + 89,   // Fim Qtd
+          margemEsquerda + 101,  // Fim Unid
+          margemEsquerda + 120   // Fim Marca
+        ]
+      : [
+          margemEsquerda + 10,   // Fim Item
+          margemEsquerda + 75,   // Fim Descrição
+          margemEsquerda + 89,   // Fim Qtd
+          margemEsquerda + 101,  // Fim Unid
+          margemEsquerda + 120,  // Fim Marca
+          margemEsquerda + 145   // Fim Valor Unitário
+        ];
     
     const headerYCenter = y - 1;
     
@@ -271,8 +284,13 @@ export async function gerarPropostaSelecaoPDF(
     doc.text('Qtd', colQtdCenter, headerYCenter, { align: 'center' });
     doc.text('Unid', colUniCenter, headerYCenter, { align: 'center' });
     doc.text('Marca', colMarcaCenter, headerYCenter, { align: 'center' });
-    doc.text('Vlr Unit.', colValorUnit, headerYCenter);
-    doc.text('Vlr Total', colValorTotal, headerYCenter);
+    
+    if (isDesconto) {
+      doc.text('% Desconto', colDescontoCenter!, headerYCenter, { align: 'center' });
+    } else {
+      doc.text('Vlr Unit.', colValorUnit, headerYCenter);
+      doc.text('Vlr Total', colValorTotal!, headerYCenter);
+    }
     
     y += 5;
     doc.setTextColor(0, 0, 0);
@@ -355,11 +373,18 @@ export async function gerarPropostaSelecaoPDF(
       doc.text(item.unidade, colUniCenter, yVerticalCenter, { align: 'center' });
       doc.text(item.marca || '-', colMarcaCenter, yVerticalCenter, { align: 'center' });
       
-      // Valores - alinhados à direita com R$
-      const valorUnitRight = margemEsquerda + 143; // 2mm antes do divisor em 145
-      const valorTotalRight = margemEsquerda + larguraUtil - 2; // 2mm antes da borda direita
-      doc.text(`R$ ${formatarMoeda(item.valor_unitario_ofertado)}`, valorUnitRight, yVerticalCenter, { align: 'right' });
-      doc.text(`R$ ${formatarMoeda(valorTotalItem)}`, valorTotalRight, yVerticalCenter, { align: 'right' });
+      // Valores conforme critério
+      if (isDesconto) {
+        // Exibir apenas % de desconto centralizado
+        const descontoFormatado = formatarMoeda(item.valor_unitario_ofertado * 100);
+        doc.text(`${descontoFormatado}%`, colDescontoCenter!, yVerticalCenter, { align: 'center' });
+      } else {
+        // Valores em moeda - alinhados à direita com R$
+        const valorUnitRight = margemEsquerda + 143;
+        const valorTotalRight = margemEsquerda + larguraUtil - 2;
+        doc.text(`R$ ${formatarMoeda(item.valor_unitario_ofertado)}`, valorUnitRight, yVerticalCenter, { align: 'right' });
+        doc.text(`R$ ${formatarMoeda(valorTotalItem)}`, valorTotalRight, yVerticalCenter, { align: 'right' });
+      }
       
       y += alturaLinha;
       itemIndex++;
