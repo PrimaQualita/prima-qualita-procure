@@ -628,7 +628,7 @@ const SistemaLancesFornecedor = () => {
         .select(`
           *,
           fornecedores(*),
-          selecoes_fornecedores(*)
+          selecoes_fornecedores(*, processos_compras(criterio_julgamento))
         `)
         .eq("id", propostaId)
         .single();
@@ -1307,7 +1307,8 @@ const SistemaLancesFornecedor = () => {
             proposta.observacoes_fornecedor || null,
             selecao?.titulo_selecao || '',
             novaDataEnvio, // Usar a nova data de envio
-            itensParaPDF // Passar itens atualizados diretamente
+            itensParaPDF, // Passar itens atualizados diretamente
+            selecao?.processos_compras?.criterio_julgamento
           );
 
           console.log("Resultado da geração do PDF:", resultado);

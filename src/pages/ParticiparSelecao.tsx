@@ -902,7 +902,9 @@ const ParticiparSelecao = () => {
           valorTotal,
           observacoes || null,
           selecao.titulo_selecao,
-          new Date().toISOString()
+          new Date().toISOString(),
+          undefined,
+          criterioJulgamento
         );
 
         // Atualizar proposta com URL do PDF
