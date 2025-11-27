@@ -20,6 +20,7 @@ interface RespostaFornecedor {
   itens: {
     numero_item: number;
     valor_unitario_ofertado: number;
+    percentual_desconto?: number;
     marca?: string;
   }[];
   valor_total: number;
@@ -192,21 +193,25 @@ export async function gerarPlanilhaConsolidadaPDF(
     respostas.forEach((resposta) => {
       const respostaItem = resposta.itens.find(i => i.numero_item === item.numero_item);
       if (respostaItem) {
-        const valorUnitario = respostaItem.valor_unitario_ofertado;
-        const valorTotal = valorUnitario * item.quantidade;
+        // Se critério é desconto, usar percentual_desconto; senão, usar valor_unitario_ofertado
+        const valorParaCalculo = criterioJulgamento === 'desconto' 
+          ? (respostaItem.percentual_desconto ?? 0)
+          : respostaItem.valor_unitario_ofertado;
         
-        console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: valorUnitario=${valorUnitario}, criterio=${criterioJulgamento}`);
+        const valorTotal = respostaItem.valor_unitario_ofertado * item.quantidade;
+        
+        console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: percentual=${respostaItem.percentual_desconto}, valorUnit=${respostaItem.valor_unitario_ofertado}, criterio=${criterioJulgamento}, usado=${valorParaCalculo}`);
         
         // Se critério é desconto, mostrar percentual (inclusive zero)
         if (criterioJulgamento === 'desconto') {
-          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = formatarPercentual(valorUnitario);
+          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = formatarPercentual(valorParaCalculo);
         } else {
           // Mostrar valor unitário na primeira linha e total na segunda
-          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotal)})`;
+          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = `${formatarMoeda(valorParaCalculo)}\n(Total: ${formatarMoeda(valorTotal)})`;
         }
         
         totaisPorFornecedor[resposta.fornecedor.cnpj] += valorTotal;
-        valoresItem.push(valorUnitario);
+        valoresItem.push(valorParaCalculo);
       } else {
         linha[`fornecedor_${resposta.fornecedor.cnpj}`] = '-';
       }
