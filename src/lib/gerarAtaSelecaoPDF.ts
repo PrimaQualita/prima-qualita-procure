@@ -1447,12 +1447,15 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginRight = 40;
   const footerLimit = 60;
   
+  // Margens laterais IGUAIS às páginas anteriores: 1.5mm = 4.25197pt
+  const lateralMargin = 1.5 * 2.83465; // 1.5mm convertido para pontos (mesma conversão do jsPDF)
+  
   let page = pdfDoc.addPage([pageWidth, pageHeight]);
   console.log('>>> Nova página criada. Total agora:', pdfDoc.getPageCount());
   console.log('>>> Dimensões da nova página - width:', pageWidth, 'height:', pageHeight);
+  console.log('>>> Margem lateral aplicada:', lateralMargin, 'pontos (1.5mm)');
   
-  // Adicionar logo expandido no topo da nova página (1,5mm = 4.25 pontos)
-  const lateralMargin = 4.25; // 1,5mm convertido para pontos
+  // Adicionar logo expandido no topo da nova página
   const logoExpandidoBytes = await fetch(logoExpandido).then(res => res.arrayBuffer());
   const logoExpandidoImage = await pdfDoc.embedPng(logoExpandidoBytes);
   const logoExpandidoDims = logoExpandidoImage.scale(1);
@@ -1461,7 +1464,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   
   page.drawImage(logoExpandidoImage, {
     x: lateralMargin,
-    y: pageHeight - logoExpandidoHeight - lateralMargin,
+    y: pageHeight - logoExpandidoHeight,
     width: logoExpandidoWidth,
     height: logoExpandidoHeight,
   });
@@ -1479,7 +1482,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
       // Adicionar logo expandido no topo da nova página
       page.drawImage(logoExpandidoImage, {
         x: lateralMargin,
-        y: pageHeight - logoExpandidoHeight - lateralMargin,
+        y: pageHeight - logoExpandidoHeight,
         width: logoExpandidoWidth,
         height: logoExpandidoHeight,
       });
@@ -1627,7 +1630,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   // Salvar PDF modificado
   console.log('>>> Salvando PDF final. Total de páginas:', pdfDoc.getPageCount());
   
-  // Adicionar rodapé expandido no final de todas as páginas com termo de aceite (1,5mm = 4.25 pontos)
+  // Adicionar rodapé expandido no final de todas as páginas com termo de aceite
   const rodapeExpandidoBytes = await fetch(rodapeExpandido).then(res => res.arrayBuffer());
   const rodapeExpandidoImage = await pdfDoc.embedPng(rodapeExpandidoBytes);
   const rodapeExpandidoDims = rodapeExpandidoImage.scale(1);
@@ -1640,7 +1643,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     const pageToAddFooter = pdfDoc.getPage(i);
     pageToAddFooter.drawImage(rodapeExpandidoImage, {
       x: lateralMargin,
-      y: lateralMargin,
+      y: 0,
       width: rodapeExpandidoWidth,
       height: rodapeExpandidoHeight,
     });
