@@ -165,7 +165,7 @@ export function DialogSessaoLances({
         schema: "public", 
         table: "lances_fornecedores", 
         filter: `selecao_id=eq.${selecaoId}` 
-      }, (payload) => {
+      }, async (payload) => {
         console.log("🔔 Mudança detectada em lances_fornecedores:", payload);
         loadLances();
         // Atualizar vencedor do item quando lance é inserido/atualizado
@@ -173,7 +173,12 @@ export function DialogSessaoLances({
           const numeroItem = (payload.new as any)?.numero_item;
           if (numeroItem) {
             console.log(`🏆 Atualizando vencedor automaticamente para item ${numeroItem}`);
-            atualizarVencedorItem(numeroItem);
+            await atualizarVencedorItem(numeroItem);
+            // Notificar componente pai
+            if (onVencedoresAtualizados) {
+              console.log("📢 REALTIME: Notificando componente pai...");
+              onVencedoresAtualizados();
+            }
           }
         }
       })
@@ -445,6 +450,12 @@ export function DialogSessaoLances({
       }
 
       console.log(`✅ [ATUALIZAR ITEM ${numeroItem}] Vencedor marcado no banco com sucesso!\n`);
+      
+      // Notificar componente pai sobre atualização
+      if (onVencedoresAtualizados) {
+        console.log(`📢 [ATUALIZAR ITEM ${numeroItem}] Notificando componente pai...`);
+        onVencedoresAtualizados();
+      }
     } catch (error) {
       console.error(`❌ [ATUALIZAR ITEM ${numeroItem}] ERRO GERAL:`, error);
       throw error;
@@ -481,6 +492,12 @@ export function DialogSessaoLances({
       // Recarregar dados
       loadItensAbertos();
       loadVencedoresPorItem();
+      
+      // Notificar componente pai
+      if (onVencedoresAtualizados) {
+        console.log("📢 FECHAR ITEM: Notificando componente pai...");
+        onVencedoresAtualizados();
+      }
     } catch (error) {
       console.error("Erro ao fechar item de negociação:", error);
       toast.error("Erro ao fechar item de negociação");
@@ -1366,6 +1383,12 @@ export function DialogSessaoLances({
           .from("lances_fornecedores")
           .update({ indicativo_lance_vencedor: update.indicativo_lance_vencedor })
           .eq("id", update.id);
+      }
+
+      // Notificar componente pai sobre atualização de vencedores
+      if (onVencedoresAtualizados) {
+        console.log("📢 FINALIZAR SESSÃO: Notificando componente pai...");
+        onVencedoresAtualizados();
       }
 
       // Chamar callback de finalização
