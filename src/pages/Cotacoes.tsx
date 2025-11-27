@@ -51,7 +51,7 @@ interface Cotacao {
   descricao_cotacao: string;
   status_cotacao: string;
   data_limite_resposta: string;
-  criterio_julgamento: 'por_item' | 'global' | 'por_lote';
+  criterio_julgamento: 'por_item' | 'global' | 'por_lote' | 'desconto';
 }
 
 interface Lote {
@@ -102,7 +102,7 @@ const Cotacoes = () => {
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
-  const [criterioJulgamento, setCriterioJulgamento] = useState<'por_item' | 'global' | 'por_lote'>('global');
+  const [criterioJulgamento, setCriterioJulgamento] = useState<'por_item' | 'global' | 'por_lote' | 'desconto'>('global');
   const [naoRequerSelecao, setNaoRequerSelecao] = useState(false);
   const [autorizacaoAnexada, setAutorizacaoAnexada] = useState<File | null>(null);
   const [autorizacaoSelecaoAnexada, setAutorizacaoSelecaoAnexada] = useState<File | null>(null);
@@ -270,7 +270,7 @@ const Cotacoes = () => {
             descricao_cotacao: cotacao.descricao_cotacao,
             status_cotacao: cotacao.status_cotacao,
             data_limite_resposta: cotacao.data_limite_resposta,
-            criterio_julgamento: cotacao.criterio_julgamento as 'por_item' | 'global' | 'por_lote'
+            criterio_julgamento: cotacao.criterio_julgamento as 'por_item' | 'global' | 'por_lote' | 'desconto'
           });
 
           // Abrir o dialog
@@ -352,7 +352,7 @@ const Cotacoes = () => {
       const processo = processos.find(p => p.id === processoId);
       setCotacoes((data || []).map(c => ({
         ...c,
-        criterio_julgamento: (c.criterio_julgamento || processo?.criterio_julgamento || 'global') as 'por_item' | 'global' | 'por_lote'
+        criterio_julgamento: (c.criterio_julgamento || processo?.criterio_julgamento || 'global') as 'por_item' | 'global' | 'por_lote' | 'desconto'
       })));
     }
     setLoadingCotacoes(false);
@@ -901,7 +901,7 @@ const Cotacoes = () => {
     }
   };
 
-  const handleUpdateCriterioJulgamento = async (criterio: 'por_item' | 'global' | 'por_lote') => {
+  const handleUpdateCriterioJulgamento = async (criterio: 'por_item' | 'global' | 'por_lote' | 'desconto') => {
     if (!cotacaoSelecionada) return;
 
     const { error } = await supabase
@@ -1257,10 +1257,12 @@ const Cotacoes = () => {
                           {criterioJulgamento === 'global' && '📊 Menor Preço Global'}
                           {criterioJulgamento === 'por_item' && '📋 Menor Preço por Item'}
                           {criterioJulgamento === 'por_lote' && '📦 Menor Preço por Lote'}
+                          {criterioJulgamento === 'desconto' && '💰 Maior Percentual de Desconto'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {criterioJulgamento === 'global' && 'Vencedor será o fornecedor com menor valor total geral'}
                           {criterioJulgamento === 'por_item' && 'Vencedor será escolhido item por item (menor preço em cada item)'}
+                          {criterioJulgamento === 'desconto' && 'Vencedor será o fornecedor com maior percentual de desconto ofertado'}
                           {criterioJulgamento === 'por_lote' && 'Vencedor será escolhido lote por lote (menor preço em cada lote)'}
                         </p>
                       </div>
