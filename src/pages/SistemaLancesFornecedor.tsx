@@ -649,33 +649,23 @@ const SistemaLancesFornecedor = () => {
         
         setNumeroProcesso((cotacaoData as any)?.processos_compras?.numero_processo_interno || "");
       }
+      // Buscar valores estimados diretamente dos itens da cotação
       if (propostaData.selecoes_fornecedores.cotacao_relacionada_id) {
-        const { data: planilhaData, error: planilhaError } = await supabase
-          .from("planilhas_consolidadas")
-          .select("fornecedores_incluidos")
-          .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
-          .order("data_geracao", { ascending: false })
-          .limit(1)
-          .single();
+        const { data: itensEstimadosData, error: itensEstimadosError } = await supabase
+          .from("itens_cotacao")
+          .select("numero_item, valor_unitario_estimado")
+          .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id);
 
-        if (!planilhaError && planilhaData?.fornecedores_incluidos) {
+        if (!itensEstimadosError && itensEstimadosData) {
           const mapaEstimados = new Map<number, number>();
           
-          // Extrair valores estimados (menores valores = vencedores) de cada item da planilha
-          const fornecedores = planilhaData.fornecedores_incluidos as any[];
-          fornecedores.forEach((fornecedor: any) => {
-            if (fornecedor.itens) {
-              fornecedor.itens.forEach((item: any) => {
-                const valorAtual = mapaEstimados.get(item.numero_item);
-                // Pegar apenas os valores dos itens vencedores OU o menor valor
-                if (!valorAtual || item.valor_unitario < valorAtual) {
-                  mapaEstimados.set(item.numero_item, item.valor_unitario);
-                }
-              });
+          itensEstimadosData.forEach((item: any) => {
+            if (item.valor_unitario_estimado) {
+              mapaEstimados.set(item.numero_item, item.valor_unitario_estimado);
             }
           });
 
-          console.log('Valores estimados da planilha consolidada:', Object.fromEntries(mapaEstimados));
+          console.log('Valores estimados dos itens da cotação:', Object.fromEntries(mapaEstimados));
           setItensEstimados(mapaEstimados);
         }
       }
