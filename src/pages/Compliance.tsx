@@ -234,7 +234,7 @@ export default function Compliance() {
       const { gerarProcessoCompletoPDF } = await import("@/lib/gerarProcessoCompletoPDF");
       const resultado = await gerarProcessoCompletoPDF(
         processo.cotacao_id,
-        `${processo.numero_processo_interno}/${processo.ano_referencia}`
+        processo.numero_processo_interno
       );
       
       toast.dismiss();
@@ -253,7 +253,7 @@ export default function Compliance() {
       const { gerarProcessoCompletoPDF } = await import("@/lib/gerarProcessoCompletoPDF");
       const resultado = await gerarProcessoCompletoPDF(
         processo.cotacao_id,
-        `${processo.numero_processo_interno}/${processo.ano_referencia}`
+        processo.numero_processo_interno
       );
       
       toast.dismiss();
@@ -567,7 +567,7 @@ export default function Compliance() {
                     {processos[contratoSelecionado.id].map((processo) => (
                       <TableRow key={`${processo.id}-${processo.cotacao_id}`}>
                         <TableCell className="font-medium">
-                          {processo.numero_processo_interno}/{processo.ano_referencia}
+                          {processo.numero_processo_interno}
                         </TableCell>
                         <TableCell className="max-w-md">
                           {stripHtml(processo.objeto_resumido)}
@@ -659,7 +659,7 @@ export default function Compliance() {
             onOpenChange={setAnaliseDialogOpen}
             processoId={processoSelecionado.id}
             cotacaoId={processoSelecionado.cotacao_id}
-            numeroProcesso={`${processoSelecionado.numero_processo_interno}/${processoSelecionado.ano_referencia}`}
+            numeroProcesso={processoSelecionado.numero_processo_interno}
             objetoDescricao={stripHtml(processoSelecionado.objeto_resumido)}
             criterioJulgamento={processoSelecionado.criterio_julgamento}
             isEditMode={modoEdicao}
