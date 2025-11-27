@@ -42,6 +42,13 @@ const formatarMoeda = (valor: number): string => {
   });
 };
 
+const formatarPercentual = (valor: number): string => {
+  return valor.toLocaleString('pt-BR', { 
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }) + '%';
+};
+
 const formatarCNPJ = (cnpj: string): string => {
   return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
 };
@@ -58,7 +65,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   itens: ItemCotacao[],
   respostas: RespostaFornecedor[],
   dadosProtocolo: DadosProtocolo,
-  calculosPorItem: Record<number, 'menor' | 'media' | 'mediana'> = {}
+  calculosPorItem: Record<number, 'menor' | 'media' | 'mediana'> = {},
+  criterioJulgamento?: string
 ): Promise<Blob> {
   const doc = new jsPDF({ 
     orientation: 'landscape',
@@ -89,11 +97,20 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setFont('helvetica', 'normal');
   doc.text(processo.numero, pageWidth / 2, 18, { align: 'center' });
   
+  // Quebrar texto do objeto com alinhamento justificado
   const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<\/?p>/g, '');
   doc.setFontSize(10);
-  doc.text(objetoDecodificado, pageWidth / 2, 24, { align: 'center' });
+  const larguraObjetoMaxima = larguraUtil - 20; // Margem adicional para não ultrapassar
+  const linhasObjeto = doc.splitTextToSize(objetoDecodificado, larguraObjetoMaxima);
+  
+  // Renderizar cada linha do objeto
+  let yObjeto = 24;
+  linhasObjeto.forEach((linha: string, index: number) => {
+    doc.text(linha, pageWidth / 2, yObjeto, { align: 'center', maxWidth: larguraObjetoMaxima });
+    yObjeto += 5;
+  });
 
-  y = 35;
+  y = Math.max(35, yObjeto + 5);
 
   // Informações da Cotação
   doc.setTextColor(0, 0, 0);
@@ -178,8 +195,15 @@ export async function gerarPlanilhaConsolidadaPDF(
         const valorUnitario = respostaItem.valor_unitario_ofertado;
         const valorTotal = valorUnitario * item.quantidade;
         
-        // Mostrar valor unitário na primeira linha e total na segunda
-        linha[`fornecedor_${resposta.fornecedor.cnpj}`] = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotal)})`;
+        // Se critério é desconto, mostrar apenas percentual sem total
+        if (criterioJulgamento === 'desconto') {
+          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = valorUnitario > 0 
+            ? formatarPercentual(valorUnitario)
+            : '-';
+        } else {
+          // Mostrar valor unitário na primeira linha e total na segunda
+          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotal)})`;
+        }
         
         totaisPorFornecedor[resposta.fornecedor.cnpj] += valorTotal;
         valoresItem.push(valorUnitario);
@@ -198,8 +222,14 @@ export async function gerarPlanilhaConsolidadaPDF(
       let valorEstimativa: number;
       
       if (criterioItem === 'menor') {
-        valorEstimativa = Math.min(...valoresItem);
-        console.log(`   → Menor preço: ${valorEstimativa}`);
+        // Se critério é desconto, pegar o MAIOR desconto (quanto maior desconto, menor o preço)
+        if (criterioJulgamento === 'desconto') {
+          valorEstimativa = Math.max(...valoresItem);
+          console.log(`   → Maior desconto: ${valorEstimativa}%`);
+        } else {
+          valorEstimativa = Math.min(...valoresItem);
+          console.log(`   → Menor preço: ${valorEstimativa}`);
+        }
       } else if (criterioItem === 'media') {
         valorEstimativa = valoresItem.reduce((a, b) => a + b, 0) / valoresItem.length;
         console.log(`   → Média: ${valorEstimativa}`);
@@ -213,7 +243,14 @@ export async function gerarPlanilhaConsolidadaPDF(
       }
       
       const valorTotalEstimativa = valorEstimativa * item.quantidade;
-      linha.estimativa = `${formatarMoeda(valorEstimativa)}\n(Total: ${formatarMoeda(valorTotalEstimativa)})`;
+      
+      // Se critério é desconto, mostrar apenas percentual sem total
+      if (criterioJulgamento === 'desconto') {
+        linha.estimativa = valorEstimativa > 0 ? formatarPercentual(valorEstimativa) : '-';
+      } else {
+        linha.estimativa = `${formatarMoeda(valorEstimativa)}\n(Total: ${formatarMoeda(valorTotalEstimativa)})`;
+      }
+      
       totalGeralEstimativa += valorTotalEstimativa;
     } else {
       linha.estimativa = '-';
@@ -222,21 +259,23 @@ export async function gerarPlanilhaConsolidadaPDF(
     linhas.push(linha);
   });
 
-  // Adicionar linha de TOTAL GERAL
-  const linhaTotalGeral: any = {
-    item: 'VALOR TOTAL',
-    descricao: '',
-    quantidade: '',
-    unidade: ''
-  };
+  // Adicionar linha de TOTAL GERAL apenas se NÃO for critério de desconto
+  if (criterioJulgamento !== 'desconto') {
+    const linhaTotalGeral: any = {
+      item: 'VALOR TOTAL',
+      descricao: '',
+      quantidade: '',
+      unidade: ''
+    };
 
-  respostas.forEach((resposta) => {
-    linhaTotalGeral[`fornecedor_${resposta.fornecedor.cnpj}`] = formatarMoeda(totaisPorFornecedor[resposta.fornecedor.cnpj]);
-  });
+    respostas.forEach((resposta) => {
+      linhaTotalGeral[`fornecedor_${resposta.fornecedor.cnpj}`] = formatarMoeda(totaisPorFornecedor[resposta.fornecedor.cnpj]);
+    });
 
-  linhaTotalGeral.estimativa = formatarMoeda(totalGeralEstimativa);
+    linhaTotalGeral.estimativa = formatarMoeda(totalGeralEstimativa);
 
-  linhas.push(linhaTotalGeral);
+    linhas.push(linhaTotalGeral);
+  }
 
   // Gerar tabela
   autoTable(doc, {
@@ -301,8 +340,8 @@ export async function gerarPlanilhaConsolidadaPDF(
       // Garantir que todo texto seja preto
       data.cell.styles.textColor = [0, 0, 0];
       
-      // Destacar linha de totais e mesclar primeiras colunas
-      if (data.row.index === linhas.length - 1) {
+      // Destacar linha de totais e mesclar primeiras colunas (apenas se houver linha de total)
+      if (criterioJulgamento !== 'desconto' && data.row.index === linhas.length - 1) {
         data.cell.styles.fillColor = [226, 232, 240];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 9;
