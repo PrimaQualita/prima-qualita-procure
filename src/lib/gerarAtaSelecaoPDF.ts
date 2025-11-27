@@ -1603,6 +1603,10 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   // Upload do PDF modificado (sobrescrevendo o atual)
   const newStoragePath = storagePath.replace('.pdf', '-assinado.pdf');
   
+  console.log('>>> Fazendo upload do PDF modificado');
+  console.log('>>> Path original:', storagePath);
+  console.log('>>> Path novo (assinado):', newStoragePath);
+  
   const { error: uploadError } = await supabase.storage
     .from('processo-anexos')
     .upload(newStoragePath, modifiedBlob, {
@@ -1615,15 +1619,21 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     throw new Error('Erro ao salvar PDF com assinaturas');
   }
 
-  // Obter URL pública do novo PDF
+  console.log('>>> Upload concluído com sucesso');
+
+  // Obter URL pública do novo PDF com cache bust
+  const cacheBust = `?t=${Date.now()}`;
   const { data: { publicUrl } } = supabase.storage
     .from('processo-anexos')
     .getPublicUrl(newStoragePath);
+  
+  const finalUrl = publicUrl + cacheBust;
+  console.log('>>> URL final com cache bust:', finalUrl);
 
   // Atualizar registro da ata com nova URL
   const { error: updateError } = await supabase
     .from('atas_selecao')
-    .update({ url_arquivo: publicUrl })
+    .update({ url_arquivo: finalUrl })
     .eq('id', ataId);
 
   if (updateError) {
@@ -1631,4 +1641,5 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   }
 
   console.log('=== ATA ATUALIZADA COM ASSINATURAS ===');
+  console.log('=== TOTAL DE PÁGINAS NO PDF FINAL:', pdfDoc.getPageCount(), '===');
 }
