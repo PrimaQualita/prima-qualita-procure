@@ -2305,8 +2305,10 @@ export type Database = {
       }
       selecao_propostas_fornecedor: {
         Row: {
+          aprovado_analise_documental: boolean | null
           codigo_acesso: string | null
           created_at: string | null
+          data_aprovacao_documental: string | null
           data_envio_proposta: string | null
           desclassificado: boolean | null
           email: string | null
@@ -2321,8 +2323,10 @@ export type Database = {
           valor_total_proposta: number
         }
         Insert: {
+          aprovado_analise_documental?: boolean | null
           codigo_acesso?: string | null
           created_at?: string | null
+          data_aprovacao_documental?: string | null
           data_envio_proposta?: string | null
           desclassificado?: boolean | null
           email?: string | null
@@ -2337,8 +2341,10 @@ export type Database = {
           valor_total_proposta: number
         }
         Update: {
+          aprovado_analise_documental?: boolean | null
           codigo_acesso?: string | null
           created_at?: string | null
+          data_aprovacao_documental?: string | null
           data_envio_proposta?: string | null
           desclassificado?: boolean | null
           email?: string | null
