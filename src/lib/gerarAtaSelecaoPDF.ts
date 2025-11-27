@@ -196,6 +196,8 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     .eq('id', selecaoId)
     .single();
 
+  const criterioJulgamento = selecao?.criterios_julgamento || 'menor_preco_item';
+
   if (selecaoError || !selecao) {
     throw new Error('Erro ao buscar dados da seleção');
   }
@@ -648,15 +650,19 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       vencedoresPorFornecedor[item.fornecedor_id].valorTotal += item.valor_final;
     });
 
+    const ehDesconto = criterioJulgamento === 'desconto';
+    
     const tabelaVencedoresLances = Object.values(vencedoresPorFornecedor).map(f => [
       f.nome,
       f.itens.sort((a, b) => a - b).join(', '),
-      formatarMoeda(f.valorTotal)
+      ehDesconto ? `${f.valorTotal.toFixed(2)}%` : formatarMoeda(f.valorTotal)
     ]);
+
+    const colunaValorHeader = ehDesconto ? 'DESCONTO MÉDIO' : 'VALOR TOTAL';
 
     autoTable(doc, {
       startY: currentY,
-      head: [['FORNECEDOR', 'ITENS', 'VALOR TOTAL']],
+      head: [['FORNECEDOR', 'ITENS', colunaValorHeader]],
       body: tabelaVencedoresLances,
       theme: 'grid',
       headStyles: { 
@@ -815,20 +821,24 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     });
 
     if (Object.keys(vencedoresFinal).length > 0) {
+      const ehDesconto = criterioJulgamento === 'desconto';
+      
       const tabelaVencedores = Object.values(vencedoresFinal).map(f => [
         f.nome,
         f.itens.sort((a, b) => a - b).join(', '),
-        formatarMoeda(f.valorTotal)
+        ehDesconto ? `${f.valorTotal.toFixed(2)}%` : formatarMoeda(f.valorTotal)
       ]);
 
       // Calcular valor total geral
       const valorTotalGeral = Object.values(vencedoresFinal).reduce((acc, f) => acc + f.valorTotal, 0);
+      const colunaValorHeader = ehDesconto ? 'DESCONTO MÉDIO' : 'VALOR TOTAL';
+      const valorFooter = ehDesconto ? `${valorTotalGeral.toFixed(2)}%` : formatarMoeda(valorTotalGeral);
 
       autoTable(doc, {
         startY: currentY,
-        head: [['FORNECEDOR', 'ITENS', 'VALOR TOTAL']],
+        head: [['FORNECEDOR', 'ITENS', colunaValorHeader]],
         body: tabelaVencedores,
-        foot: [['VALOR TOTAL', '', formatarMoeda(valorTotalGeral)]],
+        foot: [[ehDesconto ? 'DESCONTO MÉDIO' : 'VALOR TOTAL', '', valorFooter]],
         theme: 'grid',
         headStyles: { 
           fillColor: [0, 128, 128],
