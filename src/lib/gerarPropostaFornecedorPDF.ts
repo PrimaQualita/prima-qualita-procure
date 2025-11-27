@@ -54,7 +54,8 @@ export async function gerarPropostaFornecedorPDF(
   tituloCotacao: string,
   comprovantes: File[] = [],
   usuarioNome?: string,
-  usuarioCpf?: string
+  usuarioCpf?: string,
+  criterioJulgamento?: string
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
     console.log('📄 Dados recebidos no gerarPropostaFornecedorPDF:', {
@@ -218,8 +219,10 @@ export async function gerarPropostaFornecedorPDF(
     doc.text('QTD', 95, y, { align: 'center' });
     doc.text('UNID', 115, y, { align: 'center' });
     doc.text('MARCA', 135, y, { align: 'center' });
-    doc.text('VL. UNIT.', 160, y, { align: 'center' });
-    doc.text('VL. TOTAL', 185, y, { align: 'center' });
+    const labelValorUnit = criterioJulgamento === 'desconto' ? 'DESC. UNIT. (%)' : 'VL. UNIT.';
+    const labelValorTotal = criterioJulgamento === 'desconto' ? 'DESC. MÉD. (%)' : 'VL. TOTAL';
+    doc.text(labelValorUnit, 160, y, { align: 'center' });
+    doc.text(labelValorTotal, 185, y, { align: 'center' });
     
     y += 6;
     doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
@@ -257,8 +260,10 @@ export async function gerarPropostaFornecedorPDF(
         doc.text('QTD', 95, y, { align: 'center' });
         doc.text('UNID', 115, y, { align: 'center' });
         doc.text('MARCA', 135, y, { align: 'center' });
-        doc.text('VL. UNIT.', 160, y, { align: 'center' });
-        doc.text('VL. TOTAL', 185, y, { align: 'center' });
+        const labelValorUnitRepeat = criterioJulgamento === 'desconto' ? 'DESC. UNIT. (%)' : 'VL. UNIT.';
+        const labelValorTotalRepeat = criterioJulgamento === 'desconto' ? 'DESC. MÉD. (%)' : 'VL. TOTAL';
+        doc.text(labelValorUnitRepeat, 160, y, { align: 'center' });
+        doc.text(labelValorTotalRepeat, 185, y, { align: 'center' });
         y += 6;
         doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
         doc.setFont('helvetica', 'normal');
@@ -309,8 +314,18 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 90, yCenter, { align: 'center' });
       doc.text(itemCotacao.unidade, 115, yCenter, { align: 'center' });
       doc.text(item.marca || '-', 137.5, yCenter, { align: 'center' });
-      doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 161, yCenter, { align: 'center' });
-      doc.text(valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 183.5, yCenter, { align: 'center' });
+      
+      // Formatar valores de acordo com o critério de julgamento
+      const valorUnitFormatted = criterioJulgamento === 'desconto'
+        ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+        : valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      
+      const valorTotalFormatted = criterioJulgamento === 'desconto'
+        ? `${valorTotalItem.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+        : valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      
+      doc.text(valorUnitFormatted, 161, yCenter, { align: 'center' });
+      doc.text(valorTotalFormatted, 183.5, yCenter, { align: 'center' });
       
       y += alturaLinha;
       isAlternate = !isAlternate;
@@ -330,7 +345,14 @@ export async function gerarPropostaFornecedorPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.text(`VALOR TOTAL: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 193, y, { align: 'right' });
+    
+    // Formatar rótulo e valor de acordo com o critério de julgamento
+    const labelTotal = criterioJulgamento === 'desconto' ? 'DESCONTO MÉDIO:' : 'VALOR TOTAL:';
+    const valorTotalFormatted = criterioJulgamento === 'desconto'
+      ? `${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+      : valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    
+    doc.text(`${labelTotal} ${valorTotalFormatted}`, 193, y, { align: 'right' });
     
     doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
     y += 15;

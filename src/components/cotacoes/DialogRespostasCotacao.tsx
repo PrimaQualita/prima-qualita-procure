@@ -711,7 +711,8 @@ export function DialogRespostasCotacao({
         tituloCotacao,
         comprovantes,
         usuarioNome,
-        usuarioCpf
+        usuarioCpf,
+        cotacaoData?.criterio_julgamento
       );
 
       // Atualizar hash de certificação

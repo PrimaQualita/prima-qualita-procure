@@ -568,7 +568,10 @@ const RespostaCotacao = () => {
         valorTotal,
         observacoes,
         cotacao.titulo_cotacao,
-        arquivosComprovantes
+        arquivosComprovantes,
+        undefined,
+        undefined,
+        processoCompra?.criterio_julgamento
       );
 
       // Salvar anexo da proposta no banco
