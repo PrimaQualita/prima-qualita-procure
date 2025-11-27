@@ -145,23 +145,11 @@ export const gerarEncaminhamentoPDF = async (
   doc.text(`Processo ${numeroProcesso}`, 20, 90);
   
   // Assunto
-  doc.setFont('helvetica', 'bold');
-  const assuntoLabel = 'Assunto:';
-  doc.text(assuntoLabel, 20, 105);
-  
-  doc.setFont('helvetica', 'normal');
   const textoLimpo = extractTextFromHTML(objetoProcesso);
-  const larguraLabel = doc.getTextWidth(assuntoLabel);
-  const linhasAssunto = doc.splitTextToSize(textoLimpo, 170 - larguraLabel - 2);
-  doc.text(linhasAssunto[0], 20 + larguraLabel + 2, 105);
+  const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
+  doc.text(linhasAssunto, 20, 105, { align: 'justify', maxWidth: 170 });
   
-  let yPos = 112;
-  for (let i = 1; i < linhasAssunto.length; i++) {
-    doc.text(linhasAssunto[i], 20, yPos, { align: 'justify', maxWidth: 170 });
-    yPos += 7;
-  }
-  
-  yPos += 15;
+  let yPos = 105 + (linhasAssunto.length * 7) + 15;
   
   // Texto principal
   const textoPrincipal = `Encaminhamos o Presente Processo para análise e verificação de regularidade jurídica e reputacional dos fornecedores, em atendimento ao procedimento interno definido por requisitos legais e normativos da OS Prima Qualitá Saúde, nos processos de aquisição e serviços.`;
