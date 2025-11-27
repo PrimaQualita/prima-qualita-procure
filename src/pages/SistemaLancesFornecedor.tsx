@@ -2088,13 +2088,20 @@ const SistemaLancesFornecedor = () => {
                         {selecao?.processos_compras?.criterio_julgamento === "desconto" ? (
                           <div className="flex items-center gap-1">
                             <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2) : ""}
-                              onChange={(e) => handleUpdateItem(item.id, "valor_unitario_ofertado", parseFloat(e.target.value) || 0)}
+                              type="text"
+                              value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2).replace('.', ',') : ""}
+                              onChange={(e) => {
+                                const valor = e.target.value.replace(',', '.');
+                                const numero = parseFloat(valor);
+                                if (!isNaN(numero) && numero >= 0) {
+                                  handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
+                                } else if (valor === '' || valor === '0') {
+                                  handleUpdateItem(item.id, "valor_unitario_ofertado", 0);
+                                }
+                              }}
                               disabled={!editavel}
                               className="w-full"
+                              placeholder="0,00"
                             />
                             <span className="text-sm font-medium">%</span>
                           </div>
