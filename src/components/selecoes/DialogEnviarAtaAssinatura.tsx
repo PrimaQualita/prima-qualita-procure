@@ -68,9 +68,9 @@ export function DialogEnviarAtaAssinatura({
       if (usuariosError) throw usuariosError;
       setUsuarios(usuariosData || []);
 
-      // Buscar fornecedores participantes (vencedores)
-      const { data: lancesVencedores, error: lancesError } = await supabase
-        .from("lances_fornecedores")
+      // Buscar TODOS os fornecedores participantes (não apenas vencedores)
+      const { data: propostasParticipantes, error: propostasError } = await supabase
+        .from("selecao_propostas_fornecedor")
         .select(`
           fornecedor_id,
           fornecedores (
@@ -79,19 +79,18 @@ export function DialogEnviarAtaAssinatura({
             cnpj
           )
         `)
-        .eq("selecao_id", selecaoId)
-        .eq("indicativo_lance_vencedor", true);
+        .eq("selecao_id", selecaoId);
 
-      if (lancesError) throw lancesError;
+      if (propostasError) throw propostasError;
 
-      // IDs únicos de fornecedores
+      // IDs únicos de fornecedores participantes
       const fornecedoresUnicos = new Map<string, Fornecedor>();
-      lancesVencedores?.forEach((lance: any) => {
-        if (lance.fornecedores && !fornecedoresUnicos.has(lance.fornecedor_id)) {
-          fornecedoresUnicos.set(lance.fornecedor_id, {
-            id: lance.fornecedores.id,
-            razao_social: lance.fornecedores.razao_social,
-            cnpj: lance.fornecedores.cnpj,
+      propostasParticipantes?.forEach((proposta: any) => {
+        if (proposta.fornecedores && !fornecedoresUnicos.has(proposta.fornecedor_id)) {
+          fornecedoresUnicos.set(proposta.fornecedor_id, {
+            id: proposta.fornecedores.id,
+            razao_social: proposta.fornecedores.razao_social,
+            cnpj: proposta.fornecedores.cnpj,
           });
         }
       });
@@ -218,7 +217,7 @@ export function DialogEnviarAtaAssinatura({
                   onCheckedChange={(checked) => setEnviarFornecedores(checked as boolean)}
                 />
                 <Label htmlFor="enviar-fornecedores" className="cursor-pointer flex-1">
-                  Enviar para todos os fornecedores vencedores ({fornecedores.length})
+                  Enviar para todos os fornecedores participantes ({fornecedores.length})
                 </Label>
               </div>
 
@@ -234,7 +233,7 @@ export function DialogEnviarAtaAssinatura({
 
               {fornecedores.length === 0 && (
                 <p className="text-sm text-muted-foreground ml-6">
-                  Nenhum fornecedor vencedor encontrado
+                  Nenhum fornecedor participante encontrado
                 </p>
               )}
             </div>
