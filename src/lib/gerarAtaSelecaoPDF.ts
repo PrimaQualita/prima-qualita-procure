@@ -1350,7 +1350,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginLeft = 40;
   const marginRight = 40;
   
-  let currentY = 340;
+  let currentY = 390;
   const footerLimit = 60;
 
   // Função para criar nova página
