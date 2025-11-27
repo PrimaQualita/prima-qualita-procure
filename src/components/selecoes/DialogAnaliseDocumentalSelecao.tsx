@@ -1237,7 +1237,15 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
-  const renderFornecedorCard = (data: FornecedorData, isInabilitado: boolean = false) => (
+  const renderFornecedorCard = (data: FornecedorData, isInabilitado: boolean = false) => {
+    // Calcular itens habilitados (excluindo os inabilitados parcialmente)
+    const itensInabilitados = data.inabilitado?.itens_afetados || [];
+    const itensHabilitados = data.fornecedor.itensVencedores.filter(
+      item => !itensInabilitados.includes(item)
+    );
+    const temInabilitacaoParcial = !isInabilitado && itensInabilitados.length > 0;
+    
+    return (
     <Card key={data.fornecedor.id} className={`border-2 ${isInabilitado ? 'border-destructive/50 bg-destructive/5' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
@@ -1254,16 +1262,24 @@ export function DialogAnaliseDocumentalSelecao({
             <p className="text-sm text-muted-foreground">
               CNPJ: {formatCNPJ(data.fornecedor.cnpj)} | Email: {data.fornecedor.email}
             </p>
-            <p className="text-sm mt-1">
-              <span className="font-medium">Itens vencedores:</span>{" "}
-              {data.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}
-            </p>
+            {/* Mostrar itens habilitados quando há inabilitação parcial */}
+            {temInabilitacaoParcial ? (
+              <p className="text-sm mt-1">
+                <span className="font-medium text-green-700">Itens vencedores:</span>{" "}
+                <span className="text-green-700">{itensHabilitados.sort((a, b) => a - b).join(", ")}</span>
+              </p>
+            ) : (
+              <p className="text-sm mt-1">
+                <span className="font-medium">Itens vencedores:</span>{" "}
+                {data.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}
+              </p>
+            )}
             <p className="text-sm">
               <span className="font-medium">Valor total:</span>{" "}
               {formatCurrency(data.fornecedor.valorTotal)}
             </p>
             {/* Mostrar inabilitação parcial para fornecedores habilitados */}
-            {!isInabilitado && data.inabilitado && data.inabilitado.itens_afetados.length > 0 && (
+            {temInabilitacaoParcial && (
               <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded text-sm">
                 <p className="text-orange-700 font-medium flex items-center gap-1">
                   <AlertTriangle className="h-4 w-4" />
@@ -1271,10 +1287,10 @@ export function DialogAnaliseDocumentalSelecao({
                 </p>
                 <p className="text-orange-600">
                   <span className="font-medium">Itens inabilitados:</span>{" "}
-                  {data.inabilitado.itens_afetados.sort((a, b) => a - b).join(", ")}
+                  {itensInabilitados.sort((a, b) => a - b).join(", ")}
                 </p>
                 <p className="text-orange-600 text-xs mt-1">
-                  <span className="font-medium">Motivo:</span> {data.inabilitado.motivo_inabilitacao}
+                  <span className="font-medium">Motivo:</span> {data.inabilitado!.motivo_inabilitacao}
                 </p>
               </div>
             )}
@@ -1944,6 +1960,7 @@ export function DialogAnaliseDocumentalSelecao({
       )}
     </Card>
   );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
