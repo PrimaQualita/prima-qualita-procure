@@ -1725,7 +1725,26 @@ export function DialogSessaoLances({
           // Reordenar: fornecedores válidos primeiro (ordenados por valor), inabilitados depois
           const lancesValidos = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
           const lancesInabilitados = lancesDoItem.filter(l => isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
-          const lancesOrdenados = [...lancesValidos, ...lancesInabilitados];
+          
+          // ORDENAÇÃO CUSTOMIZADA para lances válidos: priorizar negociação e ordenar por critério
+          const isDesconto = criterioJulgamento === "desconto";
+          const lancesValidosOrdenados = lancesValidos.sort((a, b) => {
+            // Priorizar lances de negociação
+            const aIsNegociacao = a.tipo_lance === "negociacao";
+            const bIsNegociacao = b.tipo_lance === "negociacao";
+            
+            if (aIsNegociacao && !bIsNegociacao) return -1;
+            if (!aIsNegociacao && bIsNegociacao) return 1;
+            
+            // Ordenar por valor conforme critério
+            if (isDesconto) {
+              return b.valor_lance - a.valor_lance; // Maior desconto primeiro (DECRESCENTE)
+            } else {
+              return a.valor_lance - b.valor_lance; // Menor preço primeiro (CRESCENTE)
+            }
+          });
+          
+          const lancesOrdenados = [...lancesValidosOrdenados, ...lancesInabilitados];
 
           const tableData = lancesOrdenados.map((lance, idx) => {
             const isNegociacao = lance.tipo_lance === "negociacao";
@@ -1733,7 +1752,7 @@ export function DialogSessaoLances({
             const isInabilitado = isInabilitadoNoItem(lance.fornecedor_id, item.numero_item);
             
             // Posição: só conta para fornecedores válidos
-            const posicaoExibida = isInabilitado ? "-" : `${lancesValidos.findIndex(l => l.id === lance.id) + 1}º`;
+            const posicaoExibida = isInabilitado ? "-" : `${lancesValidosOrdenados.findIndex(l => l.id === lance.id) + 1}º`;
             
             return {
               data: [
@@ -1751,7 +1770,7 @@ export function DialogSessaoLances({
               ],
               isInabilitado,
               isNegociacao,
-              isVencedor: !isInabilitado && lancesValidos.findIndex(l => l.id === lance.id) === 0
+              isVencedor: !isInabilitado && lancesValidosOrdenados.findIndex(l => l.id === lance.id) === 0
             };
           });
 
