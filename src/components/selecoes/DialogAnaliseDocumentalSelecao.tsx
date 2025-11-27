@@ -188,6 +188,14 @@ export function DialogAnaliseDocumentalSelecao({
     if (open && selecaoId) {
       console.log("🔄 Carregando dados da análise documental...");
       console.log("🔄 [ANÁLISE DOC] forceReload contador:", forceReload);
+      
+      // LIMPAR TODO O ESTADO antes de recarregar
+      setFornecedoresData([]);
+      setFornecedoresInabilitados([]);
+      setDocumentosAprovados({});
+      setFornecedoresAprovadosGeral(new Set());
+      console.log("🧹 [ANÁLISE DOC] Estado limpo - recarregando vencedores...");
+      
       loadFornecedoresVencedores();
       loadRecursosInabilitacao();
     }
@@ -549,6 +557,17 @@ export function DialogAnaliseDocumentalSelecao({
         const menorB = Math.min(...(b.fornecedor.itensVencedores.length > 0 ? b.fornecedor.itensVencedores : [0]));
         return menorA - menorB;
       });
+
+      console.log("🏆 [ANÁLISE DOC] VENCEDORES FINAIS HABILITADOS:", habilitados.map(h => ({
+        nome: h.fornecedor.razao_social,
+        itens: h.fornecedor.itensVencedores,
+        valorTotal: h.fornecedor.valorTotal
+      })));
+      
+      console.log("🚫 [ANÁLISE DOC] FORNECEDORES INABILITADOS:", inabilitadosFornecedores.map(i => ({
+        nome: i.fornecedor.razao_social,
+        itensAfetados: i.inabilitado?.itens_afetados
+      })));
 
       setFornecedoresData(habilitados);
       setFornecedoresInabilitados(inabilitadosFornecedores);
