@@ -288,7 +288,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="centro_custo">Centro de Custo</Label>
+              <Label htmlFor="centro_custo">Rubrica</Label>
               <Input
                 id="centro_custo"
                 value={formData.centro_custo}
