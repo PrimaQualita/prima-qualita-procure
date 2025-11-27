@@ -259,41 +259,77 @@ export function DialogControleItensLances({
 
   const loadVencedoresPorItem = async () => {
     try {
-      // Buscar todos os lances para identificar vencedores por item
-      const { data: lancesData, error: lancesError } = await supabase
+      console.log("🔄 [LOAD VENCEDORES] Carregando vencedores...");
+      
+      // Buscar lances marcados como vencedores
+      const { data: lancesVencedores, error: lancesError } = await supabase
         .from("lances_fornecedores")
-        .select("*")
+        .select("*, fornecedores(id, razao_social)")
         .eq("selecao_id", selecaoId)
-        .order("valor_lance", { ascending: true });
+        .eq("indicativo_lance_vencedor", true);
 
       if (lancesError) throw lancesError;
 
-      // Buscar fornecedores únicos
-      const fornecedorIds = [...new Set(lancesData?.map(l => l.fornecedor_id) || [])];
+      console.log(`📊 [LOAD VENCEDORES] Lances vencedores encontrados: ${lancesVencedores?.length || 0}`);
       
-      const { data: fornecedoresData } = await supabase
-        .from("fornecedores")
-        .select("id, razao_social")
-        .in("id", fornecedorIds);
+      // Buscar fornecedores inabilitados
+      const { data: inabilitados } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id, itens_afetados")
+        .eq("selecao_id", selecaoId)
+        .eq("revertido", false);
 
-      const fornecedoresMap = new Map(
-        fornecedoresData?.map(f => [f.id, f.razao_social]) || []
-      );
-
-      // Agrupar por item e pegar o menor valor (vencedor)
-      const vencedoresMap = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
-      
-      lancesData?.forEach((lance) => {
-        if (lance.numero_item !== null && !vencedoresMap.has(lance.numero_item)) {
-          vencedoresMap.set(lance.numero_item, {
-            fornecedorId: lance.fornecedor_id,
-            razaoSocial: fornecedoresMap.get(lance.fornecedor_id) || 'Fornecedor',
-            valorLance: lance.valor_lance
-          });
-        }
+      const fornecedoresInabilitadosMap = new Map<string, number[]>();
+      inabilitados?.forEach(i => {
+        fornecedoresInabilitadosMap.set(i.fornecedor_id, i.itens_afetados || []);
       });
 
-      console.log("Vencedores por item:", Object.fromEntries(vencedoresMap));
+      console.log(`🚫 [LOAD VENCEDORES] Fornecedores inabilitados:`, Array.from(fornecedoresInabilitadosMap.keys()));
+
+      // Buscar todos os lances (incluindo negociação) ordenados
+      const { data: todosLances } = await supabase
+        .from("lances_fornecedores")
+        .select("*, fornecedores(id, razao_social)")
+        .eq("selecao_id", selecaoId)
+        .order("valor_lance", { ascending: false }); // Ordenar do maior para menor (prioriza negociação e desconto)
+
+      console.log("🎯 Lances ordenados com priorização de negociação:", todosLances);
+
+      // Criar mapa de vencedores
+      const vencedoresMap = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
+      
+      // Processar cada item
+      for (const item of itens) {
+        const lancesDoItem = todosLances?.filter(l => l.numero_item === item.numero_item) || [];
+        
+        // Filtrar lances válidos (não inabilitados)
+        const lancesValidos = lancesDoItem.filter(l => {
+          const inabilitacoes = fornecedoresInabilitadosMap.get(l.fornecedor_id);
+          if (!inabilitacoes) return true; // Não está inabilitado
+          if (inabilitacoes.length === 0) return false; // Inabilitação geral
+          return !inabilitacoes.includes(item.numero_item); // Verificar se o item está afetado
+        });
+
+        if (lancesValidos.length === 0) continue;
+
+        // Priorizar lances de negociação, depois buscar por indicativo_lance_vencedor
+        const lanceNegociacao = lancesValidos.find(l => l.tipo_lance === 'negociacao');
+        const lanceVencedor = lancesValidos.find(l => l.indicativo_lance_vencedor === true);
+        const vencedorFinal = lanceNegociacao || lanceVencedor || lancesValidos[0];
+
+        if (vencedorFinal) {
+          const fornecedorInfo = vencedorFinal.fornecedores || 
+            lancesVencedores?.find(lv => lv.fornecedor_id === vencedorFinal.fornecedor_id)?.fornecedores;
+
+          vencedoresMap.set(item.numero_item, {
+            fornecedorId: vencedorFinal.fornecedor_id,
+            razaoSocial: fornecedorInfo?.razao_social || 'Fornecedor',
+            valorLance: vencedorFinal.valor_lance
+          });
+        }
+      }
+
+      console.log("🏆 Vencedores carregados (com priorização de negociação):", Array.from(vencedoresMap.entries()));
       setVencedoresPorItem(vencedoresMap);
     } catch (error) {
       console.error("Erro ao carregar vencedores:", error);
@@ -450,6 +486,8 @@ export function DialogControleItensLances({
         
         // Forçar reload dos dados após recálculo
         await loadItensAbertos();
+        await loadVencedoresPorItem(); // CRÍTICO: Recarregar vencedores na UI
+        console.log("✅ [REABRIR] UI atualizada com novos vencedores!");
       }
 
       // Inserir novos itens
