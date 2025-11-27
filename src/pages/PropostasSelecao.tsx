@@ -501,7 +501,9 @@ export default function PropostasSelecao() {
                   <TableRow className="border-b border-border/50">
                     <TableHead className="border-r border-border/50">Fornecedor</TableHead>
                     <TableHead className="border-r border-border/50">CNPJ</TableHead>
-                    <TableHead className="text-right border-r border-border/50">Valor Total</TableHead>
+                    {processo?.criterio_julgamento !== "desconto" && (
+                      <TableHead className="text-right border-r border-border/50">Valor Total</TableHead>
+                    )}
                     <TableHead className="border-r border-border/50">Data de Envio</TableHead>
                     <TableHead className="border-r border-border/50">Status</TableHead>
                     <TableHead className="border-r border-border/50">Proposta PDF</TableHead>
@@ -515,11 +517,13 @@ export default function PropostasSelecao() {
                         {proposta.fornecedor.razao_social}
                       </TableCell>
                       <TableCell className="border-r border-border/50">{formatCNPJ(proposta.fornecedor.cnpj)}</TableCell>
-                      <TableCell className="border-r border-border/50">
-                        <div className="text-right font-medium">
-                          {formatCurrency(proposta.valor_total_proposta)}
-                        </div>
-                      </TableCell>
+                      {processo?.criterio_julgamento !== "desconto" && (
+                        <TableCell className="border-r border-border/50">
+                          <div className="text-right font-medium">
+                            {formatCurrency(proposta.valor_total_proposta)}
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell className="border-r border-border/50">
                         {formatDateTime(proposta.data_envio_proposta)}
                       </TableCell>
