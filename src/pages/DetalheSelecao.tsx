@@ -755,7 +755,11 @@ const DetalheSelecao = () => {
                         <TableCell>{item.unidade}</TableCell>
                         {processo?.tipo === "material" && <TableCell>{item.marca || "-"}</TableCell>}
                         {processo?.criterio_julgamento === "desconto" ? (
-                          <TableCell className="text-right font-medium">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {item.valor_unitario_estimado && item.valor_unitario_estimado > 0
+                              ? `${item.valor_unitario_estimado.toFixed(2)}%`
+                              : "-"}
+                          </TableCell>
                         ) : (
                           <>
                             <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>

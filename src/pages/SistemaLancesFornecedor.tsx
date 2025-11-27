@@ -2085,35 +2085,45 @@ const SistemaLancesFornecedor = () => {
                       <TableCell>
                         {selecao?.processos_compras?.criterio_julgamento === "desconto" ? (
                           <div className="flex items-center gap-1">
-                            <Input
-                              type="text"
-                              value={valoresDescontoTemp.get(item.id) ?? (item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2).replace('.', ',') : "")}
-                              onChange={(e) => {
-                                setValoresDescontoTemp(prev => {
-                                  const novo = new Map(prev);
-                                  novo.set(item.id, e.target.value);
-                                  return novo;
-                                });
-                              }}
-                              onBlur={(e) => {
-                                const valor = e.target.value.replace(',', '.');
-                                const numero = parseFloat(valor);
-                                if (!isNaN(numero) && numero >= 0) {
-                                  handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
-                                } else if (e.target.value === '' || e.target.value === '0') {
-                                  handleUpdateItem(item.id, "valor_unitario_ofertado", 0);
+                            {editavel ? (
+                              <>
+                                <Input
+                                  type="text"
+                                  value={valoresDescontoTemp.get(item.id) ?? (item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2).replace('.', ',') : "")}
+                                  onChange={(e) => {
+                                    setValoresDescontoTemp(prev => {
+                                      const novo = new Map(prev);
+                                      novo.set(item.id, e.target.value);
+                                      return novo;
+                                    });
+                                  }}
+                                  onBlur={(e) => {
+                                    const valor = e.target.value.replace(',', '.');
+                                    const numero = parseFloat(valor);
+                                    if (!isNaN(numero) && numero >= 0) {
+                                      handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
+                                    } else if (e.target.value === '' || e.target.value === '0') {
+                                      handleUpdateItem(item.id, "valor_unitario_ofertado", 0);
+                                    }
+                                    setValoresDescontoTemp(prev => {
+                                      const novo = new Map(prev);
+                                      novo.delete(item.id);
+                                      return novo;
+                                    });
+                                  }}
+                                  className="w-full"
+                                  placeholder="0,00"
+                                />
+                                <span className="text-sm font-medium">%</span>
+                              </>
+                            ) : (
+                              <span className="text-sm font-medium">
+                                {item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0 
+                                  ? `${item.valor_unitario_ofertado.toFixed(2).replace('.', ',')}%`
+                                  : "-"
                                 }
-                                setValoresDescontoTemp(prev => {
-                                  const novo = new Map(prev);
-                                  novo.delete(item.id);
-                                  return novo;
-                                });
-                              }}
-                              disabled={!editavel}
-                              className="w-full"
-                              placeholder="0,00"
-                            />
-                            <span className="text-sm font-medium">%</span>
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <Input
