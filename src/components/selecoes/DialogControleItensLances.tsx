@@ -97,12 +97,11 @@ export function DialogControleItensLances({
           console.log("📡 REALTIME: Status do canal de lances:", status);
         });
 
-      // Polling a cada 3 segundos como fallback + verificação de fechamento automático
+      // Polling a cada 3 segundos como fallback
       console.log("⏰ USEEFFECT: Configurando polling a cada 3 segundos...");
       const pollingInterval = setInterval(() => {
         console.log("⏰ POLLING: Executando ciclo de verificação...");
         loadItensAbertos();
-        verificarFechamentoAutomatico();
         loadVencedoresPorItem();
       }, 3000);
 
