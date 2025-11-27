@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -68,29 +69,34 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
   });
   const [loading, setLoading] = useState(false);
   const [gerandoNumero, setGerandoNumero] = useState(false);
+  const [numerosDuplicados, setNumerosDuplicados] = useState<string[]>([]);
 
   useEffect(() => {
-    if (processo) {
-      setFormData({
-        contrato_gestao_id: processo.contrato_gestao_id,
-        ano_referencia: processo.ano_referencia,
-        numero_processo_interno: processo.numero_processo_interno,
-        objeto_resumido: processo.objeto_resumido,
-        tipo: processo.tipo,
-        centro_custo: processo.centro_custo || "",
-        valor_estimado_anual: processo.valor_estimado_anual,
-        status_processo: processo.status_processo,
-        data_abertura: processo.data_abertura || "",
-        data_encerramento_prevista: processo.data_encerramento_prevista || "",
-        observacoes: processo.observacoes || "",
-        requer_cotacao: processo.requer_cotacao ?? true,
-        criterio_julgamento: processo.criterio_julgamento || "global",
-        credenciamento: processo.credenciamento ?? false,
-        contratacao_especifica: processo.contratacao_especifica ?? false,
-      });
-    } else {
-      // Gerar número automático para novo processo
-      gerarNumeroProcesso();
+    if (open) {
+      carregarNumerosDuplicados();
+      
+      if (processo) {
+        setFormData({
+          contrato_gestao_id: processo.contrato_gestao_id,
+          ano_referencia: processo.ano_referencia,
+          numero_processo_interno: processo.numero_processo_interno,
+          objeto_resumido: processo.objeto_resumido,
+          tipo: processo.tipo,
+          centro_custo: processo.centro_custo || "",
+          valor_estimado_anual: processo.valor_estimado_anual,
+          status_processo: processo.status_processo,
+          data_abertura: processo.data_abertura || "",
+          data_encerramento_prevista: processo.data_encerramento_prevista || "",
+          observacoes: processo.observacoes || "",
+          requer_cotacao: processo.requer_cotacao ?? true,
+          criterio_julgamento: processo.criterio_julgamento || "global",
+          credenciamento: processo.credenciamento ?? false,
+          contratacao_especifica: processo.contratacao_especifica ?? false,
+        });
+      } else {
+        // Gerar número automático para novo processo
+        gerarNumeroProcesso();
+      }
     }
   }, [processo, contratoId, open]);
 
@@ -99,22 +105,30 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     try {
       const anoAtual = new Date().getFullYear();
       
-      // Buscar todos os processos para encontrar o maior número sequencial (independente do contrato)
-      const { data: ultimoProcesso, error } = await supabase
+      // Buscar TODOS os números de processo existentes
+      const { data: todosProcessos, error } = await supabase
         .from("processos_compras")
         .select("numero_processo_interno")
-        .not("numero_processo_interno", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .not("numero_processo_interno", "is", null);
 
-      let proximoNumero = 1;
-      if (!error && ultimoProcesso?.numero_processo_interno) {
-        // Extrair o número do processo mais recente (formato XXX/AAAA)
-        const partes = ultimoProcesso.numero_processo_interno.split("/");
+      if (error) throw error;
+
+      // Extrair todos os números sequenciais existentes
+      const numerosExistentes = new Set<number>();
+      todosProcessos?.forEach((proc) => {
+        const partes = proc.numero_processo_interno.split("/");
         if (partes.length === 2) {
-          proximoNumero = parseInt(partes[0], 10) + 1;
+          const numero = parseInt(partes[0], 10);
+          if (!isNaN(numero)) {
+            numerosExistentes.add(numero);
+          }
         }
+      });
+
+      // Encontrar o próximo número disponível
+      let proximoNumero = 1;
+      while (numerosExistentes.has(proximoNumero)) {
+        proximoNumero++;
       }
 
       const numeroProcesso = `${String(proximoNumero).padStart(3, "0")}/${anoAtual}`;
@@ -136,6 +150,9 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         credenciamento: false,
         contratacao_especifica: false,
       });
+
+      // Carregar números duplicados para validação
+      await carregarNumerosDuplicados();
     } catch (error) {
       console.error("Erro ao gerar número do processo:", error);
     } finally {
@@ -143,8 +160,38 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     }
   };
 
+  const carregarNumerosDuplicados = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("processos_compras")
+        .select("numero_processo_interno");
+
+      if (error) throw error;
+      
+      const numeros = data?.map((p) => p.numero_processo_interno) || [];
+      setNumerosDuplicados(numeros);
+    } catch (error) {
+      console.error("Erro ao carregar números:", error);
+    }
+  };
+
+  const validarNumeroDuplicado = (numero: string): boolean => {
+    // Se está editando, permitir o próprio número
+    if (processo && processo.numero_processo_interno === numero) {
+      return false;
+    }
+    return numerosDuplicados.includes(numero);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validar número duplicado
+    if (validarNumeroDuplicado(formData.numero_processo_interno)) {
+      toast.error("Este número de processo já existe. Por favor, escolha outro número.");
+      return;
+    }
+
     setLoading(true);
     try {
       // Convert empty date strings to null
@@ -178,15 +225,31 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
               <Input
                 id="numero_processo_interno"
                 value={gerandoNumero ? "Gerando..." : formData.numero_processo_interno}
-                onChange={(e) => setFormData({ ...formData, numero_processo_interno: e.target.value })}
+                onChange={(e) => {
+                  const valor = e.target.value;
+                  setFormData({ ...formData, numero_processo_interno: valor });
+                  
+                  // Validar em tempo real se não está editando
+                  if (!processo && valor && validarNumeroDuplicado(valor)) {
+                    e.target.setCustomValidity("Este número já existe");
+                  } else {
+                    e.target.setCustomValidity("");
+                  }
+                }}
                 required
-                readOnly={!processo}
                 disabled={gerandoNumero}
-                className={!processo ? "bg-muted cursor-not-allowed" : ""}
+                maxLength={8}
+                placeholder="XXX/AAAA"
               />
               {!processo && (
                 <p className="text-xs text-muted-foreground">
-                  Numeração gerada automaticamente de forma sequencial
+                  Numeração gerada automaticamente (editável). Formato: XXX/AAAA
+                </p>
+              )}
+              {formData.numero_processo_interno && 
+               validarNumeroDuplicado(formData.numero_processo_interno) && (
+                <p className="text-xs text-destructive">
+                  ⚠️ Este número de processo já existe
                 </p>
               )}
             </div>
