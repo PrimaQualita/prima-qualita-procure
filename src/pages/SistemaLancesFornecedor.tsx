@@ -1262,18 +1262,38 @@ const SistemaLancesFornecedor = () => {
   };
 
   const isFornecedorVencendoItem = (numeroItem: number): boolean => {
-    if (!proposta?.fornecedor_id) return false;
+    if (!proposta?.fornecedor_id) {
+      console.log(`🏆 Item ${numeroItem}: Sem fornecedor_id na proposta`);
+      return false;
+    }
     
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const lancesDoItem = getLancesDoItem(numeroItem);
     const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
+    
+    console.log(`🏆 Item ${numeroItem} - Verificando vencedor:`, {
+      fornecedorAtual: proposta.fornecedor_id,
+      valorEstimado,
+      isDesconto,
+      totalLances: lancesDoItem.length,
+      lances: lancesDoItem.map(l => ({ 
+        fornecedor: l.fornecedor_id, 
+        valor: l.valor_lance,
+        ehAtual: l.fornecedor_id === proposta.fornecedor_id
+      }))
+    });
     
     // Filtrar apenas lances classificados
     const lancesClassificados = isDesconto
       ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado) // Desconto: maior ou igual ao estimado
       : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Preço: menor ou igual ao estimado
     
-    if (lancesClassificados.length === 0) return false;
+    console.log(`🏆 Item ${numeroItem} - Lances classificados:`, lancesClassificados.length);
+    
+    if (lancesClassificados.length === 0) {
+      console.log(`🏆 Item ${numeroItem}: Nenhum lance classificado`);
+      return false;
+    }
     
     // Ordenar conforme critério
     const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
@@ -1287,8 +1307,17 @@ const SistemaLancesFornecedor = () => {
       return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
     });
     
-    // Verificar se o lance vencedor é do fornecedor atual
-    return lancesOrdenados[0]?.fornecedor_id === proposta.fornecedor_id;
+    const vencedor = lancesOrdenados[0];
+    const isVencendo = vencedor?.fornecedor_id === proposta.fornecedor_id;
+    
+    console.log(`🏆 Item ${numeroItem} - Resultado:`, {
+      vencedor: vencedor?.fornecedor_id,
+      valorVencedor: vencedor?.valor_lance,
+      fornecedorAtual: proposta.fornecedor_id,
+      isVencendo
+    });
+    
+    return isVencendo;
   };
 
   // Verifica se o fornecedor venceu um item fechado
