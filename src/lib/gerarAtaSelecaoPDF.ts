@@ -121,7 +121,7 @@ const formatarDataHoraCurta = (dataStr: string): string => {
 };
 
 // Função para desenhar texto justificado com espaçamento padrão
-const drawJustifiedText = (doc: jsPDF, text: string, x: number, y: number, maxWidth: number, lineHeight: number = 5): number => {
+const drawJustifiedText = (doc: jsPDF, text: string, x: number, y: number, maxWidth: number, lineHeight: number = 5.5): number => {
   const lines = doc.splitTextToSize(text, maxWidth);
   let currentY = y;
   
@@ -530,7 +530,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // Espaçamento padrão entre seções
   const espacoEntreSecoes = 6;
   const espacoAposTitulo = 5;
-  const lineHeight = 5;
+  const lineHeight = 5.5;
   let secaoNumero = 1;
 
   // ============= 1 - TÍTULO =============
@@ -719,6 +719,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
   if (fornecedoresHabilitados.length > 0) {
     currentY = drawJustifiedText(doc, "Foram habilitadas as seguintes empresas:", marginLeft, currentY, contentWidth, lineHeight);
+    currentY += 2; // Pequeno espaço antes da lista
     
     fornecedoresHabilitados.forEach(f => {
       checkNewPage(lineHeight);
