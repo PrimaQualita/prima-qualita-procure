@@ -17,7 +17,7 @@ export default function VerificarAutorizacao() {
   const [protocolo, setProtocolo] = useState(searchParams.get("protocolo") || "");
   const [loading, setLoading] = useState(false);
   const [autorizacao, setAutorizacao] = useState<any>(null);
-  const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | 'compliance' | 'planilha' | 'encaminhamento' | 'recurso' | 'resposta_recurso' | null>(null);
+  const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | 'compliance' | 'planilha' | 'encaminhamento' | 'homologacao' | 'recurso' | 'resposta_recurso' | null>(null);
   const [buscaRealizada, setBuscaRealizada] = useState(false);
 
   const verificarAutorizacao = async (protocoloParam?: string) => {
@@ -298,7 +298,64 @@ export default function VerificarAutorizacao() {
         return;
       }
 
-      // 6. Recursos de Inabilitação (Recurso do Fornecedor)
+      // 6. Homologações de Seleção
+      console.log('🔎 [VERIFICAÇÃO] Buscando em homologacoes_selecao...');
+      const { data: homologacaoData, error: homologacaoError } = await supabase
+        .from('homologacoes_selecao')
+        .select('*')
+        .eq('protocolo', protocoloLimpo)
+        .maybeSingle();
+
+      console.log('📋 [VERIFICAÇÃO] Resultado homologacoes_selecao:', { 
+        encontrado: !!homologacaoData, 
+        erro: homologacaoError?.message,
+        dados: homologacaoData 
+      });
+
+      if (homologacaoData && !homologacaoError) {
+        console.log('✅ [VERIFICAÇÃO] Homologação encontrada!');
+        
+        const { data: selecao } = await supabase
+          .from('selecoes_fornecedores')
+          .select('numero_selecao, processo_compra_id')
+          .eq('id', homologacaoData.selecao_id)
+          .single();
+
+        let processo = null;
+        if (selecao?.processo_compra_id) {
+          const { data: processoData } = await supabase
+            .from('processos_compras')
+            .select('numero_processo_interno, objeto_resumido')
+            .eq('id', selecao.processo_compra_id)
+            .single();
+          processo = processoData;
+        }
+
+        let usuario = null;
+        if (homologacaoData.usuario_gerador_id) {
+          const { data: usuarioData } = await supabase
+            .from('profiles')
+            .select('nome_completo, cpf')
+            .eq('id', homologacaoData.usuario_gerador_id)
+            .single();
+          usuario = usuarioData;
+        }
+
+        setAutorizacao({
+          ...homologacaoData,
+          selecao: selecao ? { ...selecao, processo } : null,
+          usuario
+        });
+        setTipoDocumento('homologacao');
+
+        toast({
+          title: "Homologação verificada",
+          description: "Documento autêntico encontrado no sistema",
+        });
+        return;
+      }
+
+      // 7. Recursos de Inabilitação (Recurso do Fornecedor)
       console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_inabilitacao_selecao (recurso)...');
       // @ts-ignore - Supabase type inference too deep
       const recursoResult = await supabase
@@ -487,6 +544,7 @@ export default function VerificarAutorizacao() {
                        tipoDocumento === 'compliance' ? 'Análise de Riscos e Conformidades Autêntica' :
                        tipoDocumento === 'planilha' ? 'Planilha Consolidada Autêntica' :
                        tipoDocumento === 'encaminhamento' ? 'Encaminhamento de Processo Autêntico' :
+                       tipoDocumento === 'homologacao' ? 'Homologação de Seleção Autêntica' :
                        tipoDocumento === 'recurso' ? 'Recurso de Inabilitação Autêntico' :
                        tipoDocumento === 'resposta_recurso' ? 'Resposta de Recurso Autêntica' :
                        'Autorização Autêntica'}
@@ -513,6 +571,7 @@ export default function VerificarAutorizacao() {
                      tipoDocumento === 'compliance' ? 'Análise de Riscos e Conformidades' :
                      tipoDocumento === 'planilha' ? 'Planilha Consolidada' :
                      tipoDocumento === 'encaminhamento' ? 'Encaminhamento de Processo' :
+                     tipoDocumento === 'homologacao' ? 'Homologação de Seleção' :
                      tipoDocumento === 'recurso' ? 'Recurso de Inabilitação' :
                      tipoDocumento === 'resposta_recurso' ? 'Resposta de Recurso' :
                      autorizacao.tipo_autorizacao === 'compra_direta' ? 'Autorização - Compra Direta' : 'Autorização - Seleção de Fornecedores'}
@@ -552,6 +611,28 @@ export default function VerificarAutorizacao() {
                       <div className="space-y-1 md:col-span-2">
                         <p className="text-sm text-muted-foreground">Objeto</p>
                         <p className="font-semibold">{stripHtml(autorizacao.cotacao.processo?.objeto_resumido || "")}</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {autorizacao.selecao && (
+                <>
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Informações do Processo</h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Número do Processo</p>
+                        <p className="font-semibold">{autorizacao.selecao.processo?.numero_processo_interno}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Seleção de Fornecedores</p>
+                        <p className="font-semibold">Nº {autorizacao.selecao.numero_selecao}</p>
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <p className="text-sm text-muted-foreground">Objeto</p>
+                        <p className="font-semibold">{stripHtml(autorizacao.selecao.processo?.objeto_resumido || "")}</p>
                       </div>
                     </div>
                   </div>
