@@ -1520,6 +1520,7 @@ const ParticiparSelecao = () => {
         onOpenChange={setImportDialogOpen}
         itens={itens}
         onImportSuccess={handleImportSuccess}
+        criterioJulgamento={criterioJulgamento}
       />
     </div>
   );

@@ -30,6 +30,7 @@ interface DialogImportarPropostaProps {
     marca: string;
     valor_unitario: number;
   }>) => void;
+  criterioJulgamento?: string;
 }
 
 interface ItemPlanilha {
@@ -43,7 +44,8 @@ export function DialogImportarProposta({
   open, 
   onOpenChange, 
   itens,
-  onImportSuccess 
+  onImportSuccess,
+  criterioJulgamento 
 }: DialogImportarPropostaProps) {
   const [loading, setLoading] = useState(false);
 
@@ -150,11 +152,20 @@ export function DialogImportarProposta({
                           Number(item['Valor Unitário']) > 0;
           return temMarca || temValor;
         })
-        .map(item => ({
-          numero_item: Number(item['Número do Item']),
-          marca: String(item['Marca'] || '').trim(),
-          valor_unitario: Number(item['Valor Unitário']) || 0
-        }));
+        .map(item => {
+          const valorBase = Number(item['Valor Unitário']) || 0;
+          // Se critério é desconto, valor na planilha já é percentual (0.55 = 0.55%)
+          // Precisa dividir por 100 para converter em decimal (0.55% = 0.0055)
+          const valorUnitario = criterioJulgamento === "desconto" 
+            ? valorBase / 100 
+            : valorBase;
+          
+          return {
+            numero_item: Number(item['Número do Item']),
+            marca: String(item['Marca'] || '').trim(),
+            valor_unitario: valorUnitario
+          };
+        });
 
       if (dadosImportados.length === 0) {
         toast.error("Nenhum item foi preenchido na planilha. Preencha pelo menos um item com marca ou valor unitário.");
