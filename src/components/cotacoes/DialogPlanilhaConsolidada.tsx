@@ -653,7 +653,13 @@ export function DialogPlanilhaConsolidada({
       console.log("💾 Estimativas que serão salvas no banco:", estimativasCalculadas);
       console.log("💾 JSON das estimativas:", JSON.stringify(estimativasCalculadas));
       
-      const { error: dbError } = await supabase
+      console.log('💾 Tentando salvar no banco com dados:', {
+        cotacao_id: cotacaoId,
+        nome_arquivo: nomeArquivo,
+        estimativas_itens: estimativasCalculadas
+      });
+
+      const { data: insertData, error: dbError } = await supabase
         .from("planilhas_consolidadas")
         .insert({
           cotacao_id: cotacaoId,
@@ -664,14 +670,18 @@ export function DialogPlanilhaConsolidada({
           protocolo: dadosProtocolo.protocolo,
           fornecedores_incluidos: fornecedoresIncluidos,
           estimativas_itens: estimativasCalculadas
-        });
+        })
+        .select();
 
       if (dbError) {
-        console.error('❌ Erro ao salvar planilha no banco:', dbError);
+        console.error('❌ ERRO AO SALVAR PLANILHA NO BANCO:', dbError);
+        console.error('❌ Detalhes do erro:', JSON.stringify(dbError));
         throw dbError;
       }
       
-      console.log('✅ Planilha salva com sucesso no banco de dados!');
+      console.log('✅ PLANILHA SALVA COM SUCESSO!');
+      console.log('✅ Dados retornados do insert:', insertData);
+      console.log('✅ Estimativas salvas:', insertData?.[0]?.estimativas_itens);
 
       // CRÍTICO: Invalidar todas as aprovações de documentos ao gerar nova planilha
       console.log("🔄 Invalidando aprovações anteriores de documentos...");
