@@ -375,9 +375,9 @@ export async function gerarPropostaSelecaoPDF(
       
       // Valores conforme critério
       if (isDesconto) {
-        // Exibir apenas % de desconto centralizado
+        // Exibir apenas % de desconto alinhado à esquerda
         const descontoFormatado = formatarMoeda(item.valor_unitario_ofertado * 100);
-        doc.text(`${descontoFormatado}%`, colDescontoCenter!, yVerticalCenter, { align: 'center' });
+        doc.text(`${descontoFormatado}%`, colValorUnit, yVerticalCenter);
       } else {
         // Valores em moeda - alinhados à direita com R$
         const valorUnitRight = margemEsquerda + 143;
@@ -402,18 +402,20 @@ export async function gerarPropostaSelecaoPDF(
 
     y += 5;
 
-    // Valor Total
-    doc.setFillColor(240, 240, 240);
-    doc.rect(margemEsquerda, y, larguraUtil, 8, 'F');
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('VALOR TOTAL DA PROPOSTA:', margemEsquerda + 2, y + 5);
-    const valorTexto = `R$ ${formatarMoeda(valorTotal)}`;
-    const valorWidth = doc.getTextWidth(valorTexto);
-    doc.text(valorTexto, margemEsquerda + larguraUtil - valorWidth - 2, y + 5);
-    
-    y += 12;
+    // Valor Total - apenas para critérios que não são desconto
+    if (!isDesconto) {
+      doc.setFillColor(240, 240, 240);
+      doc.rect(margemEsquerda, y, larguraUtil, 8, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('VALOR TOTAL DA PROPOSTA:', margemEsquerda + 2, y + 5);
+      const valorTexto = `R$ ${formatarMoeda(valorTotal)}`;
+      const valorWidth = doc.getTextWidth(valorTexto);
+      doc.text(valorTexto, margemEsquerda + larguraUtil - valorWidth - 2, y + 5);
+      
+      y += 12;
+    }
 
     // Observações
     if (observacoes && observacoes.trim()) {
