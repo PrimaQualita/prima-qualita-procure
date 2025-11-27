@@ -38,6 +38,7 @@ interface RespostaConsolidada {
     quantidade: number;
     unidade: string;
     valor_unitario_ofertado: number;
+    percentual_desconto?: number;
     lote_id: string | null;
     lote_numero?: number;
     lote_descricao?: string;
@@ -175,26 +176,27 @@ export function DialogPlanilhaConsolidada({
         const BATCH_SIZE = 1000;
         
         while (hasMore) {
-          const { data: batch, error: batchError } = await supabase
-            .from("respostas_itens_fornecedor")
-            .select(`
-              valor_unitario_ofertado,
-              marca,
-              item_cotacao:item_cotacao_id (
-                id,
-                numero_item,
-                descricao,
-                quantidade,
-                unidade,
-                lote_id,
-                lote:lote_id (
-                  numero_lote,
-                  descricao_lote
-                )
+        const { data: batch, error: batchError } = await supabase
+          .from("respostas_itens_fornecedor")
+          .select(`
+            valor_unitario_ofertado,
+            percentual_desconto,
+            marca,
+            item_cotacao:item_cotacao_id (
+              id,
+              numero_item,
+              descricao,
+              quantidade,
+              unidade,
+              lote_id,
+              lote:lote_id (
+                numero_lote,
+                descricao_lote
               )
-            `)
-            .eq("cotacao_resposta_fornecedor_id", resposta.id)
-            .range(offset, offset + BATCH_SIZE - 1);
+            )
+          `)
+          .eq("cotacao_resposta_fornecedor_id", resposta.id)
+          .range(offset, offset + BATCH_SIZE - 1);
           
           if (batchError) {
             console.error(`❌ [Planilha] Erro ao buscar lote:`, batchError);
@@ -220,6 +222,7 @@ export function DialogPlanilhaConsolidada({
           unidade: item.item_cotacao.unidade,
           marca: item.marca,
           valor_unitario_ofertado: item.valor_unitario_ofertado,
+          percentual_desconto: item.percentual_desconto,
           lote_id: item.item_cotacao.lote_id,
           lote_numero: item.item_cotacao.lote?.numero_lote,
           lote_descricao: item.item_cotacao.lote?.descricao_lote,
@@ -373,6 +376,7 @@ export function DialogPlanilhaConsolidada({
         itens: resposta.itens.map(item => ({
           numero_item: item.numero_item,
           valor_unitario_ofertado: item.valor_unitario_ofertado,
+          percentual_desconto: item.percentual_desconto,
           marca: item.marca || undefined
         })),
         valor_total: resposta.valor_total
