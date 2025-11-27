@@ -1359,15 +1359,25 @@ const SistemaLancesFornecedor = () => {
         : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Preço: menor ou igual ao estimado
       
       if (lancesClassificados.length > 0) {
-        // Ordenar conforme critério
+        // Ordenar PRIORIZANDO lances de negociação
         const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
+          // PRIORIDADE 1: Lances de negociação vêm SEMPRE primeiro
+          const aIsNegociacao = a.tipo_lance === "negociacao";
+          const bIsNegociacao = b.tipo_lance === "negociacao";
+          
+          if (aIsNegociacao && !bIsNegociacao) return -1; // a vem antes
+          if (!aIsNegociacao && bIsNegociacao) return 1;  // b vem antes
+          
+          // PRIORIDADE 2: Ordenar por valor conforme critério
           if (isDesconto) {
-            // Desconto: maior valor vence, desempate por data (mais antigo ganha)
+            // Desconto: maior valor vence
             if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
           } else {
-            // Preço: menor valor vence, desempate por data (mais antigo ganha)
+            // Preço: menor valor vence
             if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
           }
+          
+          // PRIORIDADE 3: Desempate por data (mais antigo ganha)
           return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
         });
         
@@ -1404,12 +1414,31 @@ const SistemaLancesFornecedor = () => {
   const getValorVencedorItem = (numeroItem: number): number => {
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const lancesDoItem = getLancesDoItem(numeroItem);
+    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
     
-    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+    // Filtrar conforme critério
+    const lancesClassificados = isDesconto
+      ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado)
+      : lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
     
     if (lancesClassificados.length > 0) {
+      // Ordenar PRIORIZANDO lances de negociação
       const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
-        if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+        // PRIORIDADE 1: Lances de negociação vêm SEMPRE primeiro
+        const aIsNegociacao = a.tipo_lance === "negociacao";
+        const bIsNegociacao = b.tipo_lance === "negociacao";
+        
+        if (aIsNegociacao && !bIsNegociacao) return -1;
+        if (!aIsNegociacao && bIsNegociacao) return 1;
+        
+        // PRIORIDADE 2: Ordenar por valor conforme critério
+        if (isDesconto) {
+          if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
+        } else {
+          if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+        }
+        
+        // PRIORIDADE 3: Desempate por data
         return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
       });
       return lancesOrdenados[0]?.valor_lance || 0;
