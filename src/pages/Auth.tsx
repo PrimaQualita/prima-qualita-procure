@@ -44,16 +44,21 @@ const Auth = () => {
           .from("profiles")
           .select("email")
           .eq("cpf", cpfSemFormatacao)
-          .single();
+          .maybeSingle();
 
-        if (profileError || !profile) {
+        if (profileError) {
+          console.error("Erro ao buscar perfil por CPF:", profileError);
+          throw new Error("Erro ao verificar CPF");
+        }
+        
+        if (!profile) {
           throw new Error("CPF não encontrado no sistema");
         }
         emailToLogin = profile.email;
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: emailToLogin,
+        email: emailToLogin.toLowerCase().trim(),
         password,
       });
 
@@ -61,15 +66,18 @@ const Auth = () => {
 
       if (data.session) {
         // Verificar se é fornecedor (independente do status de aprovação)
-        const { data: fornecedorData } = await supabase
+        const { data: fornecedorData, error: fornecedorError } = await supabase
           .from("fornecedores")
           .select("id, status_aprovacao")
           .eq("user_id", data.session.user.id)
           .maybeSingle();
 
+        if (fornecedorError) {
+          console.error("Erro ao verificar fornecedor:", fornecedorError);
+        }
+
         if (fornecedorData) {
           // É fornecedor - permitir acesso ao portal mesmo se pendente
-          // Fornecedores podem participar de cotações/seleções sem aprovação
           const statusMsg = fornecedorData.status_aprovacao === 'pendente' 
             ? 'Seu cadastro está em análise, mas você já pode acessar o portal.'
             : 'Bem-vindo ao Portal do Fornecedor.';
@@ -78,38 +86,47 @@ const Auth = () => {
             title: "Login realizado com sucesso!",
             description: statusMsg,
           });
+          setLoading(false);
           navigate("/portal-fornecedor");
           return;
         }
 
         // Não é fornecedor - verificar se é primeiro acesso de usuário interno
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("primeiro_acesso, senha_temporaria")
           .eq("id", data.session.user.id)
-          .single();
+          .maybeSingle();
+
+        if (profileError) {
+          console.error("Erro ao buscar perfil:", profileError);
+        }
 
         if (profile?.primeiro_acesso || profile?.senha_temporaria) {
           toast({
             title: "Primeiro acesso detectado",
             description: "Por favor, crie uma nova senha.",
           });
+          setLoading(false);
           navigate("/troca-senha");
-        } else {
-          // Update last login
-          await supabase
-            .from("profiles")
-            .update({ data_ultimo_login: new Date().toISOString() })
-            .eq("id", data.session.user.id);
-
-          toast({
-            title: "Login realizado com sucesso!",
-            description: "Bem-vindo ao Sistema de Compras.",
-          });
-          navigate("/dashboard");
+          return;
         }
+
+        // Update last login
+        await supabase
+          .from("profiles")
+          .update({ data_ultimo_login: new Date().toISOString() })
+          .eq("id", data.session.user.id);
+
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Bem-vindo ao Sistema de Compras.",
+        });
+        setLoading(false);
+        navigate("/dashboard");
       }
     } catch (error: any) {
+      console.error("Erro no login:", error);
       toast({
         title: "Erro no login",
         description: error.message || "Email/CPF ou senha incorretos.",
