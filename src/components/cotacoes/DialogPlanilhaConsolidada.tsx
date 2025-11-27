@@ -549,6 +549,32 @@ export function DialogPlanilhaConsolidada({
               };
             });
             
+          } else if (criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto") {
+            // Critério DESCONTO: vencedor por item (MAIOR percentual de desconto)
+            itensComVencedor = resposta.itens.map(item => {
+              // Buscar todos os descontos deste item entre os fornecedores selecionados
+              const descontosDoItem: number[] = [];
+              respostasFiltradas.forEach(r => {
+                const itemEncontrado = r.itens.find(i => i.numero_item === item.numero_item);
+                if (itemEncontrado && itemEncontrado.percentual_desconto != null) {
+                  descontosDoItem.push(Number(itemEncontrado.percentual_desconto));
+                }
+              });
+              
+              // Identificar o MAIOR desconto (quanto maior, melhor)
+              const maiorDesconto = Math.max(...descontosDoItem);
+              const ehVencedor = Math.abs(Number(item.percentual_desconto || 0) - maiorDesconto) < 0.001;
+              
+              console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: desconto=${item.percentual_desconto}%, maior=${maiorDesconto}%, vencedor=${ehVencedor}`);
+              
+              return {
+                numero_item: item.numero_item,
+                valor_unitario: Number(item.valor_unitario_ofertado),
+                percentual_desconto: Number(item.percentual_desconto || 0),
+                eh_vencedor: ehVencedor
+              };
+            });
+            
           } else {
             // Critério POR ITEM (padrão): vencedor por item (menor valor unitário)
             itensComVencedor = resposta.itens.map(item => {
