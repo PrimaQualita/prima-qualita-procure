@@ -1416,12 +1416,24 @@ export function DialogSessaoLances({
       // Broadcast para forçar reload na Análise Documental
       console.log("📡 Enviando broadcast para atualizar Análise Documental...");
       const broadcastChannel = supabase.channel(`remarcar_vencedores_${selecaoId}`);
-      await broadcastChannel.send({
-        type: 'broadcast',
-        event: 'vencedores_remarcados',
-        payload: { selecao_id: selecaoId, timestamp: new Date().toISOString() }
+      
+      // CRÍTICO: Subscribe antes de enviar broadcast
+      await broadcastChannel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("✅ Canal broadcast subscrito, enviando mensagem...");
+          await broadcastChannel.send({
+            type: 'broadcast',
+            event: 'vencedores_remarcados',
+            payload: { selecao_id: selecaoId, timestamp: new Date().toISOString() }
+          });
+          console.log("📡 Broadcast enviado com sucesso!");
+          
+          // Aguardar para garantir entrega
+          setTimeout(() => {
+            supabase.removeChannel(broadcastChannel);
+          }, 500);
+        }
       });
-      console.log("📡 Broadcast enviado!");
       
       toast.success(`${itensUnicos.length} item(ns) processado(s). Vencedores atualizados!`);
     } catch (error) {

@@ -218,9 +218,11 @@ export function DialogAnaliseDocumentalSelecao({
         'broadcast',
         { event: 'vencedores_remarcados' },
         (payload) => {
-          console.log("📡 Broadcast recebido - vencedores remarcados, recarregando...");
-          loadFornecedoresVencedores();
-          loadRecursosInabilitacao();
+          console.log("📡 Broadcast recebido - vencedores remarcados, recarregando em 1s...");
+          setTimeout(() => {
+            loadFornecedoresVencedores();
+            loadRecursosInabilitacao();
+          }, 1000);
         }
       )
       .subscribe();
@@ -231,9 +233,11 @@ export function DialogAnaliseDocumentalSelecao({
         'broadcast',
         { event: 'vencedores_remarcados' },
         (payload) => {
-          console.log("📡 Broadcast de remarcação recebido, recarregando vencedores...");
-          loadFornecedoresVencedores();
-          loadRecursosInabilitacao();
+          console.log("📡 Broadcast de remarcação recebido, recarregando vencedores em 1s...");
+          setTimeout(() => {
+            loadFornecedoresVencedores();
+            loadRecursosInabilitacao();
+          }, 1000);
         }
       )
       .subscribe();
