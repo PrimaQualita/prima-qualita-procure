@@ -308,12 +308,13 @@ export function DialogSessaoLances({
   // ========== FUNÇÃO PARA ATUALIZAR VENCEDOR DE UM ITEM ==========
   const atualizarVencedorItem = async (numeroItem: number) => {
     try {
-      console.log(`🏆 [ATUALIZAR] Atualizando vencedor do item ${numeroItem}...`);
+      console.log(`\n🏆 [ATUALIZAR ITEM ${numeroItem}] Iniciando atualização...`);
       
       const isDesconto = criterioJulgamento === "desconto";
-      console.log(`📊 [ATUALIZAR] Critério: ${criterioJulgamento}, isDesconto: ${isDesconto}`);
+      console.log(`📊 [ATUALIZAR ITEM ${numeroItem}] Critério: ${criterioJulgamento}, isDesconto: ${isDesconto}`);
       
       // 1. Desmarcar todos os lances do item
+      console.log(`🔄 [ATUALIZAR ITEM ${numeroItem}] Desmarcando todos os lances...`);
       const { error: clearError } = await supabase
         .from("lances_fornecedores")
         .update({ indicativo_lance_vencedor: false })
@@ -321,13 +322,14 @@ export function DialogSessaoLances({
         .eq("numero_item", numeroItem);
       
       if (clearError) {
-        console.error("❌ [ATUALIZAR] Erro ao desmarcar lances:", clearError);
+        console.error(`❌ [ATUALIZAR ITEM ${numeroItem}] ERRO ao desmarcar:`, clearError);
         throw clearError;
       }
       
-      console.log(`✅ [ATUALIZAR] Todos os lances do item ${numeroItem} desmarcados`);
+      console.log(`✅ [ATUALIZAR ITEM ${numeroItem}] Todos os lances desmarcados`);
 
       // 2. Buscar todos os lances do item (incluindo fornecedores)
+      console.log(`🔍 [ATUALIZAR ITEM ${numeroItem}] Buscando lances do banco...`);
       const { data: lancesItem, error: lancesError } = await supabase
         .from("lances_fornecedores")
         .select(`
@@ -342,18 +344,20 @@ export function DialogSessaoLances({
         .eq("numero_item", numeroItem);
 
       if (lancesError) {
-        console.error("❌ [ATUALIZAR] Erro ao buscar lances:", lancesError);
+        console.error(`❌ [ATUALIZAR ITEM ${numeroItem}] ERRO ao buscar lances:`, lancesError);
         throw lancesError;
       }
 
-      console.log(`📋 [ATUALIZAR] Total de lances encontrados: ${lancesItem?.length || 0}`);
+      console.log(`📋 [ATUALIZAR ITEM ${numeroItem}] Total de lances encontrados: ${lancesItem?.length || 0}`);
+      console.log(`📋 [ATUALIZAR ITEM ${numeroItem}] Detalhes dos lances:`, lancesItem);
 
       if (!lancesItem || lancesItem.length === 0) {
-        console.log("❌ [ATUALIZAR] Nenhum lance encontrado para o item");
+        console.log(`⚠️ [ATUALIZAR ITEM ${numeroItem}] Nenhum lance encontrado - pulando item`);
         return;
       }
 
       // 3. Buscar inabilitações ativas
+      console.log(`🔍 [ATUALIZAR ITEM ${numeroItem}] Buscando inabilitações ativas...`);
       const { data: inabilitacoes } = await supabase
         .from("fornecedores_inabilitados_selecao")
         .select("fornecedor_id, itens_afetados")
@@ -368,25 +372,25 @@ export function DialogSessaoLances({
         }
       });
 
-      console.log(`🚫 [ATUALIZAR] Fornecedores inabilitados no item ${numeroItem}:`, Array.from(inabilitadosSet));
+      console.log(`🚫 [ATUALIZAR ITEM ${numeroItem}] Fornecedores inabilitados:`, Array.from(inabilitadosSet));
 
       // 4. Filtrar lances válidos (excluir inabilitados)
       const lancesValidos = lancesItem.filter(lance => !inabilitadosSet.has(lance.fornecedor_id));
       
-      console.log(`✅ [ATUALIZAR] Lances válidos após filtrar inabilitados: ${lancesValidos.length}`);
-      console.log(`📊 [ATUALIZAR] Detalhes dos lances válidos:`, lancesValidos.map(l => ({
+      console.log(`✅ [ATUALIZAR ITEM ${numeroItem}] Lances válidos: ${lancesValidos.length}`);
+      console.log(`📊 [ATUALIZAR ITEM ${numeroItem}] Detalhes lances válidos:`, lancesValidos.map(l => ({
         id: l.id,
-        fornecedor: l.fornecedor_id,
+        fornecedor: (l.fornecedores as any)?.razao_social,
         valor: l.valor_lance,
         tipo: l.tipo_lance
       })));
 
       if (lancesValidos.length === 0) {
-        console.log("❌ [ATUALIZAR] Nenhum lance válido após excluir inabilitados");
+        console.log(`❌ [ATUALIZAR ITEM ${numeroItem}] Nenhum lance válido - pulando item`);
         return;
       }
 
-      console.log(`🔄 [ATUALIZAR] Iniciando ordenação de lances...`);
+      console.log(`🔄 [ATUALIZAR ITEM ${numeroItem}] Iniciando ordenação...`);
       // 5. Ordenar com priorização de negociação e critério
       const lancesOrdenados = [...lancesValidos].sort((a, b) => {
         // PRIORIDADE 1: Lances de negociação vêm SEMPRE primeiro
@@ -398,11 +402,11 @@ export function DialogSessaoLances({
         
         // PRIORIDADE 2: Ordenar por valor conforme critério
         if (isDesconto) {
-          // Desconto: MAIOR é melhor
-          console.log(`🔢 [ATUALIZAR DESCONTO] Comparando ${a.valor_lance} vs ${b.valor_lance}`);
+          // Desconto: MAIOR é melhor (DESCRESCENTE)
+          console.log(`🔢 [ATUALIZAR ITEM ${numeroItem} DESCONTO] Comparando ${a.valor_lance} vs ${b.valor_lance}`);
           if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
         } else {
-          // Preço: MENOR é melhor
+          // Preço: MENOR é melhor (ASCENDENTE)
           if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
         }
         
@@ -410,7 +414,7 @@ export function DialogSessaoLances({
         return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
       });
 
-      console.log(`📊 [ATUALIZAR] Lances ordenados para item ${numeroItem}:`, 
+      console.log(`📊 [ATUALIZAR ITEM ${numeroItem}] Lances ordenados:`, 
         lancesOrdenados.map(l => ({
           fornecedor: (l.fornecedores as any)?.razao_social,
           valor: l.valor_lance,
@@ -420,26 +424,27 @@ export function DialogSessaoLances({
 
       // 6. Marcar o primeiro como vencedor
       const lanceVencedor = lancesOrdenados[0];
-      console.log(`🏆 [ATUALIZAR] Lance vencedor identificado para item ${numeroItem}:`, {
+      console.log(`🏆 [ATUALIZAR ITEM ${numeroItem}] Lance vencedor identificado:`, {
         id: lanceVencedor.id,
         fornecedor: (lanceVencedor.fornecedores as any)?.razao_social,
         valor: lanceVencedor.valor_lance,
         tipo: lanceVencedor.tipo_lance
       });
       
+      console.log(`💾 [ATUALIZAR ITEM ${numeroItem}] Atualizando registro no banco... ID: ${lanceVencedor.id}`);
       const { error: updateError } = await supabase
         .from("lances_fornecedores")
         .update({ indicativo_lance_vencedor: true })
         .eq("id", lanceVencedor.id);
       
       if (updateError) {
-        console.error("❌ [ATUALIZAR] Erro ao marcar vencedor:", updateError);
+        console.error(`❌ [ATUALIZAR ITEM ${numeroItem}] ERRO ao marcar vencedor:`, updateError);
         throw updateError;
       }
 
-      console.log(`✅ [ATUALIZAR] Vencedor do item ${numeroItem} atualizado com sucesso no banco!`);
+      console.log(`✅ [ATUALIZAR ITEM ${numeroItem}] Vencedor marcado no banco com sucesso!\n`);
     } catch (error) {
-      console.error(`❌ [ATUALIZAR] Erro ao atualizar vencedor do item ${numeroItem}:`, error);
+      console.error(`❌ [ATUALIZAR ITEM ${numeroItem}] ERRO GERAL:`, error);
       throw error;
     }
   };
@@ -1380,7 +1385,7 @@ export function DialogSessaoLances({
   const handleRemarcarVencedores = async () => {
     setSalvando(true);
     try {
-      console.log("🔄 Remarcando vencedores para todos os itens...");
+      console.log("🔄 REMARCAR: Iniciando remarcação de vencedores...");
       
       // Buscar TODOS os lances da seleção diretamente do banco
       const { data: todosLances, error: lancesError } = await supabase
@@ -1388,26 +1393,30 @@ export function DialogSessaoLances({
         .select("numero_item")
         .eq("selecao_id", selecaoId);
       
-      if (lancesError) throw lancesError;
+      if (lancesError) {
+        console.error("❌ REMARCAR: Erro ao buscar lances:", lancesError);
+        throw lancesError;
+      }
       
       // Obter todos os itens únicos dos lances
       const itensUnicos = [...new Set(todosLances?.map(l => l.numero_item) || [])];
       
-      console.log(`📋 Total de itens a processar: ${itensUnicos.length}`, itensUnicos);
+      console.log(`📋 REMARCAR: Total de itens encontrados: ${itensUnicos.length}`, itensUnicos);
       
       // Atualizar vencedor de cada item usando a função centralizada
       for (const numeroItem of itensUnicos) {
+        console.log(`\n⚙️ REMARCAR: ===== PROCESSANDO ITEM ${numeroItem} =====`);
         try {
-          console.log(`⚙️ Processando item ${numeroItem}...`);
           await atualizarVencedorItem(numeroItem);
-          console.log(`✅ Item ${numeroItem} processado com sucesso`);
+          console.log(`✅ REMARCAR: Item ${numeroItem} processado com sucesso\n`);
         } catch (itemError) {
-          console.error(`❌ Erro ao processar item ${numeroItem}:`, itemError);
+          console.error(`❌ REMARCAR: ERRO CRÍTICO ao processar item ${numeroItem}:`, itemError);
+          console.error(`❌ REMARCAR: Stack trace:`, itemError);
           // Continua processando outros itens mesmo se um falhar
         }
       }
 
-      console.log("✅ Remarcação concluída - vencedores atualizados no banco");
+      console.log("✅ REMARCAR: Remarcação concluída - vencedores atualizados no banco");
       
       // Recarregar dados locais
       await loadLances();
