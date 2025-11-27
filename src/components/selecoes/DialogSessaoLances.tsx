@@ -836,12 +836,12 @@ export function DialogSessaoLances({
       // Armazenar mapa de inabilitações por fornecedor para uso em outras partes
       setInabilitacoesPorFornecedor(inabilitacoesPorFornecedor);
 
+      // INCLUIR tipo_lance para priorizar negociações
       const { data, error } = await supabase
         .from("lances_fornecedores")
         .select(`*, fornecedores (razao_social, cnpj)`)
         .eq("selecao_id", selecaoId)
         .order("numero_item", { ascending: true })
-        .order("valor_lance", { ascending: true })
         .order("data_hora_lance", { ascending: true });
 
       if (error) throw error;
@@ -856,7 +856,36 @@ export function DialogSessaoLances({
         return !itensInabilitados.includes(lance.numero_item); // Verificar se o item específico está inabilitado
       });
       
-      setLances(lancesFiltrados);
+      // ORDENAÇÃO CUSTOMIZADA: Priorizar lances de negociação
+      // Agrupar lances por item e ordenar cada grupo
+      const isDesconto = criterioJulgamento === "desconto";
+      
+      const lancesOrdenados = lancesFiltrados.sort((a: any, b: any) => {
+        // Primeiro ordenar por número do item
+        if (a.numero_item !== b.numero_item) {
+          return a.numero_item - b.numero_item;
+        }
+        
+        // Dentro do mesmo item, priorizar lances de negociação
+        const aIsNegociacao = a.tipo_lance === "negociacao";
+        const bIsNegociacao = b.tipo_lance === "negociacao";
+        
+        if (aIsNegociacao && !bIsNegociacao) return -1; // a vem antes
+        if (!aIsNegociacao && bIsNegociacao) return 1;  // b vem antes
+        
+        // Se ambos são negociação ou ambos não são, ordenar por valor
+        // Desconto: maior é melhor (ordem decrescente)
+        // Preço: menor é melhor (ordem crescente)
+        if (isDesconto) {
+          return b.valor_lance - a.valor_lance; // Maior desconto primeiro
+        } else {
+          return a.valor_lance - b.valor_lance; // Menor preço primeiro
+        }
+      });
+      
+      console.log("🎯 Lances ordenados com priorização de negociação:", lancesOrdenados);
+      
+      setLances(lancesOrdenados);
       // Atualizar vencedores quando lances mudam
       loadVencedoresPorItem();
     } catch (error) {
