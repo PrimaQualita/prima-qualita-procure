@@ -20,9 +20,10 @@ export const gerarProcessoCompletoPDF = async (
 
   try {
     // 1. Buscar anexos do processo (CAPA, REQUISIÇÃO, AUTORIZAÇÃO, TERMO DE REFERÊNCIA)
+    // BUSCAR TAMBÉM O STATUS enviado_para_selecao PARA FILTRAR AUTORIZAÇÕES CORRETAMENTE
     const { data: cotacao, error: cotacaoError } = await supabase
       .from("cotacoes_precos")
-      .select("processo_compra_id")
+      .select("processo_compra_id, enviado_para_selecao")
       .eq("id", cotacaoId)
       .single();
 
@@ -284,11 +285,16 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`Relatórios finais encontrados: ${relatorios?.length || 0}`);
 
-    // 8. Buscar TODAS as autorizações
+    // 8. Buscar APENAS as autorizações do tipo correto (Compra Direta OU Seleção de Fornecedores)
+    // NUNCA MISTURAR DOCUMENTOS DE FLUXOS DIFERENTES
+    const tipoAutorizacao = cotacao?.enviado_para_selecao ? 'selecao_fornecedores' : 'compra_direta';
+    console.log(`🔍 Filtrando autorizações pelo tipo: ${tipoAutorizacao}`);
+    
     const { data: autorizacoes, error: autorizacoesError } = await supabase
       .from("autorizacoes_processo")
       .select("*")
       .eq("cotacao_id", cotacaoId)
+      .eq("tipo_autorizacao", tipoAutorizacao) // FILTRAR APENAS PELO TIPO CORRETO
       .order("data_geracao", { ascending: true });
 
     if (autorizacoesError) {
