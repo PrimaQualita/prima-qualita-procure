@@ -98,6 +98,16 @@ export async function gerarPropostaFornecedorPDF(
       }))
     });
     
+    // Validar se é critério de desconto mas não tem dados de desconto
+    if (criterioJulgamento === 'desconto' && itens && itens.length > 0) {
+      const temDescontos = itens.some(i => i.percentual_desconto !== null && i.percentual_desconto !== undefined);
+      if (!temDescontos) {
+        console.warn('⚠️ AVISO: Esta é uma proposta ANTIGA criada antes da implementação do critério de desconto!');
+        console.warn('⚠️ Os dados de desconto não existem para esta proposta.');
+        console.warn('⚠️ Para ver os descontos corretos, visualize uma proposta mais recente ou envie uma nova.');
+      }
+    }
+    
     // DEBUG: Log detalhado dos primeiros itens
     if (itens && itens.length > 0) {
       console.log('🔍 DEBUG - Primeiros 3 itens recebidos:');
