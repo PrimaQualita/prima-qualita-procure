@@ -268,38 +268,52 @@ const SistemaLancesFornecedor = () => {
       setMinhaInabilitacao(inabilitacao);
       
       if (inabilitacao) {
-        // Buscar se já existe recurso
-        const { data: recurso, error: recursoError } = await supabase
+        // Buscar o recurso mais recente (ordenado por created_at DESC)
+        const { data: recursos, error: recursoError } = await supabase
           .from("recursos_inabilitacao_selecao")
           .select("*")
           .eq("inabilitacao_id", inabilitacao.id)
-          .maybeSingle();
+          .order("created_at", { ascending: false })
+          .limit(1);
           
         if (recursoError) throw recursoError;
+        
+        const recurso = recursos?.[0] || null;
         
         if (recurso) {
           setMeuRecurso(recurso);
         } else {
-          // Criar recurso automaticamente se ainda não existe
-          // Data limite: 1 dia útil após inabilitação
-          const dataInabilitacao = new Date(inabilitacao.data_inabilitacao);
-          const dataLimite = calcularProximoDiaUtil(dataInabilitacao, 1);
+          // Só criar recurso se fornecedor já manifestou intenção de recorrer
+          // Buscar intenção de recurso primeiro
+          const { data: intencao } = await supabase
+            .from("intencoes_recurso_selecao")
+            .select("*")
+            .eq("selecao_id", selecao.id)
+            .eq("fornecedor_id", proposta.fornecedor_id)
+            .maybeSingle();
           
-          const { data: novoRecurso, error: criarError } = await supabase
-            .from("recursos_inabilitacao_selecao")
-            .insert({
-              inabilitacao_id: inabilitacao.id,
-              selecao_id: selecao.id,
-              fornecedor_id: proposta.fornecedor_id,
-              motivo_recurso: "",
-              data_limite_fornecedor: dataLimite.toISOString(),
-              status_recurso: "aguardando_envio"
-            })
-            .select()
-            .single();
+          if (intencao?.deseja_recorrer) {
+            // Data limite: 1 dia útil a partir de agora
+            const dataLimite = calcularProximoDiaUtil(new Date(), 1);
             
-          if (!criarError && novoRecurso) {
-            setMeuRecurso(novoRecurso);
+            const { data: novoRecurso, error: criarError } = await supabase
+              .from("recursos_inabilitacao_selecao")
+              .insert({
+                inabilitacao_id: inabilitacao.id,
+                selecao_id: selecao.id,
+                fornecedor_id: proposta.fornecedor_id,
+                motivo_recurso: "",
+                data_limite_fornecedor: dataLimite.toISOString(),
+                status_recurso: "aguardando_envio"
+              })
+              .select()
+              .single();
+              
+            if (!criarError && novoRecurso) {
+              setMeuRecurso(novoRecurso);
+            }
+          } else {
+            setMeuRecurso(null);
           }
         }
       } else {
@@ -420,19 +434,29 @@ const SistemaLancesFornecedor = () => {
         setDialogIntencaoRecurso(false);
         setMotivoIntencao("");
         
-        // Se fornecedor foi inabilitado, criar registro de recurso formal
+        // Se fornecedor foi inabilitado, verificar se já existe recurso antes de criar
         if (minhaInabilitacao) {
-          const dataLimite = calcularProximoDiaUtil(new Date(), 1);
-          await supabase
+          // Verificar se já existe recurso
+          const { data: recursosExistentes } = await supabase
             .from("recursos_inabilitacao_selecao")
-            .insert({
-              inabilitacao_id: minhaInabilitacao.id,
-              selecao_id: selecao.id,
-              fornecedor_id: proposta.fornecedor_id,
-              motivo_recurso: "",
-              data_limite_fornecedor: dataLimite.toISOString(),
-              status_recurso: "aguardando_envio"
-            });
+            .select("id")
+            .eq("inabilitacao_id", minhaInabilitacao.id)
+            .limit(1);
+          
+          // Só criar se não existir nenhum recurso
+          if (!recursosExistentes || recursosExistentes.length === 0) {
+            const dataLimite = calcularProximoDiaUtil(new Date(), 1);
+            await supabase
+              .from("recursos_inabilitacao_selecao")
+              .insert({
+                inabilitacao_id: minhaInabilitacao.id,
+                selecao_id: selecao.id,
+                fornecedor_id: proposta.fornecedor_id,
+                motivo_recurso: "",
+                data_limite_fornecedor: dataLimite.toISOString(),
+                status_recurso: "aguardando_envio"
+              });
+          }
           loadMinhaInabilitacao();
         }
       } else {
