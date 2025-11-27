@@ -487,11 +487,13 @@ export const gerarAutorizacaoSelecao = async (
   doc.setFontSize(12);
   const textoLimpo = extractTextFromHTML(objetoProcesso);
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
-  doc.text(linhasAssunto, 20, 85, { align: 'justify', maxWidth: 170 });
+  const yPosAssunto = 85;
+  doc.text(linhasAssunto, 20, yPosAssunto, { align: 'justify', maxWidth: 170 });
   
-  // Texto principal
+  // Texto principal - calcular posição dinamicamente baseado no tamanho do assunto
   doc.setFontSize(11);
-  let yPos = 108;
+  const espacamentoAposAssunto = 15; // Espaçamento fixo após o assunto
+  let yPos = yPosAssunto + (linhasAssunto.length * 6) + espacamentoAposAssunto;
   
   const texto1 = 'Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, autorizo a presente contratação por SELEÇÃO DE FORNECEDORES, conforme requisição e termo de referência anexos, nos termos do art.4° do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição.';
   
