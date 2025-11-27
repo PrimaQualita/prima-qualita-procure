@@ -74,7 +74,7 @@ const justifyText = (doc: jsPDF, text: string, x: number, y: number, width: numb
 };
 
 export const gerarRespostaRecursoPDF = async (
-  decisao: 'provimento' | 'negado',
+  decisao: 'provimento' | 'negado' | 'provimento_parcial',
   textoResposta: string,
   usuarioNome: string,
   usuarioCpf: string,
@@ -165,7 +165,9 @@ export const gerarRespostaRecursoPDF = async (
   doc.setFont('helvetica', 'bold');
   doc.text('Decisão:  ', margemTexto, y);
   doc.setFont('helvetica', 'normal');
-  const decisaoTexto = decisao === 'provimento' ? 'DAR PROVIMENTO AO RECURSO' : 'NEGAR PROVIMENTO AO RECURSO';
+  const decisaoTexto = decisao === 'provimento' ? 'DAR PROVIMENTO AO RECURSO' : 
+                       decisao === 'provimento_parcial' ? 'DAR PROVIMENTO PARCIAL AO RECURSO' : 
+                       'NEGAR PROVIMENTO AO RECURSO';
   doc.text(decisaoTexto, margemTexto + doc.getTextWidth('Decisão:  '), y);
   
   y += 12;

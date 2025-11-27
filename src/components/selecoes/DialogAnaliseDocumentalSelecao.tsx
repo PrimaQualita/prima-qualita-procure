@@ -170,6 +170,16 @@ export function DialogAnaliseDocumentalSelecao({
   // State para confirmar exclusão completa do recurso
   const [confirmDeleteRecurso, setConfirmDeleteRecurso] = useState<{ open: boolean; recursoId: string | null }>({ open: false, recursoId: null });
 
+  // States para encerramento de habilitação
+  const [habilitacaoEncerrada, setHabilitacaoEncerrada] = useState(false);
+  const [dataEncerramentoHabilitacao, setDataEncerramentoHabilitacao] = useState<string | null>(null);
+  const [dialogEncerrarHabilitacao, setDialogEncerrarHabilitacao] = useState(false);
+  const [dialogReverterEncerramento, setDialogReverterEncerramento] = useState(false);
+  
+  // States para provimento parcial
+  const [tipoProvimento, setTipoProvimento] = useState<'total' | 'parcial'>('total');
+  const [itensReabilitar, setItensReabilitar] = useState<number[]>([]);
+
   useEffect(() => {
     if (open && selecaoId) {
       loadFornecedoresVencedores();
@@ -193,9 +203,15 @@ export function DialogAnaliseDocumentalSelecao({
       // Buscar dados da seleção e itens para obter quantidades
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
-        .select("cotacao_relacionada_id, titulo_selecao, numero_selecao, criterios_julgamento")
+        .select("cotacao_relacionada_id, titulo_selecao, numero_selecao, criterios_julgamento, habilitacao_encerrada, data_encerramento_habilitacao")
         .eq("id", selecaoId)
         .single();
+
+      if (selecaoError) throw selecaoError;
+      
+      // Salvar status de encerramento de habilitação
+      setHabilitacaoEncerrada(selecaoData?.habilitacao_encerrada || false);
+      setDataEncerramentoHabilitacao(selecaoData?.data_encerramento_habilitacao || null);
 
       if (selecaoError) throw selecaoError;
       
@@ -503,7 +519,7 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
-  const handleResponderRecurso = async (deferido: boolean) => {
+  const handleResponderRecurso = async (decisao: 'deferido' | 'indeferido' | 'parcial') => {
     if (!recursoParaResponder) return;
 
     setGerandoPdfRecurso(true);
@@ -525,21 +541,24 @@ export function DialogAnaliseDocumentalSelecao({
         .single();
 
       const dataRespostaGestor = new Date().toISOString();
+      const statusRecurso = decisao === 'parcial' ? 'deferido_parcial' : decisao;
       
       const { error } = await supabase
         .from("recursos_inabilitacao_selecao")
         .update({
-          status_recurso: deferido ? "deferido" : "indeferido",
+          status_recurso: statusRecurso,
           resposta_gestor: respostaRecurso,
           data_resposta_gestor: dataRespostaGestor,
-          usuario_gestor_id: userData?.user?.id
+          usuario_gestor_id: userData?.user?.id,
+          tipo_provimento: decisao === 'parcial' ? 'parcial' : 'total',
+          itens_reabilitados: decisao === 'parcial' ? itensReabilitar : []
         })
         .eq("id", recursoParaResponder.id);
 
       if (error) throw error;
 
-      // Se deferido, reverter a inabilitação automaticamente
-      if (deferido) {
+      // Se deferido totalmente, reverter a inabilitação completamente
+      if (decisao === 'deferido') {
         const { error: revertError } = await supabase
           .from("fornecedores_inabilitados_selecao")
           .update({
@@ -552,11 +571,52 @@ export function DialogAnaliseDocumentalSelecao({
 
         if (revertError) throw revertError;
       }
+      
+      // Se deferido parcialmente, atualizar os itens afetados removendo os reabilitados
+      if (decisao === 'parcial' && itensReabilitar.length > 0 && inabilitacao) {
+        const itensRestantes = (inabilitacao.itens_afetados || []).filter(
+          (item: number) => !itensReabilitar.includes(item)
+        );
+        
+        if (itensRestantes.length === 0) {
+          // Se não sobrou nenhum item, reverter completamente
+          await supabase
+            .from("fornecedores_inabilitados_selecao")
+            .update({
+              revertido: true,
+              motivo_reversao: `Recurso deferido parcialmente (todos os itens reabilitados): ${respostaRecurso}`,
+              data_reversao: new Date().toISOString(),
+              usuario_reverteu_id: userData?.user?.id
+            })
+            .eq("id", recursoParaResponder.inabilitacao_id);
+        } else {
+          // Atualizar itens afetados com os que restaram
+          await supabase
+            .from("fornecedores_inabilitados_selecao")
+            .update({
+              itens_afetados: itensRestantes,
+              motivo_inabilitacao: `${inabilitacao.motivo_inabilitacao} | Parcialmente reabilitado: itens ${itensReabilitar.join(", ")}`
+            })
+            .eq("id", recursoParaResponder.inabilitacao_id);
+        }
+        
+        // Reabilitar o fornecedor como vencedor nos itens reabilitados
+        for (const item of itensReabilitar) {
+          await supabase
+            .from("lances_fornecedores")
+            .update({ indicativo_lance_vencedor: true })
+            .eq("selecao_id", selecaoId)
+            .eq("fornecedor_id", inabilitacao.fornecedor_id)
+            .eq("numero_item", item);
+        }
+      }
 
       // Gerar PDF da resposta ao recurso
       try {
+        const tipoDecisao = decisao === 'deferido' ? 'provimento' : 
+                            decisao === 'parcial' ? 'provimento_parcial' : 'negado';
         const pdfResult = await gerarRespostaRecursoPDF(
-          deferido ? "provimento" : "negado",
+          tipoDecisao,
           respostaRecurso,
           profileData?.nome_completo || "Gestor",
           profileData?.cpf || "",
@@ -583,10 +643,14 @@ export function DialogAnaliseDocumentalSelecao({
         // Não bloqueia o processo se o PDF falhar
       }
 
-      toast.success(`Recurso ${deferido ? "deferido" : "indeferido"} com sucesso!`);
+      const mensagem = decisao === 'deferido' ? "deferido" : 
+                       decisao === 'parcial' ? "deferido parcialmente" : "indeferido";
+      toast.success(`Recurso ${mensagem} com sucesso!`);
       setDialogResponderRecurso(false);
       setRecursoParaResponder(null);
       setRespostaRecurso("");
+      setTipoProvimento('total');
+      setItensReabilitar([]);
       loadFornecedoresVencedores();
       onSuccess?.();
     } catch (error) {
@@ -594,6 +658,61 @@ export function DialogAnaliseDocumentalSelecao({
       toast.error("Erro ao responder recurso");
     } finally {
       setGerandoPdfRecurso(false);
+    }
+  };
+
+  // Handlers para encerrar/reverter habilitação
+  const handleEncerrarHabilitacao = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("selecoes_fornecedores")
+        .update({
+          habilitacao_encerrada: true,
+          data_encerramento_habilitacao: new Date().toISOString(),
+          usuario_encerrou_habilitacao_id: user.id
+        })
+        .eq("id", selecaoId);
+
+      if (error) throw error;
+
+      toast.success("Habilitação encerrada! Fornecedores têm 5 minutos para declarar intenção de recurso.");
+      setDialogEncerrarHabilitacao(false);
+      setHabilitacaoEncerrada(true);
+      setDataEncerramentoHabilitacao(new Date().toISOString());
+      onSuccess?.();
+    } catch (error) {
+      console.error("Erro ao encerrar habilitação:", error);
+      toast.error("Erro ao encerrar habilitação");
+    }
+  };
+
+  const handleReverterEncerramento = async () => {
+    try {
+      const { error } = await supabase
+        .from("selecoes_fornecedores")
+        .update({
+          habilitacao_encerrada: false,
+          data_encerramento_habilitacao: null,
+          usuario_encerrou_habilitacao_id: null
+        })
+        .eq("id", selecaoId);
+
+      if (error) throw error;
+
+      toast.success("Encerramento revertido!");
+      setDialogReverterEncerramento(false);
+      setHabilitacaoEncerrada(false);
+      setDataEncerramentoHabilitacao(null);
+      onSuccess?.();
+    } catch (error) {
+      console.error("Erro ao reverter encerramento:", error);
+      toast.error("Erro ao reverter encerramento");
     }
   };
 
@@ -2082,6 +2201,24 @@ export function DialogAnaliseDocumentalSelecao({
               </div>
             ) : (
               <>
+                {/* Status de Habilitação Encerrada */}
+                {habilitacaoEncerrada && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="h-5 w-5" />
+                      <span className="font-semibold">Habilitação Encerrada</span>
+                    </div>
+                    {dataEncerramentoHabilitacao && (
+                      <p className="text-sm text-green-600 mt-1">
+                        Encerrada em {format(new Date(dataEncerramentoHabilitacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    )}
+                    <p className="text-sm text-green-600 mt-1">
+                      Fornecedores têm 5 minutos para declarar intenção de recurso.
+                    </p>
+                  </div>
+                )}
+
                 {/* Fornecedores Habilitados */}
                 {fornecedoresData.length > 0 && (
                   <div className="space-y-4">
@@ -2103,6 +2240,30 @@ export function DialogAnaliseDocumentalSelecao({
                     {fornecedoresInabilitados.map((data) => renderFornecedorCard(data, true))}
                   </div>
                 )}
+
+                {/* Botão Encerrar Habilitação / Reverter */}
+                <div className="border-t pt-6 mt-8">
+                  {!habilitacaoEncerrada ? (
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={() => setDialogEncerrarHabilitacao(true)}
+                    >
+                      <CheckCircle className="h-5 w-5 mr-2" />
+                      Encerrar Habilitação
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      size="lg"
+                      onClick={() => setDialogReverterEncerramento(true)}
+                    >
+                      <Undo2 className="h-5 w-5 mr-2" />
+                      Reverter Encerramento
+                    </Button>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -2500,7 +2661,7 @@ export function DialogAnaliseDocumentalSelecao({
 
       {/* Dialog para responder recurso de inabilitação */}
       <AlertDialog open={dialogResponderRecurso} onOpenChange={setDialogResponderRecurso}>
-        <AlertDialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <AlertDialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <AlertDialogHeader className="flex-shrink-0">
             <AlertDialogTitle className="flex items-center gap-2 text-primary">
               <Gavel className="h-5 w-5" />
@@ -2521,29 +2682,92 @@ export function DialogAnaliseDocumentalSelecao({
             
             <div className="space-y-2">
               <Label className="font-semibold">Decisão *</Label>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
                     name="decisao"
-                    checked={deferirRecurso}
-                    onChange={() => setDeferirRecurso(true)}
+                    checked={tipoProvimento === 'total' && deferirRecurso}
+                    onChange={() => { setDeferirRecurso(true); setTipoProvimento('total'); }}
                     className="w-4 h-4 text-primary"
                   />
-                  <span className="text-sm font-medium text-green-700">Deferir (Aceitar)</span>
+                  <span className="text-sm font-medium text-green-700">Deferir (Total)</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
                     name="decisao"
-                    checked={!deferirRecurso}
-                    onChange={() => setDeferirRecurso(false)}
+                    checked={tipoProvimento === 'parcial'}
+                    onChange={() => { setDeferirRecurso(true); setTipoProvimento('parcial'); }}
+                    className="w-4 h-4 text-primary"
+                  />
+                  <span className="text-sm font-medium text-yellow-700">Deferir Parcialmente</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="decisao"
+                    checked={!deferirRecurso && tipoProvimento === 'total'}
+                    onChange={() => { setDeferirRecurso(false); setTipoProvimento('total'); }}
                     className="w-4 h-4 text-destructive"
                   />
                   <span className="text-sm font-medium text-red-700">Indeferir (Rejeitar)</span>
                 </label>
               </div>
             </div>
+            
+            {/* Seleção de itens para provimento parcial */}
+            {tipoProvimento === 'parcial' && recursoParaResponder && (
+              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                <p className="text-sm font-medium text-yellow-800 mb-2">
+                  Selecione os itens a serem reabilitados:
+                </p>
+                <div className="grid grid-cols-4 gap-2">
+                  {(async () => {
+                    // Buscar itens afetados da inabilitação
+                    const { data: inab } = await supabase
+                      .from("fornecedores_inabilitados_selecao")
+                      .select("itens_afetados")
+                      .eq("id", recursoParaResponder.inabilitacao_id)
+                      .single();
+                    return inab?.itens_afetados || [];
+                  })() && recursoParaResponder.itensInabilitados?.map((item: number) => (
+                    <div 
+                      key={item}
+                      className={`flex items-center gap-2 p-2 border rounded cursor-pointer transition-colors ${
+                        itensReabilitar.includes(item) 
+                          ? 'border-green-500 bg-green-50' 
+                          : 'hover:bg-muted'
+                      }`}
+                      onClick={() => {
+                        setItensReabilitar(prev => 
+                          prev.includes(item) 
+                            ? prev.filter(i => i !== item)
+                            : [...prev, item]
+                        );
+                      }}
+                    >
+                      <Checkbox
+                        checked={itensReabilitar.includes(item)}
+                        onCheckedChange={() => {
+                          setItensReabilitar(prev => 
+                            prev.includes(item) 
+                              ? prev.filter(i => i !== item)
+                              : [...prev, item]
+                          );
+                        }}
+                      />
+                      <span className="text-sm">Item {item}</span>
+                    </div>
+                  ))}
+                </div>
+                {itensReabilitar.length > 0 && (
+                  <p className="text-xs text-yellow-700 mt-2">
+                    {itensReabilitar.length} item(ns) será(ão) reabilitado(s)
+                  </p>
+                )}
+              </div>
+            )}
             
             <div className="space-y-2">
               <Label className="font-semibold">Fundamentação da Decisão *</Label>
@@ -2556,10 +2780,18 @@ export function DialogAnaliseDocumentalSelecao({
               />
             </div>
             
-            {deferirRecurso && (
+            {deferirRecurso && tipoProvimento === 'total' && (
               <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
                 <p className="text-sm text-green-700">
-                  <strong>Atenção:</strong> Ao deferir o recurso, a inabilitação será automaticamente revertida e o fornecedor voltará a participar da seleção.
+                  <strong>Atenção:</strong> Ao deferir o recurso totalmente, a inabilitação será automaticamente revertida e o fornecedor voltará a participar da seleção em todos os itens.
+                </p>
+              </div>
+            )}
+            
+            {tipoProvimento === 'parcial' && (
+              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                <p className="text-sm text-yellow-700">
+                  <strong>Atenção:</strong> Ao deferir parcialmente, apenas os itens selecionados serão reabilitados. O fornecedor permanecerá inabilitado nos demais itens.
                 </p>
               </div>
             )}
@@ -2568,8 +2800,12 @@ export function DialogAnaliseDocumentalSelecao({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={gerandoPdfRecurso}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => handleResponderRecurso(deferirRecurso)}
-              disabled={!respostaRecurso.trim() || gerandoPdfRecurso}
+              onClick={() => {
+                const decisao = tipoProvimento === 'parcial' ? 'parcial' : 
+                               deferirRecurso ? 'deferido' : 'indeferido';
+                handleResponderRecurso(decisao);
+              }}
+              disabled={!respostaRecurso.trim() || gerandoPdfRecurso || (tipoProvimento === 'parcial' && itensReabilitar.length === 0)}
               className={deferirRecurso ? "bg-green-600 hover:bg-green-700" : "bg-destructive hover:bg-destructive/90"}
             >
               {gerandoPdfRecurso ? (
@@ -2580,7 +2816,8 @@ export function DialogAnaliseDocumentalSelecao({
               ) : (
                 <>
                   <FileDown className="h-4 w-4 mr-1" />
-                  {deferirRecurso ? "Deferir Recurso" : "Indeferir Recurso"}
+                  {tipoProvimento === 'parcial' ? "Deferir Parcialmente" :
+                   deferirRecurso ? "Deferir Recurso" : "Indeferir Recurso"}
                 </>
               )}
             </AlertDialogAction>
@@ -2622,6 +2859,49 @@ export function DialogAnaliseDocumentalSelecao({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleExcluirRecursoCompleto} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir Recurso
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para encerrar habilitação */}
+      <AlertDialog open={dialogEncerrarHabilitacao} onOpenChange={setDialogEncerrarHabilitacao}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-primary">
+              <CheckCircle className="h-5 w-5" />
+              Encerrar Habilitação
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Ao encerrar a habilitação, todos os fornecedores (habilitados e inabilitados) terão 5 minutos para declarar intenção de recurso.
+              Após esse período, fornecedores que declararem intenção terão 1 dia útil para enviar o recurso formal.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleEncerrarHabilitacao}>
+              Confirmar Encerramento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para reverter encerramento */}
+      <AlertDialog open={dialogReverterEncerramento} onOpenChange={setDialogReverterEncerramento}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Undo2 className="h-5 w-5" />
+              Reverter Encerramento
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja reverter o encerramento da habilitação? Isso permitirá continuar a análise documental.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReverterEncerramento}>
+              Reverter Encerramento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
