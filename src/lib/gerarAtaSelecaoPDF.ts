@@ -915,7 +915,6 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   } else {
     const textoAbertura = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento, as empresas se manifestaram da seguinte forma:`;
     currentY = drawJustifiedText(doc, textoAbertura, marginLeft, currentY, contentWidth, lineHeight);
-    currentY += espacoAposTitulo;
 
     // Empresas que desejam recorrer
     if (empresasQueRecorreram.length > 0) {
