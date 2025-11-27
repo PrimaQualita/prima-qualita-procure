@@ -658,22 +658,35 @@ const SistemaLancesFornecedor = () => {
           .order("numero_item");
 
         console.log('📊 Dados brutos de itens estimados:', itensEstimadosData);
+        console.log('📊 Erro ao buscar itens estimados:', itensEstimadosError);
 
         if (!itensEstimadosError && itensEstimadosData) {
           const mapaEstimados = new Map<number, number>();
           
           itensEstimadosData.forEach((item: any) => {
-            console.log(`Item ${item.numero_item}: valor_unitario_estimado =`, item.valor_unitario_estimado);
-            if (item.valor_unitario_estimado != null && item.valor_unitario_estimado !== undefined) {
-              mapaEstimados.set(item.numero_item, item.valor_unitario_estimado);
+            console.log(`📌 Item ${item.numero_item}: valor_unitario_estimado =`, item.valor_unitario_estimado, 'tipo:', typeof item.valor_unitario_estimado);
+            
+            // Aceitar tanto números quanto null/undefined, mas converter null para 0
+            const valorEstimado = item.valor_unitario_estimado ?? 0;
+            mapaEstimados.set(item.numero_item, valorEstimado);
+            
+            if (valorEstimado === 0) {
+              console.warn(`⚠️ ATENÇÃO: Item ${item.numero_item} tem valor estimado ZERO ou NULL!`);
             }
           });
 
-          console.log('✅ Valores estimados carregados:', Object.fromEntries(mapaEstimados));
+          console.log('✅ Valores estimados carregados no Map:', Object.fromEntries(mapaEstimados));
           setItensEstimados(mapaEstimados);
+          
+          // Verificar imediatamente após setar
+          setTimeout(() => {
+            console.log('🔍 Verificação pós-setState de itensEstimados:', Object.fromEntries(mapaEstimados));
+          }, 100);
         } else {
           console.error('❌ Erro ao buscar itens estimados:', itensEstimadosError);
         }
+      } else {
+        console.error('❌ ERRO: cotacao_relacionada_id não existe!', propostaData.selecoes_fornecedores);
       }
 
       // Buscar fornecedores inabilitados da seleção COM itens_afetados
@@ -846,6 +859,9 @@ const SistemaLancesFornecedor = () => {
     try {
       console.log('loadLances: Buscando inabilitados para selecao_id:', selecao.id);
       
+      // CRÍTICO: Não recarregar itensEstimados aqui - eles já foram carregados no loadProposta
+      // O polling NÃO deve limpar os valores estimados
+      
       // Buscar fornecedores inabilitados da seleção COM itens_afetados
       const { data: inabilitados, error: inabilitadosError } = await supabase
         .from("fornecedores_inabilitados_selecao")
@@ -891,6 +907,7 @@ const SistemaLancesFornecedor = () => {
         .eq("selecao_id", selecao.id);
 
       if (todasPropostas) {
+        const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
         const mapaMenorValor = new Map<number, number>();
         
         todasPropostas.forEach((prop: any) => {
@@ -907,15 +924,24 @@ const SistemaLancesFornecedor = () => {
               
               if (item.valor_unitario_ofertado > 0) {
                 const valorAtual = mapaMenorValor.get(item.numero_item);
-                if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
-                  mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
+                
+                // Para desconto: pegar MAIOR valor (maior desconto = melhor)
+                // Para valor: pegar MENOR valor (menor preço = melhor)
+                if (isDesconto) {
+                  if (!valorAtual || item.valor_unitario_ofertado > valorAtual) {
+                    mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
+                  }
+                } else {
+                  if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
+                    mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
+                  }
                 }
               }
             });
           }
         });
 
-        console.log('Menor valor por item (sem inabilitados):', Object.fromEntries(mapaMenorValor));
+        console.log(`${isDesconto ? 'MAIOR DESCONTO' : 'Menor valor'} por item no polling:`, Object.fromEntries(mapaMenorValor));
         setMenorValorPropostas(mapaMenorValor);
       }
 
