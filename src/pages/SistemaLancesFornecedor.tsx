@@ -81,6 +81,14 @@ const SistemaLancesFornecedor = () => {
   const [documentosRejeitados, setDocumentosRejeitados] = useState<any[]>([]);
   const [numeroProcesso, setNumeroProcesso] = useState<string>("");
 
+  // DEBUG: Monitorar mudanças em itensEstimados
+  useEffect(() => {
+    console.log('🔄 itensEstimados mudou:', {
+      size: itensEstimados.size,
+      entries: Object.fromEntries(itensEstimados)
+    });
+  }, [itensEstimados]);
+
   // CRÍTICO: Filtrar lances excluindo fornecedores inabilitados de forma reativa
   // Isso garante que sempre que lances ou fornecedoresInabilitados mudam, os lances são refiltrados
   const lancesFiltrados = useMemo(() => {
@@ -651,33 +659,48 @@ const SistemaLancesFornecedor = () => {
       }
       // Buscar estimativas da planilha consolidada mais recente
       if (propostaData.selecoes_fornecedores.cotacao_relacionada_id) {
+        console.log('🔍 Buscando estimativas da cotação:', propostaData.selecoes_fornecedores.cotacao_relacionada_id);
+        
         const { data: planilhaData, error: planilhaError } = await supabase
           .from("planilhas_consolidadas")
-          .select("estimativas_itens")
+          .select("estimativas_itens, created_at, id")
           .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
         console.log('📊 Planilha consolidada mais recente:', planilhaData);
+        console.log('📊 Erro ao buscar planilha:', planilhaError);
 
-        if (!planilhaError && planilhaData?.estimativas_itens) {
-          const mapaEstimados = new Map<number, number>();
-          const estimativas = planilhaData.estimativas_itens as Record<string, number>;
+        if (!planilhaError && planilhaData) {
+          console.log('📊 estimativas_itens do banco:', planilhaData.estimativas_itens);
+          console.log('📊 Tipo de estimativas_itens:', typeof planilhaData.estimativas_itens);
           
-          // Converter objeto para Map
-          Object.entries(estimativas).forEach(([numeroItem, valor]) => {
-            const num = parseInt(numeroItem);
-            mapaEstimados.set(num, valor);
-            console.log(`✅ Item ${num}: Estimativa = ${valor}`);
-          });
+          if (planilhaData.estimativas_itens) {
+            const mapaEstimados = new Map<number, number>();
+            const estimativas = planilhaData.estimativas_itens as Record<string, number>;
+            
+            console.log('📊 Convertendo estimativas:', estimativas);
+            
+            // Converter objeto para Map
+            Object.entries(estimativas).forEach(([numeroItem, valor]) => {
+              const num = parseInt(numeroItem);
+              mapaEstimados.set(num, valor);
+              console.log(`✅ Item ${num}: Estimativa = ${valor}`);
+            });
 
-          console.log('✅ Estimativas carregadas da planilha:', Object.fromEntries(mapaEstimados));
-          setItensEstimados(mapaEstimados);
+            console.log('✅ Estimativas carregadas da planilha:', Object.fromEntries(mapaEstimados));
+            setItensEstimados(mapaEstimados);
+          } else {
+            console.warn('⚠️ Planilha sem campo estimativas_itens - foi gerada antes da atualização');
+            console.warn('⚠️ GERE UMA NOVA PLANILHA para que as estimativas apareçam');
+          }
         } else {
-          console.error('❌ Erro ao buscar planilha ou sem estimativas:', planilhaError);
-          console.warn('⚠️ Planilha pode ter sido gerada antes da atualização - gere novamente');
+          console.error('❌ Erro ao buscar planilha:', planilhaError);
+          console.warn('⚠️ Nenhuma planilha consolidada encontrada para esta cotação');
         }
+      } else {
+        console.warn('⚠️ Seleção sem cotacao_relacionada_id');
       }
 
       // Buscar fornecedores inabilitados da seleção COM itens_afetados
@@ -1837,7 +1860,10 @@ const SistemaLancesFornecedor = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                    {Array.from(itensAbertos).sort((a, b) => a - b).slice(0, 10).map((numeroItem) => {
+                    {(() => {
+                      console.log('🎨 RENDERIZANDO ITENS - itensEstimados atual:', Object.fromEntries(itensEstimados));
+                      return Array.from(itensAbertos).sort((a, b) => a - b).slice(0, 10);
+                    })().map((numeroItem) => {
                       const tempoExpiracao = itensEmFechamento.get(numeroItem);
                       const emFechamento = tempoExpiracao !== undefined;
                       const segundosRestantes = emFechamento ? Math.max(0, Math.ceil((tempoExpiracao - Date.now()) / 1000)) : 0;
@@ -1949,10 +1975,13 @@ const SistemaLancesFornecedor = () => {
                                     <span>Estimado</span>
                                   </div>
                                   <p className="font-bold text-sm text-amber-700">
-                                    {selecao?.processos_compras?.criterio_julgamento === "desconto" 
-                                      ? `${(itensEstimados.get(numeroItem) || 0).toFixed(2).replace('.', ',')}%`
-                                      : formatarMoeda(itensEstimados.get(numeroItem) || 0)
-                                    }
+                                    {(() => {
+                                      const valorEstimado = itensEstimados.get(numeroItem) || 0;
+                                      console.log(`🎨 RENDERIZANDO Item ${numeroItem} - Estimado: ${valorEstimado}`);
+                                      return selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                        ? `${valorEstimado.toFixed(2).replace('.', ',')}%`
+                                        : formatarMoeda(valorEstimado);
+                                    })()}
                                   </p>
                                 </div>
                               </div>
