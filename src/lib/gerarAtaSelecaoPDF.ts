@@ -1442,10 +1442,10 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginLeft = 40;
   const marginRight = 40;
   
-  // Começar ABAIXO do final previsto da certificação
-  // A certificação no PDF original termina aproximadamente na posição Y=150 (pdf-lib)
-  // Deixar um espaço e começar abaixo
-  let currentY = 120; // Posição abaixo da certificação com margem
+  // No pdf-lib, Y=0 é no RODAPÉ e cresce para CIMA
+  // A certificação termina aproximadamente em Y=570 (do rodapé)
+  // Começar um pouco abaixo dela (mais para baixo em Y significa MENOS pontos)
+  let currentY = 520; // Abaixo da certificação, com espaço
   console.log('>>> Iniciando termo de aceite em Y:', currentY, 'na página', originalPageCount);
   const footerLimit = 60;
 
