@@ -206,7 +206,7 @@ export default function PortalFornecedor() {
         .eq("fornecedor_id", fornecedorId)
         .not("cotacao_id", "is", null)
         .is("selecao_id", null)
-        .in("status_solicitacao", ["pendente", "em_analise"]);
+        .eq("status_solicitacao", "pendente"); // Apenas pendentes, não em análise
 
       if (camposError) {
         console.error("❌ Erro ao buscar campos solicitados:", camposError);
@@ -282,7 +282,7 @@ export default function PortalFornecedor() {
         `)
         .eq("fornecedor_id", fornecedorId)
         .not("selecao_id", "is", null)
-        .in("status_solicitacao", ["pendente", "em_analise"]);
+        .eq("status_solicitacao", "pendente"); // Apenas pendentes, não em análise
 
       if (camposError) {
         console.error("❌ Erro ao buscar campos solicitados de seleção:", camposError);
