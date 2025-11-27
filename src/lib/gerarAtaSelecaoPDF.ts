@@ -918,6 +918,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
     // Empresas que desejam recorrer
     if (empresasQueRecorreram.length > 0) {
+      currentY += 4; // Espaço extra antes do subtítulo
       checkNewPage(15);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(220, 120, 0); // Laranja
@@ -937,6 +938,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
     // Empresas que não desejam recorrer
     if (empresasQueNaoRecorreram.length > 0) {
+      currentY += 4; // Espaço extra antes do subtítulo
       checkNewPage(15);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 128, 0); // Verde
