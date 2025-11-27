@@ -1104,7 +1104,13 @@ const SistemaLancesFornecedor = () => {
       return;
     }
 
-    const valorNumerico = parseFloat(valorLance.replace(/\./g, "").replace(",", "."));
+    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
+    
+    // Para desconto, o valor já está no formato correto (0.34)
+    // Para moeda, precisa converter formato brasileiro (1.234,56) para numérico (1234.56)
+    const valorNumerico = isDesconto
+      ? parseFloat(valorLance)
+      : parseFloat(valorLance.replace(/\./g, "").replace(",", "."));
     
     if (isNaN(valorNumerico) || valorNumerico <= 0) {
       toast.error("Valor do lance inválido");
@@ -1262,84 +1268,47 @@ const SistemaLancesFornecedor = () => {
   };
 
   const isFornecedorVencendoItem = (numeroItem: number): boolean => {
-    if (!proposta?.fornecedor_id) {
-      console.log(`🏆 Item ${numeroItem}: Sem fornecedor_id na proposta`);
-      return false;
-    }
+    const itemAberto = itensAbertos.has(numeroItem);
+    const itemFechado = itensFechados.has(numeroItem);
+    
+    if (!itemAberto && !itemFechado) return false;
     
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
-    const lancesDoItem = getLancesDoItem(numeroItem);
     const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
     
-    console.log(`🏆 Item ${numeroItem} - Verificando vencedor:`, {
-      fornecedorAtual: proposta.fornecedor_id,
-      valorEstimado,
-      isDesconto,
-      totalLances: lancesDoItem.length,
-      lances: lancesDoItem.map(l => ({ 
-        fornecedor: l.fornecedor_id, 
-        valor: l.valor_lance,
-        ehAtual: l.fornecedor_id === proposta.fornecedor_id
-      }))
-    });
+    const lancesDoItem = lances.filter(
+      l => l.numero_item === numeroItem && !fornecedoresInabilitados.has(l.fornecedor_id)
+    );
     
     // Se há lances, verificar pelos lances
     if (lancesDoItem.length > 0) {
-      // Filtrar apenas lances classificados
       const lancesClassificados = isDesconto
-        ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado) // Desconto: maior ou igual ao estimado
-        : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Preço: menor ou igual ao estimado
+        ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado)
+        : lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
       
-      console.log(`🏆 Item ${numeroItem} - Lances classificados:`, lancesClassificados.length);
+      if (lancesClassificados.length === 0) return false;
       
-      if (lancesClassificados.length === 0) {
-        console.log(`🏆 Item ${numeroItem}: Nenhum lance classificado`);
-        return false;
-      }
-      
-      // Ordenar conforme critério
       const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
         if (isDesconto) {
-          // Desconto: maior valor vence, desempate por data (mais antigo ganha)
           if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
         } else {
-          // Preço: menor valor vence, desempate por data (mais antigo ganha)
           if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
         }
         return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
       });
       
       const vencedor = lancesOrdenados[0];
-      const isVencendo = vencedor?.fornecedor_id === proposta.fornecedor_id;
-      
-      console.log(`🏆 Item ${numeroItem} - Resultado POR LANCES:`, {
-        vencedor: vencedor?.fornecedor_id,
-        valorVencedor: vencedor?.valor_lance,
-        fornecedorAtual: proposta.fornecedor_id,
-        isVencendo
-      });
-      
-      return isVencendo;
+      return vencedor?.fornecedor_id === proposta.fornecedor_id;
     }
     
     // Se NÃO há lances, verificar pela proposta inicial
     const itemProposta = itens.find(i => i.numero_item === numeroItem);
     const melhorValorProposta = menorValorPropostas.get(numeroItem);
     
-    console.log(`🏆 Item ${numeroItem} - Verificando por PROPOSTA INICIAL:`, {
-      valorDoFornecedor: itemProposta?.valor_unitario_ofertado,
-      melhorValorProposta,
-      comparacao: itemProposta?.valor_unitario_ofertado === melhorValorProposta
-    });
-    
-    // Verificar se o fornecedor tem proposta e se é o melhor valor
     if (itemProposta && itemProposta.valor_unitario_ofertado > 0 && melhorValorProposta) {
-      const isVencendoPorProposta = itemProposta.valor_unitario_ofertado === melhorValorProposta;
-      console.log(`🏆 Item ${numeroItem} - Resultado POR PROPOSTA:`, isVencendoPorProposta);
-      return isVencendoPorProposta;
+      return itemProposta.valor_unitario_ofertado === melhorValorProposta;
     }
     
-    console.log(`🏆 Item ${numeroItem}: Sem lance e sem proposta válida`);
     return false;
   };
 
@@ -2064,20 +2033,10 @@ const SistemaLancesFornecedor = () => {
                                   <p className="font-bold text-sm text-amber-700">
                                     {(() => {
                                       const valorEstimado = itensEstimados.get(numeroItem) || 0;
-                                      console.log(`🎨 [RENDER] Item ${numeroItem}:`, {
-                                        valorEstimado,
-                                        existe: itensEstimados.has(numeroItem),
-                                        tamanho: itensEstimados.size,
-                                        map: Object.fromEntries(itensEstimados)
-                                      });
-                                      
                                       const criterio = selecao?.processos_compras?.criterio_julgamento;
-                                      const resultado = criterio === "desconto" 
+                                      return criterio === "desconto" 
                                         ? `${valorEstimado.toFixed(2).replace('.', ',')}%`
                                         : formatarMoeda(valorEstimado);
-                                      
-                                      console.log(`🎨 [RENDER] Item ${numeroItem} - RESULTADO FINAL: "${resultado}" (critério: ${criterio})`);
-                                      return resultado;
                                     })()}
                                   </p>
                                 </div>
