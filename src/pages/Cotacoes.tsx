@@ -97,6 +97,8 @@ const Cotacoes = () => {
   
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
   const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
+  const [confirmDeleteCotacaoOpen, setConfirmDeleteCotacaoOpen] = useState(false);
+  const [cotacaoParaExcluir, setCotacaoParaExcluir] = useState<string | null>(null);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
@@ -754,6 +756,68 @@ const Cotacoes = () => {
     }
   };
 
+  const handleDeleteCotacao = async () => {
+    if (!cotacaoParaExcluir || !processoSelecionado) return;
+
+    try {
+      // Buscar todas as respostas de fornecedores da cotação
+      const { data: respostasData } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select("id")
+        .eq("cotacao_id", cotacaoParaExcluir);
+
+      if (respostasData && respostasData.length > 0) {
+        const respostaIds = respostasData.map(r => r.id);
+        
+        // Deletar respostas de itens
+        await supabase
+          .from("respostas_itens_fornecedor")
+          .delete()
+          .in("cotacao_resposta_fornecedor_id", respostaIds);
+
+        // Deletar anexos de cotação fornecedor
+        await supabase
+          .from("anexos_cotacao_fornecedor")
+          .delete()
+          .in("cotacao_resposta_fornecedor_id", respostaIds);
+
+        // Deletar respostas de fornecedores
+        await supabase
+          .from("cotacao_respostas_fornecedor")
+          .delete()
+          .eq("cotacao_id", cotacaoParaExcluir);
+      }
+
+      // Deletar todos os itens da cotação
+      await supabase
+        .from("itens_cotacao")
+        .delete()
+        .eq("cotacao_id", cotacaoParaExcluir);
+
+      // Deletar todos os lotes da cotação (se houver)
+      await supabase
+        .from("lotes_cotacao")
+        .delete()
+        .eq("cotacao_id", cotacaoParaExcluir);
+
+      // Deletar a cotação
+      const { error: cotacaoError } = await supabase
+        .from("cotacoes_precos")
+        .delete()
+        .eq("id", cotacaoParaExcluir);
+
+      if (cotacaoError) throw cotacaoError;
+
+      toast.success("Cotação excluída com sucesso!");
+      setCotacaoParaExcluir(null);
+      setConfirmDeleteCotacaoOpen(false);
+      loadCotacoes(processoSelecionado.id);
+    } catch (error) {
+      console.error("Erro ao excluir cotação:", error);
+      toast.error("Erro ao excluir cotação");
+    }
+  };
+
   const handleSaveLote = async (loteData: Omit<Lote, "id">) => {
     if (!cotacaoSelecionada) return;
 
@@ -1081,14 +1145,27 @@ const Cotacoes = () => {
                           {new Date(cotacao.data_limite_resposta).toLocaleDateString("pt-BR")}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCotacaoSelecionada(cotacao)}
-                          >
-                            <ChevronRight className="h-4 w-4 mr-2" />
-                            Gerenciar Itens
-                          </Button>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCotacaoSelecionada(cotacao)}
+                            >
+                              <ChevronRight className="h-4 w-4 mr-2" />
+                              Gerenciar Itens
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setCotacaoParaExcluir(cotacao.id);
+                                setConfirmDeleteCotacaoOpen(true);
+                              }}
+                              title="Excluir cotação"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -1977,6 +2054,40 @@ const Cotacoes = () => {
                 Excluir Todos os Itens
               </AlertDialogAction>
             )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação de exclusão de cotação */}
+      <AlertDialog open={confirmDeleteCotacaoOpen} onOpenChange={setConfirmDeleteCotacaoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Excluir Cotação
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta cotação?
+              <br /><br />
+              Esta ação excluirá:
+              <ul className="list-disc list-inside mt-2 ml-2">
+                <li>Todos os itens da cotação</li>
+                <li>Todos os lotes (se houver)</li>
+                <li>Todas as respostas de fornecedores</li>
+                <li>Todos os anexos relacionados</li>
+              </ul>
+              <br />
+              <span className="text-destructive font-semibold">Esta ação não pode ser desfeita!</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCotacaoParaExcluir(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteCotacao}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir Cotação
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
