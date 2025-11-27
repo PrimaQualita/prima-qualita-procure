@@ -478,6 +478,13 @@ export function DialogPlanilhaConsolidada({
       
       // Criar estrutura completa de fornecedores com seus itens e vencedores
       // IMPORTANTE: Identificação de vencedores deve respeitar o critério de julgamento
+      // CRÍTICO: Excluir PREÇOS PÚBLICOS da identificação de vencedores (CNPJ sequencial)
+      const ehPrecoPublico = (cnpj: string) => {
+        // Preços públicos têm CNPJ com todos os dígitos iguais (00000000000000, 11111111111111, etc.)
+        const primeiroDigito = cnpj.charAt(0);
+        return cnpj.split('').every(d => d === primeiroDigito);
+      };
+      
       const fornecedoresIncluidos = respostas
         .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social))
         .map(resposta => {
@@ -487,6 +494,12 @@ export function DialogPlanilhaConsolidada({
           );
           
           let itensComVencedor;
+          
+          // CRÍTICO: Filtrar preços públicos das respostas usadas para calcular vencedores
+          const respostasFiltradas = respostas
+            .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social) && !ehPrecoPublico(r.fornecedor.cnpj));
+          
+          console.log(`📊 Calculando vencedores SEM preços públicos: ${respostasFiltradas.length} fornecedores reais`);
           
           // Identificar vencedores baseado no critério de julgamento
           if (criterioJulgamento === "global") {
@@ -552,25 +565,38 @@ export function DialogPlanilhaConsolidada({
           } else if (criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto") {
             // Critério DESCONTO: vencedor por item (MAIOR percentual de desconto)
             itensComVencedor = resposta.itens.map(item => {
-              // Buscar todos os descontos deste item entre os fornecedores selecionados
+              const descontoAtual = Number(item.percentual_desconto || 0);
+              
+              // Buscar apenas descontos VERDADEIROS (> 0) deste item entre os fornecedores selecionados
               const descontosDoItem: number[] = [];
               respostasFiltradas.forEach(r => {
                 const itemEncontrado = r.itens.find(i => i.numero_item === item.numero_item);
-                if (itemEncontrado && itemEncontrado.percentual_desconto != null) {
+                if (itemEncontrado && itemEncontrado.percentual_desconto != null && Number(itemEncontrado.percentual_desconto) > 0) {
                   descontosDoItem.push(Number(itemEncontrado.percentual_desconto));
                 }
               });
               
+              // Se não há descontos cotados ou o desconto atual é zero, não é vencedor
+              if (descontosDoItem.length === 0 || descontoAtual === 0) {
+                console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: desconto=${descontoAtual}%, vencedor=false (sem cotação válida)`);
+                return {
+                  numero_item: item.numero_item,
+                  valor_unitario: Number(item.valor_unitario_ofertado),
+                  percentual_desconto: descontoAtual,
+                  eh_vencedor: false
+                };
+              }
+              
               // Identificar o MAIOR desconto (quanto maior, melhor)
               const maiorDesconto = Math.max(...descontosDoItem);
-              const ehVencedor = Math.abs(Number(item.percentual_desconto || 0) - maiorDesconto) < 0.001;
+              const ehVencedor = Math.abs(descontoAtual - maiorDesconto) < 0.001;
               
-              console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: desconto=${item.percentual_desconto}%, maior=${maiorDesconto}%, vencedor=${ehVencedor}`);
+              console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: desconto=${descontoAtual}%, maior=${maiorDesconto}%, vencedor=${ehVencedor}`);
               
               return {
                 numero_item: item.numero_item,
                 valor_unitario: Number(item.valor_unitario_ofertado),
-                percentual_desconto: Number(item.percentual_desconto || 0),
+                percentual_desconto: descontoAtual,
                 eh_vencedor: ehVencedor
               };
             });
@@ -578,22 +604,33 @@ export function DialogPlanilhaConsolidada({
           } else {
             // Critério POR ITEM (padrão): vencedor por item (menor valor unitário)
             itensComVencedor = resposta.itens.map(item => {
-              // Buscar todos os valores deste item entre os fornecedores selecionados
+              const valorAtual = Number(item.valor_unitario_ofertado);
+              
+              // Buscar apenas valores VERDADEIROS (> 0) deste item entre os fornecedores selecionados
               const valoresDoItem: number[] = [];
               respostasFiltradas.forEach(r => {
                 const itemEncontrado = r.itens.find(i => i.numero_item === item.numero_item);
-                if (itemEncontrado) {
+                if (itemEncontrado && Number(itemEncontrado.valor_unitario_ofertado) > 0) {
                   valoresDoItem.push(Number(itemEncontrado.valor_unitario_ofertado));
                 }
               });
               
+              // Se não há valores cotados ou o valor atual é zero, não é vencedor
+              if (valoresDoItem.length === 0 || valorAtual === 0) {
+                return {
+                  numero_item: item.numero_item,
+                  valor_unitario: valorAtual,
+                  eh_vencedor: false
+                };
+              }
+              
               // Identificar o menor valor
               const menorValor = Math.min(...valoresDoItem);
-              const ehVencedor = Math.abs(Number(item.valor_unitario_ofertado) - menorValor) < 0.001;
+              const ehVencedor = Math.abs(valorAtual - menorValor) < 0.001;
               
               return {
                 numero_item: item.numero_item,
-                valor_unitario: Number(item.valor_unitario_ofertado),
+                valor_unitario: valorAtual,
                 eh_vencedor: ehVencedor
               };
             });
