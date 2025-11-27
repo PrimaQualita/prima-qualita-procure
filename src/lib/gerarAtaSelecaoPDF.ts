@@ -1435,21 +1435,27 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const originalPageCount = pdfDoc.getPageCount();
   console.log('PDF carregado, total de páginas:', originalPageCount);
 
-  // CRIAR NOVA PÁGINA para o termo de aceite (evita sobreposição)
+  // CRIAR NOVA PÁGINA DEDICADA para o termo de aceite
+  console.log('>>> CRIANDO NOVA PÁGINA para termo de aceite');
   let page = pdfDoc.addPage([595, 842]); // Tamanho A4
+  console.log('>>> Nova página criada. Total de páginas agora:', pdfDoc.getPageCount());
+  
   const { width, height } = page.getSize();
   const marginLeft = 40;
   const marginRight = 40;
   
   // Começar do topo da nova página
   let currentY = height - 80; // Começar do topo com margem
+  console.log('>>> Iniciando termo de aceite em Y:', currentY);
   const footerLimit = 60;
 
-  // Função para criar nova página
+  // Função para criar nova página se necessário
   const checkNewPage = async (espacoNecessario: number) => {
     if (currentY - espacoNecessario < footerLimit) {
+      console.log('>>> checkNewPage: Criando nova página adicional');
       page = pdfDoc.addPage([595, 842]);
       currentY = height - 80;
+      console.log('>>> checkNewPage: Nova página criada. Total:', pdfDoc.getPageCount());
       return true;
     }
     return false;
@@ -1478,7 +1484,10 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   });
   currentY -= 18;
 
+  console.log('>>> Iniciando loop de assinaturas. Total:', todasAssinaturas.length);
+  
   for (const assinatura of todasAssinaturas) {
+    console.log('>>> Processando assinatura:', assinatura.nome);
     const temCargo = assinatura.tipo === 'usuario' && assinatura.cargo;
     const temResponsaveis = assinatura.tipo === 'fornecedor' && assinatura.responsaveisLegais && assinatura.responsaveisLegais.length > 0;
     const numResponsaveis = temResponsaveis ? assinatura.responsaveisLegais!.length : 0;
@@ -1487,8 +1496,9 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     if (temCargo) boxHeight += 12;
     if (temResponsaveis) boxHeight += 12 + (numResponsaveis * 11);
     
+    console.log('>>> Verificando espaço. currentY:', currentY, 'boxHeight:', boxHeight);
     if (await checkNewPage(boxHeight + 10)) {
-      // Nova página criada
+      console.log('>>> checkNewPage retornou true - nova página criada');
     }
 
     // Fundo do box
@@ -1585,6 +1595,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   }
 
   // Salvar PDF modificado
+  console.log('>>> Salvando PDF final. Total de páginas:', pdfDoc.getPageCount());
   const modifiedPdfBytes = await pdfDoc.save();
   const modifiedBlob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
 
