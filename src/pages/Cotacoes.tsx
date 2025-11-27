@@ -2067,17 +2067,19 @@ const Cotacoes = () => {
               Excluir Cotação
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta cotação?
-              <br /><br />
-              Esta ação excluirá:
-              <ul className="list-disc list-inside mt-2 ml-2">
-                <li>Todos os itens da cotação</li>
-                <li>Todos os lotes (se houver)</li>
-                <li>Todas as respostas de fornecedores</li>
-                <li>Todos os anexos relacionados</li>
-              </ul>
-              <br />
-              <span className="text-destructive font-semibold">Esta ação não pode ser desfeita!</span>
+              <div>
+                Tem certeza que deseja excluir esta cotação?
+                <br /><br />
+                Esta ação excluirá:
+                <ul className="list-disc list-inside mt-2 ml-2">
+                  <li>Todos os itens da cotação</li>
+                  <li>Todos os lotes (se houver)</li>
+                  <li>Todas as respostas de fornecedores</li>
+                  <li>Todos os anexos relacionados</li>
+                </ul>
+                <br />
+                <span className="text-destructive font-semibold">Esta ação não pode ser desfeita!</span>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
