@@ -247,15 +247,8 @@ export function DialogSessaoLances({
           const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
           
           if (agora >= tempoExpiracao) {
-            console.log(`Fechando item ${item.numero_item} automaticamente`);
-            await supabase
-              .from("itens_abertos_lances")
-              .update({ 
-                aberto: false, 
-                data_fechamento: new Date().toISOString(),
-                iniciando_fechamento: false
-              })
-              .eq("id", item.id);
+            console.log(`Fechando item ${item.numero_item} automaticamente por tempo`);
+            await fecharItemNegociacao(item.numero_item);
           }
         }
       }
@@ -891,16 +884,10 @@ export function DialogSessaoLances({
       // Agendar fechamento automático para cada item
       itensParaFechar.forEach((numeroItem) => {
         setTimeout(async () => {
-          const { error } = await supabase
-            .from("itens_abertos_lances")
-            .update({ 
-              aberto: false, 
-              data_fechamento: new Date().toISOString(), 
-              iniciando_fechamento: false 
-            })
-            .eq("selecao_id", selecaoId)
-            .eq("numero_item", numeroItem)
-            .eq("iniciando_fechamento", true);
+          console.log(`⏰ Timeout: Fechando item ${numeroItem} automaticamente`);
+          await fecharItemNegociacao(numeroItem);
+          
+          const error = null; // removido pois fecharItemNegociacao já trata erros
           
           if (error) {
             console.error(`Erro ao fechar item ${numeroItem}:`, error);
