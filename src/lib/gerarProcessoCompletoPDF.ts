@@ -5,11 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 interface ProcessoCompletoResult {
   url: string;
   filename: string;
+  blob?: Blob;
 }
 
 export const gerarProcessoCompletoPDF = async (
   cotacaoId: string,
-  numeroProcesso: string
+  numeroProcesso: string,
+  temporario: boolean = false
 ): Promise<ProcessoCompletoResult> => {
   console.log(`Iniciando geração do processo completo para cotação ${cotacaoId}...`);
   
@@ -598,6 +600,21 @@ export const gerarProcessoCompletoPDF = async (
     
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const filename = `processo_completo_${numeroProcesso.replace(/\//g, "-")}_${timestamp}.pdf`;
+    
+    console.log("✅ Processo completo gerado com sucesso!");
+    console.log(`   Arquivo: ${filename}`);
+    console.log(`   Páginas: ${totalPaginas}`);
+    
+    // Se for visualização temporária, retorna apenas o blob sem salvar
+    if (temporario) {
+      return {
+        url: "", // URL vazia pois será criado blob URL no cliente
+        filename,
+        blob,
+      };
+    }
+    
+    // Caso contrário, salva no storage
     const storagePath = `processos/${filename}`;
 
     const { error: uploadError } = await supabase.storage
@@ -615,10 +632,6 @@ export const gerarProcessoCompletoPDF = async (
     const { data: urlData } = supabase.storage
       .from("documents")
       .getPublicUrl(storagePath);
-
-    console.log("✅ Processo completo gerado com sucesso!");
-    console.log(`   Arquivo: ${filename}`);
-    console.log(`   Páginas: ${totalPaginas}`);
     
     return {
       url: urlData.publicUrl,

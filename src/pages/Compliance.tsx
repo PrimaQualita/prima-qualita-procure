@@ -237,13 +237,36 @@ export default function Compliance() {
       const { gerarProcessoCompletoPDF } = await import("@/lib/gerarProcessoCompletoPDF");
       const resultado = await gerarProcessoCompletoPDF(
         processo.cotacao_id,
-        processo.numero_processo_interno
+        processo.numero_processo_interno,
+        true // temporário = true para não salvar no storage
       );
       
-      console.log(`✅ [Compliance] PDF gerado com sucesso: ${resultado.url}`);
+      if (!resultado.blob) {
+        throw new Error("PDF não foi gerado corretamente");
+      }
+      
+      // Criar URL temporária do blob
+      const blobUrl = window.URL.createObjectURL(resultado.blob);
+      
+      console.log(`✅ [Compliance] PDF gerado em memória, abrindo visualização...`);
       toast.dismiss(loadingToast);
       toast.success("Abrindo processo...");
-      window.open(resultado.url, '_blank');
+      
+      // Abrir em nova aba
+      const newWindow = window.open(blobUrl, '_blank');
+      
+      // Liberar o blob URL após um tempo (quando a aba for fechada o browser já libera)
+      if (newWindow) {
+        newWindow.addEventListener('beforeunload', () => {
+          window.URL.revokeObjectURL(blobUrl);
+        });
+      }
+      
+      // Fallback: liberar após 1 minuto caso a aba não dispare o evento
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 60000);
+      
     } catch (error: any) {
       console.error("❌ [Compliance] Erro ao visualizar processo:", error);
       console.error("Stack:", error?.stack);
