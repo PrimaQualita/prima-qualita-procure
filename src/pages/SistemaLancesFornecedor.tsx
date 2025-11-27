@@ -649,52 +649,34 @@ const SistemaLancesFornecedor = () => {
         
         setNumeroProcesso((cotacaoData as any)?.processos_compras?.numero_processo_interno || "");
       }
-      // Buscar valores estimados da planilha consolidada mais recente
+      // Buscar estimativas da planilha consolidada mais recente
       if (propostaData.selecoes_fornecedores.cotacao_relacionada_id) {
         const { data: planilhaData, error: planilhaError } = await supabase
           .from("planilhas_consolidadas")
-          .select("fornecedores_incluidos")
+          .select("estimativas_itens")
           .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
           .order("created_at", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
-        console.log('📊 Planilha consolidada:', planilhaData);
+        console.log('📊 Planilha consolidada mais recente:', planilhaData);
 
-        if (!planilhaError && planilhaData?.fornecedores_incluidos) {
+        if (!planilhaError && planilhaData?.estimativas_itens) {
           const mapaEstimados = new Map<number, number>();
-          const isDesconto = propostaData.selecoes_fornecedores.processos_compras?.criterio_julgamento === "desconto";
+          const estimativas = planilhaData.estimativas_itens as Record<string, number>;
           
-          // Para cada item, pegar o MAIOR desconto (ou menor valor) de TODOS os fornecedores como "estimado"
-          const fornecedores = planilhaData.fornecedores_incluidos as any[];
-          
-          fornecedores.forEach((forn: any) => {
-            if (forn.itens && Array.isArray(forn.itens)) {
-              forn.itens.forEach((item: any) => {
-                const numeroItem = item.numero_item;
-                const valor = isDesconto ? (item.percentual_desconto || 0) : (item.valor_unitario || 0);
-                
-                const valorAtual = mapaEstimados.get(numeroItem);
-                
-                if (isDesconto) {
-                  // Para desconto: usar o MAIOR desconto como estimado
-                  if (!valorAtual || valor > valorAtual) {
-                    mapaEstimados.set(numeroItem, valor);
-                  }
-                } else {
-                  // Para valor: usar o MENOR valor como estimado
-                  if (!valorAtual || (valor > 0 && valor < valorAtual)) {
-                    mapaEstimados.set(numeroItem, valor);
-                  }
-                }
-              });
-            }
+          // Converter objeto para Map
+          Object.entries(estimativas).forEach(([numeroItem, valor]) => {
+            const num = parseInt(numeroItem);
+            mapaEstimados.set(num, valor);
+            console.log(`✅ Item ${num}: Estimativa = ${valor}`);
           });
 
-          console.log('✅ Valores estimados da planilha consolidada:', Object.fromEntries(mapaEstimados));
+          console.log('✅ Estimativas carregadas da planilha:', Object.fromEntries(mapaEstimados));
           setItensEstimados(mapaEstimados);
         } else {
-          console.error('❌ Erro ao buscar planilha consolidada:', planilhaError);
+          console.error('❌ Erro ao buscar planilha ou sem estimativas:', planilhaError);
+          console.warn('⚠️ Planilha pode ter sido gerada antes da atualização - gere novamente');
         }
       }
 
