@@ -284,13 +284,16 @@ export function DialogPlanilhaConsolidada({
   };
 
   const calcularEstatisticas = (valores: number[]) => {
-    if (valores.length === 0) return { media: 0, mediana: 0, menor: 0 };
-
-    const menor = Math.min(...valores);
-    const soma = valores.reduce((a, b) => a + b, 0);
-    const media = Math.round((soma / valores.length) * 100) / 100; // Arredondar para 2 casas
+    // Filtrar apenas valores verdadeiramente cotados (> 0)
+    const valoresCotados = valores.filter(v => v > 0);
     
-    const valoresOrdenados = [...valores].sort((a, b) => a - b);
+    if (valoresCotados.length === 0) return { media: 0, mediana: 0, menor: 0 };
+
+    const menor = Math.min(...valoresCotados);
+    const soma = valoresCotados.reduce((a, b) => a + b, 0);
+    const media = Math.round((soma / valoresCotados.length) * 100) / 100; // Arredondar para 2 casas
+    
+    const valoresOrdenados = [...valoresCotados].sort((a, b) => a - b);
     const meio = Math.floor(valoresOrdenados.length / 2);
     const medianaCalc = valoresOrdenados.length % 2 === 0
       ? (valoresOrdenados[meio - 1] + valoresOrdenados[meio]) / 2
