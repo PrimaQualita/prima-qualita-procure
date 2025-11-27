@@ -156,23 +156,13 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  const textoAssuntoLabel = 'Assunto:';
-  doc.text(textoAssuntoLabel, 20, yPos);
+  doc.text('Assunto:', 20, yPos);
+  yPos += 7;
 
   doc.setFont('helvetica', 'normal');
   const textoAssuntoLimpo = extractTextFromHTML(dados.objetoProcesso);
-  const larguraAssuntoLabel = doc.getTextWidth(textoAssuntoLabel);
-  const linhasAssunto = doc.splitTextToSize(textoAssuntoLimpo, 170 - larguraAssuntoLabel);
-  
-  // Primeira linha ao lado de "Assunto:"
-  doc.text(linhasAssunto[0], 20 + larguraAssuntoLabel + 2, yPos, { align: 'left' });
-  yPos += 7;
-  
-  // Demais linhas abaixo
-  for (let i = 1; i < linhasAssunto.length; i++) {
-    doc.text(linhasAssunto[i], 20, yPos, { align: 'justify', maxWidth: 170 });
-    yPos += 7;
-  }
+  const linhasAssunto = doc.splitTextToSize(textoAssuntoLimpo, 170);
+  doc.text(linhasAssunto, 20, yPos, { align: 'justify', maxWidth: 170 });
 
   return doc.output('blob');
 };
