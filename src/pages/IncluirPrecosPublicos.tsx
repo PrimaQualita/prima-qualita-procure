@@ -336,38 +336,26 @@ const IncluirPrecosPublicos = () => {
 
       const valorTotal = calcularValorTotal();
 
-      // Criar novo fornecedor para cada proposta de preços públicos
-      const cnpjPrecosPublicos = "00000000000000";
+      // Criar novo fornecedor para cada proposta de preços públicos com CNPJ único
+      // Usar timestamp para garantir unicidade
+      const cnpjPrecosPublicos = `99${Date.now().toString().slice(-12)}`;
       let fornecedorId: string;
 
-      // SEMPRE criar novo fornecedor para cada proposta de preços públicos
-      // Não reutilizar o existente, pois cada proposta é única
-      const fornecedorExistente = null;
+      // Sempre criar novo fornecedor para cada proposta de preços públicos
+      const { data: novoFornecedor, error: errorFornecedor } = await supabase
+        .from("fornecedores")
+        .insert({
+          razao_social: nomeFonte,
+          cnpj: cnpjPrecosPublicos,
+          email: "precos.publicos@sistema.com",
+          telefone: "00000000000",
+          endereco_comercial: "Sistema",
+        })
+        .select()
+        .single();
 
-      if (false) { // Nunca entra aqui - sempre cria novo
-        fornecedorId = fornecedorExistente.id;
-        
-        // Atualizar o nome do fornecedor com o nome da fonte fornecido
-        await supabase
-          .from("fornecedores")
-          .update({ razao_social: nomeFonte })
-          .eq("id", fornecedorId);
-      } else {
-        const { data: novoFornecedor, error: errorFornecedor } = await supabase
-          .from("fornecedores")
-          .insert({
-            razao_social: nomeFonte,
-            cnpj: cnpjPrecosPublicos,
-            email: "precos.publicos@sistema.com",
-            telefone: "00000000000",
-            endereco_comercial: "Sistema",
-          })
-          .select()
-          .single();
-
-        if (errorFornecedor) throw errorFornecedor;
-        fornecedorId = novoFornecedor.id;
-      }
+      if (errorFornecedor) throw errorFornecedor;
+      fornecedorId = novoFornecedor.id;
 
       // Buscar dados do usuário logado
       const { data: { user } } = await supabase.auth.getUser();
