@@ -41,7 +41,10 @@ export function DialogControleItensLances({
   const [vencedoresPorItem, setVencedoresPorItem] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
 
   useEffect(() => {
+    console.log("🔧 USEEFFECT: Executado - open:", open, "selecaoId:", selecaoId);
+    
     if (open) {
+      console.log("✅ USEEFFECT: Diálogo ABERTO! Iniciando configurações...");
       loadItensAbertos();
       loadVencedoresPorItem();
       
@@ -92,21 +95,27 @@ export function DialogControleItensLances({
         });
 
       // Polling a cada 3 segundos como fallback + verificação de fechamento automático
+      console.log("⏰ USEEFFECT: Configurando polling a cada 3 segundos...");
       const pollingInterval = setInterval(() => {
+        console.log("⏰ POLLING: Executando ciclo de verificação...");
         loadItensAbertos();
         verificarFechamentoAutomatico();
         loadVencedoresPorItem();
       }, 3000);
 
       return () => {
+        console.log("🔴 USEEFFECT: Limpando recursos (desmontando componente)");
         supabase.removeChannel(channelItens);
         supabase.removeChannel(channelLances);
         clearInterval(pollingInterval);
       };
+    } else {
+      console.log("⚠️ USEEFFECT: Diálogo FECHADO - não configurando recursos");
     }
   }, [open, selecaoId]);
 
   const verificarFechamentoAutomatico = async () => {
+    console.log("🔍 verificarFechamentoAutomatico: INICIANDO verificação...");
     try {
       // 1. Buscar itens que estão em processo de fechamento e já deveriam ter fechado
       const { data, error } = await supabase
