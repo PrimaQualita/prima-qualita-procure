@@ -759,7 +759,8 @@ export default function RespostasCotacao() {
             </TableHeader>
             <TableBody>
               {respostas.map((resposta) => {
-                const isMenorValor = resposta.valor_total_anual_ofertado === menorValor;
+                const isMenorValor = cotacao?.criterio_julgamento !== 'desconto' && 
+                                    resposta.valor_total_anual_ofertado === menorValor;
                 
                 return (
                   <TableRow key={resposta.id} className={isMenorValor ? "bg-green-50 dark:bg-green-950" : ""}>
