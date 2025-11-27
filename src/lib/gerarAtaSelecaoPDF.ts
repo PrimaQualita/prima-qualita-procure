@@ -637,28 +637,33 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
   if (itensVencedores.length > 0) {
     // Agrupar por fornecedor
-    const vencedoresPorFornecedor: Record<string, { nome: string; itens: number[]; valorTotal: number }> = {};
+    const vencedoresPorFornecedor: Record<string, { nome: string; itens: number[]; valorTotal: number; quantidadeItens: number }> = {};
     itensVencedores.forEach(item => {
       if (!vencedoresPorFornecedor[item.fornecedor_id]) {
         vencedoresPorFornecedor[item.fornecedor_id] = {
           nome: item.fornecedor_nome,
           itens: [],
-          valorTotal: 0
+          valorTotal: 0,
+          quantidadeItens: 0
         };
       }
       vencedoresPorFornecedor[item.fornecedor_id].itens.push(item.numero_item);
       vencedoresPorFornecedor[item.fornecedor_id].valorTotal += item.valor_final;
+      vencedoresPorFornecedor[item.fornecedor_id].quantidadeItens += 1;
     });
 
     const ehDesconto = criterioJulgamento === 'desconto';
     
-    const tabelaVencedoresLances = Object.values(vencedoresPorFornecedor).map(f => [
-      f.nome,
-      f.itens.sort((a, b) => a - b).join(', '),
-      ehDesconto ? `${f.valorTotal.toFixed(2)}%` : formatarMoeda(f.valorTotal)
-    ]);
+    const tabelaVencedoresLances = Object.values(vencedoresPorFornecedor).map(f => {
+      const valor = ehDesconto ? (f.valorTotal / f.quantidadeItens) : f.valorTotal;
+      return [
+        f.nome,
+        f.itens.sort((a, b) => a - b).join(', '),
+        ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor)
+      ];
+    });
 
-    const colunaValorHeader = ehDesconto ? 'DESCONTO MÉDIO' : 'VALOR TOTAL';
+    const colunaValorHeader = ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL';
 
     autoTable(doc, {
       startY: currentY,
@@ -773,7 +778,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
   if (itensVencedores.length > 0) {
     // Agrupar por fornecedor (considerando habilitados e substituindo por segundo colocado quando inabilitado)
-    const vencedoresFinal: Record<string, { nome: string; itens: number[]; valorTotal: number }> = {};
+    const vencedoresFinal: Record<string, { nome: string; itens: number[]; valorTotal: number; quantidadeItens: number }> = {};
     
     itensVencedores.forEach(item => {
       // Verificar se o fornecedor está inabilitado neste item
@@ -800,11 +805,13 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
             vencedoresFinal[segundoColocado.fornecedor_id] = {
               nome: segundoColocado.fornecedor_nome,
               itens: [],
-              valorTotal: 0
+              valorTotal: 0,
+              quantidadeItens: 0
             };
           }
           vencedoresFinal[segundoColocado.fornecedor_id].itens.push(item.numero_item);
           vencedoresFinal[segundoColocado.fornecedor_id].valorTotal += valorTotal;
+          vencedoresFinal[segundoColocado.fornecedor_id].quantidadeItens += 1;
         }
       } else {
         // Fornecedor habilitado - manter como vencedor
@@ -812,33 +819,40 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
           vencedoresFinal[item.fornecedor_id] = {
             nome: item.fornecedor_nome,
             itens: [],
-            valorTotal: 0
+            valorTotal: 0,
+            quantidadeItens: 0
           };
         }
         vencedoresFinal[item.fornecedor_id].itens.push(item.numero_item);
         vencedoresFinal[item.fornecedor_id].valorTotal += item.valor_final;
+        vencedoresFinal[item.fornecedor_id].quantidadeItens += 1;
       }
     });
 
     if (Object.keys(vencedoresFinal).length > 0) {
       const ehDesconto = criterioJulgamento === 'desconto';
       
-      const tabelaVencedores = Object.values(vencedoresFinal).map(f => [
-        f.nome,
-        f.itens.sort((a, b) => a - b).join(', '),
-        ehDesconto ? `${f.valorTotal.toFixed(2)}%` : formatarMoeda(f.valorTotal)
-      ]);
+      const tabelaVencedores = Object.values(vencedoresFinal).map(f => {
+        const valor = ehDesconto ? (f.valorTotal / f.quantidadeItens) : f.valorTotal;
+        return [
+          f.nome,
+          f.itens.sort((a, b) => a - b).join(', '),
+          ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor)
+        ];
+      });
 
       // Calcular valor total geral
-      const valorTotalGeral = Object.values(vencedoresFinal).reduce((acc, f) => acc + f.valorTotal, 0);
-      const colunaValorHeader = ehDesconto ? 'DESCONTO MÉDIO' : 'VALOR TOTAL';
+      const valorTotalGeral = ehDesconto 
+        ? Object.values(vencedoresFinal).reduce((acc, f) => acc + (f.valorTotal / f.quantidadeItens), 0) / Object.keys(vencedoresFinal).length
+        : Object.values(vencedoresFinal).reduce((acc, f) => acc + f.valorTotal, 0);
+      const colunaValorHeader = ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL';
       const valorFooter = ehDesconto ? `${valorTotalGeral.toFixed(2)}%` : formatarMoeda(valorTotalGeral);
 
       autoTable(doc, {
         startY: currentY,
         head: [['FORNECEDOR', 'ITENS', colunaValorHeader]],
         body: tabelaVencedores,
-        foot: [[ehDesconto ? 'DESCONTO MÉDIO' : 'VALOR TOTAL', '', valorFooter]],
+        foot: [[ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL', '', valorFooter]],
         theme: 'grid',
         headStyles: { 
           fillColor: [0, 128, 128],
