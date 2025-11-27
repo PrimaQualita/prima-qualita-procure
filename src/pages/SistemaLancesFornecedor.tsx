@@ -649,44 +649,53 @@ const SistemaLancesFornecedor = () => {
         
         setNumeroProcesso((cotacaoData as any)?.processos_compras?.numero_processo_interno || "");
       }
-      // Buscar valores estimados diretamente dos itens da cotação
+      // Buscar valores estimados da planilha consolidada mais recente
       if (propostaData.selecoes_fornecedores.cotacao_relacionada_id) {
-        const { data: itensEstimadosData, error: itensEstimadosError } = await supabase
-          .from("itens_cotacao")
-          .select("numero_item, valor_unitario_estimado")
+        const { data: planilhaData, error: planilhaError } = await supabase
+          .from("planilhas_consolidadas")
+          .select("fornecedores_incluidos")
           .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
-          .order("numero_item");
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
 
-        console.log('📊 Dados brutos de itens estimados:', itensEstimadosData);
-        console.log('📊 Erro ao buscar itens estimados:', itensEstimadosError);
+        console.log('📊 Planilha consolidada:', planilhaData);
 
-        if (!itensEstimadosError && itensEstimadosData) {
+        if (!planilhaError && planilhaData?.fornecedores_incluidos) {
           const mapaEstimados = new Map<number, number>();
+          const isDesconto = propostaData.selecoes_fornecedores.processos_compras?.criterio_julgamento === "desconto";
           
-          itensEstimadosData.forEach((item: any) => {
-            console.log(`📌 Item ${item.numero_item}: valor_unitario_estimado =`, item.valor_unitario_estimado, 'tipo:', typeof item.valor_unitario_estimado);
-            
-            // Aceitar tanto números quanto null/undefined, mas converter null para 0
-            const valorEstimado = item.valor_unitario_estimado ?? 0;
-            mapaEstimados.set(item.numero_item, valorEstimado);
-            
-            if (valorEstimado === 0) {
-              console.warn(`⚠️ ATENÇÃO: Item ${item.numero_item} tem valor estimado ZERO ou NULL!`);
+          // Para cada item, pegar o MAIOR desconto (ou menor valor) de TODOS os fornecedores como "estimado"
+          const fornecedores = planilhaData.fornecedores_incluidos as any[];
+          
+          fornecedores.forEach((forn: any) => {
+            if (forn.itens && Array.isArray(forn.itens)) {
+              forn.itens.forEach((item: any) => {
+                const numeroItem = item.numero_item;
+                const valor = isDesconto ? (item.percentual_desconto || 0) : (item.valor_unitario || 0);
+                
+                const valorAtual = mapaEstimados.get(numeroItem);
+                
+                if (isDesconto) {
+                  // Para desconto: usar o MAIOR desconto como estimado
+                  if (!valorAtual || valor > valorAtual) {
+                    mapaEstimados.set(numeroItem, valor);
+                  }
+                } else {
+                  // Para valor: usar o MENOR valor como estimado
+                  if (!valorAtual || (valor > 0 && valor < valorAtual)) {
+                    mapaEstimados.set(numeroItem, valor);
+                  }
+                }
+              });
             }
           });
 
-          console.log('✅ Valores estimados carregados no Map:', Object.fromEntries(mapaEstimados));
+          console.log('✅ Valores estimados da planilha consolidada:', Object.fromEntries(mapaEstimados));
           setItensEstimados(mapaEstimados);
-          
-          // Verificar imediatamente após setar
-          setTimeout(() => {
-            console.log('🔍 Verificação pós-setState de itensEstimados:', Object.fromEntries(mapaEstimados));
-          }, 100);
         } else {
-          console.error('❌ Erro ao buscar itens estimados:', itensEstimadosError);
+          console.error('❌ Erro ao buscar planilha consolidada:', planilhaError);
         }
-      } else {
-        console.error('❌ ERRO: cotacao_relacionada_id não existe!', propostaData.selecoes_fornecedores);
       }
 
       // Buscar fornecedores inabilitados da seleção COM itens_afetados
