@@ -190,52 +190,51 @@ export function DialogAnaliseDocumentalSelecao({
     }
   }, [open, selecaoId]);
 
-  // Listener para evento customizado de remarcação de vencedores
+  // Listener realtime para mudanças em lances - ÚNICO mecanismo de atualização
   useEffect(() => {
     if (!open || !selecaoId) return;
 
-    const handleVencedoresRemarcados = () => {
-      console.log("🔔 Evento de remarcação recebido, aguardando atualização do banco...");
-      // Aguardar 800ms para garantir que o banco foi atualizado completamente
-      setTimeout(() => {
-        console.log("🔄 Recarregando vencedores após delay...");
-        loadFornecedoresVencedores();
-        loadRecursosInabilitacao();
-      }, 800);
-    };
-
-    window.addEventListener('vencedores-remarcados', handleVencedoresRemarcados);
-
-    return () => {
-      window.removeEventListener('vencedores-remarcados', handleVencedoresRemarcados);
-    };
-  }, [open, selecaoId]);
-
-  // Listener realtime para mudanças em lances (backup do polling)
-  useEffect(() => {
-    if (!open || !selecaoId) return;
-
-    console.log("👂 Configurando listener para mudanças em lances vencedores");
+    console.log("🎧 [REALTIME] Configurando listener para lances da seleção:", selecaoId);
     
     const channel = supabase
-      .channel(`analise_doc_${selecaoId}`)
+      .channel(`analise_doc_lances_${selecaoId}`, {
+        config: {
+          broadcast: { self: true },
+        },
+      })
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*", // Escutar TODOS os eventos (INSERT, UPDATE, DELETE)
           schema: "public",
           table: "lances_fornecedores",
           filter: `selecao_id=eq.${selecaoId}`,
         },
         (payload) => {
-          console.log("🔔 Mudança detectada em lance, recarregando vencedores...");
+          console.log("🔔 [REALTIME] Mudança detectada em lances_fornecedores:", {
+            event: payload.eventType,
+            old: payload.old,
+            new: payload.new,
+          });
+          
+          // Recarregar imediatamente sem delay
+          console.log("🔄 [REALTIME] Recarregando vencedores agora...");
           loadFornecedoresVencedores();
           loadRecursosInabilitacao();
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log("📡 [REALTIME] Status da subscription:", status);
+        if (err) {
+          console.error("❌ [REALTIME] Erro na subscription:", err);
+        }
+        if (status === 'SUBSCRIBED') {
+          console.log("✅ [REALTIME] Canal subscrito com sucesso!");
+        }
+      });
     
     return () => {
+      console.log("🔌 [REALTIME] Removendo canal de lances");
       supabase.removeChannel(channel);
     };
   }, [open, selecaoId]);
