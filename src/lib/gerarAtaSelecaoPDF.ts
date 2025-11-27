@@ -1435,18 +1435,19 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const originalPageCount = pdfDoc.getPageCount();
   console.log('PDF carregado, total de páginas:', originalPageCount);
 
-  // Pegar a ÚLTIMA página existente (onde está a certificação)
-  const pages = pdfDoc.getPages();
-  let page = pages[pages.length - 1];
+  // CRIAR NOVA PÁGINA para o termo de aceite (certificação ocupa final da última página)
+  console.log('>>> CRIANDO NOVA PÁGINA DEDICADA para termo de aceite');
+  let page = pdfDoc.addPage([595.28, 841.89]); // A4 exato
+  console.log('>>> Nova página criada. Total agora:', pdfDoc.getPageCount());
+  
   const { width, height } = page.getSize();
+  console.log('>>> Dimensões da nova página - width:', width, 'height:', height);
   const marginLeft = 40;
   const marginRight = 40;
   
-  // No pdf-lib, Y=0 é no RODAPÉ e cresce para CIMA
-  // A certificação termina aproximadamente em Y=570 (do rodapé)
-  // Começar um pouco abaixo dela (mais para baixo em Y significa MENOS pontos)
-  let currentY = 520; // Abaixo da certificação, com espaço
-  console.log('>>> Iniciando termo de aceite em Y:', currentY, 'na página', originalPageCount);
+  // Começar do TOPO da nova página (Y alto = topo em pdf-lib)
+  let currentY = height - 80; // Do topo com margem
+  console.log('>>> Posição inicial do termo de aceite (do topo):', currentY);
   const footerLimit = 60;
 
   // Função para criar nova página se necessário
