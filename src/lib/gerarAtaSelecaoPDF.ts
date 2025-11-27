@@ -927,18 +927,12 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       doc.setFont("helvetica", "normal");
 
       empresasQueRecorreram.forEach(e => {
-        checkNewPage(20);
-        doc.setFont("helvetica", "bold");
-        const textoEmpresa = `• ${e.razao_social}`;
-        currentY = drawJustifiedText(doc, textoEmpresa, marginLeft + 5, currentY, contentWidth - 5, lineHeight);
-        doc.setFont("helvetica", "normal");
-        currentY = drawJustifiedText(doc, `CNPJ: ${formatarCNPJ(e.cnpj)}`, marginLeft + 10, currentY, contentWidth - 10, lineHeight);
-        currentY = drawJustifiedText(doc, `Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`, marginLeft + 10, currentY, contentWidth - 10, lineHeight);
+        checkNewPage(15);
+        let textoCompleto = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
         if (e.motivo_intencao) {
-          const textoMotivo = `Motivo: ${e.motivo_intencao}`;
-          currentY = drawJustifiedText(doc, textoMotivo, marginLeft + 10, currentY, contentWidth - 10, lineHeight);
+          textoCompleto += ` - Motivo: ${e.motivo_intencao}`;
         }
-        currentY += 2;
+        currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
       });
     }
 
@@ -953,8 +947,8 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
       empresasQueNaoRecorreram.forEach(e => {
         checkNewPage(10);
-        const textoEmpresa = `• ${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
-        currentY = drawJustifiedText(doc, textoEmpresa, marginLeft + 5, currentY, contentWidth - 5, lineHeight);
+        const textoEmpresa = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
+        currentY = drawJustifiedText(doc, textoEmpresa, marginLeft, currentY, contentWidth, lineHeight);
       });
     }
   }
