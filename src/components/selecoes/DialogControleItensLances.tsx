@@ -353,6 +353,72 @@ export function DialogControleItensLances({
           })
           .eq("selecao_id", selecaoId)
           .in("numero_item", Array.from(numerosExistentes));
+
+        // CRÍTICO: Recalcular vencedores ao reabrir itens
+        console.log("🔄 Recalculando vencedores para itens reabertos:", Array.from(numerosExistentes));
+        
+        // Buscar critério de julgamento
+        const { data: selecaoData } = await supabase
+          .from("selecoes_fornecedores")
+          .select("cotacao:cotacoes_precos(criterio_julgamento)")
+          .eq("id", selecaoId)
+          .single();
+
+        const isDesconto = selecaoData?.cotacao?.criterio_julgamento === "desconto";
+        
+        for (const numeroItem of numerosExistentes) {
+          // 1. Desmarcar todos os lances do item
+          await supabase
+            .from("lances_fornecedores")
+            .update({ indicativo_lance_vencedor: false })
+            .eq("selecao_id", selecaoId)
+            .eq("numero_item", numeroItem);
+
+          // 2. Buscar todos os lances válidos (não inabilitados)
+          const { data: lancesItem } = await supabase
+            .from("lances_fornecedores")
+            .select("*, fornecedores(id, razao_social)")
+            .eq("selecao_id", selecaoId)
+            .eq("numero_item", numeroItem)
+            .order("data_hora_lance", { ascending: false });
+
+          if (!lancesItem || lancesItem.length === 0) continue;
+
+          // 3. Buscar fornecedores inabilitados
+          const { data: inabilitados } = await supabase
+            .from("fornecedores_inabilitados_selecao")
+            .select("fornecedor_id, itens_afetados")
+            .eq("selecao_id", selecaoId)
+            .eq("revertido", false);
+
+          const fornecedoresInabilitadosIds = new Set(
+            inabilitados?.filter(i => 
+              !i.itens_afetados || i.itens_afetados.length === 0 || i.itens_afetados.includes(numeroItem)
+            ).map(i => i.fornecedor_id) || []
+          );
+
+          // 4. Filtrar lances válidos
+          const lancesValidos = lancesItem.filter(l => !fornecedoresInabilitadosIds.has(l.fornecedor_id));
+          if (lancesValidos.length === 0) continue;
+
+          // 5. Ordenar por critério (desconto = decrescente, preço = crescente)
+          lancesValidos.sort((a, b) => 
+            isDesconto 
+              ? b.valor_lance - a.valor_lance  // Desconto: maior é melhor
+              : a.valor_lance - b.valor_lance  // Preço: menor é melhor
+          );
+
+          // 6. Marcar o vencedor
+          const vencedor = lancesValidos[0];
+          console.log(`✅ Novo vencedor do item ${numeroItem}:`, vencedor.fornecedores?.razao_social, vencedor.valor_lance);
+          
+          await supabase
+            .from("lances_fornecedores")
+            .update({ indicativo_lance_vencedor: true })
+            .eq("id", vencedor.id);
+        }
+        
+        console.log("✅ Vencedores recalculados com sucesso!");
       }
 
       // Inserir novos itens
