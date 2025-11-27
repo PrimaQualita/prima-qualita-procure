@@ -293,17 +293,29 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
       doc.rect(tableX + colWidths[0], yPosition, colWidths[1], altura, "FD");
       doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], altura, "FD");
 
-      // Centralizar empresa
-      const empresaWidth = doc.getTextWidth(linhasEmpresa.join(' '));
-      doc.text(linhasEmpresa, tableX + (colWidths[0] - empresaWidth) / 2, yPosition + 4);
+      // Calcular posição vertical centralizada
+      const verticalCenter = yPosition + (altura / 2) + 1.5;
+
+      // Texto empresa (alinhado à esquerda, centralizado verticalmente)
+      if (linhasEmpresa.length > 1) {
+        // Múltiplas linhas - centralizar o bloco verticalmente
+        const blocoAltura = linhasEmpresa.length * 4;
+        const startY = yPosition + (altura - blocoAltura) / 2 + 3;
+        linhasEmpresa.forEach((linhaTexto, idx) => {
+          doc.text(linhaTexto, tableX + 2, startY + (idx * 4));
+        });
+      } else {
+        // Linha única - centralizar verticalmente
+        doc.text(linhasEmpresa[0], tableX + 2, verticalCenter);
+      }
       
-      // Centralizar itens
+      // Centralizar itens (horizontal e verticalmente)
       const itensWidth = doc.getTextWidth(linha[1]);
-      doc.text(linha[1], tableX + colWidths[0] + (colWidths[1] - itensWidth) / 2, yPosition + 4);
+      doc.text(linha[1], tableX + colWidths[0] + (colWidths[1] - itensWidth) / 2, verticalCenter);
       
-      // Centralizar valor/desconto
+      // Centralizar valor/desconto (horizontal e verticalmente)
       const valorWidth = doc.getTextWidth(linha[2]);
-      doc.text(linha[2], tableX + colWidths[0] + colWidths[1] + (colWidths[2] - valorWidth) / 2, yPosition + 4);
+      doc.text(linha[2], tableX + colWidths[0] + colWidths[1] + (colWidths[2] - valorWidth) / 2, verticalCenter);
 
       yPosition += altura;
     });
