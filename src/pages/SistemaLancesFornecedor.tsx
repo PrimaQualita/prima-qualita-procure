@@ -1830,7 +1830,7 @@ const SistemaLancesFornecedor = () => {
                                           : 'text-blue-700'
                                       }`}>
                                         {selecao?.processos_compras?.criterio_julgamento === "desconto" 
-                                          ? `${formatarMoeda(getValorMinimoAtual(numeroItem))}%`
+                                          ? `${getValorMinimoAtual(numeroItem).toFixed(2).replace('.', ',')}%`
                                           : formatarMoeda(getValorMinimoAtual(numeroItem))
                                         }
                                       </p>
@@ -1851,7 +1851,7 @@ const SistemaLancesFornecedor = () => {
                                   </div>
                                   <p className="font-bold text-sm text-amber-700">
                                     {selecao?.processos_compras?.criterio_julgamento === "desconto" 
-                                      ? `${formatarMoeda(itensEstimados.get(numeroItem) || 0)}%`
+                                      ? `${(itensEstimados.get(numeroItem) || 0).toFixed(2).replace('.', ',')}%`
                                       : formatarMoeda(itensEstimados.get(numeroItem) || 0)
                                     }
                                   </p>
