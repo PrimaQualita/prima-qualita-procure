@@ -1283,41 +1283,64 @@ const SistemaLancesFornecedor = () => {
       }))
     });
     
-    // Filtrar apenas lances classificados
-    const lancesClassificados = isDesconto
-      ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado) // Desconto: maior ou igual ao estimado
-      : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Preço: menor ou igual ao estimado
-    
-    console.log(`🏆 Item ${numeroItem} - Lances classificados:`, lancesClassificados.length);
-    
-    if (lancesClassificados.length === 0) {
-      console.log(`🏆 Item ${numeroItem}: Nenhum lance classificado`);
-      return false;
+    // Se há lances, verificar pelos lances
+    if (lancesDoItem.length > 0) {
+      // Filtrar apenas lances classificados
+      const lancesClassificados = isDesconto
+        ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado) // Desconto: maior ou igual ao estimado
+        : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Preço: menor ou igual ao estimado
+      
+      console.log(`🏆 Item ${numeroItem} - Lances classificados:`, lancesClassificados.length);
+      
+      if (lancesClassificados.length === 0) {
+        console.log(`🏆 Item ${numeroItem}: Nenhum lance classificado`);
+        return false;
+      }
+      
+      // Ordenar conforme critério
+      const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
+        if (isDesconto) {
+          // Desconto: maior valor vence, desempate por data (mais antigo ganha)
+          if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
+        } else {
+          // Preço: menor valor vence, desempate por data (mais antigo ganha)
+          if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+        }
+        return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
+      });
+      
+      const vencedor = lancesOrdenados[0];
+      const isVencendo = vencedor?.fornecedor_id === proposta.fornecedor_id;
+      
+      console.log(`🏆 Item ${numeroItem} - Resultado POR LANCES:`, {
+        vencedor: vencedor?.fornecedor_id,
+        valorVencedor: vencedor?.valor_lance,
+        fornecedorAtual: proposta.fornecedor_id,
+        isVencendo
+      });
+      
+      return isVencendo;
     }
     
-    // Ordenar conforme critério
-    const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
-      if (isDesconto) {
-        // Desconto: maior valor vence, desempate por data (mais antigo ganha)
-        if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
-      } else {
-        // Preço: menor valor vence, desempate por data (mais antigo ganha)
-        if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
-      }
-      return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
+    // Se NÃO há lances, verificar pela proposta inicial
+    const itemProposta = itens.find(i => i.numero_item === numeroItem);
+    const melhorValorProposta = menorValorPropostas.get(numeroItem);
+    
+    console.log(`🏆 Item ${numeroItem} - Verificando por PROPOSTA INICIAL:`, {
+      valorDoFornecedor: itemProposta?.valor_unitario_ofertado,
+      melhorValorProposta,
+      comparacao: itemProposta?.valor_unitario_ofertado === melhorValorProposta
     });
     
-    const vencedor = lancesOrdenados[0];
-    const isVencendo = vencedor?.fornecedor_id === proposta.fornecedor_id;
+    // Verificar se o fornecedor tem proposta e se é o melhor valor
+    if (itemProposta && itemProposta.valor_unitario_ofertado > 0 && melhorValorProposta) {
+      const isVencendoPorProposta = itemProposta.valor_unitario_ofertado === melhorValorProposta;
+      console.log(`🏆 Item ${numeroItem} - Resultado POR PROPOSTA:`, isVencendoPorProposta);
+      return isVencendoPorProposta;
+    }
     
-    console.log(`🏆 Item ${numeroItem} - Resultado:`, {
-      vencedor: vencedor?.fornecedor_id,
-      valorVencedor: vencedor?.valor_lance,
-      fornecedorAtual: proposta.fornecedor_id,
-      isVencendo
-    });
-    
-    return isVencendo;
+    console.log(`🏆 Item ${numeroItem}: Sem lance e sem proposta válida`);
+    return false;
   };
 
   // Verifica se o fornecedor venceu um item fechado
