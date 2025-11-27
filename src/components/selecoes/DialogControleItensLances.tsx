@@ -271,6 +271,13 @@ export function DialogControleItensLances({
       if (lancesError) throw lancesError;
 
       console.log(`📊 [LOAD VENCEDORES] Lances vencedores encontrados: ${lancesVencedores?.length || 0}`);
+      console.log('🏆 [LOAD VENCEDORES] Detalhes dos lances vencedores:', lancesVencedores?.map(l => ({
+        item: l.numero_item,
+        fornecedor: l.fornecedores?.razao_social,
+        valor: l.valor_lance,
+        tipo: l.tipo_lance,
+        indicativo: l.indicativo_lance_vencedor
+      })));
       
       // Buscar fornecedores inabilitados
       const { data: inabilitados } = await supabase
@@ -302,6 +309,13 @@ export function DialogControleItensLances({
       for (const item of itens) {
         const lancesDoItem = todosLances?.filter(l => l.numero_item === item.numero_item) || [];
         
+        console.log(`🔍 [ITEM ${item.numero_item}] Total de lances: ${lancesDoItem.length}`);
+        console.log(`🔍 [ITEM ${item.numero_item}] Valores dos lances:`, lancesDoItem.map(l => ({
+          fornecedor: l.fornecedores?.razao_social,
+          valor: l.valor_lance,
+          tipo: l.tipo_lance
+        })));
+        
         // Filtrar lances válidos (não inabilitados)
         const lancesValidos = lancesDoItem.filter(l => {
           const inabilitacoes = fornecedoresInabilitadosMap.get(l.fornecedor_id);
@@ -310,12 +324,28 @@ export function DialogControleItensLances({
           return !inabilitacoes.includes(item.numero_item); // Verificar se o item está afetado
         });
 
+        console.log(`✅ [ITEM ${item.numero_item}] Lances válidos após filtro: ${lancesValidos.length}`);
+        console.log(`✅ [ITEM ${item.numero_item}] Lances válidos detalhes:`, lancesValidos.map(l => ({
+          fornecedor: l.fornecedores?.razao_social,
+          valor: l.valor_lance,
+          tipo: l.tipo_lance,
+          indicativo: l.indicativo_lance_vencedor
+        })));
+
         if (lancesValidos.length === 0) continue;
 
         // Priorizar lances de negociação, depois buscar por indicativo_lance_vencedor
         const lanceNegociacao = lancesValidos.find(l => l.tipo_lance === 'negociacao');
         const lanceVencedor = lancesValidos.find(l => l.indicativo_lance_vencedor === true);
         const vencedorFinal = lanceNegociacao || lanceVencedor || lancesValidos[0];
+
+        console.log(`🏆 [ITEM ${item.numero_item}] Vencedor final selecionado:`, {
+          fornecedor: vencedorFinal?.fornecedores?.razao_social,
+          valor: vencedorFinal?.valor_lance,
+          tipo: vencedorFinal?.tipo_lance,
+          indicativo: vencedorFinal?.indicativo_lance_vencedor,
+          criterio: lanceNegociacao ? 'negociacao' : lanceVencedor ? 'indicativo' : 'primeiro'
+        });
 
         if (vencedorFinal) {
           const fornecedorInfo = vencedorFinal.fornecedores || 
