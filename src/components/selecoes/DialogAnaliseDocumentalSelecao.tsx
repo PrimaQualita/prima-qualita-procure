@@ -2383,87 +2383,109 @@ export function DialogAnaliseDocumentalSelecao({
                               )}
 
                               {/* Botões de ação */}
-                              <div className="flex flex-wrap gap-2 pt-2 border-t">
-                                {/* PDFs */}
-                                {recurso.url_pdf_recurso && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => window.open(recurso.url_pdf_recurso, "_blank")}
-                                    className="text-xs"
-                                  >
-                                    <Eye className="h-3 w-3 mr-1" />
-                                    Ver PDF Recurso
-                                  </Button>
-                                )}
-                                {recurso.url_pdf_resposta && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => window.open(recurso.url_pdf_resposta, "_blank")}
-                                    className="text-xs"
-                                  >
-                                    <Eye className="h-3 w-3 mr-1" />
-                                    Ver PDF Resposta
-                                  </Button>
-                                )}
+                              <div className="flex flex-col gap-2 pt-2 border-t">
+                                <div className="flex flex-wrap gap-2">
+                                  {/* PDF Recurso */}
+                                  {recurso.url_pdf_recurso ? (
+                                    <div className="flex gap-1">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => window.open(recurso.url_pdf_recurso, "_blank")}
+                                        className="text-xs"
+                                      >
+                                        <Eye className="h-3 w-3 mr-1" />
+                                        Ver PDF Recurso
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'recurso' })}
+                                        className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ) : recurso.motivo_recurso && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleGerarPdfRecurso(recurso, inabilitacao, fornecedor)}
+                                      className="text-xs"
+                                    >
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      Gerar PDF Recurso
+                                    </Button>
+                                  )}
+                                  
+                                  {/* PDF Resposta */}
+                                  {recurso.url_pdf_resposta ? (
+                                    <div className="flex gap-1">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => window.open(recurso.url_pdf_resposta, "_blank")}
+                                        className="text-xs"
+                                      >
+                                        <Eye className="h-3 w-3 mr-1" />
+                                        Ver PDF Resposta
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'resposta' })}
+                                        className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ) : recurso.resposta_gestor && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleGerarPdfResposta(recurso, fornecedor)}
+                                      className="text-xs"
+                                    >
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      Gerar PDF Resposta
+                                    </Button>
+                                  )}
+                                  
+                                  {/* Responder recurso */}
+                                  {recurso.status_recurso === "enviado" && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        setRecursoParaResponder({
+                                          ...recurso,
+                                          itensInabilitados: inabilitacao?.itens_afetados || []
+                                        });
+                                        setRespostaRecurso("");
+                                        setDeferirRecurso(true);
+                                        setTipoProvimento('total');
+                                        setItensReabilitar([]);
+                                        setDialogResponderRecurso(true);
+                                      }}
+                                      className="text-xs bg-amber-600 hover:bg-amber-700"
+                                    >
+                                      <MessageSquare className="h-3 w-3 mr-1" />
+                                      Responder Recurso
+                                    </Button>
+                                  )}
+                                </div>
                                 
-                                {/* Responder recurso */}
-                                {recurso.status_recurso === "enviado" && (
+                                {/* Botão Excluir no canto inferior direito */}
+                                <div className="flex justify-end">
                                   <Button
+                                    variant="ghost"
                                     size="sm"
-                                    onClick={() => {
-                                      setRecursoParaResponder({
-                                        ...recurso,
-                                        itensInabilitados: inabilitacao?.itens_afetados || []
-                                      });
-                                      setRespostaRecurso("");
-                                      setDeferirRecurso(true);
-                                      setTipoProvimento('total');
-                                      setItensReabilitar([]);
-                                      setDialogResponderRecurso(true);
-                                    }}
-                                    className="text-xs bg-amber-600 hover:bg-amber-700"
+                                    onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                                    className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                                   >
-                                    <MessageSquare className="h-3 w-3 mr-1" />
-                                    Responder Recurso
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                    Excluir Recurso Completo
                                   </Button>
-                                )}
-                                
-                                {/* Gerar PDFs se não existirem */}
-                                {!recurso.url_pdf_recurso && recurso.motivo_recurso && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleGerarPdfRecurso(recurso, inabilitacao, fornecedor)}
-                                    className="text-xs"
-                                  >
-                                    <FileText className="h-3 w-3 mr-1" />
-                                    Gerar PDF Recurso
-                                  </Button>
-                                )}
-                                {!recurso.url_pdf_resposta && recurso.resposta_gestor && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleGerarPdfResposta(recurso, fornecedor)}
-                                    className="text-xs"
-                                  >
-                                    <FileText className="h-3 w-3 mr-1" />
-                                    Gerar PDF Resposta
-                                  </Button>
-                                )}
-                                
-                                {/* Excluir recurso */}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
-                                  className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-3 w-3 mr-1" />
-                                  Excluir
-                                </Button>
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
