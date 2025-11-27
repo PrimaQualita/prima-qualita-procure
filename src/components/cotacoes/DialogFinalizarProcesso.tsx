@@ -1003,10 +1003,14 @@ export function DialogFinalizarProcesso({
     if (!cotacaoId) return;
 
     try {
+      // Determinar o tipo de autorização esperado baseado no status atual
+      const tipoEsperado = foiEnviadoParaSelecao ? 'selecao_fornecedores' : 'compra_direta';
+      
       const { data, error } = await supabase
         .from("autorizacoes_processo")
         .select("*")
         .eq("cotacao_id", cotacaoId)
+        .eq("tipo_autorizacao", tipoEsperado) // FILTRAR APENAS PELO TIPO CORRETO
         .order("data_geracao", { ascending: false });
 
       if (error) throw error;
