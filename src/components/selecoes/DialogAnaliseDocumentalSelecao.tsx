@@ -190,7 +190,25 @@ export function DialogAnaliseDocumentalSelecao({
     }
   }, [open, selecaoId]);
 
-  // Listener realtime para recarregar quando vencedores mudarem
+  // Polling para garantir atualização automática dos vencedores
+  useEffect(() => {
+    if (!open || !selecaoId) return;
+
+    console.log("🔄 Iniciando polling para atualização automática de vencedores");
+    
+    // Polling a cada 3 segundos
+    const interval = setInterval(() => {
+      console.log("🔄 Polling: recarregando vencedores...");
+      loadFornecedoresVencedores();
+    }, 3000);
+
+    return () => {
+      console.log("⏹️ Parando polling de vencedores");
+      clearInterval(interval);
+    };
+  }, [open, selecaoId]);
+
+  // Listener realtime para mudanças em lances (backup do polling)
   useEffect(() => {
     if (!open || !selecaoId) return;
 
@@ -208,43 +226,14 @@ export function DialogAnaliseDocumentalSelecao({
         },
         (payload) => {
           console.log("🔔 Mudança detectada em lance, recarregando vencedores...");
-          setTimeout(() => {
-            loadFornecedoresVencedores();
-            loadRecursosInabilitacao();
-          }, 500);
-        }
-      )
-      .on(
-        'broadcast',
-        { event: 'vencedores_remarcados' },
-        (payload) => {
-          console.log("📡 Broadcast recebido - vencedores remarcados, recarregando em 1s...");
-          setTimeout(() => {
-            loadFornecedoresVencedores();
-            loadRecursosInabilitacao();
-          }, 1000);
+          loadFornecedoresVencedores();
+          loadRecursosInabilitacao();
         }
       )
       .subscribe();
     
-    // Também escutar canal de remarcar vencedores
-    const remarcarChannel = supabase.channel(`remarcar_vencedores_${selecaoId}`)
-      .on(
-        'broadcast',
-        { event: 'vencedores_remarcados' },
-        (payload) => {
-          console.log("📡 Broadcast de remarcação recebido, recarregando vencedores em 1s...");
-          setTimeout(() => {
-            loadFornecedoresVencedores();
-            loadRecursosInabilitacao();
-          }, 1000);
-        }
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
-      supabase.removeChannel(remarcarChannel);
     };
   }, [open, selecaoId]);
 
