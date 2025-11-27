@@ -1184,6 +1184,35 @@ const SistemaLancesFornecedor = () => {
 
       if (error) throw error;
 
+      // Se for negociação, fechar o item automaticamente
+      if (isNegociacao) {
+        const { error: updateError } = await supabase
+          .from("itens_abertos_lances")
+          .update({
+            em_negociacao: false,
+            negociacao_concluida: true,
+            aberto: false,
+            data_fechamento: new Date().toISOString()
+          })
+          .eq("selecao_id", selecao.id)
+          .eq("numero_item", numeroItem);
+
+        if (updateError) {
+          console.error("Erro ao fechar negociação:", updateError);
+        }
+
+        // Registrar no chat que fornecedor aceitou e melhorou a oferta
+        await supabase
+          .from("mensagens_negociacao")
+          .insert({
+            selecao_id: selecao.id,
+            fornecedor_id: proposta.fornecedor_id,
+            numero_item: numeroItem,
+            mensagem: "✅ Fornecedor aceitou a negociação e melhorou a oferta. Item encerrado.",
+            tipo_remetente: "fornecedor"
+          });
+      }
+
       toast.success(isNegociacao 
         ? `Proposta de negociação enviada para o Item ${numeroItem}!` 
         : `Lance enviado para o Item ${numeroItem}!`
@@ -1193,7 +1222,9 @@ const SistemaLancesFornecedor = () => {
         novo.delete(numeroItem);
         return novo;
       });
+      setItemSelecionado(null);
       loadLances();
+      loadItensAbertos();
     } catch (error) {
       console.error("Erro ao enviar lance:", error);
       toast.error("Erro ao enviar lance");
