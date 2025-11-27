@@ -237,7 +237,10 @@ export function DialogAnaliseDocumentalSelecao({
   const loadFornecedoresVencedores = async () => {
     setLoading(true);
     try {
+      console.log("🔄 [ANÁLISE DOC] Carregando fornecedores vencedores do banco...");
+      
       // Buscar dados da seleção e itens para obter quantidades
+      // IMPORTANTE: Adicionar timestamp para evitar cache
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
         .select("cotacao_relacionada_id, titulo_selecao, numero_selecao, criterios_julgamento, habilitacao_encerrada, data_encerramento_habilitacao")
@@ -291,13 +294,14 @@ export function DialogAnaliseDocumentalSelecao({
         });
       }
 
-      // Buscar vencedores por item
+      // Buscar vencedores por item - SEM CACHE
       const { data: vencedoresData, error: vencedoresError } = await supabase
         .from("lances_fornecedores")
         .select(`
           numero_item,
           valor_lance,
           fornecedor_id,
+          tipo_lance,
           fornecedores (
             id,
             razao_social,
@@ -307,6 +311,8 @@ export function DialogAnaliseDocumentalSelecao({
         `)
         .eq("selecao_id", selecaoId)
         .eq("indicativo_lance_vencedor", true);
+      
+      console.log("🏆 [ANÁLISE DOC] Vencedores encontrados:", vencedoresData?.length || 0, vencedoresData);
 
       if (vencedoresError) throw vencedoresError;
 
@@ -2243,9 +2249,25 @@ export function DialogAnaliseDocumentalSelecao({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] h-[95vh]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Análise Documental - Seleção de Fornecedores
+          <DialogTitle className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Análise Documental - Seleção de Fornecedores
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                console.log("🔄 BOTÃO MANUAL: Recarregando vencedores...");
+                loadFornecedoresVencedores();
+                loadRecursosInabilitacao();
+              }}
+              disabled={loading}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
