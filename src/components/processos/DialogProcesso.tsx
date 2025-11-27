@@ -254,7 +254,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
               )}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="objeto_resumido">Objeto Resumido *</Label>
+              <Label htmlFor="objeto_resumido">Objeto Completo *</Label>
               <RichTextEditor
                 value={formData.objeto_resumido}
                 onChange={(value) => setFormData({ ...formData, objeto_resumido: value })}
