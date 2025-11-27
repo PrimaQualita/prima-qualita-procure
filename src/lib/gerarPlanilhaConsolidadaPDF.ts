@@ -60,6 +60,33 @@ const decodeHtmlEntities = (text: string): string => {
   return textarea.value;
 };
 
+// Função para justificar texto manualmente no jsPDF
+const justificarTexto = (doc: any, texto: string, x: number, y: number, larguraMaxima: number) => {
+  const palavras = texto.trim().split(/\s+/);
+  
+  // Se só tem uma palavra, não justifica
+  if (palavras.length === 1) {
+    doc.text(texto, x, y);
+    return;
+  }
+  
+  // Calcular largura do texto sem espaços extras
+  const textoSemEspacos = palavras.join('');
+  const larguraTexto = doc.getTextWidth(textoSemEspacos);
+  
+  // Calcular espaço necessário para distribuir entre as palavras
+  const espacoDisponivel = larguraMaxima - larguraTexto;
+  const numEspacos = palavras.length - 1;
+  const espacoPorPalavra = espacoDisponivel / numEspacos;
+  
+  // Renderizar cada palavra com espaçamento calculado
+  let xAtual = x;
+  palavras.forEach((palavra, index) => {
+    doc.text(palavra, xAtual, y);
+    xAtual += doc.getTextWidth(palavra) + espacoPorPalavra;
+  });
+};
+
 export async function gerarPlanilhaConsolidadaPDF(
   processo: { numero: string; objeto: string },
   cotacao: { titulo_cotacao: string },
@@ -107,21 +134,31 @@ export async function gerarPlanilhaConsolidadaPDF(
   const textoObjeto = 'Objeto:  ';
   doc.text(textoObjeto, margemEsquerda, y);
   
-  // Quebrar texto do objeto com alinhamento justificado
+  // Quebrar texto do objeto e aplicar justificação manual
   const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<\/?p>/g, '');
   doc.setFont('helvetica', 'normal');
-  const larguraObjetoMaxima = larguraUtil - doc.getTextWidth(textoObjeto) - 5;
-  const linhasObjeto = doc.splitTextToSize(objetoDecodificado, larguraObjetoMaxima);
   
-  // Renderizar primeira linha ao lado de "Objeto:" com justificação
+  // Primeira linha ao lado de "Objeto:"
   const larguraObjeto = doc.getTextWidth(textoObjeto);
-  doc.text(linhasObjeto[0], margemEsquerda + larguraObjeto, y, { align: 'justify', maxWidth: larguraObjetoMaxima });
+  const larguraPrimeiraLinha = larguraUtil - larguraObjeto;
+  const linhasPrimeiraLinha = doc.splitTextToSize(objetoDecodificado, larguraPrimeiraLinha);
+  justificarTexto(doc, linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto, y, larguraPrimeiraLinha);
   
-  // Renderizar demais linhas abaixo com justificação
+  // Demais linhas do objeto com largura total
   y += 5;
-  for (let i = 1; i < linhasObjeto.length; i++) {
-    doc.text(linhasObjeto[i], margemEsquerda, y, { align: 'justify', maxWidth: larguraUtil });
-    y += 5;
+  const textoRestante = objetoDecodificado.substring(linhasPrimeiraLinha[0].length).trim();
+  if (textoRestante) {
+    const linhasRestantes = doc.splitTextToSize(textoRestante, larguraUtil);
+    linhasRestantes.forEach((linha: string, index: number) => {
+      // Justificar todas as linhas exceto a última
+      if (index < linhasRestantes.length - 1) {
+        justificarTexto(doc, linha, margemEsquerda, y, larguraUtil);
+      } else {
+        // Última linha alinhada à esquerda
+        doc.text(linha, margemEsquerda, y);
+      }
+      y += 5;
+    });
   }
 
   y += 5; // Espaço após o objeto
