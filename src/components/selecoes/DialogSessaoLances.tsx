@@ -374,12 +374,19 @@ export function DialogSessaoLances({
       const lancesValidos = lancesItem.filter(lance => !inabilitadosSet.has(lance.fornecedor_id));
       
       console.log(`✅ [ATUALIZAR] Lances válidos após filtrar inabilitados: ${lancesValidos.length}`);
+      console.log(`📊 [ATUALIZAR] Detalhes dos lances válidos:`, lancesValidos.map(l => ({
+        id: l.id,
+        fornecedor: l.fornecedor_id,
+        valor: l.valor_lance,
+        tipo: l.tipo_lance
+      })));
 
       if (lancesValidos.length === 0) {
         console.log("❌ [ATUALIZAR] Nenhum lance válido após excluir inabilitados");
         return;
       }
 
+      console.log(`🔄 [ATUALIZAR] Iniciando ordenação de lances...`);
       // 5. Ordenar com priorização de negociação e critério
       const lancesOrdenados = [...lancesValidos].sort((a, b) => {
         // PRIORIDADE 1: Lances de negociação vêm SEMPRE primeiro
@@ -1390,8 +1397,14 @@ export function DialogSessaoLances({
       
       // Atualizar vencedor de cada item usando a função centralizada
       for (const numeroItem of itensUnicos) {
-        console.log(`⚙️ Processando item ${numeroItem}...`);
-        await atualizarVencedorItem(numeroItem);
+        try {
+          console.log(`⚙️ Processando item ${numeroItem}...`);
+          await atualizarVencedorItem(numeroItem);
+          console.log(`✅ Item ${numeroItem} processado com sucesso`);
+        } catch (itemError) {
+          console.error(`❌ Erro ao processar item ${numeroItem}:`, itemError);
+          // Continua processando outros itens mesmo se um falhar
+        }
       }
 
       console.log("✅ Remarcação concluída - vencedores atualizados no banco");
