@@ -57,7 +57,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     tipo: "material",
     centro_custo: "",
     valor_estimado_anual: 0,
-    status_processo: "aberto",
+    status_processo: "planejado",
     data_abertura: new Date().toISOString().split("T")[0],
     observacoes: "",
     requer_cotacao: true,
@@ -138,7 +138,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         tipo: "material",
         centro_custo: "",
         valor_estimado_anual: 0,
-        status_processo: "aberto",
+        status_processo: "planejado",
         data_abertura: new Date().toISOString().split("T")[0],
         observacoes: "",
         requer_cotacao: true,
@@ -305,7 +305,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="aberto">Aberto</SelectItem>
+                  <SelectItem value="planejado">Aberto</SelectItem>
                   <SelectItem value="concluido">Concluído</SelectItem>
                 </SelectContent>
               </Select>
