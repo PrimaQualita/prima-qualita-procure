@@ -1079,7 +1079,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   
   doc.setFontSize(8);
   const urlLines = doc.splitTextToSize(verificationUrl, contentWidth - 10);
-  const certHeight = 50 + (urlLines.length * 3.5);
+  const certHeight = 38 + (urlLines.length * 3.5);
   
   const certY = currentY;
   
@@ -1096,26 +1096,26 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 139);
-  doc.text("CERTIFICAÇÃO DIGITAL", marginLeft + contentWidth / 2, certY + 8, { align: "center" });
+  doc.text("CERTIFICAÇÃO DIGITAL", marginLeft + contentWidth / 2, certY + 6, { align: "center" });
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
   
-  let certTextY = certY + 17;
+  let certTextY = certY + 13;
   
   // Protocolo
   doc.text(`Protocolo:  ${protocoloFormatado}`, marginLeft + 5, certTextY);
-  certTextY += 5;
+  certTextY += 4;
   
   // Responsável
   doc.text(`Responsável:  ${nomeResponsavel}`, marginLeft + 5, certTextY);
-  certTextY += 7;
+  certTextY += 5;
   
   // Verificação - Label
   doc.setFont("helvetica", "bold");
   doc.text("Verificar autenticidade em:", marginLeft + 5, certTextY);
-  certTextY += 4;
+  certTextY += 3.5;
   
   // URL como link clicável
   doc.setFont("helvetica", "normal");
@@ -1124,7 +1124,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   urlLines.forEach((linha: string, index: number) => {
     doc.textWithLink(linha, marginLeft + 5, certTextY + (index * 3.5), { url: verificationUrl });
   });
-  certTextY += urlLines.length * 3.5 + 3;
+  certTextY += urlLines.length * 3.5 + 2.5;
   
   // Texto legal
   doc.setTextColor(80, 80, 80);
