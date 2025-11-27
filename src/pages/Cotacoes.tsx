@@ -1643,8 +1643,14 @@ const Cotacoes = () => {
                                 <TableHead className="w-24">Qtd</TableHead>
                                 <TableHead className="w-24">Unid.</TableHead>
                                 {processoSelecionado?.tipo === "material" && <TableHead className="w-32">Marca</TableHead>}
-                                <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
-                                <TableHead className="w-32 text-right">Vlr. Total</TableHead>
+                                {cotacaoSelecionada?.criterio_julgamento === "desconto" ? (
+                                  <TableHead className="w-32 text-right">Desconto</TableHead>
+                                ) : (
+                                  <>
+                                    <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
+                                    <TableHead className="w-32 text-right">Vlr. Total</TableHead>
+                                  </>
+                                )}
                                 <TableHead className="w-32 text-right">Ações</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -1680,12 +1686,20 @@ const Cotacoes = () => {
                                        {processoSelecionado?.tipo === "material" && (
                                          <TableCell>{item.marca || "-"}</TableCell>
                                        )}
-                                       <TableCell className="text-right">
-                                         R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                                       </TableCell>
-                                       <TableCell className="text-right">
-                                         R$ {(item.quantidade * item.valor_unitario_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                                       </TableCell>
+                                       {cotacaoSelecionada?.criterio_julgamento === "desconto" ? (
+                                         <TableCell className="text-right">
+                                           {item.valor_unitario_estimado.toFixed(2)}%
+                                         </TableCell>
+                                       ) : (
+                                         <>
+                                           <TableCell className="text-right">
+                                             R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                           </TableCell>
+                                           <TableCell className="text-right">
+                                             R$ {(item.quantidade * item.valor_unitario_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                           </TableCell>
+                                         </>
+                                       )}
                                        <TableCell className="text-right">
                                          <div className="flex gap-1 justify-end">
                                            <Button
@@ -1761,8 +1775,14 @@ const Cotacoes = () => {
                         <TableHead className="w-24">Qtd</TableHead>
                         <TableHead className="w-24">Unid.</TableHead>
                         {processoSelecionado?.tipo === "material" && <TableHead className="w-32">Marca</TableHead>}
-                        <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
-                        <TableHead className="w-32 text-right">Vlr. Total</TableHead>
+                        {cotacaoSelecionada?.criterio_julgamento === "desconto" ? (
+                          <TableHead className="w-32 text-right">Desconto</TableHead>
+                        ) : (
+                          <>
+                            <TableHead className="w-32 text-right">Vlr. Unit.</TableHead>
+                            <TableHead className="w-32 text-right">Vlr. Total</TableHead>
+                          </>
+                        )}
                         <TableHead className="w-32 text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1814,12 +1834,20 @@ const Cotacoes = () => {
                               {processoSelecionado?.tipo === "material" && (
                                 <TableCell>{item.marca || "-"}</TableCell>
                               )}
-                              <TableCell className="text-right">
-                                R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                R$ {(item.quantidade * item.valor_unitario_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                              </TableCell>
+                              {cotacaoSelecionada?.criterio_julgamento === "desconto" ? (
+                                <TableCell className="text-right">
+                                  {item.valor_unitario_estimado.toFixed(2)}%
+                                </TableCell>
+                              ) : (
+                                <>
+                                  <TableCell className="text-right">
+                                    R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    R$ {(item.quantidade * item.valor_unitario_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                  </TableCell>
+                                </>
+                              )}
                               <TableCell className="text-right">
                                 <div className="flex gap-1 justify-end">
                                   <Button
