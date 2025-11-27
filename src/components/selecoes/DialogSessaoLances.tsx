@@ -425,12 +425,15 @@ export function DialogSessaoLances({
         inabilitacoesPorFornecedor.set(f.fornecedor_id, f.itens_afetados || []);
       });
 
-      // Buscar lances
+      // Determinar ordem baseada no critério
+      const isDesconto = criterioJulgamento === "desconto";
+      
+      // Buscar lances - INCLUIR tipo_lance para priorizar negociação
       const { data: lancesData, error: lancesError } = await supabase
         .from("lances_fornecedores")
-        .select("fornecedor_id, numero_item, valor_lance")
+        .select("fornecedor_id, numero_item, valor_lance, tipo_lance")
         .eq("selecao_id", selecaoId)
-        .order("valor_lance", { ascending: true });
+        .order("valor_lance", { ascending: !isDesconto }); // Desconto: maior é melhor (descending)
 
       if (lancesError) throw lancesError;
 
@@ -453,19 +456,38 @@ export function DialogSessaoLances({
 
       const fornecedoresMap = new Map(fornecedoresData?.map(f => [f.id, f.razao_social]) || []);
 
-      // Identificar vencedor por item (menor lance - excluindo inabilitados)
+      // Identificar vencedor por item
+      // PRIORIZAR lances de negociação sobre lances regulares de proposta
       const vencedores = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
       
       lancesFiltrados.forEach((lance) => {
-        if (!vencedores.has(lance.numero_item)) {
+        const vencedorAtual = vencedores.get(lance.numero_item);
+        
+        // Se não tem vencedor ainda, definir este lance
+        if (!vencedorAtual) {
           vencedores.set(lance.numero_item, {
             fornecedorId: lance.fornecedor_id,
             razaoSocial: fornecedoresMap.get(lance.fornecedor_id) || 'Fornecedor',
             valorLance: lance.valor_lance
           });
+        } 
+        // Se este lance é de negociação, SEMPRE substituir se for melhor
+        else if (lance.tipo_lance === 'negociacao') {
+          const valorMelhor = isDesconto 
+            ? lance.valor_lance >= vencedorAtual.valorLance  // Desconto: maior é melhor
+            : lance.valor_lance <= vencedorAtual.valorLance; // Preço: menor é melhor
+            
+          if (valorMelhor) {
+            vencedores.set(lance.numero_item, {
+              fornecedorId: lance.fornecedor_id,
+              razaoSocial: fornecedoresMap.get(lance.fornecedor_id) || 'Fornecedor',
+              valorLance: lance.valor_lance
+            });
+          }
         }
       });
 
+      console.log("🏆 Vencedores carregados (com priorização de negociação):", Array.from(vencedores.entries()));
       setVencedoresPorItem(vencedores);
     } catch (error) {
       console.error("Erro ao carregar vencedores:", error);
