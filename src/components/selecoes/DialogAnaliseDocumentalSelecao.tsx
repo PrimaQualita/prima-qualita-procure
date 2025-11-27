@@ -157,6 +157,8 @@ export function DialogAnaliseDocumentalSelecao({
   
   // States para recursos de inabilitação
   const [recursosInabilitacao, setRecursosInabilitacao] = useState<Record<string, any>>({});
+  const [intencoesRecurso, setIntencoesRecurso] = useState<any[]>([]);
+  const [todosRecursos, setTodosRecursos] = useState<any[]>([]);
   const [dialogResponderRecurso, setDialogResponderRecurso] = useState(false);
   const [recursoParaResponder, setRecursoParaResponder] = useState<any>(null);
   const [respostaRecurso, setRespostaRecurso] = useState("");
@@ -501,10 +503,16 @@ export function DialogAnaliseDocumentalSelecao({
 
   const loadRecursosInabilitacao = async () => {
     try {
+      // Carregar recursos
       const { data: recursos, error } = await supabase
         .from("recursos_inabilitacao_selecao")
-        .select("*")
-        .eq("selecao_id", selecaoId);
+        .select(`
+          *,
+          fornecedores:fornecedor_id (razao_social, cnpj),
+          fornecedores_inabilitados_selecao:inabilitacao_id (motivo_inabilitacao, itens_afetados)
+        `)
+        .eq("selecao_id", selecaoId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -514,6 +522,21 @@ export function DialogAnaliseDocumentalSelecao({
         recursosMap[recurso.inabilitacao_id] = recurso;
       });
       setRecursosInabilitacao(recursosMap);
+      setTodosRecursos(recursos || []);
+      
+      // Carregar intenções de recurso
+      const { data: intencoes, error: intError } = await supabase
+        .from("intencoes_recurso_selecao")
+        .select(`
+          *,
+          fornecedores:fornecedor_id (razao_social, cnpj)
+        `)
+        .eq("selecao_id", selecaoId)
+        .order("created_at", { ascending: false });
+        
+      if (!intError) {
+        setIntencoesRecurso(intencoes || []);
+      }
     } catch (error) {
       console.error("Erro ao carregar recursos:", error);
     }
@@ -2264,6 +2287,240 @@ export function DialogAnaliseDocumentalSelecao({
                     </Button>
                   )}
                 </div>
+
+                {/* Seção de Recursos de Inabilitação - Após encerramento */}
+                {habilitacaoEncerrada && todosRecursos.length > 0 && (
+                  <div className="border-t pt-6 mt-6 space-y-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 text-amber-700">
+                      <Gavel className="h-5 w-5" />
+                      Recursos de Inabilitação ({todosRecursos.length})
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      {todosRecursos.map((recurso: any) => {
+                        const fornecedor = recurso.fornecedores;
+                        const inabilitacao = recurso.fornecedores_inabilitados_selecao;
+                        
+                        return (
+                          <Card key={recurso.id} className="border-amber-200 bg-amber-50/50">
+                            <CardContent className="p-4 space-y-3">
+                              {/* Header do recurso */}
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="font-medium text-sm">{fornecedor?.razao_social || "Fornecedor"}</p>
+                                  <p className="text-xs text-muted-foreground">{fornecedor?.cnpj || ""}</p>
+                                  {inabilitacao?.itens_afetados && (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      Inabilitado nos itens: {inabilitacao.itens_afetados.join(", ")}
+                                    </p>
+                                  )}
+                                </div>
+                                <Badge 
+                                  variant={
+                                    recurso.status_recurso === "enviado" ? "default" :
+                                    recurso.status_recurso === "deferido" || recurso.status_recurso === "deferido_parcial" ? "outline" :
+                                    recurso.status_recurso === "indeferido" ? "destructive" :
+                                    "secondary"
+                                  }
+                                  className={
+                                    recurso.status_recurso === "deferido" || recurso.status_recurso === "deferido_parcial" 
+                                      ? "bg-green-100 text-green-700 border-green-300" 
+                                      : ""
+                                  }
+                                >
+                                  {recurso.status_recurso === "aguardando_envio" ? "Aguardando Envio" :
+                                   recurso.status_recurso === "enviado" ? "Enviado - Aguardando Análise" :
+                                   recurso.status_recurso === "deferido" ? "Deferido" :
+                                   recurso.status_recurso === "deferido_parcial" ? "Deferido Parcialmente" :
+                                   recurso.status_recurso === "indeferido" ? "Indeferido" :
+                                   recurso.status_recurso === "expirado" ? "Expirado" :
+                                   recurso.status_recurso}
+                                </Badge>
+                              </div>
+
+                              {/* Motivo da inabilitação */}
+                              {inabilitacao?.motivo_inabilitacao && (
+                                <div className="bg-red-50 p-2 rounded text-sm">
+                                  <span className="font-medium text-red-700">Motivo da inabilitação:</span>
+                                  <p className="text-red-600 text-xs mt-1">{inabilitacao.motivo_inabilitacao}</p>
+                                </div>
+                              )}
+
+                              {/* Razões do recurso */}
+                              {recurso.motivo_recurso && (
+                                <div className="bg-amber-100 p-2 rounded">
+                                  <span className="font-medium text-amber-800 text-sm">Razões do Recurso:</span>
+                                  <ScrollArea className="h-20 mt-1">
+                                    <p className="text-xs text-amber-700 whitespace-pre-wrap">{recurso.motivo_recurso}</p>
+                                  </ScrollArea>
+                                </div>
+                              )}
+
+                              {/* Resposta do gestor */}
+                              {recurso.resposta_gestor && (
+                                <div className={`p-2 rounded ${
+                                  recurso.status_recurso === "deferido" || recurso.status_recurso === "deferido_parcial"
+                                    ? "bg-green-100" 
+                                    : "bg-red-100"
+                                }`}>
+                                  <span className={`font-medium text-sm ${
+                                    recurso.status_recurso === "deferido" || recurso.status_recurso === "deferido_parcial"
+                                      ? "text-green-800" 
+                                      : "text-red-800"
+                                  }`}>
+                                    Resposta do Gestor:
+                                  </span>
+                                  <ScrollArea className="h-20 mt-1">
+                                    <p className={`text-xs whitespace-pre-wrap ${
+                                      recurso.status_recurso === "deferido" || recurso.status_recurso === "deferido_parcial"
+                                        ? "text-green-700" 
+                                        : "text-red-700"
+                                    }`}>
+                                      {recurso.resposta_gestor}
+                                    </p>
+                                  </ScrollArea>
+                                </div>
+                              )}
+
+                              {/* Botões de ação */}
+                              <div className="flex flex-wrap gap-2 pt-2 border-t">
+                                {/* PDFs */}
+                                {recurso.url_pdf_recurso && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.open(recurso.url_pdf_recurso, "_blank")}
+                                    className="text-xs"
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Ver PDF Recurso
+                                  </Button>
+                                )}
+                                {recurso.url_pdf_resposta && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.open(recurso.url_pdf_resposta, "_blank")}
+                                    className="text-xs"
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Ver PDF Resposta
+                                  </Button>
+                                )}
+                                
+                                {/* Responder recurso */}
+                                {recurso.status_recurso === "enviado" && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setRecursoParaResponder({
+                                        ...recurso,
+                                        itensInabilitados: inabilitacao?.itens_afetados || []
+                                      });
+                                      setRespostaRecurso("");
+                                      setDeferirRecurso(true);
+                                      setTipoProvimento('total');
+                                      setItensReabilitar([]);
+                                      setDialogResponderRecurso(true);
+                                    }}
+                                    className="text-xs bg-amber-600 hover:bg-amber-700"
+                                  >
+                                    <MessageSquare className="h-3 w-3 mr-1" />
+                                    Responder Recurso
+                                  </Button>
+                                )}
+                                
+                                {/* Gerar PDFs se não existirem */}
+                                {!recurso.url_pdf_recurso && recurso.motivo_recurso && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleGerarPdfRecurso(recurso, inabilitacao, fornecedor)}
+                                    className="text-xs"
+                                  >
+                                    <FileText className="h-3 w-3 mr-1" />
+                                    Gerar PDF Recurso
+                                  </Button>
+                                )}
+                                {!recurso.url_pdf_resposta && recurso.resposta_gestor && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleGerarPdfResposta(recurso, fornecedor)}
+                                    className="text-xs"
+                                  >
+                                    <FileText className="h-3 w-3 mr-1" />
+                                    Gerar PDF Resposta
+                                  </Button>
+                                )}
+                                
+                                {/* Excluir recurso */}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                                  className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  Excluir
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Seção de Intenções de Recurso */}
+                {habilitacaoEncerrada && intencoesRecurso.length > 0 && (
+                  <div className="border-t pt-6 mt-6 space-y-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 text-blue-700">
+                      <Handshake className="h-5 w-5" />
+                      Intenções de Recurso ({intencoesRecurso.length})
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {intencoesRecurso.map((intencao: any) => (
+                        <Card 
+                          key={intencao.id} 
+                          className={intencao.deseja_recorrer 
+                            ? "border-amber-200 bg-amber-50/50" 
+                            : "border-green-200 bg-green-50/50"
+                          }
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="font-medium text-sm">{intencao.fornecedores?.razao_social || "Fornecedor"}</p>
+                                <p className="text-xs text-muted-foreground">{intencao.fornecedores?.cnpj || ""}</p>
+                              </div>
+                              <Badge 
+                                variant={intencao.deseja_recorrer ? "default" : "outline"}
+                                className={intencao.deseja_recorrer 
+                                  ? "bg-amber-100 text-amber-700 border-amber-300" 
+                                  : "bg-green-100 text-green-700 border-green-300"
+                                }
+                              >
+                                {intencao.deseja_recorrer ? "Deseja Recorrer" : "Não Recorrerá"}
+                              </Badge>
+                            </div>
+                            {intencao.motivo_intencao && (
+                              <div className="mt-2 bg-white/50 p-2 rounded text-xs">
+                                <span className="font-medium">Motivo:</span>
+                                <p className="text-muted-foreground mt-1">{intencao.motivo_intencao}</p>
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Registrado em: {format(new Date(intencao.data_intencao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
