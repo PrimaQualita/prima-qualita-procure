@@ -122,10 +122,7 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
   };
 
   const formatDesconto = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    return value.toFixed(2).replace('.', ',');
   };
 
   const formatCNPJ = (cnpj: string) => {
