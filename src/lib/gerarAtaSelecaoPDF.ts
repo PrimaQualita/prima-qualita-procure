@@ -1437,25 +1437,28 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   // CRIAR NOVA PÁGINA para o termo de aceite (certificação ocupa final da última página)
   console.log('>>> CRIANDO NOVA PÁGINA DEDICADA para termo de aceite');
-  let page = pdfDoc.addPage([595.28, 841.89]); // A4 exato
-  console.log('>>> Nova página criada. Total agora:', pdfDoc.getPageCount());
   
-  const { width, height } = page.getSize();
-  console.log('>>> Dimensões da nova página - width:', width, 'height:', height);
+  // Dimensões fixas A4
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
   const marginLeft = 40;
   const marginRight = 40;
+  const footerLimit = 60;
+  
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
+  console.log('>>> Nova página criada. Total agora:', pdfDoc.getPageCount());
+  console.log('>>> Dimensões da nova página - width:', pageWidth, 'height:', pageHeight);
   
   // Começar do TOPO da nova página (Y alto = topo em pdf-lib)
-  let currentY = height - 80; // Do topo com margem
+  let currentY = pageHeight - 80; // Do topo com margem
   console.log('>>> Posição inicial do termo de aceite (do topo):', currentY);
-  const footerLimit = 60;
 
   // Função para criar nova página se necessário
   const checkNewPage = async (espacoNecessario: number) => {
     if (currentY - espacoNecessario < footerLimit) {
       console.log('>>> checkNewPage: Criando nova página adicional');
-      page = pdfDoc.addPage([595, 842]);
-      currentY = height - 80;
+      page = pdfDoc.addPage([pageWidth, pageHeight]);
+      currentY = pageHeight - 80;
       console.log('>>> checkNewPage: Nova página criada. Total:', pdfDoc.getPageCount());
       return true;
     }
@@ -1506,7 +1509,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     page.drawRectangle({
       x: marginLeft,
       y: currentY - boxHeight,
-      width: width - marginLeft - marginRight,
+      width: pageWidth - marginLeft - marginRight,
       height: boxHeight,
       color: assinatura.status_assinatura === 'aceito' ? rgb(0.95, 1, 0.95) : rgb(1, 0.98, 0.9),
       borderColor: assinatura.status_assinatura === 'aceito' ? rgb(0.2, 0.7, 0.2) : rgb(0.9, 0.7, 0.2),
@@ -1574,7 +1577,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     const statusColor = assinatura.status_assinatura === 'aceito' ? rgb(0, 0.5, 0) : rgb(0.8, 0.5, 0);
     
     page.drawText(statusText, {
-      x: width - marginRight - 80,
+      x: pageWidth - marginRight - 80,
       y: currentY - 14,
       size: 9,
       font: helveticaBold,
@@ -1584,7 +1587,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     if (assinatura.data_assinatura) {
       const dataFormatada = new Date(assinatura.data_assinatura).toLocaleString('pt-BR');
       page.drawText(dataFormatada, {
-        x: width - marginRight - 120,
+        x: pageWidth - marginRight - 120,
         y: currentY - 26,
         size: 8,
         font: helveticaFont,
