@@ -382,11 +382,21 @@ const RespostaCotacao = () => {
       // Validar se todos os valores foram preenchidos
       const itensIncompletos = itensCotacao.filter(item => {
         const resposta = respostas[item.id];
+        
+        // Se critério for desconto, validar percentual_desconto
+        if (processoCompra?.criterio_julgamento === "desconto") {
+          return !resposta?.percentual_desconto || resposta.percentual_desconto <= 0;
+        }
+        
+        // Senão, validar valor_unitario_ofertado
         return !resposta?.valor_unitario_ofertado || resposta.valor_unitario_ofertado <= 0;
       });
 
       if (itensIncompletos.length > 0) {
-        toast.error("Por favor, preencha os valores unitários de todos os itens");
+        const mensagem = processoCompra?.criterio_julgamento === "desconto"
+          ? "Por favor, preencha os percentuais de desconto de todos os itens"
+          : "Por favor, preencha os valores unitários de todos os itens";
+        toast.error(mensagem);
         setSubmitting(false);
         return;
       }

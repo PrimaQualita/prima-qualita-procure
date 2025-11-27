@@ -248,11 +248,21 @@ const IncluirPrecosPublicos = () => {
 
       const todosPreenchidos = itens.every((item) => {
         const resposta = respostas[item.id];
+        
+        // Se critério for desconto, validar percentual_desconto
+        if (processoCompra?.criterio_julgamento === "desconto") {
+          return resposta && resposta.percentual_desconto && parseFloat(resposta.percentual_desconto.replace(/,/g, ".")) > 0;
+        }
+        
+        // Senão, validar valor_unitario
         return resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
       });
 
       if (!todosPreenchidos) {
-        toast.error("Por favor, preencha todos os valores unitários");
+        const mensagem = processoCompra?.criterio_julgamento === "desconto"
+          ? "Por favor, preencha todos os percentuais de desconto"
+          : "Por favor, preencha todos os valores unitários";
+        toast.error(mensagem);
         return;
       }
 
