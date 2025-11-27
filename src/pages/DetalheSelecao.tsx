@@ -24,6 +24,7 @@ import { DialogSessaoLances } from "@/components/selecoes/DialogSessaoLances";
 import { DialogAnaliseDocumentalSelecao } from "@/components/selecoes/DialogAnaliseDocumentalSelecao";
 import { DialogEnviarAtaAssinatura } from "@/components/selecoes/DialogEnviarAtaAssinatura";
 import { gerarAtaSelecaoPDF, atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
+import { gerarHomologacaoSelecaoPDF } from "@/lib/gerarHomologacaoSelecaoPDF";
 
 interface Item {
   id: string;
@@ -62,6 +63,11 @@ const DetalheSelecao = () => {
   const [ataParaEnviar, setAtaParaEnviar] = useState<string | null>(null);
   const [atualizandoPDF, setAtualizandoPDF] = useState<string | null>(null);
   const [forceReloadVencedores, setForceReloadVencedores] = useState(0);
+  
+  // Estados para Homologação
+  const [gerandoHomologacao, setGerandoHomologacao] = useState(false);
+  const [homologacoesGeradas, setHomologacoesGeradas] = useState<any[]>([]);
+  const [confirmDeleteHomologacao, setConfirmDeleteHomologacao] = useState<string | null>(null);
 
   useEffect(() => {
     if (selecaoId) {
@@ -169,6 +175,9 @@ const DetalheSelecao = () => {
 
       // Carregar atas geradas
       await loadAtasGeradas();
+      
+      // Carregar homologações geradas
+      await loadHomologacoesGeradas();
 
     } catch (error) {
       console.error("Erro ao carregar seleção:", error);
@@ -371,6 +380,49 @@ const DetalheSelecao = () => {
   const handleAbrirEnviarAtaAssinatura = (ataId: string) => {
     setAtaParaEnviar(ataId);
     setDialogEnviarAtaAssinaturaOpen(true);
+  };
+
+  // ========== FUNÇÕES DE HOMOLOGAÇÃO ==========
+  const loadHomologacoesGeradas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("homologacoes_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoId)
+        .order("data_geracao", { ascending: false });
+
+      if (error) throw error;
+      setHomologacoesGeradas(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar homologações:", error);
+    }
+  };
+
+  const handleDeleteHomologacao = async (homologacaoId: string) => {
+    try {
+      const homologacao = homologacoesGeradas.find(h => h.id === homologacaoId);
+      if (homologacao) {
+        // Deletar do storage
+        const storagePath = `homologacoes-selecao/${selecaoId}/${homologacao.nome_arquivo}`;
+        await supabase.storage.from("processo-anexos").remove([storagePath]);
+      }
+
+      // Deletar do banco
+      const { error } = await supabase
+        .from("homologacoes_selecao")
+        .delete()
+        .eq("id", homologacaoId);
+
+      if (error) throw error;
+
+      toast.success("Homologação excluída com sucesso!");
+      await loadHomologacoesGeradas();
+    } catch (error) {
+      console.error("Erro ao excluir homologação:", error);
+      toast.error("Erro ao excluir homologação");
+    } finally {
+      setConfirmDeleteHomologacao(null);
+    }
   };
 
   const handleAtualizarPDFAta = async (ataId: string) => {
@@ -643,6 +695,84 @@ const DetalheSelecao = () => {
             <FileCheck className="h-5 w-5 mr-2" />
             {gerandoAta ? "Gerando..." : "Gerar Ata"}
           </Button>
+
+          {/* Gerar Homologação */}
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            disabled={gerandoHomologacao}
+            onClick={async () => {
+              setGerandoHomologacao(true);
+              try {
+                await gerarHomologacaoSelecaoPDF(selecaoId!);
+                toast.success("Homologação gerada com sucesso!");
+                await loadHomologacoesGeradas();
+              } catch (error) {
+                console.error("Erro ao gerar homologação:", error);
+                toast.error("Erro ao gerar Homologação");
+              } finally {
+                setGerandoHomologacao(false);
+              }
+            }}
+          >
+            <FileCheck className="h-5 w-5 mr-2" />
+            {gerandoHomologacao ? "Gerando..." : "Gerar Homologação"}
+          </Button>
+
+          {/* Homologações Geradas */}
+          {homologacoesGeradas.length > 0 && (
+            <Card className="mt-4">
+              <CardHeader className="py-3">
+                <CardTitle className="text-base">Homologações Geradas</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <div className="space-y-2">
+                  {homologacoesGeradas.map((homologacao) => (
+                    <div key={homologacao.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{homologacao.nome_arquivo}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Gerada em: {new Date(homologacao.data_geracao).toLocaleString("pt-BR")}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => window.open(homologacao.url_arquivo, "_blank")}
+                          title="Visualizar"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => setConfirmDeleteHomologacao(homologacao.id)}
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => {
+                            // TODO: Implementar envio para assinatura de representante legal
+                            toast.info("Funcionalidade de envio para assinatura em desenvolvimento");
+                          }}
+                          title="Enviar para Assinatura"
+                        >
+                          <SendHorizontal className="h-4 w-4 mr-1" />
+                          Enviar para Assinatura
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Atas Geradas */}
           {atasGeradas.length > 0 && (
@@ -963,6 +1093,26 @@ const DetalheSelecao = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => confirmDeleteAta && handleDeleteAta(confirmDeleteAta)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de exclusão de Homologação */}
+      <AlertDialog open={!!confirmDeleteHomologacao} onOpenChange={(open) => !open && setConfirmDeleteHomologacao(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta Homologação? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmDeleteHomologacao && handleDeleteHomologacao(confirmDeleteHomologacao)}
             >
               Excluir
             </AlertDialogAction>
