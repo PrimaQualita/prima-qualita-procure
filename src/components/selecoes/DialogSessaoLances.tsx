@@ -1357,13 +1357,13 @@ export function DialogSessaoLances({
         await atualizarVencedorItem(numeroItem);
       }
 
-      toast.success(`${itensUnicos.length} item(ns) processado(s) com sucesso!`);
+      console.log("✅ Remarcação concluída - vencedores atualizados no banco");
       
       // Recarregar dados locais
       await loadLances();
       await loadVencedoresPorItem();
       
-      console.log("✅ Remarcação concluída - vencedores atualizados");
+      toast.success(`${itensUnicos.length} item(ns) processado(s). Vencedores atualizados!`);
     } catch (error) {
       console.error("Erro ao remarcar vencedores:", error);
       toast.error("Erro ao remarcar vencedores");

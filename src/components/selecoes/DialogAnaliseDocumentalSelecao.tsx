@@ -184,6 +184,7 @@ export function DialogAnaliseDocumentalSelecao({
 
   useEffect(() => {
     if (open && selecaoId) {
+      console.log("🔄 Carregando dados da análise documental...");
       loadFornecedoresVencedores();
       loadRecursosInabilitacao();
     }
@@ -206,12 +207,13 @@ export function DialogAnaliseDocumentalSelecao({
           filter: `selecao_id=eq.${selecaoId}`,
         },
         (payload) => {
-          console.log("🔔 Mudança detectada em lance:", payload);
-          // Recarregar vencedores quando indicativo_lance_vencedor mudar
-          if ((payload.new as any)?.indicativo_lance_vencedor !== (payload.old as any)?.indicativo_lance_vencedor) {
-            console.log("🔄 Recarregando vencedores na análise documental");
+          console.log("🔔 Mudança detectada em lance, recarregando vencedores...");
+          // Recarregar SEMPRE que houver UPDATE em lances desta seleção
+          // Pequeno delay para garantir que todas as atualizações em batch completem
+          setTimeout(() => {
             loadFornecedoresVencedores();
-          }
+            loadRecursosInabilitacao();
+          }, 500);
         }
       )
       .subscribe();
