@@ -871,8 +871,19 @@ export function DialogSessaoLances({
 
       if (error) throw error;
 
+      console.log(`🔄 REABRIR: Item ${numeroItem} reaberto, recalculando vencedor...`);
+      
+      // Recalcular vencedor após reabrir
+      await atualizarVencedorItem(numeroItem);
+      
       toast.success(`Item ${numeroItem} reaberto para negociação`);
       await loadItensAbertos();
+      
+      // Notificar componente pai
+      if (onVencedoresAtualizados) {
+        console.log("📢 REABRIR: Notificando componente pai...");
+        onVencedoresAtualizados();
+      }
     } catch (error) {
       console.error("Erro ao reabrir para negociação:", error);
       toast.error("Erro ao reabrir para negociação");
