@@ -253,10 +253,10 @@ export function DialogAnaliseDocumentalSelecao({
   const loadFornecedoresVencedores = async () => {
     setLoading(true);
     try {
-      console.log("🔄 [ANÁLISE DOC] Carregando fornecedores vencedores do banco...");
+      const timestamp = Date.now();
+      console.log(`🔄 [ANÁLISE DOC] Carregando vencedores - timestamp: ${timestamp}`);
       
       // Buscar dados da seleção e itens para obter quantidades
-      // IMPORTANTE: Adicionar timestamp para evitar cache
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
         .select("cotacao_relacionada_id, titulo_selecao, numero_selecao, criterios_julgamento, habilitacao_encerrada, data_encerramento_habilitacao")
@@ -310,7 +310,21 @@ export function DialogAnaliseDocumentalSelecao({
         });
       }
 
-      // Buscar vencedores por item - SEM CACHE
+      console.log(`📊 [ANÁLISE DOC] Buscando vencedores com indicativo_lance_vencedor=true...`);
+      
+      // Buscar TODOS os lances primeiro para debug
+      const { data: todosLances } = await supabase
+        .from("lances_fornecedores")
+        .select("numero_item, indicativo_lance_vencedor, valor_lance, tipo_lance, fornecedor_id")
+        .eq("selecao_id", selecaoId);
+      
+      console.log(`🔍 [ANÁLISE DOC] TODOS OS LANCES (${todosLances?.length || 0}):`, todosLances);
+      
+      // Contar quantos têm indicativo_lance_vencedor = true
+      const lancesVencedores = todosLances?.filter(l => l.indicativo_lance_vencedor) || [];
+      console.log(`🏆 [ANÁLISE DOC] Lances com indicativo=true (${lancesVencedores.length}):`, lancesVencedores);
+
+      // Buscar vencedores por item com join
       const { data: vencedoresData, error: vencedoresError } = await supabase
         .from("lances_fornecedores")
         .select(`
@@ -318,6 +332,7 @@ export function DialogAnaliseDocumentalSelecao({
           valor_lance,
           fornecedor_id,
           tipo_lance,
+          indicativo_lance_vencedor,
           fornecedores (
             id,
             razao_social,
@@ -328,9 +343,12 @@ export function DialogAnaliseDocumentalSelecao({
         .eq("selecao_id", selecaoId)
         .eq("indicativo_lance_vencedor", true);
       
-      console.log("🏆 [ANÁLISE DOC] Vencedores encontrados:", vencedoresData?.length || 0, vencedoresData);
+      console.log(`✅ [ANÁLISE DOC] Query de vencedores retornou ${vencedoresData?.length || 0} registros:`, vencedoresData);
 
-      if (vencedoresError) throw vencedoresError;
+      if (vencedoresError) {
+        console.error("❌ [ANÁLISE DOC] Erro ao buscar vencedores:", vencedoresError);
+        throw vencedoresError;
+      }
 
       // Buscar inabilitações ativas
       const { data: inabilitacoes, error: inabilitacoesError } = await supabase
