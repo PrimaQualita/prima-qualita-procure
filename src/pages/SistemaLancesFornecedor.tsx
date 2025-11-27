@@ -1990,9 +1990,14 @@ const SistemaLancesFornecedor = () => {
                                         tamanho: itensEstimados.size,
                                         map: Object.fromEntries(itensEstimados)
                                       });
-                                      return selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                      
+                                      const criterio = selecao?.processos_compras?.criterio_julgamento;
+                                      const resultado = criterio === "desconto" 
                                         ? `${valorEstimado.toFixed(2).replace('.', ',')}%`
                                         : formatarMoeda(valorEstimado);
+                                      
+                                      console.log(`🎨 [RENDER] Item ${numeroItem} - RESULTADO FINAL: "${resultado}" (critério: ${criterio})`);
+                                      return resultado;
                                     })()}
                                   </p>
                                 </div>
