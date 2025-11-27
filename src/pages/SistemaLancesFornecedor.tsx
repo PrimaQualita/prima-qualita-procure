@@ -1954,7 +1954,7 @@ const SistemaLancesFornecedor = () => {
                                           : 'text-blue-600'
                                       }`}>
                                         <TrendingDown className="h-3 w-3" />
-                                        <span>{selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Máximo" : "Mínimo"}</span>
+                                        <span>{selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Melhor Percentual" : "Mínimo"}</span>
                                       </div>
                                       <p className={`font-bold text-sm ${
                                         isFornecedorVencendoItem(numeroItem) 

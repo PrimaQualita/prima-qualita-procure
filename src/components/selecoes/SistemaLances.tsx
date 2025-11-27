@@ -272,7 +272,10 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
                     <TableCell>{formatDateTime(lance.data_hora_lance)}</TableCell>
                     <TableCell className="text-center">
                       {lance.indicativo_lance_vencedor && (
-                        <Badge variant="default">Vencedor</Badge>
+                        <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                          <Trophy className="h-3 w-3 mr-1" />
+                          Vencedor
+                        </Badge>
                       )}
                     </TableCell>
                   </TableRow>
