@@ -140,27 +140,36 @@ export function DialogControleItensLances({
         }
       }
 
-      // 2. Verificar lances de negociação recentes (últimos 10 segundos) e fechar item automaticamente
-      const dezSegundosAtras = new Date(Date.now() - 10000).toISOString();
+      // 2. Verificar lances de negociação recentes (últimos 60 segundos) e fechar item automaticamente
+      const sessentaSegundosAtras = new Date(Date.now() - 60000).toISOString();
+      console.log("🔍 POLLING FALLBACK: Buscando lances de negociação desde:", sessentaSegundosAtras);
+      console.log("🔍 POLLING FALLBACK: Itens em negociação atual:", Array.from(itensEmNegociacao));
+      
       const { data: lancesNegociacao, error: lancesError } = await supabase
         .from("lances_fornecedores")
-        .select("numero_item, created_at")
+        .select("numero_item, created_at, tipo_lance, fornecedor_id")
         .eq("selecao_id", selecaoId)
         .eq("tipo_lance", "negociacao")
-        .gte("created_at", dezSegundosAtras);
+        .gte("created_at", sessentaSegundosAtras);
+
+      console.log("🔍 POLLING FALLBACK: Lances de negociação encontrados:", lancesNegociacao);
 
       if (lancesError) {
-        console.error("Erro ao verificar lances de negociação:", lancesError);
+        console.error("❌ POLLING FALLBACK: Erro ao verificar lances de negociação:", lancesError);
       } else if (lancesNegociacao && lancesNegociacao.length > 0) {
-        console.log("🔍 POLLING FALLBACK: Lances de negociação recentes encontrados:", lancesNegociacao);
+        console.log("✅ POLLING FALLBACK: Total de lances de negociação recentes:", lancesNegociacao.length);
         
         // Para cada lance de negociação recente, verificar se o item ainda está em negociação
         for (const lance of lancesNegociacao) {
+          console.log(`🔍 POLLING FALLBACK: Verificando lance - Item ${lance.numero_item}, Em negociação: ${itensEmNegociacao.has(lance.numero_item)}`);
+          
           if (itensEmNegociacao.has(lance.numero_item)) {
             console.log("🔒 POLLING FALLBACK: Fechando item de negociação:", lance.numero_item);
             await fecharItemNegociacao(lance.numero_item);
           }
         }
+      } else {
+        console.log("⚠️ POLLING FALLBACK: Nenhum lance de negociação recente encontrado");
       }
     } catch (error) {
       console.error("Erro ao verificar fechamento automático:", error);
