@@ -121,6 +121,13 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
     });
   };
 
+  const formatDesconto = (value: number) => {
+    return value.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
   const formatCNPJ = (cnpj: string) => {
     return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
   };
@@ -137,6 +144,7 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
   };
 
   const lanceVencedor = lances.find(l => l.indicativo_lance_vencedor);
+  const isDesconto = criterioJulgamento === "desconto";
 
   if (loading) {
     return <div className="text-center py-8">Carregando lances...</div>;
@@ -164,9 +172,12 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
                 <p className="font-medium">{formatCNPJ(lanceVencedor.fornecedores.cnpj)}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Melhor Lance</p>
+                <p className="text-sm text-muted-foreground">{isDesconto ? "Maior Desconto" : "Melhor Lance"}</p>
                 <p className="font-bold text-2xl text-green-600">
-                  {formatCurrency(lanceVencedor.valor_lance)}
+                  {isDesconto 
+                    ? `${formatDesconto(lanceVencedor.valor_lance)}%`
+                    : formatCurrency(lanceVencedor.valor_lance)
+                  }
                 </p>
               </div>
             </div>
@@ -219,7 +230,7 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
                 <TableHead>Posição</TableHead>
                 <TableHead>Fornecedor</TableHead>
                 <TableHead>CNPJ</TableHead>
-                <TableHead className="text-right">Valor do Lance</TableHead>
+                <TableHead className="text-right">{isDesconto ? "% Desconto" : "Valor do Lance"}</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Data/Hora</TableHead>
                 <TableHead className="text-center">Status</TableHead>
@@ -247,7 +258,10 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
                     <TableCell className="font-medium">{lance.fornecedores.razao_social}</TableCell>
                     <TableCell>{formatCNPJ(lance.fornecedores.cnpj)}</TableCell>
                     <TableCell className="text-right font-bold text-lg">
-                      {formatCurrency(lance.valor_lance)}
+                      {isDesconto 
+                        ? `${formatDesconto(lance.valor_lance)}%`
+                        : formatCurrency(lance.valor_lance)
+                      }
                     </TableCell>
                     <TableCell>
                       {lance.tipo_lance === 'negociacao' ? (
