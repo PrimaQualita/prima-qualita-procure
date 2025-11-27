@@ -436,7 +436,8 @@ export default function RespostasCotacao() {
         cotacao.titulo_cotacao,
         [],
         usuarioNome,
-        usuarioCpf
+        usuarioCpf,
+        cotacao?.criterio_julgamento
       );
 
       // Criar registro do anexo em anexos_cotacao_fornecedor
@@ -515,7 +516,8 @@ export default function RespostasCotacao() {
         cotacao.titulo_cotacao,
         [],
         usuarioNome,
-        usuarioCpf
+        usuarioCpf,
+        cotacao?.criterio_julgamento
       );
 
       // Buscar o arquivo do storage

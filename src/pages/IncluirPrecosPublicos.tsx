@@ -396,7 +396,8 @@ const IncluirPrecosPublicos = () => {
         cotacao.titulo_cotacao,
         arquivosComprovantes,
         profile.nome_completo,
-        profile.cpf
+        profile.cpf,
+        processoCompra?.criterio_julgamento
       );
 
       // Atualizar com hash E URLs dos comprovantes
