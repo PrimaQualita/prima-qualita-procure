@@ -1228,6 +1228,33 @@ const SistemaLancesFornecedor = () => {
       return;
     }
 
+    // Validar: se um item tem valor ou marca preenchido, o outro campo também deve ser preenchido
+    const itensInvalidos = itens.filter(item => {
+      const temValor = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0;
+      const temMarca = item.marca && item.marca.trim() !== '';
+      
+      // Se preencheu um mas não o outro, é inválido
+      return (temValor && !temMarca) || (!temValor && temMarca);
+    });
+
+    if (itensInvalidos.length > 0) {
+      const mensagens = itensInvalidos.map(item => {
+        const temValor = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0;
+        const campo = temValor ? 'marca' : 'valor';
+        return `Item ${item.numero_item}: ${campo} não preenchido`;
+      });
+      
+      toast.error(
+        <div>
+          <p className="font-semibold">Para salvar, preencha ambos os campos (valor e marca) nos itens:</p>
+          <ul className="list-disc pl-5 mt-2">
+            {mensagens.map((msg, idx) => <li key={idx}>{msg}</li>)}
+          </ul>
+        </div>
+      );
+      return;
+    }
+
     setSalvando(true);
     try {
       // Atualizar cada item usando função SECURITY DEFINER
