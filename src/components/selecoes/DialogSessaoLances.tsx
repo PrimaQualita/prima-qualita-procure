@@ -2482,36 +2482,42 @@ export function DialogSessaoLances({
                               </TableCell>
                             </TableRow>
                           ) : (
-                            lances.map((lance) => (
-                              <TableRow key={lance.id} className={lance.indicativo_lance_vencedor ? "bg-yellow-50 dark:bg-yellow-950" : ""}>
-                                <TableCell className="text-xs font-medium">{lance.numero_item || "-"}</TableCell>
-                                <TableCell className="text-xs">
-                                  <div>{lance.fornecedores?.razao_social}</div>
-                                  <div className="text-muted-foreground text-[10px]">{formatCNPJ(lance.fornecedores?.cnpj || "")}</div>
-                                </TableCell>
-                                <TableCell className="text-xs text-right">
-                                  <span className={`font-bold ${lance.tipo_lance === "negociacao" ? "text-green-600" : ""}`}>
-                                    {formatValorLance(lance.valor_lance)}
-                                  </span>
-                                  {lance.tipo_lance === "negociacao" && (
-                                    <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-300">
-                                      Neg.
-                                    </Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
-                                <TableCell className="text-xs">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                    onClick={() => handleDeletarLance(lance.id)}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))
+                            lances.map((lance) => {
+                              // Calcular dinamicamente se este lance é o melhor do seu item
+                              const lancesDoItem = getLancesDoItem(lance.numero_item || 0);
+                              const ehMelhorLance = lancesDoItem.length > 0 && lancesDoItem[0].id === lance.id;
+                              
+                              return (
+                                <TableRow key={lance.id} className={ehMelhorLance ? "bg-yellow-50 dark:bg-yellow-950" : ""}>
+                                  <TableCell className="text-xs font-medium">{lance.numero_item || "-"}</TableCell>
+                                  <TableCell className="text-xs">
+                                    <div>{lance.fornecedores?.razao_social}</div>
+                                    <div className="text-muted-foreground text-[10px]">{formatCNPJ(lance.fornecedores?.cnpj || "")}</div>
+                                  </TableCell>
+                                  <TableCell className="text-xs text-right">
+                                    <span className={`font-bold ${lance.tipo_lance === "negociacao" ? "text-green-600" : ""}`}>
+                                      {formatValorLance(lance.valor_lance)}
+                                    </span>
+                                    {lance.tipo_lance === "negociacao" && (
+                                      <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-300">
+                                        Neg.
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
+                                  <TableCell className="text-xs">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => handleDeletarLance(lance.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
                           )}
                         </TableBody>
                       </Table>
