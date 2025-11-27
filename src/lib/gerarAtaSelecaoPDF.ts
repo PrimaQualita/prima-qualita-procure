@@ -711,25 +711,22 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text(`${secaoNumero - 1}.1 HABILITADOS`, marginLeft, currentY);
-  currentY += 5;
+  currentY += 6.25;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
 
   if (fornecedoresHabilitados.length > 0) {
-    doc.text("Foram habilitadas as seguintes empresas:", marginLeft, currentY);
-    currentY += 6.25;
+    currentY = drawJustifiedText(doc, "Foram habilitadas as seguintes empresas:", marginLeft, currentY, contentWidth, 6.25);
     
     fornecedoresHabilitados.forEach(f => {
       checkNewPage(6.25);
-      doc.text(`• ${f.razao_social}`, marginLeft + 5, currentY);
-      currentY += 5;
+      currentY = drawJustifiedText(doc, `• ${f.razao_social}`, marginLeft + 5, currentY, contentWidth - 5, 6.25);
     });
   } else {
-    doc.text("Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY);
-    currentY += 6.25;
+    currentY = drawJustifiedText(doc, "Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY, contentWidth, 6.25);
   }
-  currentY += 4;
+  currentY += 6.25;
 
   // 6.2 - INABILITADOS (apenas se houver)
   if (fornecedoresInabilitados.length > 0) {
@@ -737,7 +734,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.text(`${secaoNumero - 1}.2 INABILITADOS`, marginLeft, currentY);
-    currentY += 5;
+    currentY += 6.25;
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
@@ -881,8 +878,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     const textoNegociacao = `Foram realizadas negociações nos seguintes itens: ${itensNegociadosStr}.`;
     currentY = drawJustifiedText(doc, textoNegociacao, marginLeft, currentY, contentWidth, 6.25);
   } else {
-    doc.text("Não houve negociações durante esta sessão.", marginLeft, currentY);
-    currentY += 6.25;
+    currentY = drawJustifiedText(doc, "Não houve negociações durante esta sessão.", marginLeft, currentY, contentWidth, 6.25);
   }
   currentY += espacoEntreSecoes;
 
@@ -906,37 +902,28 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   } else {
     const textoAbertura = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento, as empresas se manifestaram da seguinte forma:`;
     currentY = drawJustifiedText(doc, textoAbertura, marginLeft, currentY, contentWidth, 6.25);
-    currentY += 4;
+    currentY += 6.25;
 
     // Empresas que desejam recorrer
     if (empresasQueRecorreram.length > 0) {
       checkNewPage(15);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(220, 120, 0); // Laranja
-      doc.text("Deseja Recorrer:", marginLeft, currentY);
-      currentY += 5;
+      currentY = drawJustifiedText(doc, "Deseja Recorrer:", marginLeft, currentY, contentWidth, 6.25);
       doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "normal");
 
       empresasQueRecorreram.forEach(e => {
-        checkNewPage(15);
+        checkNewPage(20);
         doc.setFont("helvetica", "bold");
-        doc.text(`• ${e.razao_social}`, marginLeft + 5, currentY);
-        currentY += 5;
+        const textoEmpresa = `• ${e.razao_social}`;
+        currentY = drawJustifiedText(doc, textoEmpresa, marginLeft + 5, currentY, contentWidth - 5, 6.25);
         doc.setFont("helvetica", "normal");
-        doc.text(`  CNPJ: ${formatarCNPJ(e.cnpj)}`, marginLeft + 5, currentY);
-        currentY += 4;
-        doc.text(`  Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`, marginLeft + 5, currentY);
-        currentY += 4;
+        currentY = drawJustifiedText(doc, `CNPJ: ${formatarCNPJ(e.cnpj)}`, marginLeft + 10, currentY, contentWidth - 10, 6.25);
+        currentY = drawJustifiedText(doc, `Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`, marginLeft + 10, currentY, contentWidth - 10, 6.25);
         if (e.motivo_intencao) {
-          doc.text(`  Motivo:`, marginLeft + 5, currentY);
-          currentY += 4;
-          const motivoLines = doc.splitTextToSize(e.motivo_intencao, contentWidth - 15);
-          motivoLines.forEach((line: string) => {
-            checkNewPage(5);
-            doc.text(`  ${line}`, marginLeft + 5, currentY);
-            currentY += 4;
-          });
+          const textoMotivo = `Motivo: ${e.motivo_intencao}`;
+          currentY = drawJustifiedText(doc, textoMotivo, marginLeft + 10, currentY, contentWidth - 10, 6.25);
         }
         currentY += 3;
       });
@@ -947,15 +934,14 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       checkNewPage(15);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 128, 0); // Verde
-      doc.text("Não Recorrerá:", marginLeft, currentY);
-      currentY += 5;
+      currentY = drawJustifiedText(doc, "Não Recorrerá:", marginLeft, currentY, contentWidth, 6.25);
       doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "normal");
 
       empresasQueNaoRecorreram.forEach(e => {
-        checkNewPage(8);
-        doc.text(`• ${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`, marginLeft + 5, currentY);
-        currentY += 5;
+        checkNewPage(10);
+        const textoEmpresa = `• ${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
+        currentY = drawJustifiedText(doc, textoEmpresa, marginLeft + 5, currentY, contentWidth - 5, 6.25);
       });
     }
   }
@@ -975,40 +961,35 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
     recursosInabilitacao.forEach(r => {
       checkNewPage(20);
+      
+      // Nome da empresa
       doc.setFont("helvetica", "bold");
-      doc.text(`• ${r.razao_social}`, marginLeft, currentY);
-      currentY += 5;
+      const textoEmpresa = `${r.razao_social} (CNPJ: ${formatarCNPJ(r.cnpj)})`;
+      currentY = drawJustifiedText(doc, `• ${textoEmpresa}`, marginLeft, currentY, contentWidth, 6.25);
+      
       doc.setFont("helvetica", "normal");
 
+      // Status do recurso
       let statusTexto = '';
       if (r.status_recurso === 'deferido') {
         statusTexto = 'DEFERIDO (Provimento Total)';
-        doc.setTextColor(0, 128, 0);
       } else if (r.status_recurso === 'deferido_parcial') {
         statusTexto = 'DEFERIDO PARCIALMENTE';
-        doc.setTextColor(220, 120, 0);
       } else if (r.status_recurso === 'indeferido') {
         statusTexto = 'INDEFERIDO';
-        doc.setTextColor(200, 0, 0);
       } else {
         statusTexto = r.status_recurso?.toUpperCase() || 'PENDENTE';
       }
       
-      doc.text(`  Resultado: ${statusTexto}`, marginLeft + 5, currentY);
-      doc.setTextColor(0, 0, 0);
-      currentY += 5;
+      const textoResultado = `Resultado: ${statusTexto}`;
+      currentY = drawJustifiedText(doc, textoResultado, marginLeft + 5, currentY, contentWidth - 5, 6.25);
 
+      // Resposta do gestor
       if (r.resposta_gestor) {
-        doc.text(`  Resposta:`, marginLeft + 5, currentY);
-        currentY += 4;
-        const respostaLines = doc.splitTextToSize(r.resposta_gestor, contentWidth - 15);
-        respostaLines.forEach((line: string) => {
-          checkNewPage(5);
-          doc.text(`  ${line}`, marginLeft + 5, currentY);
-          currentY += 4;
-        });
+        const textoResposta = `Resposta: ${r.resposta_gestor}`;
+        currentY = drawJustifiedText(doc, textoResposta, marginLeft + 5, currentY, contentWidth - 5, 6.25);
       }
-      currentY += 4;
+      currentY += 6.25;
     });
     currentY += espacoEntreSecoes;
   }
@@ -1022,10 +1003,9 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     secaoNumero++;
     currentY += espacoAposTitulo;
 
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("Mensagens trocadas durante a sessão pública:", marginLeft, currentY);
-    currentY += 6;
+    currentY = drawJustifiedText(doc, "Mensagens trocadas durante a sessão pública:", marginLeft, currentY, contentWidth, 6.25);
 
     mensagensChat.forEach((msg, index) => {
       checkNewPage(20);
