@@ -63,22 +63,31 @@ export const gerarProcessoCompletoPDF = async (
               .createSignedUrl(anexo.url_arquivo, 60);
             
             if (signedError || !signedUrlData) {
-              console.error(`  ✗ Erro ao gerar URL assinada: ${signedError?.message}`);
+              console.error(`  ✗ Erro ao gerar URL assinada para ${anexo.nome_arquivo}:`, signedError?.message);
               continue;
             }
             
+            console.log(`  Fetching URL assinada: ${signedUrlData.signedUrl.substring(0, 100)}...`);
             const response = await fetch(signedUrlData.signedUrl);
-            if (response.ok) {
-              const arrayBuffer = await response.arrayBuffer();
-              const pdfDoc = await PDFDocument.load(arrayBuffer);
-              const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-              copiedPages.forEach((page) => pdfFinal.addPage(page));
-              console.log(`  ✓ Mesclado: ${anexo.tipo_anexo} (${copiedPages.length} páginas)`);
-            } else {
+            
+            if (!response.ok) {
               console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${anexo.nome_arquivo}`);
+              continue;
             }
+            
+            console.log(`  Carregando PDF de ${anexo.nome_arquivo}...`);
+            const arrayBuffer = await response.arrayBuffer();
+            console.log(`  PDF baixado: ${arrayBuffer.byteLength} bytes`);
+            
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            console.log(`  PDF carregado com ${pdfDoc.getPageCount()} páginas`);
+            
+            const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach((page) => pdfFinal.addPage(page));
+            console.log(`  ✓ Mesclado: ${anexo.tipo_anexo} (${copiedPages.length} páginas)`);
           } catch (error) {
             console.error(`  ✗ Erro ao mesclar ${anexo.nome_arquivo}:`, error);
+            console.error(`  Stack trace:`, error instanceof Error ? error.stack : 'N/A');
           }
         }
       } else {
