@@ -1319,6 +1319,51 @@ export type Database = {
           },
         ]
       }
+      intencoes_recurso_selecao: {
+        Row: {
+          created_at: string | null
+          data_intencao: string | null
+          deseja_recorrer: boolean
+          fornecedor_id: string
+          id: string
+          motivo_intencao: string | null
+          selecao_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_intencao?: string | null
+          deseja_recorrer?: boolean
+          fornecedor_id: string
+          id?: string
+          motivo_intencao?: string | null
+          selecao_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_intencao?: string | null
+          deseja_recorrer?: boolean
+          fornecedor_id?: string
+          id?: string
+          motivo_intencao?: string | null
+          selecao_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intencoes_recurso_selecao_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intencoes_recurso_selecao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itens_abertos_lances: {
         Row: {
           aberto: boolean
@@ -1993,6 +2038,7 @@ export type Database = {
           fornecedor_id: string
           id: string
           inabilitacao_id: string
+          itens_reabilitados: number[] | null
           motivo_recurso: string
           nome_arquivo_recurso: string | null
           nome_arquivo_resposta: string | null
@@ -2001,6 +2047,7 @@ export type Database = {
           resposta_gestor: string | null
           selecao_id: string
           status_recurso: string
+          tipo_provimento: string | null
           updated_at: string
           url_pdf_recurso: string | null
           url_pdf_resposta: string | null
@@ -2016,6 +2063,7 @@ export type Database = {
           fornecedor_id: string
           id?: string
           inabilitacao_id: string
+          itens_reabilitados?: number[] | null
           motivo_recurso: string
           nome_arquivo_recurso?: string | null
           nome_arquivo_resposta?: string | null
@@ -2024,6 +2072,7 @@ export type Database = {
           resposta_gestor?: string | null
           selecao_id: string
           status_recurso?: string
+          tipo_provimento?: string | null
           updated_at?: string
           url_pdf_recurso?: string | null
           url_pdf_resposta?: string | null
@@ -2039,6 +2088,7 @@ export type Database = {
           fornecedor_id?: string
           id?: string
           inabilitacao_id?: string
+          itens_reabilitados?: number[] | null
           motivo_recurso?: string
           nome_arquivo_recurso?: string | null
           nome_arquivo_resposta?: string | null
@@ -2047,6 +2097,7 @@ export type Database = {
           resposta_gestor?: string | null
           selecao_id?: string
           status_recurso?: string
+          tipo_provimento?: string | null
           updated_at?: string
           url_pdf_recurso?: string | null
           url_pdf_resposta?: string | null
@@ -2433,8 +2484,10 @@ export type Database = {
           cotacao_relacionada_id: string | null
           created_at: string | null
           criterios_julgamento: string | null
+          data_encerramento_habilitacao: string | null
           data_sessao_disputa: string
           descricao: string | null
+          habilitacao_encerrada: boolean | null
           hora_sessao_disputa: string
           id: string
           numero_selecao: string | null
@@ -2443,14 +2496,17 @@ export type Database = {
           status_selecao: Database["public"]["Enums"]["status_selecao"] | null
           titulo_selecao: string
           updated_at: string | null
+          usuario_encerrou_habilitacao_id: string | null
           valor_estimado_anual: number
         }
         Insert: {
           cotacao_relacionada_id?: string | null
           created_at?: string | null
           criterios_julgamento?: string | null
+          data_encerramento_habilitacao?: string | null
           data_sessao_disputa: string
           descricao?: string | null
+          habilitacao_encerrada?: boolean | null
           hora_sessao_disputa: string
           id?: string
           numero_selecao?: string | null
@@ -2459,14 +2515,17 @@ export type Database = {
           status_selecao?: Database["public"]["Enums"]["status_selecao"] | null
           titulo_selecao: string
           updated_at?: string | null
+          usuario_encerrou_habilitacao_id?: string | null
           valor_estimado_anual: number
         }
         Update: {
           cotacao_relacionada_id?: string | null
           created_at?: string | null
           criterios_julgamento?: string | null
+          data_encerramento_habilitacao?: string | null
           data_sessao_disputa?: string
           descricao?: string | null
+          habilitacao_encerrada?: boolean | null
           hora_sessao_disputa?: string
           id?: string
           numero_selecao?: string | null
@@ -2475,6 +2534,7 @@ export type Database = {
           status_selecao?: Database["public"]["Enums"]["status_selecao"] | null
           titulo_selecao?: string
           updated_at?: string | null
+          usuario_encerrou_habilitacao_id?: string | null
           valor_estimado_anual?: number
         }
         Relationships: [
@@ -2490,6 +2550,13 @@ export type Database = {
             columns: ["processo_compra_id"]
             isOneToOne: false
             referencedRelation: "processos_compras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "selecoes_fornecedores_usuario_encerrou_habilitacao_id_fkey"
+            columns: ["usuario_encerrou_habilitacao_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
