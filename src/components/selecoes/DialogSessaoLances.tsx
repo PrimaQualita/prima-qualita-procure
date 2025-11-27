@@ -300,6 +300,7 @@ export function DialogSessaoLances({
     try {
       console.log("🔒 Fechando item de negociação automaticamente:", numeroItem);
       
+      // PASSO 1: Fechar o item na tabela itens_abertos_lances
       const { error } = await supabase
         .from("itens_abertos_lances")
         .update({
@@ -314,6 +315,60 @@ export function DialogSessaoLances({
       if (error) {
         console.error("Erro ao fechar item de negociação:", error);
         throw error;
+      }
+
+      // PASSO 2: Atualizar indicativo_lance_vencedor
+      console.log("🏆 Atualizando indicativo_lance_vencedor para o item:", numeroItem);
+      
+      // 2.1. Desmarcar todos os lances do item
+      await supabase
+        .from("lances_fornecedores")
+        .update({ indicativo_lance_vencedor: false })
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem);
+
+      // 2.2. Buscar o lance vencedor (com priorização de negociação)
+      const isDesconto = criterioJulgamento === "desconto";
+      
+      const { data: lancesItem, error: lancesError } = await supabase
+        .from("lances_fornecedores")
+        .select("id, tipo_lance, valor_lance, fornecedor_id, data_hora_lance")
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem);
+
+      if (lancesError) throw lancesError;
+
+      if (lancesItem && lancesItem.length > 0) {
+        // Ordenar localmente com priorização de negociação
+        const lancesOrdenados = [...lancesItem].sort((a, b) => {
+          // PRIORIDADE 1: Lances de negociação vêm SEMPRE primeiro
+          const aIsNegociacao = a.tipo_lance === "negociacao";
+          const bIsNegociacao = b.tipo_lance === "negociacao";
+          
+          if (aIsNegociacao && !bIsNegociacao) return -1;
+          if (!aIsNegociacao && bIsNegociacao) return 1;
+          
+          // PRIORIDADE 2: Ordenar por valor conforme critério
+          if (isDesconto) {
+            if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
+          } else {
+            if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+          }
+          
+          // PRIORIDADE 3: Desempate por data
+          return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
+        });
+
+        // Marcar o primeiro como vencedor
+        const lanceVencedor = lancesOrdenados[0];
+        console.log("🏆 Lance vencedor identificado:", lanceVencedor);
+        
+        await supabase
+          .from("lances_fornecedores")
+          .update({ indicativo_lance_vencedor: true })
+          .eq("id", lanceVencedor.id);
+
+        console.log("✅ indicativo_lance_vencedor atualizado com sucesso");
       }
 
       console.log("✅ Item de negociação fechado com sucesso");
@@ -549,6 +604,7 @@ export function DialogSessaoLances({
   const handleFecharNegociacao = async (numeroItem: number) => {
     setSalvando(true);
     try {
+      // PASSO 1: Fechar a negociação
       const { error } = await supabase
         .from("itens_abertos_lances")
         .update({
@@ -561,6 +617,60 @@ export function DialogSessaoLances({
         .eq("numero_item", numeroItem);
 
       if (error) throw error;
+
+      // PASSO 2: Atualizar indicativo_lance_vencedor
+      console.log("🏆 Atualizando indicativo_lance_vencedor para o item:", numeroItem);
+      
+      // 2.1. Desmarcar todos os lances do item
+      await supabase
+        .from("lances_fornecedores")
+        .update({ indicativo_lance_vencedor: false })
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem);
+
+      // 2.2. Buscar o lance vencedor (com priorização de negociação)
+      const isDesconto = criterioJulgamento === "desconto";
+      
+      const { data: lancesItem, error: lancesError } = await supabase
+        .from("lances_fornecedores")
+        .select("id, tipo_lance, valor_lance, fornecedor_id, data_hora_lance")
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem);
+
+      if (lancesError) throw lancesError;
+
+      if (lancesItem && lancesItem.length > 0) {
+        // Ordenar localmente com priorização de negociação
+        const lancesOrdenados = [...lancesItem].sort((a, b) => {
+          // PRIORIDADE 1: Lances de negociação vêm SEMPRE primeiro
+          const aIsNegociacao = a.tipo_lance === "negociacao";
+          const bIsNegociacao = b.tipo_lance === "negociacao";
+          
+          if (aIsNegociacao && !bIsNegociacao) return -1;
+          if (!aIsNegociacao && bIsNegociacao) return 1;
+          
+          // PRIORIDADE 2: Ordenar por valor conforme critério
+          if (isDesconto) {
+            if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
+          } else {
+            if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+          }
+          
+          // PRIORIDADE 3: Desempate por data
+          return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
+        });
+
+        // Marcar o primeiro como vencedor
+        const lanceVencedor = lancesOrdenados[0];
+        console.log("🏆 Lance vencedor identificado:", lanceVencedor);
+        
+        await supabase
+          .from("lances_fornecedores")
+          .update({ indicativo_lance_vencedor: true })
+          .eq("id", lanceVencedor.id);
+
+        console.log("✅ indicativo_lance_vencedor atualizado com sucesso");
+      }
 
       // Fechar o chat se estiver aberto para este item
       if (itemChatPrivado === numeroItem) {
