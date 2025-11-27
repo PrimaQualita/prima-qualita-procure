@@ -355,7 +355,7 @@ export function DialogControleItensLances({
           .in("numero_item", Array.from(numerosExistentes));
 
         // CRÍTICO: Recalcular vencedores ao reabrir itens
-        console.log("🔄 Recalculando vencedores para itens reabertos:", Array.from(numerosExistentes));
+        console.log("🔄 [REABRIR] Recalculando vencedores para itens:", Array.from(numerosExistentes));
         
         // Buscar critério de julgamento
         const { data: selecaoData } = await supabase
@@ -365,9 +365,13 @@ export function DialogControleItensLances({
           .single();
 
         const isDesconto = selecaoData?.cotacao?.criterio_julgamento === "desconto";
+        console.log("🎯 [REABRIR] Critério de julgamento:", selecaoData?.cotacao?.criterio_julgamento, "| isDesconto:", isDesconto);
         
         for (const numeroItem of numerosExistentes) {
+          console.log(`\n📦 [REABRIR ITEM ${numeroItem}] Iniciando recálculo...`);
+          
           // 1. Desmarcar todos os lances do item
+          console.log(`🔄 [REABRIR ITEM ${numeroItem}] Desmarcando todos os lances...`);
           await supabase
             .from("lances_fornecedores")
             .update({ indicativo_lance_vencedor: false })
@@ -382,7 +386,13 @@ export function DialogControleItensLances({
             .eq("numero_item", numeroItem)
             .order("data_hora_lance", { ascending: false });
 
-          if (!lancesItem || lancesItem.length === 0) continue;
+          console.log(`📋 [REABRIR ITEM ${numeroItem}] Total de lances encontrados: ${lancesItem?.length || 0}`);
+          console.log(`📊 [REABRIR ITEM ${numeroItem}] Valores dos lances:`, lancesItem?.map(l => `${l.fornecedores?.razao_social}: ${l.valor_lance}`).join(', '));
+          
+          if (!lancesItem || lancesItem.length === 0) {
+            console.log(`⚠️ [REABRIR ITEM ${numeroItem}] Nenhum lance encontrado, pulando...`);
+            continue;
+          }
 
           // 3. Buscar fornecedores inabilitados
           const { data: inabilitados } = await supabase
@@ -397,28 +407,50 @@ export function DialogControleItensLances({
             ).map(i => i.fornecedor_id) || []
           );
 
+          console.log(`🚫 [REABRIR ITEM ${numeroItem}] Fornecedores inabilitados:`, Array.from(fornecedoresInabilitadosIds));
+
           // 4. Filtrar lances válidos
           const lancesValidos = lancesItem.filter(l => !fornecedoresInabilitadosIds.has(l.fornecedor_id));
-          if (lancesValidos.length === 0) continue;
+          console.log(`✅ [REABRIR ITEM ${numeroItem}] Lances válidos após filtro: ${lancesValidos.length}`);
+          
+          if (lancesValidos.length === 0) {
+            console.log(`⚠️ [REABRIR ITEM ${numeroItem}] Nenhum lance válido, pulando...`);
+            continue;
+          }
 
           // 5. Ordenar por critério (desconto = decrescente, preço = crescente)
-          lancesValidos.sort((a, b) => 
-            isDesconto 
+          console.log(`🔄 [REABRIR ITEM ${numeroItem}] ANTES DA ORDENAÇÃO:`, lancesValidos.map(l => `${l.fornecedores?.razao_social}: ${l.valor_lance}`).join(', '));
+          
+          lancesValidos.sort((a, b) => {
+            const resultado = isDesconto 
               ? b.valor_lance - a.valor_lance  // Desconto: maior é melhor
-              : a.valor_lance - b.valor_lance  // Preço: menor é melhor
-          );
+              : a.valor_lance - b.valor_lance; // Preço: menor é melhor
+            console.log(`🔢 [REABRIR ITEM ${numeroItem}] Comparando ${a.valor_lance} vs ${b.valor_lance} = ${resultado}`);
+            return resultado;
+          });
+
+          console.log(`📊 [REABRIR ITEM ${numeroItem}] DEPOIS DA ORDENAÇÃO:`, lancesValidos.map(l => `${l.fornecedores?.razao_social}: ${l.valor_lance}`).join(', '));
 
           // 6. Marcar o vencedor
           const vencedor = lancesValidos[0];
-          console.log(`✅ Novo vencedor do item ${numeroItem}:`, vencedor.fornecedores?.razao_social, vencedor.valor_lance);
+          console.log(`🏆 [REABRIR ITEM ${numeroItem}] VENCEDOR SELECIONADO:`, vencedor.fornecedores?.razao_social, '| Valor:', vencedor.valor_lance, '| ID:', vencedor.id);
           
-          await supabase
+          const { error: updateError } = await supabase
             .from("lances_fornecedores")
             .update({ indicativo_lance_vencedor: true })
             .eq("id", vencedor.id);
+
+          if (updateError) {
+            console.error(`❌ [REABRIR ITEM ${numeroItem}] Erro ao marcar vencedor:`, updateError);
+          } else {
+            console.log(`✅ [REABRIR ITEM ${numeroItem}] Vencedor marcado com sucesso no banco!`);
+          }
         }
         
-        console.log("✅ Vencedores recalculados com sucesso!");
+        console.log("\n✅ [REABRIR] Vencedores recalculados com sucesso! Recarregando dados...");
+        
+        // Forçar reload dos dados após recálculo
+        await loadItensAbertos();
       }
 
       // Inserir novos itens
