@@ -513,7 +513,12 @@ export function DialogAnaliseDocumentalSelecao({
         const forn = fornecedoresMap.get(fornId)!;
         forn.itensVencedores.push(lance.numero_item);
         const quantidade = itensQuantidades[lance.numero_item] || 1;
-        forn.valorTotal += lance.valor_lance * quantidade;
+        // Para desconto, somar os descontos. Para preço, somar os valores monetários
+        if (isDesconto) {
+          forn.valorTotal += lance.valor_lance; // Somar desconto percentual
+        } else {
+          forn.valorTotal += lance.valor_lance * quantidade; // Somar valor monetário total
+        }
       });
       
       // Depois, adicionar itens dos segundos colocados
@@ -533,7 +538,12 @@ export function DialogAnaliseDocumentalSelecao({
         if (!forn.itensVencedores.includes(itemNum)) {
           forn.itensVencedores.push(itemNum);
           const quantidade = itensQuantidades[itemNum] || 1;
-          forn.valorTotal += segundo.valor_lance * quantidade;
+          // Para desconto, somar os descontos. Para preço, somar os valores monetários
+          if (isDesconto) {
+            forn.valorTotal += segundo.valor_lance; // Somar desconto percentual
+          } else {
+            forn.valorTotal += segundo.valor_lance * quantidade; // Somar valor monetário total
+          }
         }
       });
 
@@ -1669,8 +1679,13 @@ export function DialogAnaliseDocumentalSelecao({
               }
             </p>
             <p className="text-sm">
-              <span className="font-medium">Valor total:</span>{" "}
-              {formatCurrency(data.fornecedor.valorTotal)}
+              <span className="font-medium">
+                {criterioJulgamento === 'desconto' ? 'Desconto médio:' : 'Valor total:'}
+              </span>{" "}
+              {criterioJulgamento === 'desconto' 
+                ? `${(data.fornecedor.valorTotal / data.fornecedor.itensVencedores.length).toFixed(2)}%`
+                : formatCurrency(data.fornecedor.valorTotal)
+              }
             </p>
             {/* Mostrar inabilitação parcial para fornecedores habilitados */}
             {temInabilitacaoParcial && (
