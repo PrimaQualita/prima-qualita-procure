@@ -252,7 +252,8 @@ const DetalheSelecao = () => {
         if (fornecedor.itens) {
           fornecedor.itens.forEach((item: any) => {
             const valorAtual = valoresEstimadosPorItem.get(item.numero_item);
-            const valorItem = item.valor_unitario || 0;
+            // Para desconto, usar percentual_desconto; para valor, usar valor_unitario
+            const valorItem = isDesconto ? (item.percentual_desconto || 0) : (item.valor_unitario || 0);
             
             if (isDesconto) {
               // Para desconto, queremos o MAIOR percentual
