@@ -96,12 +96,16 @@ const IncluirPrecosPublicos = () => {
   };
 
   const gerarTemplate = () => {
-    // Template simplificado com apenas Valor Unitário e Marca
+    // Template ajustado baseado no critério de julgamento
+    const cabecalho = processoCompra?.criterio_julgamento === "desconto"
+      ? ['Número Item', 'Percentual de Desconto (%)', 'Marca']
+      : ['Número Item', 'Valor Unitário', 'Marca'];
+    
     const csvContent = [
-      ['Número Item', 'Valor Unitário', 'Marca'],
+      cabecalho,
       ...itens.map(item => [
         item.numero_item.toString(),
-        '', // Valor vazio para preencher
+        '', // Valor/percentual vazio para preencher
         '' // Marca vazia para preencher
       ])
     ].map(row => row.join('\t')).join('\n');
@@ -539,19 +543,22 @@ const IncluirPrecosPublicos = () => {
                           {processoCompra?.criterio_julgamento === "desconto" ? (
                             // Modo Percentual de Desconto
                             <TableCell>
-                              <Input
-                                type="text"
-                                value={resposta?.percentual_desconto || ""}
-                                onChange={(e) => {
-                                  const valor = e.target.value.replace(/[^0-9,]/g, "");
-                                  setRespostas({
-                                    ...respostas,
-                                    [item.id]: { ...resposta, percentual_desconto: valor },
-                                  });
-                                }}
-                                placeholder="0,00"
-                                className="text-right"
-                              />
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold">%</span>
+                                <Input
+                                  type="text"
+                                  value={resposta?.percentual_desconto || ""}
+                                  onChange={(e) => {
+                                    const valor = e.target.value.replace(/[^0-9,]/g, "");
+                                    setRespostas({
+                                      ...respostas,
+                                      [item.id]: { ...resposta, percentual_desconto: valor },
+                                    });
+                                  }}
+                                  placeholder="0,00"
+                                  className="text-right flex-1"
+                                />
+                              </div>
                             </TableCell>
                           ) : (
                             // Modo Valor Unitário
