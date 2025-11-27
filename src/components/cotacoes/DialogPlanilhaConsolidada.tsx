@@ -330,11 +330,13 @@ export function DialogPlanilhaConsolidada({
         .from('cotacoes_precos')
         .select(`
           titulo_cotacao,
+          criterio_julgamento,
           processo_compra_id,
           processos_compras!inner (
             numero_processo_interno,
             objeto_resumido,
-            tipo
+            tipo,
+            criterio_julgamento
           )
         `)
         .eq('id', cotacaoId)
@@ -352,6 +354,10 @@ export function DialogPlanilhaConsolidada({
       const cotacao = {
         titulo_cotacao: cotacaoData.titulo_cotacao
       };
+      
+      // Pegar o critério de julgamento do processo ou cotação
+      const criterioJulgamento = cotacaoData.criterio_julgamento || 
+                                 (cotacaoData as any).processos_compras.criterio_julgamento;
       
       // Preparar dados das respostas filtradas
       const respostasFiltradas = respostas.filter(r => 
@@ -431,7 +437,8 @@ export function DialogPlanilhaConsolidada({
         itensFormatados,
         respostasFormatadas,
         dadosProtocolo,
-        criteriosPorItemNumero
+        criteriosPorItemNumero,
+        criterioJulgamento
       );
       
       toast.info("💾 Salvando planilha", {
