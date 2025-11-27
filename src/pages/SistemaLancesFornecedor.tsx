@@ -518,13 +518,19 @@ const SistemaLancesFornecedor = () => {
         }
       }
 
-      // Buscar fornecedores inabilitados da seleção
+      // Buscar fornecedores inabilitados da seleção COM itens_afetados
       const { data: inabilitados, error: inabilitadosError } = await supabase
         .from("fornecedores_inabilitados_selecao")
-        .select("fornecedor_id")
+        .select("fornecedor_id, itens_afetados")
         .eq("selecao_id", propostaData.selecoes_fornecedores.id)
         .eq("revertido", false);
 
+      // Criar mapa de fornecedor -> itens inabilitados
+      const inabilitacoesPorFornecedor = new Map<string, number[]>();
+      (inabilitados || []).forEach((f: any) => {
+        inabilitacoesPorFornecedor.set(String(f.fornecedor_id), f.itens_afetados || []);
+      });
+      
       // CRÍTICO: Converter SEMPRE para String para garantir comparações corretas
       const fornecedoresInabilitadosIds = new Set<string>(
         (inabilitados || []).map((f: any) => String(f.fornecedor_id))
@@ -532,7 +538,7 @@ const SistemaLancesFornecedor = () => {
       setFornecedoresInabilitados(fornecedoresInabilitadosIds);
       console.log('Fornecedores inabilitados na seleção (strings):', Array.from(fornecedoresInabilitadosIds));
 
-      // Buscar o menor valor de cada item das propostas de TODOS os fornecedores da seleção (exceto inabilitados)
+      // Buscar o menor valor de cada item das propostas de TODOS os fornecedores da seleção (exceto inabilitados POR ITEM)
       const { data: todasPropostas, error: propostasError } = await supabase
         .from("selecao_propostas_fornecedor")
         .select(`
@@ -549,15 +555,17 @@ const SistemaLancesFornecedor = () => {
         const mapaMenorValor = new Map<number, number>();
         
         todasPropostas.forEach((prop: any) => {
-          // CRÍTICO: Usar String() para comparação consistente
           const fornecedorIdStr = String(prop.fornecedor_id);
-          if (fornecedoresInabilitadosIds.has(fornecedorIdStr)) {
-            console.log('Excluindo proposta do fornecedor inabilitado:', fornecedorIdStr);
-            return;
-          }
+          const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
           
           if (prop.selecao_respostas_itens_fornecedor) {
             prop.selecao_respostas_itens_fornecedor.forEach((item: any) => {
+              // Excluir apenas se o fornecedor está inabilitado PARA ESTE ITEM ESPECÍFICO
+              if (itensInabilitados.includes(item.numero_item)) {
+                console.log('Excluindo item', item.numero_item, 'do fornecedor inabilitado:', fornecedorIdStr);
+                return;
+              }
+              
               if (item.valor_unitario_ofertado > 0) {
                 const valorAtual = mapaMenorValor.get(item.numero_item);
                 if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
@@ -568,7 +576,7 @@ const SistemaLancesFornecedor = () => {
           }
         });
 
-        console.log('Menor valor das propostas por item (excluindo inabilitados):', Object.fromEntries(mapaMenorValor));
+        console.log('Menor valor das propostas por item (excluindo inabilitados por item):', Object.fromEntries(mapaMenorValor));
         setMenorValorPropostas(mapaMenorValor);
       }
 
@@ -670,10 +678,10 @@ const SistemaLancesFornecedor = () => {
     try {
       console.log('loadLances: Buscando inabilitados para selecao_id:', selecao.id);
       
-      // Buscar fornecedores inabilitados da seleção
+      // Buscar fornecedores inabilitados da seleção COM itens_afetados
       const { data: inabilitados, error: inabilitadosError } = await supabase
         .from("fornecedores_inabilitados_selecao")
-        .select("fornecedor_id")
+        .select("fornecedor_id, itens_afetados")
         .eq("selecao_id", selecao.id)
         .eq("revertido", false);
 
@@ -683,20 +691,25 @@ const SistemaLancesFornecedor = () => {
       
       console.log('loadLances: Dados retornados de inabilitados:', inabilitados);
 
-      // Converter para Set de STRINGS para garantir comparação correta
+      // Criar mapa de fornecedor -> itens inabilitados
+      const inabilitacoesPorFornecedor = new Map<string, number[]>();
+      (inabilitados || []).forEach((f: any) => {
+        inabilitacoesPorFornecedor.set(String(f.fornecedor_id), f.itens_afetados || []);
+      });
+      
+      // Manter set de IDs para compatibilidade
       const inabilitadosIds = new Set<string>(
         (inabilitados || []).map((f: any) => String(f.fornecedor_id))
       );
       
       // CRÍTICO: Só atualizar se houver mudança para evitar loops infinitos
-      // mas sempre atualizar se tiver dados novos
       if (inabilitadosIds.size > 0 || fornecedoresInabilitados.size !== inabilitadosIds.size) {
         setFornecedoresInabilitados(inabilitadosIds);
       }
       
       console.log('loadLances: Fornecedores inabilitados (Set):', Array.from(inabilitadosIds), 'tamanho:', inabilitadosIds.size);
 
-      // Recalcular menor valor das propostas excluindo inabilitados
+      // Recalcular menor valor das propostas excluindo fornecedores inabilitados POR ITEM
       const { data: todasPropostas } = await supabase
         .from("selecao_propostas_fornecedor")
         .select(`
@@ -713,14 +726,17 @@ const SistemaLancesFornecedor = () => {
         const mapaMenorValor = new Map<number, number>();
         
         todasPropostas.forEach((prop: any) => {
-          // Excluir propostas de fornecedores inabilitados - comparar como string
-          if (inabilitadosIds.has(String(prop.fornecedor_id))) {
-            console.log('Excluindo proposta de fornecedor inabilitado:', prop.fornecedor_id);
-            return;
-          }
+          const fornecedorIdStr = String(prop.fornecedor_id);
+          const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
           
           if (prop.selecao_respostas_itens_fornecedor) {
             prop.selecao_respostas_itens_fornecedor.forEach((item: any) => {
+              // Excluir apenas se o fornecedor está inabilitado PARA ESTE ITEM ESPECÍFICO
+              if (itensInabilitados.includes(item.numero_item)) {
+                console.log('Excluindo item', item.numero_item, 'do fornecedor inabilitado:', fornecedorIdStr);
+                return;
+              }
+              
               if (item.valor_unitario_ofertado > 0) {
                 const valorAtual = mapaMenorValor.get(item.numero_item);
                 if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {

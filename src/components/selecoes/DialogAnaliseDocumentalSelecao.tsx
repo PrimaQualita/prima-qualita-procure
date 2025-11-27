@@ -26,7 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Clock, XCircle, RefreshCw, Undo2, UserX, UserCheck, MessageSquare, Handshake, Gavel, FileDown } from "lucide-react";
+import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, AlertTriangle, Download, Eye, Send, Clock, XCircle, RefreshCw, Undo2, UserX, UserCheck, MessageSquare, Handshake, Gavel, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
@@ -321,9 +321,25 @@ export function DialogAnaliseDocumentalSelecao({
         })
       );
 
-      // Separar habilitados e inabilitados
-      const habilitados = fornecedoresComDados.filter(f => !f.inabilitado);
-      const inabilitados = fornecedoresComDados.filter(f => f.inabilitado);
+      // Separar habilitados e inabilitados considerando inabilitação PARCIAL
+      // Um fornecedor é considerado "inabilitado" apenas se TODOS os seus itens vencedores estão em itens_afetados
+      const habilitados = fornecedoresComDados.filter(f => {
+        if (!f.inabilitado) return true;
+        // Verificar se há itens vencedores que NÃO estão na lista de itens afetados
+        const itensHabilitados = f.fornecedor.itensVencedores.filter(
+          item => !f.inabilitado!.itens_afetados.includes(item)
+        );
+        return itensHabilitados.length > 0; // Tem itens ainda habilitados
+      });
+      
+      const inabilitados = fornecedoresComDados.filter(f => {
+        if (!f.inabilitado) return false;
+        // Verificar se TODOS os itens vencedores estão na lista de itens afetados
+        const itensHabilitados = f.fornecedor.itensVencedores.filter(
+          item => !f.inabilitado!.itens_afetados.includes(item)
+        );
+        return itensHabilitados.length === 0; // Todos os itens estão inabilitados
+      });
 
       // Ordenar por menor item vencedor
       habilitados.sort((a, b) => {
@@ -1246,10 +1262,33 @@ export function DialogAnaliseDocumentalSelecao({
               <span className="font-medium">Valor total:</span>{" "}
               {formatCurrency(data.fornecedor.valorTotal)}
             </p>
+            {/* Mostrar inabilitação parcial para fornecedores habilitados */}
+            {!isInabilitado && data.inabilitado && data.inabilitado.itens_afetados.length > 0 && (
+              <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded text-sm">
+                <p className="text-orange-700 font-medium flex items-center gap-1">
+                  <AlertTriangle className="h-4 w-4" />
+                  Inabilitação parcial
+                </p>
+                <p className="text-orange-600">
+                  <span className="font-medium">Itens inabilitados:</span>{" "}
+                  {data.inabilitado.itens_afetados.sort((a, b) => a - b).join(", ")}
+                </p>
+                <p className="text-orange-600 text-xs mt-1">
+                  <span className="font-medium">Motivo:</span> {data.inabilitado.motivo_inabilitacao}
+                </p>
+              </div>
+            )}
+            {/* Mostrar motivo para fornecedores totalmente inabilitados */}
             {isInabilitado && data.inabilitado && (
-              <p className="text-sm text-destructive mt-2">
-                <span className="font-medium">Motivo:</span> {data.inabilitado.motivo_inabilitacao}
-              </p>
+              <div className="mt-2">
+                <p className="text-sm text-destructive">
+                  <span className="font-medium">Itens afetados:</span>{" "}
+                  {data.inabilitado.itens_afetados.sort((a, b) => a - b).join(", ")}
+                </p>
+                <p className="text-sm text-destructive">
+                  <span className="font-medium">Motivo:</span> {data.inabilitado.motivo_inabilitacao}
+                </p>
+              </div>
             )}
           </div>
           <div className="flex flex-col gap-2 items-end">
