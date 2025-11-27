@@ -1262,18 +1262,13 @@ export function DialogAnaliseDocumentalSelecao({
             <p className="text-sm text-muted-foreground">
               CNPJ: {formatCNPJ(data.fornecedor.cnpj)} | Email: {data.fornecedor.email}
             </p>
-            {/* Mostrar itens habilitados quando há inabilitação parcial */}
-            {temInabilitacaoParcial ? (
-              <p className="text-sm mt-1">
-                <span className="font-medium text-green-700">Itens vencedores:</span>{" "}
-                <span className="text-green-700">{itensHabilitados.sort((a, b) => a - b).join(", ")}</span>
-              </p>
-            ) : (
-              <p className="text-sm mt-1">
-                <span className="font-medium">Itens vencedores:</span>{" "}
-                {data.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}
-              </p>
-            )}
+            <p className="text-sm mt-1">
+              <span className="font-medium">Itens vencedores:</span>{" "}
+              {temInabilitacaoParcial 
+                ? itensHabilitados.sort((a, b) => a - b).join(", ")
+                : data.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")
+              }
+            </p>
             <p className="text-sm">
               <span className="font-medium">Valor total:</span>{" "}
               {formatCurrency(data.fornecedor.valorTotal)}
@@ -1370,7 +1365,6 @@ export function DialogAnaliseDocumentalSelecao({
                       <Button
                         size="sm"
                         variant="default"
-                        disabled={!data.todosDocumentosAprovados}
                         onClick={async () => {
                           try {
                             // Persistir aprovação no banco de dados
