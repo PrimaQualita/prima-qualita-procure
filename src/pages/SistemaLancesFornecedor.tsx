@@ -2054,16 +2054,16 @@ const SistemaLancesFornecedor = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16">Item</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="w-24">Qtd</TableHead>
-                    <TableHead className="w-24">Unidade</TableHead>
-                    <TableHead className="w-40">Marca</TableHead>
-                    <TableHead className="w-40">
+                    <TableHead className="w-16 text-center">Item</TableHead>
+                    <TableHead className="text-center">Descrição</TableHead>
+                    <TableHead className="w-24 text-center">Qtd</TableHead>
+                    <TableHead className="w-24 text-center">Unidade</TableHead>
+                    <TableHead className="w-40 text-center">Marca</TableHead>
+                    <TableHead className="w-40 text-center">
                       {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "% Desconto" : "Valor Unitário"}
                     </TableHead>
                     {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
-                      <TableHead className="w-40">Valor Total</TableHead>
+                      <TableHead className="w-40 text-center">Valor Total</TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
