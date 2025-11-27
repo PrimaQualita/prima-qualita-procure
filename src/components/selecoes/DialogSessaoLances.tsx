@@ -227,7 +227,9 @@ export function DialogSessaoLances({
 
   // Verificar fechamento automático dos itens
   const verificarFechamentoAutomatico = async () => {
+    console.log("🔍 verificarFechamentoAutomatico: INICIANDO verificação...");
     try {
+      // 1. Buscar itens que estão em processo de fechamento e já deveriam ter fechado
       const { data, error } = await supabase
         .from("itens_abertos_lances")
         .select("*")
@@ -257,8 +259,72 @@ export function DialogSessaoLances({
           }
         }
       }
+
+      // 2. Verificar lances de negociação recentes (últimos 60 segundos) e fechar item automaticamente
+      const sessentaSegundosAtras = new Date(Date.now() - 60000).toISOString();
+      console.log("🔍 POLLING FALLBACK: Buscando lances de negociação desde:", sessentaSegundosAtras);
+      console.log("🔍 POLLING FALLBACK: Itens em negociação atual:", Array.from(itensEmNegociacao));
+      
+      const { data: lancesNegociacao, error: lancesError } = await supabase
+        .from("lances_fornecedores")
+        .select("numero_item, created_at, tipo_lance, fornecedor_id")
+        .eq("selecao_id", selecaoId)
+        .eq("tipo_lance", "negociacao")
+        .gte("created_at", sessentaSegundosAtras);
+
+      console.log("🔍 POLLING FALLBACK: Lances de negociação encontrados:", lancesNegociacao);
+
+      if (lancesError) {
+        console.error("❌ POLLING FALLBACK: Erro ao verificar lances de negociação:", lancesError);
+      } else if (lancesNegociacao && lancesNegociacao.length > 0) {
+        console.log("✅ POLLING FALLBACK: Total de lances de negociação recentes:", lancesNegociacao.length);
+        
+        // Para cada lance de negociação recente, verificar se o item ainda está em negociação
+        for (const lance of lancesNegociacao) {
+          console.log(`🔍 POLLING FALLBACK: Verificando lance - Item ${lance.numero_item}, Em negociação: ${itensEmNegociacao.has(lance.numero_item)}`);
+          
+          if (itensEmNegociacao.has(lance.numero_item)) {
+            console.log("🔒 POLLING FALLBACK: Fechando item de negociação:", lance.numero_item);
+            await fecharItemNegociacao(lance.numero_item);
+          }
+        }
+      } else {
+        console.log("⚠️ POLLING FALLBACK: Nenhum lance de negociação recente encontrado");
+      }
     } catch (error) {
       console.error("Erro ao verificar fechamento automático:", error);
+    }
+  };
+
+  const fecharItemNegociacao = async (numeroItem: number) => {
+    try {
+      console.log("🔒 Fechando item de negociação automaticamente:", numeroItem);
+      
+      const { error } = await supabase
+        .from("itens_abertos_lances")
+        .update({
+          em_negociacao: false,
+          negociacao_concluida: true,
+          aberto: false,
+          data_fechamento: new Date().toISOString()
+        })
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem);
+
+      if (error) {
+        console.error("Erro ao fechar item de negociação:", error);
+        throw error;
+      }
+
+      console.log("✅ Item de negociação fechado com sucesso");
+      toast.success(`Item ${numeroItem} fechado automaticamente após negociação`);
+      
+      // Recarregar dados
+      loadItensAbertos();
+      loadVencedoresPorItem();
+    } catch (error) {
+      console.error("Erro ao fechar item de negociação:", error);
+      toast.error("Erro ao fechar item de negociação");
     }
   };
 
