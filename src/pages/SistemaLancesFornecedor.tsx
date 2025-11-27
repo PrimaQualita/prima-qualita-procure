@@ -83,9 +83,11 @@ const SistemaLancesFornecedor = () => {
 
   // DEBUG: Monitorar mudanças em itensEstimados
   useEffect(() => {
-    console.log('🔄 itensEstimados mudou:', {
+    console.log('🔄 [useEffect] itensEstimados MUDOU:', {
       size: itensEstimados.size,
-      entries: Object.fromEntries(itensEstimados)
+      entries: Object.fromEntries(itensEstimados),
+      chaves: Array.from(itensEstimados.keys()),
+      valores: Array.from(itensEstimados.values())
     });
   }, [itensEstimados]);
 
@@ -673,24 +675,29 @@ const SistemaLancesFornecedor = () => {
         console.log('📊 Erro ao buscar planilha:', planilhaError);
 
         if (!planilhaError && planilhaData) {
-          console.log('📊 estimativas_itens do banco:', planilhaData.estimativas_itens);
-          console.log('📊 Tipo de estimativas_itens:', typeof planilhaData.estimativas_itens);
+          console.log('📊 [loadProposta] estimativas_itens BRUTAS do banco:', planilhaData.estimativas_itens);
+          console.log('📊 [loadProposta] Tipo:', typeof planilhaData.estimativas_itens);
+          console.log('📊 [loadProposta] JSON:', JSON.stringify(planilhaData.estimativas_itens));
           
           if (planilhaData.estimativas_itens) {
             const mapaEstimados = new Map<number, number>();
             const estimativas = planilhaData.estimativas_itens as Record<string, number>;
             
-            console.log('📊 Convertendo estimativas:', estimativas);
+            console.log('📊 [loadProposta] Após cast:', estimativas);
+            console.log('📊 [loadProposta] Chaves:', Object.keys(estimativas));
+            console.log('📊 [loadProposta] Valores:', Object.values(estimativas));
             
             // Converter objeto para Map
             Object.entries(estimativas).forEach(([numeroItem, valor]) => {
               const num = parseInt(numeroItem);
+              console.log(`   📌 [loadProposta] Adicionando: "${numeroItem}" -> num=${num}, valor=${valor}`);
               mapaEstimados.set(num, valor);
-              console.log(`✅ Item ${num}: Estimativa = ${valor}`);
             });
 
-            console.log('✅ Estimativas carregadas da planilha:', Object.fromEntries(mapaEstimados));
+            console.log('✅ [loadProposta] Mapa FINAL:', Object.fromEntries(mapaEstimados));
+            console.log('✅ [loadProposta] Tamanho do mapa:', mapaEstimados.size);
             setItensEstimados(mapaEstimados);
+            console.log('✅ [loadProposta] setItensEstimados CHAMADO');
           } else {
             console.warn('⚠️ Planilha sem campo estimativas_itens - foi gerada antes da atualização');
             console.warn('⚠️ GERE UMA NOVA PLANILHA para que as estimativas apareçam');
@@ -1977,7 +1984,12 @@ const SistemaLancesFornecedor = () => {
                                   <p className="font-bold text-sm text-amber-700">
                                     {(() => {
                                       const valorEstimado = itensEstimados.get(numeroItem) || 0;
-                                      console.log(`🎨 RENDERIZANDO Item ${numeroItem} - Estimado: ${valorEstimado}`);
+                                      console.log(`🎨 [RENDER] Item ${numeroItem}:`, {
+                                        valorEstimado,
+                                        existe: itensEstimados.has(numeroItem),
+                                        tamanho: itensEstimados.size,
+                                        map: Object.fromEntries(itensEstimados)
+                                      });
                                       return selecao?.processos_compras?.criterio_julgamento === "desconto" 
                                         ? `${valorEstimado.toFixed(2).replace('.', ',')}%`
                                         : formatarMoeda(valorEstimado);
