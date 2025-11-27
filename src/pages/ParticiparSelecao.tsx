@@ -698,14 +698,15 @@ const ParticiparSelecao = () => {
 
       console.log(`📊 Itens preenchidos: ${itensPreenchidos.length} de ${itens.length}`);
 
-      // Se critério for "por item", exigir apenas que PELO MENOS UM item seja preenchido
-      if (criterioJulgamento === "Menor Preço por Item" || criterioJulgamento === "por_item") {
+      // Se critério for "por item" ou "desconto", exigir apenas que PELO MENOS UM item seja preenchido
+      if (criterioJulgamento === "Menor Preço por Item" || criterioJulgamento === "por_item" || 
+          criterioJulgamento === "Maior Percentual de Desconto" || criterioJulgamento === "desconto") {
         if (itensPreenchidos.length === 0) {
           toast.error("Por favor, preencha ao menos um item para participar");
           setSubmitting(false);
           return;
         }
-        console.log("✅ Validação por item OK - permite preenchimento parcial");
+        console.log("✅ Validação por item/desconto OK - permite preenchimento parcial");
       } else if (criterioJulgamento === "Menor Preço por Lote" || criterioJulgamento === "por_lote") {
         // Para critério por lote, validar que todos os itens de cada lote preenchido estejam completos
         const lotesComItens = new Map<string, { total: number; preenchidos: number }>();
@@ -754,7 +755,7 @@ const ParticiparSelecao = () => {
         console.log("✅ Validação global OK - todos os itens preenchidos");
       }
 
-      // VALIDAÇÃO OBRIGATÓRIA DE MARCA: Para qualquer item que tenha valor preenchido, a marca é obrigatória
+      // VALIDAÇÃO OBRIGATÓRIA DE MARCA E VALOR: devem ser preenchidos juntos
       const itensSemMarca = itens.filter(item => {
         const resposta = respostas[item.id];
         const temValor = resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
@@ -764,7 +765,22 @@ const ParticiparSelecao = () => {
 
       if (itensSemMarca.length > 0) {
         const numerosItens = itensSemMarca.map(item => item.numero_item).join(', ');
-        toast.error(`Preencha a marca para os itens com valor ofertado: ${numerosItens}`);
+        toast.error(`Preencha a marca para os itens com valor/desconto ofertado: ${numerosItens}`);
+        setSubmitting(false);
+        return;
+      }
+
+      // VALIDAÇÃO REVERSA: se preencher marca, deve preencher valor/desconto
+      const itensSemValor = itens.filter(item => {
+        const resposta = respostas[item.id];
+        const temValor = resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
+        const temMarca = resposta?.marca_ofertada && resposta.marca_ofertada.trim() !== '';
+        return temMarca && !temValor;
+      });
+
+      if (itensSemValor.length > 0) {
+        const numerosItens = itensSemValor.map(item => item.numero_item).join(', ');
+        toast.error(`Preencha o valor/desconto para os itens com marca informada: ${numerosItens}`);
         setSubmitting(false);
         return;
       }
