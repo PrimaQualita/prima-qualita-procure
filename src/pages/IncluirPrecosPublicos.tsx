@@ -346,12 +346,28 @@ const IncluirPrecosPublicos = () => {
       if (errorResposta) throw errorResposta;
 
       // Inserir itens da resposta ANTES de gerar o PDF
-      const itensResposta = itens.map((item) => ({
-        cotacao_resposta_fornecedor_id: respostaCotacao.id,
-        item_cotacao_id: item.id,
-        valor_unitario_ofertado: parseFloat(respostas[item.id].valor_unitario.replace(/,/g, ".")),
-        marca: respostas[item.id].marca || null,
-      }));
+      const itensResposta = itens.map((item) => {
+        const resposta = respostas[item.id];
+        
+        // Se critério for desconto, salvar percentual_desconto e 0 em valor_unitario
+        if (processoCompra?.criterio_julgamento === "desconto") {
+          return {
+            cotacao_resposta_fornecedor_id: respostaCotacao.id,
+            item_cotacao_id: item.id,
+            valor_unitario_ofertado: 0, // Valor padrão quando é desconto
+            percentual_desconto: parseFloat(resposta.percentual_desconto.replace(/,/g, ".")),
+            marca: resposta.marca || null,
+          };
+        }
+        
+        // Senão, salvar valor_unitario normalmente
+        return {
+          cotacao_resposta_fornecedor_id: respostaCotacao.id,
+          item_cotacao_id: item.id,
+          valor_unitario_ofertado: parseFloat(resposta.valor_unitario.replace(/,/g, ".")),
+          marca: resposta.marca || null,
+        };
+      });
 
       const { error: errorItens } = await supabase
         .from("respostas_itens_fornecedor")
