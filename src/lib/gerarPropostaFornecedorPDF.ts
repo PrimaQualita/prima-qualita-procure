@@ -235,7 +235,11 @@ export async function gerarPropostaFornecedorPDF(
     doc.text('DESCRIÇÃO', 45, y, { align: 'center' });
     doc.text('QTD', 95, y, { align: 'center' });
     doc.text('UNID', 115, y, { align: 'center' });
-    doc.text('MARCA', 135, y, { align: 'center' });
+    
+    // Não mostrar coluna MARCA quando critério for desconto
+    if (criterioJulgamento !== 'desconto') {
+      doc.text('MARCA', 135, y, { align: 'center' });
+    }
     
     // Se critério for desconto, apenas uma coluna; senão, duas colunas (unit + total)
     if (criterioJulgamento === 'desconto') {
@@ -280,7 +284,11 @@ export async function gerarPropostaFornecedorPDF(
         doc.text('DESCRIÇÃO', 45, y, { align: 'center' });
         doc.text('QTD', 95, y, { align: 'center' });
         doc.text('UNID', 115, y, { align: 'center' });
-        doc.text('MARCA', 135, y, { align: 'center' });
+        
+        // Não mostrar coluna MARCA quando critério for desconto
+        if (criterioJulgamento !== 'desconto') {
+          doc.text('MARCA', 135, y, { align: 'center' });
+        }
         
         // Se critério for desconto, apenas uma coluna; senão, duas colunas (unit + total)
         if (criterioJulgamento === 'desconto') {
@@ -321,7 +329,11 @@ export async function gerarPropostaFornecedorPDF(
       doc.line(75, yTop, 75, yBottom); // Após DESCRIÇÃO
       doc.line(105, yTop, 105, yBottom); // Após QTD
       doc.line(125, yTop, 125, yBottom); // Após UNID
-      doc.line(150, yTop, 150, yBottom); // Após MARCA
+      
+      // Não mostrar linha após MARCA quando critério for desconto
+      if (criterioJulgamento !== 'desconto') {
+        doc.line(150, yTop, 150, yBottom); // Após MARCA
+      }
       
       // Se critério não for desconto, adicionar linha vertical após VL. UNIT.
       if (criterioJulgamento !== 'desconto') {
@@ -345,7 +357,11 @@ export async function gerarPropostaFornecedorPDF(
       // Demais colunas (todas centralizadas verticalmente)
       doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 90, yCenter, { align: 'center' });
       doc.text(itemCotacao.unidade, 115, yCenter, { align: 'center' });
-      doc.text(item.marca || '-', 137.5, yCenter, { align: 'center' });
+      
+      // Não mostrar coluna MARCA quando critério for desconto
+      if (criterioJulgamento !== 'desconto') {
+        doc.text(item.marca || '-', 137.5, yCenter, { align: 'center' });
+      }
       
       // Formatar valores de acordo com o critério de julgamento
       if (criterioJulgamento === 'desconto') {
