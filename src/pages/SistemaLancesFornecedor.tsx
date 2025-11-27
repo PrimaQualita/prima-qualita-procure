@@ -1211,9 +1211,12 @@ const SistemaLancesFornecedor = () => {
   };
 
   const handleUpdateItem = (itemId: string, field: string, value: any) => {
+    console.log(`Atualizando item ${itemId}, campo ${field}, valor:`, value);
     setItens(prev => prev.map(item => {
       if (item.id === itemId) {
-        return { ...item, [field]: value };
+        const updated = { ...item, [field]: value };
+        console.log('Item atualizado:', updated);
+        return updated;
       }
       return item;
     }));
