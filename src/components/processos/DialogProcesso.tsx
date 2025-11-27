@@ -364,7 +364,6 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
                   <SelectItem value="global">Menor Preço Global</SelectItem>
                   <SelectItem value="por_item">Menor Preço por Item</SelectItem>
                   <SelectItem value="por_lote">Menor Preço por Lote</SelectItem>
-                  <SelectItem value="desconto">Maior Percentual de Desconto</SelectItem>
                 </SelectContent>
               </Select>
             </div>
