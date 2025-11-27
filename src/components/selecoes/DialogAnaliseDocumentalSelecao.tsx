@@ -124,10 +124,14 @@ export function DialogAnaliseDocumentalSelecao({
   
   // States para inabilitação
   const [dialogInabilitar, setDialogInabilitar] = useState(false);
+  const [dialogEscolhaTipoInabilitacao, setDialogEscolhaTipoInabilitacao] = useState(false);
+  const [tipoInabilitacao, setTipoInabilitacao] = useState<'completa' | 'parcial'>('completa');
+  const [itensSelecionadosInabilitacao, setItensSelecionadosInabilitacao] = useState<number[]>([]);
   const [fornecedorParaInabilitar, setFornecedorParaInabilitar] = useState<FornecedorData | null>(null);
   const [motivoInabilitacao, setMotivoInabilitacao] = useState("");
   const [segundosColocados, setSegundosColocados] = useState<SegundoColocado[]>([]);
   const [reabrirParaNegociacao, setReabrirParaNegociacao] = useState(false);
+  const [criterioJulgamento, setCriterioJulgamento] = useState<string>("global");
   
   // State para reverter inabilitação
   const [dialogReverterInabilitacao, setDialogReverterInabilitacao] = useState(false);
@@ -169,17 +173,31 @@ export function DialogAnaliseDocumentalSelecao({
     }
   }, [open, selecaoId]);
 
+  // Buscar segundos colocados quando itens selecionados mudarem na inabilitação parcial
+  useEffect(() => {
+    const fetchSegundos = async () => {
+      if (dialogInabilitar && tipoInabilitacao === 'parcial' && fornecedorParaInabilitar && itensSelecionadosInabilitacao.length > 0) {
+        const segundos = await buscarSegundosColocados(itensSelecionadosInabilitacao, fornecedorParaInabilitar.fornecedor.id);
+        setSegundosColocados(segundos);
+      }
+    };
+    fetchSegundos();
+  }, [dialogInabilitar, tipoInabilitacao, itensSelecionadosInabilitacao, fornecedorParaInabilitar]);
+
   const loadFornecedoresVencedores = async () => {
     setLoading(true);
     try {
       // Buscar dados da seleção e itens para obter quantidades
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
-        .select("cotacao_relacionada_id, titulo_selecao, numero_selecao")
+        .select("cotacao_relacionada_id, titulo_selecao, numero_selecao, criterios_julgamento")
         .eq("id", selecaoId)
         .single();
 
       if (selecaoError) throw selecaoError;
+      
+      // Salvar critério de julgamento
+      setCriterioJulgamento(selecaoData?.criterios_julgamento || "global");
 
       // Salvar cotacao_relacionada_id para uso em outras funções
       const cotacaoId = selecaoData?.cotacao_relacionada_id;
@@ -878,15 +896,66 @@ export function DialogAnaliseDocumentalSelecao({
     setFornecedorParaInabilitar(data);
     setMotivoInabilitacao("");
     setReabrirParaNegociacao(false);
-    // Buscar segundos colocados e esperar resultado
-    const segundos = await buscarSegundosColocados(data.fornecedor.itensVencedores, data.fornecedor.id);
-    console.log("Segundos colocados encontrados:", segundos);
-    setDialogInabilitar(true);
+    setTipoInabilitacao('completa');
+    setItensSelecionadosInabilitacao([]);
+    
+    // Se critério for global ou fornecedor tem apenas 1 item, vai direto para inabilitação
+    if (criterioJulgamento === 'global' || data.fornecedor.itensVencedores.length <= 1) {
+      const segundos = await buscarSegundosColocados(data.fornecedor.itensVencedores, data.fornecedor.id);
+      console.log("Segundos colocados encontrados:", segundos);
+      setDialogInabilitar(true);
+    } else {
+      // Mostra diálogo de escolha primeiro
+      setDialogEscolhaTipoInabilitacao(true);
+    }
+  };
+
+  const handleConfirmarTipoInabilitacao = async () => {
+    if (!fornecedorParaInabilitar) return;
+    
+    setDialogEscolhaTipoInabilitacao(false);
+    
+    if (tipoInabilitacao === 'completa') {
+      // Buscar segundos colocados para todos os itens
+      const segundos = await buscarSegundosColocados(fornecedorParaInabilitar.fornecedor.itensVencedores, fornecedorParaInabilitar.fornecedor.id);
+      console.log("Segundos colocados encontrados:", segundos);
+      setDialogInabilitar(true);
+    } else {
+      // Mostra diálogo de inabilitação com seleção de itens
+      // Pré-selecionar todos os itens
+      setItensSelecionadosInabilitacao([...fornecedorParaInabilitar.fornecedor.itensVencedores]);
+      setDialogInabilitar(true);
+    }
+  };
+  
+  const handleToggleItemInabilitacao = (item: number) => {
+    setItensSelecionadosInabilitacao(prev => {
+      if (prev.includes(item)) {
+        return prev.filter(i => i !== item);
+      } else {
+        return [...prev, item];
+      }
+    });
+  };
+  
+  const handleSelecionarTodosItens = () => {
+    if (!fornecedorParaInabilitar) return;
+    setItensSelecionadosInabilitacao([...fornecedorParaInabilitar.fornecedor.itensVencedores]);
+  };
+  
+  const handleDeselecionarTodosItens = () => {
+    setItensSelecionadosInabilitacao([]);
   };
 
   const handleInabilitarFornecedor = async () => {
     if (!fornecedorParaInabilitar || !motivoInabilitacao.trim()) {
       toast.error("Informe o motivo da inabilitação");
+      return;
+    }
+    
+    // Se for inabilitação parcial, verificar se há itens selecionados
+    if (tipoInabilitacao === 'parcial' && itensSelecionadosInabilitacao.length === 0) {
+      toast.error("Selecione pelo menos um item para inabilitar");
       return;
     }
 
@@ -897,7 +966,10 @@ export function DialogAnaliseDocumentalSelecao({
         return;
       }
 
-      const itensAfetados = fornecedorParaInabilitar.fornecedor.itensVencedores;
+      // Usar itens selecionados na inabilitação parcial, ou todos na completa
+      const itensAfetados = tipoInabilitacao === 'parcial' 
+        ? itensSelecionadosInabilitacao 
+        : fornecedorParaInabilitar.fornecedor.itensVencedores;
       const fornecedorInabId = fornecedorParaInabilitar.fornecedor.id;
 
       // RECALCULAR segundos colocados AGORA para garantir dados frescos
@@ -1036,6 +1108,8 @@ export function DialogAnaliseDocumentalSelecao({
       setMotivoInabilitacao("");
       setReabrirParaNegociacao(false);
       setSegundosColocados([]);
+      setTipoInabilitacao('completa');
+      setItensSelecionadosInabilitacao([]);
       loadFornecedoresVencedores();
       onSuccess?.();
     } catch (error) {
@@ -1857,25 +1931,136 @@ export function DialogAnaliseDocumentalSelecao({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Dialog para escolher tipo de inabilitação */}
+      <AlertDialog open={dialogEscolhaTipoInabilitacao} onOpenChange={setDialogEscolhaTipoInabilitacao}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <UserX className="h-5 w-5 text-destructive" />
+              Tipo de Inabilitação
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <p className="mb-4">
+                Como deseja inabilitar o fornecedor{" "}
+                <strong>{fornecedorParaInabilitar?.fornecedor.razao_social}</strong>?
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Este fornecedor venceu os itens: {fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-3 py-4">
+            <div 
+              className={`p-4 border rounded-lg cursor-pointer transition-colors ${tipoInabilitacao === 'parcial' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
+              onClick={() => setTipoInabilitacao('parcial')}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-4 h-4 rounded-full border-2 ${tipoInabilitacao === 'parcial' ? 'border-primary bg-primary' : 'border-muted-foreground'}`} />
+                <div>
+                  <p className="font-medium">Inabilitar apenas itens específicos</p>
+                  <p className="text-sm text-muted-foreground">
+                    Selecione quais itens o fornecedor será inabilitado
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div 
+              className={`p-4 border rounded-lg cursor-pointer transition-colors ${tipoInabilitacao === 'completa' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
+              onClick={() => setTipoInabilitacao('completa')}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-4 h-4 rounded-full border-2 ${tipoInabilitacao === 'completa' ? 'border-primary bg-primary' : 'border-muted-foreground'}`} />
+                <div>
+                  <p className="font-medium">Inabilitar fornecedor completamente</p>
+                  <p className="text-sm text-muted-foreground">
+                    Inabilitar todos os itens que o fornecedor venceu
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmarTipoInabilitacao}>
+              Continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Dialog para inabilitar fornecedor */}
       <AlertDialog open={dialogInabilitar} onOpenChange={setDialogInabilitar}>
         <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <UserX className="h-5 w-5" />
-              Inabilitar Fornecedor
+              {tipoInabilitacao === 'parcial' ? 'Inabilitar Itens Específicos' : 'Inabilitar Fornecedor'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
                 <p>
                   Você está prestes a inabilitar o fornecedor{" "}
-                  <strong>{fornecedorParaInabilitar?.fornecedor.razao_social}</strong> na análise documental.
+                  <strong>{fornecedorParaInabilitar?.fornecedor.razao_social}</strong> 
+                  {tipoInabilitacao === 'parcial' ? ' nos itens selecionados' : ' na análise documental'}.
                 </p>
                 
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-sm font-medium">Itens afetados:</p>
-                  <p className="text-sm">{fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}</p>
-                </div>
+                {tipoInabilitacao === 'parcial' ? (
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium">Selecione os itens para inabilitar:</p>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleSelecionarTodosItens}
+                        >
+                          Todos
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleDeselecionarTodosItens}
+                        >
+                          Nenhum
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).map((item) => (
+                        <div 
+                          key={item}
+                          className={`flex items-center gap-2 p-2 border rounded cursor-pointer transition-colors ${
+                            itensSelecionadosInabilitacao.includes(item) 
+                              ? 'border-destructive bg-destructive/10' 
+                              : 'hover:bg-muted'
+                          }`}
+                          onClick={() => handleToggleItemInabilitacao(item)}
+                        >
+                          <Checkbox
+                            checked={itensSelecionadosInabilitacao.includes(item)}
+                            onCheckedChange={() => handleToggleItemInabilitacao(item)}
+                          />
+                          <span className="text-sm">Item {item}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {itensSelecionadosInabilitacao.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {itensSelecionadosInabilitacao.length} item(ns) selecionado(s)
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-sm font-medium">Itens afetados:</p>
+                    <p className="text-sm">{fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}</p>
+                  </div>
+                )}
 
                 {segundosColocados.length > 0 && (
                   <div className="bg-primary/10 p-3 rounded-lg">
@@ -1924,6 +2109,7 @@ export function DialogAnaliseDocumentalSelecao({
             <AlertDialogAction 
               onClick={handleInabilitarFornecedor}
               className="bg-destructive hover:bg-destructive/90"
+              disabled={tipoInabilitacao === 'parcial' && itensSelecionadosInabilitacao.length === 0}
             >
               Confirmar Inabilitação
             </AlertDialogAction>
