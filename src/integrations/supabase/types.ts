@@ -2225,6 +2225,7 @@ export type Database = {
           item_cotacao_id: string
           marca: string | null
           observacao: string | null
+          percentual_desconto: number | null
           valor_unitario_ofertado: number
         }
         Insert: {
@@ -2234,6 +2235,7 @@ export type Database = {
           item_cotacao_id: string
           marca?: string | null
           observacao?: string | null
+          percentual_desconto?: number | null
           valor_unitario_ofertado: number
         }
         Update: {
@@ -2243,6 +2245,7 @@ export type Database = {
           item_cotacao_id?: string
           marca?: string | null
           observacao?: string | null
+          percentual_desconto?: number | null
           valor_unitario_ofertado?: number
         }
         Relationships: [
