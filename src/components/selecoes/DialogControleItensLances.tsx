@@ -121,12 +121,16 @@ export function DialogControleItensLances({
     console.log("🔍 verificarFechamentoAutomatico: INICIANDO verificação...");
     try {
       // 1. Buscar itens que estão em processo de fechamento e já deveriam ter fechado
+      // EXCLUIR itens que foram abertos recentemente (últimos 10 segundos) para evitar race conditions
+      const dezSegundosAtras = new Date(Date.now() - 10000).toISOString();
+      
       const { data, error } = await supabase
         .from("itens_abertos_lances")
         .select("*")
         .eq("selecao_id", selecaoId)
         .eq("aberto", true)
-        .eq("iniciando_fechamento", true);
+        .eq("iniciando_fechamento", true)
+        .lt("data_abertura", dezSegundosAtras); // Só verificar itens abertos há mais de 10 segundos
 
       if (error) throw error;
 
@@ -139,7 +143,7 @@ export function DialogControleItensLances({
           
           if (agora >= tempoExpiracao) {
             // Tempo expirou, fechar o item
-            console.log(`Fechando item ${item.numero_item} automaticamente`);
+            console.log(`Fechando item ${item.numero_item} automaticamente por tempo`);
             await supabase
               .from("itens_abertos_lances")
               .update({ 
