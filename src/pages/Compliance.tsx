@@ -242,30 +242,57 @@ export default function Compliance() {
       );
       
       if (!resultado.blob) {
+        console.error("❌ Blob não encontrado no resultado:", resultado);
         throw new Error("PDF não foi gerado corretamente");
       }
       
+      console.log(`✅ [Compliance] Blob recebido, tamanho: ${resultado.blob.size} bytes`);
+      
       // Criar URL temporária do blob
       const blobUrl = window.URL.createObjectURL(resultado.blob);
+      console.log(`✅ [Compliance] Blob URL criado: ${blobUrl}`);
       
-      console.log(`✅ [Compliance] PDF gerado em memória, abrindo visualização...`);
       toast.dismiss(loadingToast);
       toast.success("Abrindo processo...");
       
-      // Abrir em nova aba
+      // Tentar abrir em nova aba
+      console.log(`🔗 [Compliance] Tentando abrir window.open...`);
       const newWindow = window.open(blobUrl, '_blank');
       
-      // Liberar o blob URL após um tempo (quando a aba for fechada o browser já libera)
-      if (newWindow) {
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        // Pop-up foi bloqueado, usar fallback com link
+        console.warn("⚠️ [Compliance] Pop-up bloqueado, usando fallback com link...");
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.target = '_blank';
+        link.download = resultado.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log(`✅ [Compliance] Link clicado com sucesso`);
+        
+        // Liberar após delay
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+          console.log(`🗑️ [Compliance] Blob URL liberado`);
+        }, 60000);
+      } else {
+        console.log(`✅ [Compliance] Janela aberta com sucesso`);
+        
+        // Liberar o blob URL quando a aba for fechada
         newWindow.addEventListener('beforeunload', () => {
           window.URL.revokeObjectURL(blobUrl);
+          console.log(`🗑️ [Compliance] Blob URL liberado (aba fechada)`);
         });
+        
+        // Fallback: liberar após 1 minuto
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+          console.log(`🗑️ [Compliance] Blob URL liberado (timeout)`);
+        }, 60000);
       }
-      
-      // Fallback: liberar após 1 minuto caso a aba não dispare o evento
-      setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl);
-      }, 60000);
       
     } catch (error: any) {
       console.error("❌ [Compliance] Erro ao visualizar processo:", error);
