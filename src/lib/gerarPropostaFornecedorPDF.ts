@@ -75,6 +75,7 @@ export async function gerarPropostaFornecedorPDF(
       .from('respostas_itens_fornecedor')
       .select(`
         valor_unitario_ofertado,
+        percentual_desconto,
         marca,
         item_cotacao_id,
         itens_cotacao!inner (
@@ -278,7 +279,10 @@ export async function gerarPropostaFornecedorPDF(
         doc.setFontSize(8);
       }
       
-      const valorUnitario = item.valor_unitario_ofertado;
+      // Usar o valor correto dependendo do critério de julgamento
+      const valorUnitario = criterioJulgamento === 'desconto' 
+        ? (item.percentual_desconto || 0)
+        : item.valor_unitario_ofertado;
       const valorTotalItem = valorUnitario * itemCotacao.quantidade;
 
       // Fundo alternado
