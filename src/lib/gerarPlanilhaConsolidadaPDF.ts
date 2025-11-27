@@ -97,24 +97,36 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.text(`PROCESSO ${processo.numero}`, pageWidth / 2, 18, { align: 'center' });
+
+  y = 40; // Posição após a faixa azul
+
+  // OBJETO (abaixo da faixa azul, acima da cotação)
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  const textoObjeto = 'Objeto:  ';
+  doc.text(textoObjeto, margemEsquerda, y);
   
   // Quebrar texto do objeto com alinhamento justificado
   const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<\/?p>/g, '');
-  doc.setFontSize(9);
-  const larguraObjetoMaxima = larguraUtil - 40; // Margem maior para não ultrapassar
+  doc.setFont('helvetica', 'normal');
+  const larguraObjetoMaxima = larguraUtil - doc.getTextWidth(textoObjeto) - 5;
   const linhasObjeto = doc.splitTextToSize(objetoDecodificado, larguraObjetoMaxima);
   
-  // Renderizar cada linha do objeto com mais espaçamento da borda
-  let yObjeto = 22;
-  linhasObjeto.forEach((linha: string, index: number) => {
-    doc.text(linha, pageWidth / 2, yObjeto, { align: 'center', maxWidth: larguraObjetoMaxima });
-    yObjeto += 4;
-  });
+  // Renderizar primeira linha ao lado de "Objeto:"
+  const larguraObjeto = doc.getTextWidth(textoObjeto);
+  doc.text(linhasObjeto[0], margemEsquerda + larguraObjeto, y);
+  
+  // Renderizar demais linhas abaixo
+  y += 5;
+  for (let i = 1; i < linhasObjeto.length; i++) {
+    doc.text(linhasObjeto[i], margemEsquerda, y);
+    y += 5;
+  }
 
-  y = Math.max(40, yObjeto + 8); // Mais espaço entre objeto e tabela
+  y += 5; // Espaço após o objeto
 
   // Informações da Cotação
-  doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   const textoCotacao = 'Cotação:  ';
