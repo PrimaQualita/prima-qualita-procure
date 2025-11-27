@@ -704,6 +704,7 @@ const SistemaLancesFornecedor = () => {
         .eq("selecao_id", propostaData.selecoes_fornecedores.id);
 
       if (!propostasError && todasPropostas) {
+        const isDesconto = propostaData.selecoes_fornecedores.processos_compras?.criterio_julgamento === "desconto";
         const mapaMenorValor = new Map<number, number>();
         
         todasPropostas.forEach((prop: any) => {
@@ -720,7 +721,9 @@ const SistemaLancesFornecedor = () => {
               
               if (item.valor_unitario_ofertado > 0) {
                 const valorAtual = mapaMenorValor.get(item.numero_item);
-                if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
+                // Para desconto: pegar MAIOR valor (maior desconto)
+                // Para valor: pegar MENOR valor
+                if (!valorAtual || (isDesconto ? item.valor_unitario_ofertado > valorAtual : item.valor_unitario_ofertado < valorAtual)) {
                   mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
                 }
               }
@@ -728,7 +731,7 @@ const SistemaLancesFornecedor = () => {
           }
         });
 
-        console.log('Menor valor das propostas por item (excluindo inabilitados por item):', Object.fromEntries(mapaMenorValor));
+        console.log(`${isDesconto ? 'Maior' : 'Menor'} valor das propostas por item (excluindo inabilitados por item):`, Object.fromEntries(mapaMenorValor));
         setMenorValorPropostas(mapaMenorValor);
       }
 
@@ -980,23 +983,27 @@ const SistemaLancesFornecedor = () => {
   const getValorMinimoAtual = (numeroItem: number) => {
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const valorMenorProposta = menorValorPropostas.get(numeroItem) || 0;
+    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
     
     // Usar lancesFiltrados (já filtrado pelo useMemo acima)
     const lancesDoItem = lancesFiltrados.filter(l => l.numero_item === numeroItem);
     
-    // Filtrar apenas lances classificados (menores ou iguais ao estimado)
-    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+    // Filtrar lances classificados baseado no critério
+    const lancesClassificados = isDesconto
+      ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado) // Desconto: >= estimado
+      : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Valor: <= estimado
     
     if (lancesClassificados.length > 0) {
-      // Retornar o menor lance classificado
+      // Para desconto: retornar o MAIOR lance (maior desconto)
+      // Para valor: retornar o MENOR lance (menor valor)
       const valoresOrdenados = lancesClassificados
         .map(l => l.valor_lance)
-        .sort((a, b) => a - b);
+        .sort((a, b) => isDesconto ? b - a : a - b); // Desconto: descendente, Valor: ascendente
       
       return valoresOrdenados[0];
     }
     
-    // Se não há lances classificados válidos, usar o menor valor das propostas (já filtrado de inabilitados)
+    // Se não há lances classificados válidos, usar o menor/maior valor das propostas
     if (valorMenorProposta > 0) {
       return valorMenorProposta;
     }
