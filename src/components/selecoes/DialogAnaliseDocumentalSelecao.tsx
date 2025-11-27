@@ -2373,23 +2373,31 @@ export function DialogAnaliseDocumentalSelecao({
 
                 {/* Fornecedores Habilitados */}
                 {fornecedoresData.length > 0 && (
-                  <div className="space-y-4">
+                  <div className="space-y-4" key={`habilitados-${forceReload}`}>
                     <h3 className="text-lg font-semibold flex items-center gap-2 text-primary">
                       <UserCheck className="h-5 w-5" />
                       Fornecedores Habilitados ({fornecedoresData.length})
                     </h3>
-                    {fornecedoresData.map((data) => renderFornecedorCard(data, false))}
+                    {fornecedoresData.map((data, index) => (
+                      <div key={`${data.fornecedor.id}-${forceReload}-${index}`}>
+                        {renderFornecedorCard(data, false)}
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {/* Fornecedores Inabilitados */}
                 {fornecedoresInabilitados.length > 0 && (
-                  <div className="space-y-4 mt-8">
+                  <div className="space-y-4 mt-8" key={`inabilitados-${forceReload}`}>
                     <h3 className="text-lg font-semibold flex items-center gap-2 text-destructive">
                       <UserX className="h-5 w-5" />
                       Fornecedores Inabilitados ({fornecedoresInabilitados.length})
                     </h3>
-                    {fornecedoresInabilitados.map((data) => renderFornecedorCard(data, true))}
+                    {fornecedoresInabilitados.map((data, index) => (
+                      <div key={`${data.fornecedor.id}-inab-${forceReload}-${index}`}>
+                        {renderFornecedorCard(data, true)}
+                      </div>
+                    ))}
                   </div>
                 )}
 
