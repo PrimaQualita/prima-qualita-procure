@@ -910,10 +910,10 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const empresasQueNaoRecorreram = intencoesRecurso.filter(i => !i.deseja_recorrer);
 
   if (intencoesRecurso.length === 0) {
-    const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento de cada fase do certame, nenhuma empresa manifestou intenção de interpor recurso.`;
+    const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos, nenhuma empresa manifestou intenção de interpor recurso.`;
     currentY = drawJustifiedText(doc, textoRecursos, marginLeft, currentY, contentWidth, lineHeight);
   } else {
-    const textoAbertura = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento, as empresas se manifestaram da seguinte forma:`;
+    const textoAbertura = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos, as empresas se manifestaram da seguinte forma:`;
     currentY = drawJustifiedText(doc, textoAbertura, marginLeft, currentY, contentWidth, lineHeight);
 
     // Empresas que desejam recorrer
@@ -946,9 +946,11 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "normal");
 
-      empresasQueNaoRecorreram.forEach(e => {
+      empresasQueNaoRecorreram.forEach((e, index) => {
         checkNewPage(10);
-        const textoEmpresa = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
+        const isLast = index === empresasQueNaoRecorreram.length - 1;
+        const pontuacao = isLast ? "." : ";";
+        const textoEmpresa = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}${pontuacao}`;
         currentY = drawJustifiedText(doc, textoEmpresa, marginLeft, currentY, contentWidth, lineHeight);
       });
     }
