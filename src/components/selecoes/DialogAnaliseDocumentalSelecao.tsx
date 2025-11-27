@@ -190,21 +190,20 @@ export function DialogAnaliseDocumentalSelecao({
     }
   }, [open, selecaoId]);
 
-  // Polling para garantir atualização automática dos vencedores
+  // Listener para evento customizado de remarcação de vencedores
   useEffect(() => {
     if (!open || !selecaoId) return;
 
-    console.log("🔄 Iniciando polling para atualização automática de vencedores");
-    
-    // Polling a cada 3 segundos
-    const interval = setInterval(() => {
-      console.log("🔄 Polling: recarregando vencedores...");
+    const handleVencedoresRemarcados = () => {
+      console.log("🔔 Evento de remarcação recebido, recarregando vencedores...");
       loadFornecedoresVencedores();
-    }, 3000);
+      loadRecursosInabilitacao();
+    };
+
+    window.addEventListener('vencedores-remarcados', handleVencedoresRemarcados);
 
     return () => {
-      console.log("⏹️ Parando polling de vencedores");
-      clearInterval(interval);
+      window.removeEventListener('vencedores-remarcados', handleVencedoresRemarcados);
     };
   }, [open, selecaoId]);
 
