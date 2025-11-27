@@ -758,13 +758,7 @@ const SistemaLancesFornecedor = () => {
 
       if (itensError) throw itensError;
       
-      // Mapear os dados para o formato correto
-      const itensMapeados = (itensData || []).map(item => ({
-        ...item,
-        marca_ofertada: item.marca || ""
-      }));
-      
-      setItens(itensMapeados);
+      setItens(itensData || []);
 
     } catch (error) {
       console.error("Erro ao carregar proposta:", error);
@@ -2079,8 +2073,8 @@ const SistemaLancesFornecedor = () => {
                       <TableCell>{item.unidade}</TableCell>
                       <TableCell>
                         <Input
-                          value={item.marca_ofertada || ""}
-                          onChange={(e) => handleUpdateItem(item.id, "marca_ofertada", e.target.value)}
+                          value={item.marca || ""}
+                          onChange={(e) => handleUpdateItem(item.id, "marca", e.target.value)}
                           disabled={!editavel}
                           className="w-full"
                         />
@@ -2090,25 +2084,15 @@ const SistemaLancesFornecedor = () => {
                           <div className="flex items-center gap-1">
                             <Input
                               type="text"
-                              value={valoresDescontoTemp.get(item.id) ?? (item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2).replace('.', ',') : "")}
+                              value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2).replace('.', ',') : ""}
                               onChange={(e) => {
-                                setValoresDescontoTemp(prev => {
-                                  const novo = new Map(prev);
-                                  novo.set(item.id, e.target.value);
-                                  return novo;
-                                });
-                              }}
-                              onBlur={(e) => {
                                 const valor = e.target.value.replace(',', '.');
                                 const numero = parseFloat(valor);
                                 if (!isNaN(numero) && numero >= 0) {
                                   handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
+                                } else if (e.target.value === '' || e.target.value === '0' || e.target.value === '0,') {
+                                  handleUpdateItem(item.id, "valor_unitario_ofertado", 0);
                                 }
-                                setValoresDescontoTemp(prev => {
-                                  const novo = new Map(prev);
-                                  novo.delete(item.id);
-                                  return novo;
-                                });
                               }}
                               disabled={!editavel}
                               className="w-full"
