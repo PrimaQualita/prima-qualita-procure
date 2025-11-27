@@ -19,6 +19,7 @@ interface ItemCotacao {
   quantidade: number;
   unidade: string;
   valor_unitario_estimado: number | null;
+  lote_id: string | null;
 }
 
 interface RespostaItem {
@@ -39,6 +40,7 @@ const IncluirPrecosPublicos = () => {
   const [cotacao, setCotacao] = useState<any>(null);
   const [processoCompra, setProcessoCompra] = useState<any>(null);
   const [itens, setItens] = useState<ItemCotacao[]>([]);
+  const [lotes, setLotes] = useState<any[]>([]);
   
   const [nomeFonte, setNomeFonte] = useState("");
   const [respostas, setRespostas] = useState<{ [key: string]: RespostaItem }>({});
@@ -75,6 +77,15 @@ const IncluirPrecosPublicos = () => {
       if (itensError) throw itensError;
 
       setItens(itensData || []);
+
+      // Buscar lotes se houver
+      const { data: lotesData } = await supabase
+        .from("lotes_cotacao")
+        .select("*")
+        .eq("cotacao_id", cotacaoIdParam)
+        .order("numero_lote");
+      
+      setLotes(lotesData || []);
 
       const respostasIniciais: { [key: string]: RespostaItem } = {};
       (itensData || []).forEach((item) => {
@@ -247,14 +258,11 @@ const IncluirPrecosPublicos = () => {
       }
 
       // Validar se valores foram preenchidos de acordo com critério
-      // Critérios que permitem propostas parciais: "item" e "desconto"
-      // Critérios que exigem todos os itens: "global" e "lote"
       const criterio = processoCompra?.criterio_julgamento;
-      const permiteParcial = criterio === "item" || criterio === "desconto";
-      
       let todosPreenchidos = true;
+      let mensagemErro = "";
       
-      if (permiteParcial) {
+      if (criterio === "item" || criterio === "desconto") {
         // Para "item" e "desconto": apenas verificar se PELO MENOS um item foi preenchido
         const algumPreenchido = itens.some((item) => {
           const resposta = respostas[item.id];
@@ -266,27 +274,61 @@ const IncluirPrecosPublicos = () => {
         });
         
         todosPreenchidos = algumPreenchido;
-      } else {
-        // Para "global" e "lote": validar que TODOS os itens foram preenchidos
+        if (!todosPreenchidos) {
+          mensagemErro = criterio === "desconto"
+            ? "Por favor, preencha o percentual de desconto de pelo menos um item"
+            : "Por favor, preencha o valor unitário de pelo menos um item";
+        }
+      } else if (criterio === "global") {
+        // Para "global": validar que TODOS os itens foram preenchidos
         todosPreenchidos = itens.every((item) => {
           const resposta = respostas[item.id];
-          
-          if (criterio === "desconto") {
-            return resposta && resposta.percentual_desconto && parseFloat(resposta.percentual_desconto.replace(/,/g, ".")) > 0;
-          }
           return resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
         });
+        
+        if (!todosPreenchidos) {
+          mensagemErro = "Por favor, preencha todos os valores unitários";
+        }
+      } else if (criterio === "lote") {
+        // Para "lote": validar que se algum item de um lote foi preenchido,
+        // TODOS os itens daquele lote devem estar preenchidos
+        const itemsPorLote = new Map<string, any[]>();
+        itens.forEach(item => {
+          const loteId = item.lote_id || 'sem_lote';
+          if (!itemsPorLote.has(loteId)) {
+            itemsPorLote.set(loteId, []);
+          }
+          itemsPorLote.get(loteId)!.push(item);
+        });
+        
+        let algumLotePreenchido = false;
+        for (const [loteId, itensDoLote] of itemsPorLote.entries()) {
+          const itensPreenchidos = itensDoLote.filter(item => {
+            const resposta = respostas[item.id];
+            return resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
+          });
+          
+          if (itensPreenchidos.length > 0) {
+            algumLotePreenchido = true;
+            
+            if (itensPreenchidos.length !== itensDoLote.length) {
+              const lote = lotes?.find((l: any) => l.id === loteId);
+              const loteNome = lote ? `Lote ${lote.numero_lote}` : 'um dos lotes';
+              mensagemErro = `Se você cotar algum item do ${loteNome}, deve cotar TODOS os itens desse lote.`;
+              todosPreenchidos = false;
+              break;
+            }
+          }
+        }
+        
+        if (todosPreenchidos && !algumLotePreenchido) {
+          mensagemErro = "Por favor, preencha pelo menos um lote completo";
+          todosPreenchidos = false;
+        }
       }
 
       if (!todosPreenchidos) {
-        const mensagem = criterio === "desconto"
-          ? (permiteParcial 
-              ? "Por favor, preencha o percentual de desconto de pelo menos um item"
-              : "Por favor, preencha todos os percentuais de desconto")
-          : (permiteParcial
-              ? "Por favor, preencha o valor unitário de pelo menos um item"
-              : "Por favor, preencha todos os valores unitários");
-        toast.error(mensagem);
+        toast.error(mensagemErro);
         return;
       }
 

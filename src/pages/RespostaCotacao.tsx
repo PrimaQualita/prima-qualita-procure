@@ -380,12 +380,9 @@ const RespostaCotacao = () => {
       }
 
       // Validar se valores foram preenchidos de acordo com critério
-      // Critérios que permitem propostas parciais: "item" e "desconto"
-      // Critérios que exigem todos os itens: "global" e "lote"
       const criterio = processoCompra?.criterio_julgamento;
-      const permiteParcial = criterio === "item" || criterio === "desconto";
       
-      if (permiteParcial) {
+      if (criterio === "item" || criterio === "desconto") {
         // Para "item" e "desconto": apenas verificar se PELO MENOS um item foi preenchido
         const algumPreenchido = itensCotacao.some(item => {
           const resposta = respostas[item.id];
@@ -404,22 +401,57 @@ const RespostaCotacao = () => {
           setSubmitting(false);
           return;
         }
-      } else {
-        // Para "global" e "lote": validar que TODOS os itens foram preenchidos
+      } else if (criterio === "global") {
+        // Para "global": validar que TODOS os itens foram preenchidos
         const itensIncompletos = itensCotacao.filter(item => {
           const resposta = respostas[item.id];
-          
-          if (criterio === "desconto") {
-            return !resposta?.percentual_desconto || resposta.percentual_desconto <= 0;
-          }
           return !resposta?.valor_unitario_ofertado || resposta.valor_unitario_ofertado <= 0;
         });
 
         if (itensIncompletos.length > 0) {
-          const mensagem = criterio === "desconto"
-            ? "Por favor, preencha os percentuais de desconto de todos os itens"
-            : "Por favor, preencha os valores unitários de todos os itens";
-          toast.error(mensagem);
+          toast.error("Por favor, preencha os valores unitários de todos os itens");
+          setSubmitting(false);
+          return;
+        }
+      } else if (criterio === "lote") {
+        // Para "lote": validar que se algum item de um lote foi preenchido, 
+        // TODOS os itens daquele lote devem estar preenchidos
+        // Mas não é obrigatório preencher todos os lotes
+        
+        // Agrupar itens por lote
+        const itemsPorLote = new Map<string, ItemCotacao[]>();
+        itensCotacao.forEach(item => {
+          const loteId = item.lote_id || 'sem_lote';
+          if (!itemsPorLote.has(loteId)) {
+            itemsPorLote.set(loteId, []);
+          }
+          itemsPorLote.get(loteId)!.push(item);
+        });
+        
+        // Verificar cada lote
+        let algumLotePreenchido = false;
+        for (const [loteId, itensDoLote] of itemsPorLote.entries()) {
+          const itensPreenchidos = itensDoLote.filter(item => {
+            const resposta = respostas[item.id];
+            return resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
+          });
+          
+          if (itensPreenchidos.length > 0) {
+            algumLotePreenchido = true;
+            
+            // Se algum item do lote foi preenchido, todos devem estar
+            if (itensPreenchidos.length !== itensDoLote.length) {
+              const lote = lotes.find(l => l.id === loteId);
+              const loteNome = lote ? `Lote ${lote.numero_lote}` : 'um dos lotes';
+              toast.error(`Se você cotar algum item do ${loteNome}, deve cotar TODOS os itens desse lote. Não é permitido cotar parcialmente um lote.`);
+              setSubmitting(false);
+              return;
+            }
+          }
+        }
+        
+        if (!algumLotePreenchido) {
+          toast.error("Por favor, preencha pelo menos um lote completo");
           setSubmitting(false);
           return;
         }
