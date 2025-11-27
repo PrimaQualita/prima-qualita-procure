@@ -166,20 +166,20 @@ export async function gerarPlanilhaConsolidadaPDF(
   // Informações da Cotação
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  const textoCotacao = 'Cotação:  ';
-  const textoData = 'Data de Geração:  ';
+  const textoCotacao = 'Cotação:';
+  const textoData = 'Data de Geração:';
   
   doc.text(textoCotacao, margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
   const larguraCotacao = doc.getTextWidth(textoCotacao);
-  doc.text(cotacao.titulo_cotacao, margemEsquerda + larguraCotacao, y);
+  doc.text(cotacao.titulo_cotacao, margemEsquerda + larguraCotacao + 2, y);
   
   y += 7; // Mais espaço entre as linhas
   doc.setFont('helvetica', 'bold');
   doc.text(textoData, margemEsquerda, y);
   doc.setFont('helvetica', 'normal');
   const larguraData = doc.getTextWidth(textoData);
-  doc.text(new Date().toLocaleString('pt-BR'), margemEsquerda + larguraData, y);
+  doc.text(new Date().toLocaleString('pt-BR'), margemEsquerda + larguraData + 2, y);
 
   y += 10; // Mais espaço antes da tabela
 
