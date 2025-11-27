@@ -236,15 +236,29 @@ export async function gerarPlanilhaConsolidadaPDF(
           console.log(`   → Menor preço: ${valorEstimativa}`);
         }
       } else if (criterioItem === 'media') {
-        valorEstimativa = valoresItem.reduce((a, b) => a + b, 0) / valoresItem.length;
-        console.log(`   → Média: ${valorEstimativa}`);
+        // Filtrar apenas valores verdadeiramente cotados (> 0) para média
+        const valoresCotados = valoresItem.filter(v => v > 0);
+        if (valoresCotados.length > 0) {
+          valorEstimativa = valoresCotados.reduce((a, b) => a + b, 0) / valoresCotados.length;
+          console.log(`   → Média: ${valorEstimativa} (de ${valoresCotados.length} valores cotados)`);
+        } else {
+          valorEstimativa = 0;
+          console.log(`   → Média: 0 (nenhum valor cotado)`);
+        }
       } else { // mediana
-        const sorted = [...valoresItem].sort((a, b) => a - b);
-        const middle = Math.floor(sorted.length / 2);
-        valorEstimativa = sorted.length % 2 === 0 
-          ? (sorted[middle - 1] + sorted[middle]) / 2 
-          : sorted[middle];
-        console.log(`   → Mediana: ${valorEstimativa} (valores ordenados: [${sorted.join(', ')}])`);
+        // Filtrar apenas valores verdadeiramente cotados (> 0) para mediana
+        const valoresCotados = valoresItem.filter(v => v > 0);
+        if (valoresCotados.length > 0) {
+          const sorted = [...valoresCotados].sort((a, b) => a - b);
+          const middle = Math.floor(sorted.length / 2);
+          valorEstimativa = sorted.length % 2 === 0 
+            ? (sorted[middle - 1] + sorted[middle]) / 2 
+            : sorted[middle];
+          console.log(`   → Mediana: ${valorEstimativa} (de ${valoresCotados.length} valores cotados, ordenados: [${sorted.join(', ')}])`);
+        } else {
+          valorEstimativa = 0;
+          console.log(`   → Mediana: 0 (nenhum valor cotado)`);
+        }
       }
       
       const valorTotalEstimativa = valorEstimativa * item.quantidade;
