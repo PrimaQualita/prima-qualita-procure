@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +67,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     contratacao_especifica: false,
   });
   const [loading, setLoading] = useState(false);
+  const [gerandoNumero, setGerandoNumero] = useState(false);
 
   useEffect(() => {
     if (processo) {
@@ -87,10 +89,40 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         contratacao_especifica: processo.contratacao_especifica ?? false,
       });
     } else {
+      // Gerar número automático para novo processo
+      gerarNumeroProcesso();
+    }
+  }, [processo, contratoId, open]);
+
+  const gerarNumeroProcesso = async () => {
+    setGerandoNumero(true);
+    try {
+      const anoAtual = new Date().getFullYear();
+      
+      // Buscar todos os processos para encontrar o maior número sequencial (independente do contrato)
+      const { data: ultimoProcesso, error } = await supabase
+        .from("processos_compras")
+        .select("numero_processo_interno")
+        .not("numero_processo_interno", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let proximoNumero = 1;
+      if (!error && ultimoProcesso?.numero_processo_interno) {
+        // Extrair o número do processo mais recente (formato XXX/AAAA)
+        const partes = ultimoProcesso.numero_processo_interno.split("/");
+        if (partes.length === 2) {
+          proximoNumero = parseInt(partes[0], 10) + 1;
+        }
+      }
+
+      const numeroProcesso = `${String(proximoNumero).padStart(3, "0")}/${anoAtual}`;
+
       setFormData({
         contrato_gestao_id: contratoId,
-        ano_referencia: currentYear,
-        numero_processo_interno: "",
+        ano_referencia: anoAtual,
+        numero_processo_interno: numeroProcesso,
         objeto_resumido: "",
         tipo: "material",
         centro_custo: "",
@@ -104,8 +136,12 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         credenciamento: false,
         contratacao_especifica: false,
       });
+    } catch (error) {
+      console.error("Erro ao gerar número do processo:", error);
+    } finally {
+      setGerandoNumero(false);
     }
-  }, [processo, contratoId, open]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,10 +177,18 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
               <Label htmlFor="numero_processo_interno">Número do Processo Interno *</Label>
               <Input
                 id="numero_processo_interno"
-                value={formData.numero_processo_interno}
+                value={gerandoNumero ? "Gerando..." : formData.numero_processo_interno}
                 onChange={(e) => setFormData({ ...formData, numero_processo_interno: e.target.value })}
                 required
+                readOnly={!processo}
+                disabled={gerandoNumero}
+                className={!processo ? "bg-muted cursor-not-allowed" : ""}
               />
+              {!processo && (
+                <p className="text-xs text-muted-foreground">
+                  Numeração gerada automaticamente de forma sequencial
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="objeto_resumido">Objeto Resumido *</Label>
