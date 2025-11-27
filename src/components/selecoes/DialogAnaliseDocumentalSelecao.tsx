@@ -278,11 +278,70 @@ export function DialogAnaliseDocumentalSelecao({
         });
       });
 
+      // Identificar itens que foram inabilitados e precisam ir para segundo colocado
+      const itensInabilitadosParaSegundo: number[] = [];
+      (vencedoresData || []).forEach((lance: any) => {
+        const inab = inabilitacoesMap.get(lance.fornecedor_id);
+        if (inab && inab.itens_afetados.includes(lance.numero_item)) {
+          itensInabilitadosParaSegundo.push(lance.numero_item);
+        }
+      });
+
+      // Buscar segundos colocados para itens inabilitados
+      const segundosColocadosMap = new Map<number, { fornecedor_id: string; valor_lance: number; fornecedor: any }>();
+      
+      if (itensInabilitadosParaSegundo.length > 0) {
+        // Buscar todos os lances desses itens para encontrar o segundo colocado
+        const { data: todosLances } = await supabase
+          .from("lances_fornecedores")
+          .select(`
+            numero_item,
+            valor_lance,
+            fornecedor_id,
+            fornecedores (
+              id,
+              razao_social,
+              cnpj,
+              email
+            )
+          `)
+          .eq("selecao_id", selecaoId)
+          .in("numero_item", itensInabilitadosParaSegundo)
+          .order("valor_lance", { ascending: true });
+
+        // Para cada item inabilitado, encontrar o segundo colocado (primeiro válido)
+        for (const itemNum of itensInabilitadosParaSegundo) {
+          const lancesDoItem = (todosLances || []).filter((l: any) => l.numero_item === itemNum);
+          
+          // Encontrar primeiro fornecedor que não está inabilitado neste item
+          for (const lance of lancesDoItem) {
+            const inabFornecedor = inabilitacoesMap.get(lance.fornecedor_id);
+            const estaInabilitadoNoItem = inabFornecedor && inabFornecedor.itens_afetados.includes(itemNum);
+            
+            if (!estaInabilitadoNoItem) {
+              segundosColocadosMap.set(itemNum, {
+                fornecedor_id: lance.fornecedor_id,
+                valor_lance: lance.valor_lance,
+                fornecedor: lance.fornecedores
+              });
+              break;
+            }
+          }
+        }
+      }
+
       // Agrupar por fornecedor
       const fornecedoresMap = new Map<string, FornecedorVencedor>();
       
+      // Primeiro, adicionar vencedores originais (excluindo itens inabilitados)
       (vencedoresData || []).forEach((lance: any) => {
         const fornId = lance.fornecedor_id;
+        const inab = inabilitacoesMap.get(fornId);
+        const itemInabilitado = inab && inab.itens_afetados.includes(lance.numero_item);
+        
+        // Se item está inabilitado para este fornecedor, não adicionar aqui
+        if (itemInabilitado) return;
+        
         if (!fornecedoresMap.has(fornId)) {
           fornecedoresMap.set(fornId, {
             id: fornId,
@@ -295,9 +354,29 @@ export function DialogAnaliseDocumentalSelecao({
         }
         const forn = fornecedoresMap.get(fornId)!;
         forn.itensVencedores.push(lance.numero_item);
-        // Calcular valor total = valor_lance (unitário) × quantidade do item
         const quantidade = itensQuantidades[lance.numero_item] || 1;
         forn.valorTotal += lance.valor_lance * quantidade;
+      });
+      
+      // Depois, adicionar itens dos segundos colocados
+      segundosColocadosMap.forEach((segundo, itemNum) => {
+        const fornId = segundo.fornecedor_id;
+        if (!fornecedoresMap.has(fornId)) {
+          fornecedoresMap.set(fornId, {
+            id: fornId,
+            razao_social: segundo.fornecedor?.razao_social || "N/A",
+            cnpj: segundo.fornecedor?.cnpj || "N/A",
+            email: segundo.fornecedor?.email || "N/A",
+            itensVencedores: [],
+            valorTotal: 0,
+          });
+        }
+        const forn = fornecedoresMap.get(fornId)!;
+        if (!forn.itensVencedores.includes(itemNum)) {
+          forn.itensVencedores.push(itemNum);
+          const quantidade = itensQuantidades[itemNum] || 1;
+          forn.valorTotal += segundo.valor_lance * quantidade;
+        }
       });
 
       // Carregar documentos e campos de cada fornecedor
@@ -321,35 +400,62 @@ export function DialogAnaliseDocumentalSelecao({
         })
       );
 
-      // Separar habilitados e inabilitados considerando inabilitação PARCIAL
-      // Um fornecedor é considerado "inabilitado" apenas se TODOS os seus itens vencedores estão em itens_afetados
+      // Separar habilitados e inabilitados
+      // Fornecedores que não têm mais itens vencedores vão para inabilitados
+      // Fornecedores com inabilitação parcial mas que ainda têm itens vão para habilitados
       const habilitados = fornecedoresComDados.filter(f => {
-        if (!f.inabilitado) return true;
-        // Verificar se há itens vencedores que NÃO estão na lista de itens afetados
-        const itensHabilitados = f.fornecedor.itensVencedores.filter(
-          item => !f.inabilitado!.itens_afetados.includes(item)
-        );
-        return itensHabilitados.length > 0; // Tem itens ainda habilitados
+        // Se não tem itens vencedores, está totalmente inabilitado
+        if (f.fornecedor.itensVencedores.length === 0) return false;
+        return true; // Tem itens, então está habilitado
       });
       
-      const inabilitados = fornecedoresComDados.filter(f => {
-        if (!f.inabilitado) return false;
-        // Verificar se TODOS os itens vencedores estão na lista de itens afetados
-        const itensHabilitados = f.fornecedor.itensVencedores.filter(
-          item => !f.inabilitado!.itens_afetados.includes(item)
-        );
-        return itensHabilitados.length === 0; // Todos os itens estão inabilitados
-      });
+      // Fornecedores totalmente inabilitados (sem itens restantes)
+      // Precisamos buscar fornecedores que tinham itens mas agora estão todos inabilitados
+      const inabilitadosFornecedores: FornecedorData[] = [];
+      for (const [fornecedorId, inab] of inabilitacoesMap.entries()) {
+        // Verificar se este fornecedor não está nos habilitados
+        const estaHabilitado = habilitados.some(h => h.fornecedor.id === fornecedorId);
+        if (!estaHabilitado) {
+          // Buscar dados do fornecedor
+          const { data: fornData } = await supabase
+            .from("fornecedores")
+            .select("id, razao_social, cnpj, email")
+            .eq("id", fornecedorId)
+            .single();
+          
+          if (fornData) {
+            const [docs, campos] = await Promise.all([
+              loadDocumentosFornecedor(fornecedorId),
+              loadCamposFornecedor(fornecedorId),
+            ]);
+            
+            inabilitadosFornecedores.push({
+              fornecedor: {
+                id: fornecedorId,
+                razao_social: fornData.razao_social || "N/A",
+                cnpj: fornData.cnpj || "N/A",
+                email: fornData.email || "N/A",
+                itensVencedores: inab.itens_afetados, // Mostrar os itens que foram inabilitados
+                valorTotal: 0,
+              },
+              documentosExistentes: docs,
+              campos: campos,
+              todosDocumentosAprovados: false,
+              inabilitado: inab,
+            });
+          }
+        }
+      }
 
       // Ordenar por menor item vencedor
       habilitados.sort((a, b) => {
-        const menorA = Math.min(...a.fornecedor.itensVencedores);
-        const menorB = Math.min(...b.fornecedor.itensVencedores);
+        const menorA = Math.min(...(a.fornecedor.itensVencedores.length > 0 ? a.fornecedor.itensVencedores : [0]));
+        const menorB = Math.min(...(b.fornecedor.itensVencedores.length > 0 ? b.fornecedor.itensVencedores : [0]));
         return menorA - menorB;
       });
 
       setFornecedoresData(habilitados);
-      setFornecedoresInabilitados(inabilitados);
+      setFornecedoresInabilitados(inabilitadosFornecedores);
       
       // Carregar aprovações persistidas do banco de dados
       const fornecedorIds = fornecedoresArray.map(f => f.id);
