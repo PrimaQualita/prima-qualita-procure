@@ -1378,6 +1378,8 @@ export function DialogSessaoLances({
 
   // ========== REMARCAR VENCEDORES ==========
   const handleRemarcarVencedores = async () => {
+    console.log("🚀 INÍCIO handleRemarcarVencedores - BOTÃO FOI CLICADO!");
+    alert("Botão Remarcar Vencedores clicado! Verifique o console.");
     setSalvando(true);
     try {
       console.log("🔄 Remarcando vencedores para todos os itens...");
