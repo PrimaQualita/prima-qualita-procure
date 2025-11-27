@@ -2089,14 +2089,14 @@ const SistemaLancesFornecedor = () => {
                           <div className="flex items-center gap-1">
                             <Input
                               type="text"
-                              value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2).replace('.', ',') : ""}
-                              onChange={(e) => {
+                              value={item.marca_ofertada || ""}
+                              onChange={(e) => handleUpdateItem(item.id, "marca_ofertada", e.target.value)}
+                              onBlur={(e) => {
                                 const valor = e.target.value.replace(',', '.');
                                 const numero = parseFloat(valor);
                                 if (!isNaN(numero) && numero >= 0) {
                                   handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
-                                } else if (valor === '' || valor === '0') {
-                                  handleUpdateItem(item.id, "valor_unitario_ofertado", 0);
+                                  handleUpdateItem(item.id, "marca_ofertada", numero.toFixed(2).replace('.', ','));
                                 }
                               }}
                               disabled={!editavel}
