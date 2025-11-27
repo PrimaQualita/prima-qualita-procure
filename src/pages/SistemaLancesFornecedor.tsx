@@ -657,19 +657,22 @@ const SistemaLancesFornecedor = () => {
           .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
           .order("numero_item");
 
+        console.log('📊 Dados brutos de itens estimados:', itensEstimadosData);
+
         if (!itensEstimadosError && itensEstimadosData) {
           const mapaEstimados = new Map<number, number>();
           
           itensEstimadosData.forEach((item: any) => {
-            if (item.valor_unitario_estimado != null) {
+            console.log(`Item ${item.numero_item}: valor_unitario_estimado =`, item.valor_unitario_estimado);
+            if (item.valor_unitario_estimado != null && item.valor_unitario_estimado !== undefined) {
               mapaEstimados.set(item.numero_item, item.valor_unitario_estimado);
             }
           });
 
-          console.log('Valores estimados dos itens da cotação:', Object.fromEntries(mapaEstimados));
+          console.log('✅ Valores estimados carregados:', Object.fromEntries(mapaEstimados));
           setItensEstimados(mapaEstimados);
         } else {
-          console.error('Erro ao buscar itens estimados:', itensEstimadosError);
+          console.error('❌ Erro ao buscar itens estimados:', itensEstimadosError);
         }
       }
 
@@ -710,6 +713,8 @@ const SistemaLancesFornecedor = () => {
         const isDesconto = propostaData.selecoes_fornecedores.processos_compras?.criterio_julgamento === "desconto";
         const mapaMenorValor = new Map<number, number>();
         
+        console.log('🔍 Analisando todas as propostas para', isDesconto ? 'MAIOR DESCONTO' : 'MENOR VALOR');
+        
         todasPropostas.forEach((prop: any) => {
           const fornecedorIdStr = String(prop.fornecedor_id);
           const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
@@ -723,12 +728,17 @@ const SistemaLancesFornecedor = () => {
               }
               
               if (item.valor_unitario_ofertado > 0) {
+                console.log(`📌 Item ${item.numero_item}: Fornecedor ${fornecedorIdStr} ofereceu ${item.valor_unitario_ofertado}`);
+                
                 const valorAtual = mapaMenorValor.get(item.numero_item);
                 // Para desconto: pegar MAIOR valor (maior desconto = melhor)
                 // Para valor: pegar MENOR valor (menor preço = melhor)
                 if (isDesconto) {
                   if (!valorAtual || item.valor_unitario_ofertado > valorAtual) {
+                    console.log(`✅ Item ${item.numero_item}: Novo MAIOR desconto ${item.valor_unitario_ofertado} (anterior: ${valorAtual || 'nenhum'})`);
                     mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
+                  } else {
+                    console.log(`❌ Item ${item.numero_item}: Desconto ${item.valor_unitario_ofertado} NÃO supera ${valorAtual}`);
                   }
                 } else {
                   if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
@@ -740,7 +750,7 @@ const SistemaLancesFornecedor = () => {
           }
         });
 
-        console.log(`${isDesconto ? 'Maior desconto' : 'Menor valor'} das propostas por item (excluindo inabilitados):`, Object.fromEntries(mapaMenorValor));
+        console.log(`🏆 ${isDesconto ? 'MAIOR DESCONTO' : 'MENOR VALOR'} final por item:`, Object.fromEntries(mapaMenorValor));
         setMenorValorPropostas(mapaMenorValor);
       }
 
