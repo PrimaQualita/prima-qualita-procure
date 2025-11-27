@@ -2054,16 +2054,16 @@ const SistemaLancesFornecedor = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16" style={{ textAlign: 'center' }}>Item</TableHead>
-                    <TableHead style={{ textAlign: 'center' }}>Descrição</TableHead>
-                    <TableHead className="w-24" style={{ textAlign: 'center' }}>Qtd</TableHead>
-                    <TableHead className="w-24" style={{ textAlign: 'center' }}>Unidade</TableHead>
-                    <TableHead className="w-40" style={{ textAlign: 'center' }}>Marca</TableHead>
-                    <TableHead className="w-40" style={{ textAlign: 'center' }}>
+                    <TableHead className="w-16 text-center">Item</TableHead>
+                    <TableHead className="text-center">Descrição</TableHead>
+                    <TableHead className="w-24 text-center">Qtd</TableHead>
+                    <TableHead className="w-24 text-center">Unidade</TableHead>
+                    <TableHead className="w-40 text-center">Marca</TableHead>
+                    <TableHead className="w-40 text-center">
                       {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "% Desconto" : "Valor Unitário"}
                     </TableHead>
                     {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
-                      <TableHead className="w-40" style={{ textAlign: 'center' }}>Valor Total</TableHead>
+                      <TableHead className="w-40 text-center">Valor Total</TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
