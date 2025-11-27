@@ -332,11 +332,17 @@ export function DialogControleItensLances({
 
       const numerosExistentes = new Set(existentes?.map(e => e.numero_item) || []);
 
-      // Atualizar itens existentes
+      // Atualizar itens existentes - LIMPAR TODOS OS CAMPOS DE FECHAMENTO
       if (numerosExistentes.size > 0) {
         await supabase
           .from("itens_abertos_lances")
-          .update({ aberto: true, data_fechamento: null })
+          .update({ 
+            aberto: true, 
+            data_fechamento: null,
+            iniciando_fechamento: false,
+            data_inicio_fechamento: null,
+            segundos_para_fechar: null
+          })
           .eq("selecao_id", selecaoId)
           .in("numero_item", Array.from(numerosExistentes));
       }
@@ -438,7 +444,7 @@ export function DialogControleItensLances({
         .single();
 
       if (existente) {
-        // Atualizar para abrir negociação
+        // Atualizar para abrir negociação - LIMPAR TODOS OS CAMPOS DE FECHAMENTO
         const { error } = await supabase
           .from("itens_abertos_lances")
           .update({
@@ -446,7 +452,9 @@ export function DialogControleItensLances({
             em_negociacao: true,
             fornecedor_negociacao_id: vencedor.fornecedorId,
             data_fechamento: null,
-            iniciando_fechamento: false
+            iniciando_fechamento: false,
+            data_inicio_fechamento: null,
+            segundos_para_fechar: null
           })
           .eq("id", existente.id);
 
