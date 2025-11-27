@@ -46,7 +46,7 @@ export function DialogControleItensLances({
       loadVencedoresPorItem();
       
       // Subscrição realtime para itens abertos
-      const channel = supabase
+      const channelItens = supabase
         .channel(`itens_abertos_gestor_${selecaoId}`)
         .on(
           "postgres_changes",
@@ -62,6 +62,27 @@ export function DialogControleItensLances({
         )
         .subscribe();
 
+      // Subscrição realtime para lances de negociação
+      const channelLances = supabase
+        .channel(`lances_negociacao_gestor_${selecaoId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "lances_fornecedores",
+            filter: `selecao_id=eq.${selecaoId}`,
+          },
+          async (payload: any) => {
+            // Se for um lance de negociação, fechar o item automaticamente
+            if (payload.new.tipo_lance === 'negociacao') {
+              console.log("🔔 Lance de negociação detectado, fechando item:", payload.new.numero_item);
+              await fecharItemNegociacao(payload.new.numero_item);
+            }
+          }
+        )
+        .subscribe();
+
       // Polling a cada 3 segundos como fallback + verificação de fechamento automático
       const pollingInterval = setInterval(() => {
         loadItensAbertos();
@@ -70,7 +91,8 @@ export function DialogControleItensLances({
       }, 3000);
 
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(channelItens);
+        supabase.removeChannel(channelLances);
         clearInterval(pollingInterval);
       };
     }
@@ -111,6 +133,38 @@ export function DialogControleItensLances({
       }
     } catch (error) {
       console.error("Erro ao verificar fechamento automático:", error);
+    }
+  };
+
+  const fecharItemNegociacao = async (numeroItem: number) => {
+    try {
+      console.log("🔒 Fechando item de negociação automaticamente:", numeroItem);
+      
+      const { error } = await supabase
+        .from("itens_abertos_lances")
+        .update({
+          em_negociacao: false,
+          negociacao_concluida: true,
+          aberto: false,
+          data_fechamento: new Date().toISOString()
+        })
+        .eq("selecao_id", selecaoId)
+        .eq("numero_item", numeroItem);
+
+      if (error) {
+        console.error("Erro ao fechar item de negociação:", error);
+        throw error;
+      }
+
+      console.log("✅ Item de negociação fechado com sucesso");
+      toast.success(`Item ${numeroItem} fechado automaticamente após negociação`);
+      
+      // Recarregar dados
+      loadItensAbertos();
+      loadVencedoresPorItem();
+    } catch (error) {
+      console.error("Erro ao fechar item de negociação:", error);
+      toast.error("Erro ao fechar item de negociação");
     }
   };
 
