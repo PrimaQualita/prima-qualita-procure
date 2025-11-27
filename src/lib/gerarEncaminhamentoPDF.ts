@@ -149,7 +149,7 @@ export const gerarEncaminhamentoPDF = async (
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
   doc.text(linhasAssunto, 20, 105, { align: 'justify', maxWidth: 170 });
   
-  let yPos = 105 + (linhasAssunto.length * 7) + 15;
+  let yPos = 105 + (linhasAssunto.length * 6) + 10;
   
   // Texto principal
   const textoPrincipal = `Encaminhamos o Presente Processo para análise e verificação de regularidade jurídica e reputacional dos fornecedores, em atendimento ao procedimento interno definido por requisitos legais e normativos da OS Prima Qualitá Saúde, nos processos de aquisição e serviços.`;
