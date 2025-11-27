@@ -524,17 +524,17 @@ const ParticiparSelecao = () => {
         return;
       }
       
-      // Converter percentual para decimal (50% = 0.50)
-      const valorDecimal = valorNumerico / 100;
+      // O valor já está em percentual (0.35 representa 0,35%)
+      // NÃO dividir por 100 - armazenar como está
       
-      // Formatar para exibição (0.50 * 100 = 50.00 → "50,00")
+      // Formatar para exibição com 2 casas decimais
       const valorFormatado = valorNumerico.toFixed(2).replace('.', ',');
       
       setRespostas(prev => ({
         ...prev,
         [itemId]: { 
           ...prev[itemId], 
-          valor_unitario_ofertado: valorDecimal, 
+          valor_unitario_ofertado: valorNumerico, // Armazenar o valor direto, não dividido
           valor_display: valorFormatado 
         }
       }));
@@ -590,10 +590,10 @@ const ParticiparSelecao = () => {
     dadosImportados.forEach(dado => {
       const item = itens.find(i => i.numero_item === dado.numero_item);
       if (item) {
-        // Para critério desconto, valor_unitario representa percentual (0.5 = 50%)
+        // Para critério desconto, valor_unitario já está em percentual (0.35 = 0,35%)
         // Para outros critérios, representa valor monetário (500.00 = R$ 500,00)
         const valorFormatado = criterioJulgamento === "desconto" 
-          ? (dado.valor_unitario * 100).toFixed(2).replace('.', ',')
+          ? dado.valor_unitario.toFixed(2).replace('.', ',')
           : `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
         
         novasRespostas[item.id] = {
@@ -615,7 +615,7 @@ const ParticiparSelecao = () => {
           const inputValor = document.getElementById(`input-valor-${item.id}`) as HTMLInputElement;
           if (inputValor) {
             const valorFormatado = criterioJulgamento === "desconto"
-              ? `${(dado.valor_unitario * 100).toFixed(2).replace('.', ',')}%`
+              ? `${dado.valor_unitario.toFixed(2).replace('.', ',')}`
               : `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
             inputValor.value = valorFormatado;
           }
