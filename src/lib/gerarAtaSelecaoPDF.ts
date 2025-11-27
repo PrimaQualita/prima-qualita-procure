@@ -908,15 +908,55 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   
   const empresasQueRecorreram = intencoesRecurso.filter(i => i.deseja_recorrer);
   const empresasQueNaoRecorreram = intencoesRecurso.filter(i => !i.deseja_recorrer);
+  
+  // Identificar empresas que NÃO se manifestaram (não têm registro em intencoesRecurso)
+  const cnpjsComIntencao = new Set(intencoesRecurso.map(i => i.cnpj));
+  const empresasQueNaoSeManifestaram = empresasParticipantes.filter(e => !cnpjsComIntencao.has(e.cnpj));
 
-  if (intencoesRecurso.length === 0) {
+  const totalParticipantes = empresasParticipantes.length;
+
+  if (intencoesRecurso.length === 0 && empresasQueNaoSeManifestaram.length === totalParticipantes) {
     const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos, nenhuma empresa manifestou intenção de interpor recurso.`;
     currentY = drawJustifiedText(doc, textoRecursos, marginLeft, currentY, contentWidth, lineHeight);
   } else {
     const textoAbertura = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos, as empresas se manifestaram da seguinte forma:`;
     currentY = drawJustifiedText(doc, textoAbertura, marginLeft, currentY, contentWidth, lineHeight);
 
-    // Empresas que desejam recorrer
+    // Empresas que não desejam recorrer (responderam NÃO)
+    if (empresasQueNaoRecorreram.length > 0) {
+      currentY += 4; // Espaço extra antes do subtítulo
+      checkNewPage(15);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 128, 0); // Verde
+      currentY = drawJustifiedText(doc, "Não Recorrerá:", marginLeft, currentY, contentWidth, lineHeight);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+
+      empresasQueNaoRecorreram.forEach((e, index) => {
+        checkNewPage(10);
+        const textoCompleto = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
+        currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
+      });
+    }
+
+    // Empresas que NÃO se manifestaram no prazo (não têm registro em intencoesRecurso)
+    if (empresasQueNaoSeManifestaram.length > 0) {
+      currentY += 4; // Espaço extra antes do subtítulo
+      checkNewPage(15);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(128, 128, 128); // Cinza
+      currentY = drawJustifiedText(doc, "Não se Manifestou no Prazo:", marginLeft, currentY, contentWidth, lineHeight);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+
+      empresasQueNaoSeManifestaram.forEach((e, index) => {
+        checkNewPage(10);
+        const textoCompleto = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Por não ter se manifestado no prazo estabelecido, foi considerado que não possui intenção de interpor recurso.`;
+        currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
+      });
+    }
+
+    // Empresas que desejam recorrer (mostrar por último para destacar)
     if (empresasQueRecorreram.length > 0) {
       currentY += 4; // Espaço extra antes do subtítulo
       checkNewPage(15);
@@ -933,25 +973,6 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
           textoCompleto += ` - Motivo: ${e.motivo_intencao}`;
         }
         currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
-      });
-    }
-
-    // Empresas que não desejam recorrer
-    if (empresasQueNaoRecorreram.length > 0) {
-      currentY += 4; // Espaço extra antes do subtítulo
-      checkNewPage(15);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 128, 0); // Verde
-      currentY = drawJustifiedText(doc, "Não Recorrerá:", marginLeft, currentY, contentWidth, lineHeight);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "normal");
-
-      empresasQueNaoRecorreram.forEach((e, index) => {
-        checkNewPage(10);
-        const isLast = index === empresasQueNaoRecorreram.length - 1;
-        const pontuacao = isLast ? "." : ";";
-        const textoEmpresa = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}${pontuacao}`;
-        currentY = drawJustifiedText(doc, textoEmpresa, marginLeft, currentY, contentWidth, lineHeight);
       });
     }
   }
