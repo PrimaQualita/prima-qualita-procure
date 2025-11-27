@@ -478,12 +478,7 @@ export function DialogPlanilhaConsolidada({
       
       // Criar estrutura completa de fornecedores com seus itens e vencedores
       // IMPORTANTE: Identificação de vencedores deve respeitar o critério de julgamento
-      // CRÍTICO: Excluir PREÇOS PÚBLICOS da identificação de vencedores (CNPJ sequencial)
-      const ehPrecoPublico = (cnpj: string) => {
-        // Preços públicos têm CNPJ com todos os dígitos iguais (00000000000000, 11111111111111, etc.)
-        const primeiroDigito = cnpj.charAt(0);
-        return cnpj.split('').every(d => d === primeiroDigito);
-      };
+      // PREÇOS PÚBLICOS DEVEM SER CONSIDERADOS na cotação
       
       const fornecedoresIncluidos = respostas
         .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social))
@@ -495,11 +490,11 @@ export function DialogPlanilhaConsolidada({
           
           let itensComVencedor;
           
-          // CRÍTICO: Filtrar preços públicos das respostas usadas para calcular vencedores
+          // TODOS os fornecedores selecionados participam da identificação de vencedores
           const respostasFiltradas = respostas
-            .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social) && !ehPrecoPublico(r.fornecedor.cnpj));
+            .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
           
-          console.log(`📊 Calculando vencedores SEM preços públicos: ${respostasFiltradas.length} fornecedores reais`);
+          console.log(`📊 Calculando vencedores com TODOS fornecedores: ${respostasFiltradas.length}`);
           
           // Identificar vencedores baseado no critério de julgamento
           if (criterioJulgamento === "global") {
