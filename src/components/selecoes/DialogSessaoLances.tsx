@@ -100,6 +100,7 @@ export function DialogSessaoLances({
   const [lances, setLances] = useState<Lance[]>([]);
   const [lancesCompletos, setLancesCompletos] = useState<Lance[]>([]); // Todos os lances incluindo inabilitados
   const [fornecedoresInabilitadosIds, setFornecedoresInabilitadosIds] = useState<Set<string>>(new Set());
+  const [inabilitacoesPorFornecedor, setInabilitacoesPorFornecedor] = useState<Map<string, number[]>>(new Map()); // Map<fornecedor_id, itens_afetados>
   const [loadingLances, setLoadingLances] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [itemSelecionadoLances, setItemSelecionadoLances] = useState<number | null>(null);
@@ -345,16 +346,18 @@ export function DialogSessaoLances({
 
   const loadVencedoresPorItem = async () => {
     try {
-      // Buscar fornecedores inabilitados da seleção
+      // Buscar fornecedores inabilitados da seleção COM itens_afetados
       const { data: inabilitados } = await supabase
         .from("fornecedores_inabilitados_selecao")
-        .select("fornecedor_id")
+        .select("fornecedor_id, itens_afetados")
         .eq("selecao_id", selecaoId)
         .eq("revertido", false);
 
-      const fornecedoresInabilitadosIds = new Set(
-        (inabilitados || []).map((f: any) => f.fornecedor_id)
-      );
+      // Criar mapa de fornecedor -> itens inabilitados
+      const inabilitacoesPorFornecedor = new Map<string, number[]>();
+      (inabilitados || []).forEach((f: any) => {
+        inabilitacoesPorFornecedor.set(f.fornecedor_id, f.itens_afetados || []);
+      });
 
       // Buscar lances
       const { data: lancesData, error: lancesError } = await supabase
@@ -365,10 +368,12 @@ export function DialogSessaoLances({
 
       if (lancesError) throw lancesError;
 
-      // Filtrar lances de fornecedores inabilitados
-      const lancesFiltrados = (lancesData || []).filter(
-        (lance) => !fornecedoresInabilitadosIds.has(lance.fornecedor_id)
-      );
+      // Filtrar lances onde o fornecedor está inabilitado PARA AQUELE ITEM ESPECÍFICO
+      const lancesFiltrados = (lancesData || []).filter((lance) => {
+        const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
+        if (!itensInabilitados) return true; // Não está inabilitado
+        return !itensInabilitados.includes(lance.numero_item); // Verificar se o item específico está inabilitado
+      });
 
       // Buscar fornecedores
       const fornecedorIds = [...new Set(lancesFiltrados.map(l => l.fornecedor_id))];
@@ -721,17 +726,27 @@ export function DialogSessaoLances({
   // ========== FUNÇÕES DO SISTEMA DE LANCES ==========
   const loadLances = async () => {
     try {
-      // Buscar fornecedores inabilitados
+      // Buscar fornecedores inabilitados COM itens_afetados
       const { data: inabilitados } = await supabase
         .from("fornecedores_inabilitados_selecao")
-        .select("fornecedor_id")
+        .select("fornecedor_id, itens_afetados")
         .eq("selecao_id", selecaoId)
         .eq("revertido", false);
 
+      // Criar mapa de fornecedor -> itens inabilitados
+      const inabilitacoesPorFornecedor = new Map<string, number[]>();
+      (inabilitados || []).forEach((f: any) => {
+        inabilitacoesPorFornecedor.set(f.fornecedor_id, f.itens_afetados || []);
+      });
+      
+      // Manter o set de IDs para compatibilidade (fornecedores que têm QUALQUER inabilitação)
       const inabilitadosIds = new Set(
         (inabilitados || []).map((f: any) => f.fornecedor_id)
       );
       setFornecedoresInabilitadosIds(inabilitadosIds);
+      
+      // Armazenar mapa de inabilitações por fornecedor para uso em outras partes
+      setInabilitacoesPorFornecedor(inabilitacoesPorFornecedor);
 
       const { data, error } = await supabase
         .from("lances_fornecedores")
@@ -746,10 +761,12 @@ export function DialogSessaoLances({
       // Armazenar todos os lances (para planilha)
       setLancesCompletos(data || []);
       
-      // Filtrar lances de fornecedores inabilitados (para exibição e cálculos)
-      const lancesFiltrados = (data || []).filter(
-        (lance: any) => !inabilitadosIds.has(lance.fornecedor_id)
-      );
+      // Filtrar lances onde o fornecedor está inabilitado PARA AQUELE ITEM ESPECÍFICO
+      const lancesFiltrados = (data || []).filter((lance: any) => {
+        const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
+        if (!itensInabilitados) return true; // Não está inabilitado
+        return !itensInabilitados.includes(lance.numero_item); // Verificar se o item específico está inabilitado
+      });
       
       setLances(lancesFiltrados);
       // Atualizar vencedores quando lances mudam
