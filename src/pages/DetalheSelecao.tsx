@@ -180,15 +180,13 @@ const DetalheSelecao = () => {
   const loadItensFromPlanilha = async (cotacaoId: string, dataCriacaoSelecao: string) => {
     try {
       console.log("🔍 Buscando planilha para cotacao:", cotacaoId);
-      console.log("📅 Data limite:", dataCriacaoSelecao);
 
-      // Buscar a planilha consolidada, os itens originais E o critério de julgamento da cotação
+      // Buscar a planilha consolidada mais recente, os itens originais E o critério de julgamento da cotação
       const [planilhaResult, itensOriginaisResult, cotacaoResult] = await Promise.all([
         supabase
           .from("planilhas_consolidadas")
           .select("fornecedores_incluidos, data_geracao")
           .eq("cotacao_id", cotacaoId)
-          .lte("data_geracao", dataCriacaoSelecao)
           .order("data_geracao", { ascending: false })
           .limit(1)
           .maybeSingle(),
