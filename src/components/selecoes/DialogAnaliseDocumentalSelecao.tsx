@@ -208,18 +208,39 @@ export function DialogAnaliseDocumentalSelecao({
         },
         (payload) => {
           console.log("🔔 Mudança detectada em lance, recarregando vencedores...");
-          // Recarregar SEMPRE que houver UPDATE em lances desta seleção
-          // Pequeno delay para garantir que todas as atualizações em batch completem
           setTimeout(() => {
             loadFornecedoresVencedores();
             loadRecursosInabilitacao();
           }, 500);
         }
       )
+      .on(
+        'broadcast',
+        { event: 'vencedores_remarcados' },
+        (payload) => {
+          console.log("📡 Broadcast recebido - vencedores remarcados, recarregando...");
+          loadFornecedoresVencedores();
+          loadRecursosInabilitacao();
+        }
+      )
+      .subscribe();
+    
+    // Também escutar canal de remarcar vencedores
+    const remarcarChannel = supabase.channel(`remarcar_vencedores_${selecaoId}`)
+      .on(
+        'broadcast',
+        { event: 'vencedores_remarcados' },
+        (payload) => {
+          console.log("📡 Broadcast de remarcação recebido, recarregando vencedores...");
+          loadFornecedoresVencedores();
+          loadRecursosInabilitacao();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(remarcarChannel);
     };
   }, [open, selecaoId]);
 

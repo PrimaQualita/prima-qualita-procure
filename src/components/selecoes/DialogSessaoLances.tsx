@@ -1378,8 +1378,6 @@ export function DialogSessaoLances({
 
   // ========== REMARCAR VENCEDORES ==========
   const handleRemarcarVencedores = async () => {
-    console.log("🚀 INÍCIO handleRemarcarVencedores - BOTÃO FOI CLICADO!");
-    alert("Botão Remarcar Vencedores clicado! Verifique o console.");
     setSalvando(true);
     try {
       console.log("🔄 Remarcando vencedores para todos os itens...");
@@ -1414,6 +1412,16 @@ export function DialogSessaoLances({
       // Recarregar dados locais
       await loadLances();
       await loadVencedoresPorItem();
+      
+      // Broadcast para forçar reload na Análise Documental
+      console.log("📡 Enviando broadcast para atualizar Análise Documental...");
+      const broadcastChannel = supabase.channel(`remarcar_vencedores_${selecaoId}`);
+      await broadcastChannel.send({
+        type: 'broadcast',
+        event: 'vencedores_remarcados',
+        payload: { selecao_id: selecaoId, timestamp: new Date().toISOString() }
+      });
+      console.log("📡 Broadcast enviado!");
       
       toast.success(`${itensUnicos.length} item(ns) processado(s). Vencedores atualizados!`);
     } catch (error) {
