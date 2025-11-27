@@ -110,45 +110,64 @@ export async function gerarPropostaSelecaoPDF(
         marca: item.marca
       }));
     } else {
-      // Buscar itens da proposta com informações completas
-      const { data: itens, error: itensError } = await supabase
-        .from('selecao_respostas_itens_fornecedor')
-        .select(`
-          numero_item,
-          descricao,
-          quantidade,
-          unidade,
-          marca,
-          valor_unitario_ofertado,
-          valor_total_item
-        `)
-        .eq('proposta_id', propostaId)
+      // Buscar proposta para pegar o selecao_id e cotacao_id
+      const { data: proposta, error: propostaError } = await supabase
+        .from('selecao_propostas_fornecedor')
+        .select('selecao_id')
+        .eq('id', propostaId)
+        .single();
+
+      if (propostaError) throw new Error(`Erro ao buscar proposta: ${propostaError.message}`);
+
+      // Buscar a seleção para pegar cotacao_relacionada_id
+      const { data: selecao, error: selecaoError } = await supabase
+        .from('selecoes_fornecedores')
+        .select('cotacao_relacionada_id')
+        .eq('id', proposta.selecao_id)
+        .single();
+
+      if (selecaoError) throw new Error(`Erro ao buscar seleção: ${selecaoError.message}`);
+
+      // Buscar TODOS os itens da cotação original
+      const { data: todosItens, error: itensError } = await supabase
+        .from('itens_cotacao')
+        .select('*')
+        .eq('cotacao_id', selecao.cotacao_relacionada_id)
         .order('numero_item');
 
-      console.log('Query de itens executada');
-      console.log('Erro:', itensError);
-      console.log('Itens retornados:', itens?.length || 0);
-
-      if (itensError) {
-        console.error('Erro detalhado ao buscar itens:', JSON.stringify(itensError, null, 2));
-        throw new Error(`Erro ao buscar itens: ${itensError.message}`);
+      if (itensError) throw new Error(`Erro ao buscar itens: ${itensError.message}`);
+      if (!todosItens || todosItens.length === 0) {
+        throw new Error('Nenhum item encontrado para esta seleção');
       }
 
-      if (!itens || itens.length === 0) {
-        console.error('NENHUM ITEM ENCONTRADO - Proposta ID:', propostaId);
-        throw new Error(`Nenhum item encontrado para esta proposta (ID: ${propostaId})`);
-      }
+      // Buscar respostas do fornecedor para esta proposta
+      const { data: respostas, error: respostasError } = await supabase
+        .from('selecao_respostas_itens_fornecedor')
+        .select('numero_item, marca, valor_unitario_ofertado')
+        .eq('proposta_id', propostaId);
 
-      console.log(`✅ ${itens.length} itens carregados com sucesso`);
+      if (respostasError) throw new Error(`Erro ao buscar respostas: ${respostasError.message}`);
 
-      itensFormatados = itens.map((item: any) => ({
-        numero_item: item.numero_item,
-        descricao: item.descricao,
-        quantidade: item.quantidade,
-        unidade: item.unidade,
-        valor_unitario_ofertado: item.valor_unitario_ofertado || 0,
-        marca: item.marca
-      }));
+      // Criar mapa de respostas por numero_item
+      const respostasMap = new Map<number, any>();
+      respostas?.forEach(r => {
+        respostasMap.set(r.numero_item, r);
+      });
+
+      // Combinar todos os itens com as respostas do fornecedor
+      itensFormatados = todosItens.map((item: any) => {
+        const resposta = respostasMap.get(item.numero_item);
+        return {
+          numero_item: item.numero_item,
+          descricao: item.descricao,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          valor_unitario_ofertado: resposta?.valor_unitario_ofertado || 0,
+          marca: resposta?.marca || null
+        };
+      });
+
+      console.log(`✅ ${itensFormatados.length} itens carregados com sucesso`);
     }
 
     const doc = new jsPDF();
