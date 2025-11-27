@@ -1172,6 +1172,9 @@ const SistemaLancesFornecedor = () => {
     }
 
     try {
+      const tipoLance = isNegociacao ? 'negociacao' : 'lance';
+      console.log("💾 INSERINDO LANCE - tipo_lance:", tipoLance, "| isNegociacao:", isNegociacao, "| numeroItem:", numeroItem);
+
       const { error } = await supabase
         .from("lances_fornecedores")
         .insert({
@@ -1179,12 +1182,12 @@ const SistemaLancesFornecedor = () => {
           fornecedor_id: proposta.fornecedor_id,
           numero_item: numeroItem,
           valor_lance: valorNumerico,
-          tipo_lance: isNegociacao ? 'negociacao' : 'lance'
+          tipo_lance: tipoLance
         });
 
       if (error) throw error;
 
-      console.log("🔥 Lance inserido com sucesso. isNegociacao:", isNegociacao);
+      console.log("🔥 Lance inserido com sucesso. tipo_lance:", tipoLance);
 
       // Se for negociação, registrar no chat que fornecedor aceitou
       // O gestor é quem fecha o item através do sistema de controle

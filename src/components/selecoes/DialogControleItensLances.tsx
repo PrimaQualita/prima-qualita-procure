@@ -74,14 +74,22 @@ export function DialogControleItensLances({
             filter: `selecao_id=eq.${selecaoId}`,
           },
           async (payload: any) => {
+            console.log("🔔 REALTIME: Novo lance detectado!", payload.new);
+            console.log("🔍 REALTIME: tipo_lance =", payload.new.tipo_lance);
+            console.log("🔍 REALTIME: numero_item =", payload.new.numero_item);
+            
             // Se for um lance de negociação, fechar o item automaticamente
             if (payload.new.tipo_lance === 'negociacao') {
-              console.log("🔔 Lance de negociação detectado, fechando item:", payload.new.numero_item);
+              console.log("✅ REALTIME: É lance de negociação! Fechando item:", payload.new.numero_item);
               await fecharItemNegociacao(payload.new.numero_item);
+            } else {
+              console.log("⚠️ REALTIME: NÃO é lance de negociação (tipo:", payload.new.tipo_lance, ")");
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log("📡 REALTIME: Status do canal de lances:", status);
+        });
 
       // Polling a cada 3 segundos como fallback + verificação de fechamento automático
       const pollingInterval = setInterval(() => {
