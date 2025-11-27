@@ -166,6 +166,9 @@ export function DialogAnaliseDocumentalSelecao({
   
   // State para confirmar exclusão de PDF
   const [confirmDeletePdf, setConfirmDeletePdf] = useState<{ open: boolean; recursoId: string | null; tipo: 'recurso' | 'resposta' | null }>({ open: false, recursoId: null, tipo: null });
+  
+  // State para confirmar exclusão completa do recurso
+  const [confirmDeleteRecurso, setConfirmDeleteRecurso] = useState<{ open: boolean; recursoId: string | null }>({ open: false, recursoId: null });
 
   useEffect(() => {
     if (open && selecaoId) {
@@ -758,6 +761,28 @@ export function DialogAnaliseDocumentalSelecao({
       toast.error("Erro ao excluir PDF");
     } finally {
       setConfirmDeletePdf({ open: false, recursoId: null, tipo: null });
+    }
+  };
+
+  // Handler para excluir recurso completamente
+  const handleExcluirRecursoCompleto = async () => {
+    if (!confirmDeleteRecurso.recursoId) return;
+    
+    try {
+      const { error } = await supabase
+        .from("recursos_inabilitacao_selecao")
+        .delete()
+        .eq("id", confirmDeleteRecurso.recursoId);
+      
+      if (error) throw error;
+      
+      toast.success("Recurso excluído com sucesso");
+      loadRecursosInabilitacao();
+    } catch (error) {
+      console.error("Erro ao excluir recurso:", error);
+      toast.error("Erro ao excluir recurso");
+    } finally {
+      setConfirmDeleteRecurso({ open: false, recursoId: null });
     }
   };
 
@@ -1494,6 +1519,19 @@ export function DialogAnaliseDocumentalSelecao({
                         </Button>
                       )}
                     </div>
+                    
+                    {/* Botão para excluir recurso completo */}
+                    <div className="flex justify-end mt-2 pt-2 border-t border-green-200">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-destructive border-destructive hover:bg-destructive/10"
+                        onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Excluir Recurso Completo
+                      </Button>
+                    </div>
                   </div>
                 )}
                 
@@ -1563,6 +1601,19 @@ export function DialogAnaliseDocumentalSelecao({
                           Gerar PDF Resposta
                         </Button>
                       )}
+                    </div>
+                    
+                    {/* Botão para excluir recurso completo */}
+                    <div className="flex justify-end mt-2 pt-2 border-t border-red-200">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-destructive border-destructive hover:bg-destructive/10"
+                        onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Excluir Recurso Completo
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -2394,6 +2445,27 @@ export function DialogAnaliseDocumentalSelecao({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleExcluirPdfRecurso} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para excluir recurso completo */}
+      <AlertDialog open={confirmDeleteRecurso.open} onOpenChange={(open) => !open && setConfirmDeleteRecurso({ open: false, recursoId: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Excluir Recurso Completo
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este recurso completamente? Isso irá remover o recurso, a resposta e todos os PDFs associados. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleExcluirRecursoCompleto} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Recurso
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
