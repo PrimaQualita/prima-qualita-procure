@@ -248,13 +248,18 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
     const colWidths = [80, 50, 40];
     const tableX = marginLeft;
     
-    // Desenhar retângulos do cabeçalho
-    doc.rect(tableX, yPosition, colWidths[0], 8, "F");
-    doc.rect(tableX + colWidths[0], yPosition, colWidths[1], 8, "F");
-    doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], 8, "F");
+    // Desenhar retângulos do cabeçalho com bordas cinzas
+    doc.setDrawColor(128, 128, 128); // Cinza
+    doc.setLineWidth(0.2);
     
-    // Texto do cabeçalho
-    doc.text("Empresa", tableX + 2, yPosition + 5.5);
+    doc.rect(tableX, yPosition, colWidths[0], 8, "FD");
+    doc.rect(tableX + colWidths[0], yPosition, colWidths[1], 8, "FD");
+    doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], 8, "FD");
+    
+    // Texto do cabeçalho (todos centralizados)
+    const headerEmpresa = "Empresa";
+    const headerEmpresaWidth = doc.getTextWidth(headerEmpresa);
+    doc.text(headerEmpresa, tableX + (colWidths[0] - headerEmpresaWidth) / 2, yPosition + 5.5);
     
     const headerItens = "Itens Vencedores";
     const headerItensWidth = doc.getTextWidth(headerItens);
@@ -270,6 +275,8 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
+    doc.setDrawColor(128, 128, 128); // Cinza para bordas
+    doc.setLineWidth(0.2);
 
     empresasVencedoras.forEach((linha, idx) => {
       const bgColor = idx % 2 === 0 ? 245 : 255;
@@ -281,11 +288,14 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
       const maxLinhas = Math.max(linhasEmpresa.length, 1);
       const altura = maxLinhas * 5 + 2;
 
-      doc.rect(tableX, yPosition, colWidths[0], altura);
-      doc.rect(tableX + colWidths[0], yPosition, colWidths[1], altura);
-      doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], altura);
+      // Desenhar células com bordas cinzas
+      doc.rect(tableX, yPosition, colWidths[0], altura, "FD");
+      doc.rect(tableX + colWidths[0], yPosition, colWidths[1], altura, "FD");
+      doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], altura, "FD");
 
-      doc.text(linhasEmpresa, tableX + 2, yPosition + 4);
+      // Centralizar empresa
+      const empresaWidth = doc.getTextWidth(linhasEmpresa.join(' '));
+      doc.text(linhasEmpresa, tableX + (colWidths[0] - empresaWidth) / 2, yPosition + 4);
       
       // Centralizar itens
       const itensWidth = doc.getTextWidth(linha[1]);
