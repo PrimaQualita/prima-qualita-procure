@@ -1266,15 +1266,24 @@ const SistemaLancesFornecedor = () => {
     
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const lancesDoItem = getLancesDoItem(numeroItem);
+    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
     
-    // Filtrar apenas lances classificados (menores ou iguais ao estimado)
-    const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+    // Filtrar apenas lances classificados
+    const lancesClassificados = isDesconto
+      ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado) // Desconto: maior ou igual ao estimado
+      : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Preço: menor ou igual ao estimado
     
     if (lancesClassificados.length === 0) return false;
     
-    // Ordenar por menor valor e desempate por data (mais antigo ganha)
+    // Ordenar conforme critério
     const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
-      if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+      if (isDesconto) {
+        // Desconto: maior valor vence, desempate por data (mais antigo ganha)
+        if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
+      } else {
+        // Preço: menor valor vence, desempate por data (mais antigo ganha)
+        if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+      }
       return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
     });
     
@@ -1287,18 +1296,27 @@ const SistemaLancesFornecedor = () => {
     if (!proposta?.fornecedor_id) return [];
     
     const itensVencidos: number[] = [];
+    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
     
     itensFechados.forEach(numeroItem => {
       const valorEstimado = itensEstimados.get(numeroItem) || 0;
       const lancesDoItem = getLancesDoItem(numeroItem);
       
-      // Filtrar apenas lances classificados (menores ou iguais ao estimado)
-      const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+      // Filtrar apenas lances classificados
+      const lancesClassificados = isDesconto
+        ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado) // Desconto: maior ou igual ao estimado
+        : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Preço: menor ou igual ao estimado
       
       if (lancesClassificados.length > 0) {
-        // Ordenar por menor valor e desempate por data (mais antigo ganha)
+        // Ordenar conforme critério
         const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
-          if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+          if (isDesconto) {
+            // Desconto: maior valor vence, desempate por data (mais antigo ganha)
+            if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
+          } else {
+            // Preço: menor valor vence, desempate por data (mais antigo ganha)
+            if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
+          }
           return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
         });
         
@@ -1309,11 +1327,21 @@ const SistemaLancesFornecedor = () => {
       } else {
         // Se não há lances, verificar proposta inicial
         const itemProposta = itens.find(i => i.numero_item === numeroItem);
-        if (itemProposta && itemProposta.valor_unitario_ofertado > 0 && itemProposta.valor_unitario_ofertado <= valorEstimado) {
-          // Verificar se é o menor valor entre todas as propostas
-          const menorValor = menorValorPropostas.get(numeroItem);
-          if (menorValor && itemProposta.valor_unitario_ofertado === menorValor) {
-            itensVencidos.push(numeroItem);
+        if (itemProposta && itemProposta.valor_unitario_ofertado > 0) {
+          const valorOfertado = itemProposta.valor_unitario_ofertado;
+          
+          // Verificar classificação conforme critério
+          const isClassificado = isDesconto
+            ? valorOfertado >= valorEstimado
+            : valorOfertado <= valorEstimado;
+            
+          if (isClassificado) {
+            // Verificar se é o melhor valor entre todas as propostas
+            const melhorValor = menorValorPropostas.get(numeroItem); // Contém o melhor valor (maior desconto ou menor preço)
+              
+            if (melhorValor && valorOfertado === melhorValor) {
+              itensVencidos.push(numeroItem);
+            }
           }
         }
       }
