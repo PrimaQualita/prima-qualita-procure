@@ -185,7 +185,40 @@ export function DialogAnaliseDocumentalSelecao({
   useEffect(() => {
     if (open && selecaoId) {
       loadFornecedoresVencedores();
+      loadRecursosInabilitacao();
     }
+  }, [open, selecaoId]);
+
+  // Listener realtime para recarregar quando vencedores mudarem
+  useEffect(() => {
+    if (!open || !selecaoId) return;
+
+    console.log("👂 Configurando listener para mudanças em lances vencedores");
+    
+    const channel = supabase
+      .channel(`analise_doc_${selecaoId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "lances_fornecedores",
+          filter: `selecao_id=eq.${selecaoId}`,
+        },
+        (payload) => {
+          console.log("🔔 Mudança detectada em lance:", payload);
+          // Recarregar vencedores quando indicativo_lance_vencedor mudar
+          if ((payload.new as any)?.indicativo_lance_vencedor !== (payload.old as any)?.indicativo_lance_vencedor) {
+            console.log("🔄 Recarregando vencedores na análise documental");
+            loadFornecedoresVencedores();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [open, selecaoId]);
 
   // Buscar segundos colocados quando itens selecionados mudarem na inabilitação parcial
