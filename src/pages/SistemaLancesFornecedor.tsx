@@ -654,19 +654,22 @@ const SistemaLancesFornecedor = () => {
         const { data: itensEstimadosData, error: itensEstimadosError } = await supabase
           .from("itens_cotacao")
           .select("numero_item, valor_unitario_estimado")
-          .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id);
+          .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
+          .order("numero_item");
 
         if (!itensEstimadosError && itensEstimadosData) {
           const mapaEstimados = new Map<number, number>();
           
           itensEstimadosData.forEach((item: any) => {
-            if (item.valor_unitario_estimado) {
+            if (item.valor_unitario_estimado != null) {
               mapaEstimados.set(item.numero_item, item.valor_unitario_estimado);
             }
           });
 
           console.log('Valores estimados dos itens da cotação:', Object.fromEntries(mapaEstimados));
           setItensEstimados(mapaEstimados);
+        } else {
+          console.error('Erro ao buscar itens estimados:', itensEstimadosError);
         }
       }
 
@@ -721,17 +724,23 @@ const SistemaLancesFornecedor = () => {
               
               if (item.valor_unitario_ofertado > 0) {
                 const valorAtual = mapaMenorValor.get(item.numero_item);
-                // Para desconto: pegar MAIOR valor (maior desconto)
-                // Para valor: pegar MENOR valor
-                if (!valorAtual || (isDesconto ? item.valor_unitario_ofertado > valorAtual : item.valor_unitario_ofertado < valorAtual)) {
-                  mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
+                // Para desconto: pegar MAIOR valor (maior desconto = melhor)
+                // Para valor: pegar MENOR valor (menor preço = melhor)
+                if (isDesconto) {
+                  if (!valorAtual || item.valor_unitario_ofertado > valorAtual) {
+                    mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
+                  }
+                } else {
+                  if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
+                    mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
+                  }
                 }
               }
             });
           }
         });
 
-        console.log(`${isDesconto ? 'Maior' : 'Menor'} valor das propostas por item (excluindo inabilitados por item):`, Object.fromEntries(mapaMenorValor));
+        console.log(`${isDesconto ? 'Maior desconto' : 'Menor valor'} das propostas por item (excluindo inabilitados):`, Object.fromEntries(mapaMenorValor));
         setMenorValorPropostas(mapaMenorValor);
       }
 
@@ -988,27 +997,45 @@ const SistemaLancesFornecedor = () => {
     // Usar lancesFiltrados (já filtrado pelo useMemo acima)
     const lancesDoItem = lancesFiltrados.filter(l => l.numero_item === numeroItem);
     
-    // Filtrar lances classificados baseado no critério
-    const lancesClassificados = isDesconto
-      ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado) // Desconto: >= estimado
-      : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Valor: <= estimado
-    
-    if (lancesClassificados.length > 0) {
-      // Para desconto: retornar o MAIOR lance (maior desconto)
-      // Para valor: retornar o MENOR lance (menor valor)
-      const valoresOrdenados = lancesClassificados
-        .map(l => l.valor_lance)
-        .sort((a, b) => isDesconto ? b - a : a - b); // Desconto: descendente, Valor: ascendente
+    if (isDesconto) {
+      // Para desconto: pegar o MAIOR lance (maior desconto = melhor)
+      // Filtrar lances >= estimado (classificados)
+      const lancesClassificados = lancesDoItem.filter(l => l.valor_lance >= valorEstimado);
       
-      return valoresOrdenados[0];
+      if (lancesClassificados.length > 0) {
+        // Retornar o MAIOR lance (maior desconto)
+        const valoresOrdenados = lancesClassificados
+          .map(l => l.valor_lance)
+          .sort((a, b) => b - a); // Descendente
+        
+        return valoresOrdenados[0];
+      }
+      
+      // Se não há lances, usar o maior valor das propostas
+      if (valorMenorProposta > 0) {
+        return valorMenorProposta;
+      }
+    } else {
+      // Para valor: pegar o MENOR lance (menor valor = melhor)
+      // Filtrar lances <= estimado (classificados)
+      const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
+      
+      if (lancesClassificados.length > 0) {
+        // Retornar o MENOR lance
+        const valoresOrdenados = lancesClassificados
+          .map(l => l.valor_lance)
+          .sort((a, b) => a - b); // Ascendente
+        
+        return valoresOrdenados[0];
+      }
+      
+      // Se não há lances, usar o menor valor das propostas
+      if (valorMenorProposta > 0) {
+        return valorMenorProposta;
+      }
     }
     
-    // Se não há lances classificados válidos, usar o menor/maior valor das propostas
-    if (valorMenorProposta > 0) {
-      return valorMenorProposta;
-    }
-    
-    // Fallback para o valor estimado se não houver propostas
+    // Fallback para o valor estimado se não houver propostas nem lances
     return valorEstimado;
   };
 
