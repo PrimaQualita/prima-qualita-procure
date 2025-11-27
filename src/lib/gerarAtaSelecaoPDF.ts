@@ -274,11 +274,14 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     }
   }
 
-  // Calcular valor total = valor_unitario × quantidade
+  // Calcular valor final baseado no critério
   const itensVencedores: ItemVencedor[] = (lancesVencedores || []).map(lance => {
     const quantidade = itensQuantidades[lance.numero_item || 0] || 1;
     const valorUnitario = lance.valor_lance;
-    const valorTotal = valorUnitario * quantidade;
+    
+    // Para desconto, não multiplicar pela quantidade (desconto é percentual)
+    // Para preço, multiplicar pela quantidade para obter valor total
+    const valorTotal = criterioJulgamento === 'desconto' ? valorUnitario : valorUnitario * quantidade;
     
     return {
       numero_item: lance.numero_item || 0,
@@ -551,7 +554,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  const objetoTexto = selecao.descricao || (selecao.processos_compras as any)?.objeto_resumido || selecao.titulo_selecao;
+  const objetoTexto = (selecao.processos_compras as any)?.objeto_resumido || selecao.descricao || selecao.titulo_selecao;
   currentY = drawJustifiedText(doc, objetoTexto, marginLeft, currentY, contentWidth, lineHeight);
   currentY += espacoEntreSecoes;
 
@@ -799,7 +802,10 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         
         if (segundoColocado) {
           const quantidade = itensQuantidades[item.numero_item] || 1;
-          const valorTotal = segundoColocado.valor_lance * quantidade;
+          // Para desconto, não multiplicar pela quantidade (desconto é percentual)
+          const valorTotal = criterioJulgamento === 'desconto' 
+            ? segundoColocado.valor_lance 
+            : segundoColocado.valor_lance * quantidade;
           
           if (!vencedoresFinal[segundoColocado.fornecedor_id]) {
             vencedoresFinal[segundoColocado.fornecedor_id] = {
