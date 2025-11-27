@@ -960,15 +960,31 @@ const SistemaLancesFornecedor = () => {
       return false;
     }
     
-    // Desclassifica APENAS se o valor ofertado for MAIOR (>) que o estimado
-    // Valores iguais (=) ou menores (<) são CLASSIFICADOS
-    return itemProposta.valor_unitario_ofertado > valorEstimado;
+    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
+    
+    if (isDesconto) {
+      // Para desconto: desclassifica se desconto ofertado for MENOR (<) que o estimado
+      // Porque menor desconto = preço mais alto
+      return itemProposta.valor_unitario_ofertado < valorEstimado;
+    } else {
+      // Para valor: desclassifica se valor ofertado for MAIOR (>) que o estimado
+      return itemProposta.valor_unitario_ofertado > valorEstimado;
+    }
   };
 
   const isLanceDesclassificado = (numeroItem: number, valorLance: number) => {
     const valorEstimado = itensEstimados.get(numeroItem);
     if (!valorEstimado) return false;
-    return valorLance > valorEstimado;
+    
+    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
+    
+    if (isDesconto) {
+      // Para desconto: desclassifica se desconto ofertado < estimado
+      return valorLance < valorEstimado;
+    } else {
+      // Para valor: desclassifica se valor ofertado > estimado
+      return valorLance > valorEstimado;
+    }
   };
 
   const getValorMinimoAtual = (numeroItem: number) => {
@@ -1017,22 +1033,54 @@ const SistemaLancesFornecedor = () => {
     // Validações apenas para lances normais (não negociação)
     if (!isNegociacao) {
       const valorEstimado = itensEstimados.get(numeroItem) || 0;
-      if (valorNumerico > valorEstimado) {
-        toast.error(`Lance desclassificado! Valor deve ser menor ou igual ao estimado: R$ ${valorEstimado.toFixed(2).replace('.', ',')}`);
-        return;
+      const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
+      
+      if (isDesconto) {
+        // Para desconto: desclassifica se desconto < estimado
+        if (valorNumerico < valorEstimado) {
+          toast.error(`Lance desclassificado! Desconto deve ser maior ou igual ao estimado: ${valorEstimado.toFixed(2).replace('.', ',')}%`);
+          return;
+        }
+      } else {
+        // Para valor: desclassifica se valor > estimado
+        if (valorNumerico > valorEstimado) {
+          toast.error(`Lance desclassificado! Valor deve ser menor ou igual ao estimado: R$ ${valorEstimado.toFixed(2).replace('.', ',')}`);
+          return;
+        }
       }
 
       const valorMinimoAtual = getValorMinimoAtual(numeroItem);
-      if (valorNumerico >= valorMinimoAtual) {
-        toast.error(`Seu lance deve ser menor que R$ ${valorMinimoAtual.toFixed(2).replace('.', ',')}`);
-        return;
+      
+      if (isDesconto) {
+        // Para desconto: lance deve ser MAIOR que o máximo atual
+        if (valorNumerico <= valorMinimoAtual) {
+          toast.error(`Seu lance deve ser maior que ${valorMinimoAtual.toFixed(2).replace('.', ',')}%`);
+          return;
+        }
+      } else {
+        // Para valor: lance deve ser MENOR que o mínimo atual
+        if (valorNumerico >= valorMinimoAtual) {
+          toast.error(`Seu lance deve ser menor que R$ ${valorMinimoAtual.toFixed(2).replace('.', ',')}`);
+          return;
+        }
       }
     } else {
-      // Para negociação, o valor deve ser menor que o lance vencedor atual
+      // Para negociação, validar conforme critério
       const valorMinimoAtual = getValorMinimoAtual(numeroItem);
-      if (valorNumerico >= valorMinimoAtual) {
-        toast.error(`Valor de negociação deve ser menor que R$ ${valorMinimoAtual.toFixed(2).replace('.', ',')}`);
-        return;
+      const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
+      
+      if (isDesconto) {
+        // Para desconto em negociação: valor deve ser MAIOR que o máximo atual
+        if (valorNumerico <= valorMinimoAtual) {
+          toast.error(`Valor de negociação deve ser maior que ${valorMinimoAtual.toFixed(2).replace('.', ',')}%`);
+          return;
+        }
+      } else {
+        // Para valor em negociação: valor deve ser MENOR que o mínimo atual
+        if (valorNumerico >= valorMinimoAtual) {
+          toast.error(`Valor de negociação deve ser menor que R$ ${valorMinimoAtual.toFixed(2).replace('.', ',')}`);
+          return;
+        }
       }
     }
 
