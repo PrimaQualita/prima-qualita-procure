@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Mail, Clock, XCircle, RefreshCw, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { gerarAutorizacaoCompraDireta } from "@/lib/gerarAutorizacaoPDF";
+import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/gerarAutorizacaoPDF";
 import { gerarRelatorioFinal } from "@/lib/gerarRelatorioFinalPDF";
 import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
 import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
@@ -129,6 +129,7 @@ export function DialogFinalizarProcesso({
   const [relatorioParaExcluir, setRelatorioParaExcluir] = useState<any>(null);
   const [encaminhamentos, setEncaminhamentos] = useState<any[]>([]);
   const [autorizacoes, setAutorizacoes] = useState<any[]>([]);
+  const [foiEnviadoParaSelecao, setFoiEnviadoParaSelecao] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -275,10 +276,10 @@ export function DialogFinalizarProcesso({
       console.log("🔄 [VERSION 2.0] Iniciando carregamento DIRETO de fornecedores (SEM FILTRO) para cotação:", cotacaoId);
       console.log("🔄 Timestamp:", new Date().toISOString());
       
-      // CRÍTICO: Buscar cotação com critério de julgamento E documentos_aprovados atualizados
+      // CRÍTICO: Buscar cotação com critério de julgamento E documentos_aprovados atualizados E enviado_para_selecao
       const { data: cotacao, error: cotacaoError } = await supabase
         .from("cotacoes_precos")
-        .select("criterio_julgamento, documentos_aprovados")
+        .select("criterio_julgamento, documentos_aprovados, enviado_para_selecao")
         .eq("id", cotacaoId)
         .single();
 
@@ -286,6 +287,10 @@ export function DialogFinalizarProcesso({
 
       console.log("📊 Critério de julgamento:", cotacao?.criterio_julgamento);
       console.log("📋 Documentos aprovados RAW do banco:", JSON.stringify(cotacao?.documentos_aprovados));
+      console.log("🔄 Foi enviado para seleção:", cotacao?.enviado_para_selecao);
+      
+      // Atualizar estado
+      setFoiEnviadoParaSelecao(cotacao?.enviado_para_selecao || false);
       
       // CRÍTICO: Atualizar o estado com dados frescos do banco - tratar null explicitamente
       const docsAprovadosRaw = cotacao?.documentos_aprovados;
@@ -1674,15 +1679,16 @@ export function DialogFinalizarProcesso({
     try {
       setLoading(true);
       
-      // Buscar processo_compra_id da cotação
+      // Buscar processo_compra_id da cotação e status de seleção
       const { data: cotacaoData } = await supabase
         .from("cotacoes_precos")
-        .select("processo_compra_id")
+        .select("processo_compra_id, enviado_para_selecao")
         .eq("id", cotacaoId)
         .single();
       
       if (!cotacaoData) throw new Error("Cotação não encontrada");
       const processoId = cotacaoData.processo_compra_id;
+      const foiParaSelecao = cotacaoData.enviado_para_selecao || false;
       
       const { data: { user } } = await supabase.auth.getUser();
       const { data: usuario } = await supabase
@@ -1794,13 +1800,28 @@ export function DialogFinalizarProcesso({
         };
       });
 
-      const resultadoAutorizacao = await gerarAutorizacaoCompraDireta(
-        processo.numero_processo_interno,
-        processo.objeto_resumido,
-        usuario?.nome_completo || "",
-        usuario?.cpf || "",
-        fornecedoresVencedores
-      );
+      // Determinar qual tipo de autorização gerar
+      const tipoAutorizacao = foiParaSelecao ? 'selecao_fornecedores' : 'compra_direta';
+      
+      let resultadoAutorizacao;
+      if (foiParaSelecao) {
+        // Gerar autorização para seleção de fornecedores
+        resultadoAutorizacao = await gerarAutorizacaoSelecao(
+          processo.numero_processo_interno,
+          processo.objeto_resumido,
+          usuario?.nome_completo || "",
+          usuario?.cpf || ""
+        );
+      } else {
+        // Gerar autorização para compra direta
+        resultadoAutorizacao = await gerarAutorizacaoCompraDireta(
+          processo.numero_processo_interno,
+          processo.objeto_resumido,
+          usuario?.nome_completo || "",
+          usuario?.cpf || "",
+          fornecedoresVencedores
+        );
+      }
 
       // Salvar no banco
       const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -1810,7 +1831,7 @@ export function DialogFinalizarProcesso({
         .insert({
           cotacao_id: cotacaoId,
           protocolo: resultadoAutorizacao.protocolo,
-          tipo_autorizacao: 'compra_direta',
+          tipo_autorizacao: tipoAutorizacao,
           nome_arquivo: resultadoAutorizacao.fileName,
           url_arquivo: resultadoAutorizacao.url,
           usuario_gerador_id: currentSession!.user.id,
@@ -1947,10 +1968,21 @@ export function DialogFinalizarProcesso({
   };
 
   const finalizarProcesso = async () => {
-    // Verificar se existe autorização gerada
-    const autorizacaoCompraDireta = autorizacoes.find(a => a.tipo_autorizacao === 'compra_direta');
-    if (!autorizacaoCompraDireta) {
-      toast.error("É necessário gerar a autorização antes de enviar para contratação");
+    // Buscar se o processo foi enviado para seleção
+    const { data: cotacaoCheck } = await supabase
+      .from("cotacoes_precos")
+      .select("enviado_para_selecao")
+      .eq("id", cotacaoId)
+      .single();
+
+    const foiParaSelecao = cotacaoCheck?.enviado_para_selecao || false;
+    const tipoAutorizacaoEsperado = foiParaSelecao ? 'selecao_fornecedores' : 'compra_direta';
+    const nomeAutorizacao = foiParaSelecao ? 'Seleção de Fornecedores' : 'Compra Direta';
+
+    // Verificar se existe autorização do tipo correto
+    const autorizacao = autorizacoes.find(a => a.tipo_autorizacao === tipoAutorizacaoEsperado);
+    if (!autorizacao) {
+      toast.error(`É necessário gerar a Autorização de ${nomeAutorizacao} antes de enviar para contratação`);
       return;
     }
 
@@ -2082,7 +2114,9 @@ export function DialogFinalizarProcesso({
         <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle>Verificar Documentação - Compra Direta</DialogTitle>
+              <DialogTitle>
+                Verificar Documentação - {foiEnviadoParaSelecao ? 'Seleção de Fornecedores' : 'Compra Direta'}
+              </DialogTitle>
               <DialogDescription>
                 Revise os documentos de cada fornecedor vencedor e solicite documentos adicionais se necessário
               </DialogDescription>
@@ -2804,7 +2838,7 @@ export function DialogFinalizarProcesso({
                   className="w-full"
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  Gerar Autorização
+                  Gerar Autorização de {foiEnviadoParaSelecao ? 'Seleção de Fornecedores' : 'Compra Direta'}
                 </Button>
 
                 {autorizacoes.length > 0 && (
@@ -3196,7 +3230,11 @@ export function DialogFinalizarProcesso({
           title="Confirmar Exclusão de Autorização"
           description={
             autorizacaoParaExcluir 
-              ? `Tem certeza que deseja excluir esta autorização?\n\nProtocolo: ${autorizacaoParaExcluir.protocolo}\nTipo: ${autorizacaoParaExcluir.tipo_autorizacao === 'inicio_processo' ? 'Início de Processo' : 'Autorização de Pagamento'}\n\nEsta ação não pode ser desfeita. Você poderá gerar uma nova autorização a qualquer momento.`
+              ? `Tem certeza que deseja excluir esta autorização?\n\nProtocolo: ${autorizacaoParaExcluir.protocolo}\nTipo: ${
+                  autorizacaoParaExcluir.tipo_autorizacao === 'selecao_fornecedores' 
+                    ? 'Seleção de Fornecedores' 
+                    : 'Compra Direta'
+                }\n\nEsta ação não pode ser desfeita. Você poderá gerar uma nova autorização a qualquer momento.`
               : ""
           }
           confirmText="Excluir Autorização"
