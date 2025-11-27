@@ -1447,8 +1447,8 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginRight = 40;
   const footerLimit = 60;
   
-  // Margem lateral de 3mm para logo e rodapé: 3mm = 3 × 2.83465pt
-  const sideMargin = 3 * 2.83465;
+  // Margem lateral de 4mm para logo e rodapé: 4mm = 4 × 2.83465pt
+  const sideMargin = 4 * 2.83465;
   
   let page = pdfDoc.addPage([pageWidth, pageHeight]);
   console.log('>>> Nova página criada. Total agora:', pdfDoc.getPageCount());
