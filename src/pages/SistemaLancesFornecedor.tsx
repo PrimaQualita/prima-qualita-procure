@@ -1112,12 +1112,24 @@ const SistemaLancesFornecedor = () => {
   };
   
   const handleValorLanceChange = (numeroItem: number, valor: string) => {
-    const valorFormatado = formatarMoedaInput(valor.replace(/\D/g, ""));
-    setValoresLances(prev => {
-      const novo = new Map(prev);
-      novo.set(numeroItem, valorFormatado);
-      return novo;
-    });
+    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
+    
+    if (isDesconto) {
+      // Para desconto, remover tudo que não é número ou ponto decimal
+      const numero = valor.replace(/[^\d.,]/g, '').replace(',', '.');
+      setValoresLances(prev => {
+        const novo = new Map(prev);
+        novo.set(numeroItem, numero);
+        return novo;
+      });
+    } else {
+      const valorFormatado = formatarMoedaInput(valor.replace(/\D/g, ""));
+      setValoresLances(prev => {
+        const novo = new Map(prev);
+        novo.set(numeroItem, valorFormatado);
+        return novo;
+      });
+    }
   };
 
   const isItemEmNegociacaoParaMim = (numeroItem: number): boolean => {
@@ -1785,14 +1797,17 @@ const SistemaLancesFornecedor = () => {
                                           : 'text-blue-600'
                                       }`}>
                                         <TrendingDown className="h-3 w-3" />
-                                        <span>Mínimo</span>
+                                        <span>{selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Máximo" : "Mínimo"}</span>
                                       </div>
                                       <p className={`font-bold text-sm ${
                                         isFornecedorVencendoItem(numeroItem) 
                                           ? 'text-green-700' 
                                           : 'text-blue-700'
                                       }`}>
-                                        {formatarMoeda(getValorMinimoAtual(numeroItem))}
+                                        {selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                          ? `${formatarMoeda(getValorMinimoAtual(numeroItem))}%`
+                                          : formatarMoeda(getValorMinimoAtual(numeroItem))
+                                        }
                                       </p>
                                     </div>
                                     {isFornecedorVencendoItem(numeroItem) && (
@@ -1810,7 +1825,10 @@ const SistemaLancesFornecedor = () => {
                                     <span>Estimado</span>
                                   </div>
                                   <p className="font-bold text-sm text-amber-700">
-                                    {formatarMoeda(itensEstimados.get(numeroItem) || 0)}
+                                    {selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                      ? `${formatarMoeda(itensEstimados.get(numeroItem) || 0)}%`
+                                      : formatarMoeda(itensEstimados.get(numeroItem) || 0)
+                                    }
                                   </p>
                                 </div>
                               </div>
@@ -1818,8 +1836,11 @@ const SistemaLancesFornecedor = () => {
                               <div className="space-y-1.5">
                                 <Input
                                   type="text"
-                                  placeholder="R$ 0,00"
-                                  value={valorLanceAtual ? `R$ ${valorLanceAtual}` : ""}
+                                  placeholder={selecao?.processos_compras?.criterio_julgamento === "desconto" ? "0,00%" : "R$ 0,00"}
+                                  value={selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                    ? (valorLanceAtual ? `${valorLanceAtual}%` : "")
+                                    : (valorLanceAtual ? `R$ ${valorLanceAtual}` : "")
+                                  }
                                   onChange={(e) => handleValorLanceChange(numeroItem, e.target.value)}
                                   className={`h-8 text-sm font-medium ${
                                     emNegociacao ? 'border-amber-300' : ''
@@ -1956,9 +1977,14 @@ const SistemaLancesFornecedor = () => {
                                 </div>
                                 
                                 <div className="bg-green-100 rounded px-2 py-1.5">
-                                  <div className="text-[10px] text-green-600 mb-0.5">Valor Vencedor</div>
+                                  <div className="text-[10px] text-green-600 mb-0.5">
+                                    {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor"}
+                                  </div>
                                   <p className="font-bold text-sm text-green-700">
-                                    {formatarMoeda(valorVencedor)}
+                                    {selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                      ? `${formatarMoeda(valorVencedor)}%`
+                                      : formatarMoeda(valorVencedor)
+                                    }
                                   </p>
                                 </div>
                               </div>
@@ -1992,9 +2018,14 @@ const SistemaLancesFornecedor = () => {
                               </div>
                               
                               <div className="bg-muted/50 rounded px-2 py-1.5">
-                                <div className="text-[10px] text-muted-foreground mb-0.5">Valor Vencedor</div>
+                                <div className="text-[10px] text-muted-foreground mb-0.5">
+                                  {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor"}
+                                </div>
                                 <p className="font-bold text-sm text-muted-foreground">
-                                  {formatarMoeda(valorVencedor)}
+                                  {selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                    ? `${formatarMoeda(valorVencedor)}%`
+                                    : formatarMoeda(valorVencedor)
+                                  }
                                 </p>
                               </div>
                             </div>
@@ -2030,8 +2061,12 @@ const SistemaLancesFornecedor = () => {
                     <TableHead className="w-24">Qtd</TableHead>
                     <TableHead className="w-24">Unidade</TableHead>
                     <TableHead className="w-40">Marca</TableHead>
-                    <TableHead className="w-40">Valor Unitário</TableHead>
-                    <TableHead className="w-40">Valor Total</TableHead>
+                    <TableHead className="w-40">
+                      {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "% Desconto" : "Valor Unitário"}
+                    </TableHead>
+                    {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
+                      <TableHead className="w-40">Valor Total</TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2050,19 +2085,36 @@ const SistemaLancesFornecedor = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2) : ""}
-                          onChange={(e) => handleUpdateItem(item.id, "valor_unitario_ofertado", parseFloat(e.target.value) || 0)}
-                          disabled={!editavel}
-                          className="w-full"
-                        />
+                        {selecao?.processos_compras?.criterio_julgamento === "desconto" ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2) : ""}
+                              onChange={(e) => handleUpdateItem(item.id, "valor_unitario_ofertado", parseFloat(e.target.value) || 0)}
+                              disabled={!editavel}
+                              className="w-full"
+                            />
+                            <span className="text-sm font-medium">%</span>
+                          </div>
+                        ) : (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2) : ""}
+                            onChange={(e) => handleUpdateItem(item.id, "valor_unitario_ofertado", parseFloat(e.target.value) || 0)}
+                            disabled={!editavel}
+                            className="w-full"
+                          />
+                        )}
                       </TableCell>
-                      <TableCell className="font-semibold">
-                        {formatarMoeda(item.valor_unitario_ofertado * item.quantidade)}
-                      </TableCell>
+                      {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
+                        <TableCell className="font-semibold">
+                          {formatarMoeda(item.valor_unitario_ofertado * item.quantidade)}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -2070,18 +2122,21 @@ const SistemaLancesFornecedor = () => {
             </div>
 
             <div className="mt-4 pt-4 border-t flex justify-between items-center">
-              <div>
-                <Label className="text-sm text-muted-foreground">Valor Total da Proposta</Label>
-                <p className="text-2xl font-bold text-primary">
-                  {formatarMoeda(itens.reduce((acc, item) => acc + (item.valor_unitario_ofertado * item.quantidade), 0))}
-                </p>
-              </div>
+              {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
+                <div>
+                  <Label className="text-sm text-muted-foreground">Valor Total da Proposta</Label>
+                  <p className="text-2xl font-bold text-primary">
+                    {formatarMoeda(itens.reduce((acc, item) => acc + (item.valor_unitario_ofertado * item.quantidade), 0))}
+                  </p>
+                </div>
+              )}
               
               {editavel && (
                 <Button 
                   onClick={handleSalvar} 
                   disabled={salvando}
                   size="lg"
+                  className={selecao?.processos_compras?.criterio_julgamento === "desconto" ? "ml-auto" : ""}
                 >
                   <Save className="mr-2 h-4 w-4" />
                   {salvando ? "Salvando..." : "Salvar Alterações"}
