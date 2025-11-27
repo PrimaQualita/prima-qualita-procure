@@ -248,9 +248,13 @@ const RespostaCotacao = () => {
   };
 
   const gerarTemplate = () => {
-    // Criar dados do Excel
+    // Criar dados do Excel ajustados baseado no critério
+    const cabecalho = processoCompra?.criterio_julgamento === "desconto"
+      ? ['Número Item', 'Marca', 'Percentual de Desconto (%)']
+      : ['Número Item', 'Marca', 'Valor Unitário'];
+    
     const dados = [
-      ['Número Item', 'Marca', 'Valor Unitário'],
+      cabecalho,
       ...itensCotacao.map(item => [
         item.numero_item,
         '',
@@ -820,33 +824,37 @@ const RespostaCotacao = () => {
                     {processoCompra?.criterio_julgamento === "desconto" ? (
                       // Modo Percentual de Desconto
                       <TableCell>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0,00"
-                          value={
-                            respostas[item.id]?.percentual_desconto_display !== undefined
-                              ? respostas[item.id].percentual_desconto_display
-                              : respostas[item.id]?.percentual_desconto
-                              ? respostas[item.id].percentual_desconto
-                                  .toFixed(2)
-                                  .replace('.', ',')
-                              : ""
-                          }
-                          onChange={(e) => {
-                            const input = e.target.value;
-                            const valorLimpo = input.replace(/[^\d,]/g, '');
-                            
-                            setRespostas({
-                              ...respostas,
-                              [item.id]: {
-                                ...respostas[item.id],
-                                percentual_desconto_display: valorLimpo,
-                                percentual_desconto: parseFloat(valorLimpo.replace(',', '.')) || 0,
-                              },
-                            });
-                          }}
-                        />
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold">%</span>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={
+                              respostas[item.id]?.percentual_desconto_display !== undefined
+                                ? respostas[item.id].percentual_desconto_display
+                                : respostas[item.id]?.percentual_desconto
+                                ? respostas[item.id].percentual_desconto
+                                    .toFixed(2)
+                                    .replace('.', ',')
+                                : ''
+                            }
+                            onChange={(e) => {
+                              const input = e.target.value;
+                              const valorLimpo = input.replace(/[^\d,]/g, '');
+                              
+                              setRespostas({
+                                ...respostas,
+                                [item.id]: {
+                                  ...respostas[item.id],
+                                  percentual_desconto_display: valorLimpo,
+                                  percentual_desconto: parseFloat(valorLimpo.replace(',', '.')) || 0,
+                                },
+                              });
+                            }}
+                            className="text-right flex-1"
+                          />
+                        </div>
                       </TableCell>
                     ) : (
                       // Modo Valor Unitário
