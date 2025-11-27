@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
-import logoImg from '@/assets/prima-qualita-logo-horizontal.png';
+import logoImg from '@/assets/capa-processo-logo.png';
 import rodapeImg from '@/assets/capa-processo-rodape.png';
 
 interface EmpresaParticipante {
@@ -17,6 +17,7 @@ interface ItemVencedor {
   descricao: string;
   fornecedor_id: string;
   fornecedor_nome: string;
+  fornecedor_cnpj: string;
   valor_final: number;
 }
 
@@ -231,11 +232,28 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       valor_lance,
       fornecedor_id,
       fornecedores (
-        razao_social
+        razao_social,
+        cnpj
       )
     `)
     .eq('selecao_id', selecaoId)
     .eq('indicativo_lance_vencedor', true);
+
+  // Buscar TODOS os lances ordenados por valor para determinar segundo colocado
+  const { data: todosLances } = await supabase
+    .from('lances_fornecedores')
+    .select(`
+      numero_item,
+      valor_lance,
+      fornecedor_id,
+      fornecedores (
+        razao_social,
+        cnpj
+      )
+    `)
+    .eq('selecao_id', selecaoId)
+    .order('numero_item', { ascending: true })
+    .order('valor_lance', { ascending: true });
 
   // Buscar itens da cotação relacionada para descrições E quantidades
   let itensDescricoes: Record<number, string> = {};
@@ -265,8 +283,24 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       descricao: itensDescricoes[lance.numero_item || 0] || `Item ${lance.numero_item}`,
       fornecedor_id: lance.fornecedor_id,
       fornecedor_nome: (lance.fornecedores as any)?.razao_social || '',
+      fornecedor_cnpj: (lance.fornecedores as any)?.cnpj || '',
       valor_final: valorTotal
     };
+  });
+
+  // Agrupar todos os lances por item para encontrar segundo colocado quando necessário
+  const lancesPorItem: Record<number, Array<{ fornecedor_id: string; fornecedor_nome: string; fornecedor_cnpj: string; valor_lance: number }>> = {};
+  (todosLances || []).forEach(lance => {
+    const item = lance.numero_item || 0;
+    if (!lancesPorItem[item]) {
+      lancesPorItem[item] = [];
+    }
+    lancesPorItem[item].push({
+      fornecedor_id: lance.fornecedor_id,
+      fornecedor_nome: (lance.fornecedores as any)?.razao_social || '',
+      fornecedor_cnpj: (lance.fornecedores as any)?.cnpj || '',
+      valor_lance: lance.valor_lance
+    });
   });
 
   // Buscar mensagens de negociação
@@ -460,22 +494,22 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const protocoloFormatado = formatarProtocoloExibicao(protocolo);
   const dataHoraGeracao = new Date();
 
-  // Dimensões do logo e rodapé - expandido com margem de 1.5mm
-  const logoHeight = 22;
-  const rodapeHeight = 18;
-  const contentStartY = logoHeight + 8;
+  // Dimensões do logo e rodapé - igual à planilha de lances
+  const logoHeight = 40;
+  const rodapeHeight = 25;
+  const contentStartY = logoHeight + 10;
   const contentEndY = pageHeight - rodapeHeight - 8;
   
   let currentY = contentStartY;
 
-  // Função para adicionar logo com margem de 1.5mm
+  // Função para adicionar logo com margem de 1.5mm (igual planilha de lances)
   const addLogo = () => {
-    doc.addImage(logoBase64, 'PNG', sideMargin, sideMargin, pageWidth - (sideMargin * 2), logoHeight);
+    doc.addImage(logoBase64, 'PNG', sideMargin, 0, pageWidth - (sideMargin * 2), logoHeight);
   };
 
-  // Função para adicionar rodapé com margem de 1.5mm
+  // Função para adicionar rodapé com margem de 1.5mm (igual planilha de lances)
   const addRodape = () => {
-    doc.addImage(rodapeBase64, 'PNG', sideMargin, pageHeight - rodapeHeight - sideMargin, pageWidth - (sideMargin * 2), rodapeHeight);
+    doc.addImage(rodapeBase64, 'PNG', sideMargin, pageHeight - rodapeHeight, pageWidth - (sideMargin * 2), rodapeHeight);
   };
 
   // Função para verificar e adicionar nova página
@@ -733,17 +767,42 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   currentY += 6.25;
 
   if (itensVencedores.length > 0) {
-    // Agrupar por fornecedor (considerando apenas habilitados)
+    // Agrupar por fornecedor (considerando habilitados e substituindo por segundo colocado quando inabilitado)
     const vencedoresFinal: Record<string, { nome: string; itens: number[]; valorTotal: number }> = {};
     
     itensVencedores.forEach(item => {
-      // Verificar se o fornecedor não está inabilitado neste item
-      const fornecedorInab = fornecedoresInabilitados.find(f => {
-        const empresa = empresasParticipantes.find(e => e.fornecedor_id === item.fornecedor_id);
-        return empresa && f.cnpj === empresa.cnpj && f.itens_afetados.includes(item.numero_item);
-      });
+      // Verificar se o fornecedor está inabilitado neste item
+      const fornecedorInab = fornecedoresInabilitados.find(f => 
+        f.cnpj === item.fornecedor_cnpj && f.itens_afetados.includes(item.numero_item)
+      );
       
-      if (!fornecedorInab) {
+      if (fornecedorInab) {
+        // Fornecedor inabilitado - buscar segundo colocado
+        const lancesDoItem = lancesPorItem[item.numero_item] || [];
+        // Encontrar o primeiro fornecedor não inabilitado neste item
+        const segundoColocado = lancesDoItem.find(lance => {
+          const estaInabilitado = fornecedoresInabilitados.some(f => 
+            f.cnpj === lance.fornecedor_cnpj && f.itens_afetados.includes(item.numero_item)
+          );
+          return !estaInabilitado && lance.fornecedor_id !== item.fornecedor_id;
+        });
+        
+        if (segundoColocado) {
+          const quantidade = itensQuantidades[item.numero_item] || 1;
+          const valorTotal = segundoColocado.valor_lance * quantidade;
+          
+          if (!vencedoresFinal[segundoColocado.fornecedor_id]) {
+            vencedoresFinal[segundoColocado.fornecedor_id] = {
+              nome: segundoColocado.fornecedor_nome,
+              itens: [],
+              valorTotal: 0
+            };
+          }
+          vencedoresFinal[segundoColocado.fornecedor_id].itens.push(item.numero_item);
+          vencedoresFinal[segundoColocado.fornecedor_id].valorTotal += valorTotal;
+        }
+      } else {
+        // Fornecedor habilitado - manter como vencedor
         if (!vencedoresFinal[item.fornecedor_id]) {
           vencedoresFinal[item.fornecedor_id] = {
             nome: item.fornecedor_nome,
