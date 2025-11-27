@@ -4,6 +4,11 @@ import { v4 as uuidv4 } from "uuid";
 import capaLogo from "@/assets/capa-processo-logo.png";
 import capaRodape from "@/assets/capa-processo-rodape.png";
 
+const formatarProtocoloExibicao = (uuid: string): string => {
+  const limpo = uuid.replace(/-/g, '').toUpperCase().substring(0, 16);
+  return `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+};
+
 export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
   try {
     // Buscar dados da seleção e processo
@@ -14,7 +19,10 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
         processos_compras (
           numero_processo_interno,
           objeto_resumido,
-          criterio_julgamento
+          criterio_julgamento,
+          contratos_gestao (
+            ente_federativo
+          )
         )
       `)
       .eq("id", selecaoId)
@@ -25,6 +33,7 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
 
     const processo = selecao.processos_compras as any;
     const criterioJulgamento = processo?.criterio_julgamento;
+    const enteFederativo = processo?.contratos_gestao?.ente_federativo || "Santa Maria Madalena - RJ";
 
     // Buscar itens e vencedores
     const { data: todosLancesData, error: lancesError } = await supabase
@@ -104,12 +113,6 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
       grupo.valorTotal += lance.valor_lance || 0;
     });
 
-    // Gerar PDF
-    const doc = new jsPDF("portrait");
-    const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
-    const margin = 15;
-
     // Converter imagens para base64
     const toBase64 = (url: string): Promise<string> => {
       return new Promise((resolve, reject) => {
@@ -128,19 +131,32 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
       });
     };
 
-    const base64Logo = await toBase64(capaLogo);
-    const base64Rodape = await toBase64(capaRodape);
+    const logoBase64 = await toBase64(capaLogo);
+    const rodapeBase64 = await toBase64(capaRodape);
 
-    // Logo no topo
-    const logoWidth = pageWidth;
+    // Gerar PDF
+    const doc = new jsPDF("portrait");
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    
+    // Margens de 1.5mm convertido para pontos (1mm = 2.83465pt, então 1.5mm ≈ 4.25pt)
+    const sideMargin = 1.5 * 2.83465; // ~4.25pt = 1.5mm
+    const marginLeft = 15;
+    const marginRight = 15;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+    
     const logoHeight = 40;
-    doc.addImage(base64Logo, "PNG", 0, 0, logoWidth, logoHeight);
+    const rodapeHeight = 25;
+    const contentStartY = logoHeight + 10;
+    const contentEndY = pageHeight - rodapeHeight - 8;
 
-    // Rodapé
-    const rodapeHeight = 30;
-    doc.addImage(base64Rodape, "PNG", 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
+    // Logo no topo com margem de 1.5mm
+    doc.addImage(logoBase64, 'PNG', sideMargin, 0, pageWidth - (sideMargin * 2), logoHeight);
 
-    let yPosition = logoHeight + 15;
+    // Rodapé com margem de 1.5mm
+    doc.addImage(rodapeBase64, 'PNG', sideMargin, pageHeight - rodapeHeight, pageWidth - (sideMargin * 2), rodapeHeight);
+
+    let yPosition = contentStartY;
 
     // Título
     doc.setFontSize(16);
@@ -179,10 +195,13 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
       ? "maior percentual de desconto"
       : "menor preço";
 
-    const textoHomologacao = `HOMOLOGO, nos termos da legislação em vigor, o Processo Interno nº ${processo.numero_processo_interno}, por meio da Seleção de Fornecedores nº ${selecao.numero_selecao}, cujo objeto consiste em ${objetoLimpo}, pelo critério de ${criterioTexto}, pelo Sistema de Registro de Preços, para atender as necessidades das unidades gerenciadas pela OS Prima Qualitá Saúde por meio de seus Contratos de Gestão, em favor das empresas:`;
+    const contratoNumero = processo.numero_processo_interno?.split('/')[0] || "XXX";
+    const contratoAno = processo.numero_processo_interno?.split('/')[1] || "XXXX";
 
-    const linhasTexto = doc.splitTextToSize(textoHomologacao, pageWidth - 2 * margin);
-    doc.text(linhasTexto, margin, yPosition, { align: "justify" });
+    const textoHomologacao = `HOMOLOGO, nos termos da legislação em vigor, o Processo Interno nº ${processo.numero_processo_interno}, por meio da Seleção de Fornecedores nº ${selecao.numero_selecao}, cujo objeto consiste em ${objetoLimpo} vinculados ao Contrato de Gestão ${contratoNumero}/${contratoAno}, firmado com o município de ${enteFederativo}, pelo critério de ${criterioTexto}, pelo Sistema de Registro de Preços, para atender as necessidades das unidades gerenciadas pela OS Prima Qualitá Saúde por meio de seus Contratos de Gestão, em favor das empresas:`;
+
+    const linhasTexto = doc.splitTextToSize(textoHomologacao, contentWidth);
+    doc.text(linhasTexto, marginLeft, yPosition, { align: "justify" });
     yPosition += linhasTexto.length * 6 + 10;
 
     // Tabela de vencedores
@@ -207,7 +226,7 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
     doc.setFontSize(10);
 
     const colWidths = [80, 50, 40];
-    const tableX = margin;
+    const tableX = marginLeft;
     
     // Header
     doc.rect(tableX, yPosition, colWidths[0], 8, "F");
@@ -248,56 +267,80 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
 
     yPosition += 20;
 
-    // Data e local
-    const dataAtual = new Date().toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric"
-    });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.text(`São Paulo, ${dataAtual}.`, margin, yPosition);
-    yPosition += 20;
-
-    // Linha de assinatura
-    doc.setLineWidth(0.5);
-    doc.line(margin + 20, yPosition, pageWidth - margin - 20, yPosition);
-    yPosition += 6;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("REPRESENTANTE LEGAL", pageWidth / 2, yPosition, { align: "center" });
-
-    // Certificação Digital Simplificada
-    yPosition = pageHeight - rodapeHeight - 25;
+    // CERTIFICAÇÃO DIGITAL (igual à Ata)
+    const protocolo = uuidv4();
+    const protocoloFormatado = formatarProtocoloExibicao(protocolo);
     
-    const protocolo = `${Math.random().toString(36).substr(2, 4).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    // Buscar nome do responsável legal (usuário logado)
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("nome_completo")
+      .eq("id", userData.user?.id)
+      .single();
     
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(0, 128, 128);
-    doc.text("CERTIFICAÇÃO DIGITAL", pageWidth / 2, yPosition, { align: "center" });
-    yPosition += 5;
-
-    doc.setFont("helvetica", "normal");
+    const nomeResponsavel = profileData?.nome_completo || "REPRESENTANTE LEGAL";
+    const verificationUrl = `${window.location.origin}/verificar-documento?protocolo=${protocolo}`;
+    
+    // Posicionar certificação acima do rodapé
+    const certY = contentEndY - 40;
+    
     doc.setFontSize(8);
+    const urlLines = doc.splitTextToSize(verificationUrl, contentWidth - 10);
+    const certHeight = 38 + (urlLines.length * 3.5);
+    
+    // Fundo cinza
+    doc.setFillColor(245, 245, 245);
+    doc.rect(marginLeft, certY, contentWidth, certHeight, 'F');
+    
+    // Borda
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(marginLeft, certY, contentWidth, certHeight, 'S');
+
+    // Título em azul escuro
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 139);
+    doc.text("CERTIFICAÇÃO DIGITAL", marginLeft + contentWidth / 2, certY + 6, { align: "center" });
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
-    doc.text(`Protocolo:  ${protocolo}`, pageWidth / 2, yPosition, { align: "center" });
-    yPosition += 4;
-
-    doc.text("Responsável:  REPRESENTANTE LEGAL", pageWidth / 2, yPosition, { align: "center" });
-    yPosition += 4;
-
-    const linkVerificacao = `${window.location.origin}/verificar-documento?protocolo=${protocolo}`;
+    
+    let certTextY = certY + 13;
+    
+    // Protocolo
+    doc.text(`Protocolo:  ${protocoloFormatado}`, marginLeft + 5, certTextY);
+    certTextY += 4;
+    
+    // Responsável
+    doc.text(`Responsável:  ${nomeResponsavel}`, marginLeft + 5, certTextY);
+    certTextY += 5;
+    
+    // Verificação - Label
+    doc.setFont("helvetica", "bold");
+    doc.text("Verificar autenticidade em:", marginLeft + 5, certTextY);
+    certTextY += 3.5;
+    
+    // URL como link clicável
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 255);
-    doc.textWithLink("Verificar autenticidade", pageWidth / 2, yPosition, { 
-      align: "center",
-      url: linkVerificacao
+    doc.setFontSize(8);
+    urlLines.forEach((linha: string, index: number) => {
+      doc.textWithLink(linha, marginLeft + 5, certTextY + (index * 3.5), { url: verificationUrl });
     });
+    certTextY += urlLines.length * 3.5 + 2.5;
+    
+    // Texto legal
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(7);
+    doc.text("Este documento possui certificação digital conforme Lei 14.063/2020", marginLeft + 5, certTextY);
+    doc.setTextColor(0, 0, 0);
 
     // Salvar PDF
     const pdfBlob = doc.output("blob");
-    const nomeArquivo = `Homologacao_SF${selecao.numero_selecao}_${Date.now()}.pdf`;
+    const nomeArquivo = `homologacao-SF-${selecao.numero_selecao}-${Date.now()}.pdf`;
     const storagePath = `homologacoes-selecao/${selecaoId}/${nomeArquivo}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -314,8 +357,6 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
       .getPublicUrl(storagePath);
 
     // Salvar registro no banco
-    const { data: user } = await supabase.auth.getUser();
-    
     const { data: homologacao, error: insertError } = await supabase
       .from("homologacoes_selecao")
       .insert({
@@ -323,7 +364,7 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
         protocolo: protocolo,
         nome_arquivo: nomeArquivo,
         url_arquivo: urlData.publicUrl,
-        usuario_gerador_id: user?.user?.id,
+        usuario_gerador_id: userData.user?.id,
       })
       .select()
       .single();
