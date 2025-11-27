@@ -378,6 +378,8 @@ export function DialogPlanilhaConsolidada({
         valor_total: resposta.valor_total
       }));
       
+      console.log('📦 Respostas formatadas para PDF:', JSON.stringify(respostasFormatadas, null, 2));
+      
       // Preparar dados dos itens
       const itensFormatados = todosItens.map(item => ({
         numero_item: item.numero_item,

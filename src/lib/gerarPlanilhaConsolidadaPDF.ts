@@ -95,7 +95,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text(processo.numero, pageWidth / 2, 18, { align: 'center' });
+  doc.text(`PROCESSO ${processo.numero}`, pageWidth / 2, 18, { align: 'center' });
   
   // Quebrar texto do objeto com alinhamento justificado
   const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<\/?p>/g, '');
@@ -194,6 +194,8 @@ export async function gerarPlanilhaConsolidadaPDF(
       if (respostaItem) {
         const valorUnitario = respostaItem.valor_unitario_ofertado;
         const valorTotal = valorUnitario * item.quantidade;
+        
+        console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: valorUnitario=${valorUnitario}, criterio=${criterioJulgamento}`);
         
         // Se critério é desconto, mostrar percentual (inclusive zero)
         if (criterioJulgamento === 'desconto') {
@@ -322,7 +324,7 @@ export async function gerarPlanilhaConsolidadaPDF(
           cellPadding: { top: 3, right: 3, bottom: 3, left: 3 }
         },
         2: { 
-          halign: 'right', 
+          halign: 'center', 
           cellWidth: 12,
           overflow: 'visible' // Evitar quebra de linha nos números
         },
