@@ -395,8 +395,9 @@ export async function gerarPropostaSelecaoPDF(
       // Valores conforme critério
       if (isDesconto) {
         // Exibir apenas % de desconto alinhado à direita próximo da margem direita
+        // Formatar percentual com 2 casas decimais (0.35 → "0,35%")
         const descontoTexto = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0
-          ? `${formatarMoeda(item.valor_unitario_ofertado)}%`
+          ? `${item.valor_unitario_ofertado.toFixed(2).replace('.', ',')}%`
           : '-';
         const valorDescontoRight = margemEsquerda + larguraUtil - 2;
         doc.text(descontoTexto, valorDescontoRight, yVerticalCenter, { align: 'right' });
