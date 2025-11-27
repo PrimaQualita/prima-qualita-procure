@@ -360,6 +360,7 @@ const IncluirPrecosPublicos = () => {
       // Próximo dígito será o maior encontrado + 1 (ou 0 se nenhum foi encontrado)
       const proximoDigito = maiorDigito + 1;
       const cnpjPrecosPublicos = proximoDigito.toString().repeat(14);
+      const emailPrecosPublicos = `precos.publicos.${proximoDigito}@sistema.com`;
       let fornecedorId: string;
 
       // Sempre criar novo fornecedor para cada proposta de preços públicos
@@ -368,7 +369,7 @@ const IncluirPrecosPublicos = () => {
         .insert({
           razao_social: nomeFonte,
           cnpj: cnpjPrecosPublicos,
-          email: "precos.publicos@sistema.com",
+          email: emailPrecosPublicos,
           telefone: "00000000000",
           endereco_comercial: "Sistema",
         })
