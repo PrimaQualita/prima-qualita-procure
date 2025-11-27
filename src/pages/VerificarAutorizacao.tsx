@@ -20,7 +20,12 @@ export default function VerificarAutorizacao() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [protocolo, setProtocolo] = useState(searchParams.get("protocolo") || "");
+  
+  // Se vier protocolo na URL, formatar automaticamente
+  const protocoloInicial = searchParams.get("protocolo") || "";
+  const protocoloFormatado = protocoloInicial ? formatarProtocoloExibicao(protocoloInicial) : "";
+  
+  const [protocolo, setProtocolo] = useState(protocoloFormatado);
   const [loading, setLoading] = useState(false);
   const [autorizacao, setAutorizacao] = useState<any>(null);
   const [tipoDocumento, setTipoDocumento] = useState<'autorizacao' | 'relatorio' | 'compliance' | 'planilha' | 'encaminhamento' | 'homologacao' | 'recurso' | 'resposta_recurso' | null>(null);
