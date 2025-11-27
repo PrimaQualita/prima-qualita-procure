@@ -70,6 +70,7 @@ export async function gerarPropostaFornecedorPDF(
     });
     // Buscar itens da resposta
     console.log('🔍 Buscando itens para resposta ID:', respostaId);
+    console.log('📋 Critério de julgamento:', criterioJulgamento);
     
     const { data: itens, error: itensError } = await supabaseAnon
       .from('respostas_itens_fornecedor')
@@ -89,7 +90,12 @@ export async function gerarPropostaFornecedorPDF(
 
     console.log('📊 Resultado da busca:', {
       encontrou: itens?.length || 0,
-      erro: itensError
+      erro: itensError,
+      primeirosItens: itens?.slice(0, 2).map(i => ({
+        valor_unitario: i.valor_unitario_ofertado,
+        percentual_desconto: i.percentual_desconto,
+        numero_item: (Array.isArray(i.itens_cotacao) ? i.itens_cotacao[0] : i.itens_cotacao)?.numero_item
+      }))
     });
     
     // DEBUG: Log detalhado dos primeiros itens
