@@ -131,7 +131,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  const textoObjeto = 'Objeto: ';
+  const textoObjeto = 'Objeto:';
   doc.text(textoObjeto, margemEsquerda, y);
   
   // Quebrar texto do objeto e aplicar justificação manual
@@ -140,9 +140,9 @@ export async function gerarPlanilhaConsolidadaPDF(
   
   // Primeira linha ao lado de "Objeto:"
   const larguraObjeto = doc.getTextWidth(textoObjeto);
-  const larguraPrimeiraLinha = larguraUtil - larguraObjeto;
+  const larguraPrimeiraLinha = larguraUtil - larguraObjeto - 2; // Espaço mínimo de 2mm
   const linhasPrimeiraLinha = doc.splitTextToSize(objetoDecodificado, larguraPrimeiraLinha);
-  justificarTexto(doc, linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto, y, larguraPrimeiraLinha);
+  justificarTexto(doc, linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto + 2, y, larguraPrimeiraLinha);
   
   // Demais linhas do objeto com largura total
   y += 5;
