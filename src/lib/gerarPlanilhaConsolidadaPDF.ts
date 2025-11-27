@@ -99,18 +99,18 @@ export async function gerarPlanilhaConsolidadaPDF(
   
   // Quebrar texto do objeto com alinhamento justificado
   const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<\/?p>/g, '');
-  doc.setFontSize(10);
-  const larguraObjetoMaxima = larguraUtil - 20; // Margem adicional para não ultrapassar
+  doc.setFontSize(9);
+  const larguraObjetoMaxima = larguraUtil - 40; // Margem maior para não ultrapassar
   const linhasObjeto = doc.splitTextToSize(objetoDecodificado, larguraObjetoMaxima);
   
-  // Renderizar cada linha do objeto
-  let yObjeto = 24;
+  // Renderizar cada linha do objeto com mais espaçamento da borda
+  let yObjeto = 22;
   linhasObjeto.forEach((linha: string, index: number) => {
     doc.text(linha, pageWidth / 2, yObjeto, { align: 'center', maxWidth: larguraObjetoMaxima });
-    yObjeto += 5;
+    yObjeto += 4;
   });
 
-  y = Math.max(35, yObjeto + 5);
+  y = Math.max(40, yObjeto + 8); // Mais espaço entre objeto e tabela
 
   // Informações da Cotação
   doc.setTextColor(0, 0, 0);
@@ -183,7 +183,7 @@ export async function gerarPlanilhaConsolidadaPDF(
     const linha: any = {
       item: item.numero_item.toString(),
       descricao: item.descricao,
-      quantidade: item.quantidade.toString(),
+      quantidade: item.quantidade.toLocaleString('pt-BR'), // Formatar número com separador de milhares
       unidade: item.unidade
     };
 
@@ -195,11 +195,9 @@ export async function gerarPlanilhaConsolidadaPDF(
         const valorUnitario = respostaItem.valor_unitario_ofertado;
         const valorTotal = valorUnitario * item.quantidade;
         
-        // Se critério é desconto, mostrar apenas percentual sem total
+        // Se critério é desconto, mostrar percentual (inclusive zero)
         if (criterioJulgamento === 'desconto') {
-          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = valorUnitario > 0 
-            ? formatarPercentual(valorUnitario)
-            : '-';
+          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = formatarPercentual(valorUnitario);
         } else {
           // Mostrar valor unitário na primeira linha e total na segunda
           linha[`fornecedor_${resposta.fornecedor.cnpj}`] = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotal)})`;
@@ -244,9 +242,9 @@ export async function gerarPlanilhaConsolidadaPDF(
       
       const valorTotalEstimativa = valorEstimativa * item.quantidade;
       
-      // Se critério é desconto, mostrar apenas percentual sem total
+      // Se critério é desconto, mostrar percentual (inclusive zero)
       if (criterioJulgamento === 'desconto') {
-        linha.estimativa = valorEstimativa > 0 ? formatarPercentual(valorEstimativa) : '-';
+        linha.estimativa = formatarPercentual(valorEstimativa);
       } else {
         linha.estimativa = `${formatarMoeda(valorEstimativa)}\n(Total: ${formatarMoeda(valorTotalEstimativa)})`;
       }
@@ -323,7 +321,11 @@ export async function gerarPlanilhaConsolidadaPDF(
           overflow: 'linebreak',
           cellPadding: { top: 3, right: 3, bottom: 3, left: 3 }
         },
-        2: { halign: 'center', cellWidth: 12 },
+        2: { 
+          halign: 'right', 
+          cellWidth: 12,
+          overflow: 'visible' // Evitar quebra de linha nos números
+        },
         3: { halign: 'center', cellWidth: 15 }
       };
       
