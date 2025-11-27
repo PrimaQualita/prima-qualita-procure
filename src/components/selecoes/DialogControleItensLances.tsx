@@ -332,7 +332,7 @@ export function DialogControleItensLances({
 
       const numerosExistentes = new Set(existentes?.map(e => e.numero_item) || []);
 
-      // Atualizar itens existentes - LIMPAR TODOS OS CAMPOS DE FECHAMENTO
+      // Atualizar itens existentes - LIMPAR TODOS OS CAMPOS (negociação + fechamento)
       if (numerosExistentes.size > 0) {
         await supabase
           .from("itens_abertos_lances")
@@ -341,7 +341,11 @@ export function DialogControleItensLances({
             data_fechamento: null,
             iniciando_fechamento: false,
             data_inicio_fechamento: null,
-            segundos_para_fechar: null
+            segundos_para_fechar: null,
+            em_negociacao: false,
+            fornecedor_negociacao_id: null,
+            negociacao_concluida: false,
+            nao_negociar: false
           })
           .eq("selecao_id", selecaoId)
           .in("numero_item", Array.from(numerosExistentes));
