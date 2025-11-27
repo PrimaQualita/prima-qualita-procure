@@ -121,6 +121,7 @@ const ParticiparSelecao = () => {
   const [submitting, setSubmitting] = useState(false);
   const [selecao, setSelecao] = useState<any>(null);
   const [processo, setProcesso] = useState<any>(null);
+  const [criterioJulgamento, setCriterioJulgamento] = useState<string>("");
   const [itens, setItens] = useState<Item[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [documentosAnexados, setDocumentosAnexados] = useState<any[]>([]);
@@ -272,6 +273,7 @@ const ParticiparSelecao = () => {
       console.log("✅ Seleção carregada:", selecaoData);
       setSelecao(selecaoData);
       setProcesso(selecaoData.processos_compras);
+      setCriterioJulgamento(selecaoData.processos_compras?.criterio_julgamento || "");
 
       // Se fornecedor autenticado, verificar se já enviou proposta
       if (fornecedorId) {
@@ -471,6 +473,38 @@ const ParticiparSelecao = () => {
   }, []);
 
   const handleValorBlur = useCallback((itemId: string, value: string) => {
+    // Para critério desconto, processar como percentual
+    if (criterioJulgamento === "desconto") {
+      const numeros = value.replace(/\D/g, '');
+      
+      if (!numeros || numeros === '0' || numeros === '') {
+        setRespostas(prev => ({
+          ...prev,
+          [itemId]: { 
+            ...prev[itemId], 
+            valor_unitario_ofertado: 0, 
+            valor_display: '0,00%' 
+          }
+        }));
+        return;
+      }
+      
+      // Processar como decimal (ex: "50" = 0.50 = 50%)
+      const valorNumerico = parseInt(numeros) / 100;
+      const valorFormatado = (valorNumerico * 100).toFixed(2).replace('.', ',');
+      
+      setRespostas(prev => ({
+        ...prev,
+        [itemId]: { 
+          ...prev[itemId], 
+          valor_unitario_ofertado: valorNumerico, 
+          valor_display: `${valorFormatado}%` 
+        }
+      }));
+      return;
+    }
+    
+    // Para critério de valor monetário (código original)
     const numeros = value.replace(/\D/g, '');
     
     if (!numeros || numeros === '0' || numeros === '') {
@@ -496,7 +530,7 @@ const ParticiparSelecao = () => {
         valor_display: valorFormatado 
       }
     }));
-  }, [formatarMoeda]);
+  }, [formatarMoeda, criterioJulgamento]);
 
   const handleMarcaBlur = useCallback((itemId: string, marca: string) => {
     setRespostas(prev => ({
@@ -519,8 +553,11 @@ const ParticiparSelecao = () => {
     dadosImportados.forEach(dado => {
       const item = itens.find(i => i.numero_item === dado.numero_item);
       if (item) {
-        // Formatar o valor corretamente para exibição com R$
-        const valorFormatado = `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
+        // Para critério desconto, valor_unitario representa percentual (0.5 = 50%)
+        // Para outros critérios, representa valor monetário (500.00 = R$ 500,00)
+        const valorFormatado = criterioJulgamento === "desconto" 
+          ? `${(dado.valor_unitario * 100).toFixed(2).replace('.', ',')}%`
+          : `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
         
         novasRespostas[item.id] = {
           valor_unitario_ofertado: dado.valor_unitario,
@@ -540,7 +577,10 @@ const ParticiparSelecao = () => {
           // Buscar inputs por ID único
           const inputValor = document.getElementById(`input-valor-${item.id}`) as HTMLInputElement;
           if (inputValor) {
-            inputValor.value = `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
+            const valorFormatado = criterioJulgamento === "desconto"
+              ? `${(dado.valor_unitario * 100).toFixed(2).replace('.', ',')}%`
+              : `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
+            inputValor.value = valorFormatado;
           }
           
           const inputMarca = document.getElementById(`input-marca-${item.id}`) as HTMLInputElement;
@@ -1184,9 +1224,18 @@ const ParticiparSelecao = () => {
                       <TableHead>Qtd</TableHead>
                       <TableHead>Unid.</TableHead>
                       {processo?.tipo === "material" && <TableHead>Marca</TableHead>}
-                      <TableHead className="text-right">Vlr. Unit. Est.</TableHead>
-                      <TableHead className="text-right">Seu Valor Unit.</TableHead>
-                      <TableHead className="text-right">Vlr. Total</TableHead>
+                      {criterioJulgamento === "desconto" ? (
+                        <>
+                          <TableHead className="text-right">Desconto Estimado</TableHead>
+                          <TableHead className="text-right">Desconto Ofertado</TableHead>
+                        </>
+                      ) : (
+                        <>
+                          <TableHead className="text-right">Vlr. Unit. Est.</TableHead>
+                          <TableHead className="text-right">Seu Valor Unit.</TableHead>
+                          <TableHead className="text-right">Vlr. Total</TableHead>
+                        </>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1217,22 +1266,41 @@ const ParticiparSelecao = () => {
                                         onBlur={(e) => handleMarcaBlur(item.id, e.target.value)}
                                       />
                                     </TableCell>
-                                  )}
-                                  <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
-                                  <TableCell>
-                                    <Input
-                                      id={`input-valor-${item.id}`}
-                                      key={`valor-lote-${item.id}`}
-                                      type="text"
-                                      inputMode="decimal"
-                                      placeholder="R$ 0,00"
-                                      defaultValue={respostas[item.id]?.valor_display || "R$ 0,00"}
-                                      onBlur={(e) => handleValorBlur(item.id, e.target.value)}
-                                    />
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {formatCurrency((respostas[item.id]?.valor_unitario_ofertado || 0) * item.quantidade)}
-                                  </TableCell>
+                                   )}
+                                   {criterioJulgamento === "desconto" ? (
+                                     <>
+                                       <TableCell className="text-right">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
+                                       <TableCell>
+                                         <Input
+                                           id={`input-valor-${item.id}`}
+                                           key={`valor-lote-${item.id}`}
+                                           type="text"
+                                           inputMode="decimal"
+                                           placeholder="0,00%"
+                                           defaultValue={respostas[item.id]?.valor_display || "0,00%"}
+                                           onBlur={(e) => handleValorBlur(item.id, e.target.value)}
+                                         />
+                                       </TableCell>
+                                     </>
+                                   ) : (
+                                     <>
+                                       <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
+                                       <TableCell>
+                                         <Input
+                                           id={`input-valor-${item.id}`}
+                                           key={`valor-lote-${item.id}`}
+                                           type="text"
+                                           inputMode="decimal"
+                                           placeholder="R$ 0,00"
+                                           defaultValue={respostas[item.id]?.valor_display || "R$ 0,00"}
+                                           onBlur={(e) => handleValorBlur(item.id, e.target.value)}
+                                         />
+                                       </TableCell>
+                                       <TableCell className="text-right">
+                                         {formatCurrency((respostas[item.id]?.valor_unitario_ofertado || 0) * item.quantidade)}
+                                       </TableCell>
+                                     </>
+                                   )}
                                 </TableRow>
                               ))}
                             </React.Fragment>
@@ -1257,32 +1325,53 @@ const ParticiparSelecao = () => {
                                   onBlur={(e) => handleMarcaBlur(item.id, e.target.value)}
                                 />
                               </TableCell>
-                            )}
-                            <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
-                            <TableCell>
-                              <Input
-                                id={`input-valor-${item.id}`}
-                                key={`valor-item-${item.id}`}
-                                type="text"
-                                inputMode="decimal"
-                                placeholder="R$ 0,00"
-                                defaultValue={respostas[item.id]?.valor_display || "R$ 0,00"}
-                                onBlur={(e) => handleValorBlur(item.id, e.target.value)}
-                              />
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency((respostas[item.id]?.valor_unitario_ofertado || 0) * item.quantidade)}
-                            </TableCell>
+                             )}
+                             {criterioJulgamento === "desconto" ? (
+                               <>
+                                 <TableCell className="text-right">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
+                                 <TableCell>
+                                   <Input
+                                     id={`input-valor-${item.id}`}
+                                     key={`valor-item-${item.id}`}
+                                     type="text"
+                                     inputMode="decimal"
+                                     placeholder="0,00%"
+                                     defaultValue={respostas[item.id]?.valor_display || "0,00%"}
+                                     onBlur={(e) => handleValorBlur(item.id, e.target.value)}
+                                   />
+                                 </TableCell>
+                               </>
+                             ) : (
+                               <>
+                                 <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
+                                 <TableCell>
+                                   <Input
+                                     id={`input-valor-${item.id}`}
+                                     key={`valor-item-${item.id}`}
+                                     type="text"
+                                     inputMode="decimal"
+                                     placeholder="R$ 0,00"
+                                     defaultValue={respostas[item.id]?.valor_display || "R$ 0,00"}
+                                     onBlur={(e) => handleValorBlur(item.id, e.target.value)}
+                                   />
+                                 </TableCell>
+                                 <TableCell className="text-right">
+                                   {formatCurrency((respostas[item.id]?.valor_unitario_ofertado || 0) * item.quantidade)}
+                                 </TableCell>
+                               </>
+                             )}
                           </TableRow>
                         ))}
                       </>
-                    )}
-                    <TableRow className="bg-muted font-bold">
-                      <TableCell colSpan={processo?.tipo === "material" ? 7 : 6} className="text-right">
-                        VALOR TOTAL
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(calcularValorTotal())}</TableCell>
-                    </TableRow>
+                     )}
+                     {criterioJulgamento !== "desconto" && (
+                       <TableRow className="bg-muted font-bold">
+                         <TableCell colSpan={processo?.tipo === "material" ? 7 : 6} className="text-right">
+                           VALOR TOTAL
+                         </TableCell>
+                         <TableCell className="text-right">{formatCurrency(calcularValorTotal())}</TableCell>
+                       </TableRow>
+                     )}
                   </TableBody>
                 </Table>
                 
