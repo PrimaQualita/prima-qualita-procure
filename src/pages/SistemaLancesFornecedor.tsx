@@ -7,8 +7,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X, AlertCircle, Clock, FileX } from "lucide-react";
+import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X, AlertCircle, Clock, FileX, CheckCircle, XCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { ChatNegociacao } from "@/components/selecoes/ChatNegociacao";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -59,6 +67,15 @@ const SistemaLancesFornecedor = () => {
   const [enviandoRecurso, setEnviandoRecurso] = useState(false);
   const [tempoRestanteRecurso, setTempoRestanteRecurso] = useState<number | null>(null);
   
+  // Estados para intenção de recurso (janela de 5 minutos)
+  const [habilitacaoEncerrada, setHabilitacaoEncerrada] = useState(false);
+  const [dataEncerramentoHabilitacao, setDataEncerramentoHabilitacao] = useState<Date | null>(null);
+  const [minhaIntencaoRecurso, setMinhaIntencaoRecurso] = useState<any>(null);
+  const [tempoRestanteIntencao, setTempoRestanteIntencao] = useState<number | null>(null);
+  const [dialogIntencaoRecurso, setDialogIntencaoRecurso] = useState(false);
+  const [motivoIntencao, setMotivoIntencao] = useState("");
+  const [enviandoIntencao, setEnviandoIntencao] = useState(false);
+  
   // Estado para documentos rejeitados
   const [documentosRejeitados, setDocumentosRejeitados] = useState<any[]>([]);
   const [numeroProcesso, setNumeroProcesso] = useState<string>("");
@@ -95,6 +112,8 @@ const SistemaLancesFornecedor = () => {
       loadMensagensNaoLidas();
       loadMinhaInabilitacao();
       loadDocumentosRejeitados();
+      loadHabilitacaoStatus();
+      loadMinhaIntencaoRecurso();
 
       // Subscrição em tempo real para lances
       const channel = supabase
@@ -308,6 +327,124 @@ const SistemaLancesFornecedor = () => {
       setDocumentosRejeitados(data || []);
     } catch (error) {
       console.error("Erro ao carregar documentos rejeitados:", error);
+    }
+  };
+
+  // Carregar status de habilitação encerrada da seleção
+  const loadHabilitacaoStatus = async () => {
+    if (!selecao?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("selecoes_fornecedores")
+        .select("habilitacao_encerrada, data_encerramento_habilitacao")
+        .eq("id", selecao.id)
+        .single();
+
+      if (error) throw error;
+      
+      setHabilitacaoEncerrada(data?.habilitacao_encerrada || false);
+      if (data?.data_encerramento_habilitacao) {
+        setDataEncerramentoHabilitacao(new Date(data.data_encerramento_habilitacao));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar status de habilitação:", error);
+    }
+  };
+
+  // Carregar intenção de recurso do fornecedor
+  const loadMinhaIntencaoRecurso = async () => {
+    if (!selecao?.id || !proposta?.fornecedor_id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("intencoes_recurso_selecao")
+        .select("*")
+        .eq("selecao_id", selecao.id)
+        .eq("fornecedor_id", proposta.fornecedor_id)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      setMinhaIntencaoRecurso(data);
+    } catch (error) {
+      console.error("Erro ao carregar intenção de recurso:", error);
+    }
+  };
+
+  // Countdown para janela de 5 minutos de intenção de recurso
+  useEffect(() => {
+    if (!habilitacaoEncerrada || !dataEncerramentoHabilitacao || minhaIntencaoRecurso) {
+      setTempoRestanteIntencao(null);
+      return;
+    }
+
+    const calcularTempoRestante = () => {
+      // 5 minutos após o encerramento
+      const dataLimite = new Date(dataEncerramentoHabilitacao.getTime() + 5 * 60 * 1000).getTime();
+      const agora = Date.now();
+      const diferenca = dataLimite - agora;
+      
+      if (diferenca <= 0) {
+        setTempoRestanteIntencao(0);
+      } else {
+        setTempoRestanteIntencao(Math.floor(diferenca / 1000));
+      }
+    };
+
+    calcularTempoRestante();
+    const interval = setInterval(calcularTempoRestante, 1000);
+
+    return () => clearInterval(interval);
+  }, [habilitacaoEncerrada, dataEncerramentoHabilitacao, minhaIntencaoRecurso]);
+
+  // Registrar intenção de recurso (Sim ou Não)
+  const handleRegistrarIntencaoRecurso = async (desejaRecorrer: boolean, motivo?: string) => {
+    if (!selecao?.id || !proposta?.fornecedor_id) return;
+
+    setEnviandoIntencao(true);
+    try {
+      const { error } = await supabase
+        .from("intencoes_recurso_selecao")
+        .insert({
+          selecao_id: selecao.id,
+          fornecedor_id: proposta.fornecedor_id,
+          deseja_recorrer: desejaRecorrer,
+          motivo_intencao: motivo || null
+        });
+
+      if (error) throw error;
+
+      if (desejaRecorrer) {
+        toast.success("Intenção de recorrer registrada com sucesso!");
+        setDialogIntencaoRecurso(false);
+        setMotivoIntencao("");
+        
+        // Se fornecedor foi inabilitado, criar registro de recurso formal
+        if (minhaInabilitacao) {
+          const dataLimite = calcularProximoDiaUtil(new Date(), 1);
+          await supabase
+            .from("recursos_inabilitacao_selecao")
+            .insert({
+              inabilitacao_id: minhaInabilitacao.id,
+              selecao_id: selecao.id,
+              fornecedor_id: proposta.fornecedor_id,
+              motivo_recurso: "",
+              data_limite_fornecedor: dataLimite.toISOString(),
+              status_recurso: "aguardando_envio"
+            });
+          loadMinhaInabilitacao();
+        }
+      } else {
+        toast.info("Registrado que você não deseja recorrer.");
+      }
+      
+      loadMinhaIntencaoRecurso();
+    } catch (error) {
+      console.error("Erro ao registrar intenção de recurso:", error);
+      toast.error("Erro ao registrar intenção");
+    } finally {
+      setEnviandoIntencao(false);
     }
   };
   const calcularProximoDiaUtil = (dataBase: Date, diasUteis: number): Date => {
@@ -1260,8 +1397,62 @@ const SistemaLancesFornecedor = () => {
           </Button>
         </div>
 
-        {/* Alerta de Inabilitação com Recurso */}
-        {minhaInabilitacao && meuRecurso && (
+        {/* Aviso de Intenção de Recurso (5 minutos após encerramento da habilitação) - PARA TODOS OS FORNECEDORES */}
+        {habilitacaoEncerrada && !minhaIntencaoRecurso && tempoRestanteIntencao !== null && tempoRestanteIntencao > 0 && (
+          <Card className="border-amber-500/50 bg-amber-500/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-amber-700">
+                <AlertCircle className="h-5 w-5" />
+                Habilitação Encerrada - Deseja Recorrer?
+              </CardTitle>
+              <CardDescription className="text-amber-600">
+                A fase de habilitação foi encerrada. Você tem {formatarTempoRestante(tempoRestanteIntencao)} para manifestar se deseja ou não recorrer.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded-lg">
+                <Clock className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  Tempo restante para manifestar intenção: {formatarTempoRestante(tempoRestanteIntencao)}
+                </span>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button 
+                  onClick={() => setDialogIntencaoRecurso(true)}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700"
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Sim, desejo recorrer
+                </Button>
+                <Button 
+                  onClick={() => handleRegistrarIntencaoRecurso(false)}
+                  variant="outline"
+                  className="flex-1 border-amber-300"
+                  disabled={enviandoIntencao}
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Não desejo recorrer
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Aviso quando intenção já foi registrada (não quis recorrer) */}
+        {minhaIntencaoRecurso && !minhaIntencaoRecurso.deseja_recorrer && (
+          <Card className="border-muted bg-muted/30">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <XCircle className="h-5 w-5" />
+                <span className="text-sm">Você optou por não recorrer da habilitação.</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Alerta de Inabilitação com Recurso - Apenas para inabilitados que manifestaram intenção */}
+        {minhaInabilitacao && minhaIntencaoRecurso?.deseja_recorrer && meuRecurso && (
           <Card className="border-red-500/50 bg-red-500/10">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-red-700">
@@ -1372,6 +1563,48 @@ const SistemaLancesFornecedor = () => {
             </span>
           </div>
         )}
+
+        {/* Dialog de Intenção de Recurso (para informar motivo) */}
+        <Dialog open={dialogIntencaoRecurso} onOpenChange={setDialogIntencaoRecurso}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Manifestar Intenção de Recorrer</DialogTitle>
+              <DialogDescription>
+                Por favor, informe o motivo pelo qual você deseja recorrer da decisão de habilitação.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="motivoIntencao">Motivo da Intenção de Recurso *</Label>
+                <Textarea
+                  id="motivoIntencao"
+                  placeholder="Descreva brevemente o motivo da sua intenção de recorrer..."
+                  value={motivoIntencao}
+                  onChange={(e) => setMotivoIntencao(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setDialogIntencaoRecurso(false);
+                  setMotivoIntencao("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={() => handleRegistrarIntencaoRecurso(true, motivoIntencao)}
+                disabled={enviandoIntencao || !motivoIntencao.trim()}
+              >
+                {enviandoIntencao ? "Registrando..." : "Registrar Intenção"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Informações da Seleção */}
         <Card>
