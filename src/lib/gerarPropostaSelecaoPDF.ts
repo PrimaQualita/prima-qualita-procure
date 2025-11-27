@@ -376,8 +376,9 @@ export async function gerarPropostaSelecaoPDF(
       // Valores conforme critério
       if (isDesconto) {
         // Exibir apenas % de desconto alinhado à direita (SEM multiplicar por 100)
-        const descontoFormatado = formatarMoeda(item.valor_unitario_ofertado);
-        const descontoTexto = `${descontoFormatado}%`;
+        const descontoTexto = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0
+          ? `${formatarMoeda(item.valor_unitario_ofertado)}%`
+          : '-';
         const valorUnitRight = margemEsquerda + larguraUtil - 2;
         doc.text(descontoTexto, valorUnitRight, yVerticalCenter, { align: 'right' });
       } else {
