@@ -337,29 +337,18 @@ export function DialogAnaliseDocumentalSelecao({
         });
       }
 
-      console.log(`📊 [ANÁLISE DOC] Buscando vencedores com indicativo_lance_vencedor=true...`);
+      console.log(`📊 [ANÁLISE DOC] Buscando vencedores DINAMICAMENTE (sem usar indicativo_lance_vencedor)...`);
+      console.log(`🎯 [ANÁLISE DOC] Critério de julgamento:`, selecaoData?.criterios_julgamento);
       
-      // Buscar TODOS os lances primeiro para debug
-      const { data: todosLances } = await supabase
-        .from("lances_fornecedores")
-        .select("numero_item, indicativo_lance_vencedor, valor_lance, tipo_lance, fornecedor_id")
-        .eq("selecao_id", selecaoId);
-      
-      console.log(`🔍 [ANÁLISE DOC] TODOS OS LANCES (${todosLances?.length || 0}):`, todosLances);
-      
-      // Contar quantos têm indicativo_lance_vencedor = true
-      const lancesVencedores = todosLances?.filter(l => l.indicativo_lance_vencedor) || [];
-      console.log(`🏆 [ANÁLISE DOC] Lances com indicativo=true (${lancesVencedores.length}):`, lancesVencedores);
-
-      // Buscar vencedores por item com join
-      const { data: vencedoresData, error: vencedoresError } = await supabase
+      // Buscar TODOS os lances com fornecedores
+      const { data: todosLancesData, error: todosLancesError } = await supabase
         .from("lances_fornecedores")
         .select(`
           numero_item,
           valor_lance,
           fornecedor_id,
           tipo_lance,
-          indicativo_lance_vencedor,
+          data_hora_lance,
           fornecedores (
             id,
             razao_social,
@@ -367,15 +356,64 @@ export function DialogAnaliseDocumentalSelecao({
             email
           )
         `)
-        .eq("selecao_id", selecaoId)
-        .eq("indicativo_lance_vencedor", true);
+        .eq("selecao_id", selecaoId);
       
-      console.log(`✅ [ANÁLISE DOC] Query de vencedores retornou ${vencedoresData?.length || 0} registros:`, vencedoresData);
-
-      if (vencedoresError) {
-        console.error("❌ [ANÁLISE DOC] Erro ao buscar vencedores:", vencedoresError);
-        throw vencedoresError;
+      if (todosLancesError) {
+        console.error("❌ [ANÁLISE DOC] Erro ao buscar lances:", todosLancesError);
+        throw todosLancesError;
       }
+      
+      console.log(`🔍 [ANÁLISE DOC] Total de lances encontrados:`, todosLancesData?.length || 0);
+      
+      // Agrupar lances por item
+      const lancePorItem = new Map<number, any[]>();
+      (todosLancesData || []).forEach((lance: any) => {
+        const item = lance.numero_item;
+        if (!lancePorItem.has(item)) {
+          lancePorItem.set(item, []);
+        }
+        lancePorItem.get(item)!.push(lance);
+      });
+      
+      // Para cada item, ordenar e pegar o vencedor
+      const vencedoresData: any[] = [];
+      const isDesconto = selecaoData?.criterios_julgamento === 'desconto';
+      
+      console.log(`🎯 [ANÁLISE DOC] Critério é desconto?`, isDesconto);
+      
+      lancePorItem.forEach((lances, numeroItem) => {
+        console.log(`📊 [ANÁLISE DOC] Processando item ${numeroItem} com ${lances.length} lances`);
+        
+        // Ordenar: DESCRESCENTE para desconto (maior primeiro), ASCENDENTE para preço (menor primeiro)
+        const lancesOrdenados = [...lances].sort((a, b) => {
+          if (isDesconto) {
+            // Para desconto: maior é melhor
+            return b.valor_lance - a.valor_lance;
+          } else {
+            // Para preço: menor é melhor
+            return a.valor_lance - b.valor_lance;
+          }
+        });
+        
+        // Priorizar lances de negociação
+        const temNegociacao = lancesOrdenados.some(l => l.tipo_lance === 'negociacao');
+        
+        let vencedor;
+        if (temNegociacao) {
+          // Se tem negociação, pegar o melhor lance de negociação
+          const lancesNegociacao = lancesOrdenados.filter(l => l.tipo_lance === 'negociacao');
+          vencedor = lancesNegociacao[0];
+          console.log(`🤝 [ANÁLISE DOC] Item ${numeroItem}: Vencedor por NEGOCIAÇÃO -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
+        } else {
+          // Senão, pegar o primeiro da lista ordenada
+          vencedor = lancesOrdenados[0];
+          console.log(`🏆 [ANÁLISE DOC] Item ${numeroItem}: Vencedor por LANCE -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
+        }
+        
+        vencedoresData.push(vencedor);
+      });
+      
+      console.log(`✅ [ANÁLISE DOC] Vencedores dinâmicos identificados:`, vencedoresData.length);
 
       // Buscar inabilitações ativas
       const { data: inabilitacoes, error: inabilitacoesError } = await supabase
