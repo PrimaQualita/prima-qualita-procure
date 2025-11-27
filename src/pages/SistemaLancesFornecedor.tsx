@@ -2081,12 +2081,12 @@ const SistemaLancesFornecedor = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-20 text-center">Item</TableHead>
+                    <TableHead className="w-16 text-center">Item</TableHead>
                     <TableHead className="text-center min-w-[250px] max-w-md">Descrição</TableHead>
                     <TableHead className="w-24 text-center">Qtd</TableHead>
-                    <TableHead className="w-28 text-center">Unid</TableHead>
-                    <TableHead className="w-48 text-center">Marca</TableHead>
-                    <TableHead className="w-36 text-center">
+                    <TableHead className="w-24 text-center">Unid</TableHead>
+                    <TableHead className="w-40 text-center">Marca</TableHead>
+                    <TableHead className="w-32 text-center">
                       {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "% Desconto" : "Valor Unitário"}
                     </TableHead>
                     {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
