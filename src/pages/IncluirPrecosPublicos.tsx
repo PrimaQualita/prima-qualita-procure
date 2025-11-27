@@ -337,24 +337,28 @@ const IncluirPrecosPublicos = () => {
       const valorTotal = calcularValorTotal();
 
       // Criar novo fornecedor para cada proposta de preços públicos com CNPJ sequencial
-      // Buscar o maior CNPJ existente do padrão (00000000000000, 11111111111111, etc.)
-      const { data: fornecedoresExistentes } = await supabase
+      // Buscar todos os fornecedores para identificar CNPJs do padrão de repetição
+      const { data: todosFornecedores } = await supabase
         .from("fornecedores")
-        .select("cnpj")
-        .like("cnpj", "______________")
-        .order("cnpj", { ascending: false })
-        .limit(1);
+        .select("cnpj");
 
-      let proximoDigito = 0;
-      if (fornecedoresExistentes && fornecedoresExistentes.length > 0) {
-        const ultimoCnpj = fornecedoresExistentes[0].cnpj;
-        // Pegar o primeiro dígito do CNPJ para determinar o próximo
-        const primeiroDigito = parseInt(ultimoCnpj[0]);
-        if (!isNaN(primeiroDigito) && ultimoCnpj === primeiroDigito.toString().repeat(14)) {
-          proximoDigito = primeiroDigito + 1;
+      // Identificar CNPJs que seguem o padrão de repetição (00000000000000, 11111111111111, etc.)
+      let maiorDigito = -1;
+      if (todosFornecedores) {
+        for (const f of todosFornecedores) {
+          const cnpj = f.cnpj;
+          // Verifica se o CNPJ tem 14 dígitos e se todos os dígitos são iguais
+          if (cnpj.length === 14 && /^(\d)\1{13}$/.test(cnpj)) {
+            const digito = parseInt(cnpj[0]);
+            if (digito > maiorDigito) {
+              maiorDigito = digito;
+            }
+          }
         }
       }
 
+      // Próximo dígito será o maior encontrado + 1 (ou 0 se nenhum foi encontrado)
+      const proximoDigito = maiorDigito + 1;
       const cnpjPrecosPublicos = proximoDigito.toString().repeat(14);
       let fornecedorId: string;
 
