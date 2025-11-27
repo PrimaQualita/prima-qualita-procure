@@ -754,6 +754,21 @@ const ParticiparSelecao = () => {
         console.log("✅ Validação global OK - todos os itens preenchidos");
       }
 
+      // VALIDAÇÃO OBRIGATÓRIA DE MARCA: Para qualquer item que tenha valor preenchido, a marca é obrigatória
+      const itensSemMarca = itens.filter(item => {
+        const resposta = respostas[item.id];
+        const temValor = resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
+        const temMarca = resposta?.marca_ofertada && resposta.marca_ofertada.trim() !== '';
+        return temValor && !temMarca;
+      });
+
+      if (itensSemMarca.length > 0) {
+        const numerosItens = itensSemMarca.map(item => item.numero_item).join(', ');
+        toast.error(`Preencha a marca para os itens com valor ofertado: ${numerosItens}`);
+        setSubmitting(false);
+        return;
+      }
+
       const valorTotal = calcularValorTotal();
       const enderecoCompleto = fornecedor?.endereco_comercial || 
         `${dadosEmpresa.logradouro}, Nº ${dadosEmpresa.numero}, ${dadosEmpresa.bairro}, ${dadosEmpresa.municipio}/${dadosEmpresa.uf}, CEP: ${dadosEmpresa.cep}`;
