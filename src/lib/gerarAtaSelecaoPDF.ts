@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
-import logoImg from '@/assets/capa-processo-logo.png';
+import logoImg from '@/assets/prima-qualita-logo-horizontal.png';
 import rodapeImg from '@/assets/capa-processo-rodape.png';
 
 interface EmpresaParticipante {
@@ -20,6 +20,14 @@ interface ItemVencedor {
   valor_final: number;
 }
 
+interface MensagemChat {
+  created_at: string;
+  mensagem: string;
+  tipo_usuario: string;
+  fornecedor_nome: string | null;
+  usuario_nome: string | null;
+}
+
 interface MensagemNegociacao {
   created_at: string;
   mensagem: string;
@@ -34,6 +42,23 @@ interface FornecedorInabilitado {
   itens_afetados: number[];
   motivo_inabilitacao: string;
   data_inabilitacao: string;
+}
+
+interface IntencaoRecurso {
+  razao_social: string;
+  cnpj: string;
+  deseja_recorrer: boolean;
+  motivo_intencao: string | null;
+  data_intencao: string;
+}
+
+interface RecursoInabilitacao {
+  razao_social: string;
+  cnpj: string;
+  motivo_recurso: string;
+  status_recurso: string;
+  resposta_gestor: string | null;
+  tipo_provimento: string | null;
 }
 
 const formatarProtocoloExibicao = (uuid: string): string => {
@@ -83,6 +108,17 @@ const formatarDataHora = (dataStr: string): string => {
   });
 };
 
+const formatarDataHoraCurta = (dataStr: string): string => {
+  const data = new Date(dataStr);
+  return data.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 // Função para desenhar texto justificado com espaçamento 1.25
 const drawJustifiedText = (doc: jsPDF, text: string, x: number, y: number, maxWidth: number, lineHeight: number = 6.25): number => {
   const lines = doc.splitTextToSize(text, maxWidth);
@@ -93,10 +129,8 @@ const drawJustifiedText = (doc: jsPDF, text: string, x: number, y: number, maxWi
     const words = line.trim().split(/\s+/);
     
     if (isLastLine || words.length <= 1) {
-      // Última linha ou linha com uma palavra: alinhada à esquerda
       doc.text(line, x, currentY);
     } else {
-      // Justificar: distribuir espaço entre palavras
       const lineWidth = doc.getTextWidth(line.trim());
       const totalSpaceNeeded = maxWidth - lineWidth + (words.length - 1) * doc.getTextWidth(' ');
       const spaceWidth = totalSpaceNeeded / (words.length - 1);
@@ -231,7 +265,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       descricao: itensDescricoes[lance.numero_item || 0] || `Item ${lance.numero_item}`,
       fornecedor_id: lance.fornecedor_id,
       fornecedor_nome: (lance.fornecedores as any)?.razao_social || '',
-      valor_final: valorTotal // Agora é o valor TOTAL (unitário × quantidade)
+      valor_final: valorTotal
     };
   });
 
@@ -293,7 +327,96 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     data_inabilitacao: inab.data_inabilitacao
   }));
 
-  // Buscar data/hora de início (primeiro item aberto ou primeira mensagem)
+  // Buscar intenções de recurso
+  const { data: intencoes } = await supabase
+    .from('intencoes_recurso_selecao')
+    .select(`
+      deseja_recorrer,
+      motivo_intencao,
+      data_intencao,
+      fornecedores (
+        razao_social,
+        cnpj
+      )
+    `)
+    .eq('selecao_id', selecaoId)
+    .order('data_intencao', { ascending: true });
+
+  const intencoesRecurso: IntencaoRecurso[] = (intencoes || []).map((i: any) => ({
+    razao_social: i.fornecedores?.razao_social || '',
+    cnpj: i.fornecedores?.cnpj || '',
+    deseja_recorrer: i.deseja_recorrer,
+    motivo_intencao: i.motivo_intencao,
+    data_intencao: i.data_intencao
+  }));
+
+  // Buscar recursos de inabilitação e seus resultados
+  const { data: recursos } = await supabase
+    .from('recursos_inabilitacao_selecao')
+    .select(`
+      motivo_recurso,
+      status_recurso,
+      resposta_gestor,
+      tipo_provimento,
+      fornecedores (
+        razao_social,
+        cnpj
+      )
+    `)
+    .eq('selecao_id', selecaoId)
+    .order('created_at', { ascending: true });
+
+  const recursosInabilitacao: RecursoInabilitacao[] = (recursos || []).map((r: any) => ({
+    razao_social: r.fornecedores?.razao_social || '',
+    cnpj: r.fornecedores?.cnpj || '',
+    motivo_recurso: r.motivo_recurso,
+    status_recurso: r.status_recurso,
+    resposta_gestor: r.resposta_gestor,
+    tipo_provimento: r.tipo_provimento
+  }));
+
+  // Buscar mensagens do chat da seleção
+  const { data: chatMensagens } = await supabase
+    .from('mensagens_selecao')
+    .select(`
+      created_at,
+      mensagem,
+      tipo_usuario,
+      fornecedor_id,
+      usuario_id,
+      fornecedores (
+        razao_social
+      )
+    `)
+    .eq('selecao_id', selecaoId)
+    .order('created_at', { ascending: true });
+
+  // Buscar nomes de usuários para o chat
+  let usuariosMap: Record<string, string> = {};
+  if (chatMensagens) {
+    const usuarioIds = chatMensagens.filter(m => m.usuario_id).map(m => m.usuario_id!);
+    if (usuarioIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, nome_completo')
+        .in('id', usuarioIds);
+      if (profiles) {
+        profiles.forEach(p => {
+          usuariosMap[p.id] = p.nome_completo;
+        });
+      }
+    }
+  }
+
+  const mensagensChat: MensagemChat[] = (chatMensagens || []).map(m => ({
+    created_at: m.created_at,
+    mensagem: m.mensagem,
+    tipo_usuario: m.tipo_usuario,
+    fornecedor_nome: (m.fornecedores as any)?.razao_social || null,
+    usuario_nome: m.usuario_id ? usuariosMap[m.usuario_id] || 'Gestor' : null
+  }));
+
+  // Buscar data/hora de início
   const { data: primeiroItem } = await supabase
     .from('itens_abertos_lances')
     .select('data_abertura')
@@ -326,6 +449,9 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
+  
+  // Margens de 1.5mm convertido para pontos (1mm = 2.83465pt, então 1.5mm ≈ 4.25pt)
+  const sideMargin = 1.5 * 2.83465; // ~4.25pt = 1.5mm
   const marginLeft = 15;
   const marginRight = 15;
   const contentWidth = pageWidth - marginLeft - marginRight;
@@ -334,22 +460,22 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const protocoloFormatado = formatarProtocoloExibicao(protocolo);
   const dataHoraGeracao = new Date();
 
-  // Dimensões do logo e rodapé
-  const logoHeight = 25;
-  const rodapeHeight = 20;
-  const contentStartY = logoHeight + 10;
-  const contentEndY = pageHeight - rodapeHeight - 10;
+  // Dimensões do logo e rodapé - expandido com margem de 1.5mm
+  const logoHeight = 22;
+  const rodapeHeight = 18;
+  const contentStartY = logoHeight + 8;
+  const contentEndY = pageHeight - rodapeHeight - 8;
   
   let currentY = contentStartY;
 
-  // Função para adicionar logo
+  // Função para adicionar logo com margem de 1.5mm
   const addLogo = () => {
-    doc.addImage(logoBase64, 'PNG', 0, 0, pageWidth, logoHeight);
+    doc.addImage(logoBase64, 'PNG', sideMargin, sideMargin, pageWidth - (sideMargin * 2), logoHeight);
   };
 
-  // Função para adicionar rodapé
+  // Função para adicionar rodapé com margem de 1.5mm
   const addRodape = () => {
-    doc.addImage(rodapeBase64, 'PNG', 0, pageHeight - rodapeHeight, pageWidth, rodapeHeight);
+    doc.addImage(rodapeBase64, 'PNG', sideMargin, pageHeight - rodapeHeight - sideMargin, pageWidth - (sideMargin * 2), rodapeHeight);
   };
 
   // Função para verificar e adicionar nova página
@@ -370,18 +496,20 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // Espaçamento padrão entre seções
   const espacoEntreSecoes = 8;
   const espacoAposTitulo = 6.25;
+  let secaoNumero = 1;
 
-  // 1 - TÍTULO
+  // ============= 1 - TÍTULO =============
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
   doc.text(`ATA DA SESSÃO PÚBLICA DA SELEÇÃO DE FORNECEDORES Nº ${selecao.numero_selecao || '---'}`, pageWidth / 2, currentY, { align: "center" });
   currentY += 10;
 
-  // 2 - OBJETO
+  // ============= 2 - OBJETO =============
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("1. OBJETO", marginLeft, currentY);
+  doc.text(`${secaoNumero}. OBJETO`, marginLeft, currentY);
+  secaoNumero++;
   currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
@@ -390,11 +518,12 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   currentY = drawJustifiedText(doc, objetoTexto, marginLeft, currentY, contentWidth, 6.25);
   currentY += espacoEntreSecoes;
 
-  // 3 - PREÂMBULO DE ABERTURA
+  // ============= 3 - PREÂMBULO DE ABERTURA =============
   checkNewPage(15);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("2. PREÂMBULO DE ABERTURA", marginLeft, currentY);
+  doc.text(`${secaoNumero}. PREÂMBULO DE ABERTURA`, marginLeft, currentY);
+  secaoNumero++;
   currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
@@ -405,11 +534,12 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   currentY = drawJustifiedText(doc, preambulo, marginLeft, currentY, contentWidth, 6.25);
   currentY += espacoEntreSecoes;
 
-  // 4 - EMPRESAS PARTICIPANTES
+  // ============= 4 - EMPRESAS PARTICIPANTES =============
   checkNewPage(15);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("3. EMPRESAS PARTICIPANTES", marginLeft, currentY);
+  doc.text(`${secaoNumero}. EMPRESAS PARTICIPANTES`, marginLeft, currentY);
+  secaoNumero++;
   currentY += espacoAposTitulo;
 
   if (empresasParticipantes.length > 0) {
@@ -425,7 +555,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       body: tabelaEmpresas,
       theme: 'grid',
       headStyles: { 
-        fillColor: [0, 128, 128], // Verde do logo (teal)
+        fillColor: [0, 128, 128],
         fontSize: 9,
         halign: 'center',
         valign: 'middle',
@@ -437,13 +567,13 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         textColor: [0, 0, 0]
       },
       alternateRowStyles: {
-        fillColor: [224, 242, 241] // Verde claro do logo
+        fillColor: [224, 242, 241]
       },
       margin: { left: marginLeft, right: marginRight },
       tableWidth: contentWidth,
       columnStyles: {
         0: { halign: 'left', cellWidth: 'auto' },
-        1: { halign: 'center', cellWidth: 'auto' },
+        1: { halign: 'center', cellWidth: 50 },
         2: { halign: 'center', cellWidth: 'auto' }
       },
       didDrawPage: () => {
@@ -460,64 +590,12 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     currentY += espacoEntreSecoes;
   }
 
-  // 5 - HABILITADOS
+  // ============= 5 - VENCEDORES NOS LANCES (antes da habilitação) =============
   checkNewPage(10);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("4. HABILITADOS", marginLeft, currentY);
-  currentY += espacoAposTitulo;
-
-  // Fornecedores participantes que não foram inabilitados
-  const fornecedoresInabilitadosIds = fornecedoresInabilitados.map(f => f.cnpj);
-  const fornecedoresHabilitados = empresasParticipantes.filter(e => 
-    !fornecedoresInabilitadosIds.includes(e.cnpj)
-  );
-
-  if (fornecedoresHabilitados.length > 0) {
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Foram habilitadas as seguintes empresas:", marginLeft, currentY);
-    currentY += 6.25;
-    
-    fornecedoresHabilitados.forEach(f => {
-      checkNewPage(6.25);
-      doc.text(`• ${f.razao_social}`, marginLeft, currentY);
-      currentY += 6.25;
-    });
-  } else {
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY);
-    currentY += 6.25;
-  }
-  currentY += espacoEntreSecoes;
-
-  // 6 - INABILITADOS (apenas se houver)
-  if (fornecedoresInabilitados.length > 0) {
-    checkNewPage(10);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("5. INABILITADOS", marginLeft, currentY);
-    currentY += espacoAposTitulo;
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-
-    fornecedoresInabilitados.forEach(inab => {
-      checkNewPage(10);
-      const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
-      const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA nos itens: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
-      currentY = drawJustifiedText(doc, textoInab, marginLeft, currentY, contentWidth, 6.25);
-    });
-    currentY += espacoEntreSecoes;
-  }
-
-  // 7 - VENCEDOR(ES)
-  checkNewPage(10);
-  const secaoVencedor = fornecedoresInabilitados.length > 0 ? "6" : "5";
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${secaoVencedor}. VENCEDOR(ES)`, marginLeft, currentY);
+  doc.text(`${secaoNumero}. VENCEDORES NOS LANCES`, marginLeft, currentY);
+  secaoNumero++;
   currentY += espacoAposTitulo;
 
   if (itensVencedores.length > 0) {
@@ -535,29 +613,203 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       vencedoresPorFornecedor[item.fornecedor_id].valorTotal += item.valor_final;
     });
 
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
+    const tabelaVencedoresLances = Object.values(vencedoresPorFornecedor).map(f => [
+      f.nome,
+      f.itens.sort((a, b) => a - b).join(', '),
+      formatarMoeda(f.valorTotal)
+    ]);
 
-    Object.values(vencedoresPorFornecedor).forEach(fornecedor => {
-      checkNewPage(6);
-      const itensStr = fornecedor.itens.sort((a, b) => a - b).join(', ');
-      const textoVencedor = `• ${fornecedor.nome} - Itens: ${itensStr} - Valor Total: ${formatarMoeda(fornecedor.valorTotal)}.`;
-      currentY = drawJustifiedText(doc, textoVencedor, marginLeft, currentY, contentWidth - 5, 6.25);
+    autoTable(doc, {
+      startY: currentY,
+      head: [['FORNECEDOR', 'ITENS', 'VALOR TOTAL']],
+      body: tabelaVencedoresLances,
+      theme: 'grid',
+      headStyles: { 
+        fillColor: [0, 128, 128],
+        fontSize: 9,
+        halign: 'center',
+        valign: 'middle',
+        textColor: [255, 255, 255]
+      },
+      bodyStyles: { 
+        fontSize: 8,
+        valign: 'middle',
+        textColor: [0, 0, 0]
+      },
+      alternateRowStyles: {
+        fillColor: [224, 242, 241]
+      },
+      margin: { left: marginLeft, right: marginRight },
+      tableWidth: contentWidth,
+      columnStyles: {
+        0: { halign: 'left', cellWidth: 'auto' },
+        1: { halign: 'center', cellWidth: 50 },
+        2: { halign: 'right', cellWidth: 40 }
+      },
+      didDrawPage: () => {
+        addLogo();
+        addRodape();
+      }
     });
+
+    currentY = (doc as any).lastAutoTable.finalY + espacoEntreSecoes;
   } else {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("Nenhum vencedor foi declarado até o momento.", marginLeft, currentY);
+    doc.text("Nenhum lance vencedor foi registrado até o momento.", marginLeft, currentY);
+    currentY += 6.25 + espacoEntreSecoes;
+  }
+
+  // ============= 6 - HABILITAÇÃO =============
+  checkNewPage(10);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${secaoNumero}. HABILITAÇÃO`, marginLeft, currentY);
+  secaoNumero++;
+  currentY += espacoAposTitulo;
+
+  // 6.1 - HABILITADOS
+  const fornecedoresInabilitadosIds = fornecedoresInabilitados.map(f => f.cnpj);
+  const fornecedoresHabilitados = empresasParticipantes.filter(e => 
+    !fornecedoresInabilitadosIds.includes(e.cnpj)
+  );
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${secaoNumero - 1}.1 HABILITADOS`, marginLeft, currentY);
+  currentY += 5;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+
+  if (fornecedoresHabilitados.length > 0) {
+    doc.text("Foram habilitadas as seguintes empresas:", marginLeft, currentY);
     currentY += 6.25;
+    
+    fornecedoresHabilitados.forEach(f => {
+      checkNewPage(6.25);
+      doc.text(`• ${f.razao_social}`, marginLeft + 5, currentY);
+      currentY += 5;
+    });
+  } else {
+    doc.text("Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY);
+    currentY += 6.25;
+  }
+  currentY += 4;
+
+  // 6.2 - INABILITADOS (apenas se houver)
+  if (fornecedoresInabilitados.length > 0) {
+    checkNewPage(10);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero - 1}.2 INABILITADOS`, marginLeft, currentY);
+    currentY += 5;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+
+    fornecedoresInabilitados.forEach(inab => {
+      checkNewPage(10);
+      const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
+      const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA nos itens: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
+      currentY = drawJustifiedText(doc, textoInab, marginLeft, currentY, contentWidth, 6.25);
+    });
   }
   currentY += espacoEntreSecoes;
 
-  // 8 - NEGOCIAÇÕES
+  // ============= 7 - VENCEDOR(ES) APÓS HABILITAÇÃO =============
   checkNewPage(10);
-  const secaoNegociacao = fornecedoresInabilitados.length > 0 ? "7" : "6";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(`${secaoNegociacao}. NEGOCIAÇÕES`, marginLeft, currentY);
+  doc.text(`${secaoNumero}. VENCEDOR(ES)`, marginLeft, currentY);
+  secaoNumero++;
+  currentY += espacoAposTitulo;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("Após a análise de habilitação, foram declarados vencedores:", marginLeft, currentY);
+  currentY += 6.25;
+
+  if (itensVencedores.length > 0) {
+    // Agrupar por fornecedor (considerando apenas habilitados)
+    const vencedoresFinal: Record<string, { nome: string; itens: number[]; valorTotal: number }> = {};
+    
+    itensVencedores.forEach(item => {
+      // Verificar se o fornecedor não está inabilitado neste item
+      const fornecedorInab = fornecedoresInabilitados.find(f => {
+        const empresa = empresasParticipantes.find(e => e.fornecedor_id === item.fornecedor_id);
+        return empresa && f.cnpj === empresa.cnpj && f.itens_afetados.includes(item.numero_item);
+      });
+      
+      if (!fornecedorInab) {
+        if (!vencedoresFinal[item.fornecedor_id]) {
+          vencedoresFinal[item.fornecedor_id] = {
+            nome: item.fornecedor_nome,
+            itens: [],
+            valorTotal: 0
+          };
+        }
+        vencedoresFinal[item.fornecedor_id].itens.push(item.numero_item);
+        vencedoresFinal[item.fornecedor_id].valorTotal += item.valor_final;
+      }
+    });
+
+    if (Object.keys(vencedoresFinal).length > 0) {
+      const tabelaVencedores = Object.values(vencedoresFinal).map(f => [
+        f.nome,
+        f.itens.sort((a, b) => a - b).join(', '),
+        formatarMoeda(f.valorTotal)
+      ]);
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [['FORNECEDOR', 'ITENS', 'VALOR TOTAL']],
+        body: tabelaVencedores,
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [0, 128, 128],
+          fontSize: 9,
+          halign: 'center',
+          valign: 'middle',
+          textColor: [255, 255, 255]
+        },
+        bodyStyles: { 
+          fontSize: 8,
+          valign: 'middle',
+          textColor: [0, 0, 0]
+        },
+        alternateRowStyles: {
+          fillColor: [224, 242, 241]
+        },
+        margin: { left: marginLeft, right: marginRight },
+        tableWidth: contentWidth,
+        columnStyles: {
+          0: { halign: 'left', cellWidth: 'auto' },
+          1: { halign: 'center', cellWidth: 50 },
+          2: { halign: 'right', cellWidth: 40 }
+        },
+        didDrawPage: () => {
+          addLogo();
+          addRodape();
+        }
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + espacoEntreSecoes;
+    } else {
+      doc.text("Nenhum vencedor foi declarado após análise de habilitação.", marginLeft, currentY);
+      currentY += 6.25 + espacoEntreSecoes;
+    }
+  } else {
+    doc.text("Nenhum vencedor foi declarado até o momento.", marginLeft, currentY);
+    currentY += 6.25 + espacoEntreSecoes;
+  }
+
+  // ============= 8 - NEGOCIAÇÕES =============
+  checkNewPage(10);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${secaoNumero}. NEGOCIAÇÕES`, marginLeft, currentY);
+  secaoNumero++;
   currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
@@ -573,28 +825,203 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   }
   currentY += espacoEntreSecoes;
 
-  // 9 - INTENÇÃO DE RECURSOS
+  // ============= 9 - INTENÇÃO DE RECURSOS =============
   checkNewPage(10);
-  const secaoRecursos = fornecedoresInabilitados.length > 0 ? "8" : "7";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(`${secaoRecursos}. INTENÇÃO DE RECURSOS`, marginLeft, currentY);
+  doc.text(`${secaoNumero}. INTENÇÃO DE RECURSOS`, marginLeft, currentY);
+  secaoNumero++;
   currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   
-  // Texto padrão sobre intenção de recursos (por enquanto sem dados de recursos)
-  const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento de cada fase do certame, nenhuma empresa manifestou intenção de interpor recurso.`;
-  currentY = drawJustifiedText(doc, textoRecursos, marginLeft, currentY, contentWidth, 6.25);
+  const empresasQueRecorreram = intencoesRecurso.filter(i => i.deseja_recorrer);
+  const empresasQueNaoRecorreram = intencoesRecurso.filter(i => !i.deseja_recorrer);
+
+  if (intencoesRecurso.length === 0) {
+    const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento de cada fase do certame, nenhuma empresa manifestou intenção de interpor recurso.`;
+    currentY = drawJustifiedText(doc, textoRecursos, marginLeft, currentY, contentWidth, 6.25);
+  } else {
+    const textoAbertura = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos após o encerramento, as empresas se manifestaram da seguinte forma:`;
+    currentY = drawJustifiedText(doc, textoAbertura, marginLeft, currentY, contentWidth, 6.25);
+    currentY += 4;
+
+    // Empresas que desejam recorrer
+    if (empresasQueRecorreram.length > 0) {
+      checkNewPage(15);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(220, 120, 0); // Laranja
+      doc.text("Deseja Recorrer:", marginLeft, currentY);
+      currentY += 5;
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+
+      empresasQueRecorreram.forEach(e => {
+        checkNewPage(15);
+        doc.setFont("helvetica", "bold");
+        doc.text(`• ${e.razao_social}`, marginLeft + 5, currentY);
+        currentY += 5;
+        doc.setFont("helvetica", "normal");
+        doc.text(`  CNPJ: ${formatarCNPJ(e.cnpj)}`, marginLeft + 5, currentY);
+        currentY += 4;
+        doc.text(`  Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`, marginLeft + 5, currentY);
+        currentY += 4;
+        if (e.motivo_intencao) {
+          doc.text(`  Motivo:`, marginLeft + 5, currentY);
+          currentY += 4;
+          const motivoLines = doc.splitTextToSize(e.motivo_intencao, contentWidth - 15);
+          motivoLines.forEach((line: string) => {
+            checkNewPage(5);
+            doc.text(`  ${line}`, marginLeft + 5, currentY);
+            currentY += 4;
+          });
+        }
+        currentY += 3;
+      });
+    }
+
+    // Empresas que não desejam recorrer
+    if (empresasQueNaoRecorreram.length > 0) {
+      checkNewPage(15);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 128, 0); // Verde
+      doc.text("Não Recorrerá:", marginLeft, currentY);
+      currentY += 5;
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+
+      empresasQueNaoRecorreram.forEach(e => {
+        checkNewPage(8);
+        doc.text(`• ${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`, marginLeft + 5, currentY);
+        currentY += 5;
+      });
+    }
+  }
   currentY += espacoEntreSecoes;
 
-  // 10 - ENCERRAMENTO
+  // ============= 10 - RESULTADO DO RECURSO =============
+  if (recursosInabilitacao.length > 0) {
+    checkNewPage(10);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero}. RESULTADO DO RECURSO`, marginLeft, currentY);
+    secaoNumero++;
+    currentY += espacoAposTitulo;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+
+    recursosInabilitacao.forEach(r => {
+      checkNewPage(20);
+      doc.setFont("helvetica", "bold");
+      doc.text(`• ${r.razao_social}`, marginLeft, currentY);
+      currentY += 5;
+      doc.setFont("helvetica", "normal");
+
+      let statusTexto = '';
+      if (r.status_recurso === 'deferido') {
+        statusTexto = 'DEFERIDO (Provimento Total)';
+        doc.setTextColor(0, 128, 0);
+      } else if (r.status_recurso === 'deferido_parcial') {
+        statusTexto = 'DEFERIDO PARCIALMENTE';
+        doc.setTextColor(220, 120, 0);
+      } else if (r.status_recurso === 'indeferido') {
+        statusTexto = 'INDEFERIDO';
+        doc.setTextColor(200, 0, 0);
+      } else {
+        statusTexto = r.status_recurso?.toUpperCase() || 'PENDENTE';
+      }
+      
+      doc.text(`  Resultado: ${statusTexto}`, marginLeft + 5, currentY);
+      doc.setTextColor(0, 0, 0);
+      currentY += 5;
+
+      if (r.resposta_gestor) {
+        doc.text(`  Resposta:`, marginLeft + 5, currentY);
+        currentY += 4;
+        const respostaLines = doc.splitTextToSize(r.resposta_gestor, contentWidth - 15);
+        respostaLines.forEach((line: string) => {
+          checkNewPage(5);
+          doc.text(`  ${line}`, marginLeft + 5, currentY);
+          currentY += 4;
+        });
+      }
+      currentY += 4;
+    });
+    currentY += espacoEntreSecoes;
+  }
+
+  // ============= 11 - REGISTROS DO CHAT =============
+  if (mensagensChat.length > 0) {
+    checkNewPage(15);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero}. REGISTROS DO CHAT`, marginLeft, currentY);
+    secaoNumero++;
+    currentY += espacoAposTitulo;
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Mensagens trocadas durante a sessão pública:", marginLeft, currentY);
+    currentY += 6;
+
+    mensagensChat.forEach((msg, index) => {
+      checkNewPage(20);
+      
+      // Determinar remetente
+      let remetente = '';
+      let corFundo: [number, number, number] = [255, 255, 255];
+      
+      if (msg.tipo_usuario === 'fornecedor') {
+        remetente = msg.fornecedor_nome || 'Fornecedor';
+        corFundo = [240, 248, 255]; // Azul claro
+      } else {
+        remetente = msg.usuario_nome || 'Gestor';
+        corFundo = [240, 255, 240]; // Verde claro
+      }
+
+      const dataHora = formatarDataHoraCurta(msg.created_at);
+      const mensagemLines = doc.splitTextToSize(msg.mensagem, contentWidth - 20);
+      const alturaBox = 16 + (mensagemLines.length * 4);
+
+      // Fundo da mensagem
+      doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
+      doc.roundedRect(marginLeft, currentY - 3, contentWidth, alturaBox, 2, 2, 'F');
+      
+      // Borda
+      doc.setDrawColor(200, 200, 200);
+      doc.roundedRect(marginLeft, currentY - 3, contentWidth, alturaBox, 2, 2, 'S');
+
+      // Remetente e hora
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text(remetente, marginLeft + 5, currentY + 3);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text(dataHora, marginLeft + contentWidth - 5 - doc.getTextWidth(dataHora), currentY + 3);
+      doc.setTextColor(0, 0, 0);
+      
+      // Mensagem
+      doc.setFontSize(8);
+      let msgY = currentY + 10;
+      mensagemLines.forEach((line: string) => {
+        doc.text(line, marginLeft + 5, msgY);
+        msgY += 4;
+      });
+
+      currentY += alturaBox + 3;
+    });
+    currentY += espacoEntreSecoes;
+  }
+
+  // ============= 12 - ENCERRAMENTO =============
   checkNewPage(10);
-  const secaoEncerramento = fornecedoresInabilitados.length > 0 ? "9" : "8";
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(`${secaoEncerramento}. ENCERRAMENTO`, marginLeft, currentY);
+  doc.text(`${secaoNumero}. ENCERRAMENTO`, marginLeft, currentY);
+  secaoNumero++;
   currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
@@ -640,16 +1067,11 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   let certTextY = certY + 17;
   
   // Protocolo
-  doc.text(`Protocolo: ${protocoloFormatado}`, marginLeft + 5, certTextY);
-  certTextY += 5;
-  
-  // Data e hora
-  doc.text(`Data/Hora: ${formatarDataHora(dataHoraGeracao.toISOString())}`, marginLeft + 5, certTextY);
+  doc.text(`Protocolo:  ${protocoloFormatado}`, marginLeft + 5, certTextY);
   certTextY += 5;
   
   // Responsável
-  const responsavelTexto = cpfResponsavel ? `${nomeResponsavel} (CPF: ${cpfResponsavel})` : nomeResponsavel;
-  doc.text(`Responsável: ${responsavelTexto}`, marginLeft + 5, certTextY);
+  doc.text(`Responsável:  ${nomeResponsavel}`, marginLeft + 5, certTextY);
   certTextY += 7;
   
   // Verificação - Label
@@ -809,7 +1231,6 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   if (assinaturasUserError) {
     console.error('Erro ao buscar assinaturas de usuários:', assinaturasUserError);
-    // Não lançar erro, continuar apenas com fornecedores se houver erro
   }
 
   console.log('Assinaturas de fornecedores encontradas:', assinaturasFornecedores?.length || 0);
@@ -818,7 +1239,6 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   // Formatar assinaturas de fornecedores
   const assinaturasFormatadas: Assinatura[] = (assinaturasFornecedores || []).map(a => {
     const fornecedor = a.fornecedores as any;
-    // Usar responsaveis_assinantes se disponível (quem efetivamente assinou), senão usar responsaveis_legais do cadastro
     const responsaveisAssinantes = (a as any).responsaveis_assinantes as string[] || [];
     const responsaveisLegais = fornecedor?.responsaveis_legais as string[] || [];
     const responsaveisParaExibir = responsaveisAssinantes.length > 0 ? responsaveisAssinantes : responsaveisLegais;
@@ -892,15 +1312,10 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const marginLeft = 40;
   const marginRight = 40;
   
-  // pdf-lib: Y=0 é o FUNDO da página, Y aumenta para cima
-  // Analisando a imagem: certificação está em ~200pt do topo = 842-200 = 642pt pdf-lib
-  // Com altura de ~70pt, termina em ~572pt pdf-lib
-  // Termo de aceite deve começar em ~550pt (com margem de 20pt)
   let currentY = 340;
-  
   const footerLimit = 60;
 
-  // Função para criar nova página com logo e rodapé
+  // Função para criar nova página
   const checkNewPage = async (espacoNecessario: number) => {
     if (currentY - espacoNecessario < footerLimit) {
       page = pdfDoc.addPage([595, 842]);
@@ -934,12 +1349,10 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   currentY -= 18;
 
   for (const assinatura of todasAssinaturas) {
-    // Altura do box depende se tem cargo (usuários) ou responsáveis legais (fornecedores)
     const temCargo = assinatura.tipo === 'usuario' && assinatura.cargo;
     const temResponsaveis = assinatura.tipo === 'fornecedor' && assinatura.responsaveisLegais && assinatura.responsaveisLegais.length > 0;
     const numResponsaveis = temResponsaveis ? assinatura.responsaveisLegais!.length : 0;
     
-    // Calcular altura: base 50 + 12 por cargo/responsável adicional
     let boxHeight = 50;
     if (temCargo) boxHeight += 12;
     if (temResponsaveis) boxHeight += 12 + (numResponsaveis * 11);
@@ -985,127 +1398,95 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
     // Responsáveis Legais (apenas para fornecedores)
     if (assinatura.tipo === 'fornecedor' && assinatura.responsaveisLegais && assinatura.responsaveisLegais.length > 0) {
-      page.drawText(`Responsável(is) Legal(is):`, {
+      page.drawText('Responsável(is) Legal(is):', {
         x: marginLeft + 10,
         y: nextY,
-        size: 8,
+        size: 9,
         font: helveticaBold,
         color: rgb(0.3, 0.3, 0.3),
       });
       nextY -= 11;
       
-      for (const resp of assinatura.responsaveisLegais) {
+      assinatura.responsaveisLegais.forEach(resp => {
         page.drawText(`• ${resp}`, {
           x: marginLeft + 15,
           y: nextY,
-          size: 8,
+          size: 9,
           font: helveticaFont,
           color: rgb(0.3, 0.3, 0.3),
         });
         nextY -= 11;
-      }
+      });
     }
 
-    // Identificação (CNPJ ou CPF)
-    page.drawText(assinatura.tipo === 'fornecedor' ? `CNPJ: ${assinatura.identificacao}` : assinatura.identificacao, {
+    // Identificação
+    page.drawText(`Identificação: ${assinatura.identificacao}`, {
       x: marginLeft + 10,
       y: nextY,
       size: 9,
       font: helveticaFont,
       color: rgb(0.3, 0.3, 0.3),
     });
-    nextY -= 14;
 
-    // Status e data
-    if (assinatura.status_assinatura === 'aceito' && assinatura.data_assinatura) {
+    // Status e Data
+    const statusText = assinatura.status_assinatura === 'aceito' ? '✓ ASSINADO' : '⏳ PENDENTE';
+    const statusColor = assinatura.status_assinatura === 'aceito' ? rgb(0, 0.5, 0) : rgb(0.8, 0.5, 0);
+    
+    page.drawText(statusText, {
+      x: width - marginRight - 80,
+      y: currentY - 14,
+      size: 9,
+      font: helveticaBold,
+      color: statusColor,
+    });
+
+    if (assinatura.data_assinatura) {
       const dataFormatada = new Date(assinatura.data_assinatura).toLocaleString('pt-BR');
-      page.drawText(`[OK] ACEITO DIGITALMENTE em ${dataFormatada}`, {
-        x: marginLeft + 10,
-        y: nextY,
-        size: 9,
-        font: helveticaBold,
-        color: rgb(0.1, 0.5, 0.1),
-      });
-    } else {
-      page.drawText('[...] Pendente de assinatura', {
-        x: marginLeft + 10,
-        y: nextY,
-        size: 9,
-        font: helveticaFont,
-        color: rgb(0.7, 0.5, 0),
-      });
-    }
-
-    currentY -= (boxHeight + 8);
-  }
-
-  // Rodapé em páginas adicionadas
-  if (pdfDoc.getPageCount() > originalPageCount) {
-    const allPages = pdfDoc.getPages();
-    for (let i = originalPageCount; i < allPages.length; i++) {
-      const p = allPages[i];
-      const footerY = 50;
-      
-      p.drawLine({
-        start: { x: marginLeft, y: footerY + 20 },
-        end: { x: width - marginRight, y: footerY + 20 },
-        thickness: 0.5,
-        color: rgb(0.8, 0.8, 0.8),
-      });
-
-      p.drawText('Este documento possui certificação digital conforme Lei 14.063/2020', {
-        x: marginLeft,
-        y: footerY,
+      page.drawText(dataFormatada, {
+        x: width - marginRight - 120,
+        y: currentY - 26,
         size: 8,
         font: helveticaFont,
-        color: rgb(0.5, 0.5, 0.5),
-      });
-
-      p.drawText('Travessa do Ouvidor, 21, Sala 503, Centro, Rio de Janeiro - RJ, CEP: 20.040-040', {
-        x: marginLeft,
-        y: footerY - 12,
-        size: 7,
-        font: helveticaFont,
-        color: rgb(0.5, 0.5, 0.5),
+        color: rgb(0.4, 0.4, 0.4),
       });
     }
+
+    currentY -= boxHeight + 8;
   }
 
   // Salvar PDF modificado
   const modifiedPdfBytes = await pdfDoc.save();
-  const pdfBlob = new Blob([new Uint8Array(modifiedPdfBytes) as BlobPart], { type: 'application/pdf' });
+  const modifiedBlob = new Blob([modifiedPdfBytes.buffer], { type: 'application/pdf' });
 
-  const storagePathAssinado = storagePath.replace('.pdf', '-assinado.pdf');
-  console.log('Fazendo upload do PDF com assinaturas em:', storagePathAssinado);
-
+  // Upload do PDF modificado (sobrescrevendo o atual)
+  const newStoragePath = storagePath.replace('.pdf', '-assinado.pdf');
+  
   const { error: uploadError } = await supabase.storage
     .from('processo-anexos')
-    .upload(storagePathAssinado, pdfBlob, {
+    .upload(newStoragePath, modifiedBlob, {
       contentType: 'application/pdf',
       upsert: true,
     });
 
   if (uploadError) {
-    console.error('Erro ao fazer upload do PDF atualizado:', uploadError);
-    throw uploadError;
+    console.error('Erro ao fazer upload do PDF modificado:', uploadError);
+    throw new Error('Erro ao salvar PDF com assinaturas');
   }
 
+  // Obter URL pública do novo PDF
   const { data: { publicUrl } } = supabase.storage
     .from('processo-anexos')
-    .getPublicUrl(storagePathAssinado);
+    .getPublicUrl(newStoragePath);
 
-  const urlComTimestamp = `${publicUrl}?t=${Date.now()}`;
-  console.log('Nova URL com timestamp:', urlComTimestamp);
-
+  // Atualizar registro da ata com nova URL
   const { error: updateError } = await supabase
     .from('atas_selecao')
-    .update({ url_arquivo: urlComTimestamp })
+    .update({ url_arquivo: publicUrl })
     .eq('id', ataId);
 
   if (updateError) {
-    console.error('Erro ao atualizar URL da ata:', updateError);
-    throw updateError;
+    console.error('Erro ao atualizar registro da ata:', updateError);
   }
 
-  console.log('=== PDF DA ATA ATUALIZADO COM SUCESSO ===');
+  console.log('=== ATA ATUALIZADA COM ASSINATURAS ===');
 }
