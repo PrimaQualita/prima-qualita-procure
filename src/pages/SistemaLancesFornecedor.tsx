@@ -2078,30 +2078,30 @@ const SistemaLancesFornecedor = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16 text-center">Item</TableHead>
-                    <TableHead className="text-center min-w-[250px] max-w-md">Descrição</TableHead>
-                    <TableHead className="w-24 text-center">Qtd</TableHead>
-                    <TableHead className="w-24 text-center">Unid</TableHead>
-                    <TableHead className="w-40 text-center">Marca</TableHead>
-                    <TableHead className="w-32 text-center">
+                    <TableHead className="w-[60px] text-center">Item</TableHead>
+                    <TableHead className="w-[40%] text-center">Descrição</TableHead>
+                    <TableHead className="w-[100px] text-center">Qtd</TableHead>
+                    <TableHead className="w-[80px] text-center">Unid</TableHead>
+                    <TableHead className="w-[150px] text-center">Marca</TableHead>
+                    <TableHead className="w-[120px] text-center">
                       {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "% Desconto" : "Valor Unitário"}
                     </TableHead>
                     {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
-                      <TableHead className="w-36 text-center">Valor Total</TableHead>
+                      <TableHead className="w-[140px] text-center">Valor Total</TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {itens.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell className="font-medium text-center">{item.numero_item}</TableCell>
-                      <TableCell className="text-left min-w-[250px] max-w-md">{item.descricao}</TableCell>
-                      <TableCell className="text-center">{item.quantidade}</TableCell>
-                      <TableCell className="text-center">{item.unidade}</TableCell>
-                      <TableCell>
+                      <TableCell className="w-[60px] font-medium text-center">{item.numero_item}</TableCell>
+                      <TableCell className="w-[40%] text-left">{item.descricao}</TableCell>
+                      <TableCell className="w-[100px] text-center">{item.quantidade}</TableCell>
+                      <TableCell className="w-[80px] text-center">{item.unidade}</TableCell>
+                      <TableCell className="w-[150px]">
                         <Input
                           value={item.marca || ""}
                           onChange={(e) => handleUpdateItem(item.id, "marca", e.target.value)}
@@ -2109,9 +2109,9 @@ const SistemaLancesFornecedor = () => {
                           className="w-full"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-[120px]">
                         {selecao?.processos_compras?.criterio_julgamento === "desconto" ? (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center justify-center gap-1">
                             {editavel ? (
                               <>
                                 <Input
@@ -2138,13 +2138,13 @@ const SistemaLancesFornecedor = () => {
                                       return novo;
                                     });
                                   }}
-                                  className="w-full"
+                                  className="w-20"
                                   placeholder="0,00"
                                 />
-                                <span className="text-sm font-medium">%</span>
+                                <span className="text-sm font-medium whitespace-nowrap">%</span>
                               </>
                             ) : (
-                              <span className="text-sm font-medium">
+                              <span className="text-sm font-medium text-center">
                                 {item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0 
                                   ? `${item.valor_unitario_ofertado.toFixed(2).replace('.', ',')}%`
                                   : "-"
@@ -2165,7 +2165,7 @@ const SistemaLancesFornecedor = () => {
                         )}
                       </TableCell>
                       {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
-                        <TableCell className="font-semibold text-center">
+                        <TableCell className="w-[140px] font-semibold text-center">
                           {formatarMoeda(item.valor_unitario_ofertado * item.quantidade)}
                         </TableCell>
                       )}
