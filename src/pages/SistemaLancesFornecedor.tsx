@@ -59,6 +59,7 @@ const SistemaLancesFornecedor = () => {
   const [fornecedoresInabilitados, setFornecedoresInabilitados] = useState<Set<string>>(new Set());
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
+  const [valoresDescontoTemp, setValoresDescontoTemp] = useState<Map<string, string>>(new Map()); // Map<itemId, valorTemp>
   
   // Estados para recurso de inabilitação
   const [minhaInabilitacao, setMinhaInabilitacao] = useState<any>(null);
@@ -2089,15 +2090,25 @@ const SistemaLancesFornecedor = () => {
                           <div className="flex items-center gap-1">
                             <Input
                               type="text"
-                              value={item.marca_ofertada || ""}
-                              onChange={(e) => handleUpdateItem(item.id, "marca_ofertada", e.target.value)}
+                              value={valoresDescontoTemp.get(item.id) ?? (item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2).replace('.', ',') : "")}
+                              onChange={(e) => {
+                                setValoresDescontoTemp(prev => {
+                                  const novo = new Map(prev);
+                                  novo.set(item.id, e.target.value);
+                                  return novo;
+                                });
+                              }}
                               onBlur={(e) => {
                                 const valor = e.target.value.replace(',', '.');
                                 const numero = parseFloat(valor);
                                 if (!isNaN(numero) && numero >= 0) {
                                   handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
-                                  handleUpdateItem(item.id, "marca_ofertada", numero.toFixed(2).replace('.', ','));
                                 }
+                                setValoresDescontoTemp(prev => {
+                                  const novo = new Map(prev);
+                                  novo.delete(item.id);
+                                  return novo;
+                                });
                               }}
                               disabled={!editavel}
                               className="w-full"
