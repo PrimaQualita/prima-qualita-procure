@@ -336,9 +336,26 @@ const IncluirPrecosPublicos = () => {
 
       const valorTotal = calcularValorTotal();
 
-      // Criar novo fornecedor para cada proposta de preços públicos com CNPJ único
-      // Usar timestamp para garantir unicidade
-      const cnpjPrecosPublicos = `99${Date.now().toString().slice(-12)}`;
+      // Criar novo fornecedor para cada proposta de preços públicos com CNPJ sequencial
+      // Buscar o maior CNPJ existente do padrão (00000000000000, 11111111111111, etc.)
+      const { data: fornecedoresExistentes } = await supabase
+        .from("fornecedores")
+        .select("cnpj")
+        .like("cnpj", "______________")
+        .order("cnpj", { ascending: false })
+        .limit(1);
+
+      let proximoDigito = 0;
+      if (fornecedoresExistentes && fornecedoresExistentes.length > 0) {
+        const ultimoCnpj = fornecedoresExistentes[0].cnpj;
+        // Pegar o primeiro dígito do CNPJ para determinar o próximo
+        const primeiroDigito = parseInt(ultimoCnpj[0]);
+        if (!isNaN(primeiroDigito) && ultimoCnpj === primeiroDigito.toString().repeat(14)) {
+          proximoDigito = primeiroDigito + 1;
+        }
+      }
+
+      const cnpjPrecosPublicos = proximoDigito.toString().repeat(14);
       let fornecedorId: string;
 
       // Sempre criar novo fornecedor para cada proposta de preços públicos
