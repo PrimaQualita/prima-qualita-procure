@@ -246,22 +246,46 @@ const IncluirPrecosPublicos = () => {
         return;
       }
 
-      const todosPreenchidos = itens.every((item) => {
-        const resposta = respostas[item.id];
+      // Validar se valores foram preenchidos de acordo com critério
+      // Critérios que permitem propostas parciais: "item" e "desconto"
+      // Critérios que exigem todos os itens: "global" e "lote"
+      const criterio = processoCompra?.criterio_julgamento;
+      const permiteParcial = criterio === "item" || criterio === "desconto";
+      
+      let todosPreenchidos = true;
+      
+      if (permiteParcial) {
+        // Para "item" e "desconto": apenas verificar se PELO MENOS um item foi preenchido
+        const algumPreenchido = itens.some((item) => {
+          const resposta = respostas[item.id];
+          
+          if (criterio === "desconto") {
+            return resposta && resposta.percentual_desconto && parseFloat(resposta.percentual_desconto.replace(/,/g, ".")) > 0;
+          }
+          return resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
+        });
         
-        // Se critério for desconto, validar percentual_desconto
-        if (processoCompra?.criterio_julgamento === "desconto") {
-          return resposta && resposta.percentual_desconto && parseFloat(resposta.percentual_desconto.replace(/,/g, ".")) > 0;
-        }
-        
-        // Senão, validar valor_unitario
-        return resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
-      });
+        todosPreenchidos = algumPreenchido;
+      } else {
+        // Para "global" e "lote": validar que TODOS os itens foram preenchidos
+        todosPreenchidos = itens.every((item) => {
+          const resposta = respostas[item.id];
+          
+          if (criterio === "desconto") {
+            return resposta && resposta.percentual_desconto && parseFloat(resposta.percentual_desconto.replace(/,/g, ".")) > 0;
+          }
+          return resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
+        });
+      }
 
       if (!todosPreenchidos) {
-        const mensagem = processoCompra?.criterio_julgamento === "desconto"
-          ? "Por favor, preencha todos os percentuais de desconto"
-          : "Por favor, preencha todos os valores unitários";
+        const mensagem = criterio === "desconto"
+          ? (permiteParcial 
+              ? "Por favor, preencha o percentual de desconto de pelo menos um item"
+              : "Por favor, preencha todos os percentuais de desconto")
+          : (permiteParcial
+              ? "Por favor, preencha o valor unitário de pelo menos um item"
+              : "Por favor, preencha todos os valores unitários");
         toast.error(mensagem);
         return;
       }
