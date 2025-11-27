@@ -336,17 +336,15 @@ const IncluirPrecosPublicos = () => {
 
       const valorTotal = calcularValorTotal();
 
-      // Buscar ou criar fornecedor com nome especial para preços públicos
+      // Criar novo fornecedor para cada proposta de preços públicos
       const cnpjPrecosPublicos = "00000000000000";
       let fornecedorId: string;
 
-      const { data: fornecedorExistente } = await supabase
-        .from("fornecedores")
-        .select("id, razao_social")
-        .eq("cnpj", cnpjPrecosPublicos)
-        .single();
+      // SEMPRE criar novo fornecedor para cada proposta de preços públicos
+      // Não reutilizar o existente, pois cada proposta é única
+      const fornecedorExistente = null;
 
-      if (fornecedorExistente) {
+      if (false) { // Nunca entra aqui - sempre cria novo
         fornecedorId = fornecedorExistente.id;
         
         // Atualizar o nome do fornecedor com o nome da fonte fornecido
