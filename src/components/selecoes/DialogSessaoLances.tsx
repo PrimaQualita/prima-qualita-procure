@@ -348,7 +348,8 @@ export function DialogSessaoLances({
           fornecedores!inner (id, razao_social)
         `)
         .eq("selecao_id", selecaoId)
-        .eq("numero_item", numeroItem);
+        .eq("numero_item", numeroItem)
+        .order("valor_lance", { ascending: false }); // Ordenar por valor DESC para ver todos
 
       if (lancesError) {
         console.error(`❌ [ATUALIZAR ITEM ${numeroItem}] ERRO ao buscar lances:`, lancesError);
@@ -356,7 +357,7 @@ export function DialogSessaoLances({
       }
 
       console.log(`📋 [ATUALIZAR ITEM ${numeroItem}] Total de lances encontrados: ${lancesItem?.length || 0}`);
-      console.log(`📋 [ATUALIZAR ITEM ${numeroItem}] Detalhes dos lances:`, lancesItem);
+      console.log(`📋 [ATUALIZAR ITEM ${numeroItem}] TODOS OS VALORES:`, lancesItem?.map(l => l.valor_lance).join(", "));
 
       if (!lancesItem || lancesItem.length === 0) {
         console.log(`⚠️ [ATUALIZAR ITEM ${numeroItem}] Nenhum lance encontrado - pulando item`);
@@ -466,14 +467,17 @@ export function DialogSessaoLances({
     try {
       console.log("🔒 Fechando item de negociação automaticamente:", numeroItem);
       
-      // PASSO 1: Fechar o item na tabela itens_abertos_lances
+      // PASSO 1: Fechar o item na tabela itens_abertos_lances - LIMPAR TODOS OS CAMPOS
       const { error } = await supabase
         .from("itens_abertos_lances")
         .update({
           em_negociacao: false,
           negociacao_concluida: true,
           aberto: false,
-          data_fechamento: new Date().toISOString()
+          data_fechamento: new Date().toISOString(),
+          iniciando_fechamento: false,
+          data_inicio_fechamento: null,
+          segundos_para_fechar: null
         })
         .eq("selecao_id", selecaoId)
         .eq("numero_item", numeroItem);
@@ -865,6 +869,9 @@ export function DialogSessaoLances({
           negociacao_concluida: false,
           data_fechamento: null,
           fornecedor_negociacao_id: fornecedorId,
+          iniciando_fechamento: false,
+          data_inicio_fechamento: null,
+          segundos_para_fechar: null
         })
         .eq("selecao_id", selecaoId)
         .eq("numero_item", numeroItem);
