@@ -202,7 +202,25 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
 
     const linhasTexto = doc.splitTextToSize(textoHomologacao, contentWidth);
     linhasTexto.forEach((linha: string, index: number) => {
-      doc.text(linha, marginLeft, yPosition + (index * 5));
+      const words = linha.split(' ');
+      const lineWidth = doc.getTextWidth(linha);
+      
+      if (index < linhasTexto.length - 1 && words.length > 1) {
+        // Justificar linhas intermediárias
+        const totalSpacing = contentWidth - lineWidth;
+        const spaceBetweenWords = totalSpacing / (words.length - 1);
+        let xPos = marginLeft;
+        
+        words.forEach((word, wordIndex) => {
+          doc.text(word, xPos, yPosition + (index * 5));
+          if (wordIndex < words.length - 1) {
+            xPos += doc.getTextWidth(word + ' ') + spaceBetweenWords;
+          }
+        });
+      } else {
+        // Última linha alinhada à esquerda
+        doc.text(linha, marginLeft, yPosition + (index * 5));
+      }
     });
     yPosition += linhasTexto.length * 5 + 10;
 
@@ -235,11 +253,14 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
     doc.text("Empresa", tableX + 2, yPosition + 5.5);
     
     doc.rect(tableX + colWidths[0], yPosition, colWidths[1], 8, "F");
-    doc.text("Itens Vencedores", tableX + colWidths[0] + 2, yPosition + 5.5);
+    const headerItens = "Itens Vencedores";
+    const headerItensWidth = doc.getTextWidth(headerItens);
+    doc.text(headerItens, tableX + colWidths[0] + (colWidths[1] - headerItensWidth) / 2, yPosition + 5.5);
     
     doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], 8, "F");
     const labelColuna3 = isDesconto ? "Desconto" : "Valor (R$)";
-    doc.text(labelColuna3, tableX + colWidths[0] + colWidths[1] + 2, yPosition + 5.5);
+    const headerValorWidth = doc.getTextWidth(labelColuna3);
+    doc.text(labelColuna3, tableX + colWidths[0] + colWidths[1] + (colWidths[2] - headerValorWidth) / 2, yPosition + 5.5);
     
     yPosition += 8;
 
@@ -262,8 +283,14 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
       doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], altura, "F");
 
       doc.text(linhasEmpresa, tableX + 2, yPosition + 4);
-      doc.text(linhasItens, tableX + colWidths[0] + 2, yPosition + 4);
-      doc.text(linha[2], tableX + colWidths[0] + colWidths[1] + 2, yPosition + 4);
+      
+      // Centralizar itens
+      const itensWidth = doc.getTextWidth(linha[1]);
+      doc.text(linha[1], tableX + colWidths[0] + (colWidths[1] - itensWidth) / 2, yPosition + 4);
+      
+      // Centralizar valor/desconto
+      const valorWidth = doc.getTextWidth(linha[2]);
+      doc.text(linha[2], tableX + colWidths[0] + colWidths[1] + (colWidths[2] - valorWidth) / 2, yPosition + 4);
 
       yPosition += altura;
     });

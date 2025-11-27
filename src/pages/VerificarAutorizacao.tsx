@@ -10,6 +10,12 @@ import { FileText, CheckCircle2, XCircle, Search, Download } from "lucide-react"
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 import { stripHtml } from "@/lib/htmlUtils";
 
+const formatarProtocoloExibicao = (uuid: string): string => {
+  if (!uuid) return 'N/A';
+  const limpo = uuid.replace(/-/g, '').toUpperCase().substring(0, 16);
+  return `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+};
+
 export default function VerificarAutorizacao() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -562,7 +568,11 @@ export default function VerificarAutorizacao() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Protocolo</p>
-                  <p className="font-mono font-semibold">{autorizacao.protocolo}</p>
+                  <p className="font-mono font-semibold">
+                    {autorizacao.protocolo?.includes('-') && autorizacao.protocolo.split('-').length === 5
+                      ? autorizacao.protocolo
+                      : formatarProtocoloExibicao(autorizacao.protocolo)}
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Tipo de Documento</p>
