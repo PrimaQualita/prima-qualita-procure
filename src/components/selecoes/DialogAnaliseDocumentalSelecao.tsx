@@ -313,6 +313,22 @@ export function DialogAnaliseDocumentalSelecao({
 
       setFornecedoresData(habilitados);
       setFornecedoresInabilitados(inabilitados);
+      
+      // Carregar aprovações persistidas do banco de dados
+      const fornecedorIds = fornecedoresArray.map(f => f.id);
+      if (fornecedorIds.length > 0) {
+        const { data: aprovacoesData } = await supabase
+          .from("selecao_propostas_fornecedor")
+          .select("fornecedor_id, aprovado_analise_documental")
+          .eq("selecao_id", selecaoId)
+          .in("fornecedor_id", fornecedorIds)
+          .eq("aprovado_analise_documental", true);
+        
+        if (aprovacoesData && aprovacoesData.length > 0) {
+          const aprovadosSet = new Set(aprovacoesData.map(a => a.fornecedor_id));
+          setFornecedoresAprovadosGeral(aprovadosSet);
+        }
+      }
     } catch (error) {
       console.error("Erro ao carregar fornecedores vencedores:", error);
       toast.error("Erro ao carregar fornecedores vencedores");
@@ -1150,13 +1166,30 @@ export function DialogAnaliseDocumentalSelecao({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        setFornecedoresAprovadosGeral(prev => {
-                          const newSet = new Set(prev);
-                          newSet.delete(data.fornecedor.id);
-                          return newSet;
-                        });
-                        toast.success("Aprovação revertida");
+                      onClick={async () => {
+                        try {
+                          // Remover aprovação do banco de dados
+                          const { error } = await supabase
+                            .from("selecao_propostas_fornecedor")
+                            .update({
+                              aprovado_analise_documental: false,
+                              data_aprovacao_documental: null
+                            })
+                            .eq("selecao_id", selecaoId)
+                            .eq("fornecedor_id", data.fornecedor.id);
+                          
+                          if (error) throw error;
+                          
+                          setFornecedoresAprovadosGeral(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(data.fornecedor.id);
+                            return newSet;
+                          });
+                          toast.success("Aprovação revertida");
+                        } catch (error) {
+                          console.error("Erro ao reverter aprovação:", error);
+                          toast.error("Erro ao reverter aprovação");
+                        }
                       }}
                     >
                       <RefreshCw className="h-4 w-4 mr-1" />
@@ -1184,9 +1217,26 @@ export function DialogAnaliseDocumentalSelecao({
                         size="sm"
                         variant="default"
                         disabled={!data.todosDocumentosAprovados}
-                        onClick={() => {
-                          setFornecedoresAprovadosGeral(prev => new Set(prev).add(data.fornecedor.id));
-                          toast.success(`Fornecedor ${data.fornecedor.razao_social} aprovado com sucesso!`);
+                        onClick={async () => {
+                          try {
+                            // Persistir aprovação no banco de dados
+                            const { error } = await supabase
+                              .from("selecao_propostas_fornecedor")
+                              .update({
+                                aprovado_analise_documental: true,
+                                data_aprovacao_documental: new Date().toISOString()
+                              })
+                              .eq("selecao_id", selecaoId)
+                              .eq("fornecedor_id", data.fornecedor.id);
+                            
+                            if (error) throw error;
+                            
+                            setFornecedoresAprovadosGeral(prev => new Set(prev).add(data.fornecedor.id));
+                            toast.success(`Fornecedor ${data.fornecedor.razao_social} aprovado com sucesso!`);
+                          } catch (error) {
+                            console.error("Erro ao aprovar fornecedor:", error);
+                            toast.error("Erro ao aprovar fornecedor");
+                          }
                         }}
                       >
                         <CheckCircle className="h-4 w-4 mr-1" />
