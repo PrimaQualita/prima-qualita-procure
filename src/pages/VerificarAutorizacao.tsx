@@ -569,7 +569,7 @@ export default function VerificarAutorizacao() {
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Protocolo</p>
                   <p className="font-mono font-semibold">
-                    {autorizacao.protocolo?.includes('-') && autorizacao.protocolo.split('-').length === 5
+                    {autorizacao.protocolo?.includes('-') && autorizacao.protocolo.split('-').length === 4
                       ? autorizacao.protocolo
                       : formatarProtocoloExibicao(autorizacao.protocolo)}
                   </p>
