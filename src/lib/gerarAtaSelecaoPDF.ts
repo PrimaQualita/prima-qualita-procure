@@ -528,7 +528,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   addLogo();
 
   // Espaçamento padrão entre seções
-  const espacoEntreSecoes = 5;
+  const espacoEntreSecoes = 2;
   const espacoAposTitulo = 5;
   const lineHeight = 5;
   let secaoNumero = 1;
