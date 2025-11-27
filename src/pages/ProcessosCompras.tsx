@@ -283,7 +283,7 @@ const ProcessosCompras = () => {
       ativo: "default",
       encerrado: "secondary",
       suspenso: "destructive",
-      planejado: "secondary",
+      planejado: "default",
       em_cotacao: "default",
       cotacao_concluida: "default",
       em_selecao: "default",
@@ -291,7 +291,21 @@ const ProcessosCompras = () => {
       concluido: "secondary",
       cancelado: "destructive",
     };
-    return <Badge variant={variants[status] || "default"}>{status.replace(/_/g, " ").toUpperCase()}</Badge>;
+    
+    const labels: Record<string, string> = {
+      planejado: "ABERTO",
+      concluido: "CONCLUÍDO",
+      ativo: "ATIVO",
+      encerrado: "ENCERRADO",
+      suspenso: "SUSPENSO",
+      em_cotacao: "EM COTAÇÃO",
+      cotacao_concluida: "COTAÇÃO CONCLUÍDA",
+      em_selecao: "EM SELEÇÃO",
+      contratado: "CONTRATADO",
+      cancelado: "CANCELADO",
+    };
+    
+    return <Badge variant={variants[status] || "default"}>{labels[status] || status.replace(/_/g, " ").toUpperCase()}</Badge>;
   };
 
   if (loading) {
