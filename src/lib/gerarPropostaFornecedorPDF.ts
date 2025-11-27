@@ -231,10 +231,10 @@ export async function gerarPropostaFornecedorPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('ITEM', 20, y, { align: 'center' });
-    doc.text('DESCRIÇÃO', 45, y, { align: 'center' });
-    doc.text('QTD', 95, y, { align: 'center' });
-    doc.text('UNID', 115, y, { align: 'center' });
+    doc.text('ITEM', 22.5, y, { align: 'center' });
+    doc.text('DESCRIÇÃO', 80, y, { align: 'center' });
+    doc.text('QTD', 142.5, y, { align: 'center' });
+    doc.text('UNID', 163.5, y, { align: 'center' });
     
     // Não mostrar coluna MARCA quando critério for desconto
     if (criterioJulgamento !== 'desconto') {
@@ -243,7 +243,7 @@ export async function gerarPropostaFornecedorPDF(
     
     // Se critério for desconto, apenas uma coluna; senão, duas colunas (unit + total)
     if (criterioJulgamento === 'desconto') {
-      doc.text('DESCONTO (%)', 172.5, y, { align: 'center' });
+      doc.text('DESCONTO (%)', 183.5, y, { align: 'center' });
     } else {
       doc.text('VL. UNIT.', 160, y, { align: 'center' });
       doc.text('VL. TOTAL', 185, y, { align: 'center' });
@@ -266,7 +266,7 @@ export async function gerarPropostaFornecedorPDF(
       }
       
       // Quebrar descrição em múltiplas linhas com alinhamento justificado
-      const linhasDescricao = doc.splitTextToSize(itemCotacao.descricao, 45);
+      const linhasDescricao = doc.splitTextToSize(itemCotacao.descricao, 96);
       const alturaLinha = Math.max(6, linhasDescricao.length * 4 + 2);
       
       // Verificar se precisa de nova página
@@ -280,10 +280,10 @@ export async function gerarPropostaFornecedorPDF(
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text('ITEM', 20, y, { align: 'center' });
-        doc.text('DESCRIÇÃO', 45, y, { align: 'center' });
-        doc.text('QTD', 95, y, { align: 'center' });
-        doc.text('UNID', 115, y, { align: 'center' });
+        doc.text('ITEM', 22.5, y, { align: 'center' });
+        doc.text('DESCRIÇÃO', 80, y, { align: 'center' });
+        doc.text('QTD', 142.5, y, { align: 'center' });
+        doc.text('UNID', 163.5, y, { align: 'center' });
         
         // Não mostrar coluna MARCA quando critério for desconto
         if (criterioJulgamento !== 'desconto') {
@@ -292,7 +292,7 @@ export async function gerarPropostaFornecedorPDF(
         
         // Se critério for desconto, apenas uma coluna; senão, duas colunas (unit + total)
         if (criterioJulgamento === 'desconto') {
-          doc.text('DESCONTO (%)', 172.5, y, { align: 'center' });
+          doc.text('DESCONTO (%)', 183.5, y, { align: 'center' });
         } else {
           doc.text('VL. UNIT.', 160, y, { align: 'center' });
           doc.text('VL. TOTAL', 185, y, { align: 'center' });
@@ -325,10 +325,10 @@ export async function gerarPropostaFornecedorPDF(
       // Linhas verticais entre colunas
       const yTop = y - 4;
       const yBottom = y + alturaLinha - 4;
-      doc.line(25, yTop, 25, yBottom); // Após ITEM
-      doc.line(75, yTop, 75, yBottom); // Após DESCRIÇÃO
-      doc.line(105, yTop, 105, yBottom); // Após QTD
-      doc.line(125, yTop, 125, yBottom); // Após UNID
+      doc.line(30, yTop, 30, yBottom); // Após ITEM
+      doc.line(130, yTop, 130, yBottom); // Após DESCRIÇÃO
+      doc.line(155, yTop, 155, yBottom); // Após QTD
+      doc.line(172, yTop, 172, yBottom); // Após UNID
       
       // Não mostrar linha após MARCA quando critério for desconto
       if (criterioJulgamento !== 'desconto') {
@@ -348,15 +348,15 @@ export async function gerarPropostaFornecedorPDF(
       const yCenter = yTop + (alturaLinha / 2) + 1.5;
       
       // Número do item (centralizado verticalmente)
-      doc.text(itemCotacao.numero_item.toString(), 20, yCenter, { align: 'center' });
+      doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       // Descrição completa com múltiplas linhas e alinhamento justificado (centralizada verticalmente)
       const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
-      doc.text(linhasDescricao, 28, yDescStart, { maxWidth: 45, align: 'justify' });
+      doc.text(linhasDescricao, 32, yDescStart, { maxWidth: 96, align: 'justify' });
       
       // Demais colunas (todas centralizadas verticalmente)
-      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 90, yCenter, { align: 'center' });
-      doc.text(itemCotacao.unidade, 115, yCenter, { align: 'center' });
+      doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 142.5, yCenter, { align: 'center' });
+      doc.text(itemCotacao.unidade, 163.5, yCenter, { align: 'center' });
       
       // Não mostrar coluna MARCA quando critério for desconto
       if (criterioJulgamento !== 'desconto') {
@@ -370,7 +370,7 @@ export async function gerarPropostaFornecedorPDF(
         const descontoFormatted = (valorUnitario && valorUnitario > 0)
           ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
           : '-';
-        doc.text(descontoFormatted, 172.5, yCenter, { align: 'center' });
+        doc.text(descontoFormatted, 183.5, yCenter, { align: 'center' });
       } else {
         // Quando não é desconto, mostrar valor unitário e valor total
         const valorUnitFormatted = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
