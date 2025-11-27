@@ -226,36 +226,85 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     fornecedor_id: p.fornecedor_id
   }));
 
-  // Buscar itens e identificar vencedores (lances vencedores)
-  const { data: lancesVencedores, error: lancesError } = await supabase
+  // Buscar itens e identificar vencedores usando a MESMA lógica da sessão de lances
+  // IMPORTANTE: Não usar indicativo_lance_vencedor, usar ordenação customizada
+  const { data: todosLancesData, error: lancesError } = await supabase
     .from('lances_fornecedores')
     .select(`
       numero_item,
       valor_lance,
       fornecedor_id,
+      tipo_lance,
       fornecedores (
         razao_social,
         cnpj
       )
     `)
-    .eq('selecao_id', selecaoId)
-    .eq('indicativo_lance_vencedor', true);
+    .eq('selecao_id', selecaoId);
+
+  if (lancesError) {
+    throw new Error('Erro ao buscar lances');
+  }
+
+  // Buscar inabilitações para filtrar
+  const { data: inabilitacoesData } = await supabase
+    .from('fornecedores_inabilitados_selecao')
+    .select('fornecedor_id, itens_afetados, revertido')
+    .eq('selecao_id', selecaoId);
+
+  // Criar mapa de itens inabilitados por fornecedor
+  const inabilitacoesPorFornecedor = new Map<string, number[]>();
+  (inabilitacoesData || []).forEach((inab) => {
+    if (!inab.revertido) {
+      inabilitacoesPorFornecedor.set(inab.fornecedor_id, inab.itens_afetados || []);
+    }
+  });
+
+  // Filtrar lances onde o fornecedor está inabilitado PARA AQUELE ITEM ESPECÍFICO
+  const lancesFiltrados = (todosLancesData || []).filter((lance) => {
+    const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
+    if (!itensInabilitados) return true; // Não está inabilitado
+    return !itensInabilitados.includes(lance.numero_item || 0); // Verificar se o item específico está inabilitado
+  });
+
+  // ORDENAÇÃO CUSTOMIZADA: Priorizar lances de negociação
+  const isDesconto = criterioJulgamento === 'desconto';
+  
+  const lancesOrdenados = lancesFiltrados.sort((a, b) => {
+    // Primeiro ordenar por número do item
+    if ((a.numero_item || 0) !== (b.numero_item || 0)) {
+      return (a.numero_item || 0) - (b.numero_item || 0);
+    }
+    
+    // Dentro do mesmo item, priorizar lances de negociação
+    const aIsNegociacao = a.tipo_lance === 'negociacao';
+    const bIsNegociacao = b.tipo_lance === 'negociacao';
+    
+    if (aIsNegociacao && !bIsNegociacao) return -1; // a vem antes
+    if (!aIsNegociacao && bIsNegociacao) return 1;  // b vem antes
+    
+    // Se ambos são negociação ou ambos não são, ordenar por valor
+    // Desconto: maior é melhor (ordem decrescente)
+    // Preço: menor é melhor (ordem crescente)
+    if (isDesconto) {
+      return b.valor_lance - a.valor_lance; // Maior desconto primeiro
+    } else {
+      return a.valor_lance - b.valor_lance; // Menor preço primeiro
+    }
+  });
+
+  // Identificar vencedores: primeiro lance de cada item
+  const vencedoresPorItem = new Map<number, any>();
+  lancesOrdenados.forEach(lance => {
+    if (!vencedoresPorItem.has(lance.numero_item || 0)) {
+      vencedoresPorItem.set(lance.numero_item || 0, lance);
+    }
+  });
+
+  const lancesVencedores = Array.from(vencedoresPorItem.values());
 
   // Buscar TODOS os lances ordenados por valor para determinar segundo colocado
-  const { data: todosLances } = await supabase
-    .from('lances_fornecedores')
-    .select(`
-      numero_item,
-      valor_lance,
-      fornecedor_id,
-      fornecedores (
-        razao_social,
-        cnpj
-      )
-    `)
-    .eq('selecao_id', selecaoId)
-    .order('numero_item', { ascending: true })
-    .order('valor_lance', { ascending: true });
+  const todosLances = lancesOrdenados;
 
   // Buscar itens da cotação relacionada para descrições E quantidades
   let itensDescricoes: Record<number, string> = {};
