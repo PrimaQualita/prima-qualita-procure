@@ -1319,6 +1319,47 @@ export type Database = {
           },
         ]
       }
+      homologacoes_selecao: {
+        Row: {
+          created_at: string
+          data_geracao: string
+          id: string
+          nome_arquivo: string
+          protocolo: string
+          selecao_id: string
+          url_arquivo: string
+          usuario_gerador_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_geracao?: string
+          id?: string
+          nome_arquivo: string
+          protocolo: string
+          selecao_id: string
+          url_arquivo: string
+          usuario_gerador_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_geracao?: string
+          id?: string
+          nome_arquivo?: string
+          protocolo?: string
+          selecao_id?: string
+          url_arquivo?: string
+          usuario_gerador_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homologacoes_selecao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       intencoes_recurso_selecao: {
         Row: {
           created_at: string | null
