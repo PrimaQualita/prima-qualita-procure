@@ -219,10 +219,14 @@ export async function gerarPropostaFornecedorPDF(
     doc.text('QTD', 95, y, { align: 'center' });
     doc.text('UNID', 115, y, { align: 'center' });
     doc.text('MARCA', 135, y, { align: 'center' });
-    const labelValorUnit = criterioJulgamento === 'desconto' ? 'DESC. UNIT. (%)' : 'VL. UNIT.';
-    const labelValorTotal = criterioJulgamento === 'desconto' ? 'DESC. MÉD. (%)' : 'VL. TOTAL';
-    doc.text(labelValorUnit, 160, y, { align: 'center' });
-    doc.text(labelValorTotal, 185, y, { align: 'center' });
+    
+    // Se critério for desconto, apenas uma coluna; senão, duas colunas (unit + total)
+    if (criterioJulgamento === 'desconto') {
+      doc.text('DESCONTO (%)', 172.5, y, { align: 'center' });
+    } else {
+      doc.text('VL. UNIT.', 160, y, { align: 'center' });
+      doc.text('VL. TOTAL', 185, y, { align: 'center' });
+    }
     
     y += 6;
     doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
@@ -260,10 +264,14 @@ export async function gerarPropostaFornecedorPDF(
         doc.text('QTD', 95, y, { align: 'center' });
         doc.text('UNID', 115, y, { align: 'center' });
         doc.text('MARCA', 135, y, { align: 'center' });
-        const labelValorUnitRepeat = criterioJulgamento === 'desconto' ? 'DESC. UNIT. (%)' : 'VL. UNIT.';
-        const labelValorTotalRepeat = criterioJulgamento === 'desconto' ? 'DESC. MÉD. (%)' : 'VL. TOTAL';
-        doc.text(labelValorUnitRepeat, 160, y, { align: 'center' });
-        doc.text(labelValorTotalRepeat, 185, y, { align: 'center' });
+        
+        // Se critério for desconto, apenas uma coluna; senão, duas colunas (unit + total)
+        if (criterioJulgamento === 'desconto') {
+          doc.text('DESCONTO (%)', 172.5, y, { align: 'center' });
+        } else {
+          doc.text('VL. UNIT.', 160, y, { align: 'center' });
+          doc.text('VL. TOTAL', 185, y, { align: 'center' });
+        }
         y += 6;
         doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
         doc.setFont('helvetica', 'normal');
@@ -294,7 +302,11 @@ export async function gerarPropostaFornecedorPDF(
       doc.line(105, yTop, 105, yBottom); // Após QTD
       doc.line(125, yTop, 125, yBottom); // Após UNID
       doc.line(150, yTop, 150, yBottom); // Após MARCA
-      doc.line(172, yTop, 172, yBottom); // Após VL. UNIT.
+      
+      // Se critério não for desconto, adicionar linha vertical após VL. UNIT.
+      if (criterioJulgamento !== 'desconto') {
+        doc.line(172, yTop, 172, yBottom); // Após VL. UNIT.
+      }
       
       // Bordas externas da tabela (esquerda e direita)
       doc.line(15, yTop, 15, yBottom); // Borda esquerda
@@ -316,16 +328,17 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(item.marca || '-', 137.5, yCenter, { align: 'center' });
       
       // Formatar valores de acordo com o critério de julgamento
-      const valorUnitFormatted = criterioJulgamento === 'desconto'
-        ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-        : valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      
-      const valorTotalFormatted = criterioJulgamento === 'desconto'
-        ? `${valorTotalItem.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-        : valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      
-      doc.text(valorUnitFormatted, 161, yCenter, { align: 'center' });
-      doc.text(valorTotalFormatted, 183.5, yCenter, { align: 'center' });
+      if (criterioJulgamento === 'desconto') {
+        // Quando é desconto, mostrar apenas uma coluna com o desconto unitário
+        const descontoFormatted = `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+        doc.text(descontoFormatted, 172.5, yCenter, { align: 'center' });
+      } else {
+        // Quando não é desconto, mostrar valor unitário e valor total
+        const valorUnitFormatted = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const valorTotalFormatted = valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        doc.text(valorUnitFormatted, 161, yCenter, { align: 'center' });
+        doc.text(valorTotalFormatted, 183.5, yCenter, { align: 'center' });
+      }
       
       y += alturaLinha;
       isAlternate = !isAlternate;
@@ -338,24 +351,21 @@ export async function gerarPropostaFornecedorPDF(
     doc.line(15, y, 195, y);
     y += 8;
 
-    // Valor total com destaque
-    doc.setFillColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
-    doc.rect(120, y - 6, 75, 12, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    
-    // Formatar rótulo e valor de acordo com o critério de julgamento
-    const labelTotal = criterioJulgamento === 'desconto' ? 'DESCONTO MÉDIO:' : 'VALOR TOTAL:';
-    const valorTotalFormatted = criterioJulgamento === 'desconto'
-      ? `${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-      : valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    
-    doc.text(`${labelTotal} ${valorTotalFormatted}`, 193, y, { align: 'right' });
-    
-    doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
-    y += 15;
+    // Valor total com destaque (APENAS quando não for desconto)
+    if (criterioJulgamento !== 'desconto') {
+      doc.setFillColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
+      doc.rect(120, y - 6, 75, 12, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      
+      const valorTotalFormatted = valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      doc.text(`VALOR TOTAL: ${valorTotalFormatted}`, 193, y, { align: 'right' });
+      
+      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
+      y += 15;
+    }
 
     // Observações
     if (observacoes) {
