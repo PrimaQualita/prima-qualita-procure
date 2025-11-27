@@ -113,14 +113,14 @@ export async function gerarPlanilhaConsolidadaPDF(
   const larguraObjetoMaxima = larguraUtil - doc.getTextWidth(textoObjeto) - 5;
   const linhasObjeto = doc.splitTextToSize(objetoDecodificado, larguraObjetoMaxima);
   
-  // Renderizar primeira linha ao lado de "Objeto:"
+  // Renderizar primeira linha ao lado de "Objeto:" com justificação
   const larguraObjeto = doc.getTextWidth(textoObjeto);
-  doc.text(linhasObjeto[0], margemEsquerda + larguraObjeto, y);
+  doc.text(linhasObjeto[0], margemEsquerda + larguraObjeto, y, { align: 'justify', maxWidth: larguraObjetoMaxima });
   
-  // Renderizar demais linhas abaixo
+  // Renderizar demais linhas abaixo com justificação
   y += 5;
   for (let i = 1; i < linhasObjeto.length; i++) {
-    doc.text(linhasObjeto[i], margemEsquerda, y);
+    doc.text(linhasObjeto[i], margemEsquerda, y, { align: 'justify', maxWidth: larguraUtil });
     y += 5;
   }
 
