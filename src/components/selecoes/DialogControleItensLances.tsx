@@ -25,6 +25,7 @@ interface DialogControleItensLancesProps {
   onOpenChange: (open: boolean) => void;
   selecaoId: string;
   itens: Item[];
+  onVencedoresAtualizados?: () => void;
 }
 
 export function DialogControleItensLances({

@@ -72,12 +72,14 @@ interface DialogSessaoLancesProps {
   tituloSelecao?: string;
   sessaoFinalizada?: boolean;
   onFinalizarSessao?: () => void;
+  onVencedoresAtualizados?: () => void;
 }
 
 export function DialogSessaoLances({
   open,
   onOpenChange,
   selecaoId,
+  onVencedoresAtualizados,
   itens,
   criterioJulgamento,
   tituloSelecao = "Seleção de Fornecedores",
@@ -1421,6 +1423,13 @@ export function DialogSessaoLances({
       // Recarregar dados locais
       await loadLances();
       await loadVencedoresPorItem();
+      
+      // Notificar componente pai para recarregar vencedores na Análise Documental
+      console.log("📢 REMARCAR: Notificando componente pai...");
+      if (onVencedoresAtualizados) {
+        onVencedoresAtualizados();
+        console.log("✅ REMARCAR: Componente pai notificado!");
+      }
       
       toast.success(`${itensUnicos.length} item(ns) processado(s). Vencedores atualizados!`);
     } catch (error) {
