@@ -366,7 +366,10 @@ export async function gerarPropostaFornecedorPDF(
       // Formatar valores de acordo com o critério de julgamento
       if (criterioJulgamento === 'desconto') {
         // Quando é desconto, mostrar apenas uma coluna com o desconto unitário
-        const descontoFormatted = `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+        // Se desconto for 0 ou null, mostrar "-", caso contrário mostrar a porcentagem
+        const descontoFormatted = (valorUnitario && valorUnitario > 0)
+          ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+          : '-';
         doc.text(descontoFormatted, 172.5, yCenter, { align: 'center' });
       } else {
         // Quando não é desconto, mostrar valor unitário e valor total
