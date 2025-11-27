@@ -1409,6 +1409,9 @@ export function DialogSessaoLances({
 
       console.log("✅ Remarcação concluída - vencedores atualizados no banco");
       
+      // Disparar evento customizado para atualizar análise documental
+      window.dispatchEvent(new CustomEvent('vencedores-remarcados'));
+      
       // Recarregar dados locais
       await loadLances();
       await loadVencedoresPorItem();
