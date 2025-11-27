@@ -32,7 +32,6 @@ interface Processo {
   valor_estimado_anual: number;
   status_processo: string;
   data_abertura?: string;
-  data_encerramento_prevista?: string;
   observacoes?: string;
   requer_cotacao?: boolean;
   criterio_julgamento?: string;
@@ -58,9 +57,8 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     tipo: "material",
     centro_custo: "",
     valor_estimado_anual: 0,
-    status_processo: "planejado",
+    status_processo: "aberto",
     data_abertura: new Date().toISOString().split("T")[0],
-    data_encerramento_prevista: "",
     observacoes: "",
     requer_cotacao: true,
     criterio_julgamento: "global",
@@ -83,11 +81,10 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
           objeto_resumido: processo.objeto_resumido,
           tipo: processo.tipo,
           centro_custo: processo.centro_custo || "",
-          valor_estimado_anual: processo.valor_estimado_anual,
-          status_processo: processo.status_processo,
-          data_abertura: processo.data_abertura || "",
-          data_encerramento_prevista: processo.data_encerramento_prevista || "",
-          observacoes: processo.observacoes || "",
+        valor_estimado_anual: processo.valor_estimado_anual,
+        status_processo: processo.status_processo,
+        data_abertura: processo.data_abertura || "",
+        observacoes: processo.observacoes || "",
           requer_cotacao: processo.requer_cotacao ?? true,
           criterio_julgamento: processo.criterio_julgamento || "global",
           credenciamento: processo.credenciamento ?? false,
@@ -141,9 +138,8 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         tipo: "material",
         centro_custo: "",
         valor_estimado_anual: 0,
-        status_processo: "planejado",
+        status_processo: "aberto",
         data_abertura: new Date().toISOString().split("T")[0],
-        data_encerramento_prevista: "",
         observacoes: "",
         requer_cotacao: true,
         criterio_julgamento: "global",
@@ -198,7 +194,6 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
       const dataToSave = {
         ...formData,
         data_abertura: formData.data_abertura || null,
-        data_encerramento_prevista: formData.data_encerramento_prevista || null,
       };
       await onSave(dataToSave);
       onOpenChange(false);
@@ -292,26 +287,13 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="centro_custo">Centro de Custo</Label>
-                <Input
-                  id="centro_custo"
-                  value={formData.centro_custo}
-                  onChange={(e) => setFormData({ ...formData, centro_custo: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="valor_estimado_anual">Valor Estimado Anual (R$)</Label>
-                <Input
-                  id="valor_estimado_anual"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.valor_estimado_anual}
-                  onChange={(e) => setFormData({ ...formData, valor_estimado_anual: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="centro_custo">Centro de Custo</Label>
+              <Input
+                id="centro_custo"
+                value={formData.centro_custo}
+                onChange={(e) => setFormData({ ...formData, centro_custo: e.target.value })}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="status_processo">Status do Processo *</Label>
@@ -323,35 +305,19 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="planejado">Planejado</SelectItem>
-                  <SelectItem value="em_cotacao">Em Cotação</SelectItem>
-                  <SelectItem value="cotacao_concluida">Cotação Concluída</SelectItem>
-                  <SelectItem value="em_selecao">Em Seleção</SelectItem>
-                  <SelectItem value="contratado">Contratado</SelectItem>
+                  <SelectItem value="aberto">Aberto</SelectItem>
                   <SelectItem value="concluido">Concluído</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="data_abertura">Data de Abertura</Label>
-                <Input
-                  id="data_abertura"
-                  type="date"
-                  value={formData.data_abertura}
-                  onChange={(e) => setFormData({ ...formData, data_abertura: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="data_encerramento_prevista">Data de Encerramento Prevista</Label>
-                <Input
-                  id="data_encerramento_prevista"
-                  type="date"
-                  value={formData.data_encerramento_prevista}
-                  onChange={(e) => setFormData({ ...formData, data_encerramento_prevista: e.target.value })}
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="data_abertura">Data de Abertura</Label>
+              <Input
+                id="data_abertura"
+                type="date"
+                value={formData.data_abertura}
+                onChange={(e) => setFormData({ ...formData, data_abertura: e.target.value })}
+              />
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="flex items-center space-x-2">
