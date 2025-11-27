@@ -202,9 +202,9 @@ export async function gerarPlanilhaConsolidadaPDF(
         
         console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: percentual=${respostaItem.percentual_desconto}, valorUnit=${respostaItem.valor_unitario_ofertado}, criterio=${criterioJulgamento}, usado=${valorParaCalculo}`);
         
-        // Se critério é desconto, mostrar percentual (inclusive zero)
+        // Se critério é desconto, mostrar percentual ou "-" se zero
         if (criterioJulgamento === 'desconto') {
-          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = formatarPercentual(valorParaCalculo);
+          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = valorParaCalculo > 0 ? formatarPercentual(valorParaCalculo) : '-';
         } else {
           // Mostrar valor unitário na primeira linha e total na segunda
           linha[`fornecedor_${resposta.fornecedor.cnpj}`] = `${formatarMoeda(valorParaCalculo)}\n(Total: ${formatarMoeda(valorTotal)})`;
