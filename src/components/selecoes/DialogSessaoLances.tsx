@@ -1282,19 +1282,26 @@ export function DialogSessaoLances({
           });
           yPosition = (doc as any).lastAutoTable.finalY + 8;
         } else {
-          // Verificar se há fornecedores inabilitados neste item
-          const temInabilitadoNoItem = lancesDoItem.some(l => fornecedoresInabilitadosIds.has(l.fornecedor_id));
+          // Função para verificar se fornecedor está inabilitado NESTE ITEM ESPECÍFICO
+          const isInabilitadoNoItem = (fornecedorId: string, numeroItem: number) => {
+            const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorId);
+            if (!itensInabilitados) return false;
+            return itensInabilitados.includes(numeroItem);
+          };
+
+          // Verificar se há fornecedores inabilitados neste item específico
+          const temInabilitadoNoItem = lancesDoItem.some(l => isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
           if (temInabilitadoNoItem) temInabilitado = true;
 
           // Reordenar: fornecedores válidos primeiro (ordenados por valor), inabilitados depois
-          const lancesValidos = lancesDoItem.filter(l => !fornecedoresInabilitadosIds.has(l.fornecedor_id));
-          const lancesInabilitados = lancesDoItem.filter(l => fornecedoresInabilitadosIds.has(l.fornecedor_id));
+          const lancesValidos = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
+          const lancesInabilitados = lancesDoItem.filter(l => isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
           const lancesOrdenados = [...lancesValidos, ...lancesInabilitados];
 
           const tableData = lancesOrdenados.map((lance, idx) => {
             const isNegociacao = lance.tipo_lance === "negociacao";
             const valorFormatado = formatCurrency(lance.valor_lance);
-            const isInabilitado = fornecedoresInabilitadosIds.has(lance.fornecedor_id);
+            const isInabilitado = isInabilitadoNoItem(lance.fornecedor_id, item.numero_item);
             
             // Posição: só conta para fornecedores válidos
             const posicaoExibida = isInabilitado ? "-" : `${lancesValidos.findIndex(l => l.id === lance.id) + 1}º`;
