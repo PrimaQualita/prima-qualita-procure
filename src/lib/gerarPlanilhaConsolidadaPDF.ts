@@ -230,7 +230,9 @@ export async function gerarPlanilhaConsolidadaPDF(
     totaisPorFornecedor[resposta.fornecedor.cnpj] = 0;
   });
   
+  console.log('🔄 Iniciando loop de itens...');
   itens.forEach(item => {
+    console.log(`🔄 Processando item ${item.numero_item}...`);
     const linha: any = {
       item: item.numero_item.toString(),
       descricao: item.descricao,
@@ -244,13 +246,16 @@ export async function gerarPlanilhaConsolidadaPDF(
       const respostaItem = resposta.itens.find(i => i.numero_item === item.numero_item);
       if (respostaItem) {
         // Se critério é desconto, usar percentual_desconto; senão, usar valor_unitario_ofertado
+        const percentualDesconto = respostaItem.percentual_desconto;
+        const valorUnitario = respostaItem.valor_unitario_ofertado;
+        
         const valorParaCalculo = criterioJulgamento === 'desconto' 
-          ? (respostaItem.percentual_desconto ?? 0)
-          : respostaItem.valor_unitario_ofertado;
+          ? (typeof percentualDesconto === 'number' ? percentualDesconto : 0)
+          : (typeof valorUnitario === 'number' ? valorUnitario : 0);
         
-        const valorTotal = respostaItem.valor_unitario_ofertado * item.quantidade;
+        const valorTotal = (typeof valorUnitario === 'number' ? valorUnitario : 0) * item.quantidade;
         
-        console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: percentual=${respostaItem.percentual_desconto}, valorUnit=${respostaItem.valor_unitario_ofertado}, criterio=${criterioJulgamento}, usado=${valorParaCalculo}`);
+        console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: percentual=${percentualDesconto}, valorUnit=${valorUnitario}, criterio=${criterioJulgamento}, usado=${valorParaCalculo}`);
         
         // Se critério é desconto, mostrar percentual ou "-" se zero
         if (criterioJulgamento === 'desconto') {
@@ -330,7 +335,11 @@ export async function gerarPlanilhaConsolidadaPDF(
     }
 
     linhas.push(linha);
+    console.log(`✅ Item ${item.numero_item} processado com sucesso`);
   });
+  
+  console.log('✅ Todos os itens processados!');
+  console.log('📊 Estimativas finais calculadas:', estimativasCalculadas);
 
   // Adicionar linha de TOTAL GERAL apenas se NÃO for critério de desconto
   if (criterioJulgamento !== 'desconto') {
@@ -491,6 +500,12 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setFontSize(8);
   doc.text(`Verifique em: ${linkVerificacao}`, margemEsquerda + 3, y2);
 
+  console.log('✅ PDF gerado completamente');
   console.log('📊 Estimativas calculadas no PDF:', estimativasCalculadas);
-  return { blob: doc.output('blob'), estimativas: estimativasCalculadas };
+  console.log('🎯 Retornando blob e estimativas...');
+  
+  const resultado = { blob: doc.output('blob'), estimativas: estimativasCalculadas };
+  console.log('🎯 Resultado preparado:', { temBlob: !!resultado.blob, temEstimativas: !!resultado.estimativas, tamanhoEstimativas: Object.keys(resultado.estimativas).length });
+  
+  return resultado;
 }
