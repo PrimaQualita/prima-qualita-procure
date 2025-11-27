@@ -131,7 +131,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  const textoObjeto = 'Objeto:  ';
+  const textoObjeto = 'Objeto: ';
   doc.text(textoObjeto, margemEsquerda, y);
   
   // Quebrar texto do objeto e aplicar justificação manual
