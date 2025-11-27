@@ -1467,7 +1467,7 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     });
 
     // Status e Data
-    const statusText = assinatura.status_assinatura === 'aceito' ? '✓ ASSINADO' : '⏳ PENDENTE';
+    const statusText = assinatura.status_assinatura === 'aceito' ? 'ASSINADO' : 'PENDENTE';
     const statusColor = assinatura.status_assinatura === 'aceito' ? rgb(0, 0.5, 0) : rgb(0.8, 0.5, 0);
     
     page.drawText(statusText, {
