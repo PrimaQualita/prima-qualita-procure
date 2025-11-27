@@ -696,11 +696,79 @@ const DetalheSelecao = () => {
             {gerandoAta ? "Gerando..." : "Gerar Ata"}
           </Button>
 
+          {/* Atas Geradas */}
+          {atasGeradas.length > 0 && (
+            <Card className="mt-4">
+              <CardHeader className="py-3">
+                <CardTitle className="text-base">Atas Geradas</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <div className="space-y-2">
+                  {atasGeradas.map((ata) => (
+                    <div key={ata.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{ata.nome_arquivo}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Gerada em: {new Date(ata.data_geracao).toLocaleString("pt-BR")}
+                          {ata.enviada_fornecedores && (
+                            <span className="ml-2 text-green-600">• Enviada aos fornecedores</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => window.open(ata.url_arquivo, "_blank")}
+                          title="Visualizar"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => setConfirmDeleteAta(ata.id)}
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        {ata.enviada_fornecedores && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAtualizarPDFAta(ata.id)}
+                            disabled={atualizandoPDF === ata.id}
+                            title="Atualizar PDF com Assinaturas"
+                          >
+                            <RefreshCw className={`h-4 w-4 mr-1 ${atualizandoPDF === ata.id ? 'animate-spin' : ''}`} />
+                            {atualizandoPDF === ata.id ? "Atualizando..." : "Atualizar PDF"}
+                          </Button>
+                        )}
+                        {!ata.enviada_fornecedores && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleAbrirEnviarAtaAssinatura(ata.id)}
+                            title="Enviar para Assinatura"
+                          >
+                            <SendHorizontal className="h-4 w-4 mr-1" />
+                            Enviar para Assinatura
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Gerar Homologação */}
           <Button
             variant="outline"
             size="lg"
-            className="w-full"
+            className="w-full mt-4"
             disabled={gerandoHomologacao}
             onClick={async () => {
               setGerandoHomologacao(true);
@@ -766,74 +834,6 @@ const DetalheSelecao = () => {
                           <SendHorizontal className="h-4 w-4 mr-1" />
                           Enviar para Assinatura
                         </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Atas Geradas */}
-          {atasGeradas.length > 0 && (
-            <Card className="mt-4">
-              <CardHeader className="py-3">
-                <CardTitle className="text-base">Atas Geradas</CardTitle>
-              </CardHeader>
-              <CardContent className="py-2">
-                <div className="space-y-2">
-                  {atasGeradas.map((ata) => (
-                    <div key={ata.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{ata.nome_arquivo}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Gerada em: {new Date(ata.data_geracao).toLocaleString("pt-BR")}
-                          {ata.enviada_fornecedores && (
-                            <span className="ml-2 text-green-600">• Enviada aos fornecedores</span>
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => window.open(ata.url_arquivo, "_blank")}
-                          title="Visualizar"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-600 hover:text-red-700"
-                          onClick={() => setConfirmDeleteAta(ata.id)}
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        {ata.enviada_fornecedores && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAtualizarPDFAta(ata.id)}
-                            disabled={atualizandoPDF === ata.id}
-                            title="Atualizar PDF com Assinaturas"
-                          >
-                            <RefreshCw className={`h-4 w-4 mr-1 ${atualizandoPDF === ata.id ? 'animate-spin' : ''}`} />
-                            {atualizandoPDF === ata.id ? "Atualizando..." : "Atualizar PDF"}
-                          </Button>
-                        )}
-                        {!ata.enviada_fornecedores && (
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => handleAbrirEnviarAtaAssinatura(ata.id)}
-                            title="Enviar para Assinatura"
-                          >
-                            <SendHorizontal className="h-4 w-4 mr-1" />
-                            Enviar para Assinatura
-                          </Button>
-                        )}
                       </div>
                     </div>
                   ))}
