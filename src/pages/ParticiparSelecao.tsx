@@ -493,30 +493,49 @@ const ParticiparSelecao = () => {
   const handleValorBlur = useCallback((itemId: string, value: string) => {
     // Para critério desconto, processar como percentual
     if (criterioJulgamento === "desconto") {
-      const numeros = value.replace(/\D/g, '');
+      // Remove apenas % e espaços, mantém números, vírgula e ponto
+      const valorLimpo = value.replace(/[%\s]/g, '').trim();
       
-      if (!numeros || numeros === '0' || numeros === '') {
+      if (!valorLimpo || valorLimpo === '0' || valorLimpo === '') {
         setRespostas(prev => ({
           ...prev,
           [itemId]: { 
             ...prev[itemId], 
             valor_unitario_ofertado: 0, 
-            valor_display: '0,00%' 
+            valor_display: '0,00' 
           }
         }));
         return;
       }
       
-      // Processar como decimal (ex: "50" = 0.50 = 50%)
-      const valorNumerico = parseInt(numeros) / 100;
-      const valorFormatado = (valorNumerico * 100).toFixed(2).replace('.', ',');
+      // Substituir vírgula por ponto para parseFloat
+      const valorComPonto = valorLimpo.replace(',', '.');
+      const valorNumerico = parseFloat(valorComPonto);
+      
+      if (isNaN(valorNumerico)) {
+        setRespostas(prev => ({
+          ...prev,
+          [itemId]: { 
+            ...prev[itemId], 
+            valor_unitario_ofertado: 0, 
+            valor_display: '0,00' 
+          }
+        }));
+        return;
+      }
+      
+      // Converter percentual para decimal (50% = 0.50)
+      const valorDecimal = valorNumerico / 100;
+      
+      // Formatar para exibição (0.50 * 100 = 50.00 → "50,00")
+      const valorFormatado = valorNumerico.toFixed(2).replace('.', ',');
       
       setRespostas(prev => ({
         ...prev,
         [itemId]: { 
           ...prev[itemId], 
-          valor_unitario_ofertado: valorNumerico, 
-          valor_display: `${valorFormatado}%` 
+          valor_unitario_ofertado: valorDecimal, 
+          valor_display: valorFormatado 
         }
       }));
       return;
@@ -574,7 +593,7 @@ const ParticiparSelecao = () => {
         // Para critério desconto, valor_unitario representa percentual (0.5 = 50%)
         // Para outros critérios, representa valor monetário (500.00 = R$ 500,00)
         const valorFormatado = criterioJulgamento === "desconto" 
-          ? `${(dado.valor_unitario * 100).toFixed(2).replace('.', ',')}%`
+          ? (dado.valor_unitario * 100).toFixed(2).replace('.', ',')
           : `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
         
         novasRespostas[item.id] = {
