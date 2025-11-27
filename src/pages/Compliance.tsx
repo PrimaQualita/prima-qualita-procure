@@ -228,8 +228,11 @@ export default function Compliance() {
 
 
   const visualizarProcesso = async (processo: ProcessoCompliance) => {
+    const loadingToast = toast.loading("Gerando visualização do processo...");
+    
     try {
-      toast.loading("Gerando visualização do processo...");
+      console.log(`📊 [Compliance] Iniciando visualização do processo ${processo.numero_processo_interno}`);
+      console.log(`📊 [Compliance] Cotação ID: ${processo.cotacao_id}`);
       
       const { gerarProcessoCompletoPDF } = await import("@/lib/gerarProcessoCompletoPDF");
       const resultado = await gerarProcessoCompletoPDF(
@@ -237,48 +240,18 @@ export default function Compliance() {
         processo.numero_processo_interno
       );
       
-      toast.dismiss();
+      console.log(`✅ [Compliance] PDF gerado com sucesso: ${resultado.url}`);
+      toast.dismiss(loadingToast);
+      toast.success("Abrindo processo...");
       window.open(resultado.url, '_blank');
     } catch (error: any) {
-      toast.dismiss();
-      console.error("Erro ao visualizar processo:", error);
-      toast.error("Erro ao gerar visualização do processo");
+      console.error("❌ [Compliance] Erro ao visualizar processo:", error);
+      console.error("Stack:", error?.stack);
+      toast.dismiss(loadingToast);
+      toast.error(`Erro ao gerar visualização: ${error?.message || 'Erro desconhecido'}`);
     }
   };
 
-  const baixarProcesso = async (processo: ProcessoCompliance) => {
-    try {
-      toast.loading("Gerando arquivo do processo... Isso pode levar alguns minutos.");
-      
-      const { gerarProcessoCompletoPDF } = await import("@/lib/gerarProcessoCompletoPDF");
-      const resultado = await gerarProcessoCompletoPDF(
-        processo.cotacao_id,
-        processo.numero_processo_interno
-      );
-      
-      toast.dismiss();
-      
-      // Fetch o arquivo e baixar
-      const response = await fetch(resultado.url);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = resultado.filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      window.URL.revokeObjectURL(blobUrl);
-      
-      toast.success("Processo baixado com sucesso");
-    } catch (error: any) {
-      toast.dismiss();
-      console.error("Erro ao baixar processo:", error);
-      toast.error("Erro ao gerar arquivo do processo");
-    }
-  };
 
   const editarAnalise = async (processo: ProcessoCompliance, isEditMode: boolean = false) => {
     setProcessoSelecionado(processo);
@@ -592,14 +565,6 @@ export default function Compliance() {
                             >
                               <Eye className="h-4 w-4 mr-2" />
                               Visualizar Processo
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => baixarProcesso(processo)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Baixar Processo
                             </Button>
                             {processo.tem_analise ? (
                               <>
