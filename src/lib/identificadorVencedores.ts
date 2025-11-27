@@ -97,9 +97,17 @@ export async function identificarVencedoresPorCriterio(
   // Identificar vencedores baseado nos dados da planilha consolidada
   const fornecedoresVencedoresSet = new Set<string>();
 
+  // CRÍTICO: Identificar CNPJs de preços públicos (sequenciais)
+  const ehPrecoPublico = (cnpj: string) => {
+    if (!cnpj) return false;
+    const primeiroDigito = cnpj.charAt(0);
+    return cnpj.split('').every(d => d === primeiroDigito);
+  };
+
   // Para cada fornecedor na planilha
   fornecedoresPlanilha.forEach(fornecedorPlanilha => {
     console.log(`  🔍 Analisando fornecedor: ${fornecedorPlanilha.razao_social}`);
+    console.log(`    → CNPJ: ${fornecedorPlanilha.cnpj}`);
     console.log(`    → Total de itens deste fornecedor: ${fornecedorPlanilha.itens?.length || 0}`);
     
     // Verificar se o fornecedor foi rejeitado e não foi revertido
@@ -107,6 +115,7 @@ export async function identificarVencedoresPorCriterio(
     const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(fornecedorPlanilha.fornecedor_id);
     
     console.log(`    → Está rejeitado? ${estaRejeitado}`);
+    console.log(`    → É preço público? ${ehPrecoPublico(fornecedorPlanilha.cnpj)}`);
     
     if (estaRejeitado) {
       console.log(`  ⏭️ Pulando fornecedor rejeitado: ${fornecedorPlanilha.razao_social}`);
@@ -116,16 +125,26 @@ export async function identificarVencedoresPorCriterio(
     // DEBUG: Ver estrutura dos itens
     if (fornecedorPlanilha.itens && fornecedorPlanilha.itens.length > 0) {
       console.log(`    → Estrutura do primeiro item:`, fornecedorPlanilha.itens[0]);
+      console.log(`    → Itens com valores:`, fornecedorPlanilha.itens.slice(0, 3).map(i => ({
+        num: i.numero_item,
+        valor: i.valor_unitario,
+        vencedor: i.eh_vencedor
+      })));
     }
 
-    // Verificar se tem itens vencedores
+    // CRÍTICO: Verificar se tem itens REALMENTE vencedores (eh_vencedor=true)
     const itensVencedores = fornecedorPlanilha.itens?.filter(item => item.eh_vencedor === true) || [];
     
     console.log(`    → Itens com eh_vencedor=true: ${itensVencedores.length}`);
     
-    if (itensVencedores.length > 0) {
+    // APENAS adicionar se tem itens vencedores E não é preço público
+    if (itensVencedores.length > 0 && !ehPrecoPublico(fornecedorPlanilha.cnpj)) {
       fornecedoresVencedoresSet.add(fornecedorPlanilha.fornecedor_id);
-      console.log(`  ✅ Vencedor: ${fornecedorPlanilha.razao_social} (${itensVencedores.length} itens)`);
+      console.log(`  ✅ Vencedor CONFIRMADO: ${fornecedorPlanilha.razao_social} (${itensVencedores.length} itens)`);
+    } else if (itensVencedores.length > 0 && ehPrecoPublico(fornecedorPlanilha.cnpj)) {
+      console.log(`  ⏭️ Preço público ignorado: ${fornecedorPlanilha.razao_social}`);
+    } else {
+      console.log(`  ⏭️ SEM itens vencedores: ${fornecedorPlanilha.razao_social}`);
     }
   });
 
