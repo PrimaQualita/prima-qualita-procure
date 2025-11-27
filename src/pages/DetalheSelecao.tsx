@@ -182,8 +182,8 @@ const DetalheSelecao = () => {
       console.log("🔍 Buscando planilha para cotacao:", cotacaoId);
       console.log("📅 Data limite:", dataCriacaoSelecao);
 
-      // Buscar a planilha consolidada E os itens originais da cotação
-      const [planilhaResult, itensOriginaisResult] = await Promise.all([
+      // Buscar a planilha consolidada, os itens originais E o critério de julgamento da cotação
+      const [planilhaResult, itensOriginaisResult, cotacaoResult] = await Promise.all([
         supabase
           .from("planilhas_consolidadas")
           .select("fornecedores_incluidos, data_geracao")
@@ -196,17 +196,25 @@ const DetalheSelecao = () => {
           .from("itens_cotacao")
           .select("*")
           .eq("cotacao_id", cotacaoId)
-          .order("numero_item", { ascending: true })
+          .order("numero_item", { ascending: true }),
+        supabase
+          .from("cotacoes_precos")
+          .select("criterio_julgamento")
+          .eq("id", cotacaoId)
+          .single()
       ]);
 
       const { data: planilha, error: planilhaError } = planilhaResult;
       const { data: itensOriginais, error: itensError } = itensOriginaisResult;
+      const { data: cotacaoData, error: cotacaoError } = cotacaoResult;
 
       console.log("📊 Planilha encontrada:", planilha);
       console.log("📋 Itens originais:", itensOriginais);
+      console.log("🎯 Critério de julgamento:", cotacaoData?.criterio_julgamento);
 
       if (planilhaError) throw planilhaError;
       if (itensError) throw itensError;
+      if (cotacaoError) throw cotacaoError;
 
       if (!planilha) {
         console.warn("⚠️ Nenhuma planilha consolidada encontrada");
@@ -235,31 +243,42 @@ const DetalheSelecao = () => {
         return;
       }
 
-      // Calcular o menor valor de cada item entre todos os fornecedores
-      const menoresValoresPorItem = new Map<number, number>();
+      // Para critério de desconto, buscar o MAIOR desconto de cada item
+      // Para outros critérios, buscar o MENOR valor de cada item
+      const isDesconto = cotacaoData?.criterio_julgamento === "desconto";
+      const valoresEstimadosPorItem = new Map<number, number>();
 
       fornecedoresArray.forEach((fornecedor: any) => {
         if (fornecedor.itens) {
           fornecedor.itens.forEach((item: any) => {
-            const valorAtual = menoresValoresPorItem.get(item.numero_item);
+            const valorAtual = valoresEstimadosPorItem.get(item.numero_item);
             const valorItem = item.valor_unitario || 0;
             
-            if (!valorAtual || valorItem < valorAtual) {
-              menoresValoresPorItem.set(item.numero_item, valorItem);
+            if (isDesconto) {
+              // Para desconto, queremos o MAIOR percentual
+              if (!valorAtual || valorItem > valorAtual) {
+                valoresEstimadosPorItem.set(item.numero_item, valorItem);
+              }
+            } else {
+              // Para valor, queremos o MENOR preço
+              if (!valorAtual || valorItem < valorAtual) {
+                valoresEstimadosPorItem.set(item.numero_item, valorItem);
+              }
             }
           });
         }
       });
 
-      console.log("💵 Menores valores por item:", menoresValoresPorItem);
+      console.log(isDesconto ? "💵 Maiores descontos por item:" : "💵 Menores valores por item:", valoresEstimadosPorItem);
 
-      // Usar os menores valores como valores estimados para a seleção
+      // Usar os valores/descontos estimados para a seleção
       const todosItens: Item[] = [];
       let total = 0;
 
       itensOriginais.forEach((itemOriginal) => {
-        const valorEstimado = menoresValoresPorItem.get(itemOriginal.numero_item) || 0;
-        const valorTotalItem = valorEstimado * itemOriginal.quantidade;
+        const valorEstimado = valoresEstimadosPorItem.get(itemOriginal.numero_item) || 0;
+        // Para desconto, valor_total não é calculado (não faz sentido)
+        const valorTotalItem = isDesconto ? 0 : (valorEstimado * itemOriginal.quantidade);
         
         todosItens.push({
           id: itemOriginal.id,
