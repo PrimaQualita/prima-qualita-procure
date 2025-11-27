@@ -245,27 +245,28 @@ export async function gerarPropostaSelecaoPDF(
     // Posições iniciais das colunas
     const colItem = margemEsquerda + 2;
     const colDesc = margemEsquerda + 12;
-    const colQtd = margemEsquerda + 77;
-    const colUni = margemEsquerda + 91;
-    const colMarca = margemEsquerda + 103;
-    const colValorUnit = margemEsquerda + 122;
-    const colValorTotal = isDesconto ? undefined : margemEsquerda + 147;
+    const colQtd = margemEsquerda + 82;
+    const colUni = margemEsquerda + 96;
+    const colMarca = margemEsquerda + 108;
+    const colValorUnit = margemEsquerda + 135;
+    const colValorTotal = isDesconto ? undefined : margemEsquerda + 160;
     
     // Centros das colunas
     const colItemCenter = margemEsquerda + 5;
-    const colQtdCenter = margemEsquerda + 82;
-    const colUniCenter = margemEsquerda + 95;
-    const colMarcaCenter = margemEsquerda + 110.5;
-    const colDescontoCenter = isDesconto ? margemEsquerda + 133 : undefined;
+    const colQtdCenter = margemEsquerda + 87;
+    const colUniCenter = margemEsquerda + 100;
+    const colMarcaCenter = margemEsquerda + 118;
+    const colDescontoCenter = isDesconto ? margemEsquerda + 145 : undefined;
     
     // Posições das linhas verticais (divisores)
     const colPositions = isDesconto 
       ? [
           margemEsquerda + 10,   // Fim Item
-          margemEsquerda + 75,   // Fim Descrição
-          margemEsquerda + 89,   // Fim Qtd
-          margemEsquerda + 101,  // Fim Unid
-          margemEsquerda + 120   // Fim Marca
+          margemEsquerda + 80,   // Fim Descrição
+          margemEsquerda + 94,   // Fim Qtd
+          margemEsquerda + 106,  // Fim Unid
+          margemEsquerda + 130,  // Fim Marca
+          margemEsquerda + 160   // Fim % Desconto
         ]
       : [
           margemEsquerda + 10,   // Fim Item
@@ -375,11 +376,11 @@ export async function gerarPropostaSelecaoPDF(
       
       // Valores conforme critério
       if (isDesconto) {
-        // Exibir apenas % de desconto alinhado à direita (SEM multiplicar por 100)
+        // Exibir apenas % de desconto alinhado à direita
         const descontoTexto = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0
           ? `${formatarMoeda(item.valor_unitario_ofertado)}%`
           : '-';
-        const valorUnitRight = margemEsquerda + larguraUtil - 2;
+        const valorUnitRight = margemEsquerda + 158;
         doc.text(descontoTexto, valorUnitRight, yVerticalCenter, { align: 'right' });
       } else {
         // Valores em moeda - alinhados à direita com R$
