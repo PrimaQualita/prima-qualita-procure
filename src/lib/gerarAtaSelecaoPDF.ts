@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import logoImg from '@/assets/capa-processo-logo.png';
 import rodapeImg from '@/assets/capa-processo-rodape.png';
+import logoExpandido from '@/assets/logo-recurso.png';
+import rodapeExpandido from '@/assets/rodape-recurso.png';
 
 interface EmpresaParticipante {
   razao_social: string;
@@ -1449,8 +1451,22 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   console.log('>>> Nova página criada. Total agora:', pdfDoc.getPageCount());
   console.log('>>> Dimensões da nova página - width:', pageWidth, 'height:', pageHeight);
   
-  // Começar do TOPO da nova página (Y alto = topo em pdf-lib)
-  let currentY = pageHeight - 80; // Do topo com margem
+  // Adicionar logo expandido no topo da nova página
+  const logoExpandidoBytes = await fetch(logoExpandido).then(res => res.arrayBuffer());
+  const logoExpandidoImage = await pdfDoc.embedPng(logoExpandidoBytes);
+  const logoExpandidoDims = logoExpandidoImage.scale(1);
+  const logoExpandidoWidth = pageWidth - 3; // 1.5mm de cada lado
+  const logoExpandidoHeight = (logoExpandidoWidth / logoExpandidoDims.width) * logoExpandidoDims.height;
+  
+  page.drawImage(logoExpandidoImage, {
+    x: 1.5,
+    y: pageHeight - logoExpandidoHeight - 1.5,
+    width: logoExpandidoWidth,
+    height: logoExpandidoHeight,
+  });
+  
+  // Começar do TOPO da nova página abaixo do logo
+  let currentY = pageHeight - logoExpandidoHeight - 20;
   console.log('>>> Posição inicial do termo de aceite (do topo):', currentY);
 
   // Função para criar nova página se necessário
@@ -1458,7 +1474,16 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     if (currentY - espacoNecessario < footerLimit) {
       console.log('>>> checkNewPage: Criando nova página adicional');
       page = pdfDoc.addPage([pageWidth, pageHeight]);
-      currentY = pageHeight - 80;
+      
+      // Adicionar logo expandido no topo da nova página
+      page.drawImage(logoExpandidoImage, {
+        x: 1.5,
+        y: pageHeight - logoExpandidoHeight - 1.5,
+        width: logoExpandidoWidth,
+        height: logoExpandidoHeight,
+      });
+      
+      currentY = pageHeight - logoExpandidoHeight - 20;
       console.log('>>> checkNewPage: Nova página criada. Total:', pdfDoc.getPageCount());
       return true;
     }
@@ -1600,6 +1625,26 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   // Salvar PDF modificado
   console.log('>>> Salvando PDF final. Total de páginas:', pdfDoc.getPageCount());
+  
+  // Adicionar rodapé expandido no final de todas as páginas com termo de aceite
+  const rodapeExpandidoBytes = await fetch(rodapeExpandido).then(res => res.arrayBuffer());
+  const rodapeExpandidoImage = await pdfDoc.embedPng(rodapeExpandidoBytes);
+  const rodapeExpandidoDims = rodapeExpandidoImage.scale(1);
+  const rodapeExpandidoWidth = pageWidth - 3;
+  const rodapeExpandidoHeight = (rodapeExpandidoWidth / rodapeExpandidoDims.width) * rodapeExpandidoDims.height;
+  
+  const totalPages = pdfDoc.getPageCount();
+  // Adicionar rodapé apenas nas páginas do termo de aceite (a partir da página que criamos)
+  for (let i = originalPageCount; i < totalPages; i++) {
+    const pageToAddFooter = pdfDoc.getPage(i);
+    pageToAddFooter.drawImage(rodapeExpandidoImage, {
+      x: 1.5,
+      y: 1.5,
+      width: rodapeExpandidoWidth,
+      height: rodapeExpandidoHeight,
+    });
+  }
+  
   const modifiedPdfBytes = await pdfDoc.save();
   const modifiedBlob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
 
