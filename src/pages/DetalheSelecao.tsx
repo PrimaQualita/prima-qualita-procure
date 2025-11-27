@@ -708,8 +708,14 @@ const DetalheSelecao = () => {
                   <TableHead>Qtd</TableHead>
                   <TableHead>Unid.</TableHead>
                   {processo?.tipo === "material" && <TableHead>Marca</TableHead>}
-                  <TableHead className="text-right">Vlr. Unit.</TableHead>
-                  <TableHead className="text-right">Vlr. Total</TableHead>
+                  {processo?.criterio_julgamento === "desconto" ? (
+                    <TableHead className="text-right">Desconto</TableHead>
+                  ) : (
+                    <>
+                      <TableHead className="text-right">Vlr. Unit.</TableHead>
+                      <TableHead className="text-right">Vlr. Total</TableHead>
+                    </>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -728,16 +734,24 @@ const DetalheSelecao = () => {
                         <TableCell>{item.quantidade}</TableCell>
                         <TableCell>{item.unidade}</TableCell>
                         {processo?.tipo === "material" && <TableCell>{item.marca || "-"}</TableCell>}
-                        <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(item.valor_total)}</TableCell>
+                        {processo?.criterio_julgamento === "desconto" ? (
+                          <TableCell className="text-right font-medium">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
+                        ) : (
+                          <>
+                            <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
+                            <TableCell className="text-right font-medium">{formatCurrency(item.valor_total)}</TableCell>
+                          </>
+                        )}
                       </TableRow>
                     ))}
-                    <TableRow className="bg-muted font-bold">
-                      <TableCell colSpan={processo?.tipo === "material" ? 6 : 5} className="text-right">
-                        VALOR TOTAL GERAL
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(valorTotal)}</TableCell>
-                    </TableRow>
+                    {processo?.criterio_julgamento !== "desconto" && (
+                      <TableRow className="bg-muted font-bold">
+                        <TableCell colSpan={processo?.tipo === "material" ? 6 : 5} className="text-right">
+                          VALOR TOTAL GERAL
+                        </TableCell>
+                        <TableCell className="text-right">{formatCurrency(valorTotal)}</TableCell>
+                      </TableRow>
+                    )}
                   </>
                 )}
               </TableBody>
