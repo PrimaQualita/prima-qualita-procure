@@ -201,15 +201,17 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
     const textoHomologacao = `HOMOLOGO, nos termos da legislação em vigor, o Processo Interno nº ${processo.numero_processo_interno}, por meio da Seleção de Fornecedores nº ${selecao.numero_selecao}, cujo objeto consiste em ${objetoLimpo} vinculados ao Contrato de Gestão ${contratoNumero}/${contratoAno}, firmado com o município de ${enteFederativo}, pelo critério de ${criterioTexto}, pelo Sistema de Registro de Preços, para atender as necessidades das unidades gerenciadas pela OS Prima Qualitá Saúde por meio de seus Contratos de Gestão, em favor das empresas:`;
 
     const linhasTexto = doc.splitTextToSize(textoHomologacao, contentWidth);
-    doc.text(linhasTexto, marginLeft, yPosition, { align: "justify" });
-    yPosition += linhasTexto.length * 6 + 10;
+    linhasTexto.forEach((linha: string, index: number) => {
+      doc.text(linha, marginLeft, yPosition + (index * 5));
+    });
+    yPosition += linhasTexto.length * 5 + 10;
 
     // Tabela de vencedores
     const empresasVencedoras: string[][] = [];
     vencedoresPorFornecedor.forEach((grupo) => {
       const itensStr = grupo.itens.sort((a, b) => a - b).join(", ");
       const valorStr = isDesconto 
-        ? "-" 
+        ? `${grupo.valorTotal.toFixed(2).replace('.', ',')}%`
         : grupo.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
       
       empresasVencedoras.push([
@@ -236,7 +238,8 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string) {
     doc.text("Itens Vencedores", tableX + colWidths[0] + 2, yPosition + 5.5);
     
     doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], 8, "F");
-    doc.text("Valor (R$)", tableX + colWidths[0] + colWidths[1] + 2, yPosition + 5.5);
+    const labelColuna3 = isDesconto ? "Desconto" : "Valor (R$)";
+    doc.text(labelColuna3, tableX + colWidths[0] + colWidths[1] + 2, yPosition + 5.5);
     
     yPosition += 8;
 
