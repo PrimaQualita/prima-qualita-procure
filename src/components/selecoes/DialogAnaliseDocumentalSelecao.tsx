@@ -195,9 +195,13 @@ export function DialogAnaliseDocumentalSelecao({
     if (!open || !selecaoId) return;
 
     const handleVencedoresRemarcados = () => {
-      console.log("🔔 Evento de remarcação recebido, recarregando vencedores...");
-      loadFornecedoresVencedores();
-      loadRecursosInabilitacao();
+      console.log("🔔 Evento de remarcação recebido, aguardando atualização do banco...");
+      // Aguardar 800ms para garantir que o banco foi atualizado completamente
+      setTimeout(() => {
+        console.log("🔄 Recarregando vencedores após delay...");
+        loadFornecedoresVencedores();
+        loadRecursosInabilitacao();
+      }, 800);
     };
 
     window.addEventListener('vencedores-remarcados', handleVencedoresRemarcados);
