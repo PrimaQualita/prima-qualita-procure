@@ -943,6 +943,14 @@ export function DialogSessaoLances({
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
 
+  const formatDesconto = (value: number) => {
+    return `${value.toFixed(2).replace('.', ',')}%`;
+  };
+
+  const formatValorLance = (value: number) => {
+    return criterioJulgamento === "desconto" ? formatDesconto(value) : formatCurrency(value);
+  };
+
   const formatCNPJ = (cnpj: string) => {
     return cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") || "";
   };
@@ -1300,7 +1308,7 @@ export function DialogSessaoLances({
 
           const tableData = lancesOrdenados.map((lance, idx) => {
             const isNegociacao = lance.tipo_lance === "negociacao";
-            const valorFormatado = formatCurrency(lance.valor_lance);
+            const valorFormatado = formatValorLance(lance.valor_lance);
             const isInabilitado = isInabilitadoNoItem(lance.fornecedor_id, item.numero_item);
             
             // Posição: só conta para fornecedores válidos
@@ -1330,7 +1338,7 @@ export function DialogSessaoLances({
             startY: yPosition,
             head: [
               [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [224, 242, 241], textColor: [0, 128, 128], halign: "left", fontStyle: "bold", fontSize: 10 } }],
-              ["Pos.", "Fornecedor", "Valor", "Data/Hora"]
+              ["Pos.", "Fornecedor", criterioJulgamento === "desconto" ? "% Desconto" : "Valor", "Data/Hora"]
             ],
             body: tableData.map(row => row.data),
             theme: "striped",
@@ -1479,10 +1487,12 @@ export function DialogSessaoLances({
       const resumoData = itens.map(item => {
         const vencedor = getVencedorItem(item.numero_item);
         const isNegociacao = vencedor?.tipo_lance === "negociacao";
-        const valorUnitarioFormatado = vencedor ? formatCurrency(vencedor.valor_lance) : "-";
+        const valorUnitarioFormatado = vencedor ? formatValorLance(vencedor.valor_lance) : "-";
         const quantidade = item.quantidade || 1;
-        const valorTotal = vencedor ? vencedor.valor_lance * quantidade : 0;
-        const valorTotalFormatado = vencedor ? formatCurrency(valorTotal) : "-";
+        
+        // Para desconto, não faz sentido calcular valor total (desconto não se multiplica por quantidade)
+        const valorTotal = criterioJulgamento === "desconto" ? 0 : (vencedor ? vencedor.valor_lance * quantidade : 0);
+        const valorTotalFormatado = criterioJulgamento === "desconto" ? "-" : (vencedor ? formatCurrency(valorTotal) : "-");
         
         // Somar ao valor total geral
         valorTotalGeral += valorTotal;
@@ -1503,17 +1513,19 @@ export function DialogSessaoLances({
         ];
       });
 
-      // Adicionar linha de valor total
-      resumoData.push([
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "VALOR TOTAL:",
-        formatCurrency(valorTotalGeral)
-      ]);
+      // Adicionar linha de valor total (apenas se não for desconto)
+      if (criterioJulgamento !== "desconto") {
+        resumoData.push([
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "VALOR TOTAL:",
+          formatCurrency(valorTotalGeral)
+        ]);
+      }
 
       // Rastrear páginas do resumo que já receberam logo
       const paginasResumoProcessadas = new Set<number>();
@@ -1522,7 +1534,16 @@ export function DialogSessaoLances({
 
       autoTable(doc, {
         startY: resumoStartY,
-        head: [["Item", "Descrição", "Vencedor", "Marca", "Qtd.", "Un.", "Valor Unit.", "Valor Total"]],
+        head: [[
+          "Item", 
+          "Descrição", 
+          "Vencedor", 
+          "Marca", 
+          "Qtd.", 
+          "Un.", 
+          criterioJulgamento === "desconto" ? "% Desconto" : "Valor Unit.", 
+          criterioJulgamento === "desconto" ? "-" : "Valor Total"
+        ]],
         body: resumoData,
         theme: "striped",
         styles: { 
@@ -1588,86 +1609,88 @@ export function DialogSessaoLances({
       doc.text("* Valor obtido por negociação", margin, finalY);
       doc.setTextColor(0, 0, 0);
 
-      // Calcular totais por fornecedor
-      const totaisPorFornecedor: Record<string, { nome: string; total: number }> = {};
-      itens.forEach(item => {
-        const vencedor = getVencedorItem(item.numero_item);
-        if (vencedor && vencedor.fornecedores?.razao_social) {
-          const fornecedorId = vencedor.fornecedor_id;
-          const quantidade = item.quantidade || 1;
-          const valorTotal = vencedor.valor_lance * quantidade;
-          
-          if (!totaisPorFornecedor[fornecedorId]) {
-            totaisPorFornecedor[fornecedorId] = {
-              nome: vencedor.fornecedores.razao_social,
-              total: 0
-            };
+      // Calcular totais por fornecedor (apenas se não for desconto)
+      if (criterioJulgamento !== "desconto") {
+        const totaisPorFornecedor: Record<string, { nome: string; total: number }> = {};
+        itens.forEach(item => {
+          const vencedor = getVencedorItem(item.numero_item);
+          if (vencedor && vencedor.fornecedores?.razao_social) {
+            const fornecedorId = vencedor.fornecedor_id;
+            const quantidade = item.quantidade || 1;
+            const valorTotal = vencedor.valor_lance * quantidade;
+            
+            if (!totaisPorFornecedor[fornecedorId]) {
+              totaisPorFornecedor[fornecedorId] = {
+                nome: vencedor.fornecedores.razao_social,
+                total: 0
+              };
+            }
+            totaisPorFornecedor[fornecedorId].total += valorTotal;
           }
-          totaisPorFornecedor[fornecedorId].total += valorTotal;
-        }
-      });
-
-      // Preparar dados da tabela de resumo por fornecedor
-      const resumoFornecedoresData = Object.values(totaisPorFornecedor)
-        .sort((a, b) => b.total - a.total) // Ordenar por valor total decrescente
-        .map(f => [f.nome, formatCurrency(f.total)]);
-
-      // Calcular total geral dos fornecedores
-      const totalGeralFornecedores = Object.values(totaisPorFornecedor).reduce((acc, f) => acc + f.total, 0);
-      
-      // Adicionar linha de valor total
-      resumoFornecedoresData.push(["VALOR TOTAL", formatCurrency(totalGeralFornecedores)]);
-
-      // Adicionar tabela de resumo por fornecedor
-      if (resumoFornecedoresData.length > 0) {
-        finalY += 10;
-
-        autoTable(doc, {
-          startY: finalY + 5,
-          head: [["Fornecedor", "Valor Total"]],
-          body: resumoFornecedoresData,
-          theme: "striped",
-          styles: { 
-            fontSize: 8,
-            cellPadding: 2, // Reduzido para comprimir altura das linhas
-            valign: "middle",
-            textColor: [0, 0, 0], // Preto
-          },
-          headStyles: { 
-            fillColor: [0, 128, 128],
-            textColor: 255,
-            fontStyle: "bold",
-            halign: "center",
-            valign: "middle",
-            cellPadding: 2,
-          },
-          columnStyles: {
-            0: { halign: "left", valign: "middle" },
-            1: { halign: "right", fontStyle: "bold", valign: "middle", cellWidth: 80 },
-          },
-          alternateRowStyles: {
-            fillColor: [224, 242, 241]
-          },
-          tableWidth: "auto",
-          margin: { left: 14, right: 14, top: logoResumoHeight + 20 }, // Mesmas margens da planilha resumo
-          didDrawPage: () => {
-            const paginaAtual = doc.internal.pages.length - 1;
-            if (!paginasResumoProcessadas.has(paginaAtual)) {
-              paginasResumoProcessadas.add(paginaAtual);
-              if (base64LogoHorizontal) {
-                const logoX = (landscapeWidth - logoResumoWidth) / 2;
-                doc.addImage(base64LogoHorizontal, 'PNG', logoX, 8, logoResumoWidth, logoResumoHeight);
-              }
-            }
-          },
-          didParseCell: (data) => {
-            if (data.section === "body" && data.row.index === resumoFornecedoresData.length - 1) {
-              data.cell.styles.fillColor = [0, 128, 128];
-              data.cell.styles.textColor = [255, 255, 255];
-              data.cell.styles.fontStyle = "bold";
-            }
-          },
         });
+
+        // Preparar dados da tabela de resumo por fornecedor
+        const resumoFornecedoresData = Object.values(totaisPorFornecedor)
+          .sort((a, b) => b.total - a.total) // Ordenar por valor total decrescente
+          .map(f => [f.nome, formatCurrency(f.total)]);
+
+        // Calcular total geral dos fornecedores
+        const totalGeralFornecedores = Object.values(totaisPorFornecedor).reduce((acc, f) => acc + f.total, 0);
+        
+        // Adicionar linha de valor total
+        resumoFornecedoresData.push(["VALOR TOTAL", formatCurrency(totalGeralFornecedores)]);
+
+        // Adicionar tabela de resumo por fornecedor
+        if (resumoFornecedoresData.length > 0) {
+          finalY += 10;
+
+          autoTable(doc, {
+            startY: finalY + 5,
+            head: [["Fornecedor", "Valor Total"]],
+            body: resumoFornecedoresData,
+            theme: "striped",
+            styles: { 
+              fontSize: 8,
+              cellPadding: 2, // Reduzido para comprimir altura das linhas
+              valign: "middle",
+              textColor: [0, 0, 0], // Preto
+            },
+            headStyles: { 
+              fillColor: [0, 128, 128],
+              textColor: 255,
+              fontStyle: "bold",
+              halign: "center",
+              valign: "middle",
+              cellPadding: 2,
+            },
+            columnStyles: {
+              0: { halign: "left", valign: "middle" },
+              1: { halign: "right", fontStyle: "bold", valign: "middle", cellWidth: 80 },
+            },
+            alternateRowStyles: {
+              fillColor: [224, 242, 241]
+            },
+            tableWidth: "auto",
+            margin: { left: 14, right: 14, top: logoResumoHeight + 20 }, // Mesmas margens da planilha resumo
+            didDrawPage: () => {
+              const paginaAtual = doc.internal.pages.length - 1;
+              if (!paginasResumoProcessadas.has(paginaAtual)) {
+                paginasResumoProcessadas.add(paginaAtual);
+                if (base64LogoHorizontal) {
+                  const logoX = (landscapeWidth - logoResumoWidth) / 2;
+                  doc.addImage(base64LogoHorizontal, 'PNG', logoX, 8, logoResumoWidth, logoResumoHeight);
+                }
+              }
+            },
+            didParseCell: (data) => {
+              if (data.section === "body" && data.row.index === resumoFornecedoresData.length - 1) {
+                data.cell.styles.fillColor = [0, 128, 128];
+                data.cell.styles.textColor = [255, 255, 255];
+                data.cell.styles.fontStyle = "bold";
+              }
+            },
+          });
+        }
       }
 
       // Obter ID do usuário (mover para antes da certificação)
@@ -2025,7 +2048,7 @@ export function DialogSessaoLances({
                           <TableRow className="bg-primary/10">
                             <TableHead className="text-xs font-bold">Item</TableHead>
                             <TableHead className="text-xs font-bold">Fornecedor</TableHead>
-                            <TableHead className="text-xs font-bold text-right">Valor</TableHead>
+                            <TableHead className="text-xs font-bold text-right">{criterioJulgamento === "desconto" ? "% Desconto" : "Valor"}</TableHead>
                             <TableHead className="text-xs font-bold">Data/Hora</TableHead>
                             <TableHead className="text-xs w-10"></TableHead>
                           </TableRow>
@@ -2047,7 +2070,7 @@ export function DialogSessaoLances({
                                 </TableCell>
                                 <TableCell className="text-xs text-right">
                                   <span className={`font-bold ${lance.tipo_lance === "negociacao" ? "text-green-600" : ""}`}>
-                                    {formatCurrency(lance.valor_lance)}
+                                    {formatValorLance(lance.valor_lance)}
                                   </span>
                                   {lance.tipo_lance === "negociacao" && (
                                     <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-300">
@@ -2089,7 +2112,7 @@ export function DialogSessaoLances({
                               <TableRow className="bg-primary/10">
                                 <TableHead className="text-xs font-bold">Pos.</TableHead>
                                 <TableHead className="text-xs font-bold">Fornecedor</TableHead>
-                                <TableHead className="text-xs font-bold text-right">Valor</TableHead>
+                                <TableHead className="text-xs font-bold text-right">{criterioJulgamento === "desconto" ? "% Desconto" : "Valor"}</TableHead>
                                 <TableHead className="text-xs font-bold">Data/Hora</TableHead>
                                 <TableHead className="text-xs w-10"></TableHead>
                               </TableRow>
@@ -2109,7 +2132,7 @@ export function DialogSessaoLances({
                                   </TableCell>
                                   <TableCell className="text-xs text-right">
                                     <span className={`font-bold ${lance.tipo_lance === "negociacao" ? "text-green-600" : ""}`}>
-                                      {formatCurrency(lance.valor_lance)}
+                                      {formatValorLance(lance.valor_lance)}
                                     </span>
                                     {lance.tipo_lance === "negociacao" && (
                                       <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-300">
