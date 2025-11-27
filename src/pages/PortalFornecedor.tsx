@@ -263,9 +263,8 @@ export default function PortalFornecedor() {
       console.log("🔍 Carregando documentos pendentes de seleção para fornecedor:", fornecedorId);
       
       // Buscar documentos solicitados em seleções de fornecedores
-      // Status "pendente" = recém solicitado pelo gestor, aguardando envio
-      // Status "em_analise" = enviado pelo fornecedor, em análise
-      // IMPORTANTE: "rejeitado" NÃO deve mostrar alerta de pendente, só quando gestor solicitar atualização
+      // APENAS status "pendente" significa que fornecedor ainda não enviou
+      // Outros status (em_analise, aprovado, rejeitado) significam que já foi tratado
       const { data: camposSolicitados, error: camposError } = await supabase
         .from("campos_documentos_finalizacao")
         .select(`
@@ -282,7 +281,7 @@ export default function PortalFornecedor() {
         `)
         .eq("fornecedor_id", fornecedorId)
         .not("selecao_id", "is", null)
-        .eq("status_solicitacao", "pendente"); // Apenas pendentes, não em análise
+        .eq("status_solicitacao", "pendente");
 
       if (camposError) {
         console.error("❌ Erro ao buscar campos solicitados de seleção:", camposError);
@@ -290,6 +289,13 @@ export default function PortalFornecedor() {
       }
 
       console.log("📋 Campos de seleção encontrados:", camposSolicitados);
+      
+      // Log detalhado de cada campo encontrado
+      if (camposSolicitados && camposSolicitados.length > 0) {
+        camposSolicitados.forEach(campo => {
+          console.log(`🔍 Campo encontrado: ${campo.nome_campo}, Status: ${campo.status_solicitacao}`);
+        });
+      }
 
       if (!camposSolicitados || camposSolicitados.length === 0) {
         console.log("ℹ️ Nenhum documento pendente de seleção encontrado");
@@ -573,7 +579,20 @@ export default function PortalFornecedor() {
       }
 
       console.log("✅ Status atualizado com sucesso!");
+      
+      // Verificar se o update realmente funcionou
+      const { data: campoVerificacao } = await supabase
+        .from('campos_documentos_finalizacao')
+        .select('status_solicitacao')
+        .eq('id', campoId)
+        .single();
+      
+      console.log("🔍 Status verificado no banco:", campoVerificacao?.status_solicitacao);
+      
       toast.success("Documento enviado com sucesso!");
+      
+      // Pequeno delay para garantir que o banco foi atualizado
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       console.log("🔄 Recarregando lista de documentos pendentes de seleção...");
       await loadDocumentosPendentesSelecao(fornecedor.id);
