@@ -1184,8 +1184,12 @@ const SistemaLancesFornecedor = () => {
 
       if (error) throw error;
 
+      console.log("🔥 Lance inserido com sucesso. isNegociacao:", isNegociacao);
+
       // Se for negociação, fechar o item automaticamente
       if (isNegociacao) {
+        console.log("🔒 Fechando item de negociação:", numeroItem);
+        
         const { error: updateError } = await supabase
           .from("itens_abertos_lances")
           .update({
@@ -1198,11 +1202,13 @@ const SistemaLancesFornecedor = () => {
           .eq("numero_item", numeroItem);
 
         if (updateError) {
-          console.error("Erro ao fechar negociação:", updateError);
+          console.error("❌ Erro ao fechar negociação:", updateError);
+        } else {
+          console.log("✅ Item fechado com sucesso");
         }
 
         // Registrar no chat que fornecedor aceitou e melhorou a oferta
-        await supabase
+        const { error: chatError } = await supabase
           .from("mensagens_negociacao")
           .insert({
             selecao_id: selecao.id,
@@ -1211,6 +1217,10 @@ const SistemaLancesFornecedor = () => {
             mensagem: "✅ Fornecedor aceitou a negociação e melhorou a oferta. Item encerrado.",
             tipo_remetente: "fornecedor"
           });
+        
+        if (chatError) {
+          console.error("❌ Erro ao inserir mensagem no chat:", chatError);
+        }
       }
 
       toast.success(isNegociacao 
