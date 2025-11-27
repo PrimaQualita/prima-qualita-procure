@@ -33,6 +33,8 @@ export function DialogControleItensLances({
   selecaoId,
   itens,
 }: DialogControleItensLancesProps) {
+  console.log("🎯 COMPONENT RENDER: DialogControleItensLances renderizando - open:", open, "selecaoId:", selecaoId, "itens:", itens?.length);
+  
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
   const [salvando, setSalvando] = useState(false);
   const [itensSelecionados, setItensSelecionados] = useState<Set<number>>(new Set());
@@ -560,6 +562,8 @@ export function DialogControleItensLances({
       !itensEmNegociacao.has(item.numero_item) &&
       !itensNegociacaoConcluida.has(item.numero_item)
   );
+
+  console.log("📺 RENDER JSX: Renderizando Dialog - open:", open, "itensAbertos:", itensAbertos.size, "itensEmNegociacao:", itensEmNegociacao.size);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
