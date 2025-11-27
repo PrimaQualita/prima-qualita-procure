@@ -1686,11 +1686,13 @@ const Cotacoes = () => {
                                        {processoSelecionado?.tipo === "material" && (
                                          <TableCell>{item.marca || "-"}</TableCell>
                                        )}
-                                       {cotacaoSelecionada?.criterio_julgamento === "desconto" ? (
-                                         <TableCell className="text-right">
-                                           {item.valor_unitario_estimado.toFixed(2)}%
-                                         </TableCell>
-                                       ) : (
+                                        {cotacaoSelecionada?.criterio_julgamento === "desconto" ? (
+                                          <TableCell className="text-right">
+                                            {item.valor_unitario_estimado && item.valor_unitario_estimado > 0
+                                              ? `${item.valor_unitario_estimado.toFixed(2)}%`
+                                              : "-"}
+                                          </TableCell>
+                                        ) : (
                                          <>
                                            <TableCell className="text-right">
                                              R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
@@ -1834,11 +1836,13 @@ const Cotacoes = () => {
                               {processoSelecionado?.tipo === "material" && (
                                 <TableCell>{item.marca || "-"}</TableCell>
                               )}
-                              {cotacaoSelecionada?.criterio_julgamento === "desconto" ? (
-                                <TableCell className="text-right">
-                                  {item.valor_unitario_estimado.toFixed(2)}%
-                                </TableCell>
-                              ) : (
+                               {cotacaoSelecionada?.criterio_julgamento === "desconto" ? (
+                                 <TableCell className="text-right">
+                                   {item.valor_unitario_estimado && item.valor_unitario_estimado > 0
+                                     ? `${item.valor_unitario_estimado.toFixed(2)}%`
+                                     : "-"}
+                                 </TableCell>
+                               ) : (
                                 <>
                                   <TableCell className="text-right">
                                     R$ {item.valor_unitario_estimado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}

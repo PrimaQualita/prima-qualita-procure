@@ -1322,9 +1322,13 @@ const ParticiparSelecao = () => {
                                     </TableCell>
                                    )}
                                    {criterioJulgamento === "desconto" ? (
-                                     <>
-                                       <TableCell className="text-right">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
-                                        <TableCell>
+                                      <>
+                                        <TableCell className="text-right">
+                                          {item.valor_unitario_estimado && item.valor_unitario_estimado > 0
+                                            ? `${item.valor_unitario_estimado.toFixed(2)}%`
+                                            : "-"}
+                                        </TableCell>
+                                         <TableCell>
                                           <div className="relative">
                                             <Input
                                               id={`input-valor-${item.id}`}
@@ -1391,10 +1395,14 @@ const ParticiparSelecao = () => {
                                 />
                               </TableCell>
                              )}
-                             {criterioJulgamento === "desconto" ? (
-                               <>
-                                 <TableCell className="text-right">{item.valor_unitario_estimado.toFixed(2)}%</TableCell>
-                                  <TableCell>
+                              {criterioJulgamento === "desconto" ? (
+                                <>
+                                  <TableCell className="text-right">
+                                    {item.valor_unitario_estimado && item.valor_unitario_estimado > 0
+                                      ? `${item.valor_unitario_estimado.toFixed(2)}%`
+                                      : "-"}
+                                  </TableCell>
+                                   <TableCell>
                                     <div className="relative">
                                       <Input
                                         id={`input-valor-${item.id}`}
