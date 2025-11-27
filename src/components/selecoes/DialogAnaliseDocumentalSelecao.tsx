@@ -186,7 +186,7 @@ export function DialogAnaliseDocumentalSelecao({
 
   useEffect(() => {
     if (open && selecaoId) {
-      console.log("🔄 Carregando dados da análise documental...");
+      console.log("🔄 [ANÁLISE DOC] Diálogo aberto - SEMPRE recarregar dados");
       console.log("🔄 [ANÁLISE DOC] forceReload contador:", forceReload);
       
       // LIMPAR TODO O ESTADO antes de recarregar
@@ -199,7 +199,23 @@ export function DialogAnaliseDocumentalSelecao({
       loadFornecedoresVencedores();
       loadRecursosInabilitacao();
     }
-  }, [open, selecaoId, forceReload]);
+  }, [open, selecaoId]); // Removido forceReload - agora recarrega SEMPRE que abre
+  
+  // useEffect separado para forceReload quando diálogo já está aberto
+  useEffect(() => {
+    if (open && selecaoId && forceReload > 0) {
+      console.log("🔄 [ANÁLISE DOC] forceReload mudou para:", forceReload, "- recarregando...");
+      
+      // LIMPAR TODO O ESTADO antes de recarregar
+      setFornecedoresData([]);
+      setFornecedoresInabilitados([]);
+      setDocumentosAprovados({});
+      setFornecedoresAprovadosGeral(new Set());
+      
+      loadFornecedoresVencedores();
+      loadRecursosInabilitacao();
+    }
+  }, [forceReload]);
 
   // Listener realtime para mudanças em lances - ÚNICO mecanismo de atualização
   useEffect(() => {
