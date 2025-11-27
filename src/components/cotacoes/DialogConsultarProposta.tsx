@@ -23,6 +23,7 @@ interface ItemResposta {
   id: string;
   valor_unitario_ofertado: number;
   observacao: string | null;
+  percentual_desconto?: number | null;
   itens_cotacao: {
     numero_item: number;
     descricao: string;
@@ -82,6 +83,7 @@ export function DialogConsultarProposta({
         .select(`
           id,
           valor_unitario_ofertado,
+          percentual_desconto,
           observacao,
           item_cotacao_id,
           itens_cotacao (
@@ -186,6 +188,7 @@ export function DialogConsultarProposta({
                     {cotacao?.criterio_julgamento === "global" && "Menor Preço Global"}
                     {cotacao?.criterio_julgamento === "item" && "Menor Preço por Item"}
                     {cotacao?.criterio_julgamento === "por_lote" && "Menor Preço por Lote"}
+                    {cotacao?.criterio_julgamento === "desconto" && "Maior Percentual de Desconto"}
                   </Badge>
                 </div>
                 <div>
@@ -211,53 +214,71 @@ export function DialogConsultarProposta({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-20">Item</TableHead>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead className="w-28 text-right">Quantidade</TableHead>
-                          <TableHead className="w-32 text-right">Valor Unitário</TableHead>
-                          <TableHead className="w-32 text-right">Valor Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {itens.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">
-                              {item.itens_cotacao.numero_item}
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                {item.itens_cotacao.descricao}
-                                {item.observacao && (
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    Obs: {item.observacao}
-                                  </p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              R$ {Number(item.valor_unitario_ofertado).toFixed(2)}
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              R$ {calcularValorTotal(item.valor_unitario_ofertado, item.itens_cotacao.quantidade).toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="bg-blue-50 dark:bg-blue-950/20 font-semibold">
-                          <TableCell colSpan={4} className="text-right">
-                            Total do Lote:
-                          </TableCell>
-                          <TableCell className="text-right">
-                            R$ {calcularTotalLote(itens).toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                     <Table>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead className="w-20">Item</TableHead>
+                           <TableHead>Descrição</TableHead>
+                           <TableHead className="w-28 text-right">Quantidade</TableHead>
+                           {cotacao?.criterio_julgamento === "desconto" ? (
+                             <TableHead className="w-32 text-right">Desconto (%)</TableHead>
+                           ) : (
+                             <>
+                               <TableHead className="w-32 text-right">Valor Unitário</TableHead>
+                               <TableHead className="w-32 text-right">Valor Total</TableHead>
+                             </>
+                           )}
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                         {itens.map((item) => (
+                           <TableRow key={item.id}>
+                             <TableCell className="font-medium">
+                               {item.itens_cotacao.numero_item}
+                             </TableCell>
+                             <TableCell>
+                               <div>
+                                 {item.itens_cotacao.descricao}
+                                 {item.observacao && (
+                                   <p className="text-xs text-muted-foreground mt-1">
+                                     Obs: {item.observacao}
+                                   </p>
+                                 )}
+                               </div>
+                             </TableCell>
+                             <TableCell className="text-right">
+                               {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade}
+                             </TableCell>
+                             {cotacao?.criterio_julgamento === "desconto" ? (
+                               <TableCell className="text-right">
+                                 {item.percentual_desconto && Number(item.percentual_desconto) > 0
+                                   ? `${Number(item.percentual_desconto).toFixed(2).replace('.', ',')}%`
+                                   : "-"}
+                               </TableCell>
+                             ) : (
+                               <>
+                                 <TableCell className="text-right">
+                                   R$ {Number(item.valor_unitario_ofertado).toFixed(2)}
+                                 </TableCell>
+                                 <TableCell className="text-right font-medium">
+                                   R$ {calcularValorTotal(item.valor_unitario_ofertado, item.itens_cotacao.quantidade).toFixed(2)}
+                                 </TableCell>
+                               </>
+                             )}
+                           </TableRow>
+                         ))}
+                         {cotacao?.criterio_julgamento !== "desconto" && (
+                           <TableRow className="bg-blue-50 dark:bg-blue-950/20 font-semibold">
+                             <TableCell colSpan={4} className="text-right">
+                               Total do Lote:
+                             </TableCell>
+                             <TableCell className="text-right">
+                               R$ {calcularTotalLote(itens).toFixed(2)}
+                             </TableCell>
+                           </TableRow>
+                         )}
+                       </TableBody>
+                     </Table>
                   </CardContent>
                 </Card>
               );
@@ -269,45 +290,61 @@ export function DialogConsultarProposta({
                 <CardTitle className="text-base">Itens Cotados</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-20">Item</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="w-28 text-right">Quantidade</TableHead>
-                      <TableHead className="w-32 text-right">Valor Unitário</TableHead>
-                      <TableHead className="w-32 text-right">Valor Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itensResposta.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">
-                          {item.itens_cotacao.numero_item}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            {item.itens_cotacao.descricao}
-                            {item.observacao && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Obs: {item.observacao}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          R$ {Number(item.valor_unitario_ofertado).toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          R$ {calcularValorTotal(item.valor_unitario_ofertado, item.itens_cotacao.quantidade).toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                 <Table>
+                   <TableHeader>
+                     <TableRow>
+                       <TableHead className="w-20">Item</TableHead>
+                       <TableHead>Descrição</TableHead>
+                       <TableHead className="w-28 text-right">Quantidade</TableHead>
+                       {cotacao?.criterio_julgamento === "desconto" ? (
+                         <TableHead className="w-32 text-right">Desconto (%)</TableHead>
+                       ) : (
+                         <>
+                           <TableHead className="w-32 text-right">Valor Unitário</TableHead>
+                           <TableHead className="w-32 text-right">Valor Total</TableHead>
+                         </>
+                       )}
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {itensResposta.map((item) => (
+                       <TableRow key={item.id}>
+                         <TableCell className="font-medium">
+                           {item.itens_cotacao.numero_item}
+                         </TableCell>
+                         <TableCell>
+                           <div>
+                             {item.itens_cotacao.descricao}
+                             {item.observacao && (
+                               <p className="text-xs text-muted-foreground mt-1">
+                                 Obs: {item.observacao}
+                               </p>
+                             )}
+                           </div>
+                         </TableCell>
+                         <TableCell className="text-right">
+                           {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade}
+                         </TableCell>
+                         {cotacao?.criterio_julgamento === "desconto" ? (
+                           <TableCell className="text-right">
+                             {item.percentual_desconto && Number(item.percentual_desconto) > 0
+                               ? `${Number(item.percentual_desconto).toFixed(2).replace('.', ',')}%`
+                               : "-"}
+                           </TableCell>
+                         ) : (
+                           <>
+                             <TableCell className="text-right">
+                               R$ {Number(item.valor_unitario_ofertado).toFixed(2)}
+                             </TableCell>
+                             <TableCell className="text-right font-medium">
+                               R$ {calcularValorTotal(item.valor_unitario_ofertado, item.itens_cotacao.quantidade).toFixed(2)}
+                             </TableCell>
+                           </>
+                         )}
+                       </TableRow>
+                     ))}
+                   </TableBody>
+                 </Table>
               </CardContent>
             </Card>
           )}
