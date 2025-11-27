@@ -554,7 +554,9 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  const objetoTexto = (selecao.processos_compras as any)?.objeto_resumido || selecao.descricao || selecao.titulo_selecao;
+  // Limpar tags HTML do objeto
+  let objetoTexto = (selecao.processos_compras as any)?.objeto_resumido || selecao.descricao || selecao.titulo_selecao;
+  objetoTexto = objetoTexto.replace(/<[^>]*>/g, '').trim(); // Remove todas as tags HTML
   currentY = drawJustifiedText(doc, objetoTexto, marginLeft, currentY, contentWidth, lineHeight);
   currentY += espacoEntreSecoes;
 
@@ -847,18 +849,12 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         ];
       });
 
-      // Calcular valor total geral
-      const valorTotalGeral = ehDesconto 
-        ? Object.values(vencedoresFinal).reduce((acc, f) => acc + (f.valorTotal / f.quantidadeItens), 0) / Object.keys(vencedoresFinal).length
-        : Object.values(vencedoresFinal).reduce((acc, f) => acc + f.valorTotal, 0);
       const colunaValorHeader = ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL';
-      const valorFooter = ehDesconto ? `${valorTotalGeral.toFixed(2)}%` : formatarMoeda(valorTotalGeral);
 
       autoTable(doc, {
         startY: currentY,
         head: [['FORNECEDOR', 'ITENS', colunaValorHeader]],
         body: tabelaVencedores,
-        foot: [[ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL', '', valorFooter]],
         theme: 'grid',
         headStyles: { 
           fillColor: [0, 128, 128],
@@ -871,13 +867,6 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
           fontSize: 8,
           valign: 'middle',
           textColor: [0, 0, 0]
-        },
-        footStyles: {
-          fillColor: [0, 128, 128],
-          fontSize: 9,
-          halign: 'right',
-          fontStyle: 'bold',
-          textColor: [255, 255, 255]
         },
         alternateRowStyles: {
           fillColor: [224, 242, 241]
