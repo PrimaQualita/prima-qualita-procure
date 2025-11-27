@@ -1016,36 +1016,36 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       }
 
       const dataHora = formatarDataHoraCurta(msg.created_at);
-      const mensagemLines = doc.splitTextToSize(msg.mensagem, contentWidth - 20);
-      const alturaBox = 16 + (mensagemLines.length * 4);
+      const mensagemLines = doc.splitTextToSize(msg.mensagem, contentWidth - 15);
+      const alturaBox = 10 + (mensagemLines.length * 3.5);
 
       // Fundo da mensagem
       doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
-      doc.roundedRect(marginLeft, currentY - 3, contentWidth, alturaBox, 2, 2, 'F');
+      doc.roundedRect(marginLeft, currentY - 2, contentWidth, alturaBox, 2, 2, 'F');
       
       // Borda
       doc.setDrawColor(200, 200, 200);
-      doc.roundedRect(marginLeft, currentY - 3, contentWidth, alturaBox, 2, 2, 'S');
+      doc.roundedRect(marginLeft, currentY - 2, contentWidth, alturaBox, 2, 2, 'S');
 
       // Remetente e hora
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.text(remetente, marginLeft + 5, currentY + 3);
+      doc.text(remetente, marginLeft + 4, currentY + 2);
       
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 100, 100);
-      doc.text(dataHora, marginLeft + contentWidth - 5 - doc.getTextWidth(dataHora), currentY + 3);
+      doc.text(dataHora, marginLeft + contentWidth - 4 - doc.getTextWidth(dataHora), currentY + 2);
       doc.setTextColor(0, 0, 0);
       
       // Mensagem
       doc.setFontSize(8);
-      let msgY = currentY + 10;
+      let msgY = currentY + 6;
       mensagemLines.forEach((line: string) => {
-        doc.text(line, marginLeft + 5, msgY);
-        msgY += 4;
+        doc.text(line, marginLeft + 4, msgY);
+        msgY += 3.5;
       });
 
-      currentY += alturaBox + 3;
+      currentY += alturaBox + 2;
     });
     currentY += espacoEntreSecoes;
   }
