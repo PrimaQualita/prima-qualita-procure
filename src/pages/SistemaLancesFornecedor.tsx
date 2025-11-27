@@ -1186,27 +1186,11 @@ const SistemaLancesFornecedor = () => {
 
       console.log("🔥 Lance inserido com sucesso. isNegociacao:", isNegociacao);
 
-      // Se for negociação, fechar o item automaticamente
+      // Se for negociação, registrar no chat que fornecedor aceitou
+      // O gestor é quem fecha o item através do sistema de controle
       if (isNegociacao) {
-        console.log("🔒 Fechando item de negociação:", numeroItem);
+        console.log("📨 Registrando aceitação de negociação no chat:", numeroItem);
         
-        const { error: updateError } = await supabase
-          .from("itens_abertos_lances")
-          .update({
-            em_negociacao: false,
-            negociacao_concluida: true,
-            aberto: false,
-            data_fechamento: new Date().toISOString()
-          })
-          .eq("selecao_id", selecao.id)
-          .eq("numero_item", numeroItem);
-
-        if (updateError) {
-          console.error("❌ Erro ao fechar negociação:", updateError);
-        } else {
-          console.log("✅ Item fechado com sucesso");
-        }
-
         // Registrar no chat que fornecedor aceitou e melhorou a oferta
         const { error: chatError } = await supabase
           .from("mensagens_negociacao")
@@ -1214,12 +1198,14 @@ const SistemaLancesFornecedor = () => {
             selecao_id: selecao.id,
             fornecedor_id: proposta.fornecedor_id,
             numero_item: numeroItem,
-            mensagem: "✅ Fornecedor aceitou a negociação e melhorou a oferta. Item encerrado.",
+            mensagem: "✅ Fornecedor aceitou a negociação e melhorou a oferta.",
             tipo_remetente: "fornecedor"
           });
         
         if (chatError) {
           console.error("❌ Erro ao inserir mensagem no chat:", chatError);
+        } else {
+          console.log("✅ Mensagem de aceitação registrada no chat");
         }
       }
 
