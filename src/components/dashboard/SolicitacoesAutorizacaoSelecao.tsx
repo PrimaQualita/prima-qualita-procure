@@ -21,6 +21,7 @@ interface Solicitacao {
 export function SolicitacoesAutorizacaoSelecao() {
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fechado, setFechado] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -162,14 +163,23 @@ export function SolicitacoesAutorizacaoSelecao() {
     }
   };
 
-  if (solicitacoes.length === 0) {
+  if (solicitacoes.length === 0 || fechado) {
     return null;
   }
 
   return (
-    <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+    <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800 relative">
+      <button
+        onClick={() => setFechado(true)}
+        className="absolute top-3 right-3 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+        aria-label="Fechar"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
       <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-500" />
-      <AlertTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+      <AlertTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100 pr-8">
         Solicitações de Autorização de Seleção Pendentes
       </AlertTitle>
       <AlertDescription>
