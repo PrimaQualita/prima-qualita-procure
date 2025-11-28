@@ -32,6 +32,16 @@ export function SolicitacoesAutorizacaoSelecao() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Verificar se o usuário é responsável legal
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("responsavel_legal")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.responsavel_legal) return;
+
+      // Buscar todas as solicitações pendentes (sem filtrar por responsável legal específico)
       const { data, error } = await supabase
         .from("solicitacoes_autorizacao_selecao")
         .select(`
@@ -42,7 +52,6 @@ export function SolicitacoesAutorizacaoSelecao() {
           data_solicitacao,
           solicitante_id
         `)
-        .eq("responsavel_legal_id", user.id)
         .eq("status", "pendente")
         .order("data_solicitacao", { ascending: false });
 
@@ -88,14 +97,15 @@ export function SolicitacoesAutorizacaoSelecao() {
           .eq("id", cotacao.processo_compra_id);
       }
 
-      // Atualizar status da solicitação
+      // Atualizar TODAS as solicitações relacionadas a esta cotação
       await supabase
         .from("solicitacoes_autorizacao_selecao")
         .update({
           status: "aprovada",
           data_resposta: new Date().toISOString()
         })
-        .eq("id", solicitacaoId);
+        .eq("cotacao_id", cotacaoId)
+        .eq("status", "pendente");
 
       toast.success("Redirecionando para gerar a autorização de seleção...");
       

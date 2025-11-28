@@ -29,6 +29,19 @@ export function SolicitacoesAutorizacao() {
 
   const loadSolicitacoes = async () => {
     try {
+      // Verificar se o usuário é responsável legal
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("responsavel_legal")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.responsavel_legal) return;
+
+      // Buscar todas as solicitações pendentes (sem filtrar por responsável legal específico)
       const { data, error } = await supabase
         .from("solicitacoes_autorizacao")
         .select(`
@@ -50,24 +63,41 @@ export function SolicitacoesAutorizacao() {
     }
   };
 
-  const autorizarSolicitacao = (cotacaoId: string) => {
-    // Apenas redireciona sem atualizar o status
-    // O status será atualizado quando a autorização for gerada
-    toast.success("Redirecionando para gerar a autorização...");
-    navigate(`/cotacoes?openFinalizar=${cotacaoId}`);
+  const autorizarSolicitacao = async (cotacaoId: string) => {
+    try {
+      // Atualizar TODAS as solicitações relacionadas a esta cotação antes de redirecionar
+      await supabase
+        .from("solicitacoes_autorizacao")
+        .update({
+          status: "aprovada",
+          data_resposta: new Date().toISOString()
+        })
+        .eq("cotacao_id", cotacaoId)
+        .eq("status", "pendente");
+
+      toast.success("Redirecionando para gerar a autorização...");
+      navigate(`/cotacoes?openFinalizar=${cotacaoId}`);
+    } catch (error) {
+      console.error("Erro ao atualizar solicitações:", error);
+      // Redirecionar mesmo com erro
+      toast.success("Redirecionando para gerar a autorização...");
+      navigate(`/cotacoes?openFinalizar=${cotacaoId}`);
+    }
   };
 
   const rejeitarSolicitacao = async (id: string, cotacaoId: string) => {
     try {
       setLoading(true);
 
+      // Rejeitar TODAS as solicitações relacionadas a esta cotação
       const { error } = await supabase
         .from("solicitacoes_autorizacao")
         .update({
           status: "rejeitada",
           data_resposta: new Date().toISOString()
         })
-        .eq("id", id);
+        .eq("cotacao_id", cotacaoId)
+        .eq("status", "pendente");
 
       if (error) throw error;
 

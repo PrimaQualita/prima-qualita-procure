@@ -33,6 +33,16 @@ export function SolicitacoesHomologacao() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Verificar se o usuário é responsável legal
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("responsavel_legal")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.responsavel_legal) return;
+
+      // Buscar todas as solicitações não atendidas (sem filtrar por responsável legal específico)
       const { data, error } = await supabase
         .from("solicitacoes_homologacao_selecao")
         .select(`
@@ -49,7 +59,6 @@ export function SolicitacoesHomologacao() {
             )
           )
         `)
-        .eq("responsavel_legal_id", user.id)
         .eq("atendida", false)
         .order("data_solicitacao", { ascending: false });
 
