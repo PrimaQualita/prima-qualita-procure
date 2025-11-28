@@ -22,6 +22,7 @@ interface Solicitacao {
 
 export function SolicitacoesHomologacao() {
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
+  const [fechado, setFechado] = useState(false);
   const navigate = useNavigate();
 
   // Função para remover tags HTML
@@ -101,14 +102,23 @@ export function SolicitacoesHomologacao() {
     navigate(`/detalhe-selecao?id=${selecaoId}`);
   };
 
-  if (solicitacoes.length === 0) {
+  if (solicitacoes.length === 0 || fechado) {
     return null;
   }
 
   return (
-    <Alert className="bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800">
+    <Alert className="bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800 relative">
+      <button
+        onClick={() => setFechado(true)}
+        className="absolute top-3 right-3 text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-200"
+        aria-label="Fechar"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
       <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-500" />
-      <AlertTitle className="text-lg font-semibold text-orange-900 dark:text-orange-100">
+      <AlertTitle className="text-lg font-semibold text-orange-900 dark:text-orange-100 pr-8">
         Solicitações de Homologação Pendentes
       </AlertTitle>
       <AlertDescription>
