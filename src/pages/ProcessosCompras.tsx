@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogContrato } from "@/components/contratos/DialogContrato";
 import { DialogProcesso } from "@/components/processos/DialogProcesso";
@@ -373,12 +373,12 @@ const ProcessosCompras = () => {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
-                              variant="ghost"
-                              size="icon"
+                              variant="outline"
+                              size="sm"
                               onClick={() => setContratoSelecionado(contrato)}
-                              title="Ver Processos"
                             >
-                              <FileText className="h-4 w-4" />
+                              <ChevronRight className="h-4 w-4 mr-2" />
+                              Ver Processos
                             </Button>
                             <Button
                               variant="ghost"
