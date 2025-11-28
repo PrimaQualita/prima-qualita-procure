@@ -1174,7 +1174,8 @@ const DetalheSelecao = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => confirmDeleteHomologacao && handleDeleteHomologacao(confirmDeleteHomologacao)}
+              onClick={handleExcluirHomologacao}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
             </AlertDialogAction>
