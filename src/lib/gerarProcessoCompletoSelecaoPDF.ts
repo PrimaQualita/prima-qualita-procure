@@ -11,7 +11,7 @@ interface ProcessoCompletoResult {
 export const gerarProcessoCompletoSelecaoPDF = async (
   selecaoId: string,
   numeroSelecao: string,
-  temporario: boolean = false
+  temporario: boolean = true
 ): Promise<ProcessoCompletoResult> => {
   console.log(`Iniciando geração do processo completo de seleção ${numeroSelecao}...`);
   
@@ -59,32 +59,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // 2. Buscar planilhas de lances
-    const { data: planilhasLances, error: planilhasError } = await supabase
-      .from("planilhas_lances_selecao")
-      .select("*")
-      .eq("selecao_id", selecaoId)
-      .order("data_geracao", { ascending: true });
-
-    if (planilhasError) {
-      console.error("Erro ao buscar planilhas de lances:", planilhasError);
-    }
-
-    console.log(`Planilhas de lances encontradas: ${planilhasLances?.length || 0}`);
-    
-    if (planilhasLances && planilhasLances.length > 0) {
-      planilhasLances.forEach(planilha => {
-        documentosOrdenados.push({
-          tipo: "Planilha de Lances",
-          data: planilha.data_geracao,
-          nome: planilha.nome_arquivo,
-          storagePath: planilha.url_arquivo,
-          bucket: "processo-anexos"
-        });
-      });
-    }
-
-    // 3. Buscar propostas de fornecedores (PDFs gerados das propostas)
+    // 2. Buscar propostas de fornecedores (PDFs gerados)
     const { data: propostas, error: propostasError } = await supabase
       .from("selecao_propostas_fornecedor")
       .select(`
@@ -119,6 +94,31 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           });
         }
       }
+    }
+
+    // 3. Buscar planilhas de lances
+    const { data: planilhasLances, error: planilhasError } = await supabase
+      .from("planilhas_lances_selecao")
+      .select("*")
+      .eq("selecao_id", selecaoId)
+      .order("data_geracao", { ascending: true });
+
+    if (planilhasError) {
+      console.error("Erro ao buscar planilhas de lances:", planilhasError);
+    }
+
+    console.log(`Planilhas de lances encontradas: ${planilhasLances?.length || 0}`);
+    
+    if (planilhasLances && planilhasLances.length > 0) {
+      planilhasLances.forEach(planilha => {
+        documentosOrdenados.push({
+          tipo: "Planilha de Lances",
+          data: planilha.data_geracao,
+          nome: planilha.nome_arquivo,
+          storagePath: planilha.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      });
     }
 
     // 4. Buscar recursos de inabilitação (se houver)
@@ -220,27 +220,44 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       try {
         console.log(`  Processando: ${doc.tipo} - ${doc.nome}`);
         
-        const { data: signedUrlData, error: signedError } = await supabase.storage
-          .from(doc.bucket)
-          .createSignedUrl(doc.storagePath!, 60);
-        
-        if (signedError || !signedUrlData) {
-          console.error(`  ✗ Erro ao gerar URL assinada para ${doc.nome}:`, signedError?.message);
-          continue;
+        // Se é URL pública direta, usar diretamente
+        if (doc.url) {
+          const response = await fetch(doc.url);
+          
+          if (!response.ok) {
+            console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
+            continue;
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+          copiedPages.forEach((page) => pdfFinal.addPage(page));
+          console.log(`  ✓ Mesclado: ${doc.tipo} - ${doc.nome} (${copiedPages.length} páginas)`);
+        } else if (doc.storagePath) {
+          // Usar signed URL para paths de storage
+          const { data: signedUrlData, error: signedError } = await supabase.storage
+            .from(doc.bucket)
+            .createSignedUrl(doc.storagePath!, 60);
+          
+          if (signedError || !signedUrlData) {
+            console.error(`  ✗ Erro ao gerar URL assinada para ${doc.nome}:`, signedError?.message);
+            continue;
+          }
+          
+          const response = await fetch(signedUrlData.signedUrl);
+          
+          if (!response.ok) {
+            console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
+            continue;
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+          copiedPages.forEach((page) => pdfFinal.addPage(page));
+          console.log(`  ✓ Mesclado: ${doc.tipo} - ${doc.nome} (${copiedPages.length} páginas)`);
         }
-        
-        const response = await fetch(signedUrlData.signedUrl);
-        
-        if (!response.ok) {
-          console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
-          continue;
-        }
-        
-        const arrayBuffer = await response.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(arrayBuffer);
-        const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-        copiedPages.forEach((page) => pdfFinal.addPage(page));
-        console.log(`  ✓ Mesclado: ${doc.tipo} - ${doc.nome} (${copiedPages.length} páginas)`);
       } catch (error) {
         console.error(`  ✗ Erro ao mesclar ${doc.nome}:`, error);
       }
@@ -250,7 +267,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     const pdfBytes = await pdfFinal.save();
     const blob = new Blob([pdfBytes], { type: "application/pdf" });
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `Processo_Completo_Selecao_${numeroSelecao}_${timestamp}.pdf`;
+    const filename = `Processo_Completo_Selecao_${numeroSelecao.replace(/\//g, '-')}_${timestamp}.pdf`;
 
     if (temporario) {
       // Retornar apenas o blob para download
