@@ -52,7 +52,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
             tipo: `Anexo Seleção (${anexo.tipo_documento})`,
             data: anexo.data_upload,
             nome: anexo.nome_arquivo,
-            storagePath: anexo.url_arquivo,
+            url: anexo.url_arquivo, // URLs públicas completas
             bucket: "processo-anexos"
           });
         }
@@ -88,7 +88,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
             tipo: "Proposta Fornecedor",
             data: proposta.data_envio,
             nome: `${razaoSocial} - ${proposta.nome_arquivo_proposta}`,
-            storagePath: proposta.url_proposta,
+            url: proposta.url_proposta, // URLs públicas completas
             bucket: "processo-anexos",
             fornecedor: razaoSocial
           });
@@ -115,7 +115,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           tipo: "Planilha de Lances",
           data: planilha.data_geracao,
           nome: planilha.nome_arquivo,
-          storagePath: planilha.url_arquivo,
+          url: planilha.url_arquivo, // URLs públicas completas
           bucket: "processo-anexos"
         });
       });
@@ -141,7 +141,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
             tipo: "Recurso Inabilitação",
             data: recurso.created_at,
             nome: `Recurso - ${recurso.protocolo_recurso}`,
-            storagePath: recurso.url_recurso,
+            url: recurso.url_recurso, // URLs públicas completas
             bucket: "processo-anexos"
           });
         }
@@ -151,7 +151,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
             tipo: "Resposta Recurso",
             data: recurso.data_resposta || recurso.created_at,
             nome: `Resposta Recurso - ${recurso.protocolo_resposta}`,
-            storagePath: recurso.url_resposta,
+            url: recurso.url_resposta, // URLs públicas completas
             bucket: "processo-anexos"
           });
         }
@@ -177,7 +177,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           tipo: "Ata de Seleção",
           data: ata.data_geracao,
           nome: ata.nome_arquivo,
-          storagePath: ata.url_arquivo,
+          url: ata.url_arquivo, // URLs públicas completas
           bucket: "processo-anexos"
         });
       });
@@ -202,7 +202,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           tipo: "Homologação",
           data: homologacao.data_geracao,
           nome: homologacao.nome_arquivo,
-          storagePath: homologacao.url_arquivo,
+          url: homologacao.url_arquivo, // URLs públicas completas
           bucket: "processo-anexos"
         });
       });
@@ -220,44 +220,24 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       try {
         console.log(`  Processando: ${doc.tipo} - ${doc.nome}`);
         
-        // Se é URL pública direta, usar diretamente
-        if (doc.url) {
-          const response = await fetch(doc.url);
-          
-          if (!response.ok) {
-            console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
-            continue;
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-          copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`  ✓ Mesclado: ${doc.tipo} - ${doc.nome} (${copiedPages.length} páginas)`);
-        } else if (doc.storagePath) {
-          // Usar signed URL para paths de storage
-          const { data: signedUrlData, error: signedError } = await supabase.storage
-            .from(doc.bucket)
-            .createSignedUrl(doc.storagePath!, 60);
-          
-          if (signedError || !signedUrlData) {
-            console.error(`  ✗ Erro ao gerar URL assinada para ${doc.nome}:`, signedError?.message);
-            continue;
-          }
-          
-          const response = await fetch(signedUrlData.signedUrl);
-          
-          if (!response.ok) {
-            console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
-            continue;
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-          copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`  ✓ Mesclado: ${doc.tipo} - ${doc.nome} (${copiedPages.length} páginas)`);
+        // Usar URL pública direta (todos os documentos de seleção usam URLs públicas)
+        if (!doc.url) {
+          console.error(`  ✗ URL não encontrada para ${doc.nome}`);
+          continue;
         }
+
+        const response = await fetch(doc.url);
+        
+        if (!response.ok) {
+          console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
+          continue;
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(arrayBuffer);
+        const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        copiedPages.forEach((page) => pdfFinal.addPage(page));
+        console.log(`  ✓ Mesclado: ${doc.tipo} - ${doc.nome} (${copiedPages.length} páginas)`);
       } catch (error) {
         console.error(`  ✗ Erro ao mesclar ${doc.nome}:`, error);
       }
