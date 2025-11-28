@@ -25,6 +25,27 @@ export function SolicitacoesAutorizacao() {
 
   useEffect(() => {
     loadSolicitacoes();
+
+    // Listener para recarregar quando autorização for respondida
+    const channel = supabase
+      .channel('autorizacoes_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'solicitacoes_autorizacao'
+        },
+        () => {
+          console.log('Solicitação de autorização atualizada, recarregando...');
+          loadSolicitacoes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadSolicitacoes = async () => {

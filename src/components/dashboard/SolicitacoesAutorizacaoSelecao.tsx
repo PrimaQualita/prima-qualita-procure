@@ -25,6 +25,27 @@ export function SolicitacoesAutorizacaoSelecao() {
 
   useEffect(() => {
     loadSolicitacoes();
+
+    // Listener para recarregar quando autorização de seleção for respondida
+    const channel = supabase
+      .channel('autorizacoes_selecao_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'solicitacoes_autorizacao_selecao'
+        },
+        () => {
+          console.log('Solicitação de autorização de seleção atualizada, recarregando...');
+          loadSolicitacoes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadSolicitacoes = async () => {

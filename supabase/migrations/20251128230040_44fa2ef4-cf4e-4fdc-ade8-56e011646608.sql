@@ -1,0 +1,2 @@
+-- Habilitar realtime para solicitacoes_homologacao_selecao
+ALTER PUBLICATION supabase_realtime ADD TABLE public.solicitacoes_homologacao_selecao;
