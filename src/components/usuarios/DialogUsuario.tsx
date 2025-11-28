@@ -377,19 +377,19 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 id="responsavel-legal"
                 checked={responsavelLegal}
                 onChange={(e) => setResponsavelLegal(e.target.checked)}
-                disabled={!isUserResponsavelLegal}
+                disabled={!isUserResponsavelLegal && !isUserGestor}
                 className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <Label 
                 htmlFor="responsavel-legal" 
-                className={`font-normal ${isUserResponsavelLegal ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
               >
                 Responsável Legal
               </Label>
             </div>
-            {!isUserResponsavelLegal && (
+            {!isUserResponsavelLegal && !isUserGestor && (
               <p className="text-xs text-muted-foreground ml-6">
-                Apenas Responsáveis Legais podem alterar esta permissão
+                Apenas Gestores e Responsáveis Legais podem alterar esta permissão
               </p>
             )}
 
@@ -399,19 +399,19 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 id="compliance"
                 checked={compliance}
                 onChange={(e) => setCompliance(e.target.checked)}
-                disabled={!isUserResponsavelLegal}
+                disabled={!isUserResponsavelLegal && !isUserGestor}
                 className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <Label 
                 htmlFor="compliance" 
-                className={`font-normal ${isUserResponsavelLegal ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
               >
                 Compliance
               </Label>
             </div>
-            {!isUserResponsavelLegal && (
+            {!isUserResponsavelLegal && !isUserGestor && (
               <p className="text-xs text-muted-foreground ml-6">
-                Apenas Responsáveis Legais podem alterar esta permissão
+                Apenas Gestores e Responsáveis Legais podem alterar esta permissão
               </p>
             )}
 
