@@ -13,6 +13,7 @@ import html2pdf from "html2pdf.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { SolicitacoesAutorizacao } from "@/components/dashboard/SolicitacoesAutorizacao";
+import { SolicitacoesHomologacao } from "@/components/dashboard/SolicitacoesHomologacao";
 import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 
 const Dashboard = () => {
@@ -583,8 +584,9 @@ const Dashboard = () => {
         
         {/* Solicitações de Autorização - Destaque no topo para Responsáveis Legais */}
         {isResponsavelLegal && (
-          <div className="mb-6">
+          <div className="mb-6 space-y-6">
             <SolicitacoesAutorizacao />
+            <SolicitacoesHomologacao />
           </div>
         )}
         

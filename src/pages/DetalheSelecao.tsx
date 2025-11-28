@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +70,11 @@ const DetalheSelecao = () => {
   const [homologacoesGeradas, setHomologacoesGeradas] = useState<any[]>([]);
   const [confirmDeleteHomologacao, setConfirmDeleteHomologacao] = useState<string | null>(null);
   const [dialogRegistroPrecos, setDialogRegistroPrecos] = useState(false);
+  const [enviandoHomologacao, setEnviandoHomologacao] = useState(false);
+  const [dialogResponsavelLegal, setDialogResponsavelLegal] = useState(false);
+  const [homologacaoParaEnviar, setHomologacaoParaEnviar] = useState<string | null>(null);
+  const [responsaveisLegais, setResponsaveisLegais] = useState<any[]>([]);
+  const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>("");
 
   useEffect(() => {
     if (selecaoId) {
@@ -396,6 +402,61 @@ const DetalheSelecao = () => {
       setHomologacoesGeradas(data || []);
     } catch (error) {
       console.error("Erro ao carregar homologações:", error);
+    }
+  };
+
+  const loadResponsaveisLegais = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, nome_completo")
+        .eq("responsavel_legal", true)
+        .eq("ativo", true)
+        .order("nome_completo");
+
+      if (error) throw error;
+      setResponsaveisLegais(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar responsáveis legais:", error);
+      toast.error("Erro ao carregar responsáveis legais");
+    }
+  };
+
+  const enviarHomologacaoParaAssinatura = async (homologacaoId: string) => {
+    setHomologacaoParaEnviar(homologacaoId);
+    await loadResponsaveisLegais();
+    setDialogResponsavelLegal(true);
+  };
+
+  const confirmarEnvioHomologacao = async () => {
+    if (!homologacaoParaEnviar || !responsavelSelecionado) {
+      toast.error("Selecione um responsável legal");
+      return;
+    }
+
+    setEnviandoHomologacao(true);
+    try {
+      const { error } = await supabase
+        .from("homologacoes_selecao")
+        .update({
+          status_assinatura: "pendente",
+          data_envio_assinatura: new Date().toISOString(),
+          responsavel_legal_id: responsavelSelecionado
+        })
+        .eq("id", homologacaoParaEnviar);
+
+      if (error) throw error;
+
+      toast.success("Homologação enviada para assinatura do responsável legal!");
+      setDialogResponsavelLegal(false);
+      setHomologacaoParaEnviar(null);
+      setResponsavelSelecionado("");
+      await loadHomologacoesGeradas();
+    } catch (error) {
+      console.error("Erro ao enviar homologação:", error);
+      toast.error("Erro ao enviar homologação para assinatura");
+    } finally {
+      setEnviandoHomologacao(false);
     }
   };
 
@@ -814,10 +875,7 @@ const DetalheSelecao = () => {
                         <Button
                           size="sm"
                           variant="default"
-                          onClick={() => {
-                            // TODO: Implementar envio para assinatura de representante legal
-                            toast.info("Funcionalidade de envio para assinatura em desenvolvimento");
-                          }}
+                          onClick={() => enviarHomologacaoParaAssinatura(homologacao.id)}
                           title="Enviar para Assinatura"
                         >
                           <SendHorizontal className="h-4 w-4 mr-1" />
@@ -1122,6 +1180,48 @@ const DetalheSelecao = () => {
           onSuccess={loadAtasGeradas}
         />
       )}
+
+      {/* Dialog para selecionar responsável legal para homologação */}
+      <AlertDialog open={dialogResponsavelLegal} onOpenChange={setDialogResponsavelLegal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enviar para Assinatura</AlertDialogTitle>
+            <AlertDialogDescription>
+              Selecione o Responsável Legal que deve assinar esta Homologação:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Select value={responsavelSelecionado} onValueChange={setResponsavelSelecionado}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um Responsável Legal" />
+              </SelectTrigger>
+              <SelectContent>
+                {responsaveisLegais.map((responsavel) => (
+                  <SelectItem key={responsavel.id} value={responsavel.id}>
+                    {responsavel.nome_completo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDialogResponsavelLegal(false);
+              setHomologacaoParaEnviar(null);
+              setResponsavelSelecionado("");
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmarEnvioHomologacao}
+              disabled={!responsavelSelecionado || enviandoHomologacao}
+            >
+              {enviandoHomologacao ? "Enviando..." : "Enviar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Dialog para perguntar se é Registro de Preços */}
       <AlertDialog open={dialogRegistroPrecos} onOpenChange={setDialogRegistroPrecos}>
