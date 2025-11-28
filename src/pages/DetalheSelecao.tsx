@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, Eye, Trash2, SendHorizontal, RefreshCw } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, Eye, Trash2, SendHorizontal, RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
@@ -70,11 +70,11 @@ const DetalheSelecao = () => {
   const [homologacoesGeradas, setHomologacoesGeradas] = useState<any[]>([]);
   const [confirmDeleteHomologacao, setConfirmDeleteHomologacao] = useState<string | null>(null);
   const [dialogRegistroPrecos, setDialogRegistroPrecos] = useState(false);
-  const [enviandoHomologacao, setEnviandoHomologacao] = useState(false);
   const [dialogResponsavelLegal, setDialogResponsavelLegal] = useState(false);
-  const [homologacaoParaEnviar, setHomologacaoParaEnviar] = useState<string | null>(null);
   const [responsaveisLegais, setResponsaveisLegais] = useState<any[]>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>("");
+  const [enviandoSolicitacao, setEnviandoSolicitacao] = useState(false);
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -155,6 +155,18 @@ const DetalheSelecao = () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       navigate("/auth");
+      return;
+    }
+
+    // Verificar se usuário é responsável legal
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("responsavel_legal")
+      .eq("id", session.user.id)
+      .single();
+
+    if (profile) {
+      setIsResponsavelLegal(profile.responsavel_legal || false);
     }
   };
 
@@ -422,41 +434,39 @@ const DetalheSelecao = () => {
     }
   };
 
-  const enviarHomologacaoParaAssinatura = async (homologacaoId: string) => {
-    setHomologacaoParaEnviar(homologacaoId);
+  const solicitarHomologacao = async () => {
     await loadResponsaveisLegais();
     setDialogResponsavelLegal(true);
   };
 
-  const confirmarEnvioHomologacao = async () => {
-    if (!homologacaoParaEnviar || !responsavelSelecionado) {
+  const confirmarSolicitacaoHomologacao = async () => {
+    if (!responsavelSelecionado) {
       toast.error("Selecione um responsável legal");
       return;
     }
 
-    setEnviandoHomologacao(true);
+    setEnviandoSolicitacao(true);
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      
       const { error } = await supabase
-        .from("homologacoes_selecao")
-        .update({
-          status_assinatura: "pendente",
-          data_envio_assinatura: new Date().toISOString(),
-          responsavel_legal_id: responsavelSelecionado
-        })
-        .eq("id", homologacaoParaEnviar);
+        .from("solicitacoes_homologacao_selecao")
+        .insert({
+          selecao_id: selecaoId,
+          responsavel_legal_id: responsavelSelecionado,
+          solicitante_id: userData.user?.id,
+        });
 
       if (error) throw error;
 
-      toast.success("Homologação enviada para assinatura do responsável legal!");
+      toast.success("Solicitação enviada ao Responsável Legal com sucesso!");
       setDialogResponsavelLegal(false);
-      setHomologacaoParaEnviar(null);
       setResponsavelSelecionado("");
-      await loadHomologacoesGeradas();
     } catch (error) {
-      console.error("Erro ao enviar homologação:", error);
-      toast.error("Erro ao enviar homologação para assinatura");
+      console.error("Erro ao enviar solicitação:", error);
+      toast.error("Erro ao enviar solicitação");
     } finally {
-      setEnviandoHomologacao(false);
+      setEnviandoSolicitacao(false);
     }
   };
 
@@ -818,6 +828,17 @@ const DetalheSelecao = () => {
                             Enviar para Assinatura
                           </Button>
                         )}
+                        {ata.enviada_fornecedores && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={solicitarHomologacao}
+                            title="Solicitar Homologação"
+                          >
+                            <Send className="h-4 w-4 mr-1" />
+                            Enviar ao Responsável Legal
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -826,17 +847,19 @@ const DetalheSelecao = () => {
             </Card>
           )}
 
-          {/* Gerar Homologação */}
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full mt-4"
-            disabled={gerandoHomologacao}
-            onClick={() => setDialogRegistroPrecos(true)}
-          >
-            <FileCheck className="h-5 w-5 mr-2" />
-            {gerandoHomologacao ? "Gerando..." : "Gerar Homologação"}
-          </Button>
+          {/* Gerar Homologação - Apenas para Responsável Legal */}
+          {isResponsavelLegal && (
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full mt-4"
+              disabled={gerandoHomologacao}
+              onClick={() => setDialogRegistroPrecos(true)}
+            >
+              <FileCheck className="h-5 w-5 mr-2" />
+              {gerandoHomologacao ? "Gerando..." : "Gerar Homologação"}
+            </Button>
+          )}
 
           {/* Homologações Geradas */}
           {homologacoesGeradas.length > 0 && (
@@ -870,16 +893,6 @@ const DetalheSelecao = () => {
                           onClick={() => setConfirmDeleteHomologacao(homologacao.id)}
                           title="Excluir"
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => enviarHomologacaoParaAssinatura(homologacao.id)}
-                          title="Enviar para Assinatura"
-                        >
-                          <SendHorizontal className="h-4 w-4 mr-1" />
-                          Enviar para Assinatura
                         </Button>
                       </div>
                     </div>
@@ -1207,16 +1220,15 @@ const DetalheSelecao = () => {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {
               setDialogResponsavelLegal(false);
-              setHomologacaoParaEnviar(null);
               setResponsavelSelecionado("");
             }}>
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmarEnvioHomologacao}
-              disabled={!responsavelSelecionado || enviandoHomologacao}
+              onClick={confirmarSolicitacaoHomologacao}
+              disabled={!responsavelSelecionado || enviandoSolicitacao}
             >
-              {enviandoHomologacao ? "Enviando..." : "Enviar"}
+              {enviandoSolicitacao ? "Enviando..." : "Enviar Solicitação"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
