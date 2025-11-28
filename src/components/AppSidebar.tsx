@@ -141,6 +141,11 @@ export function AppSidebar({ isGestor, profile, isCompliance = false, isResponsa
       icon: Home,
       href: "/auditoria",
     });
+    menuItems.push({
+      title: "Limpeza Storage",
+      icon: Camera,
+      href: "/limpeza-arquivos-orfaos",
+    });
   }
 
   const handleLogout = async () => {
