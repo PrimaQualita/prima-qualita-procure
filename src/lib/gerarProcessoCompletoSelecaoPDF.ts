@@ -84,19 +84,15 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // 3. Buscar propostas de fornecedores e documentos (habilitados e inabilitados)
+    // 3. Buscar propostas de fornecedores (PDFs gerados das propostas)
     const { data: propostas, error: propostasError } = await supabase
       .from("selecao_propostas_fornecedor")
       .select(`
         id, 
         data_envio,
-        fornecedores(razao_social),
-        documentos_propostas_selecao(
-          id,
-          nome_arquivo,
-          url_arquivo,
-          data_upload
-        )
+        url_proposta,
+        nome_arquivo_proposta,
+        fornecedores(razao_social)
       `)
       .eq("selecao_id", selecaoId)
       .order("data_envio", { ascending: true });
@@ -110,45 +106,17 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     if (propostas && propostas.length > 0) {
       for (const proposta of propostas) {
         const razaoSocial = (proposta.fornecedores as any)?.razao_social || 'Fornecedor';
-        const documentos = proposta.documentos_propostas_selecao || [];
         
-        if (documentos.length > 0) {
-          // Ordenar documentos na ordem específica solicitada
-          const ordemDocumentos = [
-            'contrato_social',
-            'cnpj',
-            'inscricao_estadual',
-            'cnd_federal',
-            'cnd_tributos_estaduais',
-            'cnd_divida_ativa_estadual',
-            'cnd_tributos_municipais',
-            'cnd_divida_ativa_municipal',
-            'crf_fgts',
-            'cndt'
-          ];
-
-          const docsOrdenados = documentos.sort((a: any, b: any) => {
-            const indexA = ordemDocumentos.indexOf(a.tipo_documento || '');
-            const indexB = ordemDocumentos.indexOf(b.tipo_documento || '');
-            
-            if (indexA === -1 && indexB === -1) return 0;
-            if (indexA === -1) return 1;
-            if (indexB === -1) return -1;
-            return indexA - indexB;
+        // Adicionar PDF da proposta se existir
+        if (proposta.url_proposta && proposta.nome_arquivo_proposta) {
+          documentosOrdenados.push({
+            tipo: "Proposta Fornecedor",
+            data: proposta.data_envio,
+            nome: `${razaoSocial} - ${proposta.nome_arquivo_proposta}`,
+            storagePath: proposta.url_proposta,
+            bucket: "processo-anexos",
+            fornecedor: razaoSocial
           });
-
-          for (const doc of docsOrdenados) {
-            if (doc.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-              documentosOrdenados.push({
-                tipo: "Documento Fornecedor",
-                data: doc.data_upload || proposta.data_envio,
-                nome: `${razaoSocial} - ${doc.nome_arquivo}`,
-                storagePath: doc.url_arquivo,
-                bucket: "processo-anexos",
-                fornecedor: razaoSocial
-              });
-            }
-          }
         }
       }
     }
@@ -158,7 +126,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       .from("recursos_inabilitacao_selecao")
       .select("*")
       .eq("selecao_id", selecaoId)
-      .order("data_recurso", { ascending: true });
+      .order("created_at", { ascending: true });
 
     if (recursosError) {
       console.error("Erro ao buscar recursos:", recursosError);
@@ -171,7 +139,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         if (recurso.url_recurso) {
           documentosOrdenados.push({
             tipo: "Recurso Inabilitação",
-            data: recurso.data_recurso,
+            data: recurso.created_at,
             nome: `Recurso - ${recurso.protocolo_recurso}`,
             storagePath: recurso.url_recurso,
             bucket: "processo-anexos"
@@ -181,7 +149,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         if (recurso.url_resposta) {
           documentosOrdenados.push({
             tipo: "Resposta Recurso",
-            data: recurso.data_resposta || recurso.data_recurso,
+            data: recurso.data_resposta || recurso.created_at,
             nome: `Resposta Recurso - ${recurso.protocolo_resposta}`,
             storagePath: recurso.url_resposta,
             bucket: "processo-anexos"
