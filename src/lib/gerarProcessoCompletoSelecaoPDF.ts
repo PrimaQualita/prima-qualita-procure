@@ -643,11 +643,17 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         
         let pdfUrl: string;
         
-        if (doc.storagePath) {
+        // Verificar se é storage path (precisa de signed URL) ou URL completa
+        const isStoragePath = doc.url && !doc.url.startsWith('http');
+        
+        if (doc.storagePath || isStoragePath) {
           // Usar signed URL para storage paths
+          const path = doc.storagePath || doc.url;
+          console.log(`    Gerando signed URL para storage path: ${path}`);
+          
           const { data: signedUrlData, error: signedError } = await supabase.storage
             .from(doc.bucket)
-            .createSignedUrl(doc.storagePath, 60);
+            .createSignedUrl(path, 60);
           
           if (signedError || !signedUrlData) {
             console.error(`  ✗ Erro ao gerar URL assinada para ${doc.nome}:`, signedError?.message);
@@ -655,8 +661,10 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           }
           
           pdfUrl = signedUrlData.signedUrl;
+          console.log(`    ✓ Signed URL gerada com sucesso`);
         } else if (doc.url) {
-          // Usar URL pública diretamente
+          // Usar URL completa diretamente (já é HTTP/HTTPS)
+          console.log(`    Usando URL completa: ${doc.url.substring(0, 50)}...`);
           pdfUrl = doc.url;
         } else {
           console.error(`  ✗ Nenhuma URL encontrada para ${doc.nome}`);
