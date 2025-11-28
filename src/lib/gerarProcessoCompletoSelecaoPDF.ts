@@ -112,7 +112,38 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     
     const documentosOrdenados: DocumentoOrdenado[] = [];
 
-    // 3. Buscar propostas de COTAÇÃO (se houver cotação vinculada)
+    // 3. E-mails enviados na cotação (se houver)
+    if (cotacaoId) {
+      console.log("\n📧 === BUSCANDO E-MAILS DE COTAÇÃO ===");
+      
+      const { data: emailsCotacao, error: emailsError } = await supabase
+        .from("emails_cotacao_anexados")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_upload", { ascending: true });
+
+      if (emailsError) {
+        console.error("Erro ao buscar e-mails de cotação:", emailsError);
+      }
+
+      console.log(`E-mails de cotação encontrados: ${emailsCotacao?.length || 0}`);
+
+      if (emailsCotacao && emailsCotacao.length > 0) {
+        emailsCotacao.forEach(email => {
+          if (email.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+            documentosOrdenados.push({
+              tipo: "E-mail Cotação",
+              data: email.data_upload,
+              nome: email.nome_arquivo,
+              storagePath: email.url_arquivo,
+              bucket: "processo-anexos"
+            });
+          }
+        });
+      }
+    }
+
+    // 4. Buscar propostas de COTAÇÃO (se houver cotação vinculada)
     if (cotacaoId) {
       console.log("\n💰 === BUSCANDO PROPOSTAS DE COTAÇÃO ===");
       
@@ -163,7 +194,94 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // 4. Buscar documentos anexados da seleção (Aviso, Edital, etc.)
+    // 5. Planilha consolidada da cotação (se houver)
+    if (cotacaoId) {
+      console.log("\n📊 === BUSCANDO PLANILHA CONSOLIDADA DE COTAÇÃO ===");
+      
+      const { data: planilhaConsolidada, error: planilhaError } = await supabase
+        .from("planilhas_consolidadas")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_geracao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (planilhaError) {
+        console.error("Erro ao buscar planilha consolidada:", planilhaError);
+      }
+
+      console.log(`Planilha consolidada encontrada: ${planilhaConsolidada ? 'SIM' : 'NÃO'}`);
+
+      if (planilhaConsolidada) {
+        documentosOrdenados.push({
+          tipo: "Planilha Consolidada Cotação",
+          data: planilhaConsolidada.data_geracao,
+          nome: planilhaConsolidada.nome_arquivo,
+          url: planilhaConsolidada.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      }
+    }
+
+    // 6. Encaminhamento ao compliance (se houver)
+    if (cotacaoId) {
+      console.log("\n📤 === BUSCANDO ENCAMINHAMENTO AO COMPLIANCE ===");
+      
+      const { data: encaminhamento, error: encaminhamentoError } = await supabase
+        .from("encaminhamentos_processo")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (encaminhamentoError) {
+        console.error("Erro ao buscar encaminhamento:", encaminhamentoError);
+      }
+
+      console.log(`Encaminhamento encontrado: ${encaminhamento ? 'SIM' : 'NÃO'}`);
+
+      if (encaminhamento) {
+        documentosOrdenados.push({
+          tipo: "Encaminhamento Compliance",
+          data: encaminhamento.created_at,
+          nome: `Encaminhamento - ${encaminhamento.protocolo}`,
+          url: encaminhamento.url,
+          bucket: "processo-anexos"
+        });
+      }
+    }
+
+    // 7. Análise de compliance (se houver)
+    if (cotacaoId) {
+      console.log("\n✅ === BUSCANDO ANÁLISE DE COMPLIANCE ===");
+      
+      const { data: analiseCompliance, error: analiseError } = await supabase
+        .from("analises_compliance")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_analise", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (analiseError) {
+        console.error("Erro ao buscar análise de compliance:", analiseError);
+      }
+
+      console.log(`Análise de compliance encontrada: ${analiseCompliance ? 'SIM' : 'NÃO'}`);
+
+      if (analiseCompliance && analiseCompliance.url_documento) {
+        documentosOrdenados.push({
+          tipo: "Análise Compliance",
+          data: analiseCompliance.data_analise || analiseCompliance.created_at,
+          nome: analiseCompliance.nome_arquivo || `Análise Compliance - ${analiseCompliance.protocolo}`,
+          url: analiseCompliance.url_documento,
+          bucket: "processo-anexos"
+        });
+      }
+    }
+
+    // 8. Buscar documentos anexados da seleção (Aviso, Edital, etc.)
     console.log("\n📋 === BUSCANDO ANEXOS DA SELEÇÃO ===");
     const { data: anexosSelecao, error: anexosError } = await supabase
       .from("anexos_selecao")
@@ -191,7 +309,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // 5. Buscar propostas de SELEÇÃO de fornecedores (PDFs gerados)
+    // 9. Buscar propostas de SELEÇÃO de fornecedores (PDFs gerados)
     console.log("\n📝 === BUSCANDO PROPOSTAS DE SELEÇÃO ===");
     const { data: propostasSelecao, error: propostasError } = await supabase
       .from("selecao_propostas_fornecedor")
@@ -228,7 +346,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // 6. Buscar planilhas de lances
+    // 10. Buscar planilhas de lances
     console.log("\n📊 === BUSCANDO PLANILHAS DE LANCES ===");
     const { data: planilhasLances, error: planilhasError } = await supabase
       .from("planilhas_lances_selecao")
@@ -266,33 +384,77 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
     console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
 
-    // 7. DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES (habilitados E inabilitados)
-    console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO DOS FORNECEDORES ===");
+    // 11. Autorização de Seleção de Fornecedores (se houver)
+    if (cotacaoId) {
+      console.log("\n✅ === BUSCANDO AUTORIZAÇÃO DE SELEÇÃO ===");
+      
+      const { data: autorizacao, error: autorizacaoError } = await supabase
+        .from("autorizacoes_processo")
+        .select("*")
+        .eq("cotacao_id", cotacaoId)
+        .eq("tipo_autorizacao", "Seleção de Fornecedores")
+        .order("data_geracao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (autorizacaoError) {
+        console.error("Erro ao buscar autorização:", autorizacaoError);
+      }
+
+      console.log(`Autorização de seleção encontrada: ${autorizacao ? 'SIM' : 'NÃO'}`);
+
+      if (autorizacao) {
+        documentosOrdenados.push({
+          tipo: "Autorização Seleção",
+          data: autorizacao.data_geracao,
+          nome: autorizacao.nome_arquivo,
+          url: autorizacao.url_arquivo,
+          bucket: "processo-anexos"
+        });
+      }
+    }
+
+    // 12. DOCUMENTOS DE HABILITAÇÃO APENAS DOS FORNECEDORES VENCEDORES (ou inabilitados com recurso)
+    console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO DOS FORNECEDORES VENCEDORES ===");
     
-    // Buscar TODOS os fornecedores que participaram (enviaram proposta)
-    const { data: todosFornecedores, error: todosFornError } = await supabase
+    // Buscar fornecedores vencedores (aprovados na análise documental)
+    const { data: fornecedoresVencedores, error: vencedoresError } = await supabase
       .from("selecao_propostas_fornecedor")
       .select("fornecedor_id, fornecedores(razao_social)")
       .eq("selecao_id", selecaoId)
-      .order("data_envio", { ascending: true });
+      .eq("aprovado_analise_documental", true)
+      .order("data_aprovacao_documental", { ascending: true });
 
-    if (todosFornError) {
-      console.error("Erro ao buscar fornecedores:", todosFornError);
+    if (vencedoresError) {
+      console.error("Erro ao buscar fornecedores vencedores:", vencedoresError);
     }
 
-    const fornecedoresUnicos = Array.from(
-      new Set(todosFornecedores?.map(f => f.fornecedor_id) || [])
-    );
+    // Buscar fornecedores inabilitados que tiveram recursos
+    const { data: fornecedoresComRecurso, error: recursosVencedoresError } = await supabase
+      .from("recursos_inabilitacao_selecao")
+      .select("fornecedor_id")
+      .eq("selecao_id", selecaoId);
+
+    if (recursosVencedoresError) {
+      console.error("Erro ao buscar fornecedores com recurso:", recursosVencedoresError);
+    }
+
+    // Unir fornecedores vencedores e os que tiveram recurso
+    const fornecedoresParaDocumentos = new Set([
+      ...(fornecedoresVencedores?.map(f => f.fornecedor_id) || []),
+      ...(fornecedoresComRecurso?.map(f => f.fornecedor_id) || [])
+    ]);
     
-    console.log(`👥 Total de fornecedores participantes: ${fornecedoresUnicos.length}`);
+    console.log(`👥 Total de fornecedores para incluir documentos: ${fornecedoresParaDocumentos.size}`);
 
     // Data base para documentos de fornecedores
     let dataBaseFornecedores = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
 
     // Processar cada fornecedor
-    for (let index = 0; index < fornecedoresUnicos.length; index++) {
-      const fornecedorId = fornecedoresUnicos[index];
-      console.log(`\n📋 Processando fornecedor ${index + 1}/${fornecedoresUnicos.length}: ${fornecedorId}`);
+    const fornecedoresArray = Array.from(fornecedoresParaDocumentos);
+    for (let index = 0; index < fornecedoresArray.length; index++) {
+      const fornecedorId = fornecedoresArray[index];
+      console.log(`\n📋 Processando fornecedor ${index + 1}/${fornecedoresArray.length}: ${fornecedorId}`);
       
       const dataFornecedor = new Date(new Date(dataBaseFornecedores).getTime() + (index * 100)).toISOString();
       
@@ -342,7 +504,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // 8. Buscar recursos de inabilitação (se houver) e voltar para ordem cronológica
+    // 13. Buscar recursos de inabilitação (se houver) e voltar para ordem cronológica
     console.log("\n⚖️ === BUSCANDO RECURSOS ===");
     const { data: recursos, error: recursosError } = await supabase
       .from("recursos_inabilitacao_selecao")
@@ -380,7 +542,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // 9. Buscar atas geradas
+    // 14. Buscar atas geradas
     console.log("\n📜 === BUSCANDO ATAS ===");
     const { data: atas, error: atasError } = await supabase
       .from("atas_selecao")
@@ -406,7 +568,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // 10. Buscar homologações geradas
+    // 15. Buscar homologações geradas
     console.log("\n✅ === BUSCANDO HOMOLOGAÇÕES ===");
     const { data: homologacoes, error: homologacoesError } = await supabase
       .from("homologacoes_selecao")
@@ -434,7 +596,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
     console.log(`\n📋 Total de documentos a mesclar: ${documentosOrdenados.length}`);
 
-    // 11. Mesclar todos os documentos
+    // 16. Mesclar todos os documentos
     for (const doc of documentosOrdenados) {
       try {
         console.log(`  Processando: ${doc.tipo} - ${doc.nome}`);
@@ -480,21 +642,26 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
     // Salvar o PDF final
     const pdfBytes = await pdfFinal.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `Processo_Completo_Selecao_${numeroSelecao.replace(/\//g, '-')}_${timestamp}.pdf`;
-
+    
     if (temporario) {
+      // Retornar como blob para download direto
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
-      console.log("✅ PDF gerado temporariamente para download");
-      return { url, filename, blob };
-    } else {
-      const storagePath = `processos-completos-selecao/${selecaoId}/${filename}`;
       
+      console.log("✅ PDF gerado com sucesso (temporário)!");
+      
+      return {
+        url,
+        filename: `Processo_Completo_Selecao_${numeroSelecao}.pdf`,
+        blob
+      };
+    } else {
+      // Upload para storage
+      const filename = `processo_completo_selecao_${numeroSelecao}_${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage
-        .from("processo-anexos")
-        .upload(storagePath, blob, {
-          contentType: "application/pdf",
+        .from('processo-anexos')
+        .upload(filename, pdfBytes, {
+          contentType: 'application/pdf',
           upsert: true
         });
 
@@ -503,13 +670,16 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         throw uploadError;
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("processo-anexos")
-        .getPublicUrl(storagePath);
+      const { data: urlData } = supabase.storage
+        .from('processo-anexos')
+        .getPublicUrl(filename);
 
-      console.log("✅ Processo completo gerado e salvo com sucesso!");
-      
-      return { url: publicUrl, filename };
+      console.log("✅ PDF gerado e salvo com sucesso!");
+
+      return {
+        url: urlData.publicUrl,
+        filename
+      };
     }
   } catch (error) {
     console.error("❌ Erro ao gerar processo completo:", error);
