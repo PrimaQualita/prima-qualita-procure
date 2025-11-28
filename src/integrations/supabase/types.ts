@@ -2681,6 +2681,50 @@ export type Database = {
           },
         ]
       }
+      solicitacoes_autorizacao_selecao: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          data_resposta: string | null
+          data_solicitacao: string
+          id: string
+          processo_numero: string
+          responsavel_legal_id: string | null
+          solicitante_id: string | null
+          status: string
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          data_resposta?: string | null
+          data_solicitacao?: string
+          id?: string
+          processo_numero: string
+          responsavel_legal_id?: string | null
+          solicitante_id?: string | null
+          status?: string
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          data_resposta?: string | null
+          data_solicitacao?: string
+          id?: string
+          processo_numero?: string
+          responsavel_legal_id?: string | null
+          solicitante_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitacoes_autorizacao_selecao_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solicitacoes_homologacao_selecao: {
         Row: {
           atendida: boolean | null

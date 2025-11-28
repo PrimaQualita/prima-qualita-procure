@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { SolicitacoesAutorizacao } from "@/components/dashboard/SolicitacoesAutorizacao";
 import { SolicitacoesHomologacao } from "@/components/dashboard/SolicitacoesHomologacao";
+import { SolicitacoesAutorizacaoSelecao } from "@/components/dashboard/SolicitacoesAutorizacaoSelecao";
 import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 
 const Dashboard = () => {
@@ -586,6 +587,7 @@ const Dashboard = () => {
         {isResponsavelLegal && (
           <div className="mb-6 space-y-6">
             <SolicitacoesAutorizacao />
+            <SolicitacoesAutorizacaoSelecao />
             <SolicitacoesHomologacao />
           </div>
         )}
