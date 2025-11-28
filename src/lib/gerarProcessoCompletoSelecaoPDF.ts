@@ -19,10 +19,10 @@ export const gerarProcessoCompletoSelecaoPDF = async (
   const pdfFinal = await PDFDocument.create();
 
   try {
-    // 1. Buscar o processo de compras vinculado à seleção
+    // 1. Buscar o processo de compras e cotação vinculados à seleção
     const { data: selecao, error: selecaoError } = await supabase
       .from("selecoes_fornecedores")
-      .select("processo_compra_id")
+      .select("processo_compra_id, cotacao_id")
       .eq("id", selecaoId)
       .single();
 
@@ -31,7 +31,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       throw selecaoError;
     }
 
-    console.log(`Seleção encontrada. Processo ID: ${selecao?.processo_compra_id}`);
+    console.log(`Seleção encontrada. Processo ID: ${selecao?.processo_compra_id}, Cotação ID: ${selecao?.cotacao_id}`);
 
     // 2. Buscar anexos do processo de compras (CAPA, REQUISIÇÃO, etc.)
     if (selecao?.processo_compra_id) {
@@ -86,11 +86,12 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // Preparar array para ordenação cronológica dos documentos da seleção
+    // Preparar array para ordenação cronológica
     interface DocumentoOrdenado {
       tipo: string;
       data: string;
       nome: string;
+      storagePath?: string;
       url?: string;
       bucket: string;
       fornecedor?: string;
@@ -98,7 +99,59 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     
     const documentosOrdenados: DocumentoOrdenado[] = [];
 
-    // 3. Buscar documentos anexados da seleção (Aviso, Edital, etc.)
+    // 3. Buscar propostas de COTAÇÃO (se houver cotação vinculada)
+    if (selecao?.cotacao_id) {
+      console.log("\n💰 === BUSCANDO PROPOSTAS DE COTAÇÃO ===");
+      
+      const { data: respostasCotacao, error: respostasCotacaoError } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select("id, data_envio_resposta, fornecedores(razao_social)")
+        .eq("cotacao_id", selecao.cotacao_id)
+        .order("data_envio_resposta", { ascending: true });
+
+      if (respostasCotacaoError) {
+        console.error("Erro ao buscar respostas de cotação:", respostasCotacaoError);
+      }
+
+      console.log(`Respostas de cotação encontradas: ${respostasCotacao?.length || 0}`);
+
+      if (respostasCotacao && respostasCotacao.length > 0) {
+        for (const resposta of respostasCotacao) {
+          const { data: anexosCotacao, error: anexosCotacaoError } = await supabase
+            .from("anexos_cotacao_fornecedor")
+            .select("*")
+            .eq("cotacao_resposta_fornecedor_id", resposta.id)
+            .order("data_upload", { ascending: true });
+
+          if (anexosCotacaoError) {
+            console.error(`  Erro ao buscar anexos de cotação:`, anexosCotacaoError);
+          }
+
+          const razaoSocial = (resposta.fornecedores as any)?.razao_social || 'Fornecedor';
+
+          if (anexosCotacao && anexosCotacao.length > 0) {
+            for (const anexo of anexosCotacao) {
+              if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+                console.log(`    ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF.`);
+                continue;
+              }
+              
+              documentosOrdenados.push({
+                tipo: "Proposta Cotação",
+                data: anexo.data_upload || resposta.data_envio_resposta,
+                nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
+                storagePath: anexo.url_arquivo,
+                bucket: "processo-anexos",
+                fornecedor: razaoSocial
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Buscar documentos anexados da seleção (Aviso, Edital, etc.)
+    console.log("\n📋 === BUSCANDO ANEXOS DA SELEÇÃO ===");
     const { data: anexosSelecao, error: anexosError } = await supabase
       .from("anexos_selecao")
       .select("*")
@@ -125,8 +178,9 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // 4. Buscar propostas de fornecedores (PDFs gerados)
-    const { data: propostas, error: propostasError } = await supabase
+    // 5. Buscar propostas de SELEÇÃO de fornecedores (PDFs gerados)
+    console.log("\n📝 === BUSCANDO PROPOSTAS DE SELEÇÃO ===");
+    const { data: propostasSelecao, error: propostasError } = await supabase
       .from("selecao_propostas_fornecedor")
       .select(`
         id, 
@@ -139,18 +193,18 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       .order("data_envio", { ascending: true });
 
     if (propostasError) {
-      console.error("Erro ao buscar propostas:", propostasError);
+      console.error("Erro ao buscar propostas de seleção:", propostasError);
     }
 
-    console.log(`Propostas de fornecedores encontradas: ${propostas?.length || 0}`);
+    console.log(`Propostas de seleção encontradas: ${propostasSelecao?.length || 0}`);
 
-    if (propostas && propostas.length > 0) {
-      for (const proposta of propostas) {
+    if (propostasSelecao && propostasSelecao.length > 0) {
+      for (const proposta of propostasSelecao) {
         const razaoSocial = (proposta.fornecedores as any)?.razao_social || 'Fornecedor';
         
         if (proposta.url_proposta && proposta.nome_arquivo_proposta) {
           documentosOrdenados.push({
-            tipo: "Proposta Fornecedor",
+            tipo: "Proposta Seleção",
             data: proposta.data_envio,
             nome: `${razaoSocial} - ${proposta.nome_arquivo_proposta}`,
             url: proposta.url_proposta,
@@ -161,7 +215,8 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // 5. Buscar planilhas de lances
+    // 6. Buscar planilhas de lances
+    console.log("\n📊 === BUSCANDO PLANILHAS DE LANCES ===");
     const { data: planilhasLances, error: planilhasError } = await supabase
       .from("planilhas_lances_selecao")
       .select("*")
@@ -198,7 +253,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
     console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
 
-    // 6. DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES (habilitados E inabilitados)
+    // 7. DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES (habilitados E inabilitados)
     console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO DOS FORNECEDORES ===");
     
     // Buscar TODOS os fornecedores que participaram (enviaram proposta)
@@ -274,7 +329,8 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // 7. Buscar recursos de inabilitação (se houver)
+    // 8. Buscar recursos de inabilitação (se houver) e voltar para ordem cronológica
+    console.log("\n⚖️ === BUSCANDO RECURSOS ===");
     const { data: recursos, error: recursosError } = await supabase
       .from("recursos_inabilitacao_selecao")
       .select("*")
@@ -311,7 +367,8 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // 8. Buscar atas geradas
+    // 9. Buscar atas geradas
+    console.log("\n📜 === BUSCANDO ATAS ===");
     const { data: atas, error: atasError } = await supabase
       .from("atas_selecao")
       .select("*")
@@ -336,7 +393,8 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // 9. Buscar homologações geradas
+    // 10. Buscar homologações geradas
+    console.log("\n✅ === BUSCANDO HOMOLOGAÇÕES ===");
     const { data: homologacoes, error: homologacoesError } = await supabase
       .from("homologacoes_selecao")
       .select("*")
@@ -363,17 +421,34 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
     console.log(`\n📋 Total de documentos a mesclar: ${documentosOrdenados.length}`);
 
-    // Mesclar todos os documentos
+    // 11. Mesclar todos os documentos
     for (const doc of documentosOrdenados) {
       try {
         console.log(`  Processando: ${doc.tipo} - ${doc.nome}`);
         
-        if (!doc.url) {
-          console.error(`  ✗ URL não encontrada para ${doc.nome}`);
+        let pdfUrl: string;
+        
+        if (doc.storagePath) {
+          // Usar signed URL para storage paths
+          const { data: signedUrlData, error: signedError } = await supabase.storage
+            .from(doc.bucket)
+            .createSignedUrl(doc.storagePath, 60);
+          
+          if (signedError || !signedUrlData) {
+            console.error(`  ✗ Erro ao gerar URL assinada para ${doc.nome}:`, signedError?.message);
+            continue;
+          }
+          
+          pdfUrl = signedUrlData.signedUrl;
+        } else if (doc.url) {
+          // Usar URL pública diretamente
+          pdfUrl = doc.url;
+        } else {
+          console.error(`  ✗ Nenhuma URL encontrada para ${doc.nome}`);
           continue;
         }
 
-        const response = await fetch(doc.url);
+        const response = await fetch(pdfUrl);
         
         if (!response.ok) {
           console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
