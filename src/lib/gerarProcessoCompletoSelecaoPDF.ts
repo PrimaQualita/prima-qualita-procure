@@ -474,7 +474,6 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           .eq("fornecedor_id", fornecedorId)
           .neq("tipo_documento", "Relatório KPMG")
           .neq("tipo_documento", "relatorio_kpmg")
-          .neq("tipo_documento", "certificado_gestor")
           .eq("em_vigor", true)
           .order("created_at", { ascending: true });
 
