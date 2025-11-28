@@ -129,15 +129,17 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       console.log(`E-mails de cotação encontrados: ${emailsCotacao?.length || 0}`);
 
       if (emailsCotacao && emailsCotacao.length > 0) {
+        console.log(`✓ Adicionando ${emailsCotacao.length} e-mails ao processo`);
         emailsCotacao.forEach(email => {
           if (email.nome_arquivo.toLowerCase().endsWith('.pdf')) {
             documentosOrdenados.push({
               tipo: "E-mail Cotação",
               data: email.data_upload,
               nome: email.nome_arquivo,
-              storagePath: email.url_arquivo,
+              url: email.url_arquivo,
               bucket: "processo-anexos"
             });
+            console.log(`  ✓ E-mail: ${email.nome_arquivo}`);
           }
         });
       }
@@ -184,7 +186,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
                 tipo: "Proposta Cotação",
                 data: anexo.data_upload || resposta.data_envio_resposta,
                 nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
-                storagePath: anexo.url_arquivo,
+                url: anexo.url_arquivo,
                 bucket: "processo-anexos",
                 fornecedor: razaoSocial
               });
@@ -213,6 +215,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       console.log(`Planilha consolidada encontrada: ${planilhaConsolidada ? 'SIM' : 'NÃO'}`);
 
       if (planilhaConsolidada) {
+        console.log(`✓ Planilha consolidada encontrada: ${planilhaConsolidada.nome_arquivo}`);
         documentosOrdenados.push({
           tipo: "Planilha Consolidada Cotação",
           data: planilhaConsolidada.data_geracao,
@@ -220,6 +223,8 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           url: planilhaConsolidada.url_arquivo,
           bucket: "processo-anexos"
         });
+      } else {
+        console.log("⚠️ Nenhuma planilha consolidada encontrada");
       }
     }
 
@@ -462,7 +467,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       console.log(`  📄 Campos solicitados: ${camposDocumentos?.length || 0}`);
 
       if (camposDocumentos && camposDocumentos.length > 0) {
-        // Buscar todos os documentos do cadastro do fornecedor (exceto KPMG e certidões não em vigor)
+        // Buscar TODOS os documentos do cadastro do fornecedor (exceto KPMG)
         const { data: documentosCadastro, error: docsCadastroError } = await supabase
           .from("documentos_fornecedor")
           .select("*")
@@ -473,16 +478,25 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
         if (docsCadastroError) {
           console.error(`  ❌ Erro ao buscar documentos do cadastro:`, docsCadastroError);
+        } else {
+          console.log(`  📄 Documentos do cadastro encontrados: ${documentosCadastro?.length || 0}`);
+          if (documentosCadastro && documentosCadastro.length > 0) {
+            documentosCadastro.forEach(doc => {
+              console.log(`    - ${doc.tipo_documento}: ${doc.nome_arquivo} (em_vigor: ${doc.em_vigor})`);
+            });
+          }
         }
 
         for (const campo of camposDocumentos) {
+          console.log(`  🔍 Procurando documento para campo: "${campo.nome_campo}"`);
+          
           // Primeiro: verificar se há documento do CADASTRO que corresponde ao campo solicitado
           const docCadastro = documentosCadastro?.find(doc => 
             doc.tipo_documento === campo.nome_campo
           );
 
           if (docCadastro && docCadastro.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-            console.log(`  ✓ Incluindo documento do cadastro: ${campo.nome_campo}`);
+            console.log(`  ✅ INCLUINDO documento do cadastro: ${campo.nome_campo} - ${docCadastro.nome_arquivo}`);
             documentosOrdenados.push({
               tipo: "Documento Habilitação",
               data: dataFornecedor,
@@ -492,6 +506,8 @@ export const gerarProcessoCompletoSelecaoPDF = async (
               fornecedor: fornecedorId
             });
           } else {
+            console.log(`  ⚠️ Documento do cadastro NÃO encontrado para: ${campo.nome_campo}. Buscando adicionais...`);
+            
             // Segundo: buscar documentos NOVOS/ADICIONAIS enviados na análise documental
             const { data: docsEnviados, error: docsError } = await supabase
               .from("documentos_finalizacao_fornecedor")
@@ -506,7 +522,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
             }
 
             if (docsEnviados && docsEnviados.length > 0) {
-              console.log(`  ✓ Incluindo ${docsEnviados.length} documento(s) adicional(is): ${campo.nome_campo}`);
+              console.log(`  ✅ INCLUINDO ${docsEnviados.length} documento(s) adicional(is): ${campo.nome_campo}`);
               for (const doc of docsEnviados) {
                 if (doc.nome_arquivo.toLowerCase().endsWith('.pdf')) {
                   documentosOrdenados.push({
@@ -517,8 +533,11 @@ export const gerarProcessoCompletoSelecaoPDF = async (
                     bucket: "processo-anexos",
                     fornecedor: fornecedorId
                   });
+                  console.log(`    - ${doc.nome_arquivo}`);
                 }
               }
+            } else {
+              console.log(`  ⚠️ NENHUM documento adicional encontrado para: ${campo.nome_campo}`);
             }
           }
         }
