@@ -24,6 +24,12 @@ export function SolicitacoesHomologacao() {
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const navigate = useNavigate();
 
+  // Função para remover tags HTML
+  const removerTagsHTML = (html: string) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
+  };
+
   useEffect(() => {
     loadSolicitacoes();
 
@@ -128,7 +134,7 @@ export function SolicitacoesHomologacao() {
                   Processo: {solicitacao.selecoes_fornecedores?.processos_compras?.numero_processo_interno}
                 </p>
                 <p className="text-sm text-orange-600 dark:text-orange-400">
-                  {solicitacao.selecoes_fornecedores?.processos_compras?.objeto_resumido}
+                  {removerTagsHTML(solicitacao.selecoes_fornecedores?.processos_compras?.objeto_resumido || '')}
                 </p>
                 <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                   {new Date(solicitacao.data_solicitacao).toLocaleString("pt-BR")}
