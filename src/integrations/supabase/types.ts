@@ -2817,6 +2817,12 @@ export type Database = {
         Args: { p_cotacao_id: string }
         Returns: undefined
       }
+      get_all_file_references: {
+        Args: never
+        Returns: {
+          url: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
