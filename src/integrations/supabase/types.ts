@@ -1322,43 +1322,46 @@ export type Database = {
       homologacoes_selecao: {
         Row: {
           created_at: string
-          data_assinatura: string | null
-          data_envio_assinatura: string | null
+          data_atendimento: string | null
           data_geracao: string
+          data_solicitacao: string | null
           id: string
           nome_arquivo: string
           protocolo: string
           responsavel_legal_id: string | null
           selecao_id: string
-          status_assinatura: string | null
+          solicitacao_atendida: boolean | null
+          solicitacao_enviada: boolean | null
           url_arquivo: string
           usuario_gerador_id: string | null
         }
         Insert: {
           created_at?: string
-          data_assinatura?: string | null
-          data_envio_assinatura?: string | null
+          data_atendimento?: string | null
           data_geracao?: string
+          data_solicitacao?: string | null
           id?: string
           nome_arquivo: string
           protocolo: string
           responsavel_legal_id?: string | null
           selecao_id: string
-          status_assinatura?: string | null
+          solicitacao_atendida?: boolean | null
+          solicitacao_enviada?: boolean | null
           url_arquivo: string
           usuario_gerador_id?: string | null
         }
         Update: {
           created_at?: string
-          data_assinatura?: string | null
-          data_envio_assinatura?: string | null
+          data_atendimento?: string | null
           data_geracao?: string
+          data_solicitacao?: string | null
           id?: string
           nome_arquivo?: string
           protocolo?: string
           responsavel_legal_id?: string | null
           selecao_id?: string
-          status_assinatura?: string | null
+          solicitacao_atendida?: boolean | null
+          solicitacao_enviada?: boolean | null
           url_arquivo?: string
           usuario_gerador_id?: string | null
         }
@@ -2671,6 +2674,61 @@ export type Database = {
           },
           {
             foreignKeyName: "solicitacoes_autorizacao_solicitante_id_fkey"
+            columns: ["solicitante_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solicitacoes_homologacao_selecao: {
+        Row: {
+          atendida: boolean | null
+          created_at: string | null
+          data_atendimento: string | null
+          data_solicitacao: string
+          id: string
+          responsavel_legal_id: string
+          selecao_id: string
+          solicitante_id: string | null
+        }
+        Insert: {
+          atendida?: boolean | null
+          created_at?: string | null
+          data_atendimento?: string | null
+          data_solicitacao?: string
+          id?: string
+          responsavel_legal_id: string
+          selecao_id: string
+          solicitante_id?: string | null
+        }
+        Update: {
+          atendida?: boolean | null
+          created_at?: string | null
+          data_atendimento?: string | null
+          data_solicitacao?: string
+          id?: string
+          responsavel_legal_id?: string
+          selecao_id?: string
+          solicitante_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitacoes_homologacao_selecao_responsavel_legal_id_fkey"
+            columns: ["responsavel_legal_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitacoes_homologacao_selecao_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitacoes_homologacao_selecao_solicitante_id_fkey"
             columns: ["solicitante_id"]
             isOneToOne: false
             referencedRelation: "profiles"
