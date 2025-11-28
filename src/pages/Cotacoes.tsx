@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet, AlertCircle, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet, AlertCircle, FileText, Send } from "lucide-react";
 import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
@@ -1370,7 +1370,11 @@ const Cotacoes = () => {
 
                     {/* Botão para enviar ao responsável legal apenas se NÃO for responsável legal */}
                     {processoSelecionado?.requer_selecao === true && !isResponsavelLegal && (
-                      <div className="mt-4">
+                      <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-3 flex items-center">
+                          <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                          Apenas Responsáveis Legais podem gerar Autorização de Seleção. Solicite ao Responsável Legal.
+                        </p>
                         <Button
                           onClick={async () => {
                             if (!processoSelecionado || !cotacaoSelecionada) return;
@@ -1416,8 +1420,10 @@ const Cotacoes = () => {
                             }
                           }}
                           className="w-full"
+                          variant="outline"
                         >
-                          Enviar para Responsável Legal
+                          <Send className="h-4 w-4 mr-2" />
+                          Solicitar Autorização ao Responsável Legal
                         </Button>
                       </div>
                     )}
@@ -1430,6 +1436,9 @@ const Cotacoes = () => {
                           </Label>
                           {isResponsavelLegal ? (
                             <div className="space-y-2 mt-1">
+                              <div className="mb-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
+                                ✓ Você tem permissão para gerar Autorização
+                              </div>
                               <Button
                                 onClick={async () => {
                                   if (!processoSelecionado || !cotacaoSelecionada) return;
@@ -1480,11 +1489,11 @@ const Cotacoes = () => {
                                     toast.error("Erro ao gerar autorização");
                                   }
                                 }}
-                                variant="outline"
+                                variant="default"
                                 className="w-full"
                               >
                                 <FileText className="mr-2 h-4 w-4" />
-                                Gerar Autorização
+                                Gerar Autorização de Seleção
                               </Button>
                               {autorizacaoSelecaoUrl && (
                                 <div className="flex flex-col gap-2">
@@ -1538,44 +1547,13 @@ const Cotacoes = () => {
                                 </div>
                               )}
                             </div>
-                          ) : (
-                            <>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Input
-                                  id="autorizacao-selecao-upload"
-                                  type="file"
-                                  accept=".pdf,.doc,.docx"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      setAutorizacaoSelecaoAnexada(file);
-                                      toast.success("Documento de autorização anexado");
-                                    }
-                                  }}
-                                  disabled={uploadingAutorizacao}
-                                  className="flex-1"
-                                />
-                                {autorizacaoSelecaoAnexada && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setAutorizacaoSelecaoAnexada(null);
-                                      const input = document.getElementById('autorizacao-selecao-upload') as HTMLInputElement;
-                                      if (input) input.value = '';
-                                      toast.info("Documento de autorização removido");
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                              {autorizacaoSelecaoAnexada && (
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  {autorizacaoSelecaoAnexada.name}
-                                </p>
-                              )}
-                            </>
+                           ) : (
+                            <div className="mt-1 p-3 bg-muted rounded-lg border border-dashed">
+                              <p className="text-sm text-muted-foreground flex items-center">
+                                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                                Apenas Responsáveis Legais podem gerar Autorização de Seleção
+                              </p>
+                            </div>
                           )}
                         </div>
                         <Button
