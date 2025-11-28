@@ -61,7 +61,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
     data_abertura: new Date().toISOString().split("T")[0],
     observacoes: "",
     requer_cotacao: true,
-    criterio_julgamento: "global",
+    criterio_julgamento: "",
     credenciamento: false,
     contratacao_especifica: false,
   });
@@ -86,7 +86,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         data_abertura: processo.data_abertura || "",
         observacoes: processo.observacoes || "",
           requer_cotacao: processo.requer_cotacao ?? true,
-          criterio_julgamento: processo.criterio_julgamento || "global",
+          criterio_julgamento: processo.criterio_julgamento || "",
           credenciamento: processo.credenciamento ?? false,
           contratacao_especifica: processo.contratacao_especifica ?? false,
         });
@@ -142,7 +142,7 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
         data_abertura: new Date().toISOString().split("T")[0],
         observacoes: "",
         requer_cotacao: true,
-        criterio_julgamento: "global",
+        criterio_julgamento: "",
         credenciamento: false,
         contratacao_especifica: false,
       });
