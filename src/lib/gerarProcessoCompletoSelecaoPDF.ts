@@ -467,12 +467,14 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       console.log(`  📄 Campos solicitados: ${camposDocumentos?.length || 0}`);
 
       if (camposDocumentos && camposDocumentos.length > 0) {
-        // Buscar TODOS os documentos do cadastro do fornecedor (exceto KPMG)
+        // 1. PRIMEIRO: Incluir TODOS os documentos do cadastro do fornecedor (exceto KPMG)
         const { data: documentosCadastro, error: docsCadastroError } = await supabase
           .from("documentos_fornecedor")
           .select("*")
           .eq("fornecedor_id", fornecedorId)
           .neq("tipo_documento", "Relatório KPMG")
+          .neq("tipo_documento", "relatorio_kpmg")
+          .neq("tipo_documento", "certificado_gestor")
           .eq("em_vigor", true)
           .order("created_at", { ascending: true });
 
@@ -480,65 +482,82 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           console.error(`  ❌ Erro ao buscar documentos do cadastro:`, docsCadastroError);
         } else {
           console.log(`  📄 Documentos do cadastro encontrados: ${documentosCadastro?.length || 0}`);
+          
           if (documentosCadastro && documentosCadastro.length > 0) {
-            documentosCadastro.forEach(doc => {
-              console.log(`    - ${doc.tipo_documento}: ${doc.nome_arquivo} (em_vigor: ${doc.em_vigor})`);
+            // Ordem específica para documentos do cadastro
+            const ordemDocumentos = [
+              "contrato_social",
+              "cartao_cnpj",
+              "inscricao_estadual_municipal",
+              "cnd_federal",
+              "cnd_tributos_estaduais",
+              "cnd_divida_ativa_estadual",
+              "cnd_tributos_municipais",
+              "cnd_divida_ativa_municipal",
+              "crf_fgts",
+              "cndt"
+            ];
+
+            const docsOrdenados = documentosCadastro.sort((a, b) => {
+              const indexA = ordemDocumentos.indexOf(a.tipo_documento);
+              const indexB = ordemDocumentos.indexOf(b.tipo_documento);
+              
+              if (indexA === -1 && indexB === -1) return 0;
+              if (indexA === -1) return 1;
+              if (indexB === -1) return -1;
+              
+              return indexA - indexB;
             });
+
+            for (const doc of docsOrdenados) {
+              if (doc.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+                console.log(`  ✅ INCLUINDO documento do cadastro: ${doc.tipo_documento} - ${doc.nome_arquivo}`);
+                documentosOrdenados.push({
+                  tipo: "Documento Habilitação (Cadastro)",
+                  data: dataFornecedor,
+                  nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
+                  url: doc.url_arquivo,
+                  bucket: "processo-anexos",
+                  fornecedor: fornecedorId
+                });
+              }
+            }
           }
         }
 
+        // 2. SEGUNDO: Incluir documentos ADICIONAIS solicitados
         for (const campo of camposDocumentos) {
-          console.log(`  🔍 Procurando documento para campo: "${campo.nome_campo}"`);
+          console.log(`  🔍 Buscando documentos adicionais para campo: "${campo.nome_campo}"`);
           
-          // Primeiro: verificar se há documento do CADASTRO que corresponde ao campo solicitado
-          const docCadastro = documentosCadastro?.find(doc => 
-            doc.tipo_documento === campo.nome_campo
-          );
+          const { data: docsEnviados, error: docsError } = await supabase
+            .from("documentos_finalizacao_fornecedor")
+            .select("*")
+            .eq("campo_documento_id", campo.id)
+            .eq("fornecedor_id", fornecedorId)
+            .order("data_upload", { ascending: true });
 
-          if (docCadastro && docCadastro.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-            console.log(`  ✅ INCLUINDO documento do cadastro: ${campo.nome_campo} - ${docCadastro.nome_arquivo}`);
-            documentosOrdenados.push({
-              tipo: "Documento Habilitação",
-              data: dataFornecedor,
-              nome: `${campo.nome_campo} - ${docCadastro.nome_arquivo}`,
-              url: docCadastro.url_arquivo,
-              bucket: "processo-anexos",
-              fornecedor: fornecedorId
-            });
-          } else {
-            console.log(`  ⚠️ Documento do cadastro NÃO encontrado para: ${campo.nome_campo}. Buscando adicionais...`);
-            
-            // Segundo: buscar documentos NOVOS/ADICIONAIS enviados na análise documental
-            const { data: docsEnviados, error: docsError } = await supabase
-              .from("documentos_finalizacao_fornecedor")
-              .select("*")
-              .eq("campo_documento_id", campo.id)
-              .eq("fornecedor_id", fornecedorId)
-              .order("data_upload", { ascending: true });
+          if (docsError) {
+            console.error(`  ❌ Erro ao buscar documentos adicionais:`, docsError);
+            continue;
+          }
 
-            if (docsError) {
-              console.error(`  ❌ Erro ao buscar documentos adicionais:`, docsError);
-              continue;
-            }
-
-            if (docsEnviados && docsEnviados.length > 0) {
-              console.log(`  ✅ INCLUINDO ${docsEnviados.length} documento(s) adicional(is): ${campo.nome_campo}`);
-              for (const doc of docsEnviados) {
-                if (doc.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-                  documentosOrdenados.push({
-                    tipo: "Documento Habilitação",
-                    data: dataFornecedor,
-                    nome: `${campo.nome_campo} - ${doc.nome_arquivo}`,
-                    url: doc.url_arquivo,
-                    bucket: "processo-anexos",
-                    fornecedor: fornecedorId
-                  });
-                  console.log(`    - ${doc.nome_arquivo}`);
-                }
+          if (docsEnviados && docsEnviados.length > 0) {
+            console.log(`  ✅ INCLUINDO ${docsEnviados.length} documento(s) adicional(is): ${campo.nome_campo}`);
+            for (const doc of docsEnviados) {
+              if (doc.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+                documentosOrdenados.push({
+                  tipo: "Documento Habilitação (Adicional)",
+                  data: dataFornecedor,
+                  nome: `${campo.nome_campo} - ${doc.nome_arquivo}`,
+                  url: doc.url_arquivo,
+                  bucket: "processo-anexos",
+                  fornecedor: fornecedorId
+                });
+                console.log(`    - ${doc.nome_arquivo}`);
               }
-            } else {
-              console.log(`  ⚠️ NENHUM documento adicional encontrado para: ${campo.nome_campo}`);
             }
+          } else {
+            console.log(`  ⚠️ NENHUM documento adicional encontrado para: ${campo.nome_campo}`);
           }
         }
       }
