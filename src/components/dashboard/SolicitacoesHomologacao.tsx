@@ -39,6 +39,7 @@ export function SolicitacoesHomologacao() {
           id,
           selecao_id,
           data_solicitacao,
+          atendida,
           selecoes_fornecedores:selecao_id (
             id,
             numero_selecao,
@@ -75,9 +76,9 @@ export function SolicitacoesHomologacao() {
         Solicitações de Homologação Pendentes
       </AlertTitle>
       <AlertDescription>
-        <p className="text-blue-800 dark:text-blue-200 mb-4">
+        <div className="text-blue-800 dark:text-blue-200 mb-4">
           Seleções aguardando geração de homologação
-        </p>
+        </div>
         <div className="space-y-3">
           {solicitacoes.map((solicitacao) => (
             <div
