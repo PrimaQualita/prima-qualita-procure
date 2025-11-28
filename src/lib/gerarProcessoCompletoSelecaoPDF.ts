@@ -390,10 +390,13 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
 
     // 11. Autorização de Seleção de Fornecedores (se houver)
+    console.log("\n✅ === BUSCANDO AUTORIZAÇÃO DE SELEÇÃO ===");
+    
+    let autorizacao = null;
+    
+    // Primeiro tenta buscar pela cotação (se houver)
     if (cotacaoId) {
-      console.log("\n✅ === BUSCANDO AUTORIZAÇÃO DE SELEÇÃO ===");
-      
-      const { data: autorizacao, error: autorizacaoError } = await supabase
+      const { data, error: autorizacaoError } = await supabase
         .from("autorizacoes_processo")
         .select("*")
         .eq("cotacao_id", cotacaoId)
@@ -403,20 +406,49 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         .maybeSingle();
 
       if (autorizacaoError) {
-        console.error("Erro ao buscar autorização:", autorizacaoError);
+        console.error("Erro ao buscar autorização por cotação:", autorizacaoError);
+      } else {
+        autorizacao = data;
       }
-
-      console.log(`Autorização de seleção encontrada: ${autorizacao ? 'SIM' : 'NÃO'}`);
-
-      if (autorizacao) {
-        documentosOrdenados.push({
-          tipo: "Autorização Seleção",
-          data: autorizacao.data_geracao,
-          nome: autorizacao.nome_arquivo,
-          url: autorizacao.url_arquivo,
-          bucket: "processo-anexos"
-        });
+    }
+    
+    // Se não encontrou e há processo_compra_id, tenta buscar pelo processo
+    if (!autorizacao && selecao?.processo_compra_id) {
+      const { data: cotacaoProcesso } = await supabase
+        .from("cotacoes_precos")
+        .select("id")
+        .eq("processo_compra_id", selecao.processo_compra_id)
+        .maybeSingle();
+      
+      if (cotacaoProcesso?.id) {
+        const { data, error } = await supabase
+          .from("autorizacoes_processo")
+          .select("*")
+          .eq("cotacao_id", cotacaoProcesso.id)
+          .eq("tipo_autorizacao", "Seleção de Fornecedores")
+          .order("data_geracao", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (!error) {
+          autorizacao = data;
+        }
       }
+    }
+
+    console.log(`Autorização de seleção encontrada: ${autorizacao ? 'SIM' : 'NÃO'}`);
+
+    if (autorizacao) {
+      documentosOrdenados.push({
+        tipo: "Autorização Seleção",
+        data: autorizacao.data_geracao,
+        nome: autorizacao.nome_arquivo,
+        url: autorizacao.url_arquivo,
+        bucket: "processo-anexos"
+      });
+      console.log(`✓ Autorização adicionada: ${autorizacao.nome_arquivo}`);
+    } else {
+      console.log("⚠️ Nenhuma autorização de seleção encontrada");
     }
 
     // 12. DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES (vencedores E inabilitados)
