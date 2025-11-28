@@ -445,7 +445,63 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       
       const dataFornecedor = new Date(new Date(dataBaseFornecedores).getTime() + (index * 100)).toISOString();
       
-      // Buscar documentos enviados pelo fornecedor na análise documental
+      // PRIMEIRO: Buscar documentos ORIGINAIS do cadastro do fornecedor
+      console.log(`  📄 Buscando documentos originais do cadastro...`);
+      const { data: documentosOriginais, error: docsOriginaisError } = await supabase
+        .from("documentos_fornecedor")
+        .select("*")
+        .eq("fornecedor_id", fornecedorId)
+        .order("created_at", { ascending: true });
+
+      if (docsOriginaisError) {
+        console.error(`  ❌ Erro ao buscar documentos originais:`, docsOriginaisError);
+      }
+
+      if (documentosOriginais && documentosOriginais.length > 0) {
+        console.log(`  ✓ Documentos originais encontrados: ${documentosOriginais.length}`);
+        
+        // Ordem específica dos documentos originais
+        const ordemDocumentos = [
+          "Contrato Social",
+          "Cartão CNPJ",
+          "Inscrição Estadual",
+          "CND Federal",
+          "CND Tributos Estaduais",
+          "CND Dívida Ativa Estadual",
+          "CND Tributos Municipais",
+          "CND Dívida Ativa Municipal",
+          "CRF FGTS",
+          "CNDT"
+        ];
+
+        // Ordenar documentos originais conforme ordem específica
+        const docsOrdenados = documentosOriginais.sort((a, b) => {
+          const indexA = ordemDocumentos.indexOf(a.tipo_documento);
+          const indexB = ordemDocumentos.indexOf(b.tipo_documento);
+          
+          if (indexA === -1 && indexB === -1) return 0;
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          
+          return indexA - indexB;
+        });
+
+        for (const doc of docsOrdenados) {
+          if (doc.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+            documentosOrdenados.push({
+              tipo: "Documento Habilitação Original",
+              data: dataFornecedor,
+              nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
+              url: doc.url_arquivo,
+              bucket: "processo-anexos",
+              fornecedor: fornecedorId
+            });
+          }
+        }
+      }
+      
+      // SEGUNDO: Buscar documentos ADICIONAIS solicitados na análise documental
+      console.log(`  📄 Buscando documentos adicionais solicitados...`);
       const { data: camposDocumentos, error: camposError } = await supabase
         .from("campos_documentos_finalizacao")
         .select("*")
@@ -458,7 +514,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         continue;
       }
 
-      console.log(`  📄 Campos de documentos: ${camposDocumentos?.length || 0}`);
+      console.log(`  📄 Campos de documentos adicionais: ${camposDocumentos?.length || 0}`);
 
       if (camposDocumentos && camposDocumentos.length > 0) {
         for (const campo of camposDocumentos) {
@@ -477,14 +533,16 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
           if (docsEnviados && docsEnviados.length > 0) {
             for (const doc of docsEnviados) {
-              documentosOrdenados.push({
-                tipo: "Documento Habilitação",
-                data: dataFornecedor,
-                nome: `${campo.nome_campo} - ${doc.nome_arquivo}`,
-                url: doc.url_arquivo,
-                bucket: "processo-anexos",
-                fornecedor: fornecedorId
-              });
+              if (doc.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+                documentosOrdenados.push({
+                  tipo: "Documento Habilitação Adicional",
+                  data: dataFornecedor,
+                  nome: `${campo.nome_campo} - ${doc.nome_arquivo}`,
+                  url: doc.url_arquivo,
+                  bucket: "processo-anexos",
+                  fornecedor: fornecedorId
+                });
+              }
             }
           }
         }
