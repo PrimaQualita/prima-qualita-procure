@@ -414,36 +414,23 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // 12. DOCUMENTOS DE HABILITAÇÃO APENAS DOS FORNECEDORES VENCEDORES (ou inabilitados com recurso)
-    console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO DOS FORNECEDORES VENCEDORES ===");
+    // 12. DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES (vencedores E inabilitados)
+    console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES ===");
     
-    // Buscar fornecedores vencedores (aprovados na análise documental)
-    const { data: fornecedoresVencedores, error: vencedoresError } = await supabase
-      .from("selecao_propostas_fornecedor")
-      .select("fornecedor_id, fornecedores(razao_social)")
-      .eq("selecao_id", selecaoId)
-      .eq("aprovado_analise_documental", true)
-      .order("data_aprovacao_documental", { ascending: true });
-
-    if (vencedoresError) {
-      console.error("Erro ao buscar fornecedores vencedores:", vencedoresError);
-    }
-
-    // Buscar fornecedores inabilitados que tiveram recursos
-    const { data: fornecedoresComRecurso, error: recursosVencedoresError } = await supabase
-      .from("recursos_inabilitacao_selecao")
+    // Buscar TODOS os fornecedores que tiveram documentos solicitados
+    const { data: fornecedoresComDocumentos, error: fornecedoresDocError } = await supabase
+      .from("campos_documentos_finalizacao")
       .select("fornecedor_id")
       .eq("selecao_id", selecaoId);
 
-    if (recursosVencedoresError) {
-      console.error("Erro ao buscar fornecedores com recurso:", recursosVencedoresError);
+    if (fornecedoresDocError) {
+      console.error("Erro ao buscar fornecedores com documentos:", fornecedoresDocError);
     }
 
-    // Unir fornecedores vencedores e os que tiveram recurso
-    const fornecedoresParaDocumentos = new Set([
-      ...(fornecedoresVencedores?.map(f => f.fornecedor_id) || []),
-      ...(fornecedoresComRecurso?.map(f => f.fornecedor_id) || [])
-    ]);
+    // Criar set único de fornecedores
+    const fornecedoresParaDocumentos = new Set(
+      fornecedoresComDocumentos?.map(f => f.fornecedor_id) || []
+    );
     
     console.log(`👥 Total de fornecedores para incluir documentos: ${fornecedoresParaDocumentos.size}`);
 
