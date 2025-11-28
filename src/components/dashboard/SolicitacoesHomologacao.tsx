@@ -70,37 +70,37 @@ export function SolicitacoesHomologacao() {
   }
 
   return (
-    <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
-      <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-500" />
-      <AlertTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+    <Alert className="bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800">
+      <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-500" />
+      <AlertTitle className="text-lg font-semibold text-orange-900 dark:text-orange-100">
         Solicitações de Homologação Pendentes
       </AlertTitle>
       <AlertDescription>
-        <div className="text-blue-800 dark:text-blue-200 mb-4">
+        <div className="text-orange-800 dark:text-orange-200 mb-4">
           Seleções aguardando geração de homologação
         </div>
         <div className="space-y-3">
           {solicitacoes.map((solicitacao) => (
             <div
               key={solicitacao.id}
-              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border border-blue-300 dark:border-blue-700 rounded-lg bg-white dark:bg-blue-900/20"
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border border-orange-300 dark:border-orange-700 rounded-lg bg-white dark:bg-orange-900/20"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-semibold text-blue-900 dark:text-blue-100">
+                  <span className="font-semibold text-orange-900 dark:text-orange-100">
                     Seleção Nº {solicitacao.selecoes_fornecedores?.numero_selecao}
                   </span>
-                  <Badge variant="outline" className="border-blue-400 text-blue-700 dark:text-blue-300">
+                  <Badge variant="outline" className="border-orange-400 text-orange-700 dark:text-orange-300">
                     Pendente
                   </Badge>
                 </div>
-                <p className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="text-sm text-orange-700 dark:text-orange-300">
                   Processo: {solicitacao.selecoes_fornecedores?.processos_compras?.numero_processo_interno}
                 </p>
-                <p className="text-sm text-blue-600 dark:text-blue-400">
+                <p className="text-sm text-orange-600 dark:text-orange-400">
                   {solicitacao.selecoes_fornecedores?.processos_compras?.objeto_resumido}
                 </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                   {new Date(solicitacao.data_solicitacao).toLocaleString("pt-BR")}
                 </p>
               </div>
@@ -109,7 +109,7 @@ export function SolicitacoesHomologacao() {
                   onClick={() => navigate(`/selecoes`)}
                   variant="outline"
                   size="sm"
-                  className="flex-1 sm:flex-none border-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900"
+                  className="flex-1 sm:flex-none border-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900"
                 >
                   <ExternalLink className="h-4 w-4 mr-1" />
                   Ver Seleções
@@ -117,7 +117,7 @@ export function SolicitacoesHomologacao() {
                 <Button
                   onClick={() => gerarHomologacao(solicitacao.selecao_id)}
                   size="sm"
-                  className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white"
+                  className="flex-1 sm:flex-none bg-orange-600 hover:bg-orange-700 text-white"
                 >
                   <FileText className="h-4 w-4 mr-1" />
                   Gerar Homologação

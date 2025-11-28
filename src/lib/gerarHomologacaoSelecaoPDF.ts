@@ -428,6 +428,15 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
 
     if (insertError) throw insertError;
 
+    // Atualizar solicitação de homologação como atendida
+    await supabase
+      .from("solicitacoes_homologacao_selecao")
+      .update({ 
+        atendida: true,
+        data_atendimento: new Date().toISOString()
+      })
+      .eq("selecao_id", selecaoId);
+
     return { 
       homologacao, 
       url: urlData.publicUrl,
