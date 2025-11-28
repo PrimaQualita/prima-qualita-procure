@@ -46,6 +46,29 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [responsavelLegal, setResponsavelLegal] = useState(false);
   const [compliance, setCompliance] = useState(false);
   const [cargo, setCargo] = useState("");
+  const [isUserResponsavelLegal, setIsUserResponsavelLegal] = useState(false);
+
+  // Verificar se o usuário logado é responsável legal
+  useEffect(() => {
+    const checkUserPermissions = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("responsavel_legal")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profile) {
+        setIsUserResponsavelLegal(profile.responsavel_legal === true);
+      }
+    };
+
+    if (open) {
+      checkUserPermissions();
+    }
+  }, [open]);
 
   // Carregar dados do usuário quando for edição
   useEffect(() => {
@@ -318,12 +341,21 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 id="responsavel-legal"
                 checked={responsavelLegal}
                 onChange={(e) => setResponsavelLegal(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300"
+                disabled={!isUserResponsavelLegal}
+                className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <Label htmlFor="responsavel-legal" className="font-normal cursor-pointer">
+              <Label 
+                htmlFor="responsavel-legal" 
+                className={`font-normal ${isUserResponsavelLegal ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+              >
                 Responsável Legal
               </Label>
             </div>
+            {!isUserResponsavelLegal && (
+              <p className="text-xs text-muted-foreground ml-6">
+                Apenas Responsáveis Legais podem alterar esta permissão
+              </p>
+            )}
 
             <div className="flex items-center space-x-2">
               <input
@@ -331,12 +363,21 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 id="compliance"
                 checked={compliance}
                 onChange={(e) => setCompliance(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300"
+                disabled={!isUserResponsavelLegal}
+                className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <Label htmlFor="compliance" className="font-normal cursor-pointer">
+              <Label 
+                htmlFor="compliance" 
+                className={`font-normal ${isUserResponsavelLegal ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+              >
                 Compliance
               </Label>
             </div>
+            {!isUserResponsavelLegal && (
+              <p className="text-xs text-muted-foreground ml-6">
+                Apenas Responsáveis Legais podem alterar esta permissão
+              </p>
+            )}
 
           </div>
 
