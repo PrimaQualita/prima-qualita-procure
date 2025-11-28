@@ -136,6 +136,15 @@ const Cotacoes = () => {
         // Remover o parâmetro da URL
         setSearchParams({});
       }
+
+      // Verificar se há parâmetro para abrir o dialog de autorização de seleção
+      const openFinalizarSelecaoId = searchParams.get('openFinalizarSelecao');
+      if (openFinalizarSelecaoId) {
+        // Carregar a cotação e abrir o dialog de finalização
+        await loadCotacaoByIdAndOpenDialog(openFinalizarSelecaoId);
+        // Remover o parâmetro da URL
+        setSearchParams({});
+      }
       
       // Verificar se há parâmetros para restaurar o estado da navegação
       const contratoId = searchParams.get('contrato');
@@ -1359,6 +1368,60 @@ const Cotacoes = () => {
                       </div>
                     </div>
 
+                    {/* Botão para enviar ao responsável legal apenas se NÃO for responsável legal */}
+                    {processoSelecionado?.requer_selecao === true && !isResponsavelLegal && (
+                      <div className="mt-4">
+                        <Button
+                          onClick={async () => {
+                            if (!processoSelecionado || !cotacaoSelecionada) return;
+                            try {
+                              const { data: { session } } = await supabase.auth.getSession();
+                              if (!session) return;
+
+                              // Buscar responsáveis legais
+                              const { data: responsaveisLegais, error: rlError } = await supabase
+                                .from("profiles")
+                                .select("id, nome_completo")
+                                .eq("responsavel_legal", true)
+                                .eq("ativo", true);
+
+                              if (rlError) throw rlError;
+
+                              if (!responsaveisLegais || responsaveisLegais.length === 0) {
+                                toast.error("Nenhum responsável legal encontrado no sistema");
+                                return;
+                              }
+
+                              // Por enquanto, vamos enviar para o primeiro responsável legal encontrado
+                              // Você pode adicionar um diálogo de seleção se houver múltiplos
+                              const responsavelLegal = responsaveisLegais[0];
+
+                              // Criar solicitação
+                              const { error: solicitacaoError } = await supabase
+                                .from("solicitacoes_autorizacao_selecao")
+                                .insert({
+                                  cotacao_id: cotacaoSelecionada.id,
+                                  processo_numero: processoSelecionado.numero_processo_interno,
+                                  solicitante_id: session.user.id,
+                                  responsavel_legal_id: responsavelLegal.id,
+                                  status: "pendente"
+                                });
+
+                              if (solicitacaoError) throw solicitacaoError;
+
+                              toast.success(`Solicitação enviada para ${responsavelLegal.nome_completo}`);
+                            } catch (error) {
+                              console.error("Erro ao enviar solicitação:", error);
+                              toast.error("Erro ao enviar solicitação");
+                            }
+                          }}
+                          className="w-full"
+                        >
+                          Enviar para Responsável Legal
+                        </Button>
+                      </div>
+                    )}
+
                     {processoSelecionado?.requer_selecao === true && (
                       <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4 pt-2">
                         <div className="flex-1">
@@ -1396,6 +1459,20 @@ const Cotacoes = () => {
                                     
                                     if (saveError) throw saveError;
                                     setAutorizacaoSelecaoId(autorizacao.id);
+                                    
+                                    // Atualizar status da solicitação se existir
+                                    const { error: updateError } = await supabase
+                                      .from("solicitacoes_autorizacao_selecao")
+                                      .update({
+                                        status: "aprovada",
+                                        data_resposta: new Date().toISOString()
+                                      })
+                                      .eq("cotacao_id", cotacaoSelecionada.id)
+                                      .eq("status", "pendente");
+
+                                    if (updateError) {
+                                      console.error("Erro ao atualizar solicitação:", updateError);
+                                    }
                                     
                                     toast.success("Autorização gerada e salva com sucesso");
                                   } catch (error) {
