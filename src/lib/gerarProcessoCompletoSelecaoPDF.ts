@@ -19,10 +19,10 @@ export const gerarProcessoCompletoSelecaoPDF = async (
   const pdfFinal = await PDFDocument.create();
 
   try {
-    // 1. Buscar o processo de compras e cotação vinculados à seleção
+    // 1. Buscar o processo de compras vinculado à seleção
     const { data: selecao, error: selecaoError } = await supabase
       .from("selecoes_fornecedores")
-      .select("processo_compra_id, cotacao_id")
+      .select("processo_compra_id")
       .eq("id", selecaoId)
       .single();
 
@@ -31,7 +31,20 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       throw selecaoError;
     }
 
-    console.log(`Seleção encontrada. Processo ID: ${selecao?.processo_compra_id}, Cotação ID: ${selecao?.cotacao_id}`);
+    console.log(`Seleção encontrada. Processo ID: ${selecao?.processo_compra_id}`);
+    
+    // 1b. Buscar a cotação vinculada ao processo (se houver)
+    let cotacaoId: string | null = null;
+    if (selecao?.processo_compra_id) {
+      const { data: cotacao } = await supabase
+        .from("cotacoes_precos")
+        .select("id")
+        .eq("processo_compra_id", selecao.processo_compra_id)
+        .maybeSingle();
+      
+      cotacaoId = cotacao?.id || null;
+      console.log(`Cotação encontrada: ${cotacaoId}`);
+    }
 
     // 2. Buscar anexos do processo de compras (CAPA, REQUISIÇÃO, etc.)
     if (selecao?.processo_compra_id) {
@@ -100,13 +113,13 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     const documentosOrdenados: DocumentoOrdenado[] = [];
 
     // 3. Buscar propostas de COTAÇÃO (se houver cotação vinculada)
-    if (selecao?.cotacao_id) {
+    if (cotacaoId) {
       console.log("\n💰 === BUSCANDO PROPOSTAS DE COTAÇÃO ===");
       
       const { data: respostasCotacao, error: respostasCotacaoError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select("id, data_envio_resposta, fornecedores(razao_social)")
-        .eq("cotacao_id", selecao.cotacao_id)
+        .eq("cotacao_id", cotacaoId)
         .order("data_envio_resposta", { ascending: true });
 
       if (respostasCotacaoError) {
