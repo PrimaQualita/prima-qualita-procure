@@ -26,6 +26,7 @@ import { DialogAnaliseDocumentalSelecao } from "@/components/selecoes/DialogAnal
 import { DialogEnviarAtaAssinatura } from "@/components/selecoes/DialogEnviarAtaAssinatura";
 import { gerarAtaSelecaoPDF, atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 import { gerarHomologacaoSelecaoPDF } from "@/lib/gerarHomologacaoSelecaoPDF";
+import { gerarProcessoCompletoSelecaoPDF } from "@/lib/gerarProcessoCompletoSelecaoPDF";
 
 interface Item {
   id: string;
@@ -75,6 +76,9 @@ const DetalheSelecao = () => {
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>("");
   const [enviandoSolicitacao, setEnviandoSolicitacao] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
+  
+  // Estado para Processo Completo
+  const [gerandoProcessoCompleto, setGerandoProcessoCompleto] = useState(false);
 
   useEffect(() => {
     if (selecaoId) {
@@ -497,6 +501,34 @@ const DetalheSelecao = () => {
     }
   };
 
+  const handleGerarProcessoCompleto = async () => {
+    try {
+      setGerandoProcessoCompleto(true);
+      const result = await gerarProcessoCompletoSelecaoPDF(
+        selecaoId!,
+        selecao?.numero_selecao || "S/N",
+        true // temporário = download direto
+      );
+      
+      if (result.blob) {
+        const url = URL.createObjectURL(result.blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = result.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success("Processo completo gerado com sucesso!");
+      }
+    } catch (error) {
+      console.error("Erro ao gerar processo completo:", error);
+      toast.error("Erro ao gerar processo completo");
+    } finally {
+      setGerandoProcessoCompleto(false);
+    }
+  };
+
   const handleAtualizarPDFAta = async (ataId: string) => {
     setAtualizandoPDF(ataId);
     try {
@@ -898,6 +930,19 @@ const DetalheSelecao = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+                
+                {/* Botão Finalizar Processo */}
+                <div className="mt-4 pt-4 border-t">
+                  <Button
+                    onClick={handleGerarProcessoCompleto}
+                    disabled={gerandoProcessoCompleto}
+                    className="w-full"
+                    size="lg"
+                  >
+                    <Download className="h-5 w-5 mr-2" />
+                    {gerandoProcessoCompleto ? "Gerando Processo Completo..." : "Finalizar Processo (Download Completo)"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
