@@ -188,6 +188,12 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
       return;
     }
 
+    // Validar critério de julgamento
+    if (!formData.criterio_julgamento) {
+      toast.error("Por favor, selecione um critério de julgamento.");
+      return;
+    }
+
     setLoading(true);
     try {
       // Convert empty date strings to null
@@ -356,9 +362,10 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
               <Select
                 value={formData.criterio_julgamento}
                 onValueChange={(value) => setFormData({ ...formData, criterio_julgamento: value })}
+                required
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione o critério de julgamento" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="global">Menor Preço Global</SelectItem>
