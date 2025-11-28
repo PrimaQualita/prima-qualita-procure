@@ -47,13 +47,38 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [compliance, setCompliance] = useState(false);
   const [cargo, setCargo] = useState("");
   const [isUserResponsavelLegal, setIsUserResponsavelLegal] = useState(false);
+  const [isUserGestor, setIsUserGestor] = useState(false);
 
-  // Verificar se o usuário logado é responsável legal
+  // Verificar se o usuário logado é responsável legal e gestor
   useEffect(() => {
     const checkUserPermissions = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        onOpenChange(false);
+        return;
+      }
 
+      // Verificar se é gestor
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .eq("role", "gestor")
+        .maybeSingle();
+
+      if (!roleData) {
+        toast({
+          title: "Acesso negado",
+          description: "Apenas gestores podem criar ou editar usuários.",
+          variant: "destructive",
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      setIsUserGestor(true);
+
+      // Verificar se é responsável legal
       const { data: profile } = await supabase
         .from("profiles")
         .select("responsavel_legal")
@@ -99,6 +124,17 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Verificar novamente se é gestor antes de salvar
+    if (!isUserGestor) {
+      toast({
+        title: "Acesso negado",
+        description: "Apenas gestores podem criar ou editar usuários.",
+        variant: "destructive",
+      });
+      onOpenChange(false);
+      return;
+    }
 
     if (!validarCPF(cpf)) {
       toast({
