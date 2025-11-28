@@ -1322,35 +1322,54 @@ export type Database = {
       homologacoes_selecao: {
         Row: {
           created_at: string
+          data_assinatura: string | null
+          data_envio_assinatura: string | null
           data_geracao: string
           id: string
           nome_arquivo: string
           protocolo: string
+          responsavel_legal_id: string | null
           selecao_id: string
+          status_assinatura: string | null
           url_arquivo: string
           usuario_gerador_id: string | null
         }
         Insert: {
           created_at?: string
+          data_assinatura?: string | null
+          data_envio_assinatura?: string | null
           data_geracao?: string
           id?: string
           nome_arquivo: string
           protocolo: string
+          responsavel_legal_id?: string | null
           selecao_id: string
+          status_assinatura?: string | null
           url_arquivo: string
           usuario_gerador_id?: string | null
         }
         Update: {
           created_at?: string
+          data_assinatura?: string | null
+          data_envio_assinatura?: string | null
           data_geracao?: string
           id?: string
           nome_arquivo?: string
           protocolo?: string
+          responsavel_legal_id?: string | null
           selecao_id?: string
+          status_assinatura?: string | null
           url_arquivo?: string
           usuario_gerador_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "homologacoes_selecao_responsavel_legal_id_fkey"
+            columns: ["responsavel_legal_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "homologacoes_selecao_selecao_id_fkey"
             columns: ["selecao_id"]
