@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, FileWarning, HardDrive } from "lucide-react";
@@ -24,6 +25,7 @@ interface AnaliseResult {
 export default function LimpezaArquivosOrfaos() {
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<AnaliseResult | null>(null);
+  const [limiteExibicao, setLimiteExibicao] = useState<number>(10);
 
   const executarAnalise = async () => {
     try {
@@ -138,14 +140,30 @@ export default function LimpezaArquivosOrfaos() {
                 {resultado.totalArquivosOrfaos > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Lista de Arquivos Órfãos</CardTitle>
-                      <CardDescription>
-                        Primeiros {Math.min(10, resultado.arquivosOrfaos.length)} arquivos
-                      </CardDescription>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">Lista de Arquivos Órfãos</CardTitle>
+                          <CardDescription>
+                            Mostrando {Math.min(limiteExibicao, resultado.arquivosOrfaos.length)} de {resultado.arquivosOrfaos.length} arquivos
+                          </CardDescription>
+                        </div>
+                        <Select value={limiteExibicao.toString()} onValueChange={(value) => setLimiteExibicao(Number(value))}>
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10 arquivos</SelectItem>
+                            <SelectItem value="50">50 arquivos</SelectItem>
+                            <SelectItem value="100">100 arquivos</SelectItem>
+                            <SelectItem value="500">500 arquivos</SelectItem>
+                            <SelectItem value="1000">1000 arquivos</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2 max-h-96 overflow-y-auto">
-                        {resultado.arquivosOrfaos.slice(0, 10).map((arquivo, index) => (
+                        {resultado.arquivosOrfaos.slice(0, limiteExibicao).map((arquivo, index) => (
                           <div key={index} className="flex justify-between items-center p-2 border-b last:border-0">
                             <span className="text-sm font-mono truncate flex-1">{arquivo.nome}</span>
                             <span className="text-sm text-muted-foreground ml-4">
