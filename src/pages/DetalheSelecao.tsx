@@ -163,14 +163,25 @@ const DetalheSelecao = () => {
     }
 
     // Verificar se usuário é responsável legal
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
-      .select("responsavel_legal")
+      .select("responsavel_legal, nome_completo, email")
       .eq("id", session.user.id)
       .single();
 
+    console.log("🔍 DEBUG - Verificando responsável legal:");
+    console.log("User ID:", session.user.id);
+    console.log("Profile data:", profile);
+    console.log("responsavel_legal value:", profile?.responsavel_legal);
+    console.log("Error:", error);
+
     if (profile) {
-      setIsResponsavelLegal(profile.responsavel_legal || false);
+      const isRL = profile.responsavel_legal === true;
+      setIsResponsavelLegal(isRL);
+      console.log("✅ isResponsavelLegal setado para:", isRL);
+    } else {
+      setIsResponsavelLegal(false);
+      console.log("❌ Profile não encontrado, setando isResponsavelLegal para false");
     }
   };
 
@@ -880,7 +891,10 @@ const DetalheSelecao = () => {
           )}
 
           {/* Gerar Homologação - APENAS para Responsável Legal */}
-          {isResponsavelLegal ? (
+          {(() => {
+            console.log("🎨 RENDER - isResponsavelLegal:", isResponsavelLegal);
+            return isResponsavelLegal;
+          })() ? (
             <Button
               variant="outline"
               size="lg"
