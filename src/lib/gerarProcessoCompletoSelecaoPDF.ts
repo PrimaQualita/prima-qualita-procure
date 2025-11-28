@@ -400,7 +400,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         .from("autorizacoes_processo")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .eq("tipo_autorizacao", "Seleção de Fornecedores")
+        .eq("tipo_autorizacao", "selecao_fornecedores")
         .order("data_geracao", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -425,7 +425,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           .from("autorizacoes_processo")
           .select("*")
           .eq("cotacao_id", cotacaoProcesso.id)
-          .eq("tipo_autorizacao", "Seleção de Fornecedores")
+          .eq("tipo_autorizacao", "selecao_fornecedores")
           .order("data_geracao", { ascending: false })
           .limit(1)
           .maybeSingle();
