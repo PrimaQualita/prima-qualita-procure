@@ -18,18 +18,39 @@ Deno.serve(async (req) => {
 
     console.log('Listando arquivos do bucket processo-anexos...');
     
-    // Listar todos os arquivos do bucket
-    const { data: files, error: listError } = await supabase.storage
-      .from('processo-anexos')
-      .list('', {
-        limit: 10000,
-        sortBy: { column: 'created_at', order: 'desc' }
-      });
+    // Função para listar recursivamente todos os arquivos
+    const listAllFiles = async (path = ''): Promise<any[]> => {
+      const { data: items } = await supabase.storage
+        .from('processo-anexos')
+        .list(path, {
+          limit: 1000,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
 
-    if (listError) {
-      throw new Error(`Erro ao listar arquivos: ${listError.message}`);
-    }
+      if (!items) return [];
 
+      const allFiles: any[] = [];
+      
+      for (const item of items) {
+        const fullPath = path ? `${path}/${item.name}` : item.name;
+        
+        // Se é uma pasta (metadata?.size undefined ou 0), listar recursivamente
+        if (!item.metadata?.size || item.metadata.size === 0) {
+          const subFiles = await listAllFiles(fullPath);
+          allFiles.push(...subFiles);
+        } else {
+          // É um arquivo real
+          allFiles.push({
+            ...item,
+            fullPath: fullPath
+          });
+        }
+      }
+      
+      return allFiles;
+    };
+
+    const files = await listAllFiles();
     console.log(`Total de arquivos encontrados: ${files?.length || 0}`);
 
     // Buscar todas as URLs referenciadas no banco de dados
@@ -45,8 +66,7 @@ Deno.serve(async (req) => {
 
     // Identificar arquivos órfãos
     const arquivosOrfaos = files?.filter(file => {
-      const filePath = `processo-anexos/${file.name}`;
-      const urlCompleta = `${supabaseUrl}/storage/v1/object/public/${filePath}`;
+      const urlCompleta = `${supabaseUrl}/storage/v1/object/public/processo-anexos/${file.fullPath}`;
       return !urlsReferenciadas.has(urlCompleta);
     }) || [];
 
@@ -65,7 +85,7 @@ Deno.serve(async (req) => {
         gb: parseFloat(tamanhoGB)
       },
       arquivosOrfaos: arquivosOrfaos.map(f => ({
-        nome: f.name,
+        nome: f.fullPath,
         tamanho: f.metadata?.size || 0,
         criado: f.created_at
       }))
