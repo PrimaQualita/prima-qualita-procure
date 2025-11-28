@@ -470,9 +470,11 @@ const DetalheSelecao = () => {
     }
   };
 
-  const handleDeleteHomologacao = async (homologacaoId: string) => {
+  const handleExcluirHomologacao = async () => {
+    if (!confirmDeleteHomologacao) return;
+    
     try {
-      const homologacao = homologacoesGeradas.find(h => h.id === homologacaoId);
+      const homologacao = homologacoesGeradas.find(h => h.id === confirmDeleteHomologacao);
       if (homologacao) {
         // Deletar do storage
         const storagePath = `homologacoes-selecao/${selecaoId}/${homologacao.nome_arquivo}`;
@@ -483,7 +485,7 @@ const DetalheSelecao = () => {
       const { error } = await supabase
         .from("homologacoes_selecao")
         .delete()
-        .eq("id", homologacaoId);
+        .eq("id", confirmDeleteHomologacao);
 
       if (error) throw error;
 
