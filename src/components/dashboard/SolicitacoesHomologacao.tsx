@@ -26,6 +26,27 @@ export function SolicitacoesHomologacao() {
 
   useEffect(() => {
     loadSolicitacoes();
+
+    // Listener para recarregar quando homologação for gerada
+    const channel = supabase
+      .channel('homologacoes_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'solicitacoes_homologacao_selecao'
+        },
+        () => {
+          console.log('Solicitação de homologação atualizada, recarregando...');
+          loadSolicitacoes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadSolicitacoes = async () => {

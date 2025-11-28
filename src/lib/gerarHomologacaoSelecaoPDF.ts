@@ -429,14 +429,21 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
     if (insertError) throw insertError;
 
     // Atualizar TODAS as solicitações de homologação pendentes desta seleção
-    await supabase
+    const { data: solicitacoesAtualizadas, error: updateError } = await supabase
       .from("solicitacoes_homologacao_selecao")
       .update({ 
         atendida: true,
         data_atendimento: new Date().toISOString()
       })
       .eq("selecao_id", selecaoId)
-      .eq("atendida", false);
+      .eq("atendida", false)
+      .select();
+
+    if (updateError) {
+      console.error("Erro ao atualizar solicitações de homologação:", updateError);
+    } else {
+      console.log(`${solicitacoesAtualizadas?.length || 0} solicitações de homologação foram marcadas como atendidas`);
+    }
 
     return { 
       homologacao, 
