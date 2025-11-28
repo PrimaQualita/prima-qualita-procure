@@ -377,19 +377,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // Ordenar documentos cronológicos até aqui
-    documentosOrdenados.sort((a, b) => {
-      return new Date(a.data).getTime() - new Date(b.data).getTime();
-    });
-
-    // Encontrar última data cronológica
-    const ultimaDataCronologica = documentosOrdenados.length > 0
-      ? documentosOrdenados[documentosOrdenados.length - 1].data
-      : new Date().toISOString();
-
-    console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
-
-    // 11. Autorização de Seleção de Fornecedores (se houver)
+    // 11. Autorização de Seleção de Fornecedores (se houver) - ANTES DA ORDENAÇÃO
     console.log("\n✅ === BUSCANDO AUTORIZAÇÃO DE SELEÇÃO ===");
     
     let autorizacao = null;
@@ -450,6 +438,18 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     } else {
       console.log("⚠️ Nenhuma autorização de seleção encontrada");
     }
+
+    // Ordenar documentos cronológicos até aqui
+    documentosOrdenados.sort((a, b) => {
+      return new Date(a.data).getTime() - new Date(b.data).getTime();
+    });
+
+    // Encontrar última data cronológica
+    const ultimaDataCronologica = documentosOrdenados.length > 0
+      ? documentosOrdenados[documentosOrdenados.length - 1].data
+      : new Date().toISOString();
+
+    console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
 
     // 12. DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES (vencedores E inabilitados)
     console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES ===");
