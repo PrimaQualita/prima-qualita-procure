@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, Eye, Trash2, SendHorizontal, RefreshCw, Download } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, Eye, Trash2, SendHorizontal, RefreshCw, Download, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
@@ -879,8 +879,8 @@ const DetalheSelecao = () => {
             </Card>
           )}
 
-          {/* Gerar Homologação - Apenas para Responsável Legal */}
-          {isResponsavelLegal && (
+          {/* Gerar Homologação - APENAS para Responsável Legal */}
+          {isResponsavelLegal ? (
             <Button
               variant="outline"
               size="lg"
@@ -891,6 +891,13 @@ const DetalheSelecao = () => {
               <FileCheck className="h-5 w-5 mr-2" />
               {gerandoHomologacao ? "Gerando..." : "Gerar Homologação"}
             </Button>
+          ) : (
+            <div className="mt-4 p-4 bg-muted rounded-lg border border-dashed">
+              <p className="text-sm text-muted-foreground text-center">
+                <AlertCircle className="h-4 w-4 inline mr-2" />
+                Apenas Responsáveis Legais podem gerar Homologação
+              </p>
+            </div>
           )}
 
           {/* Homologações Geradas */}

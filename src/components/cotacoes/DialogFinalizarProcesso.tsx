@@ -2833,19 +2833,33 @@ export function DialogFinalizarProcesso({
               </Button>
             )}
             
-            {/* Autorizações - Apenas Responsável Legal pode gerar */}
-            {relatoriosFinais.length > 0 && isResponsavelLegal && (
+            {/* Autorizações - APENAS Responsável Legal pode gerar */}
+            {relatoriosFinais.length > 0 && (
               <div className="flex flex-col gap-2">
-                <Button
-                  onClick={gerarAutorizacao}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Gerar Autorização de {foiEnviadoParaSelecao ? 'Seleção de Fornecedores' : 'Compra Direta'}
-                </Button>
+                {isResponsavelLegal ? (
+                  <>
+                    <div className="mb-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
+                      ✓ Você tem permissão para gerar Autorização
+                    </div>
+                    <Button
+                      onClick={gerarAutorizacao}
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Gerar Autorização de {foiEnviadoParaSelecao ? 'Seleção de Fornecedores' : 'Compra Direta'}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                      Apenas Responsáveis Legais podem gerar Autorização de Compra Direta
+                    </p>
+                  </div>
+                )}
 
-                {autorizacoes.length > 0 && (
+                {isResponsavelLegal && autorizacoes.length > 0 && (
                   <div className="flex flex-col gap-2 mt-2">
                     <Label className="text-sm font-semibold">Autorizações Geradas:</Label>
                     {autorizacoes.map((aut) => (
