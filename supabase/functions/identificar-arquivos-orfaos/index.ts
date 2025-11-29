@@ -91,25 +91,34 @@ Deno.serve(async (req) => {
       throw new Error(`Erro ao buscar referências: ${refError.message}`);
     }
 
-    const urlsReferenciadas = new Set(referencias?.map((r: any) => r.url) || []);
+    // Normalizar URLs do banco: extrair apenas o path relativo
+    const urlsReferenciadas = new Set(
+      referencias?.map((r: any) => {
+        const url = r.url;
+        // Se é URL completa, extrair apenas o path após 'processo-anexos/'
+        if (url.includes('processo-anexos/')) {
+          return url.split('processo-anexos/')[1];
+        }
+        // Se já é path relativo, retornar como está
+        return url;
+      }) || []
+    );
     
     console.log(`Total de URLs referenciadas no banco: ${urlsReferenciadas.size}`);
     
     // Log das primeiras 5 URLs para debug
     if (referencias && referencias.length > 0) {
-      console.log('Primeiras URLs do banco:', Array.from(urlsReferenciadas).slice(0, 5));
+      console.log('Primeiras URLs do banco (normalizadas):', Array.from(urlsReferenciadas).slice(0, 5));
     }
 
-    // Identificar arquivos órfãos
+    // Identificar arquivos órfãos - comparar paths relativos
     const arquivosOrfaos = files?.filter(file => {
-      const urlCompleta = `${supabaseUrl}/storage/v1/object/public/processo-anexos/${file.fullPath}`;
-      const isOrfao = !urlsReferenciadas.has(urlCompleta);
+      const isOrfao = !urlsReferenciadas.has(file.fullPath);
       
       // Log dos primeiros 3 arquivos órfãos para debug
       if (isOrfao && arquivosOrfaos.length < 3) {
-        console.log(`Arquivo órfão encontrado: ${file.fullPath}`);
-        console.log(`URL montada: ${urlCompleta}`);
-        console.log(`Existe no banco: ${urlsReferenciadas.has(urlCompleta)}`);
+        console.log(`📛 Arquivo órfão: ${file.fullPath}`);
+        console.log(`   Existe no banco: ${urlsReferenciadas.has(file.fullPath)}`);
       }
       
       return isOrfao;
