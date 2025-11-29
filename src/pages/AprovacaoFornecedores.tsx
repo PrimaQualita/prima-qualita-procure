@@ -508,6 +508,42 @@ export default function AprovacaoFornecedores() {
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Score Geral */}
+                  <div className="mt-4 p-4 border-2 border-primary/20 rounded-lg bg-primary/5">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Score Due Diligence</p>
+                        <p className="text-2xl font-bold text-primary">
+                          {respostasDueDiligence.reduce((total: number, resposta: any) => {
+                            const score = resposta.resposta_texto === "SIM" 
+                              ? resposta.perguntas_due_diligence?.pontuacao_sim || 0
+                              : resposta.perguntas_due_diligence?.pontuacao_nao || 0;
+                            return total + score;
+                          }, 0)}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Score Compliance</p>
+                        <p className="text-2xl font-bold text-primary">
+                          {selectedFornecedor && avaliacoesCompliance[selectedFornecedor.id]?.score_risco_total || 0}
+                        </p>
+                      </div>
+                      
+                      <div className="border-l-2 border-primary/30 pl-4">
+                        <p className="text-xs text-muted-foreground mb-1 font-semibold">SCORE GERAL</p>
+                        <p className="text-3xl font-bold text-primary">
+                          {respostasDueDiligence.reduce((total: number, resposta: any) => {
+                            const score = resposta.resposta_texto === "SIM" 
+                              ? resposta.perguntas_due_diligence?.pontuacao_sim || 0
+                              : resposta.perguntas_due_diligence?.pontuacao_nao || 0;
+                            return total + score;
+                          }, 0) + (selectedFornecedor && avaliacoesCompliance[selectedFornecedor.id]?.score_risco_total || 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
