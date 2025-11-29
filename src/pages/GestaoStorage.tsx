@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DialogGrupoDetalhes } from "@/components/storage/DialogGrupoDetalhes";
 import { DialogArquivosOrfaos } from "@/components/storage/DialogArquivosOrfaos";
+import { DialogDocumentosSimples } from "@/components/storage/DialogDocumentosSimples";
 
 export default function GestaoStorage() {
   const [analisando, setAnalisando] = useState(false);
@@ -484,6 +485,34 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
+              <Card className="border-blue-200 bg-blue-50/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-blue-900">Cotações</p>
+                      <p className="text-2xl font-bold text-blue-700">{resultado.estatisticasPorCategoria?.cotacoes?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-blue-600">
+                        {resultado.estatisticasPorCategoria?.cotacoes?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-blue-700/70">Propostas e planilhas</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.cotacoes?.porProcesso?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Cotações por Processo',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.cotacoes.porProcesso
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="border-sky-200 bg-sky-50/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-2">
@@ -636,6 +665,13 @@ export default function GestaoStorage() {
         titulo={grupoDetalhes?.titulo || ''}
         tipo={grupoDetalhes?.tipo || ''}
         grupos={grupoDetalhes?.grupos || []}
+      />
+
+      <DialogDocumentosSimples
+        open={!!documentosGrupo}
+        onOpenChange={() => setDocumentosGrupo(null)}
+        titulo={documentosGrupo?.nome || ''}
+        documentos={documentosGrupo?.documentos || []}
       />
 
       <DialogArquivosOrfaos
