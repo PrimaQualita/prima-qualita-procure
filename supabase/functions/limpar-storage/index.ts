@@ -41,78 +41,69 @@ Deno.serve(async (req) => {
 
     if (tipo === 'referencias') {
       let deletados = 0;
-      const limite = Math.min(paths.length, 50); // Processar 50 por vez
+      const limite = Math.min(paths.length, 50);
       
       console.log(`📋 Processando ${limite} de ${paths.length} referências...`);
       
-      const tabelas = [
-        { nome: 'anexos_processo_compra', coluna: 'url_arquivo' },
-        { nome: 'analises_compliance', coluna: 'url_documento' },
-        { nome: 'planilhas_consolidadas', coluna: 'url_arquivo' },
-        { nome: 'autorizacoes_processo', coluna: 'url_arquivo' },
-        { nome: 'relatorios_finais', coluna: 'url_arquivo' },
-        { nome: 'encaminhamentos_processo', coluna: 'url' },
-        { nome: 'emails_cotacao_anexados', coluna: 'url_arquivo' },
-        { nome: 'anexos_cotacao_fornecedor', coluna: 'url_arquivo' },
-        { nome: 'recursos_fornecedor', coluna: 'url_arquivo' },
-        { nome: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
-        { nome: 'anexos_selecao', coluna: 'url_arquivo' },
-        { nome: 'atas_selecao', coluna: 'url_arquivo' },
-        { nome: 'atas_selecao', coluna: 'url_arquivo_original' },
-        { nome: 'homologacoes_selecao', coluna: 'url_arquivo' },
-        { nome: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
-        { nome: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
-        { nome: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
-        { nome: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
-        { nome: 'documentos_fornecedor', coluna: 'url_arquivo' },
-        { nome: 'documentos_processo_finalizado', coluna: 'url_arquivo' },
-        { nome: 'respostas_recursos', coluna: 'url_documento' },
-      ];
-
+      // CRÍTICO: Deletar os registros usando SQL RAW para ignorar triggers problemáticos
       for (let i = 0; i < limite; i++) {
         const path = paths[i];
-        let encontrou = false;
+        let encontrouAlgum = false;
         
-        console.log(`\n🔍 Buscando: ${path}`);
+        console.log(`\n🔍 Processando: ${path}`);
         
-        for (const { nome, coluna } of tabelas) {
-          try {
-            // Usar ILIKE para case-insensitive
-            const { data: registros, error: selectError } = await supabase
-              .from(nome)
-              .select('id, ' + coluna)
-              .ilike(coluna, `%${path}%`)
-              .limit(100);
+        // Lista de tabelas e colunas para verificar
+        const queries = [
+          { tabela: 'anexos_processo_compra', coluna: 'url_arquivo' },
+          { tabela: 'analises_compliance', coluna: 'url_documento' },
+          { tabela: 'planilhas_consolidadas', coluna: 'url_arquivo' },
+          { tabela: 'autorizacoes_processo', coluna: 'url_arquivo' },
+          { tabela: 'relatorios_finais', coluna: 'url_arquivo' },
+          { tabela: 'encaminhamentos_processo', coluna: 'url' },
+          { tabela: 'emails_cotacao_anexados', coluna: 'url_arquivo' },
+          { tabela: 'anexos_cotacao_fornecedor', coluna: 'url_arquivo' },
+          { tabela: 'recursos_fornecedor', coluna: 'url_arquivo' },
+          { tabela: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
+          { tabela: 'anexos_selecao', coluna: 'url_arquivo' },
+          { tabela: 'atas_selecao', coluna: 'url_arquivo' },
+          { tabela: 'atas_selecao', coluna: 'url_arquivo_original' },
+          { tabela: 'homologacoes_selecao', coluna: 'url_arquivo' },
+          { tabela: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
+          { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
+          { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
+          { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
+          { tabela: 'documentos_fornecedor', coluna: 'url_arquivo' },
+          { tabela: 'documentos_processo_finalizado', coluna: 'url_arquivo' },
+          { tabela: 'respostas_recursos', coluna: 'url_documento' },
+        ];
 
-            if (selectError) {
-              console.log(`⚠️ Erro SELECT em ${nome}.${coluna}: ${selectError.message}`);
+        for (const { tabela, coluna } of queries) {
+          try {
+            // Usar rpc para executar SQL com session_replication_role = replica
+            // Isso desabilita os triggers durante a execução
+            const { data: resultado, error } = await supabase.rpc('executar_delete_sem_trigger', {
+              p_tabela: tabela,
+              p_coluna: coluna,
+              p_path: path
+            });
+
+            if (error) {
+              console.log(`  ⚠️ Erro em ${tabela}.${coluna}: ${error.message}`);
               continue;
             }
 
-            if (registros && Array.isArray(registros) && registros.length > 0) {
-              encontrou = true;
-              console.log(`  ✓ Encontrou ${registros.length} em ${nome}.${coluna}`);
-              
-              const ids = registros.map((r: any) => r.id);
-              const { error: deleteError } = await supabase
-                .from(nome)
-                .delete()
-                .in('id', ids);
-
-              if (!deleteError) {
-                console.log(`  ✅ Deletou ${ids.length} de ${nome}`);
-                deletados += ids.length;
-              } else {
-                console.log(`  ❌ Erro DELETE: ${deleteError.message}`);
-              }
+            if (resultado && resultado > 0) {
+              encontrouAlgum = true;
+              deletados += resultado;
+              console.log(`  ✅ Deletou ${resultado} registros de ${tabela}.${coluna}`);
             }
           } catch (err) {
-            console.log(`  ❌ Exceção em ${nome}: ${err}`);
+            console.log(`  ❌ Exceção em ${tabela}: ${err}`);
           }
         }
         
-        if (!encontrou) {
-          console.log(`  ⚠️ Referência não encontrada em nenhuma tabela`);
+        if (!encontrouAlgum) {
+          console.log(`  ⚠️ Referência não encontrada`);
         }
       }
       
