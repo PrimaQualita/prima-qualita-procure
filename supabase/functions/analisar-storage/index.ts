@@ -17,38 +17,47 @@ Deno.serve(async (req) => {
 
     console.log('🔍 Iniciando análise completa do storage...');
 
-    // Usar a API REST do Storage para listar TUDO de uma vez
+    // Função recursiva para listar todos os arquivos
     const arquivosStorage = new Set<string>();
     
-    const response = await fetch(
-      `${supabaseUrl}/storage/v1/object/list/processo-anexos`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prefix: '',
-          limit: 100000, // Limite bem alto
-          search: '',
-        })
+    async function listarRecursivo(prefix: string = ''): Promise<void> {
+      console.log(`📂 Listando pasta: "${prefix}"`);
+      
+      const { data: items, error } = await supabase.storage
+        .from('processo-anexos')
+        .list(prefix, {
+          limit: 1000,
+          sortBy: { column: 'name', order: 'asc' }
+        });
+      
+      if (error) {
+        console.error(`❌ Erro ao listar ${prefix}:`, error);
+        return;
       }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Erro na API REST: ${response.statusText}`);
-    }
-
-    const items = await response.json();
-    console.log(`📦 API REST retornou ${items.length} itens`);
-
-    for (const item of items) {
-      if (item.name && !item.name.endsWith('/')) {
-        arquivosStorage.add(item.name);
+      
+      if (!items) {
+        console.log(`⚠️ Nenhum item em ${prefix}`);
+        return;
+      }
+      
+      console.log(`  ➜ Encontrou ${items.length} itens em "${prefix}"`);
+      
+      for (const item of items) {
+        const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
+        
+        // Se for pasta (id é null), lista recursivamente
+        if (item.id === null) {
+          await listarRecursivo(fullPath);
+        } else {
+          // É arquivo
+          arquivosStorage.add(fullPath);
+          console.log(`    📄 Arquivo: ${fullPath}`);
+        }
       }
     }
-
+    
+    await listarRecursivo('');
+    
     console.log(`✅ Total de arquivos encontrados: ${arquivosStorage.size}`);
 
     // Buscar URLs do banco
