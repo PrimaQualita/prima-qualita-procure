@@ -348,51 +348,79 @@ const RespostaCotacao = () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Template');
 
-      // Definir cabeçalhos
-      worksheet.columns = [
-        { header: 'Item', key: 'item', width: 10 },
-        { header: 'Descrição', key: 'descricao', width: 50 },
-        { header: 'Quantidade', key: 'quantidade', width: 15 },
-        { header: 'Unidade', key: 'unidade', width: 12 },
-        { header: 'Marca', key: 'marca', width: 20 },
-        { header: processoCompra?.criterio_julgamento === "desconto" ? 'Percentual de Desconto (%)' : 'Valor Unitário', key: 'valor', width: 20 }
-      ];
+      const isDesconto = processoCompra?.criterio_julgamento === "desconto";
 
-      // Adicionar linhas com dados dos itens
-      itensCotacao.forEach(item => {
-        worksheet.addRow({
-          item: item.numero_item,
-          descricao: item.descricao,
-          quantidade: item.quantidade,
-          unidade: item.unidade,
-          marca: '',
-          valor: ''
+      // Definir cabeçalhos baseado no critério
+      if (isDesconto) {
+        worksheet.columns = [
+          { header: 'Item', key: 'item', width: 10 },
+          { header: 'Descrição', key: 'descricao', width: 50 },
+          { header: 'Quantidade', key: 'quantidade', width: 15 },
+          { header: 'Unidade', key: 'unidade', width: 12 },
+          { header: 'Marca', key: 'marca', width: 20 },
+          { header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 }
+        ];
+
+        // Adicionar linhas - critério desconto
+        itensCotacao.forEach(item => {
+          worksheet.addRow({
+            item: item.numero_item,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            marca: '',
+            desconto: ''
+          });
         });
-      });
+      } else {
+        worksheet.columns = [
+          { header: 'Item', key: 'item', width: 10 },
+          { header: 'Descrição', key: 'descricao', width: 50 },
+          { header: 'Quantidade', key: 'quantidade', width: 15 },
+          { header: 'Unidade', key: 'unidade', width: 12 },
+          { header: 'Marca', key: 'marca', width: 20 },
+          { header: 'Valor Unitário', key: 'valorUnitario', width: 20 },
+          { header: 'Valor Total', key: 'valorTotal', width: 20 }
+        ];
 
-      // IMPORTANTE: Desproteger TODAS as células primeiro
+        // Adicionar linhas - outros critérios
+        itensCotacao.forEach(item => {
+          const row = worksheet.addRow({
+            item: item.numero_item,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            marca: '',
+            valorUnitario: '',
+            valorTotal: ''
+          });
+
+          // Fórmula para calcular Valor Total (Quantidade * Valor Unitário)
+          const rowNumber = row.number;
+          row.getCell(7).value = { formula: `C${rowNumber}*F${rowNumber}` };
+        });
+      }
+
+      // Desproteger TODAS as células primeiro
       worksheet.eachRow((row) => {
         row.eachCell((cell) => {
           cell.protection = { locked: false };
         });
       });
 
-      // Agora proteger APENAS as colunas 1, 2, 3 e 4 (Item, Descrição, Quantidade, Unidade)
-      worksheet.getColumn(1).eachCell((cell) => {
-        cell.protection = { locked: true };
-      });
+      // Proteger apenas Item, Descrição, Quantidade, Unidade (colunas 1-4)
+      for (let colNum = 1; colNum <= 4; colNum++) {
+        worksheet.getColumn(colNum).eachCell((cell) => {
+          cell.protection = { locked: true };
+        });
+      }
 
-      worksheet.getColumn(2).eachCell((cell) => {
-        cell.protection = { locked: true };
-      });
-
-      worksheet.getColumn(3).eachCell((cell) => {
-        cell.protection = { locked: true };
-      });
-
-      worksheet.getColumn(4).eachCell((cell) => {
-        cell.protection = { locked: true };
-      });
+      // Se não for desconto, também proteger Valor Total (coluna 7)
+      if (!isDesconto) {
+        worksheet.getColumn(7).eachCell((cell) => {
+          cell.protection = { locked: true };
+        });
+      }
 
       // Aplicar proteção na planilha
       await worksheet.protect('', {
@@ -419,7 +447,7 @@ const RespostaCotacao = () => {
       link.click();
       window.URL.revokeObjectURL(url);
 
-      toast.success("Template baixado! Apenas 'Marca' e 'Valor Unitário' são editáveis.");
+      toast.success("Template baixado! Apenas 'Marca' e valores são editáveis.");
     } catch (error) {
       console.error("Erro ao gerar template:", error);
       toast.error("Erro ao gerar template");
@@ -440,8 +468,17 @@ const RespostaCotacao = () => {
 
         // Ignorar cabeçalho (primeira linha)
         for (let i = 1; i < dados.length; i++) {
-          // Colunas: Item, Descrição, Quantidade, Unidade, Marca, Valor Unitário
-          const [numeroItem, _descricao, _quantidade, _unidade, marca, valorUnitario] = dados[i];
+          let numeroItem, marca, valorUnitario;
+          
+          const isDesconto = processoCompra?.criterio_julgamento === "desconto";
+          
+          if (isDesconto) {
+            // Colunas: Item, Descrição, Quantidade, Unidade, Marca, Desconto
+            [numeroItem, , , , marca, valorUnitario] = dados[i];
+          } else {
+            // Colunas: Item, Descrição, Quantidade, Unidade, Marca, Valor Unitário, Valor Total
+            [numeroItem, , , , marca, valorUnitario] = dados[i];
+          }
           
           if (!numeroItem) continue;
 
