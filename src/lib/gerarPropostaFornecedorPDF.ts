@@ -268,9 +268,22 @@ export async function gerarPropostaFornecedorPDF(
       }
       
       // Quebrar descrição em múltiplas linhas com alinhamento justificado
-      const maxWidthDesc = criterioJulgamento === 'desconto' ? 96 : 52;
+      const maxWidthDesc = criterioJulgamento === 'desconto' ? 96 : 51;
       const linhasDescricao = doc.splitTextToSize(itemCotacao.descricao, maxWidthDesc);
-      const alturaLinha = Math.max(6, linhasDescricao.length * 4 + 2);
+      
+      // Calcular altura baseada em TODAS as colunas (não só descrição)
+      let maxLinhas = linhasDescricao.length;
+      
+      if (criterioJulgamento !== 'desconto') {
+        // Para outros critérios, verificar todas as colunas
+        const marcaLinhas = doc.splitTextToSize(item.marca || '-', 13);
+        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, 18);
+        const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), 11);
+        
+        maxLinhas = Math.max(maxLinhas, marcaLinhas.length, unidLinhas.length, qtdLinhas.length);
+      }
+      
+      const alturaLinha = Math.max(6, maxLinhas * 4 + 2);
       
       // Verificar se precisa de nova página
       if (y + alturaLinha > 270) {
@@ -373,31 +386,31 @@ export async function gerarPropostaFornecedorPDF(
       } else {
         // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
-        doc.text(linhasDescricao, 32, yDescStart, { maxWidth: 52, align: 'justify' });
+        doc.text(linhasDescricao, 32, yDescStart, { maxWidth: 51, align: 'justify' });
         
         // Quebrar texto das outras colunas também
         const marcaLinhas = doc.splitTextToSize(item.marca || '-', 13);
         const yMarcaStart = yTop + (alturaLinha - marcaLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(marcaLinhas, 90, yMarcaStart, { align: 'center' });
+        doc.text(marcaLinhas, 92.5, yMarcaStart, { maxWidth: 13, align: 'center' });
         
-        const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), 12);
+        const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), 11);
         const yQtdStart = yTop + (alturaLinha - qtdLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(qtdLinhas, 106.5, yQtdStart, { align: 'center' });
+        doc.text(qtdLinhas, 106.5, yQtdStart, { maxWidth: 11, align: 'center' });
         
         const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, 18);
         const yUnidStart = yTop + (alturaLinha - unidLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(unidLinhas, 123, yUnidStart, { align: 'center' });
+        doc.text(unidLinhas, 123, yUnidStart, { maxWidth: 18, align: 'center' });
         
         const valorUnitFormatted = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const valorTotalFormatted = valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
         const vlUnitLinhas = doc.splitTextToSize(valorUnitFormatted, 28);
         const yVlUnitStart = yTop + (alturaLinha - vlUnitLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(vlUnitLinhas, 148, yVlUnitStart, { align: 'center' });
+        doc.text(vlUnitLinhas, 148, yVlUnitStart, { maxWidth: 28, align: 'center' });
         
-        const vlTotalLinhas = doc.splitTextToSize(valorTotalFormatted, 35);
+        const vlTotalLinhas = doc.splitTextToSize(valorTotalFormatted, 30);
         const yVlTotalStart = yTop + (alturaLinha - vlTotalLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(vlTotalLinhas, 176.5, yVlTotalStart, { align: 'center' });
+        doc.text(vlTotalLinhas, 179, yVlTotalStart, { maxWidth: 30, align: 'center' });
       }
       
       y += alturaLinha;
