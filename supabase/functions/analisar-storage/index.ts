@@ -231,11 +231,34 @@ Deno.serve(async (req) => {
       const fileNameRaw = pathParts[pathParts.length - 1] || path;
       const fileName = nomesBonitos.get(path) || fileNameRaw;
       
+      // Verificar primeiro se é um anexo de processo pelo tipo no banco
+      const tipoAnexo = anexosTipoMap.get(path);
+      
       if (path.includes('capa_processo')) {
         // Capas de processo
         estatisticasPorCategoria.capas_processo.arquivos++;
         estatisticasPorCategoria.capas_processo.tamanho += metadata.size;
         estatisticasPorCategoria.capas_processo.detalhes.push({ path, fileName, size: metadata.size });
+      } else if (tipoAnexo === 'termo_referencia') {
+        // Termo de Referência
+        estatisticasPorCategoria.termos_referencia.arquivos++;
+        estatisticasPorCategoria.termos_referencia.tamanho += metadata.size;
+        estatisticasPorCategoria.termos_referencia.detalhes.push({ path, fileName, size: metadata.size });
+      } else if (tipoAnexo === 'requisicao') {
+        // Requisição
+        estatisticasPorCategoria.requisicoes.arquivos++;
+        estatisticasPorCategoria.requisicoes.tamanho += metadata.size;
+        estatisticasPorCategoria.requisicoes.detalhes.push({ path, fileName, size: metadata.size });
+      } else if (tipoAnexo === 'autorizacao_despesa') {
+        // Autorização da Despesa
+        estatisticasPorCategoria.autorizacao_despesa.arquivos++;
+        estatisticasPorCategoria.autorizacao_despesa.tamanho += metadata.size;
+        estatisticasPorCategoria.autorizacao_despesa.detalhes.push({ path, fileName, size: metadata.size });
+      } else if (tipoAnexo) {
+        // Outros anexos de processo que não se encaixam nas categorias acima
+        estatisticasPorCategoria.processos_anexos_outros.arquivos++;
+        estatisticasPorCategoria.processos_anexos_outros.tamanho += metadata.size;
+        estatisticasPorCategoria.processos_anexos_outros.detalhes.push({ path, fileName, size: metadata.size });
       } else if (path.startsWith('fornecedor_') && !path.includes('selecao')) {
         // Documentos de cadastro de fornecedores (CNDs, CNPJ, etc.)
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
@@ -266,26 +289,6 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.encaminhamentos.arquivos++;
         estatisticasPorCategoria.encaminhamentos.tamanho += metadata.size;
         estatisticasPorCategoria.encaminhamentos.detalhes.push({ path, fileName, size: metadata.size });
-      } else if (path.startsWith('processo_')) {
-        // Anexos de processos - categorizar por tipo
-        const tipoAnexo = anexosTipoMap.get(path);
-        if (tipoAnexo === 'termo_referencia') {
-          estatisticasPorCategoria.termos_referencia.arquivos++;
-          estatisticasPorCategoria.termos_referencia.tamanho += metadata.size;
-          estatisticasPorCategoria.termos_referencia.detalhes.push({ path, fileName, size: metadata.size });
-        } else if (tipoAnexo === 'requisicao') {
-          estatisticasPorCategoria.requisicoes.arquivos++;
-          estatisticasPorCategoria.requisicoes.tamanho += metadata.size;
-          estatisticasPorCategoria.requisicoes.detalhes.push({ path, fileName, size: metadata.size });
-        } else if (tipoAnexo === 'autorizacao_despesa') {
-          estatisticasPorCategoria.autorizacao_despesa.arquivos++;
-          estatisticasPorCategoria.autorizacao_despesa.tamanho += metadata.size;
-          estatisticasPorCategoria.autorizacao_despesa.detalhes.push({ path, fileName, size: metadata.size });
-        } else {
-          estatisticasPorCategoria.processos_anexos_outros.arquivos++;
-          estatisticasPorCategoria.processos_anexos_outros.tamanho += metadata.size;
-          estatisticasPorCategoria.processos_anexos_outros.detalhes.push({ path, fileName, size: metadata.size });
-        }
       } else {
         // Outros
         estatisticasPorCategoria.outros.arquivos++;
