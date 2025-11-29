@@ -48,15 +48,16 @@ Deno.serve(async (req) => {
         for (const item of items) {
           const fullPath = path ? `${path}/${item.name}` : item.name;
           
-          // Detectar se é pasta: id é null OU metadata não tem mimetype
-          const isPasta = item.id === null || !item.metadata?.mimetype;
+          // CRÍTICO: Pastas têm id null, arquivos têm id válido
+          // Não confiar em metadata pois pode estar incompleto
+          const isPasta = item.id === null;
           
           if (isPasta) {
             console.log(`   ↳ 📂 Pasta: ${fullPath} - entrando recursivamente...`);
             await listAllFiles(fullPath, allFiles);
           } else {
-            // É um arquivo real
-            console.log(`   ↳ 📄 Arquivo: ${fullPath} (${(item.metadata?.size || 0) / 1024} KB)`);
+            // É um arquivo real - tem ID válido
+            console.log(`   ↳ 📄 Arquivo: ${fullPath} (ID: ${item.id?.substring(0,8)}..., ${(item.metadata?.size || 0) / 1024} KB)`);
             allFiles.push({
               ...item,
               fullPath: fullPath
