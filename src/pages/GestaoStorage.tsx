@@ -50,19 +50,31 @@ export default function GestaoStorage() {
   };
 
   const limparReferencias = async () => {
-    if (!resultado?.referenciasOrfas?.length) return;
+    if (!resultado?.referenciasOrfas?.length) {
+      console.log('Nenhuma referência órfã para limpar');
+      toast.error('Nenhuma referência órfã para limpar');
+      return;
+    }
 
+    console.log('Iniciando limpeza de referências:', resultado.referenciasOrfas.length);
     setLimpando(true);
+    
     try {
       const { data, error } = await supabase.functions.invoke('limpar-storage', {
         body: { tipo: 'referencias', paths: resultado.referenciasOrfas }
       });
 
-      if (error) throw error;
+      console.log('Resposta da edge function:', { data, error });
 
-      toast.success('Referências limpas');
+      if (error) {
+        console.error('Erro da edge function:', error);
+        throw error;
+      }
+
+      toast.success(`${data?.deletados || 0} referências deletadas`);
       await executarAnalise();
     } catch (error: any) {
+      console.error('Erro ao limpar referências:', error);
       toast.error(`Erro: ${error.message}`);
     } finally {
       setLimpando(false);
