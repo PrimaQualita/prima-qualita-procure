@@ -86,6 +86,55 @@ export default function GestaoStorage() {
     }
   };
 
+  const limparTudo = async () => {
+    const confirma1 = window.confirm(
+      `⚠️ ATENÇÃO CRÍTICA! ⚠️\n\nEsta ação vai DELETAR TUDO:\n\n` +
+      `• TODOS os ${resultado?.totalArquivosStorage || '?'} arquivos do storage (${resultado?.tamanhoTotalMB || '?'} MB)\n` +
+      `• TODOS os registros do banco de dados\n` +
+      `• Fornecedores, processos, cotações, seleções\n` +
+      `• Documentos, propostas, atas, recursos\n` +
+      `• TUDO será PERMANENTEMENTE DELETADO!\n\n` +
+      `Esta ação é IRREVERSÍVEL!\n\n` +
+      `Tem CERTEZA ABSOLUTA?`
+    );
+
+    if (!confirma1) return;
+
+    const confirma2 = window.prompt(
+      `ÚLTIMA CONFIRMAÇÃO!\n\n` +
+      `Digite "DELETAR TUDO" (sem aspas) para confirmar a destruição completa do sistema:`
+    );
+
+    if (confirma2 !== 'DELETAR TUDO') {
+      toast.error('Limpeza cancelada');
+      return;
+    }
+
+    setLimpando(true);
+    try {
+      toast.info('Iniciando limpeza total do sistema...');
+      
+      const { data, error } = await supabase.functions.invoke('limpar-tudo', {});
+
+      if (error) throw error;
+
+      toast.success(
+        `✅ Sistema completamente limpo!\n` +
+        `${data.arquivos_deletados} arquivos deletados\n` +
+        `${data.registros_deletados || 'Múltiplos'} registros removidos`,
+        { duration: 10000 }
+      );
+      
+      // Aguardar um pouco antes de recarregar a análise
+      setTimeout(() => executarAnalise(), 2000);
+    } catch (error: any) {
+      console.error('Erro ao limpar sistema:', error);
+      toast.error(`Erro fatal: ${error.message}`);
+    } finally {
+      setLimpando(false);
+    }
+  };
+
   return (
     <div className="p-8 space-y-6">
       <div>
@@ -368,6 +417,46 @@ export default function GestaoStorage() {
                       )}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* BOTÃO DE LIMPEZA TOTAL */}
+              <Card className="lg:col-span-3 border-red-600 bg-gradient-to-r from-red-50 to-orange-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="h-5 w-5 text-red-600 animate-pulse" />
+                        <p className="text-base font-bold text-red-900">⚠️ ZONA DE PERIGO ⚠️</p>
+                      </div>
+                      <p className="text-sm text-red-800 font-medium">
+                        Deletar TODOS os dados do sistema (banco + storage)
+                      </p>
+                      <p className="text-xs text-red-700/80 mt-1">
+                        Esta ação é <strong>IRREVERSÍVEL</strong> e vai limpar completamente o sistema. 
+                        Use apenas se realmente deseja começar do zero.
+                      </p>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      onClick={limparTudo}
+                      disabled={limpando}
+                      size="lg"
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg"
+                    >
+                      {limpando ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          DELETANDO TUDO...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="mr-2 h-5 w-5" />
+                          DELETAR TUDO
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
