@@ -1,5 +1,14 @@
 project_id = "ypkiikefrcpkqmwacjjb"
 
+[functions.analisar-storage]
+verify_jwt = true
+
+[functions.limpar-storage]
+verify_jwt = true
+
+[functions.limpar-tudo]
+verify_jwt = true
+
 [functions.deletar-processo]
 verify_jwt = true
 
