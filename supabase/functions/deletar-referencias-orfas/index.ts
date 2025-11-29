@@ -60,19 +60,20 @@ Deno.serve(async (req) => {
       for (const ref of batch) {
         for (const tabela of tabelas) {
           try {
+            // Usar UPDATE para NULL ao invés de DELETE para evitar triggers
             const { error, count } = await supabase
               .from(tabela.nome)
-              .delete({ count: 'exact' })
+              .update({ [tabela.coluna]: null }, { count: 'exact' })
               .eq(tabela.coluna, ref);
 
             if (error) {
-              console.error(`Erro ao deletar de ${tabela.nome}.${tabela.coluna}:`, error.message);
+              console.error(`Erro ao limpar ${tabela.nome}.${tabela.coluna}:`, error.message);
             } else if (count && count > 0) {
-              console.log(`✓ Deletado de ${tabela.nome}.${tabela.coluna}: ${count} registro(s)`);
+              console.log(`✓ Limpado ${tabela.nome}.${tabela.coluna}: ${count} registro(s)`);
               totalDeletadas += count;
             }
           } catch (err) {
-            console.error(`Exceção ao deletar de ${tabela.nome}.${tabela.coluna}:`, err);
+            console.error(`Exceção ao limpar ${tabela.nome}.${tabela.coluna}:`, err);
           }
         }
       }
