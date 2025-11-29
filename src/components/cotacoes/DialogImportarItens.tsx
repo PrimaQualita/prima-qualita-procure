@@ -31,7 +31,7 @@ interface ItemPlanilha {
 }
 
 export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuccess }: DialogImportarItensProps) {
-  const [criterio, setCriterio] = useState<'global' | 'por_item' | 'por_lote'>('global');
+  const [criterio, setCriterio] = useState<'global' | 'por_item' | 'por_lote' | ''>('');
   const [loading, setLoading] = useState(false);
 
   const gerarTemplateGlobal = () => {
@@ -108,6 +108,11 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
   };
 
   const handleBaixarTemplate = () => {
+    if (!criterio) {
+      toast.error("Selecione um critério de julgamento primeiro");
+      return;
+    }
+    
     if (criterio === 'global') {
       gerarTemplateGlobal();
     } else if (criterio === 'por_item') {
@@ -120,6 +125,12 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
   const handleImportarPlanilha = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!criterio) {
+      toast.error("Selecione um critério de julgamento primeiro");
+      e.target.value = '';
+      return;
+    }
 
     setLoading(true);
     try {
@@ -363,7 +374,7 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
             <Label>Critério de Julgamento *</Label>
             <Select value={criterio} onValueChange={(v) => setCriterio(v as typeof criterio)}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Selecione o critério de julgamento" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="global">
@@ -396,7 +407,7 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
                   Baixe o template Excel correspondente ao critério escolhido
                 </p>
               </div>
-              <Button onClick={handleBaixarTemplate} variant="outline">
+              <Button onClick={handleBaixarTemplate} variant="outline" disabled={!criterio}>
                 <Download className="h-4 w-4 mr-2" />
                 Baixar Template
               </Button>
@@ -420,7 +431,7 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
                 />
                 <Button
                   onClick={() => document.getElementById('file-upload')?.click()}
-                  disabled={loading}
+                  disabled={loading || !criterio}
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   {loading ? "Importando..." : "Importar Planilha"}
