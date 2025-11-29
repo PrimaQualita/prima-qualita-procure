@@ -133,3 +133,27 @@ export function mascaraCNPJ(value: string): string {
   value = value.replace(/(\d{4})(\d)/, '$1-$2');
   return value.slice(0, 18);
 }
+
+// Validação de Telefone
+export function validarTelefone(telefone: string): boolean {
+  const telefoneLimpo = telefone.replace(/\D/g, '');
+  // Aceita telefone fixo (10 dígitos: DDD + 8 dígitos) ou celular (11 dígitos: DDD + 9 dígitos)
+  return telefoneLimpo.length === 10 || telefoneLimpo.length === 11;
+}
+
+// Máscara de Telefone para input
+export function mascaraTelefone(value: string): string {
+  value = value.replace(/\D/g, '');
+  
+  if (value.length <= 10) {
+    // Formato telefone fixo: (XX) XXXX-XXXX
+    value = value.replace(/^(\d{2})(\d)/, '($1) $2');
+    value = value.replace(/(\d{4})(\d)/, '$1-$2');
+    return value.slice(0, 14); // (XX) XXXX-XXXX
+  } else {
+    // Formato celular: (XX) XXXXX-XXXX
+    value = value.replace(/^(\d{2})(\d)/, '($1) $2');
+    value = value.replace(/(\d{5})(\d)/, '$1-$2');
+    return value.slice(0, 15); // (XX) XXXXX-XXXX
+  }
+}

@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { validarCNPJ, mascaraCNPJ } from "@/lib/validators";
+import { validarCNPJ, mascaraCNPJ, validarTelefone, mascaraTelefone } from "@/lib/validators";
 import { FileText, Upload } from "lucide-react";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 
@@ -199,6 +199,11 @@ export default function CadastroFornecedor() {
     // Validações
     if (!validarCNPJ(formData.cnpj)) {
       toast.error("CNPJ inválido");
+      return;
+    }
+
+    if (!validarTelefone(formData.telefone)) {
+      toast.error("Telefone inválido. Use o formato (XX) XXXX-XXXX ou (XX) XXXXX-XXXX");
       return;
     }
 
@@ -654,9 +659,10 @@ export default function CadastroFornecedor() {
                     <Input
                       id="telefone"
                       value={formData.telefone}
-                      onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, telefone: mascaraTelefone(e.target.value) })}
                       required
                       placeholder="(00) 00000-0000"
+                      maxLength={15}
                     />
                   </div>
 
