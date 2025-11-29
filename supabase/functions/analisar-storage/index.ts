@@ -408,13 +408,13 @@ Deno.serve(async (req) => {
     };
 
     for (const [path, metadata] of arquivosStorage) {
+      // Normalizar path sem o prefixo do bucket para comparação
+      const pathSemBucket = path.replace(/^(processo-anexos|documents)\//, '');
+      
       // Usar nome bonito do banco de dados se disponível, senão usar nome do arquivo
       const pathParts = path.split('/');
       const fileNameRaw = pathParts[pathParts.length - 1] || path;
-      const fileName = nomesBonitos.get(path) || fileNameRaw;
-      
-      // Normalizar path sem o prefixo do bucket para comparação
-      const pathSemBucket = path.replace(/^(processo-anexos|documents)\//, '');
+      const fileName = nomesBonitos.get(pathSemBucket) || fileNameRaw;
       
       // Verificar primeiro se é um anexo de processo pelo tipo no banco
       const tipoAnexo = anexosTipoMap.get(pathSemBucket);
