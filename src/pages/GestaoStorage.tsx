@@ -278,15 +278,54 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
+              <Card className="border-indigo-200 bg-indigo-50/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-indigo-900">Termos de Referência</p>
+                    <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.termos_referencia?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-indigo-600">
+                      {resultado.estatisticasPorCategoria?.termos_referencia?.tamanhoMB || 0} MB
+                    </p>
+                    <p className="text-xs text-indigo-700/70">Anexados em processos</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-violet-200 bg-violet-50/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-violet-900">Requisições</p>
+                    <p className="text-2xl font-bold text-violet-700">{resultado.estatisticasPorCategoria?.requisicoes?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-violet-600">
+                      {resultado.estatisticasPorCategoria?.requisicoes?.tamanhoMB || 0} MB
+                    </p>
+                    <p className="text-xs text-violet-700/70">Anexadas em processos</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-fuchsia-200 bg-fuchsia-50/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-fuchsia-900">Autorização da Despesa</p>
+                    <p className="text-2xl font-bold text-fuchsia-700">{resultado.estatisticasPorCategoria?.autorizacao_despesa?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-fuchsia-600">
+                      {resultado.estatisticasPorCategoria?.autorizacao_despesa?.tamanhoMB || 0} MB
+                    </p>
+                    <p className="text-xs text-fuchsia-700/70">Anexadas em processos</p>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="border-rose-200 bg-rose-50/50">
                 <CardContent className="pt-6">
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-rose-900">Anexos Processos</p>
-                    <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.processos_anexos?.arquivos || 0}</p>
+                    <p className="text-xs font-medium text-rose-900">Outros Anexos Processos</p>
+                    <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.processos_anexos_outros?.arquivos || 0}</p>
                     <p className="text-sm font-semibold text-rose-600">
-                      {resultado.estatisticasPorCategoria?.processos_anexos?.tamanhoMB || 0} MB
+                      {resultado.estatisticasPorCategoria?.processos_anexos_outros?.tamanhoMB || 0} MB
                     </p>
-                    <p className="text-xs text-rose-700/70">Upados em processos</p>
+                    <p className="text-xs text-rose-700/70">Outros anexos</p>
                   </div>
                 </CardContent>
               </Card>
