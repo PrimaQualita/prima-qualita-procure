@@ -135,8 +135,9 @@ Deno.serve(async (req) => {
     };
 
     for (const [path, metadata] of arquivosStorage) {
-      // Extrair nome do arquivo do path
-      const fileName = path.split('/').pop() || path;
+      // Extrair apenas o nome final do arquivo, pegando a última parte após todas as barras
+      const pathParts = path.split('/');
+      const fileName = pathParts[pathParts.length - 1] || path;
       
       if (path.includes('capa_processo')) {
         // Capas de processo
@@ -199,6 +200,8 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.outros.tamanho += metadata.size;
         estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
       }
+      
+      console.log(`Arquivo categorizado: ${fileName} (${path})`);
     }
 
     // Identificar órfãos
