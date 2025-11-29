@@ -179,11 +179,11 @@ Deno.serve(async (req) => {
               .replace(/.*\/processo-anexos\//, '')
               .replace(/.*\/documents\//, '');
 
-            // Deletar registros que referenciam este arquivo
+            // Deletar registros que referenciam este arquivo (normalizado)
             const { error: deleteError, count } = await supabase
               .from(tabela)
               .delete({ count: 'exact' })
-              .or(`${coluna}.ilike.%${pathNormalizado}%,${coluna}.ilike.%${path}%`);
+              .ilike(coluna, `%${pathNormalizado}%`);
 
             if (deleteError) {
               console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
