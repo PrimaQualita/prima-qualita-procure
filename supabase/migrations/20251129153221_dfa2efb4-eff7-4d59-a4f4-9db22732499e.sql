@@ -1,0 +1,20 @@
+
+-- Dropar todos os triggers de storage temporariamente
+DROP TRIGGER IF EXISTS delete_anexo_selecao_storage_trigger ON anexos_selecao;
+DROP TRIGGER IF EXISTS delete_homologacao_storage_trigger ON homologacoes_selecao;
+DROP TRIGGER IF EXISTS delete_planilha_lances_storage_trigger ON planilhas_lances_selecao;
+DROP TRIGGER IF EXISTS delete_recurso_inabilitacao_storage_trigger ON recursos_inabilitacao_selecao;
+DROP TRIGGER IF EXISTS delete_proposta_selecao_storage_trigger ON selecao_propostas_fornecedor;
+DROP TRIGGER IF EXISTS delete_compliance_storage_trigger ON analises_compliance;
+DROP TRIGGER IF EXISTS delete_planilha_consolidada_storage_trigger ON planilhas_consolidadas;
+DROP TRIGGER IF EXISTS delete_autorizacao_storage_trigger ON autorizacoes_processo;
+DROP TRIGGER IF EXISTS delete_relatorio_storage_trigger ON relatorios_finais;
+DROP TRIGGER IF EXISTS delete_encaminhamento_storage_trigger ON encaminhamentos_processo;
+DROP TRIGGER IF EXISTS delete_email_anexo_storage_trigger ON emails_cotacao_anexados;
+DROP TRIGGER IF EXISTS delete_anexo_cotacao_storage_trigger ON anexos_cotacao_fornecedor;
+DROP TRIGGER IF EXISTS delete_recurso_fornecedor_storage_trigger ON recursos_fornecedor;
+DROP TRIGGER IF EXISTS delete_resposta_recurso_storage_trigger ON respostas_recursos;
+DROP TRIGGER IF EXISTS delete_documento_finalizacao_storage_trigger ON documentos_finalizacao_fornecedor;
+DROP TRIGGER IF EXISTS delete_documento_fornecedor_storage_trigger ON documentos_fornecedor;
+DROP TRIGGER IF EXISTS delete_documento_processo_finalizado_storage_trigger ON documentos_processo_finalizado;
+DROP TRIGGER IF EXISTS delete_anexo_processo_storage_trigger ON anexos_processo_compra;
