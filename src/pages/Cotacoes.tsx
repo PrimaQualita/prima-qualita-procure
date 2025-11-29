@@ -1113,7 +1113,14 @@ const Cotacoes = () => {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={() => setDialogCotacaoOpen(true)}>
+                  <Button onClick={() => {
+                    setNovaCotacao({
+                      titulo_cotacao: processoSelecionado.numero_processo_interno,
+                      descricao_cotacao: processoSelecionado.objeto_resumido,
+                      data_limite_resposta: "",
+                    });
+                    setDialogCotacaoOpen(true);
+                  }}>
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Cotação
                   </Button>
