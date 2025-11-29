@@ -633,79 +633,13 @@ export default function GestaoStorage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!categoriaDetalhes} onOpenChange={() => setCategoriaDetalhes(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{categoriaDetalhes?.categoria}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {categoriaDetalhes?.arquivos.map((arq: any, i: number) => (
-              <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
-                <span className="truncate flex-1 text-sm font-medium">{arq.fileName || arq.path}</span>
-                <span className="ml-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
-                  {(arq.size / 1024).toFixed(1)} KB
-                </span>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Diálogo específico para Documentos de Fornecedores */}
-      <Dialog open={!!documentosFornecedores} onOpenChange={() => setDocumentosFornecedores(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Documentos de Cadastro - Por Fornecedor</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {documentosFornecedores?.map((fornecedor: any) => (
-              <Card key={fornecedor.fornecedorId} className="border-purple-200">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2 mb-4">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg text-purple-900">{fornecedor.fornecedorNome}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {fornecedor.documentos.length} documento{fornecedor.documentos.length !== 1 ? 's' : ''} • {' '}
-                        {(fornecedor.documentos.reduce((sum: number, doc: any) => sum + doc.size, 0) / 1024).toFixed(1)} KB total
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setFornecedorDetalhes({
-                        fornecedor: fornecedor.fornecedorNome,
-                        documentos: fornecedor.documentos
-                      })}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Ver Documentos
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Diálogo de Detalhes de Documentos do Fornecedor */}
-      <Dialog open={!!fornecedorDetalhes} onOpenChange={() => setFornecedorDetalhes(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{fornecedorDetalhes?.fornecedor} - Documentos</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {fornecedorDetalhes?.documentos.map((doc: any, i: number) => (
-              <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
-                <span className="truncate flex-1 text-sm font-medium">{doc.fileName}</span>
-                <span className="ml-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
-                  {(doc.size / 1024).toFixed(1)} KB
-                </span>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DialogGrupoDetalhes
+        open={!!grupoDetalhes}
+        onOpenChange={() => setGrupoDetalhes(null)}
+        titulo={grupoDetalhes?.titulo || ''}
+        tipo={grupoDetalhes?.tipo || ''}
+        grupos={grupoDetalhes?.grupos || []}
+      />
     </div>
   );
 }
