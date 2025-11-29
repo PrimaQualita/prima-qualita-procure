@@ -16,51 +16,60 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('Listando arquivos do bucket processo-anexos...');
+    console.log('🚀 Iniciando varredura COMPLETA do bucket processo-anexos...');
     
-    // PRIMEIRO: Testar acesso direto às pastas de fornecedores que deveriam existir
-    const pastasEsperadas = [
-      'avaliacao_06db7378-7e75-4e67-bd90-3bf7f06e0430',
-      'fornecedor_09de5301-6a7b-4d5e-8033-984ca9847590',
-      'fornecedor_1254e2fd-d84c-480c-ab3c-0621b63b0bd3',
-      'fornecedor_37747ff2-2540-4baa-b995-3694ff130587',
-      'fornecedor_42884b37-8907-489f-87eb-1a94e774f88c',
-      'fornecedor_f7c5d9e1-20e3-4023-a88d-98acb81c660a'
-    ];
-    
-    console.log(`🔍 TESTE DIRETO: Verificando ${pastasEsperadas.length} pastas esperadas...`);
-    for (const pasta of pastasEsperadas) {
-      const { data: testeItens, error: testeError } = await supabase.storage
-        .from('processo-anexos')
-        .list(pasta, { limit: 100 });
+    // Função para extrair todas as pastas únicas das URLs do banco
+    const extrairPastasUnicas = (urls: string[]): Set<string> => {
+      const pastas = new Set<string>();
       
-      if (testeError) {
-        console.log(`❌ Pasta "${pasta}": ERRO - ${testeError.message}`);
-      } else if (!testeItens || testeItens.length === 0) {
-        console.log(`⚠️  Pasta "${pasta}": VAZIA ou NÃO EXISTE`);
-      } else {
-        console.log(`✅ Pasta "${pasta}": ${testeItens.length} arquivos encontrados`);
+      for (const url of urls) {
+        // Remover query strings e tokens
+        const cleanUrl = url.split('?')[0];
+        
+        // Se tem barra, extrair o caminho da pasta
+        if (cleanUrl.includes('/')) {
+          const parts = cleanUrl.split('/');
+          // Pegar todas as partes exceto a última (que é o arquivo)
+          for (let i = 0; i < parts.length - 1; i++) {
+            const pastaParcial = parts.slice(0, i + 1).join('/');
+            pastas.add(pastaParcial);
+          }
+        }
       }
-    }
-    console.log('');
-    
-    // Função para listar recursivamente TODOS os arquivos
-    const listAllFiles = async (path = '', allFiles: any[] = [], depth = 0): Promise<any[]> => {
-      // Limite de profundidade para evitar loops infinitos
-      if (depth > 10) {
-        console.log(`⚠️  Profundidade máxima atingida em: ${path}`);
-        return allFiles;
-      }
+      
+      return pastas;
+    };
 
+    // Buscar todas as URLs do banco PRIMEIRO para extrair pastas
+    console.log('📊 Buscando URLs do banco de dados...');
+    const { data: referenciasPreliminar, error: refErrorPreliminar } = await supabase.rpc('get_all_file_references');
+    
+    if (refErrorPreliminar) {
+      console.error('Erro ao buscar referências:', refErrorPreliminar);
+    }
+
+    const pastasDosBanco = referenciasPreliminar 
+      ? extrairPastasUnicas(referenciasPreliminar.map((r: any) => {
+          const url = r.url;
+          if (url.includes('processo-anexos/')) {
+            return url.split('processo-anexos/')[1];
+          }
+          return url;
+        }))
+      : new Set<string>();
+
+    console.log(`📂 Encontradas ${pastasDosBanco.size} pastas únicas nas URLs do banco`);
+    if (pastasDosBanco.size > 0) {
+      console.log('🔍 Primeiras 10 pastas:', Array.from(pastasDosBanco).slice(0, 10));
+    }
+
+    // Função para listar arquivos em um caminho específico (não recursivo)
+    const listFilesInPath = async (path: string, allFiles: any[]): Promise<void> => {
       let offset = 0;
-      const limit = 100; // CRÍTICO: API do Supabase Storage tem limite MÁXIMO de 100
+      const limit = 100;
       let continuarBuscando = true;
-      let iteracoes = 0;
 
       while (continuarBuscando) {
-        iteracoes++;
-        console.log(`📁 [${iteracoes}] Buscando em "${path || 'ROOT'}" (offset: ${offset}, limit: ${limit}, profundidade: ${depth})...`);
-        
         const { data: items, error } = await supabase.storage
           .from('processo-anexos')
           .list(path, {
@@ -70,32 +79,18 @@ Deno.serve(async (req) => {
           });
 
         if (error) {
-          console.error(`❌ Erro em "${path}": ${error.message}`);
+          // Silenciar erros de pastas que não existem
           break;
         }
 
         if (!items || items.length === 0) {
-          console.log(`   ✓ Nenhum item encontrado (fim da listagem)`);
           break;
         }
 
-        console.log(`   → ${items.length} itens retornados`);
-        let arquivosNestePedaco = 0;
-        let pastasNestePedaco = 0;
-
         for (const item of items) {
-          const fullPath = path ? `${path}/${item.name}` : item.name;
-          
-          // item.id === null significa pasta, item.id !== null significa arquivo
-          if (item.id === null) {
-            pastasNestePedaco++;
-            console.log(`   ↳ 📂 ${item.name} (pasta)`);
-            // Buscar recursivamente dentro desta pasta
-            await listAllFiles(fullPath, allFiles, depth + 1);
-          } else {
-            arquivosNestePedaco++;
-            const tamanhoKB = ((item.metadata?.size || 0) / 1024).toFixed(2);
-            console.log(`   ↳ 📄 ${item.name} (${tamanhoKB} KB)`);
+          // Apenas adicionar arquivos (item.id !== null), ignorar pastas
+          if (item.id !== null) {
+            const fullPath = path ? `${path}/${item.name}` : item.name;
             allFiles.push({
               ...item,
               fullPath: fullPath
@@ -103,27 +98,34 @@ Deno.serve(async (req) => {
           }
         }
 
-        console.log(`   ✓ Processado: ${arquivosNestePedaco} arquivos, ${pastasNestePedaco} pastas`);
-
-        // CRÍTICO: Se retornou EXATAMENTE o limite, HÁ MAIS ITENS
-        // Continuar paginando mesmo que tenha retornado menos que o limite
         if (items.length === limit) {
           offset += limit;
-          console.log(`   ⏭️  Retornou ${limit} itens (limite), continuando paginação com offset ${offset}...`);
-          // NÃO parar, há mais itens
         } else {
-          // Retornou MENOS que o limite - acabou
-          console.log(`   ✓ Fim da listagem em "${path || 'ROOT'}" - retornou ${items.length} itens (menos que limite ${limit})`);
-          console.log(`   ✅ Total acumulado: ${allFiles.length} arquivos em ${iteracoes} iterações`);
           continuarBuscando = false;
         }
       }
-      
-      return allFiles;
     };
 
-    const files = await listAllFiles();
-    console.log(`Total de arquivos encontrados no storage: ${files?.length || 0}`);
+    // Varrer TODAS as pastas extraídas do banco
+    const files: any[] = [];
+    let pastasProcessadas = 0;
+    const totalPastas = pastasDosBanco.size;
+
+    console.log(`🔄 Iniciando varredura de ${totalPastas} pastas...`);
+    
+    for (const pasta of Array.from(pastasDosBanco)) {
+      pastasProcessadas++;
+      if (pastasProcessadas % 10 === 0 || pastasProcessadas === totalPastas) {
+        console.log(`📊 Progresso: ${pastasProcessadas}/${totalPastas} pastas verificadas, ${files.length} arquivos encontrados`);
+      }
+      await listFilesInPath(pasta, files);
+    }
+
+    // Também fazer varredura no ROOT para pegar arquivos soltos
+    console.log('📁 Verificando ROOT para arquivos soltos...');
+    await listFilesInPath('', files);
+
+    console.log(`✅ Total de ${files?.length || 0} arquivos encontrados no storage após varredura completa`);
     
     // Log dos primeiros 5 arquivos para debug
     if (files && files.length > 0) {
