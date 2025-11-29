@@ -235,9 +235,17 @@ Deno.serve(async (req) => {
     const processosMap = new Map<string, { numero: string; objeto: string }>();
     if (processos) {
       for (const proc of processos) {
+        // Remover tags HTML do objeto
+        const objetoLimpo = proc.objeto_resumido
+          .replace(/<p>/g, '')
+          .replace(/<\/p>/g, '\n')
+          .replace(/<br\s*\/?>/g, '\n')
+          .replace(/<[^>]+>/g, '')
+          .trim();
+        
         processosMap.set(proc.id, {
           numero: proc.numero_processo_interno,
-          objeto: proc.objeto_resumido
+          objeto: objetoLimpo
         });
       }
     }
