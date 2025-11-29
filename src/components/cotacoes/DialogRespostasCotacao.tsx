@@ -352,7 +352,8 @@ export function DialogRespostasCotacao({
           protocolo: resultado.protocolo,
           storage_path: resultado.storagePath,
           url: resultado.url,
-          gerado_por: user.id
+          gerado_por: user.id,
+          nome_arquivo: resultado.fileName
         })
         .select();
 

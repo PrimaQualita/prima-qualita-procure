@@ -357,14 +357,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-emerald-700/70">PDFs oficiais</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.encaminhamentos?.porTipo?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.encaminhamentos?.porProcesso?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setGrupoDetalhes({
                           titulo: 'Encaminhamentos',
-                          tipo: 'tipo',
-                          grupos: resultado.estatisticasPorCategoria.encaminhamentos.porTipo
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.encaminhamentos.porProcesso
                         })}
                       >
                         <Eye className="h-4 w-4" />

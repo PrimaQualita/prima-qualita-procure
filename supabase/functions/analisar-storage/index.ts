@@ -115,10 +115,11 @@ Deno.serve(async (req) => {
     }
 
     // Encaminhamentos
-    const { data: encaminhamentos } = await supabase.from('encaminhamentos_processo').select('url, storage_path');
+    const { data: encaminhamentos } = await supabase.from('encaminhamentos_processo').select('url, storage_path, nome_arquivo, processo_numero');
     if (encaminhamentos) {
       for (const enc of encaminhamentos) {
-        nomesBonitos.set(enc.storage_path, `Encaminhamento_${enc.storage_path.split('/').pop()}`);
+        const nomeBonito = enc.nome_arquivo || `Encaminhamento_${enc.storage_path.split('/').pop()}`;
+        nomesBonitos.set(enc.storage_path, nomeBonito);
       }
     }
 
@@ -364,14 +365,13 @@ Deno.serve(async (req) => {
       porFornecedor?: Map<string, { fornecedorId: string; fornecedorNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
       porSelecao?: Map<string, { selecaoId: string; selecaoTitulo: string; selecaoNumero: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
       porProcesso?: Map<string, { processoId: string; processoNumero: string; processoObjeto: string; credenciamento: boolean; documentos: Array<{ path: string; fileName: string; size: number }> }>;
-      porTipo?: Map<string, { tipo: string; tipoNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
     }> = {
       documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [], porFornecedor: new Map() },
       propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
       anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
       planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
       recursos: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
-      encaminhamentos: { arquivos: 0, tamanho: 0, detalhes: [], porTipo: new Map() },
+      encaminhamentos: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       termos_referencia: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       requisicoes: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       autorizacao_despesa: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
@@ -710,39 +710,50 @@ Deno.serve(async (req) => {
           }
         }
        } else if (path.startsWith('encaminhamentos/')) {
-        // Encaminhamentos
+        // Encaminhamentos - agrupar por processo
         estatisticasPorCategoria.encaminhamentos.arquivos++;
         estatisticasPorCategoria.encaminhamentos.tamanho += metadata.size;
-        estatisticasPorCategoria.encaminhamentos.detalhes.push({ path, fileName, size: metadata.size });
+        const detalheEnc = { path, fileName, size: metadata.size, processoNumero: '' };
+        estatisticasPorCategoria.encaminhamentos.detalhes.push(detalheEnc);
         
-        // Agrupar por tipo de encaminhamento
-        let tipoEncaminhamento = 'Geral';
+        // Buscar processo_numero do banco via encaminhamentos_processo
+        const { data: encaminhamentoData } = await supabase
+          .from('encaminhamentos_processo')
+          .select('processo_numero, cotacao_id')
+          .eq('storage_path', path)
+          .single();
         
-        if (fileName.toLowerCase().includes('compliance')) {
-          tipoEncaminhamento = 'Compliance';
-        } else if (fileName.toLowerCase().includes('autoriza')) {
-          tipoEncaminhamento = 'Autorização';
-        } else if (fileName.toLowerCase().includes('homologa')) {
-          tipoEncaminhamento = 'Homologação';
-        } else if (fileName.toLowerCase().includes('selec') || fileName.toLowerCase().includes('seleção')) {
-          tipoEncaminhamento = 'Seleção';
-        } else if (fileName.toLowerCase().includes('cotacao') || fileName.toLowerCase().includes('cotação')) {
-          tipoEncaminhamento = 'Cotação';
+        if (encaminhamentoData?.processo_numero) {
+          const processoNumero = encaminhamentoData.processo_numero;
+          detalheEnc.processoNumero = processoNumero;
+          
+          // Buscar dados completos do processo
+          const { data: processoData } = await supabase
+            .from('processos_compras')
+            .select('id, numero_processo_interno, objeto_resumido, credenciamento')
+            .eq('numero_processo_interno', processoNumero)
+            .single();
+          
+          if (processoData) {
+            const processoId = processoData.id;
+            
+            if (!estatisticasPorCategoria.encaminhamentos.porProcesso!.has(processoId)) {
+              estatisticasPorCategoria.encaminhamentos.porProcesso!.set(processoId, {
+                processoId,
+                processoNumero: processoData.numero_processo_interno,
+                processoObjeto: processoData.objeto_resumido || '',
+                credenciamento: processoData.credenciamento || false,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.encaminhamentos.porProcesso!.get(processoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
         }
-        
-        if (!estatisticasPorCategoria.encaminhamentos.porTipo!.has(tipoEncaminhamento)) {
-          estatisticasPorCategoria.encaminhamentos.porTipo!.set(tipoEncaminhamento, {
-            tipo: tipoEncaminhamento,
-            tipoNome: tipoEncaminhamento,
-            documentos: []
-          });
-        }
-        
-        estatisticasPorCategoria.encaminhamentos.porTipo!.get(tipoEncaminhamento)!.documentos.push({
-          path,
-          fileName,
-          size: metadata.size
-        });
       } else if (
         path.includes('proposta_fornecedor') || 
         path.includes('proposta_preco_publico') ||
@@ -869,7 +880,7 @@ Deno.serve(async (req) => {
           arquivos: estatisticasPorCategoria.encaminhamentos.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.encaminhamentos.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.encaminhamentos.detalhes,
-          porTipo: Array.from(estatisticasPorCategoria.encaminhamentos.porTipo!.values())
+          porProcesso: Array.from(estatisticasPorCategoria.encaminhamentos.porProcesso!.values())
         },
         termos_referencia: {
           arquivos: estatisticasPorCategoria.termos_referencia.arquivos,
