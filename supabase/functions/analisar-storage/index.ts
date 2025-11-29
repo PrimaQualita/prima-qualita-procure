@@ -19,34 +19,47 @@ Deno.serve(async (req) => {
 
     // NOVA ABORDAGEM: Listar TODOS os arquivos do storage primeiro
     const arquivosStorage = new Set<string>();
+    let totalPastasProcessadas = 0;
     
-    async function listarRecursivo(pasta: string = '') {
+    async function listarRecursivo(pasta: string = '', nivel: number = 0) {
+      totalPastasProcessadas++;
+      console.log(`${'  '.repeat(nivel)}📁 Listando: ${pasta || '(raiz)'}`);
+      
       const { data: items, error } = await supabase.storage
         .from('processo-anexos')
         .list(pasta, { limit: 1000 });
 
       if (error) {
-        console.error(`Erro ao listar pasta ${pasta}:`, error);
+        console.error(`❌ Erro ao listar pasta ${pasta}:`, error);
         return;
       }
 
       if (items) {
+        console.log(`${'  '.repeat(nivel)}   → ${items.length} itens encontrados`);
+        
+        let arquivosNestaPasta = 0;
+        let pastasNestaPasta = 0;
+        
         for (const item of items) {
           const fullPath = pasta ? `${pasta}/${item.name}` : item.name;
           
           if (item.id) {
             // É arquivo
             arquivosStorage.add(fullPath);
+            arquivosNestaPasta++;
           } else {
             // É pasta - listar recursivamente
-            await listarRecursivo(fullPath);
+            pastasNestaPasta++;
+            await listarRecursivo(fullPath, nivel + 1);
           }
         }
+        
+        console.log(`${'  '.repeat(nivel)}   ✓ ${arquivosNestaPasta} arquivos, ${pastasNestaPasta} subpastas`);
       }
     }
 
     await listarRecursivo('');
-    console.log(`📦 Total de arquivos no storage: ${arquivosStorage.size}`);
+    console.log(`\n📦 TOTAL: ${arquivosStorage.size} arquivos em ${totalPastasProcessadas} pastas processadas`);
 
     // Buscar URLs do banco
     const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
