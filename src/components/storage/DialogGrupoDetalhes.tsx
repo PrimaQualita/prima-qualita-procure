@@ -17,10 +17,17 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
 
   const getNomeGrupo = (grupo: any) => {
     if (tipo === 'fornecedor') return grupo.fornecedorNome;
-    if (tipo === 'selecao') return `${grupo.selecaoNumero || 'S/N'} - ${grupo.selecaoTitulo}`;
-    if (tipo === 'processo') return `${grupo.processoNumero} - ${grupo.processoObjeto?.substring(0, 50)}`;
+    if (tipo === 'selecao') return `Seleção de Fornecedores ${grupo.selecaoNumero || 'S/N'} - ${grupo.selecaoTitulo}`;
+    if (tipo === 'processo') return `Processo ${grupo.processoNumero}`;
     if (tipo === 'tipo') return grupo.tipoNome;
     return grupo.nome || 'Sem nome';
+  };
+  
+  const getObjetoProcesso = (grupo: any) => {
+    if (tipo === 'processo' && grupo.processoObjeto) {
+      return grupo.processoObjeto;
+    }
+    return null;
   };
 
   return (
@@ -37,7 +44,12 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg">{getNomeGrupo(grupo)}</h3>
-                      <p className="text-sm text-muted-foreground">
+                      {getObjetoProcesso(grupo) && (
+                        <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap break-words">
+                          {getObjetoProcesso(grupo)}
+                        </p>
+                      )}
+                      <p className="text-sm text-muted-foreground mt-2">
                         {grupo.documentos.length} documento{grupo.documentos.length !== 1 ? 's' : ''} • {' '}
                         {(grupo.documentos.reduce((sum: number, doc: any) => sum + doc.size, 0) / 1024).toFixed(1)} KB
                       </p>
