@@ -17,6 +17,37 @@ Deno.serve(async (req) => {
 
     console.log('🔍 Analisando storage processo-anexos...');
 
+    // NOVA ABORDAGEM: Listar TODOS os arquivos do storage primeiro
+    const arquivosStorage = new Set<string>();
+    
+    async function listarRecursivo(pasta: string = '') {
+      const { data: items, error } = await supabase.storage
+        .from('processo-anexos')
+        .list(pasta, { limit: 1000 });
+
+      if (error) {
+        console.error(`Erro ao listar pasta ${pasta}:`, error);
+        return;
+      }
+
+      if (items) {
+        for (const item of items) {
+          const fullPath = pasta ? `${pasta}/${item.name}` : item.name;
+          
+          if (item.id) {
+            // É arquivo
+            arquivosStorage.add(fullPath);
+          } else {
+            // É pasta - listar recursivamente
+            await listarRecursivo(fullPath);
+          }
+        }
+      }
+    }
+
+    await listarRecursivo('');
+    console.log(`📦 Total de arquivos no storage: ${arquivosStorage.size}`);
+
     // Buscar URLs do banco
     const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
     
@@ -37,38 +68,6 @@ Deno.serve(async (req) => {
     }
 
     console.log(`📊 URLs no banco: ${pathsDB.size}`);
-
-    // Extrair pastas únicas
-    const pastas = new Set<string>(['']);
-    for (const path of pathsDB) {
-      const parts = path.split('/');
-      for (let i = 0; i < parts.length - 1; i++) {
-        const pasta = parts.slice(0, i + 1).join('/');
-        pastas.add(pasta);
-      }
-    }
-
-    console.log(`📂 Pastas a escanear: ${pastas.size}`);
-
-    // Listar arquivos do storage por pasta
-    const arquivosStorage = new Set<string>();
-    
-    for (const pasta of pastas) {
-      const { data: items } = await supabase.storage
-        .from('processo-anexos')
-        .list(pasta, { limit: 1000 });
-
-      if (items) {
-        for (const item of items) {
-          if (item.id) { // É arquivo
-            const fullPath = pasta ? `${pasta}/${item.name}` : item.name;
-            arquivosStorage.add(fullPath);
-          }
-        }
-      }
-    }
-
-    console.log(`📦 Arquivos no storage: ${arquivosStorage.size}`);
 
     // Identificar órfãos
     const arquivosOrfaos: string[] = [];
