@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Database, HardDrive } from "lucide-react";
+import { Loader2, Trash2, Database, HardDrive, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -94,14 +94,20 @@ export default function GestaoStorage() {
 
           {resultado && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <Card>
+              <Card className="border-green-200 bg-green-50/50">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Arquivos no Storage</p>
-                      <p className="text-2xl font-bold">{resultado.totalArquivosStorage}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <p className="text-sm font-medium text-green-900">Arquivos Reais no Storage</p>
+                      </div>
+                      <p className="text-2xl font-bold text-green-700">{resultado.totalArquivosStorage}</p>
+                      <p className="text-xs text-green-700/80 mt-1">
+                        Arquivos que existem fisicamente no bucket
+                      </p>
                     </div>
-                    <HardDrive className="h-8 w-8 text-muted-foreground" />
+                    <HardDrive className="h-8 w-8 text-green-600/40" />
                   </div>
                 </CardContent>
               </Card>
@@ -109,27 +115,39 @@ export default function GestaoStorage() {
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Referências no Banco</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Database className="h-4 w-4 text-blue-600" />
+                        <p className="text-sm font-medium">Referências no Banco</p>
+                      </div>
                       <p className="text-2xl font-bold">{resultado.totalReferenciasDB}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Total de registros no banco de dados
+                      </p>
                     </div>
-                    <Database className="h-8 w-8 text-muted-foreground" />
+                    <Database className="h-8 w-8 text-blue-600/40" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="md:col-span-2">
+              <Card className="md:col-span-2 border-orange-200 bg-orange-50/30">
                 <CardContent className="pt-6 space-y-4">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Arquivos Órfãos</p>
-                      <p className="text-xl font-bold">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertTriangle className="h-4 w-4 text-orange-600" />
+                        <p className="text-sm font-medium text-orange-900">Arquivos Órfãos no Storage</p>
+                      </div>
+                      <p className="text-xl font-bold text-orange-700">
                         {resultado.totalArquivosOrfaos}
                         {resultado.totalArquivosOrfaos > 0 && (
                           <Badge variant="destructive" className="ml-2">
-                            Limpar
+                            Deletar
                           </Badge>
                         )}
+                      </p>
+                      <p className="text-xs text-orange-700/80 mt-1">
+                        Arquivos que existem no storage mas NÃO têm referência no banco
                       </p>
                     </div>
                     {resultado.totalArquivosOrfaos > 0 && (
@@ -160,18 +178,24 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
-              <Card className="md:col-span-2">
+              <Card className="md:col-span-2 border-red-200 bg-red-50/30">
                 <CardContent className="pt-6 space-y-4">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Referências Órfãs</p>
-                      <p className="text-xl font-bold">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                        <p className="text-sm font-medium text-red-900">Referências Órfãs no Banco</p>
+                      </div>
+                      <p className="text-xl font-bold text-red-700">
                         {resultado.totalReferenciasOrfas}
                         {resultado.totalReferenciasOrfas > 0 && (
                           <Badge variant="destructive" className="ml-2">
                             Limpar
                           </Badge>
                         )}
+                      </p>
+                      <p className="text-xs text-red-700/80 mt-1">
+                        Registros no banco que apontam para arquivos que NÃO existem mais no storage (foram deletados)
                       </p>
                     </div>
                     {resultado.totalReferenciasOrfas > 0 && (
