@@ -335,17 +335,28 @@ export function DialogAvaliacaoCadastro({
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="relatorio_kpmg">Relatório da KPMG (opcional)</Label>
-                  <Input
-                    id="relatorio_kpmg"
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setRelatorioKPMG(e.target.files?.[0] || null)}
-                  />
-                  {relatorioKPMG && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      {relatorioKPMG.name}
-                    </p>
+                  {!relatorioKPMG ? (
+                    <Input
+                      id="relatorio_kpmg"
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => setRelatorioKPMG(e.target.files?.[0] || null)}
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2 p-3 border rounded bg-muted/50">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm flex-1 truncate">{relatorioKPMG.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRelatorioKPMG(null)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <span className="sr-only">Remover arquivo</span>
+                        ✕
+                      </Button>
+                    </div>
                   )}
                 </div>
 
