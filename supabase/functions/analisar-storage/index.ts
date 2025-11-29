@@ -17,52 +17,55 @@ Deno.serve(async (req) => {
 
     console.log('🔍 Analisando storage processo-anexos...');
 
-    // Listar TODOS os arquivos recursivamente com paginação
+    // Listar TODOS os arquivos do bucket
     const arquivosStorage = new Set<string>();
     
-    async function listarRecursivo(pasta: string = '') {
-      let offset = 0;
-      let hasMore = true;
+    async function listarTudo(prefixo: string = '', nivel: number = 0) {
+      const indent = '  '.repeat(nivel);
+      console.log(`${indent}📂 Escaneando: ${prefixo || '(raiz)'}`);
       
-      while (hasMore) {
+      try {
+        // Lista TUDO no caminho atual sem paginação (limite alto)
         const { data: items, error } = await supabase.storage
           .from('processo-anexos')
-          .list(pasta, { 
-            limit: 1000,
-            offset: offset,
+          .list(prefixo, {
+            limit: 10000, // Limite muito alto para pegar tudo
             sortBy: { column: 'name', order: 'asc' }
           });
 
         if (error) {
-          console.error(`❌ Erro ao listar ${pasta}:`, error);
-          break;
+          console.error(`${indent}❌ Erro:`, error.message);
+          return;
         }
 
         if (!items || items.length === 0) {
-          hasMore = false;
-          break;
+          console.log(`${indent}  (vazio)`);
+          return;
         }
 
+        console.log(`${indent}  → ${items.length} itens`);
+        
         for (const item of items) {
-          const fullPath = pasta ? `${pasta}/${item.name}` : item.name;
+          const caminhoCompleto = prefixo ? `${prefixo}/${item.name}` : item.name;
           
+          // Se tem ID, é arquivo
           if (item.id) {
-            arquivosStorage.add(fullPath);
-          } else {
-            await listarRecursivo(fullPath);
+            arquivosStorage.add(caminhoCompleto);
+            console.log(`${indent}    📄 ${item.name}`);
+          } 
+          // Se não tem ID, é pasta - escanear recursivamente
+          else {
+            console.log(`${indent}    📁 ${item.name}/`);
+            await listarTudo(caminhoCompleto, nivel + 1);
           }
         }
-        
-        if (items.length < 1000) {
-          hasMore = false;
-        } else {
-          offset += 1000;
-        }
+      } catch (err) {
+        console.error(`${indent}❌ Exceção:`, err);
       }
     }
 
-    await listarRecursivo('');
-    console.log(`📦 Total de arquivos: ${arquivosStorage.size}`);
+    await listarTudo('', 0);
+    console.log(`\n📦 TOTAL ENCONTRADO: ${arquivosStorage.size} arquivos`);
 
     // Buscar URLs do banco
     const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
