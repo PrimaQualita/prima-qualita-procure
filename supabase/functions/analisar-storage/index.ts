@@ -138,7 +138,8 @@ Deno.serve(async (req) => {
         } else if (path.includes('documents/')) {
           path = path.split('documents/')[1].split('?')[0];
         }
-        nomesBonitos.set(`documents/${path}`, analise.nome_arquivo || 'Análise Compliance.pdf');
+        // Armazenar sem o prefixo do bucket para corresponder com pathSemBucket
+        nomesBonitos.set(path, analise.nome_arquivo || 'Análise Compliance.pdf');
       }
     }
 

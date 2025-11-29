@@ -18,7 +18,87 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Novo fluxo: deletar arquivos órfãos (seletivo ou todos)
+    // IMPORTANTE: Verificar 'tipo' primeiro, antes de processar paths
+    // Fluxo de limpeza de referências órfãs do banco de dados
+    if (tipo === 'referencias') {
+      const refPaths = paths || [];
+      let deletados = 0;
+      const limite = Math.min(refPaths.length, 50);
+      
+      console.log(`📋 Processando ${limite} de ${refPaths.length} referências...`);
+      
+      // Lista de tabelas e colunas para verificar
+      const queries = [
+        { tabela: 'anexos_processo_compra', coluna: 'url_arquivo' },
+        { tabela: 'analises_compliance', coluna: 'url_documento' },
+        { tabela: 'planilhas_consolidadas', coluna: 'url_arquivo' },
+        { tabela: 'autorizacoes_processo', coluna: 'url_arquivo' },
+        { tabela: 'relatorios_finais', coluna: 'url_arquivo' },
+        { tabela: 'encaminhamentos_processo', coluna: 'url' },
+        { tabela: 'emails_cotacao_anexados', coluna: 'url_arquivo' },
+        { tabela: 'anexos_cotacao_fornecedor', coluna: 'url_arquivo' },
+        { tabela: 'recursos_fornecedor', coluna: 'url_arquivo' },
+        { tabela: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
+        { tabela: 'anexos_selecao', coluna: 'url_arquivo' },
+        { tabela: 'atas_selecao', coluna: 'url_arquivo' },
+        { tabela: 'atas_selecao', coluna: 'url_arquivo_original' },
+        { tabela: 'homologacoes_selecao', coluna: 'url_arquivo' },
+        { tabela: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
+        { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
+        { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
+        { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
+        { tabela: 'documentos_fornecedor', coluna: 'url_arquivo' },
+        { tabela: 'documentos_processo_finalizado', coluna: 'url_arquivo' },
+        { tabela: 'respostas_recursos', coluna: 'url_documento' },
+      ];
+
+      for (let i = 0; i < limite; i++) {
+        const path = refPaths[i];
+        let encontrouAlgum = false;
+        
+        console.log(`\n🔍 [${i + 1}/${limite}] Processando: ${path}`);
+
+        for (const { tabela, coluna } of queries) {
+          try {
+            // Normalizar path removendo prefixos de bucket
+            const pathNormalizado = path
+              .replace(/.*\/processo-anexos\//, '')
+              .replace(/.*\/documents\//, '');
+
+            // Deletar registros que referenciam este arquivo (normalizado)
+            const { error: deleteError, count } = await supabase
+              .from(tabela)
+              .delete({ count: 'exact' })
+              .ilike(coluna, `%${pathNormalizado}%`);
+
+            if (deleteError) {
+              console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
+              continue;
+            }
+
+            if (count && count > 0) {
+              encontrouAlgum = true;
+              deletados += count;
+              console.log(`  ✅ Deletou ${count} referência(s) de ${tabela}.${coluna}`);
+            }
+          } catch (err) {
+            console.log(`  ❌ Exceção em ${tabela}.${coluna}: ${err}`);
+          }
+        }
+        
+        if (!encontrouAlgum) {
+          console.log(`  ⚠️ Referência não encontrada em nenhuma tabela`);
+        }
+      }
+      
+      console.log(`\n✅ Total: ${deletados} referências deletadas de ${limite} processadas`);
+      return new Response(
+        JSON.stringify({ deletados, processados: limite, restantes: refPaths.length - limite }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fluxo de deletar arquivos órfãos (seletivo ou todos)
     if (paths || deletarTudo) {
       let pathsParaDeletar: Array<{path: string, bucket: string}> = [];
       
@@ -105,109 +185,6 @@ Deno.serve(async (req) => {
       
       return new Response(
         JSON.stringify({ deletados }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Fluxo antigo: limpar por tipo (arquivos ou referencias)
-    if (tipo === 'arquivos') {
-      const arquivoPaths = paths || [];
-      console.log(`🗑️ Recebido pedido para limpar ${arquivoPaths.length} arquivos`);
-      
-      let deletados = 0;
-      for (const path of arquivoPaths) {
-        const { error } = await supabase.storage
-          .from('processo-anexos')
-          .remove([path]);
-        
-        if (!error) {
-          console.log(`✅ Arquivo deletado: ${path}`);
-          deletados++;
-        } else {
-          console.error(`❌ Erro ao deletar arquivo ${path}:`, error);
-        }
-      }
-      
-      return new Response(
-        JSON.stringify({ deletados }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (tipo === 'referencias') {
-      const refPaths = paths || [];
-      let deletados = 0;
-      const limite = Math.min(refPaths.length, 50);
-      
-      console.log(`📋 Processando ${limite} de ${refPaths.length} referências...`);
-      
-      // Lista de tabelas e colunas para verificar
-      const queries = [
-        { tabela: 'anexos_processo_compra', coluna: 'url_arquivo' },
-        { tabela: 'analises_compliance', coluna: 'url_documento' },
-        { tabela: 'planilhas_consolidadas', coluna: 'url_arquivo' },
-        { tabela: 'autorizacoes_processo', coluna: 'url_arquivo' },
-        { tabela: 'relatorios_finais', coluna: 'url_arquivo' },
-        { tabela: 'encaminhamentos_processo', coluna: 'url' },
-        { tabela: 'emails_cotacao_anexados', coluna: 'url_arquivo' },
-        { tabela: 'anexos_cotacao_fornecedor', coluna: 'url_arquivo' },
-        { tabela: 'recursos_fornecedor', coluna: 'url_arquivo' },
-        { tabela: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
-        { tabela: 'anexos_selecao', coluna: 'url_arquivo' },
-        { tabela: 'atas_selecao', coluna: 'url_arquivo' },
-        { tabela: 'atas_selecao', coluna: 'url_arquivo_original' },
-        { tabela: 'homologacoes_selecao', coluna: 'url_arquivo' },
-        { tabela: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
-        { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
-        { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
-        { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
-        { tabela: 'documentos_fornecedor', coluna: 'url_arquivo' },
-        { tabela: 'documentos_processo_finalizado', coluna: 'url_arquivo' },
-        { tabela: 'respostas_recursos', coluna: 'url_documento' },
-      ];
-
-      for (let i = 0; i < limite; i++) {
-        const path = refPaths[i];
-        let encontrouAlgum = false;
-        
-        console.log(`\n🔍 [${i + 1}/${limite}] Processando: ${path}`);
-
-        for (const { tabela, coluna } of queries) {
-          try {
-            // Normalizar path removendo prefixos de bucket
-            const pathNormalizado = path
-              .replace(/.*\/processo-anexos\//, '')
-              .replace(/.*\/documents\//, '');
-
-            // Deletar registros que referenciam este arquivo (normalizado)
-            const { error: deleteError, count } = await supabase
-              .from(tabela)
-              .delete({ count: 'exact' })
-              .ilike(coluna, `%${pathNormalizado}%`);
-
-            if (deleteError) {
-              console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
-              continue;
-            }
-
-            if (count && count > 0) {
-              encontrouAlgum = true;
-              deletados += count;
-              console.log(`  ✅ Deletou ${count} referência(s) de ${tabela}.${coluna}`);
-            }
-          } catch (err) {
-            console.log(`  ❌ Exceção em ${tabela}.${coluna}: ${err}`);
-          }
-        }
-        
-        if (!encontrouAlgum) {
-          console.log(`  ⚠️ Referência não encontrada em nenhuma tabela`);
-        }
-      }
-      
-      console.log(`\n✅ Total: ${deletados} referências deletadas de ${limite} processadas`);
-      return new Response(
-        JSON.stringify({ deletados, processados: limite, restantes: refPaths.length - limite }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
