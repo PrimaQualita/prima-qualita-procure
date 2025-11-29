@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, Search } from "lucide-react";
 import { useState, useMemo } from "react";
+import { stripHtml } from "@/lib/htmlUtils";
 
 interface DialogGrupoDetalhesProps {
   open: boolean;
@@ -31,7 +32,7 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
   
   const getObjetoProcesso = (grupo: any) => {
     if (tipo === 'processo' && grupo.processoObjeto) {
-      return grupo.processoObjeto;
+      return stripHtml(grupo.processoObjeto);
     }
     return null;
   };
