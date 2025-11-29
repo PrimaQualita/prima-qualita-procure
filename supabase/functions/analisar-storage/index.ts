@@ -162,7 +162,17 @@ Deno.serve(async (req) => {
     const { data: propostasCotacao } = await supabase.from('anexos_cotacao_fornecedor').select('url_arquivo, nome_arquivo');
     if (propostasCotacao) {
       for (const prop of propostasCotacao) {
-        const path = prop.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || prop.url_arquivo;
+        // Extrair path: se tem processo-anexos/, pega depois; senão pega após última barra ou usa direto
+        let path = prop.url_arquivo;
+        if (path.includes('processo-anexos/')) {
+          path = path.split('processo-anexos/')[1].split('?')[0];
+        } else if (path.includes('/')) {
+          // Pegar apenas o nome do arquivo após última barra
+          path = path.split('/').pop()?.split('?')[0] || path;
+        } else {
+          // Já é apenas o nome do arquivo
+          path = path.split('?')[0];
+        }
         nomesBonitos.set(path, prop.nome_arquivo);
       }
     }
@@ -315,7 +325,15 @@ Deno.serve(async (req) => {
     const anexosCotacaoMap = new Map<string, string>();
     if (anexosCotacaoDB) {
       for (const anexo of anexosCotacaoDB) {
-        const path = anexo.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || anexo.url_arquivo;
+        // Extrair path: se tem processo-anexos/, pega depois; senão pega após última barra ou usa direto
+        let path = anexo.url_arquivo;
+        if (path.includes('processo-anexos/')) {
+          path = path.split('processo-anexos/')[1].split('?')[0];
+        } else if (path.includes('/')) {
+          path = path.split('/').pop()?.split('?')[0] || path;
+        } else {
+          path = path.split('?')[0];
+        }
         const cotacaoId = (anexo as any).cotacao_respostas_fornecedor?.cotacao_id;
         if (cotacaoId) {
           anexosCotacaoMap.set(path, cotacaoId);
