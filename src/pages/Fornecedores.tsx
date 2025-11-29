@@ -894,7 +894,7 @@ export default function Fornecedores() {
 
             {/* Respostas Due Diligence */}
             <div>
-              <h3 className="font-semibold mb-2">Respostas Due Diligence</h3>
+              <h3 className="font-semibold mb-2">Questionário de Conflito de Interesse</h3>
               <div className="space-y-2">
                 {respostasDueDiligence.map((resposta) => (
                   <div key={resposta.id} className="p-3 border rounded-lg">
@@ -916,7 +916,7 @@ export default function Fornecedores() {
               {respostasDueDiligence.length > 0 && (
                 <div className="mt-4 p-4 bg-muted rounded-lg">
                   <p className="font-semibold text-lg">
-                    Score Due Diligence: <span className={getNivelPontuacao(calcularScore()).cor}>{calcularScore()} pontos</span>
+                    Score de Conflito de Interesse: <span className={getNivelPontuacao(calcularScore()).cor}>{calcularScore()} pontos</span>
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Classificação de Risco: <span className={getNivelPontuacao(calcularScore()).cor + " font-semibold"}>
@@ -1028,23 +1028,23 @@ export default function Fornecedores() {
               </div>
             )}
 
-            {/* Score Total Geral (Due Diligence + Compliance) */}
+            {/* Score Total Geral (Conflito de Interesse + Compliance) */}
             {fornecedorSelecionado && respostasDueDiligence.length > 0 && (() => {
               const avaliacaoCompliance = avaliacoesCompliance[fornecedorSelecionado.id];
-              const scoreDueDiligence = calcularScore();
+              const scoreConflito = calcularScore();
               const scoreCompliance = avaliacaoCompliance?.score_risco_total || 0;
-              const scoreTotal = scoreDueDiligence + scoreCompliance;
+              const scoreTotal = scoreConflito + scoreCompliance;
               
               return (
                 <div className="mt-4 p-4 border-2 border-primary/20 rounded-lg bg-primary/5">
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Score Due Diligence</p>
-                      <p className="text-2xl font-bold text-primary">{scoreDueDiligence}</p>
+                      <p className="text-xs text-muted-foreground mb-1">Score Conflito de Interesse</p>
+                      <p className="text-2xl font-bold text-primary">{scoreConflito}</p>
                     </div>
                     
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Score Compliance</p>
+                      <p className="text-xs text-muted-foreground mb-1">Score Due Diligence (Compliance)</p>
                       <p className="text-2xl font-bold text-primary">{scoreCompliance}</p>
                     </div>
                     
