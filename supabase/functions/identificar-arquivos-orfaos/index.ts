@@ -19,31 +19,53 @@ Deno.serve(async (req) => {
     console.log('Listando arquivos do bucket processo-anexos...');
     
     // Função para listar recursivamente todos os arquivos
-    const listAllFiles = async (path = ''): Promise<any[]> => {
-      const { data: items } = await supabase.storage
-        .from('processo-anexos')
-        .list(path, {
-          limit: 1000,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
+    const listAllFiles = async (path = '', allFiles: any[] = []): Promise<any[]> => {
+      let offset = 0;
+      const limit = 1000;
+      let hasMore = true;
 
-      if (!items) return [];
-
-      const allFiles: any[] = [];
-      
-      for (const item of items) {
-        const fullPath = path ? `${path}/${item.name}` : item.name;
-        
-        // Se é uma pasta (metadata?.size undefined ou 0), listar recursivamente
-        if (!item.metadata?.size || item.metadata.size === 0) {
-          const subFiles = await listAllFiles(fullPath);
-          allFiles.push(...subFiles);
-        } else {
-          // É um arquivo real
-          allFiles.push({
-            ...item,
-            fullPath: fullPath
+      while (hasMore) {
+        const { data: items, error } = await supabase.storage
+          .from('processo-anexos')
+          .list(path, {
+            limit: limit,
+            offset: offset,
+            sortBy: { column: 'name', order: 'asc' }
           });
+
+        if (error) {
+          console.error(`Erro ao listar path ${path}:`, error);
+          break;
+        }
+
+        if (!items || items.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        console.log(`Listando ${path || 'root'}: ${items.length} itens (offset ${offset})`);
+
+        for (const item of items) {
+          const fullPath = path ? `${path}/${item.name}` : item.name;
+          
+          // Detectar se é pasta: id é null para pastas
+          if (item.id === null) {
+            console.log(`Pasta encontrada: ${fullPath}, listando recursivamente...`);
+            await listAllFiles(fullPath, allFiles);
+          } else {
+            // É um arquivo real
+            allFiles.push({
+              ...item,
+              fullPath: fullPath
+            });
+          }
+        }
+
+        // Se retornou menos que o limite, não há mais itens
+        if (items.length < limit) {
+          hasMore = false;
+        } else {
+          offset += limit;
         }
       }
       
