@@ -104,14 +104,14 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   );
   doc.restoreGraphicsState();
 
-  // Logo no topo - largura total
+  // Logo no topo - 1.5mm de margem lateral
   const logoHeight = 40;
-  doc.addImage(base64CapaLogo, 'PNG', 0, 0, pageWidth, logoHeight);
+  doc.addImage(base64CapaLogo, 'PNG', 1.5, 0, pageWidth - 3, logoHeight);
 
-  // Rodapé no fundo - largura total
+  // Rodapé no fundo - 1.5mm de margem lateral
   const rodapeHeight = 25;
   const yRodape = pageHeight - rodapeHeight;
-  doc.addImage(base64Rodape, 'PNG', 0, yRodape, pageWidth, rodapeHeight);
+  doc.addImage(base64Rodape, 'PNG', 1.5, yRodape, pageWidth - 3, rodapeHeight);
 
   // Conteúdo
   let yPos = logoHeight + 25;
@@ -119,7 +119,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   // Processo - CAIXA ALTA
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(26, 84, 144);
+  doc.setTextColor(0, 0, 0);
   doc.text(`PROCESSO: ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 18;
 
@@ -143,7 +143,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   // Data - CAIXA ALTA
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(26, 84, 144);
+  doc.setTextColor(0, 0, 0);
   const dataTexto = `RIO DE JANEIRO, ${new Date().toLocaleDateString('pt-BR', { 
     day: '2-digit', 
     month: 'long', 
