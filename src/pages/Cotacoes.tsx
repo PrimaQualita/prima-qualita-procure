@@ -476,19 +476,12 @@ const Cotacoes = () => {
 
         if (uploadError) throw uploadError;
 
-        // Obter URL assinada
-        const { data: urlData, error: signError } = await supabase.storage
-          .from('processo-anexos')
-          .createSignedUrl(fileName, 31536000); // 1 ano
-
-        if (signError) throw signError;
-
-        // Salvar no banco
+        // Salvar no banco com path do storage (não URL assinada)
         const { error: saveError } = await (supabase as any)
           .from("emails_cotacao_anexados")
           .insert({
             cotacao_id: cotacaoSelecionada.id,
-            url_arquivo: urlData.signedUrl,
+            url_arquivo: `processo-anexos/${fileName}`,
             nome_arquivo: file.name,
             tamanho_arquivo: file.size,
             tipo_arquivo: file.type,
@@ -1291,31 +1284,39 @@ const Cotacoes = () => {
                         Cópia dos E-mails Enviados aos Fornecedores
                       </Label>
                       
-                      {/* E-mails já salvos */}
+                       {/* E-mails já salvos */}
                       {emailsSalvos.length > 0 && (
                         <div className="mb-4 space-y-2">
                           <p className="text-sm font-medium">E-mails Salvos:</p>
-                          {emailsSalvos.map((email) => (
-                            <div key={email.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                              <span className="text-sm">📎 {email.nome_arquivo}</span>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => window.open(email.url_arquivo, '_blank')}
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deletarEmailAnexado(email.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                          {emailsSalvos.map((email) => {
+                            // Extrair o path do storage (remover prefixo "processo-anexos/")
+                            const storagePath = email.url_arquivo.replace('processo-anexos/', '');
+                            const { data: { publicUrl } } = supabase.storage
+                              .from('processo-anexos')
+                              .getPublicUrl(storagePath);
+                            
+                            return (
+                              <div key={email.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                                <span className="text-sm">📎 {email.nome_arquivo}</span>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => window.open(publicUrl, '_blank')}
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deletarEmailAnexado(email.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                       
