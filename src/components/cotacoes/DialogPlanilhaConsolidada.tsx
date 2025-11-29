@@ -462,8 +462,41 @@ export function DialogPlanilhaConsolidada({
         description: "Armazenando arquivo...",
       });
       
-      // Salvar no storage
-      const nomeArquivo = `planilha_consolidada_${cotacaoId}_${Date.now()}.pdf`;
+      // Função para converter número em romano
+      const toRoman = (num: number): string => {
+        const romanNumerals: [number, string][] = [
+          [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+          [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+          [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+        ];
+        let result = '';
+        for (const [value, numeral] of romanNumerals) {
+          while (num >= value) {
+            result += numeral;
+            num -= value;
+          }
+        }
+        return result;
+      };
+      
+      // Verificar quantas planilhas já existem para essa cotação
+      const { data: planilhasExistentes } = await supabase
+        .from("planilhas_consolidadas")
+        .select("id")
+        .eq("cotacao_id", cotacaoId)
+        .order("created_at", { ascending: true });
+      
+      const numeroPlanilha = (planilhasExistentes?.length || 0) + 1;
+      
+      // Definir nome baseado na sequência
+      let nomeArquivoBase: string;
+      if (numeroPlanilha === 1) {
+        nomeArquivoBase = "Planilha Consolidada";
+      } else {
+        nomeArquivoBase = `Planilha Consolidada ${toRoman(numeroPlanilha - 1)}`;
+      }
+      
+      const nomeArquivo = `${nomeArquivoBase.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
       const filePath = `${cotacaoId}/${nomeArquivo}`;
       
       const { error: uploadError } = await supabase.storage
@@ -477,6 +510,14 @@ export function DialogPlanilhaConsolidada({
 
       // Registrar no banco de dados
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // Definir nome limpo para exibição (usado na gestão de storage)
+      let nomeArquivoLimpo: string;
+      if (numeroPlanilha === 1) {
+        nomeArquivoLimpo = "Planilha Consolidada.pdf";
+      } else {
+        nomeArquivoLimpo = `Planilha Consolidada ${toRoman(numeroPlanilha - 1)}.pdf`;
+      }
       
       // Buscar IDs dos fornecedores das respostas
       const { data: respostasCompletas } = await supabase
@@ -663,7 +704,7 @@ export function DialogPlanilhaConsolidada({
         .from("planilhas_consolidadas")
         .insert({
           cotacao_id: cotacaoId,
-          nome_arquivo: nomeArquivo,
+          nome_arquivo: nomeArquivoLimpo,
           url_arquivo: filePath,
           usuario_gerador_id: user?.id,
           data_geracao: new Date().toISOString(),
