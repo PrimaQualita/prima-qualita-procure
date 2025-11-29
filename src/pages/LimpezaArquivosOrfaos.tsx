@@ -41,7 +41,9 @@ export default function LimpezaArquivosOrfaos() {
   const [limiteExibicao, setLimiteExibicao] = useState<number>(10);
   const [arquivosSelecionados, setArquivosSelecionados] = useState<string[]>([]);
   const [deletando, setDeletando] = useState(false);
+  const [deletandoReferencias, setDeletandoReferencias] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showConfirmRefDialog, setShowConfirmRefDialog] = useState(false);
   const [deleteType, setDeleteType] = useState<'selecao' | 'todos'>('selecao');
 
   const executarAnalise = async () => {
@@ -122,8 +124,40 @@ export default function LimpezaArquivosOrfaos() {
     }
   };
 
+  const confirmarExclusaoReferencias = () => {
+    setShowConfirmRefDialog(true);
+  };
+
+  const executarExclusaoReferencias = async () => {
+    if (!resultado || resultado.totalReferenciasOrfas === 0) return;
+
+    try {
+      setDeletandoReferencias(true);
+      setShowConfirmRefDialog(false);
+
+      toast.info(`Excluindo ${resultado.totalReferenciasOrfas} referência(s) do banco...`);
+
+      const { data, error } = await supabase.functions.invoke('deletar-referencias-orfas', {
+        body: { referencias: resultado.referenciasOrfas }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Referências órfãs excluídas com sucesso!`);
+      
+      // Re-executar análise para atualizar resultados
+      await executarAnalise();
+      
+    } catch (error) {
+      console.error('Erro ao deletar referências:', error);
+      toast.error("Erro ao excluir referências órfãs");
+    } finally {
+      setDeletandoReferencias(false);
+    }
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-[100vw] overflow-x-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Limpeza de Arquivos Órfãos</h1>
@@ -164,7 +198,7 @@ export default function LimpezaArquivosOrfaos() {
 
             {resultado && (
               <div className="space-y-4 mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium">Arquivos no Storage</CardTitle>
@@ -294,15 +328,16 @@ export default function LimpezaArquivosOrfaos() {
                           />
                           <span className="text-sm">Selecionar todos</span>
                         </div>
-                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                         <div className="space-y-2 max-h-96 overflow-y-auto">
                           {resultado.arquivosOrfaos.slice(0, limiteExibicao).map((arquivo, index) => (
-                            <div key={index} className="flex items-center gap-2 p-2 border-b last:border-0">
+                            <div key={index} className="flex items-start gap-2 p-2 border-b last:border-0">
                               <Checkbox
                                 checked={arquivosSelecionados.includes(arquivo.nome)}
                                 onCheckedChange={(checked) => handleSelectArquivo(arquivo.nome, checked as boolean)}
+                                className="mt-1"
                               />
-                              <span className="text-sm font-mono truncate flex-1">{arquivo.nome}</span>
-                              <span className="text-sm text-muted-foreground ml-4">
+                              <span className="text-xs font-mono break-all flex-1">{arquivo.nome}</span>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
                                 {(arquivo.tamanho / 1024).toFixed(2)} KB
                               </span>
                             </div>
@@ -316,13 +351,35 @@ export default function LimpezaArquivosOrfaos() {
                 {resultado.totalReferenciasOrfas > 0 && (
                   <Card className="border-destructive">
                     <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <AlertCircle className="h-5 w-5 text-destructive" />
-                        Referências Órfãs (URLs no banco sem arquivo)
-                      </CardTitle>
-                      <CardDescription>
-                        {resultado.totalReferenciasOrfas} URLs estão registradas no banco mas os arquivos não existem no storage
-                      </CardDescription>
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <AlertCircle className="h-5 w-5 text-destructive" />
+                            Referências Órfãs (URLs no banco sem arquivo)
+                          </CardTitle>
+                          <CardDescription>
+                            {resultado.totalReferenciasOrfas} URLs estão registradas no banco mas os arquivos não existem no storage
+                          </CardDescription>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={deletandoReferencias}
+                          onClick={confirmarExclusaoReferencias}
+                        >
+                          {deletandoReferencias ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Excluindo...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Limpar Referências
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20">
@@ -332,9 +389,9 @@ export default function LimpezaArquivosOrfaos() {
                       </div>
                       <div className="space-y-2 max-h-96 overflow-y-auto">
                         {resultado.referenciasOrfas.slice(0, 50).map((ref, index) => (
-                          <div key={index} className="flex items-center gap-2 p-2 border rounded-lg bg-destructive/5">
-                            <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
-                            <span className="text-sm font-mono truncate flex-1">{ref}</span>
+                          <div key={index} className="flex items-start gap-2 p-2 border rounded-lg bg-destructive/5">
+                            <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                            <span className="text-xs font-mono break-all flex-1">{ref}</span>
                           </div>
                         ))}
                       </div>
@@ -366,7 +423,7 @@ export default function LimpezaArquivosOrfaos() {
         <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogTitle>Confirmar Exclusão de Arquivos</AlertDialogTitle>
               <AlertDialogDescription>
                 {deleteType === 'todos' ? (
                   <>
@@ -385,6 +442,26 @@ export default function LimpezaArquivosOrfaos() {
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction onClick={executarExclusao} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={showConfirmRefDialog} onOpenChange={setShowConfirmRefDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Limpeza de Referências</AlertDialogTitle>
+              <AlertDialogDescription>
+                Você está prestes a excluir <strong>{resultado?.totalReferenciasOrfas} referência(s) órfã(s)</strong> do banco de dados.
+                Estas são URLs que não têm arquivos correspondentes no storage.
+                <br/><br/>
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={executarExclusaoReferencias} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Limpar Referências
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
