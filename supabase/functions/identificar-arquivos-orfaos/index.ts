@@ -24,6 +24,8 @@ Deno.serve(async (req) => {
       const foldersToProcess: string[] = [path];
       const processedFolders = new Set<string>();
       
+      console.log('🔍 Iniciando varredura recursiva do bucket...');
+      
       while (foldersToProcess.length > 0) {
         const currentPath = foldersToProcess.shift()!;
         
@@ -33,9 +35,12 @@ Deno.serve(async (req) => {
         }
         processedFolders.add(currentPath);
         
+        console.log(`📂 Processando pasta: "${currentPath || '(raiz)'}"`);
+        
         let offset = 0;
-        const limit = 100;
+        const limit = 1000; // Aumentar limite para pegar mais de uma vez
         let hasMore = true;
+        let itemsInFolder = 0;
 
         while (hasMore) {
           const { data: items, error } = await supabase.storage
@@ -47,19 +52,24 @@ Deno.serve(async (req) => {
             });
 
           if (error) {
-            console.error(`Erro ao listar ${currentPath}:`, error.message);
+            console.error(`❌ Erro ao listar ${currentPath}:`, error.message);
             break;
           }
 
           if (!items || items.length === 0) {
+            console.log(`   ✓ Pasta vazia ou fim da listagem (offset: ${offset})`);
             break;
           }
+
+          console.log(`   📄 Encontrados ${items.length} itens (offset: ${offset})`);
+          itemsInFolder += items.length;
 
           for (const item of items) {
             const fullPath = currentPath ? `${currentPath}/${item.name}` : item.name;
             
             if (item.id === null) {
               // É uma pasta - adicionar para processamento
+              console.log(`   📁 Subpasta encontrada: ${fullPath}`);
               foldersToProcess.push(fullPath);
             } else {
               // É um arquivo - adicionar à lista
@@ -70,6 +80,7 @@ Deno.serve(async (req) => {
             }
           }
 
+          // Continuar apenas se retornou o limite completo (pode haver mais)
           if (items.length < limit) {
             hasMore = false;
           } else {
@@ -77,11 +88,11 @@ Deno.serve(async (req) => {
           }
         }
         
-        if (allFiles.length % 100 === 0 && allFiles.length > 0) {
-          console.log(`📊 Progresso: ${allFiles.length} arquivos encontrados, ${foldersToProcess.length} pastas na fila`);
-        }
+        console.log(`   ✅ Total de ${itemsInFolder} itens processados nesta pasta`);
+        console.log(`📊 Progresso: ${allFiles.length} arquivos encontrados, ${foldersToProcess.length} pastas na fila`);
       }
       
+      console.log(`✅ Varredura completa: ${allFiles.length} arquivos totais, ${processedFolders.size} pastas processadas`);
       return allFiles;
     };
 
