@@ -274,6 +274,7 @@ Deno.serve(async (req) => {
       porTipo?: Map<string, { tipo: string; tipoNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
     }> = {
       documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [], porFornecedor: new Map() },
+      relatorios_kpmg: { arquivos: 0, tamanho: 0, detalhes: [], porFornecedor: new Map() },
       propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
       anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
       planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
@@ -443,6 +444,32 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.processos_anexos_outros.arquivos++;
         estatisticasPorCategoria.processos_anexos_outros.tamanho += metadata.size;
         estatisticasPorCategoria.processos_anexos_outros.detalhes.push({ path, fileName, size: metadata.size });
+      } else if (path.includes('relatorio_kpmg')) {
+        // Relatórios KPMG (categoria específica)
+        estatisticasPorCategoria.relatorios_kpmg.arquivos++;
+        estatisticasPorCategoria.relatorios_kpmg.tamanho += metadata.size;
+        estatisticasPorCategoria.relatorios_kpmg.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Agrupar por fornecedor
+        const fornecedorIdMatch = path.match(/fornecedor_([a-f0-9-]+)\//);
+        if (fornecedorIdMatch) {
+          const fornecedorId = fornecedorIdMatch[1];
+          const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+          
+          if (!estatisticasPorCategoria.relatorios_kpmg.porFornecedor!.has(fornecedorId)) {
+            estatisticasPorCategoria.relatorios_kpmg.porFornecedor!.set(fornecedorId, {
+              fornecedorId,
+              fornecedorNome,
+              documentos: []
+            });
+          }
+          
+          estatisticasPorCategoria.relatorios_kpmg.porFornecedor!.get(fornecedorId)!.documentos.push({
+            path,
+            fileName,
+            size: metadata.size
+          });
+        }
       } else if (path.startsWith('fornecedor_') && !path.includes('selecao')) {
         // Documentos de cadastro de fornecedores (CNDs, CNPJ, etc.)
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
@@ -667,6 +694,12 @@ Deno.serve(async (req) => {
           arquivos: estatisticasPorCategoria.documentos_fornecedores.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.documentos_fornecedores.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.documentos_fornecedores.detalhes
+        },
+        relatorios_kpmg: {
+          arquivos: estatisticasPorCategoria.relatorios_kpmg.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.relatorios_kpmg.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.relatorios_kpmg.detalhes,
+          porFornecedor: Array.from(estatisticasPorCategoria.relatorios_kpmg.porFornecedor!.values())
         },
         propostas_selecao: {
           arquivos: estatisticasPorCategoria.propostas_selecao.arquivos,
