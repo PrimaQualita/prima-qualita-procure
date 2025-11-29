@@ -11,6 +11,7 @@ import primaLogo from "@/assets/prima-qualita-logo.png";
 import { toast } from "sonner";
 import { Upload, FileText, X } from "lucide-react";
 import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
+import ExcelJS from 'exceljs';
 
 interface ItemCotacao {
   id: string;
@@ -107,34 +108,86 @@ const IncluirPrecosPublicos = () => {
   };
 
   const gerarTemplate = async () => {
-    const XLSX = await import('xlsx');
-    
-    // Dados da planilha com todas as colunas
-    const dados = itens.map(item => ({
-      'Item': item.numero_item,
-      'Descrição': item.descricao,
-      'Quantidade': item.quantidade,
-      'Unidade': item.unidade,
-      'Valor Unitário': '',
-      'Marca': ''
-    }));
-    
-    const ws = XLSX.utils.json_to_sheet(dados);
-    
-    // Definir larguras das colunas
-    ws['!cols'] = [
-      { wch: 8 },   // Item
-      { wch: 50 },  // Descrição
-      { wch: 12 },  // Quantidade
-      { wch: 10 },  // Unidade
-      { wch: 15 },  // Valor Unitário
-      { wch: 20 }   // Marca
-    ];
-    
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Preços Públicos");
-    XLSX.writeFile(wb, `template_precos_publicos_${cotacao?.titulo_cotacao || 'cotacao'}.xlsx`);
-    toast.success("Template baixado com sucesso!");
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Preços Públicos');
+
+      // Definir colunas
+      worksheet.columns = [
+        { header: 'Item', key: 'item', width: 10 },
+        { header: 'Descrição', key: 'descricao', width: 50 },
+        { header: 'Quantidade', key: 'quantidade', width: 12 },
+        { header: 'Unidade', key: 'unidade', width: 12 },
+        { header: 'Valor Unitário', key: 'valor', width: 15 },
+        { header: 'Marca', key: 'marca', width: 30 }
+      ];
+
+      // Adicionar dados dos itens
+      itens.forEach(item => {
+        worksheet.addRow({
+          item: item.numero_item,
+          descricao: item.descricao,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          valor: '',
+          marca: ''
+        });
+      });
+
+      // IMPORTANTE: Desproteger TODAS as células primeiro
+      worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.protection = { locked: false };
+        });
+      });
+
+      // Agora proteger APENAS as colunas 1, 2, 3 e 4 (Item, Descrição, Quantidade, Unidade)
+      worksheet.getColumn(1).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+
+      worksheet.getColumn(2).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+
+      worksheet.getColumn(3).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+
+      worksheet.getColumn(4).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+
+      // Aplicar proteção na planilha
+      await worksheet.protect('', {
+        selectLockedCells: true,
+        selectUnlockedCells: true,
+        formatCells: false,
+        formatColumns: false,
+        formatRows: false,
+        insertColumns: false,
+        insertRows: false,
+        deleteColumns: false,
+        deleteRows: false,
+        sort: false,
+        autoFilter: false
+      });
+
+      // Gerar arquivo e fazer download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `template_precos_publicos_${cotacao?.titulo_cotacao || 'cotacao'}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Template baixado! Apenas 'Valor Unitário' e 'Marca' são editáveis.");
+    } catch (error) {
+      console.error("Erro ao gerar template:", error);
+      toast.error("Erro ao gerar template");
+    }
   };
 
   const importarTemplate = async (file: File) => {
