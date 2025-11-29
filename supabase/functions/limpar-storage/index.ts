@@ -78,35 +78,25 @@ Deno.serve(async (req) => {
 
         for (const { tabela, coluna } of queries) {
           try {
-            // Buscar registros que contêm o path
-            const { data: records, error: selectError } = await supabase
+            // ESTRATÉGIA: Setar campo como NULL em vez de deletar o registro
+            // Isso evita triggers de delete que tentam deletar do storage
+            const updateData: any = {};
+            updateData[coluna] = null;
+
+            const { error: updateError, count } = await supabase
               .from(tabela)
-              .select('id')
+              .update(updateData, { count: 'exact' })
               .ilike(coluna, `%${path}%`);
 
-            if (selectError) {
-              console.log(`  ⚠️ Erro ao buscar em ${tabela}.${coluna}: ${selectError.message}`);
+            if (updateError) {
+              console.log(`  ⚠️ Erro ao limpar ${tabela}.${coluna}: ${updateError.message}`);
               continue;
             }
 
-            if (records && records.length > 0) {
-              // Deletar os registros encontrados usando apenas o ID
-              const ids = records.map(r => r.id);
-              const { error: deleteError, count } = await supabase
-                .from(tabela)
-                .delete({ count: 'exact' })
-                .in('id', ids);
-
-              if (deleteError) {
-                console.log(`  ⚠️ Erro ao deletar em ${tabela}.${coluna}: ${deleteError.message}`);
-                continue;
-              }
-
-              if (count && count > 0) {
-                encontrouAlgum = true;
-                deletados += count;
-                console.log(`  ✅ Deletou ${count} registro(s) de ${tabela}.${coluna}`);
-              }
+            if (count && count > 0) {
+              encontrouAlgum = true;
+              deletados += count;
+              console.log(`  ✅ Limpou ${count} referência(s) de ${tabela}.${coluna}`);
             }
           } catch (err) {
             console.log(`  ❌ Exceção em ${tabela}.${coluna}: ${err}`);
