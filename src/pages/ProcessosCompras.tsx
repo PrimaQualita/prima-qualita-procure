@@ -245,13 +245,39 @@ const ProcessosCompras = () => {
     if (!processoParaExcluir) return;
 
     try {
+      // 1. Deletar todos os arquivos relacionados ao processo
+      const { data: resultDeletar, error: errorDeletar } = await supabase.functions.invoke(
+        'deletar-processo',
+        {
+          body: { processoId: processoParaExcluir }
+        }
+      );
+
+      if (errorDeletar) {
+        console.error('Erro ao deletar arquivos:', errorDeletar);
+        toast({
+          title: "Erro ao deletar arquivos do processo",
+          description: errorDeletar.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Arquivos deletados:', resultDeletar);
+
+      // 2. Deletar o processo do banco
       const { error } = await supabase
         .from("processos_compras")
         .delete()
         .eq("id", processoParaExcluir);
 
       if (error) throw error;
-      toast({ title: "Processo excluído com sucesso!" });
+      
+      toast({ 
+        title: "Processo excluído com sucesso!",
+        description: `${resultDeletar?.arquivosDeletados || 0} arquivos removidos`
+      });
+      
       if (contratoSelecionado) {
         loadProcessos(contratoSelecionado.id);
       }
