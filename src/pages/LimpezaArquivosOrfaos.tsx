@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileWarning, HardDrive, Trash2 } from "lucide-react";
+import { Loader2, FileWarning, HardDrive, Trash2, AlertCircle, CheckCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +21,7 @@ interface AnaliseResult {
   totalArquivosStorage: number;
   totalReferenciasDB: number;
   totalArquivosOrfaos: number;
+  totalReferenciasOrfas: number;
   tamanhoTotal: {
     bytes: number;
     mb: number;
@@ -31,6 +32,7 @@ interface AnaliseResult {
     tamanho: number;
     criado: string;
   }>;
+  referenciasOrfas: string[];
 }
 
 export default function LimpezaArquivosOrfaos() {
@@ -126,7 +128,7 @@ export default function LimpezaArquivosOrfaos() {
         <div>
           <h1 className="text-3xl font-bold">Limpeza de Arquivos Órfãos</h1>
           <p className="text-muted-foreground mt-2">
-            Identifique arquivos no storage que não têm referência no banco de dados
+            Identifique arquivos órfãos no storage e referências órfãs no banco de dados
           </p>
         </div>
       </div>
@@ -138,7 +140,7 @@ export default function LimpezaArquivosOrfaos() {
               Análise de Storage
             </CardTitle>
             <CardDescription>
-              Execute uma análise completa para identificar arquivos órfãos que podem ser removidos
+              Execute uma análise completa para identificar arquivos órfãos e referências órfãs
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -162,7 +164,7 @@ export default function LimpezaArquivosOrfaos() {
 
             {resultado && (
               <div className="space-y-4 mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium">Arquivos no Storage</CardTitle>
@@ -181,12 +183,21 @@ export default function LimpezaArquivosOrfaos() {
                     </CardContent>
                   </Card>
 
-                  <Card className="border-destructive">
+                  <Card className="border-amber-500">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-destructive">Arquivos Órfãos</CardTitle>
+                      <CardTitle className="text-sm font-medium text-amber-600">Arquivos Órfãos</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-destructive">{resultado.totalArquivosOrfaos}</div>
+                      <div className="text-2xl font-bold text-amber-600">{resultado.totalArquivosOrfaos}</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-destructive">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium text-destructive">Referências Órfãs</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-destructive">{resultado.totalReferenciasOrfas}</div>
                     </CardContent>
                   </Card>
                 </div>
@@ -298,6 +309,52 @@ export default function LimpezaArquivosOrfaos() {
                           ))}
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {resultado.totalReferenciasOrfas > 0 && (
+                  <Card className="border-destructive">
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <AlertCircle className="h-5 w-5 text-destructive" />
+                        Referências Órfãs (URLs no banco sem arquivo)
+                      </CardTitle>
+                      <CardDescription>
+                        {resultado.totalReferenciasOrfas} URLs estão registradas no banco mas os arquivos não existem no storage
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                        <p className="text-sm text-destructive font-medium">
+                          ⚠️ Estas URLs podem causar erros ao tentar acessar documentos no sistema.
+                        </p>
+                      </div>
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {resultado.referenciasOrfas.slice(0, 50).map((ref, index) => (
+                          <div key={index} className="flex items-center gap-2 p-2 border rounded-lg bg-destructive/5">
+                            <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                            <span className="text-sm font-mono truncate flex-1">{ref}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {resultado.referenciasOrfas.length > 50 && (
+                        <p className="text-sm text-muted-foreground text-center">
+                          Mostrando 50 de {resultado.referenciasOrfas.length} referências
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {resultado.totalArquivosOrfaos === 0 && resultado.totalReferenciasOrfas === 0 && (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
+                      <h3 className="text-2xl font-bold mb-2">Tudo limpo!</h3>
+                      <p className="text-muted-foreground">
+                        Não há arquivos órfãos nem referências órfãs no sistema.
+                      </p>
                     </CardContent>
                   </Card>
                 )}
