@@ -293,6 +293,7 @@ Deno.serve(async (req) => {
       autorizacao_despesa: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       processos_anexos_outros: { arquivos: 0, tamanho: 0, detalhes: [] },
       capas_processo: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
+      cotacoes: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       outros: { arquivos: 0, tamanho: 0, detalhes: [] }
     };
 
@@ -658,6 +659,75 @@ Deno.serve(async (req) => {
           fileName,
           size: metadata.size
         });
+      } else if (
+        path.includes('proposta_fornecedor') || 
+        path.includes('proposta_preco_publico') ||
+        path.includes('planilha_consolidada')
+      ) {
+        // Documentos de cotações (propostas de fornecedores, preços públicos, planilhas consolidadas)
+        estatisticasPorCategoria.cotacoes.arquivos++;
+        estatisticasPorCategoria.cotacoes.tamanho += metadata.size;
+        estatisticasPorCategoria.cotacoes.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Buscar processo através da cotação
+        let processoId = '';
+        
+        // Tentar extrair cotacao_id do path ou buscar no banco
+        if (path.includes('planilha_consolidada')) {
+          // Buscar através da tabela planilhas_consolidadas
+          const { data: planilha } = await supabase
+            .from('planilhas_consolidadas')
+            .select('cotacao_id')
+            .eq('url_arquivo', path)
+            .single();
+          
+          if (planilha) {
+            const cotacao = cotacoesMap.get(planilha.cotacao_id);
+            if (cotacao) {
+              processoId = cotacao.processoId;
+            }
+          }
+        } else {
+          // Buscar através da tabela anexos_cotacao_fornecedor
+          const { data: anexoCotacao } = await supabase
+            .from('anexos_cotacao_fornecedor')
+            .select(`
+              cotacao_resposta_fornecedor_id,
+              cotacao_respostas_fornecedor!inner(cotacao_id)
+            `)
+            .eq('url_arquivo', path)
+            .single();
+          
+          if (anexoCotacao) {
+            const cotacaoId = (anexoCotacao as any).cotacao_respostas_fornecedor.cotacao_id;
+            const cotacao = cotacoesMap.get(cotacaoId);
+            if (cotacao) {
+              processoId = cotacao.processoId;
+            }
+          }
+        }
+        
+        if (processoId) {
+          const processo = processosMap.get(processoId);
+          
+          if (processo) {
+            if (!estatisticasPorCategoria.cotacoes.porProcesso!.has(processoId)) {
+              estatisticasPorCategoria.cotacoes.porProcesso!.set(processoId, {
+                processoId,
+                processoNumero: processo.numero,
+                processoObjeto: processo.objeto,
+                credenciamento: processo.credenciamento,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.cotacoes.porProcesso!.get(processoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
       } else {
         // Outros
         estatisticasPorCategoria.outros.arquivos++;
@@ -765,6 +835,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.capas_processo.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.capas_processo.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.capas_processo.porProcesso!.values())
+        },
+        cotacoes: {
+          arquivos: estatisticasPorCategoria.cotacoes.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.cotacoes.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.cotacoes.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.cotacoes.porProcesso!.values())
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,
