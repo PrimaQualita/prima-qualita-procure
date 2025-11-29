@@ -668,12 +668,6 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.documentos_fornecedores.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.documentos_fornecedores.detalhes
         },
-        relatorios_kpmg: {
-          arquivos: estatisticasPorCategoria.relatorios_kpmg.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.relatorios_kpmg.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.relatorios_kpmg.detalhes,
-          porFornecedor: Array.from(estatisticasPorCategoria.relatorios_kpmg.porFornecedor!.values())
-        },
         propostas_selecao: {
           arquivos: estatisticasPorCategoria.propostas_selecao.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.propostas_selecao.tamanho / (1024 * 1024)).toFixed(2)),
