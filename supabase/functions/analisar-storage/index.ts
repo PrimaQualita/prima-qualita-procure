@@ -69,13 +69,27 @@ Deno.serve(async (req) => {
 
     // Normalizar URLs - extrair apenas caminhos relativos
     const pathsDB = new Set<string>();
+    const urlsOriginais = new Map<string, string>(); // Mapear path normalizado -> URL original
+    
     for (const ref of (referencias || [])) {
       const url = ref.url;
+      let normalizedPath = '';
+      
       if (url.includes('processo-anexos/')) {
-        const path = url.split('processo-anexos/')[1].split('?')[0];
-        if (path) pathsDB.add(path);
-      } else if (!url.startsWith('http')) {
-        pathsDB.add(url.split('?')[0]);
+        // URL completa com domínio
+        normalizedPath = url.split('processo-anexos/')[1].split('?')[0];
+      } else if (url.startsWith('http')) {
+        // URL completa mas sem processo-anexos no meio
+        continue;
+      } else {
+        // Path relativo direto
+        normalizedPath = url.split('?')[0];
+      }
+      
+      if (normalizedPath) {
+        pathsDB.add(normalizedPath);
+        urlsOriginais.set(normalizedPath, url);
+        console.log(`  🔗 DB: "${normalizedPath}" <- "${url}"`);
       }
     }
 
