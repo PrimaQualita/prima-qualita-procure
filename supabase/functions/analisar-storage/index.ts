@@ -670,65 +670,79 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.cotacoes.arquivos++;
         estatisticasPorCategoria.cotacoes.tamanho += metadata.size;
         
-        // Nome de exibição (pode ser substituído por nome bonito do banco)
+        // Nome de exibição (inicialmente o nome do arquivo)
         let displayName = fileName;
-        
-        // Buscar processo através da cotação
         let processoId = '';
         
-        // Se for e-mail, buscar via emails_cotacao_anexados
+        // Se for e-mail
         if (path.includes('-EMAIL.pdf')) {
-          const { data: emailCotacao } = await supabase
+          // Buscar todos os emails e tentar match
+          const { data: emails } = await supabase
             .from('emails_cotacao_anexados')
-            .select('cotacao_id, nome_arquivo')
-            .ilike('url_arquivo', `%${fileNameRaw}%`)
-            .single();
+            .select('cotacao_id, nome_arquivo, url_arquivo');
           
-          if (emailCotacao) {
-            // Usar o nome original do arquivo de e-mail
-            displayName = emailCotacao.nome_arquivo || fileName;
+          if (emails) {
+            const matchedEmail = emails.find(email => 
+              email.url_arquivo?.includes(fileNameRaw) || 
+              email.url_arquivo?.includes(path) ||
+              path.includes(email.nome_arquivo)
+            );
             
-            const cotacao = cotacoesMap.get(emailCotacao.cotacao_id);
-            if (cotacao) {
-              processoId = cotacao.processoId;
+            if (matchedEmail) {
+              console.log('📧 E-mail matched:', matchedEmail.nome_arquivo);
+              displayName = matchedEmail.nome_arquivo;
+              const cotacao = cotacoesMap.get(matchedEmail.cotacao_id);
+              if (cotacao) processoId = cotacao.processoId;
+            } else {
+              console.log('⚠️ E-mail não matched. Path:', path);
             }
           }
         }
         // Se for planilha consolidada
         else if (path.includes('planilha_consolidada')) {
-          const { data: planilha } = await supabase
+          const { data: planilhas } = await supabase
             .from('planilhas_consolidadas')
-            .select('cotacao_id')
-            .ilike('url_arquivo', `%${fileNameRaw}%`)
-            .single();
+            .select('cotacao_id, url_arquivo');
           
-          if (planilha) {
-            const cotacao = cotacoesMap.get(planilha.cotacao_id);
-            if (cotacao) {
-              processoId = cotacao.processoId;
+          if (planilhas) {
+            const matchedPlanilha = planilhas.find(p => 
+              p.url_arquivo?.includes(fileNameRaw) || 
+              p.url_arquivo?.includes(path)
+            );
+            
+            if (matchedPlanilha) {
+              const cotacao = cotacoesMap.get(matchedPlanilha.cotacao_id);
+              if (cotacao) processoId = cotacao.processoId;
             }
           }
         }
-        // Se for proposta (fornecedor ou preço público)
+        // Se for proposta
         else {
-          const { data: anexoCotacao } = await supabase
+          const { data: propostas } = await supabase
             .from('anexos_cotacao_fornecedor')
             .select(`
-              cotacao_resposta_fornecedor_id,
               nome_arquivo,
+              url_arquivo,
               cotacao_respostas_fornecedor!inner(cotacao_id)
-            `)
-            .ilike('url_arquivo', `%${fileNameRaw}%`)
-            .single();
+            `);
           
-          if (anexoCotacao) {
-            // Usar o nome da proposta armazenado no banco
-            displayName = anexoCotacao.nome_arquivo || fileName;
+          if (propostas) {
+            const matchedProposta = propostas.find(p => 
+              p.url_arquivo?.includes(fileNameRaw) || 
+              p.url_arquivo?.includes(path) ||
+              fileNameRaw.includes(p.nome_arquivo)
+            );
             
-            const cotacaoId = (anexoCotacao as any).cotacao_respostas_fornecedor.cotacao_id;
-            const cotacao = cotacoesMap.get(cotacaoId);
-            if (cotacao) {
-              processoId = cotacao.processoId;
+            if (matchedProposta) {
+              console.log('📄 Proposta matched:', matchedProposta.nome_arquivo);
+              displayName = matchedProposta.nome_arquivo;
+              const cotacaoId = (matchedProposta as any).cotacao_respostas_fornecedor?.cotacao_id;
+              if (cotacaoId) {
+                const cotacao = cotacoesMap.get(cotacaoId);
+                if (cotacao) processoId = cotacao.processoId;
+              }
+            } else {
+              console.log('⚠️ Proposta não matched. Path:', path);
             }
           }
         }
