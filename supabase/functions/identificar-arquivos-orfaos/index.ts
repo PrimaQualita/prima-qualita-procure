@@ -158,10 +158,20 @@ Deno.serve(async (req) => {
     const tamanhoMB = (tamanhoTotal / (1024 * 1024)).toFixed(2);
     const tamanhoGB = (tamanhoTotal / (1024 * 1024 * 1024)).toFixed(2);
 
+    // Identificar referências órfãs - URLs no banco que não têm arquivo no storage
+    const pathsNoStorage = new Set(files?.map(f => f.fullPath) || []);
+    const referenciasOrfas = Array.from(urlsReferenciadas).filter(url => !pathsNoStorage.has(url));
+    
+    console.log(`Total de referências órfãs (URLs sem arquivo): ${referenciasOrfas.length}`);
+    if (referenciasOrfas.length > 0) {
+      console.log('Primeiras 10 referências órfãs:', referenciasOrfas.slice(0, 10));
+    }
+
     const resultado = {
       totalArquivosStorage: files?.length || 0,
       totalReferenciasDB: urlsReferenciadas.size,
       totalArquivosOrfaos: arquivosOrfaos.length,
+      totalReferenciasOrfas: referenciasOrfas.length,
       tamanhoTotal: {
         bytes: tamanhoTotal,
         mb: parseFloat(tamanhoMB),
@@ -171,7 +181,8 @@ Deno.serve(async (req) => {
         nome: f.fullPath,
         tamanho: f.metadata?.size || 0,
         criado: f.created_at
-      }))
+      })),
+      referenciasOrfas: referenciasOrfas.slice(0, 50) // Primeiras 50 para não sobrecarregar
     };
 
     console.log('Resultado:', resultado);
