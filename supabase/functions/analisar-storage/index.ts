@@ -45,16 +45,17 @@ Deno.serve(async (req) => {
       for (const item of items) {
         const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
         
-        // Se for pasta (metadata.size é undefined em pastas), lista recursivamente
-        if (!item.metadata?.size) {
+        // Se for pasta (id é null), lista recursivamente
+        if (item.id === null) {
           await listarRecursivo(fullPath);
         } else {
           // É arquivo
+          const fileSize = (item.metadata as any)?.size || 0;
           arquivosStorage.set(fullPath, {
-            size: item.metadata.size,
+            size: fileSize,
             createdAt: item.created_at || new Date().toISOString()
           });
-          console.log(`    📄 Arquivo: ${fullPath} (${(item.metadata.size / 1024).toFixed(2)} KB)`);
+          console.log(`    📄 Arquivo: ${fullPath} (${(fileSize / 1024).toFixed(2)} KB)`);
         }
       }
     }
