@@ -164,7 +164,35 @@ export function DialogAvaliacaoCadastro({
       // Upload do relatório KPMG se houver
       let urlRelatorioKPMG = null;
       if (relatorioKPMG) {
-        const fileName = `avaliacao_${avaliacao.id}/relatorio_kpmg_${Date.now()}.pdf`;
+        // Verificar se já existe relatório KPMG anterior e deletá-lo
+        const { data: relatorioAnterior } = await supabase
+          .from("documentos_fornecedor")
+          .select("id, url_arquivo")
+          .eq("fornecedor_id", avaliacao.fornecedor_id)
+          .eq("tipo_documento", "relatorio_kpmg_compliance")
+          .maybeSingle();
+
+        if (relatorioAnterior) {
+          // Extrair path do storage da URL anterior
+          const urlAnterior = relatorioAnterior.url_arquivo;
+          const pathMatch = urlAnterior.match(/processo-anexos\/(.+)$/);
+          if (pathMatch) {
+            const pathAnterior = pathMatch[1];
+            // Deletar arquivo anterior do storage
+            await supabase.storage
+              .from("processo-anexos")
+              .remove([pathAnterior]);
+          }
+
+          // Deletar registro anterior do banco
+          await supabase
+            .from("documentos_fornecedor")
+            .delete()
+            .eq("id", relatorioAnterior.id);
+        }
+
+        // Upload do novo relatório com path organizado por fornecedor
+        const fileName = `fornecedor_${avaliacao.fornecedor_id}/relatorio_kpmg_${Date.now()}.pdf`;
         const { error: uploadError } = await supabase.storage
           .from("processo-anexos")
           .upload(fileName, relatorioKPMG);
@@ -177,7 +205,7 @@ export function DialogAvaliacaoCadastro({
 
         urlRelatorioKPMG = publicUrl;
 
-        // Salvar documento na tabela de documentos do fornecedor
+        // Salvar novo documento na tabela de documentos do fornecedor
         await supabase.from("documentos_fornecedor").insert({
           fornecedor_id: avaliacao.fornecedor_id,
           tipo_documento: "relatorio_kpmg_compliance",
