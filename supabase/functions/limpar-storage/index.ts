@@ -41,8 +41,10 @@ Deno.serve(async (req) => {
 
     if (tipo === 'referencias') {
       let deletados = 0;
+      const limite = Math.min(paths.length, 10); // Processar apenas 10 por vez
       
-      // Definir todas as tabelas e colunas
+      console.log(`📋 Processando ${limite} de ${paths.length} referências...`);
+      
       const tabelas = [
         { nome: 'anexos_processo_compra', coluna: 'url_arquivo' },
         { nome: 'analises_compliance', coluna: 'url_documento' },
@@ -66,76 +68,38 @@ Deno.serve(async (req) => {
         { nome: 'respostas_recursos', coluna: 'url_documento' },
       ];
 
-      // Para cada referência órfã
-      for (const path of paths) {
-        let deletadoNesta = false;
-
-        // Tentar deletar de cada tabela
+      for (let i = 0; i < limite; i++) {
+        const path = paths[i];
+        
         for (const { nome, coluna } of tabelas) {
           try {
-            // Buscar registros que contenham este path
             const { data: registros } = await supabase
               .from(nome)
-              .select('*')
-              .like(coluna, `%${path}%`);
+              .select('id')
+              .like(coluna, `%${path}%`)
+              .limit(10);
 
             if (registros && registros.length > 0) {
-              // Deletar cada registro encontrado
-              for (const registro of registros) {
-                const { error } = await supabase
-                  .from(nome)
-                  .delete()
-                  .eq('id', registro.id);
+              const ids = registros.map(r => r.id);
+              const { error } = await supabase
+                .from(nome)
+                .delete()
+                .in('id', ids);
 
-                if (!error) {
-                  console.log(`✅ Deletado de ${nome}: ${path}`);
-                  deletados++;
-                  deletadoNesta = true;
-                }
+              if (!error) {
+                console.log(`✅ ${ids.length} deletados de ${nome}`);
+                deletados += ids.length;
               }
             }
           } catch (err) {
-            console.error(`Erro ao processar ${nome}:`, err);
+            // Ignora erros silenciosamente
           }
-        }
-
-        // Se não foi deletado de nenhuma tabela normal, verificar em arrays
-        try {
-          const { data: respostas } = await supabase
-            .from('cotacao_respostas_fornecedor')
-            .select('*')
-            .not('comprovantes_urls', 'is', null);
-
-          if (respostas) {
-            for (const resposta of respostas) {
-              if (resposta.comprovantes_urls && resposta.comprovantes_urls.some((url: string) => url.includes(path))) {
-                const novosComprovantes = resposta.comprovantes_urls.filter((url: string) => !url.includes(path));
-                
-                const { error } = await supabase
-                  .from('cotacao_respostas_fornecedor')
-                  .update({ comprovantes_urls: novosComprovantes })
-                  .eq('id', resposta.id);
-
-                if (!error) {
-                  console.log(`✅ Removido de comprovantes_urls: ${path}`);
-                  deletados++;
-                  deletadoNesta = true;
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Erro ao processar comprovantes_urls:', err);
-        }
-
-        if (!deletadoNesta) {
-          console.log(`⚠️ Referência não encontrada em nenhuma tabela: ${path}`);
         }
       }
       
-      console.log(`✅ Total de referências limpas: ${deletados}`);
+      console.log(`✅ Total: ${deletados} referências limpas`);
       return new Response(
-        JSON.stringify({ deletados }),
+        JSON.stringify({ deletados, processados: limite, restantes: paths.length - limite }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

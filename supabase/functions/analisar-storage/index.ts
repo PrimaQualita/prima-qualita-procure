@@ -17,49 +17,52 @@ Deno.serve(async (req) => {
 
     console.log('🔍 Analisando storage processo-anexos...');
 
-    // NOVA ABORDAGEM: Listar TODOS os arquivos do storage primeiro
+    // Listar TODOS os arquivos recursivamente com paginação
     const arquivosStorage = new Set<string>();
-    let totalPastasProcessadas = 0;
     
-    async function listarRecursivo(pasta: string = '', nivel: number = 0) {
-      totalPastasProcessadas++;
-      console.log(`${'  '.repeat(nivel)}📁 Listando: ${pasta || '(raiz)'}`);
+    async function listarRecursivo(pasta: string = '') {
+      let offset = 0;
+      let hasMore = true;
       
-      const { data: items, error } = await supabase.storage
-        .from('processo-anexos')
-        .list(pasta, { limit: 1000 });
+      while (hasMore) {
+        const { data: items, error } = await supabase.storage
+          .from('processo-anexos')
+          .list(pasta, { 
+            limit: 1000,
+            offset: offset,
+            sortBy: { column: 'name', order: 'asc' }
+          });
 
-      if (error) {
-        console.error(`❌ Erro ao listar pasta ${pasta}:`, error);
-        return;
-      }
+        if (error) {
+          console.error(`❌ Erro ao listar ${pasta}:`, error);
+          break;
+        }
 
-      if (items) {
-        console.log(`${'  '.repeat(nivel)}   → ${items.length} itens encontrados`);
-        
-        let arquivosNestaPasta = 0;
-        let pastasNestaPasta = 0;
-        
+        if (!items || items.length === 0) {
+          hasMore = false;
+          break;
+        }
+
         for (const item of items) {
           const fullPath = pasta ? `${pasta}/${item.name}` : item.name;
           
           if (item.id) {
-            // É arquivo
             arquivosStorage.add(fullPath);
-            arquivosNestaPasta++;
           } else {
-            // É pasta - listar recursivamente
-            pastasNestaPasta++;
-            await listarRecursivo(fullPath, nivel + 1);
+            await listarRecursivo(fullPath);
           }
         }
         
-        console.log(`${'  '.repeat(nivel)}   ✓ ${arquivosNestaPasta} arquivos, ${pastasNestaPasta} subpastas`);
+        if (items.length < 1000) {
+          hasMore = false;
+        } else {
+          offset += 1000;
+        }
       }
     }
 
     await listarRecursivo('');
-    console.log(`\n📦 TOTAL: ${arquivosStorage.size} arquivos em ${totalPastasProcessadas} pastas processadas`);
+    console.log(`📦 Total de arquivos: ${arquivosStorage.size}`);
 
     // Buscar URLs do banco
     const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
