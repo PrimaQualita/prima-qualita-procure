@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     if (tipo === 'referencias') {
       let deletados = 0;
-      const limite = Math.min(paths.length, 10); // Processar apenas 10 por vez
+      const limite = Math.min(paths.length, 50); // Processar 50 por vez
       
       console.log(`📋 Processando ${limite} de ${paths.length} referências...`);
       
@@ -58,6 +58,7 @@ Deno.serve(async (req) => {
         { nome: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
         { nome: 'anexos_selecao', coluna: 'url_arquivo' },
         { nome: 'atas_selecao', coluna: 'url_arquivo' },
+        { nome: 'atas_selecao', coluna: 'url_arquivo_original' },
         { nome: 'homologacoes_selecao', coluna: 'url_arquivo' },
         { nome: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
         { nome: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
@@ -70,34 +71,52 @@ Deno.serve(async (req) => {
 
       for (let i = 0; i < limite; i++) {
         const path = paths[i];
+        let encontrou = false;
+        
+        console.log(`\n🔍 Buscando: ${path}`);
         
         for (const { nome, coluna } of tabelas) {
           try {
-            const { data: registros } = await supabase
+            // Usar ILIKE para case-insensitive
+            const { data: registros, error: selectError } = await supabase
               .from(nome)
-              .select('id')
-              .like(coluna, `%${path}%`)
-              .limit(10);
+              .select('id, ' + coluna)
+              .ilike(coluna, `%${path}%`)
+              .limit(100);
 
-            if (registros && registros.length > 0) {
-              const ids = registros.map(r => r.id);
-              const { error } = await supabase
+            if (selectError) {
+              console.log(`⚠️ Erro SELECT em ${nome}.${coluna}: ${selectError.message}`);
+              continue;
+            }
+
+            if (registros && Array.isArray(registros) && registros.length > 0) {
+              encontrou = true;
+              console.log(`  ✓ Encontrou ${registros.length} em ${nome}.${coluna}`);
+              
+              const ids = registros.map((r: any) => r.id);
+              const { error: deleteError } = await supabase
                 .from(nome)
                 .delete()
                 .in('id', ids);
 
-              if (!error) {
-                console.log(`✅ ${ids.length} deletados de ${nome}`);
+              if (!deleteError) {
+                console.log(`  ✅ Deletou ${ids.length} de ${nome}`);
                 deletados += ids.length;
+              } else {
+                console.log(`  ❌ Erro DELETE: ${deleteError.message}`);
               }
             }
           } catch (err) {
-            // Ignora erros silenciosamente
+            console.log(`  ❌ Exceção em ${nome}: ${err}`);
           }
+        }
+        
+        if (!encontrou) {
+          console.log(`  ⚠️ Referência não encontrada em nenhuma tabela`);
         }
       }
       
-      console.log(`✅ Total: ${deletados} referências limpas`);
+      console.log(`\n✅ Total: ${deletados} referências deletadas de ${limite} processadas`);
       return new Response(
         JSON.stringify({ deletados, processados: limite, restantes: paths.length - limite }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
