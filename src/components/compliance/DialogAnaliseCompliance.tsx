@@ -267,7 +267,7 @@ export function DialogAnaliseCompliance({
         conclusao: "",
         status_aprovacao: statusAprovacao,
         url_documento: uploadedUrl,
-        nome_arquivo: uploadedFileName,
+        nome_arquivo: "Análise de Compliance.pdf",
       };
 
       // Se existe analiseId, fazer UPDATE, senão fazer INSERT
