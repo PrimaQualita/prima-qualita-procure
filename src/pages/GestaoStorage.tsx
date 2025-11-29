@@ -212,7 +212,7 @@ export default function GestaoStorage() {
                       <p className="text-sm font-semibold text-purple-600">
                         {resultado.estatisticasPorCategoria?.documentos_fornecedores?.tamanhoMB || 0} MB
                       </p>
-                      <p className="text-xs text-purple-700/70">CNDs, CNPJ, etc.</p>
+                      <p className="text-xs text-purple-700/70">CNDs, CNPJ, Relatórios KPMG</p>
                     </div>
                     {resultado.estatisticasPorCategoria?.documentos_fornecedores?.porFornecedor?.length > 0 && (
                       <Button
@@ -222,34 +222,6 @@ export default function GestaoStorage() {
                           titulo: 'Documentos de Cadastro',
                           tipo: 'fornecedor',
                           grupos: resultado.estatisticasPorCategoria.documentos_fornecedores.porFornecedor
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-pink-200 bg-pink-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-pink-900">Relatórios KPMG</p>
-                      <p className="text-2xl font-bold text-pink-700">{resultado.estatisticasPorCategoria?.relatorios_kpmg?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-pink-600">
-                        {resultado.estatisticasPorCategoria?.relatorios_kpmg?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-pink-700/70">Análises compliance</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.relatorios_kpmg?.porFornecedor?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Relatórios KPMG',
-                          tipo: 'fornecedor',
-                          grupos: resultado.estatisticasPorCategoria.relatorios_kpmg.porFornecedor
                         })}
                       >
                         <Eye className="h-4 w-4" />
