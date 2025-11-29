@@ -501,21 +501,44 @@ const Cotacoes = () => {
   };
 
   const deletarEmailAnexado = async (emailId: string) => {
-    const { error } = await (supabase as any)
-      .from("emails_cotacao_anexados")
-      .delete()
-      .eq("id", emailId);
+    try {
+      // Buscar o email para pegar a URL antes de deletar
+      const { data: email, error: fetchError } = await (supabase as any)
+        .from("emails_cotacao_anexados")
+        .select("url_arquivo")
+        .eq("id", emailId)
+        .single();
 
-    if (error) {
+      if (fetchError) throw fetchError;
+
+      // Deletar o arquivo do storage
+      if (email?.url_arquivo) {
+        const path = email.url_arquivo.replace('processo-anexos/', '');
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove([path]);
+        
+        if (storageError) {
+          console.error("Erro ao deletar arquivo do storage:", storageError);
+        }
+      }
+
+      // Deletar o registro do banco
+      const { error } = await (supabase as any)
+        .from("emails_cotacao_anexados")
+        .delete()
+        .eq("id", emailId);
+
+      if (error) throw error;
+
+      if (cotacaoSelecionada) {
+        await loadEmailsAnexados(cotacaoSelecionada.id);
+      }
+      toast.success("E-mail deletado com sucesso");
+    } catch (error) {
+      console.error("Erro ao deletar e-mail:", error);
       toast.error("Erro ao deletar e-mail");
-      console.error(error);
-      return;
     }
-
-    if (cotacaoSelecionada) {
-      await loadEmailsAnexados(cotacaoSelecionada.id);
-    }
-    toast.success("E-mail deletado com sucesso");
   };
 
   const loadItens = async (cotacaoId: string) => {

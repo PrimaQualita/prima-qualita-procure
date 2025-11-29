@@ -211,6 +211,16 @@ export function DialogAnaliseCompliance({
 
       // Upload do PDF se houver arquivo novo
       if (uploadedFile) {
+        // Se já existe análise com documento, deletar o arquivo antigo primeiro
+        if (analiseId && urlDocumento) {
+          try {
+            const oldPath = urlDocumento.replace('documents/', '').split('/').slice(1).join('/');
+            await supabase.storage.from("documents").remove([oldPath]);
+          } catch (err) {
+            console.log("Erro ao deletar arquivo antigo:", err);
+          }
+        }
+
         const fileExt = uploadedFile.name.split('.').pop();
         const timestamp = new Date().getTime();
         const uploadFileName = `parecer_compliance_${numeroProcesso}_${timestamp}.${fileExt}`;
@@ -225,11 +235,8 @@ export function DialogAnaliseCompliance({
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from("documents")
-          .getPublicUrl(filePath);
-
-        uploadedUrl = publicUrl;
+        // Salvar o path completo com bucket prefix (compatível com get_all_file_references)
+        uploadedUrl = `documents/${filePath}`;
         uploadedFileName = uploadedFile.name;
       }
 
@@ -308,6 +315,23 @@ export function DialogAnaliseCompliance({
       setLoading(true);
 
       if (analiseId) {
+        // Deletar o arquivo do storage primeiro
+        if (urlDocumento) {
+          try {
+            const path = urlDocumento.replace('documents/', '').split('/').slice(1).join('/');
+            const { error: storageError } = await supabase.storage
+              .from("documents")
+              .remove([path]);
+            
+            if (storageError) {
+              console.error("Erro ao deletar arquivo do storage:", storageError);
+            }
+          } catch (err) {
+            console.log("Erro ao deletar arquivo:", err);
+          }
+        }
+
+        // Deletar o registro do banco
         const { error } = await supabase
           .from("analises_compliance" as any)
           .delete()
@@ -334,7 +358,13 @@ export function DialogAnaliseCompliance({
 
   const downloadDocumento = () => {
     if (urlDocumento) {
-      window.open(urlDocumento, "_blank");
+      // Extrair o path e gerar URL pública
+      const path = urlDocumento.replace('documents/', '');
+      const { data: { publicUrl } } = supabase.storage
+        .from("documents")
+        .getPublicUrl(path);
+      
+      window.open(publicUrl, "_blank");
     }
   };
 
