@@ -78,21 +78,35 @@ Deno.serve(async (req) => {
 
         for (const { tabela, coluna } of queries) {
           try {
-            // Usar DELETE direto do Supabase client (service role key tem todas as permissões)
-            const { data, error, count } = await supabase
+            // Buscar registros que contêm o path
+            const { data: records, error: selectError } = await supabase
               .from(tabela)
-              .delete({ count: 'exact' })
+              .select('id')
               .ilike(coluna, `%${path}%`);
 
-            if (error) {
-              console.log(`  ⚠️ Erro em ${tabela}.${coluna}: ${error.message}`);
+            if (selectError) {
+              console.log(`  ⚠️ Erro ao buscar em ${tabela}.${coluna}: ${selectError.message}`);
               continue;
             }
 
-            if (count && count > 0) {
-              encontrouAlgum = true;
-              deletados += count;
-              console.log(`  ✅ Deletou ${count} registro(s) de ${tabela}.${coluna}`);
+            if (records && records.length > 0) {
+              // Deletar os registros encontrados usando apenas o ID
+              const ids = records.map(r => r.id);
+              const { error: deleteError, count } = await supabase
+                .from(tabela)
+                .delete({ count: 'exact' })
+                .in('id', ids);
+
+              if (deleteError) {
+                console.log(`  ⚠️ Erro ao deletar em ${tabela}.${coluna}: ${deleteError.message}`);
+                continue;
+              }
+
+              if (count && count > 0) {
+                encontrouAlgum = true;
+                deletados += count;
+                console.log(`  ✅ Deletou ${count} registro(s) de ${tabela}.${coluna}`);
+              }
             }
           } catch (err) {
             console.log(`  ❌ Exceção em ${tabela}.${coluna}: ${err}`);
