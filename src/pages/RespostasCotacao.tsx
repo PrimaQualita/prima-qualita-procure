@@ -745,184 +745,186 @@ export default function RespostasCotacao() {
             </div>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fornecedor</TableHead>
-                <TableHead>CNPJ</TableHead>
-                <TableHead className="text-right">Valor Total Ofertado</TableHead>
-                <TableHead>Data Envio</TableHead>
-                <TableHead>Observações</TableHead>
-                <TableHead>Proposta PDF</TableHead>
-                <TableHead className="text-center">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {respostas.map((resposta) => {
-                const isMenorValor = cotacao?.criterio_julgamento !== 'desconto' && 
-                                    resposta.valor_total_anual_ofertado === menorValor;
-                
-                return (
-                  <TableRow key={resposta.id} className={isMenorValor ? "bg-green-50 dark:bg-green-950" : ""}>
-                    <TableCell className="font-medium">
-                      {resposta.fornecedor.razao_social}
-                      {isMenorValor && (
-                        <Badge className="ml-2 bg-green-600">Menor Preço</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{formatarCNPJ(resposta.fornecedor.cnpj)}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatarData(resposta.data_envio_resposta)}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
-                      {resposta.observacoes_fornecedor || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {resposta.anexos && resposta.anexos.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {resposta.anexos.map((anexo) => (
-                            <div key={anexo.id} className="flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm truncate max-w-[150px]" title={anexo.nome_arquivo}>
-                                {anexo.nome_arquivo}
-                              </span>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fornecedor</TableHead>
+                  <TableHead>CNPJ</TableHead>
+                  <TableHead className="text-right">Valor Total Ofertado</TableHead>
+                  <TableHead>Data Envio</TableHead>
+                  <TableHead>Observações</TableHead>
+                  <TableHead>Proposta PDF</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {respostas.map((resposta) => {
+                  const isMenorValor = cotacao?.criterio_julgamento !== 'desconto' && 
+                                      resposta.valor_total_anual_ofertado === menorValor;
+                  
+                  return (
+                    <TableRow key={resposta.id} className={isMenorValor ? "bg-green-50 dark:bg-green-950" : ""}>
+                      <TableCell className="font-medium">
+                        {resposta.fornecedor.razao_social}
+                        {isMenorValor && (
+                          <Badge className="ml-2 bg-green-600">Menor Preço</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{formatarCNPJ(resposta.fornecedor.cnpj)}</TableCell>
+                      <TableCell className="text-right font-semibold">
+                        R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatarData(resposta.data_envio_resposta)}
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
+                        {resposta.observacoes_fornecedor || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {resposta.anexos && resposta.anexos.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {resposta.anexos.map((anexo) => (
+                              <div key={anexo.id} className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm truncate max-w-[150px]" title={anexo.nome_arquivo}>
+                                  {anexo.nome_arquivo}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    const { data } = await supabase.storage
+                                      .from('processo-anexos')
+                                      .createSignedUrl(anexo.url_arquivo, 3600);
+                                    if (data?.signedUrl) {
+                                      window.open(data.signedUrl, '_blank');
+                                    }
+                                  }}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setAnexoParaExcluir(anexo);
+                                    setConfirmDeleteAnexoOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2 justify-center">
+                          {resposta.anexos && resposta.anexos.length > 0 ? (
+                            <>
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                onClick={async () => {
-                                  const { data } = await supabase.storage
-                                    .from('processo-anexos')
-                                    .createSignedUrl(anexo.url_arquivo, 3600);
-                                  if (data?.signedUrl) {
-                                    window.open(data.signedUrl, '_blank');
-                                  }
-                                }}
+                                onClick={() => handleVisualizarProposta(resposta.id)}
+                                disabled={gerandoPDF === resposta.id}
                               >
-                                <Download className="h-4 w-4" />
+                                {gerandoPDF === resposta.id ? (
+                                  <span className="flex items-center gap-2">
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                    Gerando...
+                                  </span>
+                                ) : (
+                                  <>
+                                    <Eye className="h-4 w-4 mr-1" />
+                                    Ver
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleBaixarProposta(resposta.id)}
+                                disabled={gerandoPDF === resposta.id}
+                              >
+                                {gerandoPDF === resposta.id ? (
+                                  <span className="flex items-center gap-2">
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                  </span>
+                                ) : (
+                                  <>
+                                    <Download className="h-4 w-4 mr-1" />
+                                    Baixar
+                                  </>
+                                )}
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  setAnexoParaExcluir(anexo);
-                                  setConfirmDeleteAnexoOpen(true);
+                                  setRespostaSelecionada(resposta);
+                                  setEmailCorrecaoOpen(true);
+                                }}
+                              >
+                                <Mail className="h-4 w-4 text-blue-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setRespostaParaExcluir(resposta.id);
+                                  setConfirmDeleteRespostaOpen(true);
                                 }}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
-                            </div>
-                          ))}
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleVisualizarProposta(resposta.id)}
+                                disabled={gerandoPDF === resposta.id}
+                              >
+                                {gerandoPDF === resposta.id ? (
+                                  <span className="flex items-center gap-2">
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                    Gerando...
+                                  </span>
+                                ) : (
+                                  <>
+                                    <FileText className="h-4 w-4 mr-1" />
+                                    Gerar Proposta
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  setRespostaParaExcluir(resposta.id);
+                                  setConfirmDeleteRespostaOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Excluir Fornecedor
+                              </Button>
+                            </>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2 justify-center">
-                        {resposta.anexos && resposta.anexos.length > 0 ? (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleVisualizarProposta(resposta.id)}
-                              disabled={gerandoPDF === resposta.id}
-                            >
-                              {gerandoPDF === resposta.id ? (
-                                <span className="flex items-center gap-2">
-                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                  Gerando...
-                                </span>
-                              ) : (
-                                <>
-                                  <Eye className="h-4 w-4 mr-1" />
-                                  Ver
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleBaixarProposta(resposta.id)}
-                              disabled={gerandoPDF === resposta.id}
-                            >
-                              {gerandoPDF === resposta.id ? (
-                                <span className="flex items-center gap-2">
-                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                </span>
-                              ) : (
-                                <>
-                                  <Download className="h-4 w-4 mr-1" />
-                                  Baixar
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setRespostaSelecionada(resposta);
-                                setEmailCorrecaoOpen(true);
-                              }}
-                            >
-                              <Mail className="h-4 w-4 text-blue-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setRespostaParaExcluir(resposta.id);
-                                setConfirmDeleteRespostaOpen(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleVisualizarProposta(resposta.id)}
-                              disabled={gerandoPDF === resposta.id}
-                            >
-                              {gerandoPDF === resposta.id ? (
-                                <span className="flex items-center gap-2">
-                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                  Gerando...
-                                </span>
-                              ) : (
-                                <>
-                                  <FileText className="h-4 w-4 mr-1" />
-                                  Gerar Proposta
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => {
-                                setRespostaParaExcluir(resposta.id);
-                                setConfirmDeleteRespostaOpen(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Excluir Fornecedor
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
 
           {/* ========== 2. PLANILHA CONSOLIDADA (só aparece se tiver respostas) ========== */}
           <div className="mt-6 pt-6 border-t space-y-4">
