@@ -150,57 +150,107 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
-              {/* Estatísticas por Categoria */}
+              {/* Estatísticas Detalhadas por Categoria */}
               <Card className="border-purple-200 bg-purple-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <HardDrive className="h-4 w-4 text-purple-600" />
-                      <p className="text-sm font-medium text-purple-900">Fornecedores</p>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-2xl font-bold text-purple-700">{resultado.estatisticasPorCategoria?.fornecedores?.arquivos || 0}</p>
-                      <p className="text-sm text-purple-600">arquivos</p>
-                    </div>
-                    <p className="text-lg font-semibold text-purple-600">
-                      {resultado.estatisticasPorCategoria?.fornecedores?.tamanhoMB || 0} MB
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-purple-900">Docs Cadastro</p>
+                    <p className="text-2xl font-bold text-purple-700">{resultado.estatisticasPorCategoria?.documentos_fornecedores?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-purple-600">
+                      {resultado.estatisticasPorCategoria?.documentos_fornecedores?.tamanhoMB || 0} MB
                     </p>
+                    <p className="text-xs text-purple-700/70">CNDs, CNPJ, etc.</p>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-indigo-200 bg-indigo-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <HardDrive className="h-4 w-4 text-indigo-600" />
-                      <p className="text-sm font-medium text-indigo-900">Processos</p>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.processos?.arquivos || 0}</p>
-                      <p className="text-sm text-indigo-600">arquivos</p>
-                    </div>
-                    <p className="text-lg font-semibold text-indigo-600">
-                      {resultado.estatisticasPorCategoria?.processos?.tamanhoMB || 0} MB
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-indigo-900">Propostas Seleção</p>
+                    <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.propostas_selecao?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-indigo-600">
+                      {resultado.estatisticasPorCategoria?.propostas_selecao?.tamanhoMB || 0} MB
                     </p>
+                    <p className="text-xs text-indigo-700/70">PDFs de propostas</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-cyan-200 bg-cyan-50/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-cyan-900">Anexos Seleção</p>
+                    <p className="text-2xl font-bold text-cyan-700">{resultado.estatisticasPorCategoria?.anexos_selecao?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-cyan-600">
+                      {resultado.estatisticasPorCategoria?.anexos_selecao?.tamanhoMB || 0} MB
+                    </p>
+                    <p className="text-xs text-cyan-700/70">Avisos, editais</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-teal-200 bg-teal-50/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-teal-900">Planilhas Lances</p>
+                    <p className="text-2xl font-bold text-teal-700">{resultado.estatisticasPorCategoria?.planilhas_lances?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-teal-600">
+                      {resultado.estatisticasPorCategoria?.planilhas_lances?.tamanhoMB || 0} MB
+                    </p>
+                    <p className="text-xs text-teal-700/70">Consolidadas</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-amber-200 bg-amber-50/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-amber-900">Recursos</p>
+                    <p className="text-2xl font-bold text-amber-700">{resultado.estatisticasPorCategoria?.recursos?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-amber-600">
+                      {resultado.estatisticasPorCategoria?.recursos?.tamanhoMB || 0} MB
+                    </p>
+                    <p className="text-xs text-amber-700/70">Enviados e respostas</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-emerald-200 bg-emerald-50/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-emerald-900">Encaminhamentos</p>
+                    <p className="text-2xl font-bold text-emerald-700">{resultado.estatisticasPorCategoria?.encaminhamentos?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-emerald-600">
+                      {resultado.estatisticasPorCategoria?.encaminhamentos?.tamanhoMB || 0} MB
+                    </p>
+                    <p className="text-xs text-emerald-700/70">PDFs oficiais</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-rose-200 bg-rose-50/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-rose-900">Anexos Processos</p>
+                    <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.processos_anexos?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-rose-600">
+                      {resultado.estatisticasPorCategoria?.processos_anexos?.tamanhoMB || 0} MB
+                    </p>
+                    <p className="text-xs text-rose-700/70">Upados em processos</p>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-slate-200 bg-slate-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <HardDrive className="h-4 w-4 text-slate-600" />
-                      <p className="text-sm font-medium text-slate-900">Outros</p>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-2xl font-bold text-slate-700">{resultado.estatisticasPorCategoria?.outros?.arquivos || 0}</p>
-                      <p className="text-sm text-slate-600">arquivos</p>
-                    </div>
-                    <p className="text-lg font-semibold text-slate-600">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-slate-900">Outros</p>
+                    <p className="text-2xl font-bold text-slate-700">{resultado.estatisticasPorCategoria?.outros?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-slate-600">
                       {resultado.estatisticasPorCategoria?.outros?.tamanhoMB || 0} MB
                     </p>
+                    <p className="text-xs text-slate-700/70">Não categorizados</p>
                   </div>
                 </CardContent>
               </Card>
