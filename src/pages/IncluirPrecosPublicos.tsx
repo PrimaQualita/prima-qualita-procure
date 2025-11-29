@@ -106,124 +106,87 @@ const IncluirPrecosPublicos = () => {
     }
   };
 
-  const gerarTemplate = () => {
-    // Template ajustado baseado no critério de julgamento
-    const cabecalho = processoCompra?.criterio_julgamento === "desconto"
-      ? ['Número Item', 'Percentual de Desconto (%)', 'Marca']
-      : ['Número Item', 'Valor Unitário', 'Marca'];
+  const gerarTemplate = async () => {
+    const XLSX = await import('xlsx');
     
-    const csvContent = [
-      cabecalho,
-      ...itens.map(item => [
-        item.numero_item.toString(),
-        '', // Valor/percentual vazio para preencher
-        '' // Marca vazia para preencher
-      ])
-    ].map(row => row.join('\t')).join('\n');
-
-    // Usar UTF-8 BOM para garantir compatibilidade
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `template_precos_publicos_${cotacao?.titulo_cotacao || 'cotacao'}.csv`;
-    link.click();
+    // Dados da planilha com todas as colunas
+    const dados = itens.map(item => ({
+      'Item': item.numero_item,
+      'Descrição': item.descricao,
+      'Quantidade': item.quantidade,
+      'Unidade': item.unidade,
+      'Valor Unitário': '',
+      'Marca': ''
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(dados);
+    
+    // Definir larguras das colunas
+    ws['!cols'] = [
+      { wch: 8 },   // Item
+      { wch: 50 },  // Descrição
+      { wch: 12 },  // Quantidade
+      { wch: 10 },  // Unidade
+      { wch: 15 },  // Valor Unitário
+      { wch: 20 }   // Marca
+    ];
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Preços Públicos");
+    XLSX.writeFile(wb, `template_precos_publicos_${cotacao?.titulo_cotacao || 'cotacao'}.xlsx`);
     toast.success("Template baixado com sucesso!");
   };
 
   const importarTemplate = async (file: File) => {
     try {
-      // Tentar ler com diferentes encodings
-      const arrayBuffer = await file.arrayBuffer();
-      let text = '';
+      const XLSX = await import('xlsx');
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       
-      // Primeiro tenta UTF-8
-      try {
-        const decoder = new TextDecoder('utf-8', { fatal: true });
-        text = decoder.decode(arrayBuffer);
-      } catch {
-        // Se UTF-8 falhar, tenta Windows-1252 (encoding comum do Excel)
-        const decoder = new TextDecoder('windows-1252');
-        text = decoder.decode(arrayBuffer);
-      }
+      // Converter para JSON mantendo as colunas originais
+      const jsonData = XLSX.utils.sheet_to_json<{
+        'Item': number;
+        'Descrição': string;
+        'Quantidade': number;
+        'Unidade': string;
+        'Valor Unitário': string | number;
+        'Marca': string;
+      }>(worksheet);
       
-      console.log("Conteúdo do arquivo:", text);
-      
-      // Remove BOM se existir e divide as linhas
-      const cleanText = text.replace(/^\uFEFF/, '');
-      const lines = cleanText.split('\n');
-      
-      console.log("Total de linhas:", lines.length);
-      console.log("Primeira linha (cabeçalho):", lines[0]);
-      
-      // Detecta o separador (tab ou ponto e vírgula)
-      const separador = lines[0].includes('\t') ? '\t' : ';';
-      console.log("Separador detectado:", separador === '\t' ? 'TAB' : 'PONTO E VÍRGULA');
-      
-      // Remove cabeçalho
-      const dataLines = lines.slice(1);
+      console.log("Dados importados:", jsonData);
       
       const novasRespostas = { ...respostas };
       let itensImportados = 0;
       
-      dataLines.forEach((line, index) => {
-        // Ignora linhas vazias
-        if (!line.trim()) {
-          console.log(`Linha ${index + 2} vazia, ignorando`);
+      jsonData.forEach((row, index) => {
+        const numItem = row['Item'];
+        const valorStr = String(row['Valor Unitário'] || '').trim();
+        const marca = String(row['Marca'] || '').trim();
+        
+        console.log(`Linha ${index + 2} - Item: ${numItem}, Valor: "${valorStr}", Marca: "${marca}"`);
+        
+        if (!numItem || !valorStr || valorStr === '') {
+          console.log(`Linha ${index + 2}: item ou valor vazio`);
           return;
         }
         
-        console.log(`Processando linha ${index + 2}:`, line);
+        const item = itens.find(i => i.numero_item === numItem);
         
-        // Remove aspas extras que o Excel pode adicionar
-        const cleanLine = line.replace(/"/g, '');
-        // NÃO filtrar campos vazios para manter posição da marca
-        const campos = cleanLine.split(separador).map(campo => campo.trim());
-        console.log(`Campos separados (${campos.length} campos):`, campos);
-        
-        // Template tem: Número Item, Valor Unitário, Marca
-        let [numItem, valor, marca] = campos;
-        
-        // Se valor está vazio mas marca contém ponto-e-vírgula,
-        // significa que valor e marca estão juntos no campo marca
-        if ((!valor || valor === '') && marca && marca.includes(';')) {
-          console.log(`⚠️ Detectado formato alternativo com ponto-e-vírgula: "${marca}"`);
-          const partes = marca.split(';').map(p => p.trim()).filter(p => p !== '');
-          if (partes.length >= 2) {
-            valor = partes[0];
-            marca = partes[1];
-            console.log(`📌 Corrigido - valor: "${valor}", marca: "${marca}"`);
-          } else if (partes.length === 1) {
-            valor = partes[0];
-            marca = '';
-            console.log(`📌 Corrigido - valor: "${valor}", sem marca`);
-          }
-        }
-        
-        console.log(`🔍 Parsing - numItem: "${numItem}", valor: "${valor}", marca: "${marca}"`);
-        
-        if (!numItem) {
-          console.log(`Linha ${index + 2}: número do item vazio`);
-          return;
-        }
-        
-        const item = itens.find(i => i.numero_item === parseInt(numItem));
-        console.log(`Item encontrado:`, item);
-        
-        if (item && valor && valor !== '') {
+        if (item) {
           // Limpa e formata o valor (aceita tanto vírgula quanto ponto)
-          const valorLimpo = valor.replace(/[^\d,.-]/g, '').replace('.', ',');
-          const marcaLimpa = marca && marca.trim() !== '' ? marca.trim() : '';
+          const valorLimpo = valorStr.replace(/[^\d,.-]/g, '').replace('.', ',');
           
           novasRespostas[item.id] = {
             item_id: item.id,
             valor_unitario: valorLimpo,
-            marca: marcaLimpa,
+            marca: marca,
           };
           
-          console.log(`✅ Item ${numItem} importado - Valor: "${valorLimpo}", Marca: "${marcaLimpa}"`);
+          console.log(`✅ Item ${numItem} importado - Valor: "${valorLimpo}", Marca: "${marca}"`);
           itensImportados++;
         } else {
-          console.log(`❌ Item ${numItem} NÃO importado - item existe: ${!!item}, valor: "${valor}"`);
+          console.log(`❌ Item ${numItem} não encontrado`);
         }
       });
       
@@ -581,7 +544,7 @@ const IncluirPrecosPublicos = () => {
                 <div>
                   <input
                     type="file"
-                    accept=".csv"
+                    accept=".xlsx,.xls"
                     id="importar-template"
                     className="hidden"
                     onChange={(e) => {
