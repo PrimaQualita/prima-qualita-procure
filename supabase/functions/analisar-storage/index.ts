@@ -662,9 +662,11 @@ Deno.serve(async (req) => {
       } else if (
         path.includes('proposta_fornecedor') || 
         path.includes('proposta_preco_publico') ||
-        path.includes('planilha_consolidada')
+        path.includes('planilha_consolidada') ||
+        path.includes('-EMAIL.pdf') ||
+        fileNameRaw.startsWith('proposta_')
       ) {
-        // Documentos de cotações (propostas de fornecedores, preços públicos, planilhas consolidadas)
+        // Documentos de cotações (propostas, planilhas consolidadas, e-mails)
         estatisticasPorCategoria.cotacoes.arquivos++;
         estatisticasPorCategoria.cotacoes.tamanho += metadata.size;
         estatisticasPorCategoria.cotacoes.detalhes.push({ path, fileName, size: metadata.size });
@@ -672,13 +674,27 @@ Deno.serve(async (req) => {
         // Buscar processo através da cotação
         let processoId = '';
         
-        // Tentar extrair cotacao_id do path ou buscar no banco
-        if (path.includes('planilha_consolidada')) {
-          // Buscar através da tabela planilhas_consolidadas
+        // Se for e-mail, buscar via emails_cotacao_anexados
+        if (path.includes('-EMAIL.pdf')) {
+          const { data: emailCotacao } = await supabase
+            .from('emails_cotacao_anexados')
+            .select('cotacao_id')
+            .ilike('url_arquivo', `%${fileNameRaw}%`)
+            .single();
+          
+          if (emailCotacao) {
+            const cotacao = cotacoesMap.get(emailCotacao.cotacao_id);
+            if (cotacao) {
+              processoId = cotacao.processoId;
+            }
+          }
+        }
+        // Se for planilha consolidada
+        else if (path.includes('planilha_consolidada')) {
           const { data: planilha } = await supabase
             .from('planilhas_consolidadas')
             .select('cotacao_id')
-            .eq('url_arquivo', path)
+            .ilike('url_arquivo', `%${fileNameRaw}%`)
             .single();
           
           if (planilha) {
@@ -687,15 +703,16 @@ Deno.serve(async (req) => {
               processoId = cotacao.processoId;
             }
           }
-        } else {
-          // Buscar através da tabela anexos_cotacao_fornecedor
+        }
+        // Se for proposta (fornecedor ou preço público)
+        else {
           const { data: anexoCotacao } = await supabase
             .from('anexos_cotacao_fornecedor')
             .select(`
               cotacao_resposta_fornecedor_id,
               cotacao_respostas_fornecedor!inner(cotacao_id)
             `)
-            .eq('url_arquivo', path)
+            .ilike('url_arquivo', `%${fileNameRaw}%`)
             .single();
           
           if (anexoCotacao) {
