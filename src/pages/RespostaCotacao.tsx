@@ -194,14 +194,31 @@ const RespostaCotacao = () => {
         
         const bairro = partes[2] || '';
         
-        // Extrair município e UF (formato: "Municipio/UF")
+        // Extrair município (antes da barra)
         const municipioUf = partes[3]?.split('/') || [];
         const municipio = municipioUf[0]?.trim() || '';
-        const uf = municipioUf[1]?.split(',')[0]?.trim() || '';
         
         // Extrair CEP
         const cepMatch = enderecoCompleto.match(/CEP:\s*([0-9-]+)/);
         const cep = cepMatch ? cepMatch[1] : '';
+        
+        // Buscar UF via ViaCEP se CEP foi encontrado
+        let uf = '';
+        if (cep) {
+          try {
+            const cepLimpo = cep.replace(/\D/g, '');
+            const viaCepResponse = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+            const viaCepData = await viaCepResponse.json();
+            
+            if (viaCepData && !viaCepData.erro) {
+              uf = viaCepData.uf || '';
+            }
+          } catch (viaCepError) {
+            console.error("Erro ao buscar CEP:", viaCepError);
+            // Se falhar, tenta extrair UF do endereço
+            uf = municipioUf[1]?.split(',')[0]?.trim() || '';
+          }
+        }
         
         // Preencher dados automaticamente
         setDadosEmpresa({
