@@ -159,7 +159,15 @@ Deno.serve(async (req) => {
     }
 
     // Propostas de cotação (fornecedor e preços públicos)
-    const { data: propostasCotacao } = await supabase.from('anexos_cotacao_fornecedor').select('url_arquivo, tipo_anexo');
+    const { data: propostasCotacao } = await supabase
+      .from('anexos_cotacao_fornecedor')
+      .select(`
+        url_arquivo,
+        tipo_anexo,
+        cotacao_respostas_fornecedor!inner(
+          fornecedores!inner(razao_social)
+        )
+      `);
     if (propostasCotacao) {
       for (const prop of propostasCotacao) {
         // Extrair path: se tem processo-anexos/, pega depois; senão pega após última barra ou usa direto
@@ -173,7 +181,10 @@ Deno.serve(async (req) => {
           // Já é apenas o nome do arquivo
           path = path.split('?')[0];
         }
-        nomesBonitos.set(path, `${prop.tipo_anexo}.pdf`);
+        
+        // Nome da fonte de preços (razão social do fornecedor que representa a fonte)
+        const nomeFonte = (prop as any).cotacao_respostas_fornecedor?.fornecedores?.razao_social || 'Desconhecida';
+        nomesBonitos.set(path, `Proposta ${nomeFonte}.pdf`);
       }
     }
 
