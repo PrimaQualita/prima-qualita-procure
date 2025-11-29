@@ -1,8 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Eye } from "lucide-react";
-import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Eye, Search } from "lucide-react";
+import { useState, useMemo } from "react";
 
 interface DialogGrupoDetalhesProps {
   open: boolean;
@@ -14,6 +15,8 @@ interface DialogGrupoDetalhesProps {
 
 export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }: DialogGrupoDetalhesProps) {
   const [documentosGrupo, setDocumentosGrupo] = useState<{nome: string, documentos: any[]} | null>(null);
+  const [searchGrupos, setSearchGrupos] = useState("");
+  const [searchDocs, setSearchDocs] = useState("");
 
   const getNomeGrupo = (grupo: any) => {
     if (tipo === 'fornecedor') return grupo.fornecedorNome;
@@ -33,6 +36,24 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
     return null;
   };
 
+  const gruposFiltrados = useMemo(() => {
+    if (!searchGrupos.trim()) return grupos;
+    const termo = searchGrupos.toLowerCase();
+    return grupos.filter((grupo: any) => {
+      const nome = getNomeGrupo(grupo).toLowerCase();
+      const objeto = getObjetoProcesso(grupo)?.toLowerCase() || "";
+      return nome.includes(termo) || objeto.includes(termo);
+    });
+  }, [grupos, searchGrupos, tipo]);
+
+  const documentosFiltrados = useMemo(() => {
+    if (!documentosGrupo || !searchDocs.trim()) return documentosGrupo?.documentos || [];
+    const termo = searchDocs.toLowerCase();
+    return documentosGrupo.documentos.filter((doc: any) => 
+      doc.fileName.toLowerCase().includes(termo)
+    );
+  }, [documentosGrupo, searchDocs]);
+
   return (
     <>
       <Dialog open={open && !documentosGrupo} onOpenChange={onOpenChange}>
@@ -40,8 +61,17 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
           <DialogHeader>
             <DialogTitle>{titulo}</DialogTitle>
           </DialogHeader>
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar..."
+              value={searchGrupos}
+              onChange={(e) => setSearchGrupos(e.target.value)}
+              className="pl-9"
+            />
+          </div>
           <div className="space-y-4 overflow-y-auto flex-1 pr-2">
-            {grupos?.map((grupo: any, idx: number) => (
+            {gruposFiltrados?.map((grupo: any, idx: number) => (
               <Card key={idx} className="border-purple-200">
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-2">
@@ -81,8 +111,17 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
           <DialogHeader>
             <DialogTitle>{documentosGrupo?.nome} - Documentos</DialogTitle>
           </DialogHeader>
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar documentos..."
+              value={searchDocs}
+              onChange={(e) => setSearchDocs(e.target.value)}
+              className="pl-9"
+            />
+          </div>
           <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-            {documentosGrupo?.documentos.map((doc: any, i: number) => (
+            {documentosFiltrados.map((doc: any, i: number) => (
               <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
                 <span className="truncate flex-1 text-sm font-medium">{doc.fileName}</span>
                 <span className="ml-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
