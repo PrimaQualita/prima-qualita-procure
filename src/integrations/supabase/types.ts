@@ -2817,6 +2817,10 @@ export type Database = {
         Args: { p_cotacao_id: string }
         Returns: undefined
       }
+      executar_delete_sem_trigger: {
+        Args: { p_coluna: string; p_path: string; p_tabela: string }
+        Returns: number
+      }
       get_all_file_references: {
         Args: never
         Returns: {
