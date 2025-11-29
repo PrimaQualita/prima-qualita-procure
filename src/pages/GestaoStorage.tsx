@@ -419,46 +419,6 @@ export default function GestaoStorage() {
                   )}
                 </CardContent>
               </Card>
-
-              {/* BOTÃO DE LIMPEZA TOTAL */}
-              <Card className="lg:col-span-3 border-red-600 bg-gradient-to-r from-red-50 to-orange-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="h-5 w-5 text-red-600 animate-pulse" />
-                        <p className="text-base font-bold text-red-900">⚠️ ZONA DE PERIGO ⚠️</p>
-                      </div>
-                      <p className="text-sm text-red-800 font-medium">
-                        Deletar TODOS os dados do sistema (banco + storage)
-                      </p>
-                      <p className="text-xs text-red-700/80 mt-1">
-                        Esta ação é <strong>IRREVERSÍVEL</strong> e vai limpar completamente o sistema. 
-                        Use apenas se realmente deseja começar do zero.
-                      </p>
-                    </div>
-                    <Button
-                      variant="destructive"
-                      onClick={limparTudo}
-                      disabled={limpando}
-                      size="lg"
-                      className="bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg"
-                    >
-                      {limpando ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          DELETANDO TUDO...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="mr-2 h-5 w-5" />
-                          DELETAR TUDO
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           )}
         </CardContent>
