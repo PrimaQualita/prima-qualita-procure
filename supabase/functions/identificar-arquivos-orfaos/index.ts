@@ -73,7 +73,12 @@ Deno.serve(async (req) => {
     };
 
     const files = await listAllFiles();
-    console.log(`Total de arquivos encontrados: ${files?.length || 0}`);
+    console.log(`Total de arquivos encontrados no storage: ${files?.length || 0}`);
+    
+    // Log dos primeiros 5 arquivos para debug
+    if (files && files.length > 0) {
+      console.log('Primeiros arquivos encontrados:', files.slice(0, 5).map(f => f.fullPath));
+    }
 
     // Buscar todas as URLs referenciadas no banco de dados
     const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
@@ -85,12 +90,28 @@ Deno.serve(async (req) => {
     const urlsReferenciadas = new Set(referencias?.map((r: any) => r.url) || []);
     
     console.log(`Total de URLs referenciadas no banco: ${urlsReferenciadas.size}`);
+    
+    // Log das primeiras 5 URLs para debug
+    if (referencias && referencias.length > 0) {
+      console.log('Primeiras URLs do banco:', Array.from(urlsReferenciadas).slice(0, 5));
+    }
 
     // Identificar arquivos órfãos
     const arquivosOrfaos = files?.filter(file => {
       const urlCompleta = `${supabaseUrl}/storage/v1/object/public/processo-anexos/${file.fullPath}`;
-      return !urlsReferenciadas.has(urlCompleta);
+      const isOrfao = !urlsReferenciadas.has(urlCompleta);
+      
+      // Log dos primeiros 3 arquivos órfãos para debug
+      if (isOrfao && arquivosOrfaos.length < 3) {
+        console.log(`Arquivo órfão encontrado: ${file.fullPath}`);
+        console.log(`URL montada: ${urlCompleta}`);
+        console.log(`Existe no banco: ${urlsReferenciadas.has(urlCompleta)}`);
+      }
+      
+      return isOrfao;
     }) || [];
+    
+    console.log(`Total de arquivos órfãos encontrados: ${arquivosOrfaos.length}`);
 
     // Calcular tamanho total
     const tamanhoTotal = arquivosOrfaos.reduce((acc, file) => acc + (file.metadata?.size || 0), 0);
