@@ -1070,6 +1070,7 @@ export type Database = {
           created_at: string
           gerado_por: string | null
           id: string
+          nome_arquivo: string | null
           processo_numero: string
           protocolo: string
           storage_path: string
@@ -1080,6 +1081,7 @@ export type Database = {
           created_at?: string
           gerado_por?: string | null
           id?: string
+          nome_arquivo?: string | null
           processo_numero: string
           protocolo: string
           storage_path: string
@@ -1090,6 +1092,7 @@ export type Database = {
           created_at?: string
           gerado_por?: string | null
           id?: string
+          nome_arquivo?: string | null
           processo_numero?: string
           protocolo?: string
           storage_path?: string

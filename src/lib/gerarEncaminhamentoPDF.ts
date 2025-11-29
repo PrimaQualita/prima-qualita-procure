@@ -198,9 +198,28 @@ export const gerarEncaminhamentoPDF = async (
   });
   doc.setTextColor(0, 0, 0);
   
+  // Buscar encaminhamentos anteriores do mesmo processo
+  const { data: encaminhamentosAnteriores } = await supabase
+    .from('encaminhamentos_processo')
+    .select('id')
+    .eq('processo_numero', numeroProcesso)
+    .order('created_at', { ascending: true });
+  
+  // Determinar o nome sequencial
+  let nomeArquivo = 'Encaminhamentos Compliance.pdf';
+  const totalAnteriores = encaminhamentosAnteriores?.length || 0;
+  
+  if (totalAnteriores > 0) {
+    // Converter para números romanos: I, II, III, etc.
+    const numerosRomanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+                             'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+    const numeroRomano = numerosRomanos[totalAnteriores - 1] || `${totalAnteriores}`;
+    nomeArquivo = `Encaminhamentos Compliance ${numeroRomano}.pdf`;
+  }
+  
   // Salvar no Supabase Storage
   const pdfBlob = doc.output('blob');
-  const fileName = `encaminhamento_${numeroProcesso}_${Date.now()}.pdf`;
+  const fileName = `encaminhamento_${numeroProcesso.replace(/\//g, '_')}_${Date.now()}.pdf`;
   const storagePath = `encaminhamentos/${fileName}`;
   
   const { error: uploadError } = await supabase.storage
@@ -223,7 +242,7 @@ export const gerarEncaminhamentoPDF = async (
   
   return {
     url: urlData.publicUrl,
-    fileName,
+    fileName: nomeArquivo,
     protocolo,
     storagePath
   };
