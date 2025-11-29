@@ -119,19 +119,19 @@ Deno.serve(async (req) => {
     console.log(`📊 Referências no banco: ${pathsDB.size}`);
 
     // Calcular estatísticas por categoria
-    const estatisticasPorCategoria: Record<string, { arquivos: number; tamanho: number }> = {
-      documentos_fornecedores: { arquivos: 0, tamanho: 0 },
-      propostas_selecao: { arquivos: 0, tamanho: 0 },
-      anexos_selecao: { arquivos: 0, tamanho: 0 },
-      planilhas_lances: { arquivos: 0, tamanho: 0 },
-      recursos: { arquivos: 0, tamanho: 0 },
-      encaminhamentos: { arquivos: 0, tamanho: 0 },
-      termos_referencia: { arquivos: 0, tamanho: 0 },
-      requisicoes: { arquivos: 0, tamanho: 0 },
-      autorizacao_despesa: { arquivos: 0, tamanho: 0 },
-      processos_anexos_outros: { arquivos: 0, tamanho: 0 },
-      capas_processo: { arquivos: 0, tamanho: 0 },
-      outros: { arquivos: 0, tamanho: 0 }
+    const estatisticasPorCategoria: Record<string, { arquivos: number; tamanho: number; detalhes: Array<{ path: string; size: number }> }> = {
+      documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [] },
+      propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [] },
+      anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [] },
+      planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [] },
+      recursos: { arquivos: 0, tamanho: 0, detalhes: [] },
+      encaminhamentos: { arquivos: 0, tamanho: 0, detalhes: [] },
+      termos_referencia: { arquivos: 0, tamanho: 0, detalhes: [] },
+      requisicoes: { arquivos: 0, tamanho: 0, detalhes: [] },
+      autorizacao_despesa: { arquivos: 0, tamanho: 0, detalhes: [] },
+      processos_anexos_outros: { arquivos: 0, tamanho: 0, detalhes: [] },
+      capas_processo: { arquivos: 0, tamanho: 0, detalhes: [] },
+      outros: { arquivos: 0, tamanho: 0, detalhes: [] }
     };
 
     for (const [path, metadata] of arquivosStorage) {
@@ -139,50 +139,62 @@ Deno.serve(async (req) => {
         // Capas de processo
         estatisticasPorCategoria.capas_processo.arquivos++;
         estatisticasPorCategoria.capas_processo.tamanho += metadata.size;
+        estatisticasPorCategoria.capas_processo.detalhes.push({ path, size: metadata.size });
       } else if (path.startsWith('fornecedor_') && !path.includes('selecao')) {
         // Documentos de cadastro de fornecedores (CNDs, CNPJ, etc.)
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
         estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
+        estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, size: metadata.size });
       } else if (path.startsWith('fornecedor_') && path.includes('selecao')) {
         // Propostas de fornecedores em seleções
         estatisticasPorCategoria.propostas_selecao.arquivos++;
         estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
+        estatisticasPorCategoria.propostas_selecao.detalhes.push({ path, size: metadata.size });
       } else if (path.startsWith('selecoes/')) {
         // Anexos de seleção (avisos, editais)
         estatisticasPorCategoria.anexos_selecao.arquivos++;
         estatisticasPorCategoria.anexos_selecao.tamanho += metadata.size;
+        estatisticasPorCategoria.anexos_selecao.detalhes.push({ path, size: metadata.size });
       } else if (path.startsWith('selecao_') && path.includes('planilha')) {
         // Planilhas de lances
         estatisticasPorCategoria.planilhas_lances.arquivos++;
         estatisticasPorCategoria.planilhas_lances.tamanho += metadata.size;
+        estatisticasPorCategoria.planilhas_lances.detalhes.push({ path, size: metadata.size });
       } else if (path.startsWith('recursos/')) {
         // Recursos e respostas
         estatisticasPorCategoria.recursos.arquivos++;
         estatisticasPorCategoria.recursos.tamanho += metadata.size;
+        estatisticasPorCategoria.recursos.detalhes.push({ path, size: metadata.size });
       } else if (path.startsWith('encaminhamentos/')) {
         // Encaminhamentos
         estatisticasPorCategoria.encaminhamentos.arquivos++;
         estatisticasPorCategoria.encaminhamentos.tamanho += metadata.size;
+        estatisticasPorCategoria.encaminhamentos.detalhes.push({ path, size: metadata.size });
       } else if (path.startsWith('processo_')) {
         // Anexos de processos - categorizar por tipo
         const tipoAnexo = anexosTipoMap.get(path);
         if (tipoAnexo === 'termo_referencia') {
           estatisticasPorCategoria.termos_referencia.arquivos++;
           estatisticasPorCategoria.termos_referencia.tamanho += metadata.size;
+          estatisticasPorCategoria.termos_referencia.detalhes.push({ path, size: metadata.size });
         } else if (tipoAnexo === 'requisicao') {
           estatisticasPorCategoria.requisicoes.arquivos++;
           estatisticasPorCategoria.requisicoes.tamanho += metadata.size;
+          estatisticasPorCategoria.requisicoes.detalhes.push({ path, size: metadata.size });
         } else if (tipoAnexo === 'autorizacao_despesa') {
           estatisticasPorCategoria.autorizacao_despesa.arquivos++;
           estatisticasPorCategoria.autorizacao_despesa.tamanho += metadata.size;
+          estatisticasPorCategoria.autorizacao_despesa.detalhes.push({ path, size: metadata.size });
         } else {
           estatisticasPorCategoria.processos_anexos_outros.arquivos++;
           estatisticasPorCategoria.processos_anexos_outros.tamanho += metadata.size;
+          estatisticasPorCategoria.processos_anexos_outros.detalhes.push({ path, size: metadata.size });
         }
       } else {
         // Outros
         estatisticasPorCategoria.outros.arquivos++;
         estatisticasPorCategoria.outros.tamanho += metadata.size;
+        estatisticasPorCategoria.outros.detalhes.push({ path, size: metadata.size });
       }
     }
 
@@ -216,51 +228,63 @@ Deno.serve(async (req) => {
       estatisticasPorCategoria: {
         documentos_fornecedores: {
           arquivos: estatisticasPorCategoria.documentos_fornecedores.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.documentos_fornecedores.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.documentos_fornecedores.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.documentos_fornecedores.detalhes
         },
         propostas_selecao: {
           arquivos: estatisticasPorCategoria.propostas_selecao.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.propostas_selecao.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.propostas_selecao.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.propostas_selecao.detalhes
         },
         anexos_selecao: {
           arquivos: estatisticasPorCategoria.anexos_selecao.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.anexos_selecao.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.anexos_selecao.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.anexos_selecao.detalhes
         },
         planilhas_lances: {
           arquivos: estatisticasPorCategoria.planilhas_lances.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.planilhas_lances.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.planilhas_lances.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.planilhas_lances.detalhes
         },
         recursos: {
           arquivos: estatisticasPorCategoria.recursos.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.recursos.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.recursos.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.recursos.detalhes
         },
         encaminhamentos: {
           arquivos: estatisticasPorCategoria.encaminhamentos.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.encaminhamentos.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.encaminhamentos.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.encaminhamentos.detalhes
         },
         termos_referencia: {
           arquivos: estatisticasPorCategoria.termos_referencia.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.termos_referencia.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.termos_referencia.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.termos_referencia.detalhes
         },
         requisicoes: {
           arquivos: estatisticasPorCategoria.requisicoes.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.requisicoes.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.requisicoes.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.requisicoes.detalhes
         },
         autorizacao_despesa: {
           arquivos: estatisticasPorCategoria.autorizacao_despesa.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.autorizacao_despesa.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.autorizacao_despesa.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.autorizacao_despesa.detalhes
         },
         processos_anexos_outros: {
           arquivos: estatisticasPorCategoria.processos_anexos_outros.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.processos_anexos_outros.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.processos_anexos_outros.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.processos_anexos_outros.detalhes
         },
         capas_processo: {
           arquivos: estatisticasPorCategoria.capas_processo.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.capas_processo.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.capas_processo.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.capas_processo.detalhes
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.outros.tamanho / (1024 * 1024)).toFixed(2))
+          tamanhoMB: Number((estatisticasPorCategoria.outros.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.outros.detalhes
         }
       }
     };

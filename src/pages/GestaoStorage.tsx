@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Database, HardDrive, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Trash2, Database, HardDrive, AlertTriangle, CheckCircle2, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -10,6 +11,7 @@ export default function GestaoStorage() {
   const [analisando, setAnalisando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [limpando, setLimpando] = useState(false);
+  const [categoriaDetalhes, setCategoriaDetalhes] = useState<{categoria: string, arquivos: any[]} | null>(null);
 
   const executarAnalise = async () => {
     setAnalisando(true);
@@ -202,156 +204,324 @@ export default function GestaoStorage() {
               {/* Estatísticas Detalhadas por Categoria */}
               <Card className="border-purple-200 bg-purple-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-purple-900">Docs Cadastro</p>
-                    <p className="text-2xl font-bold text-purple-700">{resultado.estatisticasPorCategoria?.documentos_fornecedores?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-purple-600">
-                      {resultado.estatisticasPorCategoria?.documentos_fornecedores?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-purple-700/70">CNDs, CNPJ, etc.</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-purple-900">Docs Cadastro</p>
+                      <p className="text-2xl font-bold text-purple-700">{resultado.estatisticasPorCategoria?.documentos_fornecedores?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-purple-600">
+                        {resultado.estatisticasPorCategoria?.documentos_fornecedores?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-purple-700/70">CNDs, CNPJ, etc.</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.documentos_fornecedores?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Documentos de Cadastro',
+                          arquivos: resultado.estatisticasPorCategoria.documentos_fornecedores.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-indigo-200 bg-indigo-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-indigo-900">Propostas Seleção</p>
-                    <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.propostas_selecao?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-indigo-600">
-                      {resultado.estatisticasPorCategoria?.propostas_selecao?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-indigo-700/70">PDFs de propostas</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-indigo-900">Propostas Seleção</p>
+                      <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.propostas_selecao?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-indigo-600">
+                        {resultado.estatisticasPorCategoria?.propostas_selecao?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-indigo-700/70">PDFs de propostas</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.propostas_selecao?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Propostas de Seleção',
+                          arquivos: resultado.estatisticasPorCategoria.propostas_selecao.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-cyan-200 bg-cyan-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-cyan-900">Anexos Seleção</p>
-                    <p className="text-2xl font-bold text-cyan-700">{resultado.estatisticasPorCategoria?.anexos_selecao?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-cyan-600">
-                      {resultado.estatisticasPorCategoria?.anexos_selecao?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-cyan-700/70">Avisos, editais</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-cyan-900">Anexos Seleção</p>
+                      <p className="text-2xl font-bold text-cyan-700">{resultado.estatisticasPorCategoria?.anexos_selecao?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-cyan-600">
+                        {resultado.estatisticasPorCategoria?.anexos_selecao?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-cyan-700/70">Avisos, editais</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.anexos_selecao?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Anexos de Seleção',
+                          arquivos: resultado.estatisticasPorCategoria.anexos_selecao.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-teal-200 bg-teal-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-teal-900">Planilhas Lances</p>
-                    <p className="text-2xl font-bold text-teal-700">{resultado.estatisticasPorCategoria?.planilhas_lances?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-teal-600">
-                      {resultado.estatisticasPorCategoria?.planilhas_lances?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-teal-700/70">Consolidadas</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-teal-900">Planilhas Lances</p>
+                      <p className="text-2xl font-bold text-teal-700">{resultado.estatisticasPorCategoria?.planilhas_lances?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-teal-600">
+                        {resultado.estatisticasPorCategoria?.planilhas_lances?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-teal-700/70">Consolidadas</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.planilhas_lances?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Planilhas de Lances',
+                          arquivos: resultado.estatisticasPorCategoria.planilhas_lances.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-amber-200 bg-amber-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-amber-900">Recursos</p>
-                    <p className="text-2xl font-bold text-amber-700">{resultado.estatisticasPorCategoria?.recursos?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-amber-600">
-                      {resultado.estatisticasPorCategoria?.recursos?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-amber-700/70">Enviados e respostas</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-amber-900">Recursos</p>
+                      <p className="text-2xl font-bold text-amber-700">{resultado.estatisticasPorCategoria?.recursos?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-amber-600">
+                        {resultado.estatisticasPorCategoria?.recursos?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-amber-700/70">Enviados e respostas</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.recursos?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Recursos',
+                          arquivos: resultado.estatisticasPorCategoria.recursos.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-emerald-200 bg-emerald-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-emerald-900">Encaminhamentos</p>
-                    <p className="text-2xl font-bold text-emerald-700">{resultado.estatisticasPorCategoria?.encaminhamentos?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-emerald-600">
-                      {resultado.estatisticasPorCategoria?.encaminhamentos?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-emerald-700/70">PDFs oficiais</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-emerald-900">Encaminhamentos</p>
+                      <p className="text-2xl font-bold text-emerald-700">{resultado.estatisticasPorCategoria?.encaminhamentos?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-emerald-600">
+                        {resultado.estatisticasPorCategoria?.encaminhamentos?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-emerald-700/70">PDFs oficiais</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.encaminhamentos?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Encaminhamentos',
+                          arquivos: resultado.estatisticasPorCategoria.encaminhamentos.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-indigo-200 bg-indigo-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-indigo-900">Termos de Referência</p>
-                    <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.termos_referencia?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-indigo-600">
-                      {resultado.estatisticasPorCategoria?.termos_referencia?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-indigo-700/70">Anexados em processos</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-indigo-900">Termos de Referência</p>
+                      <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.termos_referencia?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-indigo-600">
+                        {resultado.estatisticasPorCategoria?.termos_referencia?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-indigo-700/70">Anexados em processos</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.termos_referencia?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Termos de Referência',
+                          arquivos: resultado.estatisticasPorCategoria.termos_referencia.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-violet-200 bg-violet-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-violet-900">Requisições</p>
-                    <p className="text-2xl font-bold text-violet-700">{resultado.estatisticasPorCategoria?.requisicoes?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-violet-600">
-                      {resultado.estatisticasPorCategoria?.requisicoes?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-violet-700/70">Anexadas em processos</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-violet-900">Requisições</p>
+                      <p className="text-2xl font-bold text-violet-700">{resultado.estatisticasPorCategoria?.requisicoes?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-violet-600">
+                        {resultado.estatisticasPorCategoria?.requisicoes?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-violet-700/70">Anexadas em processos</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.requisicoes?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Requisições',
+                          arquivos: resultado.estatisticasPorCategoria.requisicoes.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-fuchsia-200 bg-fuchsia-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-fuchsia-900">Autorização da Despesa</p>
-                    <p className="text-2xl font-bold text-fuchsia-700">{resultado.estatisticasPorCategoria?.autorizacao_despesa?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-fuchsia-600">
-                      {resultado.estatisticasPorCategoria?.autorizacao_despesa?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-fuchsia-700/70">Anexadas em processos</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-fuchsia-900">Autorização da Despesa</p>
+                      <p className="text-2xl font-bold text-fuchsia-700">{resultado.estatisticasPorCategoria?.autorizacao_despesa?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-fuchsia-600">
+                        {resultado.estatisticasPorCategoria?.autorizacao_despesa?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-fuchsia-700/70">Anexadas em processos</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.autorizacao_despesa?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Autorização da Despesa',
+                          arquivos: resultado.estatisticasPorCategoria.autorizacao_despesa.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-rose-200 bg-rose-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-rose-900">Outros Anexos Processos</p>
-                    <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.processos_anexos_outros?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-rose-600">
-                      {resultado.estatisticasPorCategoria?.processos_anexos_outros?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-rose-700/70">Outros anexos</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-rose-900">Outros Anexos Processos</p>
+                      <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.processos_anexos_outros?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-rose-600">
+                        {resultado.estatisticasPorCategoria?.processos_anexos_outros?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-rose-700/70">Outros anexos</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.processos_anexos_outros?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Outros Anexos Processos',
+                          arquivos: resultado.estatisticasPorCategoria.processos_anexos_outros.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-sky-200 bg-sky-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-sky-900">Capas Processo</p>
-                    <p className="text-2xl font-bold text-sky-700">{resultado.estatisticasPorCategoria?.capas_processo?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-sky-600">
-                      {resultado.estatisticasPorCategoria?.capas_processo?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-sky-700/70">PDFs de capa</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-sky-900">Capas Processo</p>
+                      <p className="text-2xl font-bold text-sky-700">{resultado.estatisticasPorCategoria?.capas_processo?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-sky-600">
+                        {resultado.estatisticasPorCategoria?.capas_processo?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-sky-700/70">PDFs de capa</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.capas_processo?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Capas Processo',
+                          arquivos: resultado.estatisticasPorCategoria.capas_processo.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-slate-200 bg-slate-50/50">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-slate-900">Outros</p>
-                    <p className="text-2xl font-bold text-slate-700">{resultado.estatisticasPorCategoria?.outros?.arquivos || 0}</p>
-                    <p className="text-sm font-semibold text-slate-600">
-                      {resultado.estatisticasPorCategoria?.outros?.tamanhoMB || 0} MB
-                    </p>
-                    <p className="text-xs text-slate-700/70">Não categorizados</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-slate-900">Outros</p>
+                      <p className="text-2xl font-bold text-slate-700">{resultado.estatisticasPorCategoria?.outros?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-slate-600">
+                        {resultado.estatisticasPorCategoria?.outros?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-slate-700/70">Não categorizados</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.outros?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCategoriaDetalhes({
+                          categoria: 'Outros',
+                          arquivos: resultado.estatisticasPorCategoria.outros.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -475,6 +645,24 @@ export default function GestaoStorage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!categoriaDetalhes} onOpenChange={() => setCategoriaDetalhes(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{categoriaDetalhes?.categoria}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {categoriaDetalhes?.arquivos.map((arq: any, i: number) => (
+              <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
+                <span className="truncate flex-1 text-sm">{arq.path}</span>
+                <span className="ml-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
+                  {(arq.size / 1024).toFixed(1)} KB
+                </span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
