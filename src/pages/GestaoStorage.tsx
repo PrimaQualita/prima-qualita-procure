@@ -12,6 +12,8 @@ export default function GestaoStorage() {
   const [resultado, setResultado] = useState<any>(null);
   const [limpando, setLimpando] = useState(false);
   const [categoriaDetalhes, setCategoriaDetalhes] = useState<{categoria: string, arquivos: any[]} | null>(null);
+  const [fornecedorDetalhes, setFornecedorDetalhes] = useState<{fornecedor: string, documentos: any[]} | null>(null);
+  const [documentosFornecedores, setDocumentosFornecedores] = useState<any[] | null>(null);
 
   const executarAnalise = async () => {
     setAnalisando(true);
@@ -213,14 +215,11 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-purple-700/70">CNDs, CNPJ, etc.</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.documentos_fornecedores?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.documentos_fornecedores?.porFornecedor?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Documentos de Cadastro',
-                          arquivos: resultado.estatisticasPorCategoria.documentos_fornecedores.detalhes
-                        })}
+                        onClick={() => setDocumentosFornecedores(resultado.estatisticasPorCategoria.documentos_fornecedores.porFornecedor)}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -657,6 +656,62 @@ export default function GestaoStorage() {
                 <span className="truncate flex-1 text-sm font-medium">{arq.fileName || arq.path}</span>
                 <span className="ml-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
                   {(arq.size / 1024).toFixed(1)} KB
+                </span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo específico para Documentos de Fornecedores */}
+      <Dialog open={!!documentosFornecedores} onOpenChange={() => setDocumentosFornecedores(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Documentos de Cadastro - Por Fornecedor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {documentosFornecedores?.map((fornecedor: any) => (
+              <Card key={fornecedor.fornecedorId} className="border-purple-200">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2 mb-4">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg text-purple-900">{fornecedor.fornecedorNome}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {fornecedor.documentos.length} documento{fornecedor.documentos.length !== 1 ? 's' : ''} • {' '}
+                        {(fornecedor.documentos.reduce((sum: number, doc: any) => sum + doc.size, 0) / 1024).toFixed(1)} KB total
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setFornecedorDetalhes({
+                        fornecedor: fornecedor.fornecedorNome,
+                        documentos: fornecedor.documentos
+                      })}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Ver Documentos
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de Detalhes de Documentos do Fornecedor */}
+      <Dialog open={!!fornecedorDetalhes} onOpenChange={() => setFornecedorDetalhes(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{fornecedorDetalhes?.fornecedor} - Documentos</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {fornecedorDetalhes?.documentos.map((doc: any, i: number) => (
+              <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
+                <span className="truncate flex-1 text-sm font-medium">{doc.fileName}</span>
+                <span className="ml-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
+                  {(doc.size / 1024).toFixed(1)} KB
                 </span>
               </div>
             ))}
