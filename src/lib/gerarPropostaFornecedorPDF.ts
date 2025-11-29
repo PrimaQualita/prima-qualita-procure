@@ -242,13 +242,14 @@ export async function gerarPropostaFornecedorPDF(
       doc.text('DESCONTO (%)', 183.5, y, { align: 'center' });
     } else {
       // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-      doc.text('ITEM', 20, y, { align: 'center' });
+      // ITEM (15) | DESCRIÇÃO (60) | MARCA (25) | QTD (15) | UNID (20) | VL.UNIT (30) | VL.TOTAL (30)
+      doc.text('ITEM', 22.5, y, { align: 'center' });
       doc.text('DESCRIÇÃO', 60, y, { align: 'center' });
-      doc.text('MARCA', 115, y, { align: 'center' });
-      doc.text('QTD', 137, y, { align: 'center' });
-      doc.text('UNID', 154, y, { align: 'center' });
-      doc.text('VL. UNIT.', 171, y, { align: 'center' });
-      doc.text('VL. TOTAL', 186.5, y, { align: 'center' });
+      doc.text('MARCA', 111, y, { align: 'center' });
+      doc.text('QTD', 129, y, { align: 'center' });
+      doc.text('UNID', 149, y, { align: 'center' });
+      doc.text('VL. UNIT.', 174, y, { align: 'center' });
+      doc.text('VL. TOTAL', 189.5, y, { align: 'center' });
     }
     
     y += 6;
@@ -293,13 +294,13 @@ export async function gerarPropostaFornecedorPDF(
           doc.text('DESCONTO (%)', 183.5, y, { align: 'center' });
         } else {
           // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-          doc.text('ITEM', 20, y, { align: 'center' });
+          doc.text('ITEM', 22.5, y, { align: 'center' });
           doc.text('DESCRIÇÃO', 60, y, { align: 'center' });
-          doc.text('MARCA', 115, y, { align: 'center' });
-          doc.text('QTD', 137, y, { align: 'center' });
-          doc.text('UNID', 154, y, { align: 'center' });
-          doc.text('VL. UNIT.', 171, y, { align: 'center' });
-          doc.text('VL. TOTAL', 186.5, y, { align: 'center' });
+          doc.text('MARCA', 111, y, { align: 'center' });
+          doc.text('QTD', 129, y, { align: 'center' });
+          doc.text('UNID', 149, y, { align: 'center' });
+          doc.text('VL. UNIT.', 174, y, { align: 'center' });
+          doc.text('VL. TOTAL', 189.5, y, { align: 'center' });
         }
         y += 6;
         doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
@@ -338,12 +339,12 @@ export async function gerarPropostaFornecedorPDF(
         doc.line(172, yTop, 172, yBottom); // Após UNID
       } else {
         // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-        doc.line(25, yTop, 25, yBottom);   // Após ITEM
-        doc.line(100, yTop, 100, yBottom); // Após DESCRIÇÃO
-        doc.line(130, yTop, 130, yBottom); // Após MARCA
-        doc.line(145, yTop, 145, yBottom); // Após QTD
-        doc.line(163, yTop, 163, yBottom); // Após UNID
-        doc.line(179, yTop, 179, yBottom); // Após VL. UNIT.
+        doc.line(30, yTop, 30, yBottom);   // Após ITEM
+        doc.line(98, yTop, 98, yBottom);   // Após DESCRIÇÃO
+        doc.line(123, yTop, 123, yBottom); // Após MARCA
+        doc.line(136, yTop, 136, yBottom); // Após QTD
+        doc.line(159, yTop, 159, yBottom); // Após UNID
+        doc.line(180, yTop, 180, yBottom); // Após VL. UNIT.
       }
       
       // Bordas externas da tabela (esquerda e direita)
@@ -354,7 +355,7 @@ export async function gerarPropostaFornecedorPDF(
       const yCenter = yTop + (alturaLinha / 2) + 1.5;
       
       // Número do item (centralizado verticalmente)
-      doc.text(itemCotacao.numero_item.toString(), 20, yCenter, { align: 'center' });
+      doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
         // Critério DESCONTO: largura maior para descrição (96)
@@ -370,18 +371,33 @@ export async function gerarPropostaFornecedorPDF(
           : '-';
         doc.text(descontoFormatted, 183.5, yCenter, { align: 'center' });
       } else {
-        // Outros critérios: largura menor para descrição (72) para dar espaço às outras colunas
+        // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
-        doc.text(linhasDescricao, 27, yDescStart, { maxWidth: 72, align: 'justify' });
+        doc.text(linhasDescricao, 32, yDescStart, { maxWidth: 65, align: 'justify' });
         
-        doc.text(item.marca || '-', 115, yCenter, { align: 'center' });
-        doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 137, yCenter, { align: 'center' });
-        doc.text(itemCotacao.unidade, 154, yCenter, { align: 'center' });
+        // Quebrar texto das outras colunas também
+        const marcaLinhas = doc.splitTextToSize(item.marca || '-', 23);
+        const yMarcaStart = yTop + (alturaLinha - marcaLinhas.length * 3.5) / 2 + 2.5;
+        doc.text(marcaLinhas, 111, yMarcaStart, { align: 'center' });
+        
+        const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 12);
+        const yQtdStart = yTop + (alturaLinha - qtdLinhas.length * 3.5) / 2 + 2.5;
+        doc.text(qtdLinhas, 129, yQtdStart, { align: 'center' });
+        
+        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, 18);
+        const yUnidStart = yTop + (alturaLinha - unidLinhas.length * 3.5) / 2 + 2.5;
+        doc.text(unidLinhas, 149, yUnidStart, { align: 'center' });
         
         const valorUnitFormatted = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const valorTotalFormatted = valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        doc.text(valorUnitFormatted, 171, yCenter, { align: 'center' });
-        doc.text(valorTotalFormatted, 186.5, yCenter, { align: 'center' });
+        
+        const vlUnitLinhas = doc.splitTextToSize(valorUnitFormatted, 24);
+        const yVlUnitStart = yTop + (alturaLinha - vlUnitLinhas.length * 3.5) / 2 + 2.5;
+        doc.text(vlUnitLinhas, 174, yVlUnitStart, { align: 'center' });
+        
+        const vlTotalLinhas = doc.splitTextToSize(valorTotalFormatted, 24);
+        const yVlTotalStart = yTop + (alturaLinha - vlTotalLinhas.length * 3.5) / 2 + 2.5;
+        doc.text(vlTotalLinhas, 189.5, yVlTotalStart, { align: 'center' });
       }
       
       y += alturaLinha;
