@@ -466,6 +466,18 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-rose-700/70">Outros anexos</p>
                     </div>
+                    {resultado.estatisticasPorCategoria?.processos_anexos_outros?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDocumentosGrupo({
+                          nome: 'Outros Anexos de Processos',
+                          documentos: resultado.estatisticasPorCategoria.processos_anexos_outros.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -509,6 +521,18 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-slate-700/70">Não categorizados</p>
                     </div>
+                    {resultado.estatisticasPorCategoria?.outros?.detalhes?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDocumentosGrupo({
+                          nome: 'Outros (Não Categorizados)',
+                          documentos: resultado.estatisticasPorCategoria.outros.detalhes
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -523,12 +547,7 @@ export default function GestaoStorage() {
                       </div>
                       <div className="flex items-center gap-4 mt-2">
                         <div>
-                          <div className="text-xl font-bold text-orange-700 flex items-center gap-2">
-                            <span>{resultado.totalArquivosOrfaos}</span>
-                            {resultado.totalArquivosOrfaos > 0 && (
-                              <Badge variant="destructive">Deletar</Badge>
-                            )}
-                          </div>
+                          <p className="text-xl font-bold text-orange-700">{resultado.totalArquivosOrfaos}</p>
                           <p className="text-xs text-orange-700/80">arquivos órfãos</p>
                         </div>
                         <div className="border-l border-orange-300 pl-4">
@@ -542,42 +561,39 @@ export default function GestaoStorage() {
                         Arquivos que existem no storage mas NÃO têm referência no banco
                       </p>
                     </div>
-                    {resultado.totalArquivosOrfaos > 0 && (
-                      <Button
-                        variant="destructive"
-                        onClick={limparArquivos}
-                        disabled={limpando}
-                        size="lg"
-                      >
-                        {limpando ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="mr-2 h-4 w-4" />
-                        )}
-                        Limpar {resultado.totalArquivosOrfaos} arquivos
-                      </Button>
-                    )}
-                  </div>
-
-                  {resultado.arquivosOrfaos?.length > 0 && (
-                    <div className="text-xs text-muted-foreground max-h-40 overflow-y-auto bg-white/50 rounded p-3 space-y-1">
-                      {resultado.arquivosOrfaos.slice(0, 15).map((arq: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center py-1 border-b border-orange-100 last:border-0">
-                          <span className="truncate flex-1">{typeof arq === 'string' ? arq : arq.path}</span>
-                          {arq.size && (
-                            <span className="ml-2 text-orange-600 font-medium">
-                              {(arq.size / 1024).toFixed(1)} KB
-                            </span>
+                    <div className="flex gap-2">
+                      {resultado.totalArquivosOrfaos > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDocumentosGrupo({
+                            nome: 'Arquivos Órfãos no Storage',
+                            documentos: resultado.arquivosOrfaos.map((arq: any) => ({
+                              path: typeof arq === 'string' ? arq : arq.path,
+                              fileName: (typeof arq === 'string' ? arq : arq.path).split('/').pop(),
+                              size: typeof arq === 'object' ? arq.size : 0
+                            }))
+                          })}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {resultado.totalArquivosOrfaos > 0 && (
+                        <Button
+                          variant="destructive"
+                          onClick={limparArquivos}
+                          disabled={limpando}
+                        >
+                          {limpando ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="mr-2 h-4 w-4" />
                           )}
-                        </div>
-                      ))}
-                      {resultado.totalArquivosOrfaos > 15 && (
-                        <div className="text-center pt-2 text-orange-600 font-medium">
-                          ... e mais {resultado.totalArquivosOrfaos - 15} arquivos
-                        </div>
+                          Deletar {resultado.totalArquivosOrfaos}
+                        </Button>
                       )}
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
 
