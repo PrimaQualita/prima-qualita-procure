@@ -142,9 +142,9 @@ export function AppSidebar({ isGestor, profile, isCompliance = false, isResponsa
       href: "/auditoria",
     });
     menuItems.push({
-      title: "Limpeza Storage",
+      title: "Gestão de Storage",
       icon: Camera,
-      href: "/limpeza-arquivos-orfaos",
+      href: "/gestao-storage",
     });
   }
 
