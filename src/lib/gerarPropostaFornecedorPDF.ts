@@ -242,14 +242,13 @@ export async function gerarPropostaFornecedorPDF(
       doc.text('DESCONTO (%)', 183.5, y, { align: 'center' });
     } else {
       // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-      // ITEM (15) | DESCRIÇÃO (60) | MARCA (25) | QTD (15) | UNID (20) | VL.UNIT (30) | VL.TOTAL (30)
       doc.text('ITEM', 22.5, y, { align: 'center' });
-      doc.text('DESCRIÇÃO', 60, y, { align: 'center' });
-      doc.text('MARCA', 111, y, { align: 'center' });
-      doc.text('QTD', 129, y, { align: 'center' });
-      doc.text('UNID', 149, y, { align: 'center' });
-      doc.text('VL. UNIT.', 174, y, { align: 'center' });
-      doc.text('VL. TOTAL', 189.5, y, { align: 'center' });
+      doc.text('DESCRIÇÃO', 52.5, y, { align: 'center' });
+      doc.text('MARCA', 85, y, { align: 'center' });
+      doc.text('QTD', 101.5, y, { align: 'center' });
+      doc.text('UNID', 115, y, { align: 'center' });
+      doc.text('VL. UNIT.', 140, y, { align: 'center' });
+      doc.text('VL. TOTAL', 176.5, y, { align: 'center' });
     }
     
     y += 6;
@@ -269,7 +268,8 @@ export async function gerarPropostaFornecedorPDF(
       }
       
       // Quebrar descrição em múltiplas linhas com alinhamento justificado
-      const linhasDescricao = doc.splitTextToSize(itemCotacao.descricao, 96);
+      const maxWidthDesc = criterioJulgamento === 'desconto' ? 96 : 42;
+      const linhasDescricao = doc.splitTextToSize(itemCotacao.descricao, maxWidthDesc);
       const alturaLinha = Math.max(6, linhasDescricao.length * 4 + 2);
       
       // Verificar se precisa de nova página
@@ -295,12 +295,12 @@ export async function gerarPropostaFornecedorPDF(
         } else {
           // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
           doc.text('ITEM', 22.5, y, { align: 'center' });
-          doc.text('DESCRIÇÃO', 60, y, { align: 'center' });
-          doc.text('MARCA', 111, y, { align: 'center' });
-          doc.text('QTD', 129, y, { align: 'center' });
-          doc.text('UNID', 149, y, { align: 'center' });
-          doc.text('VL. UNIT.', 174, y, { align: 'center' });
-          doc.text('VL. TOTAL', 189.5, y, { align: 'center' });
+          doc.text('DESCRIÇÃO', 52.5, y, { align: 'center' });
+          doc.text('MARCA', 85, y, { align: 'center' });
+          doc.text('QTD', 101.5, y, { align: 'center' });
+          doc.text('UNID', 115, y, { align: 'center' });
+          doc.text('VL. UNIT.', 140, y, { align: 'center' });
+          doc.text('VL. TOTAL', 176.5, y, { align: 'center' });
         }
         y += 6;
         doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
@@ -340,11 +340,11 @@ export async function gerarPropostaFornecedorPDF(
       } else {
         // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
         doc.line(30, yTop, 30, yBottom);   // Após ITEM
-        doc.line(98, yTop, 98, yBottom);   // Após DESCRIÇÃO
-        doc.line(123, yTop, 123, yBottom); // Após MARCA
-        doc.line(136, yTop, 136, yBottom); // Após QTD
-        doc.line(159, yTop, 159, yBottom); // Após UNID
-        doc.line(180, yTop, 180, yBottom); // Após VL. UNIT.
+        doc.line(75, yTop, 75, yBottom);   // Após DESCRIÇÃO
+        doc.line(95, yTop, 95, yBottom);   // Após MARCA
+        doc.line(108, yTop, 108, yBottom); // Após QTD
+        doc.line(122, yTop, 122, yBottom); // Após UNID
+        doc.line(158, yTop, 158, yBottom); // Após VL. UNIT.
       }
       
       // Bordas externas da tabela (esquerda e direita)
@@ -373,31 +373,31 @@ export async function gerarPropostaFornecedorPDF(
       } else {
         // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
-        doc.text(linhasDescricao, 32, yDescStart, { maxWidth: 65, align: 'justify' });
+        doc.text(linhasDescricao, 32, yDescStart, { maxWidth: 42, align: 'justify' });
         
         // Quebrar texto das outras colunas também
-        const marcaLinhas = doc.splitTextToSize(item.marca || '-', 23);
+        const marcaLinhas = doc.splitTextToSize(item.marca || '-', 18);
         const yMarcaStart = yTop + (alturaLinha - marcaLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(marcaLinhas, 111, yMarcaStart, { align: 'center' });
+        doc.text(marcaLinhas, 85, yMarcaStart, { align: 'center' });
         
         const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 12);
         const yQtdStart = yTop + (alturaLinha - qtdLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(qtdLinhas, 129, yQtdStart, { align: 'center' });
+        doc.text(qtdLinhas, 101.5, yQtdStart, { align: 'center' });
         
-        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, 18);
+        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, 13);
         const yUnidStart = yTop + (alturaLinha - unidLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(unidLinhas, 149, yUnidStart, { align: 'center' });
+        doc.text(unidLinhas, 115, yUnidStart, { align: 'center' });
         
         const valorUnitFormatted = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const valorTotalFormatted = valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
-        const vlUnitLinhas = doc.splitTextToSize(valorUnitFormatted, 24);
+        const vlUnitLinhas = doc.splitTextToSize(valorUnitFormatted, 34);
         const yVlUnitStart = yTop + (alturaLinha - vlUnitLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(vlUnitLinhas, 174, yVlUnitStart, { align: 'center' });
+        doc.text(vlUnitLinhas, 140, yVlUnitStart, { align: 'center' });
         
-        const vlTotalLinhas = doc.splitTextToSize(valorTotalFormatted, 24);
+        const vlTotalLinhas = doc.splitTextToSize(valorTotalFormatted, 35);
         const yVlTotalStart = yTop + (alturaLinha - vlTotalLinhas.length * 3.5) / 2 + 2.5;
-        doc.text(vlTotalLinhas, 189.5, yVlTotalStart, { align: 'center' });
+        doc.text(vlTotalLinhas, 176.5, yVlTotalStart, { align: 'center' });
       }
       
       y += alturaLinha;
