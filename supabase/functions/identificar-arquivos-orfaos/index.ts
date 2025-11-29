@@ -53,11 +53,13 @@ Deno.serve(async (req) => {
       }
 
       let offset = 0;
-      const limit = 1000; // Máximo permitido pelo Supabase
+      const limit = 100; // CRÍTICO: API do Supabase Storage tem limite MÁXIMO de 100
       let continuarBuscando = true;
+      let iteracoes = 0;
 
       while (continuarBuscando) {
-        console.log(`📁 Buscando em "${path || 'ROOT'}" (offset: ${offset}, profundidade: ${depth})...`);
+        iteracoes++;
+        console.log(`📁 [${iteracoes}] Buscando em "${path || 'ROOT'}" (offset: ${offset}, limit: ${limit}, profundidade: ${depth})...`);
         
         const { data: items, error } = await supabase.storage
           .from('processo-anexos')
@@ -103,12 +105,16 @@ Deno.serve(async (req) => {
 
         console.log(`   ✓ Processado: ${arquivosNestePedaco} arquivos, ${pastasNestePedaco} pastas`);
 
-        // Se retornou EXATAMENTE o limite, pode haver mais
+        // CRÍTICO: Se retornou EXATAMENTE o limite, HÁ MAIS ITENS
+        // Continuar paginando mesmo que tenha retornado menos que o limite
         if (items.length === limit) {
           offset += limit;
-          console.log(`   ⏭️  Pode haver mais itens, continuando com offset ${offset}...`);
+          console.log(`   ⏭️  Retornou ${limit} itens (limite), continuando paginação com offset ${offset}...`);
+          // NÃO parar, há mais itens
         } else {
-          console.log(`   ✓ Fim da listagem em "${path || 'ROOT'}" (total acumulado: ${allFiles.length} arquivos)`);
+          // Retornou MENOS que o limite - acabou
+          console.log(`   ✓ Fim da listagem em "${path || 'ROOT'}" - retornou ${items.length} itens (menos que limite ${limit})`);
+          console.log(`   ✅ Total acumulado: ${allFiles.length} arquivos em ${iteracoes} iterações`);
           continuarBuscando = false;
         }
       }
