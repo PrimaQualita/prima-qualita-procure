@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
     }
 
     // Propostas de cotação (fornecedor e preços públicos)
-    const { data: propostasCotacao } = await supabase.from('anexos_cotacao_fornecedor').select('url_arquivo, nome_arquivo');
+    const { data: propostasCotacao } = await supabase.from('anexos_cotacao_fornecedor').select('url_arquivo, tipo_anexo');
     if (propostasCotacao) {
       for (const prop of propostasCotacao) {
         // Extrair path: se tem processo-anexos/, pega depois; senão pega após última barra ou usa direto
@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
           // Já é apenas o nome do arquivo
           path = path.split('?')[0];
         }
-        nomesBonitos.set(path, prop.nome_arquivo);
+        nomesBonitos.set(path, `${prop.tipo_anexo}.pdf`);
       }
     }
 
