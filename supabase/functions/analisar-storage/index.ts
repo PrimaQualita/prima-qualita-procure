@@ -669,7 +669,9 @@ Deno.serve(async (req) => {
         // Documentos de cotações (propostas, planilhas consolidadas, e-mails)
         estatisticasPorCategoria.cotacoes.arquivos++;
         estatisticasPorCategoria.cotacoes.tamanho += metadata.size;
-        estatisticasPorCategoria.cotacoes.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Nome de exibição (pode ser substituído por nome bonito do banco)
+        let displayName = fileName;
         
         // Buscar processo através da cotação
         let processoId = '';
@@ -678,11 +680,14 @@ Deno.serve(async (req) => {
         if (path.includes('-EMAIL.pdf')) {
           const { data: emailCotacao } = await supabase
             .from('emails_cotacao_anexados')
-            .select('cotacao_id')
+            .select('cotacao_id, nome_arquivo')
             .ilike('url_arquivo', `%${fileNameRaw}%`)
             .single();
           
           if (emailCotacao) {
+            // Usar o nome original do arquivo de e-mail
+            displayName = emailCotacao.nome_arquivo || fileName;
+            
             const cotacao = cotacoesMap.get(emailCotacao.cotacao_id);
             if (cotacao) {
               processoId = cotacao.processoId;
@@ -710,12 +715,16 @@ Deno.serve(async (req) => {
             .from('anexos_cotacao_fornecedor')
             .select(`
               cotacao_resposta_fornecedor_id,
+              nome_arquivo,
               cotacao_respostas_fornecedor!inner(cotacao_id)
             `)
             .ilike('url_arquivo', `%${fileNameRaw}%`)
             .single();
           
           if (anexoCotacao) {
+            // Usar o nome da proposta armazenado no banco
+            displayName = anexoCotacao.nome_arquivo || fileName;
+            
             const cotacaoId = (anexoCotacao as any).cotacao_respostas_fornecedor.cotacao_id;
             const cotacao = cotacoesMap.get(cotacaoId);
             if (cotacao) {
@@ -723,6 +732,8 @@ Deno.serve(async (req) => {
             }
           }
         }
+        
+        estatisticasPorCategoria.cotacoes.detalhes.push({ path, fileName: displayName, size: metadata.size });
         
         if (processoId) {
           const processo = processosMap.get(processoId);
