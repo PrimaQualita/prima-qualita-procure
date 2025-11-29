@@ -302,8 +302,9 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.capas_processo.tamanho += metadata.size;
         estatisticasPorCategoria.capas_processo.detalhes.push({ path, fileName, size: metadata.size });
         
-        // Agrupar por processo - extrair ID do processo do path ou nome do arquivo
-        const processoIdMatch = path.match(/processo_([a-f0-9-]+)/i) || fileName.match(/processo.*?([a-f0-9-]{8,})/i);
+        // Agrupar por processo - extrair ID do processo do path
+        // Path format: {processoId}/capa_processo_{timestamp}.pdf
+        const processoIdMatch = path.match(/^([a-f0-9-]+)\/capa_processo/i);
         if (processoIdMatch) {
           const processoId = processoIdMatch[1];
           const processo = processosMap.get(processoId);
