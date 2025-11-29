@@ -11,16 +11,102 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { tipo, paths } = await req.json();
-    console.log(`🗑️ Recebido pedido para limpar ${paths.length} ${tipo}`);
-
+    const body = await req.json();
+    const { tipo, paths, deletarTudo } = body;
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (tipo === 'arquivos') {
+    // Novo fluxo: deletar arquivos órfãos (seletivo ou todos)
+    if (paths || deletarTudo) {
+      let pathsParaDeletar = paths || [];
+      
+      // Se deletarTudo, buscar todos os arquivos órfãos
+      if (deletarTudo) {
+        console.log('🗑️ Buscando todos os arquivos órfãos para deletar...');
+        
+        // Buscar todas as referências do banco
+        const { data: referencias } = await supabase.rpc('get_all_file_references');
+        const referenciasSet = new Set(
+          (referencias || []).map((ref: any) => {
+            const url = ref.url || '';
+            return url.replace(/.*\/processo-anexos\//, '');
+          }).filter(Boolean)
+        );
+
+        // Listar todos os arquivos do storage
+        const { data: files } = await supabase.storage
+          .from('processo-anexos')
+          .list('', { limit: 10000, sortBy: { column: 'name', order: 'asc' } });
+
+        if (!files) {
+          throw new Error('Erro ao listar arquivos do storage');
+        }
+
+        // Coletar todos os arquivos do storage recursivamente
+        const allFiles: string[] = [];
+        const listAllFiles = async (path: string = '') => {
+          const { data: items } = await supabase.storage
+            .from('processo-anexos')
+            .list(path, { limit: 1000 });
+
+          if (!items) return;
+
+          for (const item of items) {
+            const fullPath = path ? `${path}/${item.name}` : item.name;
+            
+            if (item.id) {
+              allFiles.push(fullPath);
+            } else {
+              await listAllFiles(fullPath);
+            }
+          }
+        };
+
+        await listAllFiles();
+        
+        // Filtrar apenas órfãos
+        pathsParaDeletar = allFiles.filter(path => !referenciasSet.has(path));
+        console.log(`📋 Encontrados ${pathsParaDeletar.length} arquivos órfãos para deletar`);
+      }
+
+      if (pathsParaDeletar.length === 0) {
+        return new Response(
+          JSON.stringify({ deletados: 0, message: 'Nenhum arquivo para deletar' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`🗑️ Deletando ${pathsParaDeletar.length} arquivo(s) órfão(s)...`);
+      
       let deletados = 0;
-      for (const path of paths) {
+      for (const path of pathsParaDeletar) {
+        const { error } = await supabase.storage
+          .from('processo-anexos')
+          .remove([path]);
+        
+        if (!error) {
+          console.log(`✅ Arquivo deletado: ${path}`);
+          deletados++;
+        } else {
+          console.error(`❌ Erro ao deletar arquivo ${path}:`, error);
+        }
+      }
+      
+      return new Response(
+        JSON.stringify({ deletados }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fluxo antigo: limpar por tipo (arquivos ou referencias)
+    if (tipo === 'arquivos') {
+      const arquivoPaths = paths || [];
+      console.log(`🗑️ Recebido pedido para limpar ${arquivoPaths.length} arquivos`);
+      
+      let deletados = 0;
+      for (const path of arquivoPaths) {
         const { error } = await supabase.storage
           .from('processo-anexos')
           .remove([path]);
@@ -40,10 +126,11 @@ Deno.serve(async (req) => {
     }
 
     if (tipo === 'referencias') {
+      const refPaths = paths || [];
       let deletados = 0;
-      const limite = Math.min(paths.length, 50);
+      const limite = Math.min(refPaths.length, 50);
       
-      console.log(`📋 Processando ${limite} de ${paths.length} referências...`);
+      console.log(`📋 Processando ${limite} de ${refPaths.length} referências...`);
       
       // Lista de tabelas e colunas para verificar
       const queries = [
@@ -71,7 +158,7 @@ Deno.serve(async (req) => {
       ];
 
       for (let i = 0; i < limite; i++) {
-        const path = paths[i];
+        const path = refPaths[i];
         let encontrouAlgum = false;
         
         console.log(`\n🔍 [${i + 1}/${limite}] Processando: ${path}`);
@@ -110,12 +197,12 @@ Deno.serve(async (req) => {
       
       console.log(`\n✅ Total: ${deletados} referências deletadas de ${limite} processadas`);
       return new Response(
-        JSON.stringify({ deletados, processados: limite, restantes: paths.length - limite }),
+        JSON.stringify({ deletados, processados: limite, restantes: refPaths.length - limite }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    throw new Error('Tipo inválido');
+    throw new Error('Parâmetros inválidos');
 
   } catch (error) {
     console.error('❌ Erro:', error);

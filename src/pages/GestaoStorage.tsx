@@ -6,6 +6,7 @@ import { Loader2, Trash2, Database, HardDrive, AlertTriangle, CheckCircle2, Eye 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DialogGrupoDetalhes } from "@/components/storage/DialogGrupoDetalhes";
+import { DialogArquivosOrfaos } from "@/components/storage/DialogArquivosOrfaos";
 
 export default function GestaoStorage() {
   const [analisando, setAnalisando] = useState(false);
@@ -13,6 +14,7 @@ export default function GestaoStorage() {
   const [limpando, setLimpando] = useState(false);
   const [grupoDetalhes, setGrupoDetalhes] = useState<{titulo: string, tipo: string, grupos: any[]} | null>(null);
   const [documentosGrupo, setDocumentosGrupo] = useState<{nome: string, documentos: any[]} | null>(null);
+  const [dialogOrfaosAberto, setDialogOrfaosAberto] = useState(false);
 
   const executarAnalise = async () => {
     setAnalisando(true);
@@ -566,30 +568,9 @@ export default function GestaoStorage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setDocumentosGrupo({
-                            nome: 'Arquivos Órfãos no Storage',
-                            documentos: resultado.arquivosOrfaos.map((arq: any) => ({
-                              path: typeof arq === 'string' ? arq : arq.path,
-                              fileName: (typeof arq === 'string' ? arq : arq.path).split('/').pop(),
-                              size: typeof arq === 'object' ? arq.size : 0
-                            }))
-                          })}
+                          onClick={() => setDialogOrfaosAberto(true)}
                         >
                           <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {resultado.totalArquivosOrfaos > 0 && (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={limparArquivos}
-                          disabled={limpando}
-                        >
-                          {limpando ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
                         </Button>
                       )}
                     </div>
@@ -655,6 +636,13 @@ export default function GestaoStorage() {
         titulo={grupoDetalhes?.titulo || ''}
         tipo={grupoDetalhes?.tipo || ''}
         grupos={grupoDetalhes?.grupos || []}
+      />
+
+      <DialogArquivosOrfaos
+        open={dialogOrfaosAberto}
+        onOpenChange={setDialogOrfaosAberto}
+        arquivos={resultado?.arquivosOrfaos || []}
+        onArquivosDeletados={executarAnalise}
       />
     </div>
   );
