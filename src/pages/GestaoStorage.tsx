@@ -654,7 +654,7 @@ export default function GestaoStorage() {
           <div className="space-y-2">
             {categoriaDetalhes?.arquivos.map((arq: any, i: number) => (
               <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
-                <span className="truncate flex-1 text-sm">{arq.path}</span>
+                <span className="truncate flex-1 text-sm font-medium">{arq.fileName || arq.path}</span>
                 <span className="ml-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
                   {(arq.size / 1024).toFixed(1)} KB
                 </span>
