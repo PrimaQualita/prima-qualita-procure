@@ -73,6 +73,23 @@ Deno.serve(async (req) => {
       throw new Error(`Erro ao buscar referências: ${refError.message}`);
     }
 
+    // Buscar anexos de processos com seus tipos
+    const { data: anexosProcesso, error: anexosError } = await supabase
+      .from('anexos_processo_compra')
+      .select('url_arquivo, tipo_anexo');
+    
+    if (anexosError) {
+      console.error('Erro ao buscar anexos processo:', anexosError);
+    }
+    
+    // Criar mapa de URL -> tipo_anexo
+    const anexosTipoMap = new Map<string, string>();
+    if (anexosProcesso) {
+      for (const anexo of anexosProcesso) {
+        anexosTipoMap.set(anexo.url_arquivo, anexo.tipo_anexo);
+      }
+    }
+
     // Normalizar URLs - extrair apenas caminhos relativos
     const pathsDB = new Set<string>();
     const urlsOriginais = new Map<string, string>(); // Mapear path normalizado -> URL original
@@ -109,7 +126,10 @@ Deno.serve(async (req) => {
       planilhas_lances: { arquivos: 0, tamanho: 0 },
       recursos: { arquivos: 0, tamanho: 0 },
       encaminhamentos: { arquivos: 0, tamanho: 0 },
-      processos_anexos: { arquivos: 0, tamanho: 0 },
+      termos_referencia: { arquivos: 0, tamanho: 0 },
+      requisicoes: { arquivos: 0, tamanho: 0 },
+      autorizacao_despesa: { arquivos: 0, tamanho: 0 },
+      processos_anexos_outros: { arquivos: 0, tamanho: 0 },
       capas_processo: { arquivos: 0, tamanho: 0 },
       outros: { arquivos: 0, tamanho: 0 }
     };
@@ -144,9 +164,21 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.encaminhamentos.arquivos++;
         estatisticasPorCategoria.encaminhamentos.tamanho += metadata.size;
       } else if (path.startsWith('processo_')) {
-        // Anexos de processos
-        estatisticasPorCategoria.processos_anexos.arquivos++;
-        estatisticasPorCategoria.processos_anexos.tamanho += metadata.size;
+        // Anexos de processos - categorizar por tipo
+        const tipoAnexo = anexosTipoMap.get(path);
+        if (tipoAnexo === 'termo_referencia') {
+          estatisticasPorCategoria.termos_referencia.arquivos++;
+          estatisticasPorCategoria.termos_referencia.tamanho += metadata.size;
+        } else if (tipoAnexo === 'requisicao') {
+          estatisticasPorCategoria.requisicoes.arquivos++;
+          estatisticasPorCategoria.requisicoes.tamanho += metadata.size;
+        } else if (tipoAnexo === 'autorizacao_despesa') {
+          estatisticasPorCategoria.autorizacao_despesa.arquivos++;
+          estatisticasPorCategoria.autorizacao_despesa.tamanho += metadata.size;
+        } else {
+          estatisticasPorCategoria.processos_anexos_outros.arquivos++;
+          estatisticasPorCategoria.processos_anexos_outros.tamanho += metadata.size;
+        }
       } else {
         // Outros
         estatisticasPorCategoria.outros.arquivos++;
@@ -206,9 +238,21 @@ Deno.serve(async (req) => {
           arquivos: estatisticasPorCategoria.encaminhamentos.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.encaminhamentos.tamanho / (1024 * 1024)).toFixed(2))
         },
-        processos_anexos: {
-          arquivos: estatisticasPorCategoria.processos_anexos.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.processos_anexos.tamanho / (1024 * 1024)).toFixed(2))
+        termos_referencia: {
+          arquivos: estatisticasPorCategoria.termos_referencia.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.termos_referencia.tamanho / (1024 * 1024)).toFixed(2))
+        },
+        requisicoes: {
+          arquivos: estatisticasPorCategoria.requisicoes.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.requisicoes.tamanho / (1024 * 1024)).toFixed(2))
+        },
+        autorizacao_despesa: {
+          arquivos: estatisticasPorCategoria.autorizacao_despesa.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.autorizacao_despesa.tamanho / (1024 * 1024)).toFixed(2))
+        },
+        processos_anexos_outros: {
+          arquivos: estatisticasPorCategoria.processos_anexos_outros.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.processos_anexos_outros.tamanho / (1024 * 1024)).toFixed(2))
         },
         capas_processo: {
           arquivos: estatisticasPorCategoria.capas_processo.arquivos,
