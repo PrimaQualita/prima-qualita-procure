@@ -360,9 +360,8 @@ export function DialogProcesso({ open, onOpenChange, processo, contratoId, onSav
             <div className="grid gap-2">
               <Label htmlFor="criterio_julgamento">Critério de Julgamento *</Label>
               <Select
-                value={formData.criterio_julgamento}
+                value={formData.criterio_julgamento || undefined}
                 onValueChange={(value) => setFormData({ ...formData, criterio_julgamento: value })}
-                required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o critério de julgamento" />
