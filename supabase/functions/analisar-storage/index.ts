@@ -66,6 +66,91 @@ Deno.serve(async (req) => {
     const tamanhoTotal = Array.from(arquivosStorage.values()).reduce((acc, file) => acc + file.size, 0);
     console.log(`✅ Total de arquivos: ${totalArquivos} | Tamanho total: ${(tamanhoTotal / (1024 * 1024)).toFixed(2)} MB`);
 
+    // Buscar nomes "bonitos" dos documentos do banco de dados
+    const nomesBonitos = new Map<string, string>();
+    
+    // Atas de seleção
+    const { data: atas } = await supabase.from('atas_selecao').select('url_arquivo, nome_arquivo');
+    if (atas) {
+      for (const ata of atas) {
+        const path = ata.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || ata.url_arquivo;
+        nomesBonitos.set(path, ata.nome_arquivo);
+      }
+    }
+
+    // Homologações
+    const { data: homologacoes } = await supabase.from('homologacoes_selecao').select('url_arquivo, nome_arquivo');
+    if (homologacoes) {
+      for (const homol of homologacoes) {
+        const path = homol.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || homol.url_arquivo;
+        nomesBonitos.set(path, homol.nome_arquivo);
+      }
+    }
+
+    // Planilhas consolidadas
+    const { data: planilhas } = await supabase.from('planilhas_consolidadas').select('url_arquivo, nome_arquivo');
+    if (planilhas) {
+      for (const plan of planilhas) {
+        const path = plan.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || plan.url_arquivo;
+        nomesBonitos.set(path, plan.nome_arquivo);
+      }
+    }
+
+    // Planilhas de lances
+    const { data: planilhasLances } = await supabase.from('planilhas_lances_selecao').select('url_arquivo, nome_arquivo');
+    if (planilhasLances) {
+      for (const pl of planilhasLances) {
+        const path = pl.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || pl.url_arquivo;
+        nomesBonitos.set(path, pl.nome_arquivo);
+      }
+    }
+
+    // Autorizações
+    const { data: autorizacoes } = await supabase.from('autorizacoes_processo').select('url_arquivo, nome_arquivo');
+    if (autorizacoes) {
+      for (const aut of autorizacoes) {
+        const path = aut.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || aut.url_arquivo;
+        nomesBonitos.set(path, aut.nome_arquivo);
+      }
+    }
+
+    // Encaminhamentos
+    const { data: encaminhamentos } = await supabase.from('encaminhamentos_processo').select('url, storage_path');
+    if (encaminhamentos) {
+      for (const enc of encaminhamentos) {
+        nomesBonitos.set(enc.storage_path, `Encaminhamento_${enc.storage_path.split('/').pop()}`);
+      }
+    }
+
+    // Anexos de processo
+    const { data: anexosProcessoNomes } = await supabase.from('anexos_processo_compra').select('url_arquivo, nome_arquivo');
+    if (anexosProcessoNomes) {
+      for (const anx of anexosProcessoNomes) {
+        const path = anx.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || anx.url_arquivo;
+        nomesBonitos.set(path, anx.nome_arquivo);
+      }
+    }
+
+    // Anexos de seleção
+    const { data: anexosSelecao } = await supabase.from('anexos_selecao').select('url_arquivo, nome_arquivo');
+    if (anexosSelecao) {
+      for (const anx of anexosSelecao) {
+        const path = anx.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || anx.url_arquivo;
+        nomesBonitos.set(path, anx.nome_arquivo);
+      }
+    }
+
+    // Documentos de fornecedor
+    const { data: docsFornecedor } = await supabase.from('documentos_fornecedor').select('url_arquivo, nome_arquivo');
+    if (docsFornecedor) {
+      for (const doc of docsFornecedor) {
+        const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
+        nomesBonitos.set(path, doc.nome_arquivo);
+      }
+    }
+
+    console.log(`📋 Nomes bonitos mapeados: ${nomesBonitos.size}`);
+
     // Buscar URLs do banco
     const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
     
@@ -73,8 +158,9 @@ Deno.serve(async (req) => {
       throw new Error(`Erro ao buscar referências: ${refError.message}`);
     }
 
-    // Buscar anexos de processos com seus tipos
-    const { data: anexosProcesso, error: anexosError } = await supabase
+    // Buscar anexos de processos com seus tipos (reutilizar dados já carregados)
+    const anexosTipoMap = new Map<string, string>();
+    const { data: anexosProcessoTipos, error: anexosError } = await supabase
       .from('anexos_processo_compra')
       .select('url_arquivo, tipo_anexo');
     
@@ -82,10 +168,8 @@ Deno.serve(async (req) => {
       console.error('Erro ao buscar anexos processo:', anexosError);
     }
     
-    // Criar mapa de URL -> tipo_anexo
-    const anexosTipoMap = new Map<string, string>();
-    if (anexosProcesso) {
-      for (const anexo of anexosProcesso) {
+    if (anexosProcessoTipos) {
+      for (const anexo of anexosProcessoTipos) {
         anexosTipoMap.set(anexo.url_arquivo, anexo.tipo_anexo);
       }
     }
@@ -135,9 +219,10 @@ Deno.serve(async (req) => {
     };
 
     for (const [path, metadata] of arquivosStorage) {
-      // Extrair apenas o nome final do arquivo, pegando a última parte após todas as barras
+      // Usar nome bonito do banco de dados se disponível, senão usar nome do arquivo
       const pathParts = path.split('/');
-      const fileName = pathParts[pathParts.length - 1] || path;
+      const fileNameRaw = pathParts[pathParts.length - 1] || path;
+      const fileName = nomesBonitos.get(path) || fileNameRaw;
       
       if (path.includes('capa_processo')) {
         // Capas de processo
