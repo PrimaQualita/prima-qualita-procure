@@ -25,10 +25,11 @@ Deno.serve(async (req) => {
     console.log(`Limpando ${referencias.length} referências órfãs...`);
 
     let totalLimpas = 0;
+    let totalDeletadas = 0;
 
-    const tabelas = [
+    // Tabelas onde a URL é NOT NULL - precisamos DELETAR a linha inteira
+    const tabelasNotNull = [
       { nome: 'anexos_processo_compra', coluna: 'url_arquivo' },
-      { nome: 'analises_compliance', coluna: 'url_documento' },
       { nome: 'planilhas_consolidadas', coluna: 'url_arquivo' },
       { nome: 'autorizacoes_processo', coluna: 'url_arquivo' },
       { nome: 'relatorios_finais', coluna: 'url_arquivo' },
@@ -39,21 +40,44 @@ Deno.serve(async (req) => {
       { nome: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
       { nome: 'anexos_selecao', coluna: 'url_arquivo' },
       { nome: 'atas_selecao', coluna: 'url_arquivo' },
-      { nome: 'atas_selecao', coluna: 'url_arquivo_original' },
       { nome: 'homologacoes_selecao', coluna: 'url_arquivo' },
       { nome: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
+      { nome: 'documentos_fornecedor', coluna: 'url_arquivo' },
+      { nome: 'documentos_processo_finalizado', coluna: 'url_arquivo' },
+    ];
+
+    // Tabelas onde a URL é NULLABLE - podemos setar para NULL
+    const tabelasNullable = [
+      { nome: 'analises_compliance', coluna: 'url_documento' },
+      { nome: 'atas_selecao', coluna: 'url_arquivo_original' },
       { nome: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
       { nome: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
       { nome: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
-      { nome: 'documentos_fornecedor', coluna: 'url_arquivo' },
-      { nome: 'documentos_processo_finalizado', coluna: 'url_arquivo' },
       { nome: 'respostas_recursos', coluna: 'url_documento' },
     ];
 
-    // Processar TODAS as referências de uma vez por tabela (muito mais rápido)
-    for (const tabela of tabelas) {
+    // DELETAR linhas onde a coluna é NOT NULL
+    console.log('\n🗑️  DELETANDO linhas com URLs órfãs (colunas NOT NULL)...');
+    for (const tabela of tabelasNotNull) {
       try {
-        // Atualizar para NULL todas as referências órfãs desta tabela de uma vez
+        const { error, count } = await supabase
+          .from(tabela.nome)
+          .delete({ count: 'exact' })
+          .in(tabela.coluna, referencias);
+
+        if (!error && count && count > 0) {
+          console.log(`✓ ${tabela.nome}: ${count} linha(s) deletada(s)`);
+          totalDeletadas += count;
+        }
+      } catch (err: any) {
+        console.log(`⚠️ ${tabela.nome}: ${err.message || 'erro ao deletar'}`);
+      }
+    }
+
+    // LIMPAR (setar NULL) em colunas nullable
+    console.log('\n🧹 LIMPANDO URLs órfãs (colunas NULLABLE)...');
+    for (const tabela of tabelasNullable) {
+      try {
         const { error, count } = await supabase
           .from(tabela.nome)
           .update({ [tabela.coluna]: null }, { count: 'exact' })
@@ -64,17 +88,19 @@ Deno.serve(async (req) => {
           totalLimpas += count;
         }
       } catch (err: any) {
-        // Ignora erros silenciosamente para não travar
-        console.log(`⚠️ ${tabela.nome}: ${err.message || 'erro ignorado'}`);
+        console.log(`⚠️ ${tabela.nome}: ${err.message || 'erro ao limpar'}`);
       }
     }
 
-    console.log(`✅ ${totalLimpas} referências limpas no total`);
+    const totalProcessadas = totalLimpas + totalDeletadas;
+    console.log(`\n✅ Total: ${totalLimpas} limpas + ${totalDeletadas} deletadas = ${totalProcessadas}`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        deletadas: totalLimpas,
+        deletadas: totalProcessadas,
+        limpas: totalLimpas,
+        linhasDeletadas: totalDeletadas,
         total: referencias.length
       }),
       { 

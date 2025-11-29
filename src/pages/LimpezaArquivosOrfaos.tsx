@@ -143,7 +143,11 @@ export default function LimpezaArquivosOrfaos() {
 
       if (error) throw error;
 
-      toast.success(`Referências limpas com sucesso! ${data.deletadas} campos atualizados.`);
+      const mensagem = data.linhasDeletadas > 0 
+        ? `Referências limpas: ${data.limpas} campos + ${data.linhasDeletadas} linhas deletadas = ${data.deletadas} total`
+        : `${data.deletadas} referências limpas com sucesso!`;
+      
+      toast.success(mensagem);
       
       // Re-executar análise para atualizar resultados
       await executarAnalise();
