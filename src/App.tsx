@@ -16,7 +16,7 @@ import Usuarios from "./pages/Usuarios";
 import Fornecedores from "./pages/Fornecedores";
 import Contatos from "./pages/Contatos";
 import Auditoria from "./pages/Auditoria";
-import LimpezaArquivosOrfaos from "./pages/LimpezaArquivosOrfaos";
+import GestaoStorage from "./pages/GestaoStorage";
 import CadastroFornecedor from "./pages/CadastroFornecedor";
 import AprovacaoFornecedores from "./pages/AprovacaoFornecedores";
 import PerguntasDueDiligence from "./pages/PerguntasDueDiligence";
@@ -87,7 +87,7 @@ const App = () => (
             <Route path="/fornecedores" element={<Fornecedores />} />
             <Route path="/contatos" element={<Contatos />} />
             <Route path="/auditoria" element={<Auditoria />} />
-            <Route path="/limpeza-arquivos-orfaos" element={<LimpezaArquivosOrfaos />} />
+            <Route path="/gestao-storage" element={<GestaoStorage />} />
             <Route path="/credenciamentos" element={<Credenciamentos />} />
             <Route path="/contratacoes-especificas" element={<ContratacoesEspecificas />} />
             <Route path="/contratos" element={<Contratos />} />
