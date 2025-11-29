@@ -490,7 +490,7 @@ export default function AprovacaoFornecedores() {
               {/* Respostas de Due Diligence */}
               {respostasDueDiligence.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="font-semibold">Questionário Due Diligence</h3>
+                  <h3 className="font-semibold">Questionário de Conflito de Interesse</h3>
                   <div className="space-y-2">
                     {respostasDueDiligence.map((resposta: any) => (
                       <div key={resposta.id} className="p-2 border rounded text-sm">
@@ -513,7 +513,7 @@ export default function AprovacaoFornecedores() {
                   <div className="mt-4 p-4 border-2 border-primary/20 rounded-lg bg-primary/5">
                     <div className="grid grid-cols-3 gap-4 text-center">
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Score Due Diligence</p>
+                        <p className="text-xs text-muted-foreground mb-1">Score Conflito de Interesse</p>
                         <p className="text-2xl font-bold text-primary">
                           {respostasDueDiligence.reduce((total: number, resposta: any) => {
                             const score = resposta.resposta_texto === "SIM" 
@@ -525,14 +525,14 @@ export default function AprovacaoFornecedores() {
                       </div>
                       
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Score Compliance</p>
+                        <p className="text-xs text-muted-foreground mb-1">Score Due Diligence (Compliance)</p>
                         <p className="text-2xl font-bold text-primary">
                           {selectedFornecedor && avaliacoesCompliance[selectedFornecedor.id]?.score_risco_total || 0}
                         </p>
                       </div>
                       
                       <div className="border-l-2 border-primary/30 pl-4">
-                        <p className="text-xs text-muted-foreground mb-1 font-semibold">SCORE GERAL</p>
+                        <p className="text-xs text-muted-foreground mb-1 font-semibold">SCORE TOTAL</p>
                         <p className="text-3xl font-bold text-primary">
                           {respostasDueDiligence.reduce((total: number, resposta: any) => {
                             const score = resposta.resposta_texto === "SIM" 
