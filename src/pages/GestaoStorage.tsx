@@ -2,18 +2,17 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Trash2, Database, HardDrive, AlertTriangle, CheckCircle2, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { DialogGrupoDetalhes } from "@/components/storage/DialogGrupoDetalhes";
 
 export default function GestaoStorage() {
   const [analisando, setAnalisando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [limpando, setLimpando] = useState(false);
-  const [categoriaDetalhes, setCategoriaDetalhes] = useState<{categoria: string, arquivos: any[]} | null>(null);
-  const [fornecedorDetalhes, setFornecedorDetalhes] = useState<{fornecedor: string, documentos: any[]} | null>(null);
-  const [documentosFornecedores, setDocumentosFornecedores] = useState<any[] | null>(null);
+  const [grupoDetalhes, setGrupoDetalhes] = useState<{titulo: string, tipo: string, grupos: any[]} | null>(null);
+  const [documentosGrupo, setDocumentosGrupo] = useState<{nome: string, documentos: any[]} | null>(null);
 
   const executarAnalise = async () => {
     setAnalisando(true);
@@ -219,7 +218,11 @@ export default function GestaoStorage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setDocumentosFornecedores(resultado.estatisticasPorCategoria.documentos_fornecedores.porFornecedor)}
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Documentos de Cadastro',
+                          tipo: 'fornecedor',
+                          grupos: resultado.estatisticasPorCategoria.documentos_fornecedores.porFornecedor
+                        })}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -239,13 +242,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-indigo-700/70">PDFs de propostas</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.propostas_selecao?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.propostas_selecao?.porSelecao?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Propostas de Seleção',
-                          arquivos: resultado.estatisticasPorCategoria.propostas_selecao.detalhes
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Propostas de Seleção',
+                          tipo: 'selecao',
+                          grupos: resultado.estatisticasPorCategoria.propostas_selecao.porSelecao
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -266,13 +270,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-cyan-700/70">Avisos, editais</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.anexos_selecao?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.anexos_selecao?.porSelecao?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Anexos de Seleção',
-                          arquivos: resultado.estatisticasPorCategoria.anexos_selecao.detalhes
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Anexos de Seleção',
+                          tipo: 'selecao',
+                          grupos: resultado.estatisticasPorCategoria.anexos_selecao.porSelecao
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -293,13 +298,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-teal-700/70">Consolidadas</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.planilhas_lances?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.planilhas_lances?.porSelecao?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Planilhas de Lances',
-                          arquivos: resultado.estatisticasPorCategoria.planilhas_lances.detalhes
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Planilhas de Lances',
+                          tipo: 'selecao',
+                          grupos: resultado.estatisticasPorCategoria.planilhas_lances.porSelecao
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -320,13 +326,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-amber-700/70">Enviados e respostas</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.recursos?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.recursos?.porSelecao?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Recursos',
-                          arquivos: resultado.estatisticasPorCategoria.recursos.detalhes
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Recursos',
+                          tipo: 'selecao',
+                          grupos: resultado.estatisticasPorCategoria.recursos.porSelecao
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -347,13 +354,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-emerald-700/70">PDFs oficiais</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.encaminhamentos?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.encaminhamentos?.porTipo?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Encaminhamentos',
-                          arquivos: resultado.estatisticasPorCategoria.encaminhamentos.detalhes
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Encaminhamentos',
+                          tipo: 'tipo',
+                          grupos: resultado.estatisticasPorCategoria.encaminhamentos.porTipo
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -374,13 +382,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-indigo-700/70">Anexados em processos</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.termos_referencia?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.termos_referencia?.porProcesso?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Termos de Referência',
-                          arquivos: resultado.estatisticasPorCategoria.termos_referencia.detalhes
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Termos de Referência',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.termos_referencia.porProcesso
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -401,13 +410,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-violet-700/70">Anexadas em processos</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.requisicoes?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.requisicoes?.porProcesso?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Requisições',
-                          arquivos: resultado.estatisticasPorCategoria.requisicoes.detalhes
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Requisições',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.requisicoes.porProcesso
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -428,13 +438,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-fuchsia-700/70">Anexadas em processos</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.autorizacao_despesa?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.autorizacao_despesa?.porProcesso?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Autorização da Despesa',
-                          arquivos: resultado.estatisticasPorCategoria.autorizacao_despesa.detalhes
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Autorização da Despesa',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.autorizacao_despesa.porProcesso
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -455,18 +466,6 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-rose-700/70">Outros anexos</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.processos_anexos_outros?.detalhes?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Outros Anexos Processos',
-                          arquivos: resultado.estatisticasPorCategoria.processos_anexos_outros.detalhes
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -482,13 +481,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-sky-700/70">PDFs de capa</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.capas_processo?.detalhes?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.capas_processo?.porProcesso?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Capas Processo',
-                          arquivos: resultado.estatisticasPorCategoria.capas_processo.detalhes
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Capas de Processo',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.capas_processo.porProcesso
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -509,18 +509,6 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-slate-700/70">Não categorizados</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.outros?.detalhes?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setCategoriaDetalhes({
-                          categoria: 'Outros',
-                          arquivos: resultado.estatisticasPorCategoria.outros.detalhes
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>

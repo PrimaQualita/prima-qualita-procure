@@ -218,24 +218,63 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Buscar dados de seleções para agrupar documentos
+    const { data: selecoes } = await supabase.from('selecoes_fornecedores').select('id, titulo_selecao, numero_selecao');
+    const selecoesMap = new Map<string, { titulo: string; numero: string }>();
+    if (selecoes) {
+      for (const sel of selecoes) {
+        selecoesMap.set(sel.id, {
+          titulo: sel.titulo_selecao,
+          numero: sel.numero_selecao || sel.id.substring(0, 8)
+        });
+      }
+    }
+
+    // Buscar dados de processos para agrupar documentos
+    const { data: processos } = await supabase.from('processos_compras').select('id, numero_processo_interno, objeto_resumido');
+    const processosMap = new Map<string, { numero: string; objeto: string }>();
+    if (processos) {
+      for (const proc of processos) {
+        processosMap.set(proc.id, {
+          numero: proc.numero_processo_interno,
+          objeto: proc.objeto_resumido
+        });
+      }
+    }
+
+    // Buscar dados de cotações para agrupar recursos
+    const { data: cotacoes } = await supabase.from('cotacoes_precos').select('id, titulo_cotacao, processo_compra_id');
+    const cotacoesMap = new Map<string, { titulo: string; processoId: string }>();
+    if (cotacoes) {
+      for (const cot of cotacoes) {
+        cotacoesMap.set(cot.id, {
+          titulo: cot.titulo_cotacao,
+          processoId: cot.processo_compra_id
+        });
+      }
+    }
+
     // Calcular estatísticas por categoria
     const estatisticasPorCategoria: Record<string, { 
       arquivos: number; 
       tamanho: number; 
-      detalhes: Array<{ path: string; fileName: string; size: number }>;
+      detalhes: Array<{ path: string; fileName: string; size: number; selecaoId?: string; processoId?: string }>;
       porFornecedor?: Map<string, { fornecedorId: string; fornecedorNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
+      porSelecao?: Map<string, { selecaoId: string; selecaoTitulo: string; selecaoNumero: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
+      porProcesso?: Map<string, { processoId: string; processoNumero: string; processoObjeto: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
+      porTipo?: Map<string, { tipo: string; tipoNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
     }> = {
       documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [], porFornecedor: new Map() },
-      propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [] },
-      anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [] },
-      planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [] },
-      recursos: { arquivos: 0, tamanho: 0, detalhes: [] },
-      encaminhamentos: { arquivos: 0, tamanho: 0, detalhes: [] },
-      termos_referencia: { arquivos: 0, tamanho: 0, detalhes: [] },
-      requisicoes: { arquivos: 0, tamanho: 0, detalhes: [] },
-      autorizacao_despesa: { arquivos: 0, tamanho: 0, detalhes: [] },
+      propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
+      anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
+      planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
+      recursos: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
+      encaminhamentos: { arquivos: 0, tamanho: 0, detalhes: [], porTipo: new Map() },
+      termos_referencia: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
+      requisicoes: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
+      autorizacao_despesa: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       processos_anexos_outros: { arquivos: 0, tamanho: 0, detalhes: [] },
-      capas_processo: { arquivos: 0, tamanho: 0, detalhes: [] },
+      capas_processo: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       outros: { arquivos: 0, tamanho: 0, detalhes: [] }
     };
 
@@ -253,21 +292,138 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.capas_processo.arquivos++;
         estatisticasPorCategoria.capas_processo.tamanho += metadata.size;
         estatisticasPorCategoria.capas_processo.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Agrupar por processo - extrair ID do processo do path ou nome do arquivo
+        const processoIdMatch = path.match(/processo_([a-f0-9-]+)/i) || fileName.match(/processo.*?([a-f0-9-]{8,})/i);
+        if (processoIdMatch) {
+          const processoId = processoIdMatch[1];
+          const processo = processosMap.get(processoId);
+          
+          if (processo) {
+            if (!estatisticasPorCategoria.capas_processo.porProcesso!.has(processoId)) {
+              estatisticasPorCategoria.capas_processo.porProcesso!.set(processoId, {
+                processoId,
+                processoNumero: processo.numero,
+                processoObjeto: processo.objeto,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.capas_processo.porProcesso!.get(processoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
       } else if (tipoAnexo === 'termo_referencia') {
         // Termo de Referência
         estatisticasPorCategoria.termos_referencia.arquivos++;
         estatisticasPorCategoria.termos_referencia.tamanho += metadata.size;
-        estatisticasPorCategoria.termos_referencia.detalhes.push({ path, fileName, size: metadata.size });
+        const detalheTR = { path, fileName, size: metadata.size, processoId: '' };
+        estatisticasPorCategoria.termos_referencia.detalhes.push(detalheTR);
+        
+        // Buscar processo_id do banco via anexos_processo_compra
+        const { data: anexoProcesso } = await supabase
+          .from('anexos_processo_compra')
+          .select('processo_compra_id')
+          .eq('url_arquivo', path)
+          .single();
+        
+        if (anexoProcesso) {
+          const processoId = anexoProcesso.processo_compra_id;
+          detalheTR.processoId = processoId;
+          const processo = processosMap.get(processoId);
+          
+          if (processo) {
+            if (!estatisticasPorCategoria.termos_referencia.porProcesso!.has(processoId)) {
+              estatisticasPorCategoria.termos_referencia.porProcesso!.set(processoId, {
+                processoId,
+                processoNumero: processo.numero,
+                processoObjeto: processo.objeto,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.termos_referencia.porProcesso!.get(processoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
       } else if (tipoAnexo === 'requisicao') {
         // Requisição
         estatisticasPorCategoria.requisicoes.arquivos++;
         estatisticasPorCategoria.requisicoes.tamanho += metadata.size;
-        estatisticasPorCategoria.requisicoes.detalhes.push({ path, fileName, size: metadata.size });
+        const detalheReq = { path, fileName, size: metadata.size, processoId: '' };
+        estatisticasPorCategoria.requisicoes.detalhes.push(detalheReq);
+        
+        // Buscar processo_id do banco via anexos_processo_compra
+        const { data: anexoProcessoReq } = await supabase
+          .from('anexos_processo_compra')
+          .select('processo_compra_id')
+          .eq('url_arquivo', path)
+          .single();
+        
+        if (anexoProcessoReq) {
+          const processoId = anexoProcessoReq.processo_compra_id;
+          detalheReq.processoId = processoId;
+          const processo = processosMap.get(processoId);
+          
+          if (processo) {
+            if (!estatisticasPorCategoria.requisicoes.porProcesso!.has(processoId)) {
+              estatisticasPorCategoria.requisicoes.porProcesso!.set(processoId, {
+                processoId,
+                processoNumero: processo.numero,
+                processoObjeto: processo.objeto,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.requisicoes.porProcesso!.get(processoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
       } else if (tipoAnexo === 'autorizacao_despesa') {
         // Autorização da Despesa
         estatisticasPorCategoria.autorizacao_despesa.arquivos++;
         estatisticasPorCategoria.autorizacao_despesa.tamanho += metadata.size;
-        estatisticasPorCategoria.autorizacao_despesa.detalhes.push({ path, fileName, size: metadata.size });
+        const detalheAut = { path, fileName, size: metadata.size, processoId: '' };
+        estatisticasPorCategoria.autorizacao_despesa.detalhes.push(detalheAut);
+        
+        // Buscar processo_id do banco via anexos_processo_compra
+        const { data: anexoProcessoAut } = await supabase
+          .from('anexos_processo_compra')
+          .select('processo_compra_id')
+          .eq('url_arquivo', path)
+          .single();
+        
+        if (anexoProcessoAut) {
+          const processoId = anexoProcessoAut.processo_compra_id;
+          detalheAut.processoId = processoId;
+          const processo = processosMap.get(processoId);
+          
+          if (processo) {
+            if (!estatisticasPorCategoria.autorizacao_despesa.porProcesso!.has(processoId)) {
+              estatisticasPorCategoria.autorizacao_despesa.porProcesso!.set(processoId, {
+                processoId,
+                processoNumero: processo.numero,
+                processoObjeto: processo.objeto,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.autorizacao_despesa.porProcesso!.get(processoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
       } else if (tipoAnexo) {
         // Outros anexos de processo que não se encaixam nas categorias acima
         estatisticasPorCategoria.processos_anexos_outros.arquivos++;
@@ -304,26 +460,151 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.propostas_selecao.arquivos++;
         estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
         estatisticasPorCategoria.propostas_selecao.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Agrupar por seleção - extrair ID da seleção do path
+        const selecaoIdMatch = path.match(/selecao_([a-f0-9-]+)/);
+        if (selecaoIdMatch) {
+          const selecaoId = selecaoIdMatch[1];
+          const selecao = selecoesMap.get(selecaoId);
+          
+          if (selecao) {
+            if (!estatisticasPorCategoria.propostas_selecao.porSelecao!.has(selecaoId)) {
+              estatisticasPorCategoria.propostas_selecao.porSelecao!.set(selecaoId, {
+                selecaoId,
+                selecaoTitulo: selecao.titulo,
+                selecaoNumero: selecao.numero,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.propostas_selecao.porSelecao!.get(selecaoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
       } else if (path.startsWith('selecoes/')) {
         // Anexos de seleção (avisos, editais)
         estatisticasPorCategoria.anexos_selecao.arquivos++;
         estatisticasPorCategoria.anexos_selecao.tamanho += metadata.size;
         estatisticasPorCategoria.anexos_selecao.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Agrupar por seleção - extrair ID da seleção do path
+        const selecaoIdMatch = path.match(/selecoes\/([a-f0-9-]+)/);
+        if (selecaoIdMatch) {
+          const selecaoId = selecaoIdMatch[1];
+          const selecao = selecoesMap.get(selecaoId);
+          
+          if (selecao) {
+            if (!estatisticasPorCategoria.anexos_selecao.porSelecao!.has(selecaoId)) {
+              estatisticasPorCategoria.anexos_selecao.porSelecao!.set(selecaoId, {
+                selecaoId,
+                selecaoTitulo: selecao.titulo,
+                selecaoNumero: selecao.numero,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.anexos_selecao.porSelecao!.get(selecaoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
       } else if (path.startsWith('selecao_') && path.includes('planilha')) {
         // Planilhas de lances
         estatisticasPorCategoria.planilhas_lances.arquivos++;
         estatisticasPorCategoria.planilhas_lances.tamanho += metadata.size;
         estatisticasPorCategoria.planilhas_lances.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Agrupar por seleção - extrair ID da seleção do path
+        const selecaoIdMatch = path.match(/selecao_([a-f0-9-]+)/);
+        if (selecaoIdMatch) {
+          const selecaoId = selecaoIdMatch[1];
+          const selecao = selecoesMap.get(selecaoId);
+          
+          if (selecao) {
+            if (!estatisticasPorCategoria.planilhas_lances.porSelecao!.has(selecaoId)) {
+              estatisticasPorCategoria.planilhas_lances.porSelecao!.set(selecaoId, {
+                selecaoId,
+                selecaoTitulo: selecao.titulo,
+                selecaoNumero: selecao.numero,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.planilhas_lances.porSelecao!.get(selecaoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
       } else if (path.startsWith('recursos/')) {
         // Recursos e respostas
         estatisticasPorCategoria.recursos.arquivos++;
         estatisticasPorCategoria.recursos.tamanho += metadata.size;
         estatisticasPorCategoria.recursos.detalhes.push({ path, fileName, size: metadata.size });
-      } else if (path.startsWith('encaminhamentos/')) {
+        
+        // Agrupar por seleção - extrair ID da seleção do path (recursos/selecao_XXX/)
+        const selecaoIdMatch = path.match(/recursos\/selecao_([a-f0-9-]+)/);
+        if (selecaoIdMatch) {
+          const selecaoId = selecaoIdMatch[1];
+          const selecao = selecoesMap.get(selecaoId);
+          
+          if (selecao) {
+            if (!estatisticasPorCategoria.recursos.porSelecao!.has(selecaoId)) {
+              estatisticasPorCategoria.recursos.porSelecao!.set(selecaoId, {
+                selecaoId,
+                selecaoTitulo: selecao.titulo,
+                selecaoNumero: selecao.numero,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.recursos.porSelecao!.get(selecaoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
+       } else if (path.startsWith('encaminhamentos/')) {
         // Encaminhamentos
         estatisticasPorCategoria.encaminhamentos.arquivos++;
         estatisticasPorCategoria.encaminhamentos.tamanho += metadata.size;
         estatisticasPorCategoria.encaminhamentos.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Agrupar por tipo de encaminhamento
+        let tipoEncaminhamento = 'Geral';
+        
+        if (fileName.toLowerCase().includes('compliance')) {
+          tipoEncaminhamento = 'Compliance';
+        } else if (fileName.toLowerCase().includes('autoriza')) {
+          tipoEncaminhamento = 'Autorização';
+        } else if (fileName.toLowerCase().includes('homologa')) {
+          tipoEncaminhamento = 'Homologação';
+        } else if (fileName.toLowerCase().includes('selec') || fileName.toLowerCase().includes('seleção')) {
+          tipoEncaminhamento = 'Seleção';
+        } else if (fileName.toLowerCase().includes('cotacao') || fileName.toLowerCase().includes('cotação')) {
+          tipoEncaminhamento = 'Cotação';
+        }
+        
+        if (!estatisticasPorCategoria.encaminhamentos.porTipo!.has(tipoEncaminhamento)) {
+          estatisticasPorCategoria.encaminhamentos.porTipo!.set(tipoEncaminhamento, {
+            tipo: tipoEncaminhamento,
+            tipoNome: tipoEncaminhamento,
+            documentos: []
+          });
+        }
+        
+        estatisticasPorCategoria.encaminhamentos.porTipo!.get(tipoEncaminhamento)!.documentos.push({
+          path,
+          fileName,
+          size: metadata.size
+        });
       } else {
         // Outros
         estatisticasPorCategoria.outros.arquivos++;
@@ -376,42 +657,50 @@ Deno.serve(async (req) => {
         propostas_selecao: {
           arquivos: estatisticasPorCategoria.propostas_selecao.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.propostas_selecao.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.propostas_selecao.detalhes
+          detalhes: estatisticasPorCategoria.propostas_selecao.detalhes,
+          porSelecao: Array.from(estatisticasPorCategoria.propostas_selecao.porSelecao!.values())
         },
         anexos_selecao: {
           arquivos: estatisticasPorCategoria.anexos_selecao.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.anexos_selecao.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.anexos_selecao.detalhes
+          detalhes: estatisticasPorCategoria.anexos_selecao.detalhes,
+          porSelecao: Array.from(estatisticasPorCategoria.anexos_selecao.porSelecao!.values())
         },
         planilhas_lances: {
           arquivos: estatisticasPorCategoria.planilhas_lances.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.planilhas_lances.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.planilhas_lances.detalhes
+          detalhes: estatisticasPorCategoria.planilhas_lances.detalhes,
+          porSelecao: Array.from(estatisticasPorCategoria.planilhas_lances.porSelecao!.values())
         },
         recursos: {
           arquivos: estatisticasPorCategoria.recursos.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.recursos.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.recursos.detalhes
+          detalhes: estatisticasPorCategoria.recursos.detalhes,
+          porSelecao: Array.from(estatisticasPorCategoria.recursos.porSelecao!.values())
         },
         encaminhamentos: {
           arquivos: estatisticasPorCategoria.encaminhamentos.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.encaminhamentos.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.encaminhamentos.detalhes
+          detalhes: estatisticasPorCategoria.encaminhamentos.detalhes,
+          porTipo: Array.from(estatisticasPorCategoria.encaminhamentos.porTipo!.values())
         },
         termos_referencia: {
           arquivos: estatisticasPorCategoria.termos_referencia.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.termos_referencia.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.termos_referencia.detalhes
+          detalhes: estatisticasPorCategoria.termos_referencia.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.termos_referencia.porProcesso!.values())
         },
         requisicoes: {
           arquivos: estatisticasPorCategoria.requisicoes.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.requisicoes.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.requisicoes.detalhes
+          detalhes: estatisticasPorCategoria.requisicoes.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.requisicoes.porProcesso!.values())
         },
         autorizacao_despesa: {
           arquivos: estatisticasPorCategoria.autorizacao_despesa.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.autorizacao_despesa.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.autorizacao_despesa.detalhes
+          detalhes: estatisticasPorCategoria.autorizacao_despesa.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.autorizacao_despesa.porProcesso!.values())
         },
         processos_anexos_outros: {
           arquivos: estatisticasPorCategoria.processos_anexos_outros.arquivos,
@@ -421,7 +710,8 @@ Deno.serve(async (req) => {
         capas_processo: {
           arquivos: estatisticasPorCategoria.capas_processo.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.capas_processo.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.capas_processo.detalhes
+          detalhes: estatisticasPorCategoria.capas_processo.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.capas_processo.porProcesso!.values())
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,
