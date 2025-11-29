@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { stripHtml } from "@/lib/htmlUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -1116,7 +1117,7 @@ const Cotacoes = () => {
                   <Button onClick={() => {
                     setNovaCotacao({
                       titulo_cotacao: processoSelecionado.numero_processo_interno,
-                      descricao_cotacao: processoSelecionado.objeto_resumido,
+                      descricao_cotacao: stripHtml(processoSelecionado.objeto_resumido),
                       data_limite_resposta: "",
                     });
                     setDialogCotacaoOpen(true);
