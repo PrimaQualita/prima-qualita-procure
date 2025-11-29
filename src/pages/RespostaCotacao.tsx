@@ -14,6 +14,7 @@ import { z } from "zod";
 import { Upload, FileText, X } from "lucide-react";
 import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 // Cliente Supabase sem autenticação persistente - usa sessionStorage isolado
 const supabaseAnon = createClient(
@@ -342,38 +343,87 @@ const RespostaCotacao = () => {
     }
   };
 
-  const gerarTemplate = () => {
-    // Criar dados do Excel ajustados baseado no critério
-    const cabecalho = processoCompra?.criterio_julgamento === "desconto"
-      ? ['Número Item', 'Marca', 'Percentual de Desconto (%)']
-      : ['Número Item', 'Marca', 'Valor Unitário'];
-    
-    const dados = [
-      cabecalho,
-      ...itensCotacao.map(item => [
-        item.numero_item,
-        '',
-        ''
-      ])
-    ];
+  const gerarTemplate = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Template');
 
-    // Criar workbook e worksheet
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(dados);
+      // Definir cabeçalhos
+      worksheet.columns = [
+        { header: 'Item', key: 'item', width: 10 },
+        { header: 'Descrição', key: 'descricao', width: 50 },
+        { header: 'Quantidade', key: 'quantidade', width: 15 },
+        { header: 'Unidade', key: 'unidade', width: 12 },
+        { header: 'Marca', key: 'marca', width: 20 },
+        { header: processoCompra?.criterio_julgamento === "desconto" ? 'Percentual de Desconto (%)' : 'Valor Unitário', key: 'valor', width: 20 }
+      ];
 
-    // Definir largura das colunas
-    ws['!cols'] = [
-      { wch: 15 },
-      { wch: 30 },
-      { wch: 20 }
-    ];
+      // Adicionar linhas com dados dos itens
+      itensCotacao.forEach(item => {
+        worksheet.addRow({
+          item: item.numero_item,
+          descricao: item.descricao,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          marca: '',
+          valor: ''
+        });
+      });
 
-    // Adicionar worksheet ao workbook
-    XLSX.utils.book_append_sheet(wb, ws, 'Template');
+      // IMPORTANTE: Desproteger TODAS as células primeiro
+      worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.protection = { locked: false };
+        });
+      });
 
-    // Gerar e baixar arquivo
-    XLSX.writeFile(wb, `template_${cotacao?.titulo_cotacao || 'cotacao'}.xlsx`);
-    toast.success("Template Excel baixado com sucesso!");
+      // Agora proteger APENAS as colunas 1, 2, 3 e 4 (Item, Descrição, Quantidade, Unidade)
+      worksheet.getColumn(1).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+
+      worksheet.getColumn(2).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+
+      worksheet.getColumn(3).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+
+      worksheet.getColumn(4).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+
+      // Aplicar proteção na planilha
+      await worksheet.protect('', {
+        selectLockedCells: true,
+        selectUnlockedCells: true,
+        formatCells: false,
+        formatColumns: false,
+        formatRows: false,
+        insertColumns: false,
+        insertRows: false,
+        deleteColumns: false,
+        deleteRows: false,
+        sort: false,
+        autoFilter: false
+      });
+
+      // Gerar arquivo e fazer download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `template_${cotacao?.titulo_cotacao || 'cotacao'}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Template baixado! Apenas 'Marca' e 'Valor Unitário' são editáveis.");
+    } catch (error) {
+      console.error("Erro ao gerar template:", error);
+      toast.error("Erro ao gerar template");
+    }
   };
 
   const importarTemplate = async (file: File) => {
@@ -390,7 +440,8 @@ const RespostaCotacao = () => {
 
         // Ignorar cabeçalho (primeira linha)
         for (let i = 1; i < dados.length; i++) {
-          const [numeroItem, marca, valorUnitario] = dados[i];
+          // Colunas: Item, Descrição, Quantidade, Unidade, Marca, Valor Unitário
+          const [numeroItem, _descricao, _quantidade, _unidade, marca, valorUnitario] = dados[i];
           
           if (!numeroItem) continue;
 
