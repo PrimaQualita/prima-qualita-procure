@@ -51,21 +51,34 @@ Deno.serve(async (req) => {
       { nome: 'respostas_recursos', coluna: 'url_documento' },
     ];
 
-    for (const ref of referencias) {
-      for (const tabela of tabelas) {
-        const { error, count } = await supabase
-          .from(tabela.nome)
-          .delete({ count: 'exact' })
-          .eq(tabela.coluna, ref);
+    // Processar em lotes para evitar timeout
+    const batchSize = 10;
+    for (let i = 0; i < referencias.length; i += batchSize) {
+      const batch = referencias.slice(i, i + batchSize);
+      console.log(`Processando lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(referencias.length/batchSize)}...`);
+      
+      for (const ref of batch) {
+        for (const tabela of tabelas) {
+          try {
+            const { error, count } = await supabase
+              .from(tabela.nome)
+              .delete({ count: 'exact' })
+              .eq(tabela.coluna, ref);
 
-        if (!error && count && count > 0) {
-          console.log(`Deletado de ${tabela.nome}.${tabela.coluna}: ${count} registro(s)`);
-          totalDeletadas += count;
+            if (error) {
+              console.error(`Erro ao deletar de ${tabela.nome}.${tabela.coluna}:`, error.message);
+            } else if (count && count > 0) {
+              console.log(`✓ Deletado de ${tabela.nome}.${tabela.coluna}: ${count} registro(s)`);
+              totalDeletadas += count;
+            }
+          } catch (err) {
+            console.error(`Exceção ao deletar de ${tabela.nome}.${tabela.coluna}:`, err);
+          }
         }
       }
     }
 
-    console.log(`Total de ${totalDeletadas} referências deletadas do banco`);
+    console.log(`✅ Total de ${totalDeletadas} referências deletadas do banco`);
 
     return new Response(
       JSON.stringify({ 
