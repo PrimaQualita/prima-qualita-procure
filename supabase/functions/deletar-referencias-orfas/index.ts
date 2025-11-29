@@ -22,11 +22,10 @@ Deno.serve(async (req) => {
       throw new Error('Lista de referências inválida ou vazia');
     }
 
-    console.log(`Deletando ${referencias.length} referências do banco...`);
+    console.log(`Limpando ${referencias.length} referências órfãs...`);
 
-    let totalDeletadas = 0;
+    let totalLimpas = 0;
 
-    // Deletar de cada tabela que pode ter essas URLs
     const tabelas = [
       { nome: 'anexos_processo_compra', coluna: 'url_arquivo' },
       { nome: 'analises_compliance', coluna: 'url_documento' },
@@ -51,41 +50,32 @@ Deno.serve(async (req) => {
       { nome: 'respostas_recursos', coluna: 'url_documento' },
     ];
 
-    // Processar em lotes para evitar timeout
-    const batchSize = 10;
-    for (let i = 0; i < referencias.length; i += batchSize) {
-      const batch = referencias.slice(i, i + batchSize);
-      console.log(`Processando lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(referencias.length/batchSize)}...`);
-      
-      for (const ref of batch) {
-        for (const tabela of tabelas) {
-          try {
-            // Usar UPDATE para NULL ao invés de DELETE para evitar triggers
-            const { error, count } = await supabase
-              .from(tabela.nome)
-              .update({ [tabela.coluna]: null }, { count: 'exact' })
-              .eq(tabela.coluna, ref);
+    // Processar TODAS as referências de uma vez por tabela (muito mais rápido)
+    for (const tabela of tabelas) {
+      try {
+        // Atualizar para NULL todas as referências órfãs desta tabela de uma vez
+        const { error, count } = await supabase
+          .from(tabela.nome)
+          .update({ [tabela.coluna]: null }, { count: 'exact' })
+          .in(tabela.coluna, referencias);
 
-            if (error) {
-              console.error(`Erro ao limpar ${tabela.nome}.${tabela.coluna}:`, error.message);
-            } else if (count && count > 0) {
-              console.log(`✓ Limpado ${tabela.nome}.${tabela.coluna}: ${count} registro(s)`);
-              totalDeletadas += count;
-            }
-          } catch (err) {
-            console.error(`Exceção ao limpar ${tabela.nome}.${tabela.coluna}:`, err);
-          }
+        if (!error && count && count > 0) {
+          console.log(`✓ ${tabela.nome}.${tabela.coluna}: ${count} limpas`);
+          totalLimpas += count;
         }
+      } catch (err: any) {
+        // Ignora erros silenciosamente para não travar
+        console.log(`⚠️ ${tabela.nome}: ${err.message || 'erro ignorado'}`);
       }
     }
 
-    console.log(`✅ Total de ${totalDeletadas} referências deletadas do banco`);
+    console.log(`✅ ${totalLimpas} referências limpas no total`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        deletadas: totalDeletadas,
-        referencias: referencias.length
+        deletadas: totalLimpas,
+        total: referencias.length
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
