@@ -174,25 +174,26 @@ Deno.serve(async (req) => {
 
         for (const { tabela, coluna } of queries) {
           try {
-            // ESTRATÉGIA: Setar campo como NULL em vez de deletar o registro
-            // Isso evita triggers de delete que tentam deletar do storage
-            const updateData: any = {};
-            updateData[coluna] = null;
+            // Normalizar path removendo prefixos de bucket
+            const pathNormalizado = path
+              .replace(/.*\/processo-anexos\//, '')
+              .replace(/.*\/documents\//, '');
 
-            const { error: updateError, count } = await supabase
+            // Deletar registros que referenciam este arquivo
+            const { error: deleteError, count } = await supabase
               .from(tabela)
-              .update(updateData, { count: 'exact' })
-              .ilike(coluna, `%${path}%`);
+              .delete({ count: 'exact' })
+              .or(`${coluna}.ilike.%${pathNormalizado}%,${coluna}.ilike.%${path}%`);
 
-            if (updateError) {
-              console.log(`  ⚠️ Erro ao limpar ${tabela}.${coluna}: ${updateError.message}`);
+            if (deleteError) {
+              console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
               continue;
             }
 
             if (count && count > 0) {
               encontrouAlgum = true;
               deletados += count;
-              console.log(`  ✅ Limpou ${count} referência(s) de ${tabela}.${coluna}`);
+              console.log(`  ✅ Deletou ${count} referência(s) de ${tabela}.${coluna}`);
             }
           } catch (err) {
             console.log(`  ❌ Exceção em ${tabela}.${coluna}: ${err}`);
