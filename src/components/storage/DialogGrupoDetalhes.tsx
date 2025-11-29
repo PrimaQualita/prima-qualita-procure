@@ -18,7 +18,10 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
   const getNomeGrupo = (grupo: any) => {
     if (tipo === 'fornecedor') return grupo.fornecedorNome;
     if (tipo === 'selecao') return `Seleção de Fornecedores ${grupo.selecaoNumero || 'S/N'} - ${grupo.selecaoTitulo}`;
-    if (tipo === 'processo') return `Processo ${grupo.processoNumero}`;
+    if (tipo === 'processo') {
+      const prefix = grupo.credenciamento ? 'Credenciamento' : 'Processo';
+      return `${prefix} ${grupo.processoNumero}`;
+    }
     if (tipo === 'tipo') return grupo.tipoNome;
     return grupo.nome || 'Sem nome';
   };
