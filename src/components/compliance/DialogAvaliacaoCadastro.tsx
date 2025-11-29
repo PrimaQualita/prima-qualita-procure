@@ -68,7 +68,22 @@ export function DialogAvaliacaoCadastro({
 
   useEffect(() => {
     if (open && avaliacao) {
+      // Resetar campos do formulário ao abrir para novo fornecedor
+      setRelatorioKPMG(null);
+      setScoreRiscoTotal("");
+      setClassificacaoRisco("");
+      setObservacoesCompliance("");
       loadDados();
+    } else if (!open) {
+      // Limpar tudo ao fechar o diálogo
+      setRelatorioKPMG(null);
+      setScoreRiscoTotal("");
+      setClassificacaoRisco("");
+      setObservacoesCompliance("");
+      setFornecedor(null);
+      setDocumentosFornecedor([]);
+      setRespostasDueDiligence([]);
+      setScoreTotal(0);
     }
   }, [open, avaliacao]);
 
