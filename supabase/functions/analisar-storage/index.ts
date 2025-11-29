@@ -231,8 +231,8 @@ Deno.serve(async (req) => {
     }
 
     // Buscar dados de processos para agrupar documentos
-    const { data: processos } = await supabase.from('processos_compras').select('id, numero_processo_interno, objeto_resumido');
-    const processosMap = new Map<string, { numero: string; objeto: string }>();
+    const { data: processos } = await supabase.from('processos_compras').select('id, numero_processo_interno, objeto_resumido, credenciamento');
+    const processosMap = new Map<string, { numero: string; objeto: string; credenciamento: boolean }>();
     if (processos) {
       for (const proc of processos) {
         // Remover tags HTML do objeto
@@ -245,7 +245,8 @@ Deno.serve(async (req) => {
         
         processosMap.set(proc.id, {
           numero: proc.numero_processo_interno,
-          objeto: objetoLimpo
+          objeto: objetoLimpo,
+          credenciamento: proc.credenciamento || false
         });
       }
     }
@@ -269,7 +270,7 @@ Deno.serve(async (req) => {
       detalhes: Array<{ path: string; fileName: string; size: number; selecaoId?: string; processoId?: string }>;
       porFornecedor?: Map<string, { fornecedorId: string; fornecedorNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
       porSelecao?: Map<string, { selecaoId: string; selecaoTitulo: string; selecaoNumero: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
-      porProcesso?: Map<string, { processoId: string; processoNumero: string; processoObjeto: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
+      porProcesso?: Map<string, { processoId: string; processoNumero: string; processoObjeto: string; credenciamento: boolean; documentos: Array<{ path: string; fileName: string; size: number }> }>;
       porTipo?: Map<string, { tipo: string; tipoNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
     }> = {
       documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [], porFornecedor: new Map() },
@@ -313,6 +314,7 @@ Deno.serve(async (req) => {
                 processoId,
                 processoNumero: processo.numero,
                 processoObjeto: processo.objeto,
+                credenciamento: processo.credenciamento,
                 documentos: []
               });
             }
@@ -349,6 +351,7 @@ Deno.serve(async (req) => {
                 processoId,
                 processoNumero: processo.numero,
                 processoObjeto: processo.objeto,
+                credenciamento: processo.credenciamento,
                 documentos: []
               });
             }
@@ -385,6 +388,7 @@ Deno.serve(async (req) => {
                 processoId,
                 processoNumero: processo.numero,
                 processoObjeto: processo.objeto,
+                credenciamento: processo.credenciamento,
                 documentos: []
               });
             }
@@ -421,6 +425,7 @@ Deno.serve(async (req) => {
                 processoId,
                 processoNumero: processo.numero,
                 processoObjeto: processo.objeto,
+                credenciamento: processo.credenciamento,
                 documentos: []
               });
             }
