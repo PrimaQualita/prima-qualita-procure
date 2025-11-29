@@ -746,7 +746,8 @@ Deno.serve(async (req) => {
       } else if (
         path.includes('proposta_fornecedor') || 
         path.includes('proposta_preco_publico') ||
-        path.includes('planilha_consolidada') ||
+        path.toLowerCase().includes('planilha_consolidada') ||
+        path.includes('Planilha_Consolidada') ||
         path.includes('-EMAIL.pdf') ||
         fileNameRaw.startsWith('proposta_')
       ) {
@@ -760,7 +761,7 @@ Deno.serve(async (req) => {
         
         if (path.includes('-EMAIL.pdf')) {
           cotacaoId = emailsCotacaoMap.get(path) || '';
-        } else if (path.includes('planilha_consolidada')) {
+        } else if (path.toLowerCase().includes('planilha_consolidada') || path.includes('Planilha_Consolidada')) {
           cotacaoId = planilhasConsolidadasMap.get(path) || '';
         } else {
           cotacaoId = anexosCotacaoMap.get(path) || '';
