@@ -16,8 +16,75 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('🚀 Iniciando varredura COMPLETA do bucket processo-anexos...');
+    console.log('🚀 Iniciando varredura RECURSIVA COMPLETA do bucket processo-anexos...');
     
+    // Função para listar RECURSIVAMENTE todos os arquivos e pastas
+    const listAllFilesRecursive = async (path: string = ''): Promise<any[]> => {
+      const allFiles: any[] = [];
+      const foldersToProcess: string[] = [path];
+      const processedFolders = new Set<string>();
+      
+      while (foldersToProcess.length > 0) {
+        const currentPath = foldersToProcess.shift()!;
+        
+        // Evitar processar a mesma pasta duas vezes
+        if (processedFolders.has(currentPath)) {
+          continue;
+        }
+        processedFolders.add(currentPath);
+        
+        let offset = 0;
+        const limit = 100;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data: items, error } = await supabase.storage
+            .from('processo-anexos')
+            .list(currentPath, {
+              limit: limit,
+              offset: offset,
+              sortBy: { column: 'name', order: 'asc' }
+            });
+
+          if (error) {
+            console.error(`Erro ao listar ${currentPath}:`, error.message);
+            break;
+          }
+
+          if (!items || items.length === 0) {
+            break;
+          }
+
+          for (const item of items) {
+            const fullPath = currentPath ? `${currentPath}/${item.name}` : item.name;
+            
+            if (item.id === null) {
+              // É uma pasta - adicionar para processamento
+              foldersToProcess.push(fullPath);
+            } else {
+              // É um arquivo - adicionar à lista
+              allFiles.push({
+                ...item,
+                fullPath: fullPath
+              });
+            }
+          }
+
+          if (items.length < limit) {
+            hasMore = false;
+          } else {
+            offset += limit;
+          }
+        }
+        
+        if (allFiles.length % 100 === 0 && allFiles.length > 0) {
+          console.log(`📊 Progresso: ${allFiles.length} arquivos encontrados, ${foldersToProcess.length} pastas na fila`);
+        }
+      }
+      
+      return allFiles;
+    };
+
     // Função para normalizar URLs e extrair apenas paths do bucket processo-anexos
     const normalizarUrlsProcessoAnexos = (urls: string[]): string[] => {
       const pathsNormalizados: string[] = [];
@@ -43,112 +110,11 @@ Deno.serve(async (req) => {
       return pathsNormalizados;
     };
 
-    // Função para extrair todas as pastas únicas dos paths normalizados
-    const extrairPastasUnicas = (paths: string[]): Set<string> => {
-      const pastas = new Set<string>();
-      
-      for (const path of paths) {
-        if (!path || !path.includes('/')) continue;
-        
-        const parts = path.split('/');
-        // Criar todas as pastas intermediárias
-        for (let i = 0; i < parts.length - 1; i++) {
-          const pastaParcial = parts.slice(0, i + 1).join('/');
-          if (pastaParcial) {
-            pastas.add(pastaParcial);
-          }
-        }
-      }
-      
-      return pastas;
-    };
+    // Listar TODOS os arquivos do bucket recursivamente
+    console.log('📂 Iniciando listagem recursiva completa...');
+    const files = await listAllFilesRecursive('');
 
-    // Buscar todas as URLs do banco PRIMEIRO
-    console.log('📊 Buscando URLs do banco de dados...');
-    const { data: referenciasPreliminar, error: refErrorPreliminar } = await supabase.rpc('get_all_file_references');
-    
-    if (refErrorPreliminar) {
-      console.error('Erro ao buscar referências:', refErrorPreliminar);
-    }
-
-    // Normalizar URLs para extrair apenas paths do bucket processo-anexos
-    const pathsNormalizados = referenciasPreliminar 
-      ? normalizarUrlsProcessoAnexos(referenciasPreliminar.map((r: any) => r.url))
-      : [];
-
-    console.log(`📁 Total de ${pathsNormalizados.length} paths normalizados do bucket processo-anexos`);
-    
-    // Extrair pastas únicas dos paths normalizados
-    const pastasDosBanco = extrairPastasUnicas(pathsNormalizados);
-
-    console.log(`📂 Encontradas ${pastasDosBanco.size} pastas únicas nas URLs do banco`);
-    if (pastasDosBanco.size > 0) {
-      console.log('🔍 Primeiras 10 pastas:', Array.from(pastasDosBanco).slice(0, 10));
-    }
-
-    // Função para listar arquivos em um caminho específico (não recursivo)
-    const listFilesInPath = async (path: string, allFiles: any[]): Promise<void> => {
-      let offset = 0;
-      const limit = 100;
-      let continuarBuscando = true;
-
-      while (continuarBuscando) {
-        const { data: items, error } = await supabase.storage
-          .from('processo-anexos')
-          .list(path, {
-            limit: limit,
-            offset: offset,
-            sortBy: { column: 'name', order: 'asc' }
-          });
-
-        if (error) {
-          // Silenciar erros de pastas que não existem
-          break;
-        }
-
-        if (!items || items.length === 0) {
-          break;
-        }
-
-        for (const item of items) {
-          // Apenas adicionar arquivos (item.id !== null), ignorar pastas
-          if (item.id !== null) {
-            const fullPath = path ? `${path}/${item.name}` : item.name;
-            allFiles.push({
-              ...item,
-              fullPath: fullPath
-            });
-          }
-        }
-
-        if (items.length === limit) {
-          offset += limit;
-        } else {
-          continuarBuscando = false;
-        }
-      }
-    };
-
-    // Varrer TODAS as pastas extraídas do banco
-    const files: any[] = [];
-    let pastasProcessadas = 0;
-    const totalPastas = pastasDosBanco.size;
-
-    console.log(`🔄 Iniciando varredura de ${totalPastas} pastas...`);
-    
-    for (const pasta of Array.from(pastasDosBanco)) {
-      pastasProcessadas++;
-      if (pastasProcessadas % 10 === 0 || pastasProcessadas === totalPastas) {
-        console.log(`📊 Progresso: ${pastasProcessadas}/${totalPastas} pastas verificadas, ${files.length} arquivos encontrados`);
-      }
-      await listFilesInPath(pasta, files);
-    }
-
-    // Também fazer varredura no ROOT para pegar arquivos soltos
-    console.log('📁 Verificando ROOT para arquivos soltos...');
-    await listFilesInPath('', files);
-
-    console.log(`✅ Total de ${files?.length || 0} arquivos encontrados no storage após varredura completa`);
+    console.log(`✅ Total de ${files?.length || 0} arquivos encontrados no storage após varredura recursiva completa`);
     
     // Log dos primeiros 5 arquivos para debug
     if (files && files.length > 0) {
@@ -156,6 +122,7 @@ Deno.serve(async (req) => {
     }
 
     // Buscar todas as URLs referenciadas no banco de dados
+    console.log('📊 Buscando URLs do banco de dados...');
     const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
     
     if (refError) {
