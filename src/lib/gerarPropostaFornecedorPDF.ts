@@ -242,12 +242,12 @@ export async function gerarPropostaFornecedorPDF(
       doc.text('DESCONTO (%)', 183.5, y, { align: 'center' });
     } else {
       // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-      doc.text('ITEM', 22.5, y, { align: 'center' });
-      doc.text('DESCRIÇÃO', 75, y, { align: 'center' });
-      doc.text('MARCA', 130, y, { align: 'center' });
-      doc.text('QTD', 147, y, { align: 'center' });
-      doc.text('UNID', 160, y, { align: 'center' });
-      doc.text('VL. UNIT.', 173, y, { align: 'center' });
+      doc.text('ITEM', 20, y, { align: 'center' });
+      doc.text('DESCRIÇÃO', 60, y, { align: 'center' });
+      doc.text('MARCA', 115, y, { align: 'center' });
+      doc.text('QTD', 137, y, { align: 'center' });
+      doc.text('UNID', 154, y, { align: 'center' });
+      doc.text('VL. UNIT.', 171, y, { align: 'center' });
       doc.text('VL. TOTAL', 186.5, y, { align: 'center' });
     }
     
@@ -293,12 +293,12 @@ export async function gerarPropostaFornecedorPDF(
           doc.text('DESCONTO (%)', 183.5, y, { align: 'center' });
         } else {
           // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-          doc.text('ITEM', 22.5, y, { align: 'center' });
-          doc.text('DESCRIÇÃO', 75, y, { align: 'center' });
-          doc.text('MARCA', 130, y, { align: 'center' });
-          doc.text('QTD', 147, y, { align: 'center' });
-          doc.text('UNID', 160, y, { align: 'center' });
-          doc.text('VL. UNIT.', 173, y, { align: 'center' });
+          doc.text('ITEM', 20, y, { align: 'center' });
+          doc.text('DESCRIÇÃO', 60, y, { align: 'center' });
+          doc.text('MARCA', 115, y, { align: 'center' });
+          doc.text('QTD', 137, y, { align: 'center' });
+          doc.text('UNID', 154, y, { align: 'center' });
+          doc.text('VL. UNIT.', 171, y, { align: 'center' });
           doc.text('VL. TOTAL', 186.5, y, { align: 'center' });
         }
         y += 6;
@@ -338,12 +338,12 @@ export async function gerarPropostaFornecedorPDF(
         doc.line(172, yTop, 172, yBottom); // Após UNID
       } else {
         // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-        doc.line(30, yTop, 30, yBottom);   // Após ITEM
-        doc.line(120, yTop, 120, yBottom); // Após DESCRIÇÃO
-        doc.line(140, yTop, 140, yBottom); // Após MARCA
-        doc.line(154, yTop, 154, yBottom); // Após QTD
-        doc.line(167, yTop, 167, yBottom); // Após UNID
-        doc.line(180, yTop, 180, yBottom); // Após VL. UNIT.
+        doc.line(25, yTop, 25, yBottom);   // Após ITEM
+        doc.line(100, yTop, 100, yBottom); // Após DESCRIÇÃO
+        doc.line(130, yTop, 130, yBottom); // Após MARCA
+        doc.line(145, yTop, 145, yBottom); // Após QTD
+        doc.line(163, yTop, 163, yBottom); // Após UNID
+        doc.line(179, yTop, 179, yBottom); // Após VL. UNIT.
       }
       
       // Bordas externas da tabela (esquerda e direita)
@@ -354,10 +354,10 @@ export async function gerarPropostaFornecedorPDF(
       const yCenter = yTop + (alturaLinha / 2) + 1.5;
       
       // Número do item (centralizado verticalmente)
-      doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
+      doc.text(itemCotacao.numero_item.toString(), 20, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
-        // Critério DESCONTO: largura maior para descrição
+        // Critério DESCONTO: largura maior para descrição (96)
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
         doc.text(linhasDescricao, 32, yDescStart, { maxWidth: 96, align: 'justify' });
         
@@ -370,17 +370,17 @@ export async function gerarPropostaFornecedorPDF(
           : '-';
         doc.text(descontoFormatted, 183.5, yCenter, { align: 'center' });
       } else {
-        // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
+        // Outros critérios: largura menor para descrição (72) para dar espaço às outras colunas
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
-        doc.text(linhasDescricao, 32, yDescStart, { maxWidth: 86, align: 'justify' });
+        doc.text(linhasDescricao, 27, yDescStart, { maxWidth: 72, align: 'justify' });
         
-        doc.text(item.marca || '-', 130, yCenter, { align: 'center' });
-        doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 147, yCenter, { align: 'center' });
-        doc.text(itemCotacao.unidade, 160, yCenter, { align: 'center' });
+        doc.text(item.marca || '-', 115, yCenter, { align: 'center' });
+        doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 137, yCenter, { align: 'center' });
+        doc.text(itemCotacao.unidade, 154, yCenter, { align: 'center' });
         
         const valorUnitFormatted = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const valorTotalFormatted = valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        doc.text(valorUnitFormatted, 173, yCenter, { align: 'center' });
+        doc.text(valorUnitFormatted, 171, yCenter, { align: 'center' });
         doc.text(valorTotalFormatted, 186.5, yCenter, { align: 'center' });
       }
       
