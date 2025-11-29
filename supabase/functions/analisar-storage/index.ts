@@ -18,13 +18,13 @@ Deno.serve(async (req) => {
     console.log('🔍 Iniciando análise completa do storage...');
 
     // Estrutura para armazenar arquivos com metadados
-    const arquivosStorage = new Map<string, { size: number; createdAt: string }>();
+    const arquivosStorage = new Map<string, { size: number; createdAt: string; bucket: string }>();
     
-    async function listarRecursivo(prefix: string = ''): Promise<void> {
-      console.log(`📂 Listando pasta: "${prefix}"`);
+    async function listarRecursivo(bucket: string, prefix: string = ''): Promise<void> {
+      console.log(`📂 Listando pasta: "${prefix}" no bucket "${bucket}"`);
       
       const { data: items, error } = await supabase.storage
-        .from('processo-anexos')
+        .from(bucket)
         .list(prefix, {
           limit: 1000,
           sortBy: { column: 'name', order: 'asc' }
@@ -47,20 +47,24 @@ Deno.serve(async (req) => {
         
         // Se for pasta (id é null), lista recursivamente
         if (item.id === null) {
-          await listarRecursivo(fullPath);
+          await listarRecursivo(bucket, fullPath);
         } else {
           // É arquivo
           const fileSize = (item.metadata as any)?.size || 0;
-          arquivosStorage.set(fullPath, {
+          const key = `${bucket}/${fullPath}`;
+          arquivosStorage.set(key, {
             size: fileSize,
-            createdAt: item.created_at || new Date().toISOString()
+            createdAt: item.created_at || new Date().toISOString(),
+            bucket: bucket
           });
           console.log(`    📄 Arquivo: ${fullPath} (${(fileSize / 1024).toFixed(2)} KB)`);
         }
       }
     }
     
-    await listarRecursivo('');
+    // Listar ambos os buckets
+    await listarRecursivo('processo-anexos', '');
+    await listarRecursivo('documents', '');
     
     const totalArquivos = arquivosStorage.size;
     const tamanhoTotal = Array.from(arquivosStorage.values()).reduce((acc, file) => acc + file.size, 0);
@@ -120,6 +124,21 @@ Deno.serve(async (req) => {
       for (const enc of encaminhamentos) {
         const nomeBonito = enc.nome_arquivo || `Encaminhamento_${enc.storage_path.split('/').pop()}`;
         nomesBonitos.set(enc.storage_path, nomeBonito);
+      }
+    }
+
+    // Análises de Compliance
+    const { data: analisesCompliance } = await supabase.from('analises_compliance').select('url_documento, nome_arquivo');
+    if (analisesCompliance) {
+      for (const analise of analisesCompliance) {
+        // Extrair path do documents bucket
+        let path = analise.url_documento;
+        if (path.includes('/documents/')) {
+          path = path.split('/documents/')[1].split('?')[0];
+        } else if (path.includes('documents/')) {
+          path = path.split('documents/')[1].split('?')[0];
+        }
+        nomesBonitos.set(`documents/${path}`, analise.nome_arquivo || 'Análise Compliance.pdf');
       }
     }
 
@@ -234,14 +253,20 @@ Deno.serve(async (req) => {
       let normalizedPath = '';
       
       if (url.includes('processo-anexos/')) {
-        // URL completa com domínio
-        normalizedPath = url.split('processo-anexos/')[1].split('?')[0];
+        // URL completa com domínio do bucket processo-anexos
+        normalizedPath = `processo-anexos/${url.split('processo-anexos/')[1].split('?')[0]}`;
+      } else if (url.includes('/documents/')) {
+        // URL completa com domínio do bucket documents
+        normalizedPath = `documents/${url.split('/documents/')[1].split('?')[0]}`;
+      } else if (url.includes('documents/')) {
+        // URL sem barra inicial
+        normalizedPath = `documents/${url.split('documents/')[1].split('?')[0]}`;
       } else if (url.startsWith('http')) {
-        // URL completa mas sem processo-anexos no meio
+        // URL completa mas sem processo-anexos ou documents no meio
         continue;
       } else {
-        // Path relativo direto
-        normalizedPath = url.split('?')[0];
+        // Path relativo direto - assumir processo-anexos por padrão
+        normalizedPath = `processo-anexos/${url.split('?')[0]}`;
       }
       
       if (normalizedPath) {
@@ -372,6 +397,7 @@ Deno.serve(async (req) => {
       planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
       recursos: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
       encaminhamentos: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
+      analises_compliance: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       termos_referencia: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       requisicoes: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       autorizacao_despesa: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
@@ -387,10 +413,13 @@ Deno.serve(async (req) => {
       const fileNameRaw = pathParts[pathParts.length - 1] || path;
       const fileName = nomesBonitos.get(path) || fileNameRaw;
       
-      // Verificar primeiro se é um anexo de processo pelo tipo no banco
-      const tipoAnexo = anexosTipoMap.get(path);
+      // Normalizar path sem o prefixo do bucket para comparação
+      const pathSemBucket = path.replace(/^(processo-anexos|documents)\//, '');
       
-      if (path.includes('capa_processo')) {
+      // Verificar primeiro se é um anexo de processo pelo tipo no banco
+      const tipoAnexo = anexosTipoMap.get(pathSemBucket);
+      
+      if (pathSemBucket.includes('capa_processo')) {
         // Capas de processo
         estatisticasPorCategoria.capas_processo.arquivos++;
         estatisticasPorCategoria.capas_processo.tamanho += metadata.size;
@@ -398,7 +427,7 @@ Deno.serve(async (req) => {
         
         // Agrupar por processo - extrair ID do processo do path
         // Path format: {processoId}/capa_processo_{timestamp}.pdf
-        const processoIdMatch = path.match(/^([a-f0-9-]+)\/capa_processo/i);
+        const processoIdMatch = pathSemBucket.match(/^([a-f0-9-]+)\/capa_processo/i);
         if (processoIdMatch) {
           const processoId = processoIdMatch[1];
           const processo = processosMap.get(processoId);
@@ -432,7 +461,7 @@ Deno.serve(async (req) => {
         const { data: anexoProcesso } = await supabase
           .from('anexos_processo_compra')
           .select('processo_compra_id')
-          .eq('url_arquivo', path)
+          .eq('url_arquivo', pathSemBucket)
           .single();
         
         if (anexoProcesso) {
@@ -469,7 +498,7 @@ Deno.serve(async (req) => {
         const { data: anexoProcessoReq } = await supabase
           .from('anexos_processo_compra')
           .select('processo_compra_id')
-          .eq('url_arquivo', path)
+          .eq('url_arquivo', pathSemBucket)
           .single();
         
         if (anexoProcessoReq) {
@@ -506,7 +535,7 @@ Deno.serve(async (req) => {
         const { data: anexoProcessoAut } = await supabase
           .from('anexos_processo_compra')
           .select('processo_compra_id')
-          .eq('url_arquivo', path)
+          .eq('url_arquivo', pathSemBucket)
           .single();
         
         if (anexoProcessoAut) {
@@ -537,14 +566,14 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.processos_anexos_outros.arquivos++;
         estatisticasPorCategoria.processos_anexos_outros.tamanho += metadata.size;
         estatisticasPorCategoria.processos_anexos_outros.detalhes.push({ path, fileName, size: metadata.size });
-      } else if (path.startsWith('fornecedor_') && !path.includes('selecao')) {
+      } else if (pathSemBucket.startsWith('fornecedor_') && !pathSemBucket.includes('selecao')) {
         // Documentos de cadastro de fornecedores (CNDs, CNPJ, relatórios KPMG, etc.)
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
         estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
         estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
         
         // Agrupar por fornecedor
-        const fornecedorIdMatch = path.match(/^fornecedor_([a-f0-9-]+)\//);
+        const fornecedorIdMatch = pathSemBucket.match(/^fornecedor_([a-f0-9-]+)\//);
         if (fornecedorIdMatch) {
           const fornecedorId = fornecedorIdMatch[1];
           const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
@@ -563,14 +592,14 @@ Deno.serve(async (req) => {
             size: metadata.size
           });
         }
-      } else if (path.startsWith('avaliacao_')) {
+      } else if (pathSemBucket.startsWith('avaliacao_')) {
         // Documentos de avaliação (relatórios KPMG)
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
         estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
         estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
         
         // Mapear avaliacao_id para fornecedor_id
-        const avaliacaoIdMatch = path.match(/^avaliacao_([a-f0-9-]+)\//);
+        const avaliacaoIdMatch = pathSemBucket.match(/^avaliacao_([a-f0-9-]+)\//);
         if (avaliacaoIdMatch) {
           const avaliacaoId = avaliacaoIdMatch[1];
           const fornecedorId = avaliacoesMap.get(avaliacaoId);
@@ -593,14 +622,14 @@ Deno.serve(async (req) => {
             });
           }
         }
-      } else if (path.startsWith('fornecedor_') && path.includes('selecao')) {
+      } else if (pathSemBucket.startsWith('fornecedor_') && pathSemBucket.includes('selecao')) {
         // Propostas de fornecedores em seleções
         estatisticasPorCategoria.propostas_selecao.arquivos++;
         estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
         estatisticasPorCategoria.propostas_selecao.detalhes.push({ path, fileName, size: metadata.size });
         
         // Agrupar por seleção - extrair ID da seleção do path
-        const selecaoIdMatch = path.match(/selecao_([a-f0-9-]+)/);
+        const selecaoIdMatch = pathSemBucket.match(/selecao_([a-f0-9-]+)/);
         if (selecaoIdMatch) {
           const selecaoId = selecaoIdMatch[1];
           const selecao = selecoesMap.get(selecaoId);
@@ -622,14 +651,14 @@ Deno.serve(async (req) => {
             });
           }
         }
-      } else if (path.startsWith('selecoes/')) {
+      } else if (pathSemBucket.startsWith('selecoes/')) {
         // Anexos de seleção (avisos, editais)
         estatisticasPorCategoria.anexos_selecao.arquivos++;
         estatisticasPorCategoria.anexos_selecao.tamanho += metadata.size;
         estatisticasPorCategoria.anexos_selecao.detalhes.push({ path, fileName, size: metadata.size });
         
         // Agrupar por seleção - extrair ID da seleção do path
-        const selecaoIdMatch = path.match(/selecoes\/([a-f0-9-]+)/);
+        const selecaoIdMatch = pathSemBucket.match(/selecoes\/([a-f0-9-]+)/);
         if (selecaoIdMatch) {
           const selecaoId = selecaoIdMatch[1];
           const selecao = selecoesMap.get(selecaoId);
@@ -651,14 +680,14 @@ Deno.serve(async (req) => {
             });
           }
         }
-      } else if (path.startsWith('selecao_') && path.includes('planilha')) {
+      } else if (pathSemBucket.startsWith('selecao_') && pathSemBucket.includes('planilha')) {
         // Planilhas de lances
         estatisticasPorCategoria.planilhas_lances.arquivos++;
         estatisticasPorCategoria.planilhas_lances.tamanho += metadata.size;
         estatisticasPorCategoria.planilhas_lances.detalhes.push({ path, fileName, size: metadata.size });
         
         // Agrupar por seleção - extrair ID da seleção do path
-        const selecaoIdMatch = path.match(/selecao_([a-f0-9-]+)/);
+        const selecaoIdMatch = pathSemBucket.match(/selecao_([a-f0-9-]+)/);
         if (selecaoIdMatch) {
           const selecaoId = selecaoIdMatch[1];
           const selecao = selecoesMap.get(selecaoId);
@@ -680,14 +709,14 @@ Deno.serve(async (req) => {
             });
           }
         }
-      } else if (path.startsWith('recursos/')) {
+      } else if (pathSemBucket.startsWith('recursos/')) {
         // Recursos e respostas
         estatisticasPorCategoria.recursos.arquivos++;
         estatisticasPorCategoria.recursos.tamanho += metadata.size;
         estatisticasPorCategoria.recursos.detalhes.push({ path, fileName, size: metadata.size });
         
         // Agrupar por seleção - extrair ID da seleção do path (recursos/selecao_XXX/)
-        const selecaoIdMatch = path.match(/recursos\/selecao_([a-f0-9-]+)/);
+        const selecaoIdMatch = pathSemBucket.match(/recursos\/selecao_([a-f0-9-]+)/);
         if (selecaoIdMatch) {
           const selecaoId = selecaoIdMatch[1];
           const selecao = selecoesMap.get(selecaoId);
@@ -709,7 +738,7 @@ Deno.serve(async (req) => {
             });
           }
         }
-       } else if (path.startsWith('encaminhamentos/')) {
+       } else if (pathSemBucket.startsWith('encaminhamentos/')) {
         // Encaminhamentos - agrupar por processo
         estatisticasPorCategoria.encaminhamentos.arquivos++;
         estatisticasPorCategoria.encaminhamentos.tamanho += metadata.size;
@@ -722,7 +751,7 @@ Deno.serve(async (req) => {
         const { data: encaminhamentoData, error: encError } = await supabase
           .from('encaminhamentos_processo')
           .select('processo_numero, cotacao_id')
-          .eq('storage_path', path)
+          .eq('storage_path', pathSemBucket)
           .single();
         
         console.log(`📋 Dados encaminhamento:`, encaminhamentoData, encError);
@@ -768,12 +797,71 @@ Deno.serve(async (req) => {
         } else {
           console.log(`❌ Encaminhamento sem processo_numero no banco`);
         }
+      } else if (metadata.bucket === 'documents' && path.includes('compliance/')) {
+        // Análises de Compliance - agrupar por processo
+        estatisticasPorCategoria.analises_compliance.arquivos++;
+        estatisticasPorCategoria.analises_compliance.tamanho += metadata.size;
+        const detalheComp = { path, fileName, size: metadata.size, processoNumero: '' };
+        estatisticasPorCategoria.analises_compliance.detalhes.push(detalheComp);
+        
+        console.log(`🔍 Processando análise de compliance: ${path}`);
+        
+        // Buscar processo_numero do banco via analises_compliance
+        const { data: analiseData, error: analiseError } = await supabase
+          .from('analises_compliance')
+          .select('processo_numero, cotacao_id')
+          .ilike('url_documento', `%${path}%`)
+          .single();
+        
+        console.log(`📋 Dados análise compliance:`, analiseData, analiseError);
+        
+        if (analiseData?.processo_numero) {
+          const processoNumero = analiseData.processo_numero;
+          detalheComp.processoNumero = processoNumero;
+          
+          console.log(`🔎 Buscando processo: ${processoNumero}`);
+          
+          // Buscar dados completos do processo
+          const { data: processoData, error: procError } = await supabase
+            .from('processos_compras')
+            .select('id, numero_processo_interno, objeto_resumido, credenciamento')
+            .eq('numero_processo_interno', processoNumero)
+            .single();
+          
+          console.log(`📊 Dados processo:`, processoData, procError);
+          
+          if (processoData) {
+            const processoId = processoData.id;
+            
+            if (!estatisticasPorCategoria.analises_compliance.porProcesso!.has(processoId)) {
+              estatisticasPorCategoria.analises_compliance.porProcesso!.set(processoId, {
+                processoId,
+                processoNumero: processoData.numero_processo_interno,
+                processoObjeto: processoData.objeto_resumido || '',
+                credenciamento: processoData.credenciamento || false,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.analises_compliance.porProcesso!.get(processoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+            
+            console.log(`✅ Análise de compliance adicionada ao processo ${processoNumero}`);
+          } else {
+            console.log(`❌ Processo não encontrado: ${processoNumero}`);
+          }
+        } else {
+          console.log(`❌ Análise compliance sem processo_numero no banco`);
+        }
       } else if (
-        path.includes('proposta_fornecedor') || 
-        path.includes('proposta_preco_publico') ||
-        path.toLowerCase().includes('planilha_consolidada') ||
-        path.includes('Planilha_Consolidada') ||
-        path.includes('-EMAIL.pdf') ||
+        pathSemBucket.includes('proposta_fornecedor') || 
+        pathSemBucket.includes('proposta_preco_publico') ||
+        pathSemBucket.toLowerCase().includes('planilha_consolidada') ||
+        pathSemBucket.includes('Planilha_Consolidada') ||
+        pathSemBucket.includes('-EMAIL.pdf') ||
         fileNameRaw.startsWith('proposta_')
       ) {
         // Documentos de cotações - nome já foi buscado no início via nomesBonitos
@@ -784,12 +872,12 @@ Deno.serve(async (req) => {
         // Buscar processoId para agrupamento usando maps pré-carregados
         let cotacaoId = '';
         
-        if (path.includes('-EMAIL.pdf')) {
-          cotacaoId = emailsCotacaoMap.get(path) || '';
-        } else if (path.toLowerCase().includes('planilha_consolidada') || path.includes('Planilha_Consolidada')) {
-          cotacaoId = planilhasConsolidadasMap.get(path) || '';
+        if (pathSemBucket.includes('-EMAIL.pdf')) {
+          cotacaoId = emailsCotacaoMap.get(pathSemBucket) || '';
+        } else if (pathSemBucket.toLowerCase().includes('planilha_consolidada') || pathSemBucket.includes('Planilha_Consolidada')) {
+          cotacaoId = planilhasConsolidadasMap.get(pathSemBucket) || '';
         } else {
-          cotacaoId = anexosCotacaoMap.get(path) || '';
+          cotacaoId = anexosCotacaoMap.get(pathSemBucket) || '';
         }
         
         if (cotacaoId) {
@@ -895,6 +983,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.encaminhamentos.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.encaminhamentos.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.encaminhamentos.porProcesso!.values())
+        },
+        analises_compliance: {
+          arquivos: estatisticasPorCategoria.analises_compliance.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.analises_compliance.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.analises_compliance.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.analises_compliance.porProcesso!.values())
         },
         termos_referencia: {
           arquivos: estatisticasPorCategoria.termos_referencia.arquivos,
