@@ -716,23 +716,31 @@ Deno.serve(async (req) => {
         const detalheEnc = { path, fileName, size: metadata.size, processoNumero: '' };
         estatisticasPorCategoria.encaminhamentos.detalhes.push(detalheEnc);
         
+        console.log(`🔍 Processando encaminhamento: ${path}`);
+        
         // Buscar processo_numero do banco via encaminhamentos_processo
-        const { data: encaminhamentoData } = await supabase
+        const { data: encaminhamentoData, error: encError } = await supabase
           .from('encaminhamentos_processo')
           .select('processo_numero, cotacao_id')
           .eq('storage_path', path)
           .single();
         
+        console.log(`📋 Dados encaminhamento:`, encaminhamentoData, encError);
+        
         if (encaminhamentoData?.processo_numero) {
           const processoNumero = encaminhamentoData.processo_numero;
           detalheEnc.processoNumero = processoNumero;
           
+          console.log(`🔎 Buscando processo: ${processoNumero}`);
+          
           // Buscar dados completos do processo
-          const { data: processoData } = await supabase
+          const { data: processoData, error: procError } = await supabase
             .from('processos_compras')
             .select('id, numero_processo_interno, objeto_resumido, credenciamento')
             .eq('numero_processo_interno', processoNumero)
             .single();
+          
+          console.log(`📊 Dados processo:`, processoData, procError);
           
           if (processoData) {
             const processoId = processoData.id;
@@ -752,7 +760,13 @@ Deno.serve(async (req) => {
               fileName,
               size: metadata.size
             });
+            
+            console.log(`✅ Encaminhamento adicionado ao processo ${processoNumero}`);
+          } else {
+            console.log(`❌ Processo não encontrado: ${processoNumero}`);
           }
+        } else {
+          console.log(`❌ Encaminhamento sem processo_numero no banco`);
         }
       } else if (
         path.includes('proposta_fornecedor') || 
