@@ -211,7 +211,16 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
 
     setProcessando(true);
     try {
-      // 1. Upload do novo arquivo
+      // 1. Buscar documento antigo em vigor para deletar arquivo
+      const { data: docAntigoData } = await supabase
+        .from("documentos_fornecedor")
+        .select("url_arquivo")
+        .eq("fornecedor_id", fornecedorId)
+        .eq("tipo_documento", tipoDocumentoAtualizar)
+        .eq("em_vigor", true)
+        .single();
+
+      // 2. Upload do novo arquivo
       const fileName = `fornecedor_${fornecedorId}/${tipoDocumentoAtualizar}_${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from("processo-anexos")
@@ -223,19 +232,30 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         .from("processo-anexos")
         .getPublicUrl(fileName);
 
-      // 2. Desativar documento antigo
+      // 3. Deletar arquivo antigo do storage
+      if (docAntigoData?.url_arquivo) {
+        const pathMatch = docAntigoData.url_arquivo.match(/processo-anexos\/(.+)$/);
+        if (pathMatch) {
+          const filePath = pathMatch[1];
+          await supabase.storage
+            .from('processo-anexos')
+            .remove([filePath]);
+        }
+      }
+
+      // 4. Desativar documento antigo no banco
       await supabase
         .from("documentos_fornecedor")
         .update({ em_vigor: false })
         .eq("fornecedor_id", fornecedorId)
         .eq("tipo_documento", tipoDocumentoAtualizar);
 
-      // 3. Converter data para formato ISO sem problemas de timezone
+      // 5. Converter data para formato ISO sem problemas de timezone
       const dataValidadeISO = dataValidadeCertificado 
         ? `${dataValidadeCertificado}T00:00:00.000Z`
         : null;
 
-      // 4. Inserir novo documento (resetando flags de atualização solicitada)
+      // 6. Inserir novo documento (resetando flags de atualização solicitada)
       const { error: insertError } = await supabase
         .from("documentos_fornecedor")
         .insert({
