@@ -170,7 +170,14 @@ Deno.serve(async (req) => {
     
     if (anexosProcessoTipos) {
       for (const anexo of anexosProcessoTipos) {
-        anexosTipoMap.set(anexo.url_arquivo, anexo.tipo_anexo);
+        // Normalizar a URL para extrair apenas o path relativo
+        let normalizedPath = '';
+        if (anexo.url_arquivo.includes('processo-anexos/')) {
+          normalizedPath = anexo.url_arquivo.split('processo-anexos/')[1].split('?')[0];
+        } else {
+          normalizedPath = anexo.url_arquivo.split('?')[0];
+        }
+        anexosTipoMap.set(normalizedPath, anexo.tipo_anexo);
       }
     }
 
