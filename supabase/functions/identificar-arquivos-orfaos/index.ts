@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
     console.log('Listando arquivos do bucket processo-anexos...');
     
-    // Função para listar recursivamente todos os arquivos
+    // Função para listar recursivamente TODOS os arquivos em TODAS as pastas
     const listAllFiles = async (path = '', allFiles: any[] = []): Promise<any[]> => {
       let offset = 0;
       const limit = 1000;
@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
           });
 
         if (error) {
-          console.error(`Erro ao listar path ${path}:`, error);
+          console.error(`❌ Erro ao listar path "${path}":`, error);
           break;
         }
 
@@ -43,17 +43,20 @@ Deno.serve(async (req) => {
           break;
         }
 
-        console.log(`Listando ${path || 'root'}: ${items.length} itens (offset ${offset})`);
+        console.log(`📁 Listando "${path || 'ROOT'}": ${items.length} itens encontrados (offset ${offset})`);
 
         for (const item of items) {
           const fullPath = path ? `${path}/${item.name}` : item.name;
           
-          // Detectar se é pasta: id é null para pastas
-          if (item.id === null) {
-            console.log(`Pasta encontrada: ${fullPath}, listando recursivamente...`);
+          // Detectar se é pasta: id é null OU metadata não tem mimetype
+          const isPasta = item.id === null || !item.metadata?.mimetype;
+          
+          if (isPasta) {
+            console.log(`   ↳ 📂 Pasta: ${fullPath} - entrando recursivamente...`);
             await listAllFiles(fullPath, allFiles);
           } else {
             // É um arquivo real
+            console.log(`   ↳ 📄 Arquivo: ${fullPath} (${(item.metadata?.size || 0) / 1024} KB)`);
             allFiles.push({
               ...item,
               fullPath: fullPath
@@ -66,6 +69,7 @@ Deno.serve(async (req) => {
           hasMore = false;
         } else {
           offset += limit;
+          console.log(`   ⏭️  Buscando mais itens com offset ${offset}...`);
         }
       }
       
