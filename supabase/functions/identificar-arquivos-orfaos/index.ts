@@ -16,123 +16,9 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('🚀 Iniciando varredura RECURSIVA COMPLETA do bucket processo-anexos...');
+    console.log('🚀 Iniciando identificação de arquivos órfãos...');
     
-    // Função para listar RECURSIVAMENTE todos os arquivos e pastas
-    const listAllFilesRecursive = async (path: string = ''): Promise<any[]> => {
-      const allFiles: any[] = [];
-      const foldersToProcess: string[] = [path];
-      const processedFolders = new Set<string>();
-      
-      console.log('🔍 Iniciando varredura recursiva do bucket...');
-      
-      while (foldersToProcess.length > 0) {
-        const currentPath = foldersToProcess.shift()!;
-        
-        // Evitar processar a mesma pasta duas vezes
-        if (processedFolders.has(currentPath)) {
-          continue;
-        }
-        processedFolders.add(currentPath);
-        
-        console.log(`📂 Processando pasta: "${currentPath || '(raiz)'}"`);
-        
-        let offset = 0;
-        const limit = 1000; // Aumentar limite para pegar mais de uma vez
-        let hasMore = true;
-        let itemsInFolder = 0;
-
-        while (hasMore) {
-          const { data: items, error } = await supabase.storage
-            .from('processo-anexos')
-            .list(currentPath, {
-              limit: limit,
-              offset: offset,
-              sortBy: { column: 'name', order: 'asc' }
-            });
-
-          if (error) {
-            console.error(`❌ Erro ao listar ${currentPath}:`, error.message);
-            break;
-          }
-
-          if (!items || items.length === 0) {
-            console.log(`   ✓ Pasta vazia ou fim da listagem (offset: ${offset})`);
-            break;
-          }
-
-          console.log(`   📄 Encontrados ${items.length} itens (offset: ${offset})`);
-          itemsInFolder += items.length;
-
-          for (const item of items) {
-            const fullPath = currentPath ? `${currentPath}/${item.name}` : item.name;
-            
-            if (item.id === null) {
-              // É uma pasta - adicionar para processamento
-              console.log(`   📁 Subpasta encontrada: ${fullPath}`);
-              foldersToProcess.push(fullPath);
-            } else {
-              // É um arquivo - adicionar à lista
-              allFiles.push({
-                ...item,
-                fullPath: fullPath
-              });
-            }
-          }
-
-          // Continuar apenas se retornou o limite completo (pode haver mais)
-          if (items.length < limit) {
-            hasMore = false;
-          } else {
-            offset += limit;
-          }
-        }
-        
-        console.log(`   ✅ Total de ${itemsInFolder} itens processados nesta pasta`);
-        console.log(`📊 Progresso: ${allFiles.length} arquivos encontrados, ${foldersToProcess.length} pastas na fila`);
-      }
-      
-      console.log(`✅ Varredura completa: ${allFiles.length} arquivos totais, ${processedFolders.size} pastas processadas`);
-      return allFiles;
-    };
-
-    // Função para normalizar URLs e extrair apenas paths do bucket processo-anexos
-    const normalizarUrlsProcessoAnexos = (urls: string[]): string[] => {
-      const pathsNormalizados: string[] = [];
-      
-      for (const url of urls) {
-        // Remover query strings e tokens
-        const cleanUrl = url.split('?')[0].split('#')[0];
-        
-        // Se é URL completa do bucket processo-anexos
-        if (cleanUrl.includes('processo-anexos/')) {
-          const path = cleanUrl.split('processo-anexos/')[1];
-          if (path && path.trim()) {
-            pathsNormalizados.push(path.trim());
-          }
-        } 
-        // Se é path relativo que não começa com http (já é path do bucket)
-        else if (!cleanUrl.startsWith('http')) {
-          pathsNormalizados.push(cleanUrl.trim());
-        }
-        // URLs de outros buckets ou locais são ignoradas
-      }
-      
-      return pathsNormalizados;
-    };
-
-    // Listar TODOS os arquivos do bucket recursivamente
-    console.log('📂 Iniciando listagem recursiva completa...');
-    const files = await listAllFilesRecursive('');
-
-    console.log(`✅ Total de ${files?.length || 0} arquivos encontrados no storage após varredura recursiva completa`);
-    
-    // Log dos primeiros 5 arquivos para debug
-    if (files && files.length > 0) {
-      console.log('Primeiros arquivos encontrados:', files.slice(0, 5).map(f => f.fullPath));
-    }
-
-    // Buscar todas as URLs referenciadas no banco de dados
+    // Primeiro, buscar todas as URLs do banco para extrair as pastas que precisam ser escaneadas
     console.log('📊 Buscando URLs do banco de dados...');
     const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
     
@@ -140,12 +26,120 @@ Deno.serve(async (req) => {
       throw new Error(`Erro ao buscar referências: ${refError.message}`);
     }
 
-    // Normalizar URLs do banco: extrair apenas paths do bucket processo-anexos
-    const urlsReferenciadas = new Set(
-      referencias 
-        ? normalizarUrlsProcessoAnexos(referencias.map((r: any) => r.url))
-        : []
+    // Função para normalizar URLs e extrair apenas paths do bucket processo-anexos
+    const normalizarUrlsProcessoAnexos = (urls: string[]): string[] => {
+      const pathsNormalizados: string[] = [];
+      
+      for (const url of urls) {
+        const cleanUrl = url.split('?')[0].split('#')[0];
+        
+        if (cleanUrl.includes('processo-anexos/')) {
+          const path = cleanUrl.split('processo-anexos/')[1];
+          if (path && path.trim()) {
+            pathsNormalizados.push(path.trim());
+          }
+        } 
+        else if (!cleanUrl.startsWith('http')) {
+          pathsNormalizados.push(cleanUrl.trim());
+        }
+      }
+      
+      return pathsNormalizados;
+    };
+
+    // Normalizar URLs do banco
+    const pathsNormalizados = normalizarUrlsProcessoAnexos(
+      referencias ? referencias.map((r: any) => r.url) : []
     );
+    
+    console.log(`Total de paths no banco (processo-anexos): ${pathsNormalizados.length}`);
+
+    // Extrair todas as pastas únicas dos paths
+    const pastasUnicas = new Set<string>();
+    pastasUnicas.add(''); // Adicionar raiz
+    
+    for (const path of pathsNormalizados) {
+      const parts = path.split('/');
+      let currentPath = '';
+      
+      for (let i = 0; i < parts.length - 1; i++) {
+        currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+        pastasUnicas.add(currentPath);
+      }
+    }
+    
+    console.log(`Total de pastas únicas para escanear: ${pastasUnicas.size}`);
+    console.log('Primeiras 10 pastas:', Array.from(pastasUnicas).slice(0, 10));
+
+    // Função para listar arquivos de uma pasta específica
+    const listarArquivosDaPasta = async (pasta: string): Promise<any[]> => {
+      const arquivos: any[] = [];
+      let offset = 0;
+      const limit = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: items, error } = await supabase.storage
+          .from('processo-anexos')
+          .list(pasta, {
+            limit: limit,
+            offset: offset,
+            sortBy: { column: 'name', order: 'asc' }
+          });
+
+        if (error) {
+          console.error(`❌ Erro ao listar pasta "${pasta}":`, error.message);
+          break;
+        }
+
+        if (!items || items.length === 0) {
+          break;
+        }
+
+        // Adicionar apenas arquivos (id !== null)
+        for (const item of items) {
+          if (item.id !== null) {
+            const fullPath = pasta ? `${pasta}/${item.name}` : item.name;
+            arquivos.push({
+              ...item,
+              fullPath: fullPath
+            });
+          }
+        }
+
+        if (items.length < limit) {
+          hasMore = false;
+        } else {
+          offset += limit;
+        }
+      }
+
+      return arquivos;
+    };
+
+    // Listar arquivos de todas as pastas únicas
+    console.log('📂 Iniciando listagem de arquivos...');
+    const allFiles: any[] = [];
+    let processedCount = 0;
+    
+    for (const pasta of Array.from(pastasUnicas)) {
+      const arquivosDaPasta = await listarArquivosDaPasta(pasta);
+      allFiles.push(...arquivosDaPasta);
+      
+      processedCount++;
+      if (processedCount % 10 === 0) {
+        console.log(`📊 Progresso: ${processedCount}/${pastasUnicas.size} pastas processadas, ${allFiles.length} arquivos encontrados`);
+      }
+    }
+
+    console.log(`✅ Total de ${allFiles.length} arquivos encontrados no storage`);
+    
+    if (allFiles.length > 0) {
+      console.log('Primeiros 5 arquivos:', allFiles.slice(0, 5).map(f => f.fullPath));
+    }
+
+    // Criar Set com URLs referenciadas (já normalizadas)
+    const urlsReferenciadas = new Set(pathsNormalizados);
     
     console.log(`Total de URLs referenciadas no banco (processo-anexos): ${urlsReferenciadas.size}`);
     
@@ -154,18 +148,10 @@ Deno.serve(async (req) => {
       console.log('Primeiras URLs do banco (normalizadas):', Array.from(urlsReferenciadas).slice(0, 5));
     }
 
+    console.log('Primeiras 5 URLs do banco (normalizadas):', Array.from(urlsReferenciadas).slice(0, 5));
+
     // Identificar arquivos órfãos - comparar paths relativos
-    const arquivosOrfaos = files?.filter(file => {
-      const isOrfao = !urlsReferenciadas.has(file.fullPath);
-      
-      // Log dos primeiros 3 arquivos órfãos para debug
-      if (isOrfao && arquivosOrfaos.length < 3) {
-        console.log(`📛 Arquivo órfão: ${file.fullPath}`);
-        console.log(`   Existe no banco: ${urlsReferenciadas.has(file.fullPath)}`);
-      }
-      
-      return isOrfao;
-    }) || [];
+    const arquivosOrfaos = allFiles.filter(file => !urlsReferenciadas.has(file.fullPath));
     
     console.log(`Total de arquivos órfãos encontrados: ${arquivosOrfaos.length}`);
 
@@ -175,7 +161,7 @@ Deno.serve(async (req) => {
     const tamanhoGB = (tamanhoTotal / (1024 * 1024 * 1024)).toFixed(2);
 
     // Identificar referências órfãs - URLs no banco que não têm arquivo no storage
-    const pathsNoStorage = new Set(files?.map(f => f.fullPath) || []);
+    const pathsNoStorage = new Set(allFiles.map(f => f.fullPath));
     const referenciasOrfas = Array.from(urlsReferenciadas).filter(url => !pathsNoStorage.has(url));
     
     console.log(`Total de referências órfãs (URLs sem arquivo): ${referenciasOrfas.length}`);
@@ -184,7 +170,7 @@ Deno.serve(async (req) => {
     }
 
     const resultado = {
-      totalArquivosStorage: files?.length || 0,
+      totalArquivosStorage: allFiles.length,
       totalReferenciasDB: urlsReferenciadas.size,
       totalArquivosOrfaos: arquivosOrfaos.length,
       totalReferenciasOrfas: referenciasOrfas.length,
