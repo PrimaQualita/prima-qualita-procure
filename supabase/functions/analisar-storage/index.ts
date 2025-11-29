@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
         url_arquivo,
         tipo_anexo,
         cotacao_respostas_fornecedor!inner(
-          fornecedores!inner(razao_social)
+          fornecedores!inner(razao_social, user_id)
         )
       `);
     if (propostasCotacao) {
@@ -182,9 +182,13 @@ Deno.serve(async (req) => {
           path = path.split('?')[0];
         }
         
-        // Nome da fonte de preços (razão social do fornecedor que representa a fonte)
-        const nomeFonte = (prop as any).cotacao_respostas_fornecedor?.fornecedores?.razao_social || 'Desconhecida';
-        nomesBonitos.set(path, `Proposta ${nomeFonte}.pdf`);
+        const fornecedor = (prop as any).cotacao_respostas_fornecedor?.fornecedores;
+        const razaoSocial = fornecedor?.razao_social || 'Desconhecida';
+        
+        // Se user_id for NULL, é preço público (usar razão social como nome da fonte)
+        // Se user_id existir, é fornecedor cadastrado (usar "Proposta [Razão Social]")
+        const nomeArquivo = `Proposta ${razaoSocial}.pdf`;
+        nomesBonitos.set(path, nomeArquivo);
       }
     }
 
