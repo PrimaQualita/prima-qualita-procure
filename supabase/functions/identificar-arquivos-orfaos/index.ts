@@ -18,20 +18,43 @@ Deno.serve(async (req) => {
 
     console.log('🚀 Iniciando varredura COMPLETA do bucket processo-anexos...');
     
-    // Função para extrair todas as pastas únicas das URLs do banco
-    const extrairPastasUnicas = (urls: string[]): Set<string> => {
-      const pastas = new Set<string>();
+    // Função para normalizar URLs e extrair apenas paths do bucket processo-anexos
+    const normalizarUrlsProcessoAnexos = (urls: string[]): string[] => {
+      const pathsNormalizados: string[] = [];
       
       for (const url of urls) {
         // Remover query strings e tokens
-        const cleanUrl = url.split('?')[0];
+        const cleanUrl = url.split('?')[0].split('#')[0];
         
-        // Se tem barra, extrair o caminho da pasta
-        if (cleanUrl.includes('/')) {
-          const parts = cleanUrl.split('/');
-          // Pegar todas as partes exceto a última (que é o arquivo)
-          for (let i = 0; i < parts.length - 1; i++) {
-            const pastaParcial = parts.slice(0, i + 1).join('/');
+        // Se é URL completa do bucket processo-anexos
+        if (cleanUrl.includes('processo-anexos/')) {
+          const path = cleanUrl.split('processo-anexos/')[1];
+          if (path && path.trim()) {
+            pathsNormalizados.push(path.trim());
+          }
+        } 
+        // Se é path relativo que não começa com http (já é path do bucket)
+        else if (!cleanUrl.startsWith('http')) {
+          pathsNormalizados.push(cleanUrl.trim());
+        }
+        // URLs de outros buckets ou locais são ignoradas
+      }
+      
+      return pathsNormalizados;
+    };
+
+    // Função para extrair todas as pastas únicas dos paths normalizados
+    const extrairPastasUnicas = (paths: string[]): Set<string> => {
+      const pastas = new Set<string>();
+      
+      for (const path of paths) {
+        if (!path || !path.includes('/')) continue;
+        
+        const parts = path.split('/');
+        // Criar todas as pastas intermediárias
+        for (let i = 0; i < parts.length - 1; i++) {
+          const pastaParcial = parts.slice(0, i + 1).join('/');
+          if (pastaParcial) {
             pastas.add(pastaParcial);
           }
         }
@@ -40,7 +63,7 @@ Deno.serve(async (req) => {
       return pastas;
     };
 
-    // Buscar todas as URLs do banco PRIMEIRO para extrair pastas
+    // Buscar todas as URLs do banco PRIMEIRO
     console.log('📊 Buscando URLs do banco de dados...');
     const { data: referenciasPreliminar, error: refErrorPreliminar } = await supabase.rpc('get_all_file_references');
     
@@ -48,15 +71,15 @@ Deno.serve(async (req) => {
       console.error('Erro ao buscar referências:', refErrorPreliminar);
     }
 
-    const pastasDosBanco = referenciasPreliminar 
-      ? extrairPastasUnicas(referenciasPreliminar.map((r: any) => {
-          const url = r.url;
-          if (url.includes('processo-anexos/')) {
-            return url.split('processo-anexos/')[1];
-          }
-          return url;
-        }))
-      : new Set<string>();
+    // Normalizar URLs para extrair apenas paths do bucket processo-anexos
+    const pathsNormalizados = referenciasPreliminar 
+      ? normalizarUrlsProcessoAnexos(referenciasPreliminar.map((r: any) => r.url))
+      : [];
+
+    console.log(`📁 Total de ${pathsNormalizados.length} paths normalizados do bucket processo-anexos`);
+    
+    // Extrair pastas únicas dos paths normalizados
+    const pastasDosBanco = extrairPastasUnicas(pathsNormalizados);
 
     console.log(`📂 Encontradas ${pastasDosBanco.size} pastas únicas nas URLs do banco`);
     if (pastasDosBanco.size > 0) {
@@ -139,23 +162,17 @@ Deno.serve(async (req) => {
       throw new Error(`Erro ao buscar referências: ${refError.message}`);
     }
 
-    // Normalizar URLs do banco: extrair apenas o path relativo
+    // Normalizar URLs do banco: extrair apenas paths do bucket processo-anexos
     const urlsReferenciadas = new Set(
-      referencias?.map((r: any) => {
-        const url = r.url;
-        // Se é URL completa, extrair apenas o path após 'processo-anexos/'
-        if (url.includes('processo-anexos/')) {
-          return url.split('processo-anexos/')[1];
-        }
-        // Se já é path relativo, retornar como está
-        return url;
-      }) || []
+      referencias 
+        ? normalizarUrlsProcessoAnexos(referencias.map((r: any) => r.url))
+        : []
     );
     
-    console.log(`Total de URLs referenciadas no banco: ${urlsReferenciadas.size}`);
+    console.log(`Total de URLs referenciadas no banco (processo-anexos): ${urlsReferenciadas.size}`);
     
     // Log das primeiras 5 URLs para debug
-    if (referencias && referencias.length > 0) {
+    if (urlsReferenciadas.size > 0) {
       console.log('Primeiras URLs do banco (normalizadas):', Array.from(urlsReferenciadas).slice(0, 5));
     }
 
