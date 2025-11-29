@@ -135,7 +135,7 @@ export default function LimpezaArquivosOrfaos() {
       setDeletandoReferencias(true);
       setShowConfirmRefDialog(false);
 
-      toast.info(`Excluindo ${resultado.totalReferenciasOrfas} referência(s) do banco...`);
+      toast.info(`Limpando ${resultado.totalReferenciasOrfas} referência(s) do banco...`);
 
       const { data, error } = await supabase.functions.invoke('deletar-referencias-orfas', {
         body: { referencias: resultado.referenciasOrfas }
@@ -143,14 +143,14 @@ export default function LimpezaArquivosOrfaos() {
 
       if (error) throw error;
 
-      toast.success(`Referências órfãs excluídas com sucesso!`);
+      toast.success(`Referências limpas com sucesso! ${data.deletadas} campos atualizados.`);
       
       // Re-executar análise para atualizar resultados
       await executarAnalise();
       
     } catch (error) {
-      console.error('Erro ao deletar referências:', error);
-      toast.error("Erro ao excluir referências órfãs");
+      console.error('Erro ao limpar referências:', error);
+      toast.error("Erro ao limpar referências órfãs");
     } finally {
       setDeletandoReferencias(false);
     }
