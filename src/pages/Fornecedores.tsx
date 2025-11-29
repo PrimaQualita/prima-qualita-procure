@@ -916,7 +916,7 @@ export default function Fornecedores() {
               {respostasDueDiligence.length > 0 && (
                 <div className="mt-4 p-4 bg-muted rounded-lg">
                   <p className="font-semibold text-lg">
-                    Score Total: <span className={getNivelPontuacao(calcularScore()).cor}>{calcularScore()} pontos</span>
+                    Score Due Diligence: <span className={getNivelPontuacao(calcularScore()).cor}>{calcularScore()} pontos</span>
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Classificação de Risco: <span className={getNivelPontuacao(calcularScore()).cor + " font-semibold"}>
@@ -928,7 +928,7 @@ export default function Fornecedores() {
             </div>
 
             {/* Status Compliance */}
-            {fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
+            {fornecedorSelecionado && (
               <div className="space-y-3">
                 <Label>Compliance</Label>
                 {(() => {
@@ -1005,21 +1005,57 @@ export default function Fornecedores() {
                     );
                   }
                   
+                  // Sem avaliação de compliance - mostrar botão de enviar apenas se pendente
+                  if (fornecedorSelecionado.status_aprovacao === "pendente") {
+                    return (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleEnviarCompliance(fornecedorSelecionado.id)}
+                        disabled={enviandoCompliance === fornecedorSelecionado.id}
+                        className="w-full"
+                      >
+                        <Send className="mr-2 h-4 w-4" />
+                        {enviandoCompliance === fornecedorSelecionado.id ? "Enviando..." : "Enviar ao Compliance"}
+                      </Button>
+                    );
+                  }
+                  
                   return (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleEnviarCompliance(fornecedorSelecionado.id)}
-                      disabled={enviandoCompliance === fornecedorSelecionado.id}
-                      className="w-full"
-                    >
-                      <Send className="mr-2 h-4 w-4" />
-                      {enviandoCompliance === fornecedorSelecionado.id ? "Enviando..." : "Enviar ao Compliance"}
-                    </Button>
+                    <p className="text-sm text-muted-foreground">Não foi enviado ao Compliance</p>
                   );
                 })()}
               </div>
             )}
+
+            {/* Score Total Geral (Due Diligence + Compliance) */}
+            {fornecedorSelecionado && respostasDueDiligence.length > 0 && (() => {
+              const avaliacaoCompliance = avaliacoesCompliance[fornecedorSelecionado.id];
+              const scoreDueDiligence = calcularScore();
+              const scoreCompliance = avaliacaoCompliance?.score_risco_total || 0;
+              const scoreTotal = scoreDueDiligence + scoreCompliance;
+              
+              return (
+                <div className="mt-4 p-4 border-2 border-primary/20 rounded-lg bg-primary/5">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Score Due Diligence</p>
+                      <p className="text-2xl font-bold text-primary">{scoreDueDiligence}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Score Compliance</p>
+                      <p className="text-2xl font-bold text-primary">{scoreCompliance}</p>
+                    </div>
+                    
+                    <div className="border-l-2 border-primary/30 pl-4">
+                      <p className="text-xs text-muted-foreground mb-1 font-semibold">SCORE TOTAL</p>
+                      <p className="text-3xl font-bold text-primary">{scoreTotal}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Ação */}
             {fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
