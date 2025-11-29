@@ -291,6 +291,19 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
+              <Card className="border-sky-200 bg-sky-50/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-sky-900">Capas Processo</p>
+                    <p className="text-2xl font-bold text-sky-700">{resultado.estatisticasPorCategoria?.capas_processo?.arquivos || 0}</p>
+                    <p className="text-sm font-semibold text-sky-600">
+                      {resultado.estatisticasPorCategoria?.capas_processo?.tamanhoMB || 0} MB
+                    </p>
+                    <p className="text-xs text-sky-700/70">PDFs de capa</p>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="border-slate-200 bg-slate-50/50">
                 <CardContent className="pt-6">
                   <div className="space-y-2">
