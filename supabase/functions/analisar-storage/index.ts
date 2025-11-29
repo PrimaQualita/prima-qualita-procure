@@ -110,11 +110,16 @@ Deno.serve(async (req) => {
       recursos: { arquivos: 0, tamanho: 0 },
       encaminhamentos: { arquivos: 0, tamanho: 0 },
       processos_anexos: { arquivos: 0, tamanho: 0 },
+      capas_processo: { arquivos: 0, tamanho: 0 },
       outros: { arquivos: 0, tamanho: 0 }
     };
 
     for (const [path, metadata] of arquivosStorage) {
-      if (path.startsWith('fornecedor_') && !path.includes('selecao')) {
+      if (path.includes('capa_processo')) {
+        // Capas de processo
+        estatisticasPorCategoria.capas_processo.arquivos++;
+        estatisticasPorCategoria.capas_processo.tamanho += metadata.size;
+      } else if (path.startsWith('fornecedor_') && !path.includes('selecao')) {
         // Documentos de cadastro de fornecedores (CNDs, CNPJ, etc.)
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
         estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
@@ -204,6 +209,10 @@ Deno.serve(async (req) => {
         processos_anexos: {
           arquivos: estatisticasPorCategoria.processos_anexos.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.processos_anexos.tamanho / (1024 * 1024)).toFixed(2))
+        },
+        capas_processo: {
+          arquivos: estatisticasPorCategoria.capas_processo.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.capas_processo.tamanho / (1024 * 1024)).toFixed(2))
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,
