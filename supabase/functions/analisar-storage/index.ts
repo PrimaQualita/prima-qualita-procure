@@ -149,6 +149,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    // E-mails de cotação
+    const { data: emailsCotacao } = await supabase.from('emails_cotacao_anexados').select('url_arquivo, nome_arquivo');
+    if (emailsCotacao) {
+      for (const email of emailsCotacao) {
+        const path = email.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || email.url_arquivo;
+        nomesBonitos.set(path, email.nome_arquivo);
+      }
+    }
+
+    // Propostas de cotação (fornecedor e preços públicos)
+    const { data: propostasCotacao } = await supabase.from('anexos_cotacao_fornecedor').select('url_arquivo, nome_arquivo');
+    if (propostasCotacao) {
+      for (const prop of propostasCotacao) {
+        const path = prop.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || prop.url_arquivo;
+        nomesBonitos.set(path, prop.nome_arquivo);
+      }
+    }
+
     console.log(`📋 Nomes bonitos mapeados: ${nomesBonitos.size}`);
 
     // Buscar URLs do banco
@@ -666,88 +684,51 @@ Deno.serve(async (req) => {
         path.includes('-EMAIL.pdf') ||
         fileNameRaw.startsWith('proposta_')
       ) {
-        // Documentos de cotações (propostas, planilhas consolidadas, e-mails)
+        // Documentos de cotações - nome já foi buscado no início via nomesBonitos
         estatisticasPorCategoria.cotacoes.arquivos++;
         estatisticasPorCategoria.cotacoes.tamanho += metadata.size;
+        estatisticasPorCategoria.cotacoes.detalhes.push({ path, fileName, size: metadata.size });
         
-        // Nome de exibição (inicialmente o nome do arquivo)
-        let displayName = fileName;
+        // Buscar processoId para agrupamento
         let processoId = '';
         
-        // Se for e-mail
         if (path.includes('-EMAIL.pdf')) {
-          // Buscar todos os emails e tentar match
-          const { data: emails } = await supabase
+          const { data: emailCotacao } = await supabase
             .from('emails_cotacao_anexados')
-            .select('cotacao_id, nome_arquivo, url_arquivo');
+            .select('cotacao_id')
+            .or(`url_arquivo.cs.${path}`)
+            .maybeSingle();
           
-          if (emails) {
-            const matchedEmail = emails.find(email => 
-              email.url_arquivo?.includes(fileNameRaw) || 
-              email.url_arquivo?.includes(path) ||
-              path.includes(email.nome_arquivo)
-            );
-            
-            if (matchedEmail) {
-              console.log('📧 E-mail matched:', matchedEmail.nome_arquivo);
-              displayName = matchedEmail.nome_arquivo;
-              const cotacao = cotacoesMap.get(matchedEmail.cotacao_id);
-              if (cotacao) processoId = cotacao.processoId;
-            } else {
-              console.log('⚠️ E-mail não matched. Path:', path);
-            }
+          if (emailCotacao) {
+            const cotacao = cotacoesMap.get(emailCotacao.cotacao_id);
+            if (cotacao) processoId = cotacao.processoId;
           }
-        }
-        // Se for planilha consolidada
-        else if (path.includes('planilha_consolidada')) {
-          const { data: planilhas } = await supabase
+        } else if (path.includes('planilha_consolidada')) {
+          const { data: planilha } = await supabase
             .from('planilhas_consolidadas')
-            .select('cotacao_id, url_arquivo');
+            .select('cotacao_id')
+            .or(`url_arquivo.cs.${path}`)
+            .maybeSingle();
           
-          if (planilhas) {
-            const matchedPlanilha = planilhas.find(p => 
-              p.url_arquivo?.includes(fileNameRaw) || 
-              p.url_arquivo?.includes(path)
-            );
-            
-            if (matchedPlanilha) {
-              const cotacao = cotacoesMap.get(matchedPlanilha.cotacao_id);
+          if (planilha) {
+            const cotacao = cotacoesMap.get(planilha.cotacao_id);
+            if (cotacao) processoId = cotacao.processoId;
+          }
+        } else {
+          const { data: anexoCotacao } = await supabase
+            .from('anexos_cotacao_fornecedor')
+            .select(`cotacao_respostas_fornecedor!inner(cotacao_id)`)
+            .or(`url_arquivo.cs.${path}`)
+            .maybeSingle();
+          
+          if (anexoCotacao) {
+            const cotacaoId = (anexoCotacao as any).cotacao_respostas_fornecedor?.cotacao_id;
+            if (cotacaoId) {
+              const cotacao = cotacoesMap.get(cotacaoId);
               if (cotacao) processoId = cotacao.processoId;
             }
           }
         }
-        // Se for proposta
-        else {
-          const { data: propostas } = await supabase
-            .from('anexos_cotacao_fornecedor')
-            .select(`
-              nome_arquivo,
-              url_arquivo,
-              cotacao_respostas_fornecedor!inner(cotacao_id)
-            `);
-          
-          if (propostas) {
-            const matchedProposta = propostas.find(p => 
-              p.url_arquivo?.includes(fileNameRaw) || 
-              p.url_arquivo?.includes(path) ||
-              fileNameRaw.includes(p.nome_arquivo)
-            );
-            
-            if (matchedProposta) {
-              console.log('📄 Proposta matched:', matchedProposta.nome_arquivo);
-              displayName = matchedProposta.nome_arquivo;
-              const cotacaoId = (matchedProposta as any).cotacao_respostas_fornecedor?.cotacao_id;
-              if (cotacaoId) {
-                const cotacao = cotacoesMap.get(cotacaoId);
-                if (cotacao) processoId = cotacao.processoId;
-              }
-            } else {
-              console.log('⚠️ Proposta não matched. Path:', path);
-            }
-          }
-        }
-        
-        estatisticasPorCategoria.cotacoes.detalhes.push({ path, fileName: displayName, size: metadata.size });
         
         if (processoId) {
           const processo = processosMap.get(processoId);
