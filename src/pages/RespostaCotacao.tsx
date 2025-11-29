@@ -149,6 +149,84 @@ const RespostaCotacao = () => {
   const [observacoes, setObservacoes] = useState("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [arquivosComprovantes, setArquivosComprovantes] = useState<File[]>([]);
+  const [buscandoFornecedor, setBuscandoFornecedor] = useState(false);
+
+  // Função para buscar fornecedor por CNPJ
+  const buscarFornecedorPorCNPJ = async (cnpj: string) => {
+    const cnpjLimpo = cnpj.replace(/[^\d]/g, "");
+    
+    // Só busca se CNPJ estiver completo (14 dígitos)
+    if (cnpjLimpo.length !== 14) return;
+    
+    // Valida CNPJ antes de buscar
+    if (!validarCNPJ(cnpj)) {
+      toast.error("CNPJ inválido");
+      return;
+    }
+    
+    setBuscandoFornecedor(true);
+    
+    try {
+      const { data: fornecedor, error } = await supabaseAnon
+        .from("fornecedores")
+        .select("razao_social, endereco_comercial, cnpj")
+        .eq("cnpj", cnpjLimpo)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Erro ao buscar fornecedor:", error);
+        setBuscandoFornecedor(false);
+        return;
+      }
+      
+      if (fornecedor && fornecedor.endereco_comercial) {
+        // Parse do endereço completo
+        // Formato esperado: "Logradouro, Nº Numero, Bairro, Municipio/UF, CEP: 00000-000"
+        const enderecoCompleto = fornecedor.endereco_comercial;
+        
+        // Extrair partes do endereço
+        const partes = enderecoCompleto.split(',').map(p => p.trim());
+        const logradouro = partes[0] || '';
+        
+        // Extrair número (após "Nº ")
+        const numeroMatch = partes[1]?.match(/Nº\s*(.+)/);
+        const numero = numeroMatch ? numeroMatch[1] : '';
+        
+        const bairro = partes[2] || '';
+        
+        // Extrair município e UF (formato: "Municipio/UF")
+        const municipioUf = partes[3]?.split('/') || [];
+        const municipio = municipioUf[0]?.trim() || '';
+        const uf = municipioUf[1]?.split(',')[0]?.trim() || '';
+        
+        // Extrair CEP
+        const cepMatch = enderecoCompleto.match(/CEP:\s*([0-9-]+)/);
+        const cep = cepMatch ? cepMatch[1] : '';
+        
+        // Preencher dados automaticamente
+        setDadosEmpresa({
+          ...dadosEmpresa,
+          razao_social: fornecedor.razao_social || '',
+          cnpj: cnpj,
+          logradouro: logradouro,
+          numero: numero,
+          bairro: bairro,
+          municipio: municipio,
+          uf: uf,
+          cep: cep,
+          endereco_comercial: enderecoCompleto,
+        });
+        
+        toast.success("Dados do fornecedor preenchidos automaticamente!");
+      } else {
+        toast.info("CNPJ não encontrado no cadastro. Preencha os dados manualmente.");
+      }
+    } catch (error) {
+      console.error("Erro ao buscar fornecedor:", error);
+    } finally {
+      setBuscandoFornecedor(false);
+    }
+  };
   
 
   useEffect(() => {
@@ -710,6 +788,33 @@ const RespostaCotacao = () => {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
+              {/* CNPJ como primeiro campo */}
+              <div className="grid gap-2">
+                <Label htmlFor="cnpj">CNPJ *</Label>
+                <Input
+                  id="cnpj"
+                  value={dadosEmpresa.cnpj}
+                  onChange={(e) => {
+                    const cnpjFormatado = formatarCNPJ(e.target.value);
+                    setDadosEmpresa({ ...dadosEmpresa, cnpj: cnpjFormatado });
+                  }}
+                  onBlur={(e) => {
+                    // Buscar fornecedor quando usuário sair do campo CNPJ
+                    buscarFornecedorPorCNPJ(e.target.value);
+                  }}
+                  placeholder="00.000.000/0000-00"
+                  maxLength={18}
+                  className={errors.cnpj ? "border-destructive" : ""}
+                  disabled={buscandoFornecedor}
+                />
+                {buscandoFornecedor && (
+                  <p className="text-sm text-muted-foreground">Buscando fornecedor...</p>
+                )}
+                {errors.cnpj && (
+                  <p className="text-sm text-destructive">{errors.cnpj}</p>
+                )}
+              </div>
+
               <div className="grid gap-2">
                 <Label htmlFor="razao_social">Razão Social *</Label>
                 <Input
@@ -720,24 +825,6 @@ const RespostaCotacao = () => {
                 />
                 {errors.razao_social && (
                   <p className="text-sm text-destructive">{errors.razao_social}</p>
-                )}
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="cnpj">CNPJ *</Label>
-                <Input
-                  id="cnpj"
-                  value={dadosEmpresa.cnpj}
-                  onChange={(e) => {
-                    const cnpjFormatado = formatarCNPJ(e.target.value);
-                    setDadosEmpresa({ ...dadosEmpresa, cnpj: cnpjFormatado });
-                  }}
-                  placeholder="00.000.000/0000-00"
-                  maxLength={18}
-                  className={errors.cnpj ? "border-destructive" : ""}
-                />
-                {errors.cnpj && (
-                  <p className="text-sm text-destructive">{errors.cnpj}</p>
                 )}
               </div>
 
