@@ -15,57 +15,41 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('🔍 Analisando storage processo-anexos...');
+    console.log('🔍 Iniciando análise completa do storage...');
 
-    // Listar TODOS os arquivos do bucket
+    // Usar a API REST do Storage para listar TUDO de uma vez
     const arquivosStorage = new Set<string>();
     
-    async function listarTudo(prefixo: string = '', nivel: number = 0) {
-      const indent = '  '.repeat(nivel);
-      console.log(`${indent}📂 Escaneando: ${prefixo || '(raiz)'}`);
-      
-      try {
-        // Lista TUDO no caminho atual sem paginação (limite alto)
-        const { data: items, error } = await supabase.storage
-          .from('processo-anexos')
-          .list(prefixo, {
-            limit: 10000, // Limite muito alto para pegar tudo
-            sortBy: { column: 'name', order: 'asc' }
-          });
+    const response = await fetch(
+      `${supabaseUrl}/storage/v1/object/list/processo-anexos`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prefix: '',
+          limit: 100000, // Limite bem alto
+          search: '',
+        })
+      }
+    );
 
-        if (error) {
-          console.error(`${indent}❌ Erro:`, error.message);
-          return;
-        }
+    if (!response.ok) {
+      throw new Error(`Erro na API REST: ${response.statusText}`);
+    }
 
-        if (!items || items.length === 0) {
-          console.log(`${indent}  (vazio)`);
-          return;
-        }
+    const items = await response.json();
+    console.log(`📦 API REST retornou ${items.length} itens`);
 
-        console.log(`${indent}  → ${items.length} itens`);
-        
-        for (const item of items) {
-          const caminhoCompleto = prefixo ? `${prefixo}/${item.name}` : item.name;
-          
-          // Se tem ID, é arquivo
-          if (item.id) {
-            arquivosStorage.add(caminhoCompleto);
-            console.log(`${indent}    📄 ${item.name}`);
-          } 
-          // Se não tem ID, é pasta - escanear recursivamente
-          else {
-            console.log(`${indent}    📁 ${item.name}/`);
-            await listarTudo(caminhoCompleto, nivel + 1);
-          }
-        }
-      } catch (err) {
-        console.error(`${indent}❌ Exceção:`, err);
+    for (const item of items) {
+      if (item.name && !item.name.endsWith('/')) {
+        arquivosStorage.add(item.name);
       }
     }
 
-    await listarTudo('', 0);
-    console.log(`\n📦 TOTAL ENCONTRADO: ${arquivosStorage.size} arquivos`);
+    console.log(`✅ Total de arquivos encontrados: ${arquivosStorage.size}`);
 
     // Buscar URLs do banco
     const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
@@ -86,7 +70,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`📊 URLs no banco: ${pathsDB.size}`);
+    console.log(`📊 Referências no banco: ${pathsDB.size}`);
 
     // Identificar órfãos
     const arquivosOrfaos: string[] = [];
@@ -112,7 +96,7 @@ Deno.serve(async (req) => {
       totalReferenciasOrfas: referenciasOrfas.length,
     };
 
-    console.log('✅ Análise concluída:', resultado);
+    console.log('✅ Análise concluída:', JSON.stringify(resultado, null, 2));
 
     return new Response(
       JSON.stringify(resultado),
