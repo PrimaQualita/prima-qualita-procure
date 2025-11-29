@@ -44,13 +44,21 @@ Deno.serve(async (req) => {
     }
     console.log('');
     
-    // Função para listar recursivamente TODOS os arquivos em TODAS as pastas
-    const listAllFiles = async (path = '', allFiles: any[] = []): Promise<any[]> => {
-      let offset = 0;
-      const limit = 1000;
-      let hasMore = true;
+    // Função para listar recursivamente TODOS os arquivos
+    const listAllFiles = async (path = '', allFiles: any[] = [], depth = 0): Promise<any[]> => {
+      // Limite de profundidade para evitar loops infinitos
+      if (depth > 10) {
+        console.log(`⚠️  Profundidade máxima atingida em: ${path}`);
+        return allFiles;
+      }
 
-      while (hasMore) {
+      let offset = 0;
+      const limit = 1000; // Máximo permitido pelo Supabase
+      let continuarBuscando = true;
+
+      while (continuarBuscando) {
+        console.log(`📁 Buscando em "${path || 'ROOT'}" (offset: ${offset}, profundidade: ${depth})...`);
+        
         const { data: items, error } = await supabase.storage
           .from('processo-anexos')
           .list(path, {
@@ -60,30 +68,32 @@ Deno.serve(async (req) => {
           });
 
         if (error) {
-          console.error(`❌ Erro ao listar path "${path}":`, error);
+          console.error(`❌ Erro em "${path}": ${error.message}`);
           break;
         }
 
         if (!items || items.length === 0) {
-          hasMore = false;
+          console.log(`   ✓ Nenhum item encontrado (fim da listagem)`);
           break;
         }
 
-        console.log(`📁 Listando "${path || 'ROOT'}": ${items.length} itens encontrados (offset ${offset})`);
+        console.log(`   → ${items.length} itens retornados`);
+        let arquivosNestePedaco = 0;
+        let pastasNestePedaco = 0;
 
         for (const item of items) {
           const fullPath = path ? `${path}/${item.name}` : item.name;
           
-          // CRÍTICO: Pastas têm id null, arquivos têm id válido
-          // Não confiar em metadata pois pode estar incompleto
-          const isPasta = item.id === null;
-          
-          if (isPasta) {
-            console.log(`   ↳ 📂 Pasta: ${fullPath} - entrando recursivamente...`);
-            await listAllFiles(fullPath, allFiles);
+          // item.id === null significa pasta, item.id !== null significa arquivo
+          if (item.id === null) {
+            pastasNestePedaco++;
+            console.log(`   ↳ 📂 ${item.name} (pasta)`);
+            // Buscar recursivamente dentro desta pasta
+            await listAllFiles(fullPath, allFiles, depth + 1);
           } else {
-            // É um arquivo real - tem ID válido
-            console.log(`   ↳ 📄 Arquivo: ${fullPath} (ID: ${item.id?.substring(0,8)}..., ${(item.metadata?.size || 0) / 1024} KB)`);
+            arquivosNestePedaco++;
+            const tamanhoKB = ((item.metadata?.size || 0) / 1024).toFixed(2);
+            console.log(`   ↳ 📄 ${item.name} (${tamanhoKB} KB)`);
             allFiles.push({
               ...item,
               fullPath: fullPath
@@ -91,12 +101,15 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Se retornou menos que o limite, não há mais itens
-        if (items.length < limit) {
-          hasMore = false;
-        } else {
+        console.log(`   ✓ Processado: ${arquivosNestePedaco} arquivos, ${pastasNestePedaco} pastas`);
+
+        // Se retornou EXATAMENTE o limite, pode haver mais
+        if (items.length === limit) {
           offset += limit;
-          console.log(`   ⏭️  Buscando mais itens com offset ${offset}...`);
+          console.log(`   ⏭️  Pode haver mais itens, continuando com offset ${offset}...`);
+        } else {
+          console.log(`   ✓ Fim da listagem em "${path || 'ROOT'}" (total acumulado: ${allFiles.length} arquivos)`);
+          continuarBuscando = false;
         }
       }
       
