@@ -45,65 +45,62 @@ Deno.serve(async (req) => {
       
       console.log(`📋 Processando ${limite} de ${paths.length} referências...`);
       
-      // CRÍTICO: Deletar os registros usando SQL RAW para ignorar triggers problemáticos
+      // Lista de tabelas e colunas para verificar
+      const queries = [
+        { tabela: 'anexos_processo_compra', coluna: 'url_arquivo' },
+        { tabela: 'analises_compliance', coluna: 'url_documento' },
+        { tabela: 'planilhas_consolidadas', coluna: 'url_arquivo' },
+        { tabela: 'autorizacoes_processo', coluna: 'url_arquivo' },
+        { tabela: 'relatorios_finais', coluna: 'url_arquivo' },
+        { tabela: 'encaminhamentos_processo', coluna: 'url' },
+        { tabela: 'emails_cotacao_anexados', coluna: 'url_arquivo' },
+        { tabela: 'anexos_cotacao_fornecedor', coluna: 'url_arquivo' },
+        { tabela: 'recursos_fornecedor', coluna: 'url_arquivo' },
+        { tabela: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
+        { tabela: 'anexos_selecao', coluna: 'url_arquivo' },
+        { tabela: 'atas_selecao', coluna: 'url_arquivo' },
+        { tabela: 'atas_selecao', coluna: 'url_arquivo_original' },
+        { tabela: 'homologacoes_selecao', coluna: 'url_arquivo' },
+        { tabela: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
+        { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
+        { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
+        { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
+        { tabela: 'documentos_fornecedor', coluna: 'url_arquivo' },
+        { tabela: 'documentos_processo_finalizado', coluna: 'url_arquivo' },
+        { tabela: 'respostas_recursos', coluna: 'url_documento' },
+      ];
+
       for (let i = 0; i < limite; i++) {
         const path = paths[i];
         let encontrouAlgum = false;
         
-        console.log(`\n🔍 Processando: ${path}`);
-        
-        // Lista de tabelas e colunas para verificar
-        const queries = [
-          { tabela: 'anexos_processo_compra', coluna: 'url_arquivo' },
-          { tabela: 'analises_compliance', coluna: 'url_documento' },
-          { tabela: 'planilhas_consolidadas', coluna: 'url_arquivo' },
-          { tabela: 'autorizacoes_processo', coluna: 'url_arquivo' },
-          { tabela: 'relatorios_finais', coluna: 'url_arquivo' },
-          { tabela: 'encaminhamentos_processo', coluna: 'url' },
-          { tabela: 'emails_cotacao_anexados', coluna: 'url_arquivo' },
-          { tabela: 'anexos_cotacao_fornecedor', coluna: 'url_arquivo' },
-          { tabela: 'recursos_fornecedor', coluna: 'url_arquivo' },
-          { tabela: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
-          { tabela: 'anexos_selecao', coluna: 'url_arquivo' },
-          { tabela: 'atas_selecao', coluna: 'url_arquivo' },
-          { tabela: 'atas_selecao', coluna: 'url_arquivo_original' },
-          { tabela: 'homologacoes_selecao', coluna: 'url_arquivo' },
-          { tabela: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
-          { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
-          { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
-          { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
-          { tabela: 'documentos_fornecedor', coluna: 'url_arquivo' },
-          { tabela: 'documentos_processo_finalizado', coluna: 'url_arquivo' },
-          { tabela: 'respostas_recursos', coluna: 'url_documento' },
-        ];
+        console.log(`\n🔍 [${i + 1}/${limite}] Processando: ${path}`);
 
         for (const { tabela, coluna } of queries) {
           try {
-            // Usar rpc para executar SQL com session_replication_role = replica
-            // Isso desabilita os triggers durante a execução
-            const { data: resultado, error } = await supabase.rpc('executar_delete_sem_trigger', {
-              p_tabela: tabela,
-              p_coluna: coluna,
-              p_path: path
-            });
+            // Usar DELETE direto do Supabase client (service role key tem todas as permissões)
+            const { data, error, count } = await supabase
+              .from(tabela)
+              .delete({ count: 'exact' })
+              .ilike(coluna, `%${path}%`);
 
             if (error) {
               console.log(`  ⚠️ Erro em ${tabela}.${coluna}: ${error.message}`);
               continue;
             }
 
-            if (resultado && resultado > 0) {
+            if (count && count > 0) {
               encontrouAlgum = true;
-              deletados += resultado;
-              console.log(`  ✅ Deletou ${resultado} registros de ${tabela}.${coluna}`);
+              deletados += count;
+              console.log(`  ✅ Deletou ${count} registro(s) de ${tabela}.${coluna}`);
             }
           } catch (err) {
-            console.log(`  ❌ Exceção em ${tabela}: ${err}`);
+            console.log(`  ❌ Exceção em ${tabela}.${coluna}: ${err}`);
           }
         }
         
         if (!encontrouAlgum) {
-          console.log(`  ⚠️ Referência não encontrada`);
+          console.log(`  ⚠️ Referência não encontrada em nenhuma tabela`);
         }
       }
       
