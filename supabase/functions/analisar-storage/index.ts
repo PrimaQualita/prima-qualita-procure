@@ -209,9 +209,23 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Referências no banco: ${pathsDB.size}`);
 
+    // Buscar dados de fornecedores para agrupar documentos
+    const { data: fornecedores } = await supabase.from('fornecedores').select('id, razao_social');
+    const fornecedoresMap = new Map<string, string>();
+    if (fornecedores) {
+      for (const forn of fornecedores) {
+        fornecedoresMap.set(forn.id, forn.razao_social);
+      }
+    }
+
     // Calcular estatísticas por categoria
-    const estatisticasPorCategoria: Record<string, { arquivos: number; tamanho: number; detalhes: Array<{ path: string; fileName: string; size: number }> }> = {
-      documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [] },
+    const estatisticasPorCategoria: Record<string, { 
+      arquivos: number; 
+      tamanho: number; 
+      detalhes: Array<{ path: string; fileName: string; size: number }>;
+      porFornecedor?: Map<string, { fornecedorId: string; fornecedorNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
+    }> = {
+      documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [], porFornecedor: new Map() },
       propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [] },
       anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [] },
       planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [] },
@@ -264,6 +278,27 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
         estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
         estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Agrupar por fornecedor
+        const fornecedorIdMatch = path.match(/^fornecedor_([a-f0-9-]+)\//);
+        if (fornecedorIdMatch) {
+          const fornecedorId = fornecedorIdMatch[1];
+          const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+          
+          if (!estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.has(fornecedorId)) {
+            estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.set(fornecedorId, {
+              fornecedorId,
+              fornecedorNome,
+              documentos: []
+            });
+          }
+          
+          estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.get(fornecedorId)!.documentos.push({
+            path,
+            fileName,
+            size: metadata.size
+          });
+        }
       } else if (path.startsWith('fornecedor_') && path.includes('selecao')) {
         // Propostas de fornecedores em seleções
         estatisticasPorCategoria.propostas_selecao.arquivos++;
@@ -328,6 +363,12 @@ Deno.serve(async (req) => {
       totalReferenciasOrfas: referenciasOrfas.length,
       estatisticasPorCategoria: {
         documentos_fornecedores: {
+          arquivos: estatisticasPorCategoria.documentos_fornecedores.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.documentos_fornecedores.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.documentos_fornecedores.detalhes,
+          porFornecedor: Array.from(estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.values())
+        },
+        documentos_fornecedores_original: {
           arquivos: estatisticasPorCategoria.documentos_fornecedores.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.documentos_fornecedores.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.documentos_fornecedores.detalhes
