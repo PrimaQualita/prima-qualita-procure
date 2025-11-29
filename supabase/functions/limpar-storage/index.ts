@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
 
     // Novo fluxo: deletar arquivos órfãos (seletivo ou todos)
     if (paths || deletarTudo) {
-      let pathsParaDeletar = paths || [];
+      let pathsParaDeletar: Array<{path: string, bucket: string}> = [];
       
       // Se deletarTudo, buscar todos os arquivos órfãos
       if (deletarTudo) {
@@ -31,44 +31,53 @@ Deno.serve(async (req) => {
         const referenciasSet = new Set(
           (referencias || []).map((ref: any) => {
             const url = ref.url || '';
-            return url.replace(/.*\/processo-anexos\//, '');
+            // Normalizar removendo prefixo de bucket
+            return url
+              .replace(/.*\/processo-anexos\//, '')
+              .replace(/.*\/documents\//, '');
           }).filter(Boolean)
         );
 
-        // Listar todos os arquivos do storage
-        const { data: files } = await supabase.storage
-          .from('processo-anexos')
-          .list('', { limit: 10000, sortBy: { column: 'name', order: 'asc' } });
+        // Função para listar arquivos recursivamente de um bucket
+        const listAllFilesFromBucket = async (bucketName: string) => {
+          const files: Array<{path: string, bucket: string}> = [];
+          
+          const listRecursive = async (path: string = '') => {
+            const { data: items } = await supabase.storage
+              .from(bucketName)
+              .list(path, { limit: 1000 });
 
-        if (!files) {
-          throw new Error('Erro ao listar arquivos do storage');
-        }
+            if (!items) return;
 
-        // Coletar todos os arquivos do storage recursivamente
-        const allFiles: string[] = [];
-        const listAllFiles = async (path: string = '') => {
-          const { data: items } = await supabase.storage
-            .from('processo-anexos')
-            .list(path, { limit: 1000 });
-
-          if (!items) return;
-
-          for (const item of items) {
-            const fullPath = path ? `${path}/${item.name}` : item.name;
-            
-            if (item.id) {
-              allFiles.push(fullPath);
-            } else {
-              await listAllFiles(fullPath);
+            for (const item of items) {
+              const fullPath = path ? `${path}/${item.name}` : item.name;
+              
+              if (item.id) {
+                files.push({ path: fullPath, bucket: bucketName });
+              } else {
+                await listRecursive(fullPath);
+              }
             }
-          }
+          };
+
+          await listRecursive();
+          return files;
         };
 
-        await listAllFiles();
+        // Listar de ambos os buckets
+        const filesProcessoAnexos = await listAllFilesFromBucket('processo-anexos');
+        const filesDocuments = await listAllFilesFromBucket('documents');
+        const allFiles = [...filesProcessoAnexos, ...filesDocuments];
         
         // Filtrar apenas órfãos
-        pathsParaDeletar = allFiles.filter(path => !referenciasSet.has(path));
+        pathsParaDeletar = allFiles.filter(file => !referenciasSet.has(file.path));
         console.log(`📋 Encontrados ${pathsParaDeletar.length} arquivos órfãos para deletar`);
+      } else {
+        // Paths fornecidos manualmente - assumir que são do processo-anexos por padrão
+        pathsParaDeletar = (paths || []).map((p: string) => ({
+          path: p,
+          bucket: 'processo-anexos'
+        }));
       }
 
       if (pathsParaDeletar.length === 0) {
@@ -81,16 +90,16 @@ Deno.serve(async (req) => {
       console.log(`🗑️ Deletando ${pathsParaDeletar.length} arquivo(s) órfão(s)...`);
       
       let deletados = 0;
-      for (const path of pathsParaDeletar) {
+      for (const file of pathsParaDeletar) {
         const { error } = await supabase.storage
-          .from('processo-anexos')
-          .remove([path]);
+          .from(file.bucket)
+          .remove([file.path]);
         
         if (!error) {
-          console.log(`✅ Arquivo deletado: ${path}`);
+          console.log(`✅ Arquivo deletado: ${file.bucket}/${file.path}`);
           deletados++;
         } else {
-          console.error(`❌ Erro ao deletar arquivo ${path}:`, error);
+          console.error(`❌ Erro ao deletar arquivo ${file.bucket}/${file.path}:`, error);
         }
       }
       
