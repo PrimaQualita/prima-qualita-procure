@@ -1,5 +1,8 @@
 project_id = "ypkiikefrcpkqmwacjjb"
 
+[functions.deletar-processo]
+verify_jwt = true
+
 [functions.deletar-usuario-admin]
 verify_jwt = false
 
