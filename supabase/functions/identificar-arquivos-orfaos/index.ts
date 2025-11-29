@@ -18,6 +18,32 @@ Deno.serve(async (req) => {
 
     console.log('Listando arquivos do bucket processo-anexos...');
     
+    // PRIMEIRO: Testar acesso direto às pastas de fornecedores que deveriam existir
+    const pastasEsperadas = [
+      'avaliacao_06db7378-7e75-4e67-bd90-3bf7f06e0430',
+      'fornecedor_09de5301-6a7b-4d5e-8033-984ca9847590',
+      'fornecedor_1254e2fd-d84c-480c-ab3c-0621b63b0bd3',
+      'fornecedor_37747ff2-2540-4baa-b995-3694ff130587',
+      'fornecedor_42884b37-8907-489f-87eb-1a94e774f88c',
+      'fornecedor_f7c5d9e1-20e3-4023-a88d-98acb81c660a'
+    ];
+    
+    console.log(`🔍 TESTE DIRETO: Verificando ${pastasEsperadas.length} pastas esperadas...`);
+    for (const pasta of pastasEsperadas) {
+      const { data: testeItens, error: testeError } = await supabase.storage
+        .from('processo-anexos')
+        .list(pasta, { limit: 100 });
+      
+      if (testeError) {
+        console.log(`❌ Pasta "${pasta}": ERRO - ${testeError.message}`);
+      } else if (!testeItens || testeItens.length === 0) {
+        console.log(`⚠️  Pasta "${pasta}": VAZIA ou NÃO EXISTE`);
+      } else {
+        console.log(`✅ Pasta "${pasta}": ${testeItens.length} arquivos encontrados`);
+      }
+    }
+    console.log('');
+    
     // Função para listar recursivamente TODOS os arquivos em TODAS as pastas
     const listAllFiles = async (path = '', allFiles: any[] = []): Promise<any[]> => {
       let offset = 0;
