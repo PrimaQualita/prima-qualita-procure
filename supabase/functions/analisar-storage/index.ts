@@ -218,6 +218,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Buscar dados de avaliações para mapear avaliacao_id -> fornecedor_id
+    const { data: avaliacoes } = await supabase.from('avaliacoes_cadastro_fornecedor').select('id, fornecedor_id');
+    const avaliacoesMap = new Map<string, string>();
+    if (avaliacoes) {
+      for (const aval of avaliacoes) {
+        avaliacoesMap.set(aval.id, aval.fornecedor_id);
+      }
+    }
+
     // Buscar dados de seleções para agrupar documentos
     const { data: selecoes } = await supabase.from('selecoes_fornecedores').select('id, titulo_selecao, numero_selecao');
     const selecoesMap = new Map<string, { titulo: string; numero: string }>();
@@ -468,6 +477,36 @@ Deno.serve(async (req) => {
             fileName,
             size: metadata.size
           });
+        }
+      } else if (path.startsWith('avaliacao_')) {
+        // Documentos de avaliação (relatórios KPMG)
+        estatisticasPorCategoria.documentos_fornecedores.arquivos++;
+        estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
+        estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Mapear avaliacao_id para fornecedor_id
+        const avaliacaoIdMatch = path.match(/^avaliacao_([a-f0-9-]+)\//);
+        if (avaliacaoIdMatch) {
+          const avaliacaoId = avaliacaoIdMatch[1];
+          const fornecedorId = avaliacoesMap.get(avaliacaoId);
+          
+          if (fornecedorId) {
+            const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+            
+            if (!estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.has(fornecedorId)) {
+              estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.set(fornecedorId, {
+                fornecedorId,
+                fornecedorNome,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.get(fornecedorId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
         }
       } else if (path.startsWith('fornecedor_') && path.includes('selecao')) {
         // Propostas de fornecedores em seleções
