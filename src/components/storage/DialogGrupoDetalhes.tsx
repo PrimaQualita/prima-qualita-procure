@@ -36,11 +36,11 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
   return (
     <>
       <Dialog open={open && !documentosGrupo} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{titulo}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-2">
             {grupos?.map((grupo: any, idx: number) => (
               <Card key={idx} className="border-purple-200">
                 <CardContent className="pt-6">
@@ -77,11 +77,11 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
       </Dialog>
 
       <Dialog open={!!documentosGrupo} onOpenChange={() => setDocumentosGrupo(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{documentosGrupo?.nome} - Documentos</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="space-y-2 overflow-y-auto flex-1 pr-2">
             {documentosGrupo?.documentos.map((doc: any, i: number) => (
               <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
                 <span className="truncate flex-1 text-sm font-medium">{doc.fileName}</span>
