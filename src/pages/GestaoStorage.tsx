@@ -150,14 +150,14 @@ export default function GestaoStorage() {
                         <AlertTriangle className="h-4 w-4 text-orange-600" />
                         <p className="text-sm font-medium text-orange-900">Arquivos Órfãos no Storage</p>
                       </div>
-                      <p className="text-xl font-bold text-orange-700">
-                        {resultado.totalArquivosOrfaos}
+                      <div className="text-xl font-bold text-orange-700 flex items-center gap-2">
+                        <span>{resultado.totalArquivosOrfaos}</span>
                         {resultado.totalArquivosOrfaos > 0 && (
-                          <Badge variant="destructive" className="ml-2">
+                          <Badge variant="destructive">
                             Deletar
                           </Badge>
                         )}
-                      </p>
+                      </div>
                       <p className="text-xs text-orange-700/80 mt-1">
                         Arquivos que existem no storage mas NÃO têm referência no banco
                       </p>
@@ -198,14 +198,14 @@ export default function GestaoStorage() {
                         <AlertTriangle className="h-4 w-4 text-red-600" />
                         <p className="text-sm font-medium text-red-900">Referências Órfãs no Banco</p>
                       </div>
-                      <p className="text-xl font-bold text-red-700">
-                        {resultado.totalReferenciasOrfas}
+                      <div className="text-xl font-bold text-red-700 flex items-center gap-2">
+                        <span>{resultado.totalReferenciasOrfas}</span>
                         {resultado.totalReferenciasOrfas > 0 && (
-                          <Badge variant="destructive" className="ml-2">
+                          <Badge variant="destructive">
                             Limpar
                           </Badge>
                         )}
-                      </p>
+                      </div>
                       <p className="text-xs text-red-700/80 mt-1">
                         Registros no banco que apontam para arquivos que NÃO existem mais no storage (foram deletados)
                       </p>
