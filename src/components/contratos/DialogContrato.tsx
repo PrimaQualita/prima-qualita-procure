@@ -82,7 +82,7 @@ export function DialogContrato({ open, onOpenChange, contrato, onSave }: DialogC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {contrato ? "Editar Contrato de Gestão" : "Novo Contrato de Gestão"}

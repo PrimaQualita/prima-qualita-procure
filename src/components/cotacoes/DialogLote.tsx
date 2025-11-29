@@ -62,7 +62,7 @@ export function DialogLote({ open, onOpenChange, lote, numeroProximo, onSave }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{lote ? "Editar Lote" : "Novo Lote"}</DialogTitle>
           <DialogDescription>
