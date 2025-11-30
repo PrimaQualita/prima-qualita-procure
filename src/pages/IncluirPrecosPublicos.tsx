@@ -12,14 +12,6 @@ import { toast } from "sonner";
 import { Upload, FileText, X } from "lucide-react";
 import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
 import ExcelJS from 'exceljs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 interface ItemCotacao {
   id: string;
@@ -55,11 +47,6 @@ const IncluirPrecosPublicos = () => {
   const [respostas, setRespostas] = useState<{ [key: string]: RespostaItem }>({});
   const [observacoes, setObservacoes] = useState("");
   const [arquivosComprovantes, setArquivosComprovantes] = useState<File[]>([]);
-  
-  // Estados para dialog de extensão de prazo
-  const [mostrarDialogPrazo, setMostrarDialogPrazo] = useState(false);
-  const [novaDataLimite, setNovaDataLimite] = useState("");
-  const [extendendoPrazo, setExtendendoPrazo] = useState(false);
 
   useEffect(() => {
     if (cotacaoIdParam) {
@@ -279,36 +266,6 @@ const IncluirPrecosPublicos = () => {
     return total;
   };
 
-  const extenderPrazo = async () => {
-    if (!novaDataLimite) {
-      toast.error("Por favor, informe a nova data limite");
-      return;
-    }
-
-    try {
-      setExtendendoPrazo(true);
-      
-      const { error } = await supabase
-        .from("cotacoes_precos")
-        .update({ data_limite_resposta: novaDataLimite })
-        .eq("id", cotacaoIdParam);
-
-      if (error) throw error;
-
-      // Atualizar estado local
-      setCotacao({ ...cotacao, data_limite_resposta: novaDataLimite });
-      
-      toast.success("Prazo estendido com sucesso!");
-      setMostrarDialogPrazo(false);
-      setNovaDataLimite("");
-    } catch (error: any) {
-      console.error("Erro ao extender prazo:", error);
-      toast.error("Erro ao extender prazo: " + (error.message || "Erro desconhecido"));
-    } finally {
-      setExtendendoPrazo(false);
-    }
-  };
-
   const handleSubmit = async () => {
     try {
       // Verificar se o prazo da cotação já expirou
@@ -316,7 +273,14 @@ const IncluirPrecosPublicos = () => {
       const agora = new Date();
       
       if (agora > dataLimite) {
-        setMostrarDialogPrazo(true);
+        toast.error("O prazo para envio de respostas desta cotação foi encerrado em " + 
+          dataLimite.toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+          }));
         return;
       }
 
@@ -891,59 +855,6 @@ const IncluirPrecosPublicos = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Dialog de Extensão de Prazo */}
-        <Dialog open={mostrarDialogPrazo} onOpenChange={setMostrarDialogPrazo}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Prazo de Resposta Encerrado</DialogTitle>
-              <DialogDescription>
-                O prazo para envio de respostas desta cotação foi encerrado em{" "}
-                {new Date(cotacao?.data_limite_resposta).toLocaleDateString("pt-BR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit"
-                })}.
-                <br /><br />
-                Para incluir preços públicos, é necessário extender o prazo da cotação.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div>
-                <Label htmlFor="nova-data-limite">Nova Data e Hora Limite *</Label>
-                <Input
-                  id="nova-data-limite"
-                  type="datetime-local"
-                  value={novaDataLimite}
-                  onChange={(e) => setNovaDataLimite(e.target.value)}
-                  min={new Date().toISOString().slice(0, 16)}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setMostrarDialogPrazo(false);
-                  setNovaDataLimite("");
-                }}
-                disabled={extendendoPrazo}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={extenderPrazo}
-                disabled={extendendoPrazo || !novaDataLimite}
-              >
-                {extendendoPrazo ? "Extendendo..." : "Extender Prazo"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );
