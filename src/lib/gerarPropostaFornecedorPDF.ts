@@ -438,7 +438,9 @@ export async function gerarPropostaFornecedorPDF(
       if (criterioJulgamento === 'desconto') {
         // Critério DESCONTO: largura maior para descrição (96)
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
-        doc.text(linhasDescricao, 32, yDescStart, { maxWidth: 96, align: 'justify' });
+        linhasDescricao.forEach((linha: string, index: number) => {
+          doc.text(linha, 32, yDescStart + (index * 3.5), { maxWidth: 96, align: 'left' });
+        });
         
         doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 142.5, yCenter, { align: 'center' });
         doc.text(itemCotacao.unidade, 163.5, yCenter, { align: 'center' });
@@ -451,7 +453,9 @@ export async function gerarPropostaFornecedorPDF(
       } else {
         // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
-        doc.text(linhasDescricao, colDescX + 2, yDescStart, { maxWidth: 58, align: 'justify' });
+        linhasDescricao.forEach((linha: string, index: number) => {
+          doc.text(linha, colDescX + 2, yDescStart + (index * 3.5), { maxWidth: 54, align: 'left' });
+        });
         
         // Quebrar texto das outras colunas também
         const marcaLinhas = doc.splitTextToSize(item.marca || '-', larguraMarca);
