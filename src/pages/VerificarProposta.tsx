@@ -1,24 +1,12 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { createClient } from "@supabase/supabase-js";
+import { supabasePublic as supabaseAnon } from "@/integrations/supabase/public-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { toast } from "sonner";
-
-const supabaseAnon = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false
-    }
-  }
-);
 
 interface RespostaVerificada {
   id: string;

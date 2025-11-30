@@ -1,18 +1,7 @@
 import jsPDF from 'jspdf';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { createClient } from '@supabase/supabase-js';
+import { supabasePublic as supabaseAnon } from '@/integrations/supabase/public-client';
 import { gerarHashDocumento } from './certificacaoDigital';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-const supabaseAnon = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  }
-});
 
 // Função para formatar CNPJ
 const formatarCNPJ = (cnpj: string): string => {
