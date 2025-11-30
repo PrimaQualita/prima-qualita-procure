@@ -320,12 +320,41 @@ export default function Compliance() {
     try {
       console.log("🗑️ [Compliance] Excluindo análise para cotação:", analiseParaDeletar);
       
-      const { error } = await supabase.rpc('delete_analise_compliance', {
-        p_cotacao_id: analiseParaDeletar
-      });
+      // Buscar URL do documento antes de deletar
+      const { data: analise, error: fetchError } = await supabase
+        .from("analises_compliance")
+        .select("url_documento")
+        .eq("cotacao_id", analiseParaDeletar)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+
+      // Deletar arquivo do storage primeiro
+      if (analise?.url_documento) {
+        try {
+          const path = analise.url_documento.replace('documents/', '');
+          const { error: storageError } = await supabase.storage
+            .from("documents")
+            .remove([path]);
+          
+          if (storageError) {
+            console.error("❌ [Compliance] Erro ao deletar arquivo do storage:", storageError);
+          } else {
+            console.log("✅ [Compliance] Arquivo deletado do storage");
+          }
+        } catch (err) {
+          console.log("⚠️ [Compliance] Erro ao deletar arquivo:", err);
+        }
+      }
+
+      // Deletar registro do banco
+      const { error } = await supabase
+        .from("analises_compliance")
+        .delete()
+        .eq("cotacao_id", analiseParaDeletar);
 
       if (error) {
-        console.error("❌ [Compliance] Erro RPC:", error);
+        console.error("❌ [Compliance] Erro ao deletar:", error);
         toast.error(`Erro ao excluir: ${error.message}`);
         return;
       }
