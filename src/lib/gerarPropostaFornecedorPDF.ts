@@ -328,7 +328,7 @@ export async function gerarPropostaFornecedorPDF(
       if (criterioJulgamento !== 'desconto') {
         // Para outros critérios, verificar todas as colunas
         const marcaLinhas = doc.splitTextToSize(item.marca || '-', larguraMarca);
-        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, larguraUnid);
+        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, larguraUnid - 4);
         const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), larguraQtd);
         
         maxLinhas = Math.max(maxLinhas, marcaLinhas.length, unidLinhas.length, qtdLinhas.length);
@@ -464,10 +464,10 @@ export async function gerarPropostaFornecedorPDF(
         const centerQtdX = colQtdX + (larguraQtd / 2);
         doc.text(qtdLinhas, centerQtdX, yQtdStart, { maxWidth: larguraQtd, align: 'center' });
         
-        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, larguraUnid);
+        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, larguraUnid - 4);
         const yUnidStart = yTop + (alturaLinha - unidLinhas.length * 3.5) / 2 + 2.5;
         const centerUnidX = colUnidX + (larguraUnid / 2);
-        doc.text(unidLinhas, centerUnidX, yUnidStart, { maxWidth: larguraUnid, align: 'center' });
+        doc.text(unidLinhas, centerUnidX, yUnidStart, { maxWidth: larguraUnid - 4, align: 'center' });
         
         const valorUnitFormatted = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const valorTotalFormatted = valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
