@@ -320,17 +320,24 @@ export default function Compliance() {
     try {
       console.log("🗑️ [Compliance] Excluindo análise para cotação:", analiseParaDeletar);
       
-      // Buscar URL do documento antes de deletar
+      // Buscar a análise mais recente para essa cotação
       const { data: analise, error: fetchError } = await supabase
         .from("analises_compliance")
-        .select("url_documento")
+        .select("id, url_documento")
         .eq("cotacao_id", analiseParaDeletar)
-        .single();
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+      if (fetchError) throw fetchError;
+      
+      if (!analise) {
+        toast.error("Análise não encontrada");
+        return;
+      }
 
       // Deletar arquivo do storage primeiro
-      if (analise?.url_documento) {
+      if (analise.url_documento) {
         try {
           const path = analise.url_documento.replace('documents/', '');
           const { error: storageError } = await supabase.storage
@@ -347,11 +354,11 @@ export default function Compliance() {
         }
       }
 
-      // Deletar registro do banco
+      // Deletar registro do banco APENAS da análise específica
       const { error } = await supabase
         .from("analises_compliance")
         .delete()
-        .eq("cotacao_id", analiseParaDeletar);
+        .eq("id", analise.id);
 
       if (error) {
         console.error("❌ [Compliance] Erro ao deletar:", error);
@@ -359,24 +366,41 @@ export default function Compliance() {
         return;
       }
 
-      console.log("✅ [Compliance] Análise deletada, resetando status...");
+      console.log("✅ [Compliance] Análise deletada do banco");
 
-      // Resetar status de compliance quando análise é deletada
-      const { error: updateError } = await supabase
-        .from("cotacoes_precos")
-        .update({
-          respondido_compliance: false,
-          enviado_compliance: false,
-          data_resposta_compliance: null
-        })
-        .eq("id", analiseParaDeletar);
+      // Verificar se ainda existem outras análises para essa cotação
+      const { data: analisesRestantes, error: checkError } = await supabase
+        .from("analises_compliance")
+        .select("id")
+        .eq("cotacao_id", analiseParaDeletar)
+        .limit(1);
 
-      if (updateError) {
-        console.error("❌ [Compliance] Erro ao resetar status:", updateError);
-        throw updateError;
+      if (checkError) {
+        console.error("❌ [Compliance] Erro ao verificar análises restantes:", checkError);
       }
 
-      console.log("✅ [Compliance] Status resetado com sucesso");
+      // Apenas resetar status se não houver mais nenhuma análise
+      if (!analisesRestantes || analisesRestantes.length === 0) {
+        console.log("📝 [Compliance] Nenhuma análise restante, resetando status...");
+        
+        const { error: updateError } = await supabase
+          .from("cotacoes_precos")
+          .update({
+            respondido_compliance: false,
+            enviado_compliance: false,
+            data_resposta_compliance: null
+          })
+          .eq("id", analiseParaDeletar);
+
+        if (updateError) {
+          console.error("❌ [Compliance] Erro ao resetar status:", updateError);
+          throw updateError;
+        }
+
+        console.log("✅ [Compliance] Status resetado");
+      } else {
+        console.log("📝 [Compliance] Ainda existem análises, mantendo status");
+      }
 
       toast.success("Análise excluída com sucesso");
       setDeleteDialogOpen(false);

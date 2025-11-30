@@ -341,24 +341,41 @@ export default function RespostasCotacao() {
 
       if (dbError) throw dbError;
 
-      console.log("✅ [RespostasCotacao] Análise deletada, resetando status...");
+      console.log("✅ [RespostasCotacao] Análise deletada do banco");
 
-      // Resetar status de compliance quando análise é deletada
-      const { error: updateError } = await supabase
-        .from("cotacoes_precos")
-        .update({
-          respondido_compliance: false,
-          enviado_compliance: false,
-          data_resposta_compliance: null
-        })
-        .eq("id", cotacaoId);
+      // Verificar se ainda existem outras análises para essa cotação
+      const { data: analisesRestantes, error: checkError } = await supabase
+        .from("analises_compliance")
+        .select("id")
+        .eq("cotacao_id", cotacaoId)
+        .limit(1);
 
-      if (updateError) {
-        console.error("❌ [RespostasCotacao] Erro ao resetar status:", updateError);
-        throw updateError;
+      if (checkError) {
+        console.error("❌ [RespostasCotacao] Erro ao verificar análises restantes:", checkError);
       }
 
-      console.log("✅ [RespostasCotacao] Status resetado com sucesso, cotacao_id:", cotacaoId);
+      // Apenas resetar status se não houver mais nenhuma análise
+      if (!analisesRestantes || analisesRestantes.length === 0) {
+        console.log("📝 [RespostasCotacao] Nenhuma análise restante, resetando status...");
+
+        const { error: updateError } = await supabase
+          .from("cotacoes_precos")
+          .update({
+            respondido_compliance: false,
+            enviado_compliance: false,
+            data_resposta_compliance: null
+          })
+          .eq("id", cotacaoId);
+
+        if (updateError) {
+          console.error("❌ [RespostasCotacao] Erro ao resetar status:", updateError);
+          throw updateError;
+        }
+
+        console.log("✅ [RespostasCotacao] Status resetado");
+      } else {
+        console.log("📝 [RespostasCotacao] Ainda existem análises, mantendo status");
+      }
 
       setAnaliseParaExcluir(null);
       setConfirmDeleteAnaliseOpen(false);
