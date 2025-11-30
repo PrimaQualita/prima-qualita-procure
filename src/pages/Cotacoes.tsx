@@ -786,7 +786,10 @@ const Cotacoes = () => {
     if (!cotacaoParaExcluir || !processoSelecionado) return;
 
     try {
-      // Buscar todas as respostas de fornecedores da cotação
+      console.log("🗑️ Iniciando deleção em cascata da cotação...");
+      const arquivosParaDeletar: string[] = [];
+      
+      // 1. Buscar e coletar URLs de anexos de cotação fornecedor
       const { data: respostasData } = await supabase
         .from("cotacao_respostas_fornecedor")
         .select("id")
@@ -795,6 +798,21 @@ const Cotacoes = () => {
       if (respostasData && respostasData.length > 0) {
         const respostaIds = respostasData.map(r => r.id);
         
+        // Buscar anexos
+        const { data: anexosData } = await supabase
+          .from("anexos_cotacao_fornecedor")
+          .select("url_arquivo")
+          .in("cotacao_resposta_fornecedor_id", respostaIds);
+        
+        if (anexosData) {
+          anexosData.forEach(anexo => {
+            if (anexo.url_arquivo) {
+              const cleanPath = anexo.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
+              arquivosParaDeletar.push(cleanPath);
+            }
+          });
+        }
+
         // Deletar respostas de itens
         await supabase
           .from("respostas_itens_fornecedor")
@@ -814,19 +832,187 @@ const Cotacoes = () => {
           .eq("cotacao_id", cotacaoParaExcluir);
       }
 
-      // Deletar todos os itens da cotação
+      // 2. Buscar e deletar planilhas consolidadas
+      const { data: planilhasData } = await supabase
+        .from("planilhas_consolidadas")
+        .select("url_arquivo")
+        .eq("cotacao_id", cotacaoParaExcluir);
+      
+      if (planilhasData) {
+        planilhasData.forEach(planilha => {
+          if (planilha.url_arquivo) {
+            const cleanPath = planilha.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
+            arquivosParaDeletar.push(cleanPath);
+          }
+        });
+        
+        await supabase
+          .from("planilhas_consolidadas")
+          .delete()
+          .eq("cotacao_id", cotacaoParaExcluir);
+      }
+
+      // 3. Buscar e deletar autorizações
+      const { data: autorizacoesData } = await supabase
+        .from("autorizacoes_processo")
+        .select("url_arquivo")
+        .eq("cotacao_id", cotacaoParaExcluir);
+      
+      if (autorizacoesData) {
+        autorizacoesData.forEach(autorizacao => {
+          if (autorizacao.url_arquivo) {
+            const cleanPath = autorizacao.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
+            arquivosParaDeletar.push(cleanPath);
+          }
+        });
+        
+        await supabase
+          .from("autorizacoes_processo")
+          .delete()
+          .eq("cotacao_id", cotacaoParaExcluir);
+      }
+
+      // 4. Buscar e deletar relatórios finais
+      const { data: relatoriosData } = await supabase
+        .from("relatorios_finais")
+        .select("url_arquivo")
+        .eq("cotacao_id", cotacaoParaExcluir);
+      
+      if (relatoriosData) {
+        relatoriosData.forEach(relatorio => {
+          if (relatorio.url_arquivo) {
+            const cleanPath = relatorio.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
+            arquivosParaDeletar.push(cleanPath);
+          }
+        });
+        
+        await supabase
+          .from("relatorios_finais")
+          .delete()
+          .eq("cotacao_id", cotacaoParaExcluir);
+      }
+
+      // 5. Buscar e deletar análises de compliance
+      const { data: analisesData } = await supabase
+        .from("analises_compliance")
+        .select("url_documento")
+        .eq("cotacao_id", cotacaoParaExcluir);
+      
+      if (analisesData) {
+        analisesData.forEach(analise => {
+          if (analise.url_documento) {
+            const cleanPath = analise.url_documento.split('?')[0].replace(/^processo-anexos\//, '');
+            arquivosParaDeletar.push(cleanPath);
+          }
+        });
+        
+        await supabase
+          .from("analises_compliance")
+          .delete()
+          .eq("cotacao_id", cotacaoParaExcluir);
+      }
+
+      // 6. Buscar e deletar emails anexados
+      const { data: emailsData } = await supabase
+        .from("emails_cotacao_anexados")
+        .select("url_arquivo")
+        .eq("cotacao_id", cotacaoParaExcluir);
+      
+      if (emailsData) {
+        emailsData.forEach(email => {
+          if (email.url_arquivo) {
+            const cleanPath = email.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
+            arquivosParaDeletar.push(cleanPath);
+          }
+        });
+        
+        await supabase
+          .from("emails_cotacao_anexados")
+          .delete()
+          .eq("cotacao_id", cotacaoParaExcluir);
+      }
+
+      // 7. Buscar e deletar encaminhamentos
+      const { data: encaminhamentosData } = await supabase
+        .from("encaminhamentos_processo")
+        .select("storage_path")
+        .eq("cotacao_id", cotacaoParaExcluir);
+      
+      if (encaminhamentosData) {
+        encaminhamentosData.forEach(encaminhamento => {
+          if (encaminhamento.storage_path) {
+            const cleanPath = encaminhamento.storage_path.split('?')[0].replace(/^processo-anexos\//, '');
+            arquivosParaDeletar.push(cleanPath);
+          }
+        });
+        
+        await supabase
+          .from("encaminhamentos_processo")
+          .delete()
+          .eq("cotacao_id", cotacaoParaExcluir);
+      }
+
+      // 8. Buscar e deletar campos/documentos de finalização
+      const { data: camposData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("id")
+        .eq("cotacao_id", cotacaoParaExcluir);
+      
+      if (camposData && camposData.length > 0) {
+        const campoIds = camposData.map(c => c.id);
+        
+        const { data: docsFinalizacaoData } = await supabase
+          .from("documentos_finalizacao_fornecedor")
+          .select("url_arquivo")
+          .in("campo_documento_id", campoIds);
+        
+        if (docsFinalizacaoData) {
+          docsFinalizacaoData.forEach(doc => {
+            if (doc.url_arquivo) {
+              const cleanPath = doc.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
+              arquivosParaDeletar.push(cleanPath);
+            }
+          });
+          
+          await supabase
+            .from("documentos_finalizacao_fornecedor")
+            .delete()
+            .in("campo_documento_id", campoIds);
+        }
+        
+        await supabase
+          .from("campos_documentos_finalizacao")
+          .delete()
+          .eq("cotacao_id", cotacaoParaExcluir);
+      }
+
+      // 9. Deletar arquivos do storage
+      if (arquivosParaDeletar.length > 0) {
+        console.log(`🗑️ Deletando ${arquivosParaDeletar.length} arquivos do storage...`);
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove(arquivosParaDeletar);
+        
+        if (storageError) {
+          console.error("Erro ao deletar arquivos do storage:", storageError);
+        } else {
+          console.log(`✅ ${arquivosParaDeletar.length} arquivos deletados do storage`);
+        }
+      }
+
+      // 10. Deletar todos os itens da cotação
       await supabase
         .from("itens_cotacao")
         .delete()
         .eq("cotacao_id", cotacaoParaExcluir);
 
-      // Deletar todos os lotes da cotação (se houver)
+      // 11. Deletar todos os lotes da cotação (se houver)
       await supabase
         .from("lotes_cotacao")
         .delete()
         .eq("cotacao_id", cotacaoParaExcluir);
 
-      // Deletar a cotação
+      // 12. Deletar a cotação
       const { error: cotacaoError } = await supabase
         .from("cotacoes_precos")
         .delete()
@@ -834,7 +1020,7 @@ const Cotacoes = () => {
 
       if (cotacaoError) throw cotacaoError;
 
-      toast.success("Cotação excluída com sucesso!");
+      toast.success("Cotação e todos os arquivos relacionados foram excluídos com sucesso!");
       setCotacaoParaExcluir(null);
       setConfirmDeleteCotacaoOpen(false);
       loadCotacoes(processoSelecionado.id);
