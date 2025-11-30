@@ -90,6 +90,7 @@ export default function RespostasCotacao() {
   const [confirmDeleteAnaliseOpen, setConfirmDeleteAnaliseOpen] = useState(false);
   const [respostaParaExcluir, setRespostaParaExcluir] = useState<string | null>(null);
   const [confirmDeleteRespostaOpen, setConfirmDeleteRespostaOpen] = useState(false);
+  const [tipoExclusaoResposta, setTipoExclusaoResposta] = useState<'anexos' | 'completa'>('anexos');
 
   // Definir funções auxiliares ANTES do useEffect
   const loadAnaliseCompliance = async () => {
@@ -587,6 +588,44 @@ export default function RespostasCotacao() {
     }
   };
 
+  const excluirApenasAnexos = async () => {
+    if (!respostaParaExcluir) return;
+    
+    try {
+      // Buscar todos os anexos da resposta
+      const { data: anexos, error: fetchError } = await supabase
+        .from('anexos_cotacao_fornecedor')
+        .select('id, url_arquivo')
+        .eq('cotacao_resposta_fornecedor_id', respostaParaExcluir);
+
+      if (fetchError) throw fetchError;
+
+      if (anexos && anexos.length > 0) {
+        // Deletar arquivos do storage
+        const paths = anexos.map(a => a.url_arquivo);
+        await supabase.storage
+          .from('processo-anexos')
+          .remove(paths);
+
+        // Deletar registros de anexos
+        const { error: deleteError } = await supabase
+          .from('anexos_cotacao_fornecedor')
+          .delete()
+          .eq('cotacao_resposta_fornecedor_id', respostaParaExcluir);
+
+        if (deleteError) throw deleteError;
+      }
+
+      toast.success("Proposta excluída com sucesso! Você pode regenerá-la.");
+      setConfirmDeleteRespostaOpen(false);
+      setRespostaParaExcluir(null);
+      loadRespostas();
+    } catch (error) {
+      console.error("Erro ao excluir proposta:", error);
+      toast.error("Erro ao excluir proposta");
+    }
+  };
+
   const handleDeletarResposta = async () => {
     if (!respostaParaExcluir) return;
     
@@ -598,13 +637,13 @@ export default function RespostasCotacao() {
 
       if (error) throw error;
 
-      toast.success("Resposta excluída com sucesso!");
+      toast.success("Fornecedor excluído com sucesso!");
       setConfirmDeleteRespostaOpen(false);
       setRespostaParaExcluir(null);
       loadRespostas();
     } catch (error) {
-      console.error("Erro ao excluir resposta:", error);
-      toast.error("Erro ao excluir resposta");
+      console.error("Erro ao excluir fornecedor:", error);
+      toast.error("Erro ao excluir fornecedor");
     }
   };
 
@@ -924,6 +963,7 @@ export default function RespostasCotacao() {
                                 size="sm"
                                 onClick={() => {
                                   setRespostaParaExcluir(resposta.id);
+                                  setTipoExclusaoResposta('anexos');
                                   setConfirmDeleteRespostaOpen(true);
                                 }}
                               >
@@ -955,6 +995,7 @@ export default function RespostasCotacao() {
                                 size="sm"
                                 onClick={() => {
                                   setRespostaParaExcluir(resposta.id);
+                                  setTipoExclusaoResposta('completa');
                                   setConfirmDeleteRespostaOpen(true);
                                 }}
                               >
@@ -1368,14 +1409,21 @@ export default function RespostasCotacao() {
       <AlertDialog open={confirmDeleteRespostaOpen} onOpenChange={setConfirmDeleteRespostaOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Resposta</AlertDialogTitle>
+            <AlertDialogTitle>
+              {tipoExclusaoResposta === 'anexos' ? 'Excluir Proposta' : 'Excluir Fornecedor'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir definitivamente esta resposta? Esta ação não pode ser desfeita.
+              {tipoExclusaoResposta === 'anexos' 
+                ? 'Tem certeza que deseja excluir apenas a proposta (PDF)? Os dados serão mantidos e você poderá regenerar a proposta.' 
+                : 'Tem certeza que deseja excluir definitivamente este fornecedor e todos os seus dados? Esta ação não pode ser desfeita.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletarResposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction 
+              onClick={tipoExclusaoResposta === 'anexos' ? excluirApenasAnexos : handleDeletarResposta} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
