@@ -437,9 +437,9 @@ export async function gerarPropostaFornecedorPDF(
       
       if (criterioJulgamento === 'desconto') {
         // Critério DESCONTO: largura maior para descrição (96)
-        const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
+        const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 4) / 2 + 3;
         linhasDescricao.forEach((linha: string, index: number) => {
-          doc.text(linha, 32, yDescStart + (index * 3.5), { maxWidth: 96, align: 'left' });
+          doc.text(linha, 32, yDescStart + (index * 4), { maxWidth: 94, align: 'justify' });
         });
         
         doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 142.5, yCenter, { align: 'center' });
@@ -452,39 +452,49 @@ export async function gerarPropostaFornecedorPDF(
         doc.text(descontoFormatted, 183.5, yCenter, { align: 'center' });
       } else {
         // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-        const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 3.5) / 2 + 2.5;
+        const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 4) / 2 + 3;
         linhasDescricao.forEach((linha: string, index: number) => {
-          doc.text(linha, colDescX + 2, yDescStart + (index * 3.5), { maxWidth: 54, align: 'left' });
+          doc.text(linha, colDescX + 2, yDescStart + (index * 4), { maxWidth: 54, align: 'justify' });
         });
         
         // Quebrar texto das outras colunas também
-        const marcaLinhas = doc.splitTextToSize(item.marca || '-', larguraMarca);
-        const yMarcaStart = yTop + (alturaLinha - marcaLinhas.length * 3.5) / 2 + 2.5;
+        const marcaLinhas = doc.splitTextToSize(item.marca || '-', larguraMarca - 2);
+        const yMarcaStart = yTop + (alturaLinha - marcaLinhas.length * 4) / 2 + 3;
         const centerMarcaX = colMarcaX + (larguraMarca / 2);
-        doc.text(marcaLinhas, centerMarcaX, yMarcaStart, { maxWidth: larguraMarca, align: 'center' });
+        marcaLinhas.forEach((linha: string, index: number) => {
+          doc.text(linha, centerMarcaX, yMarcaStart + (index * 4), { maxWidth: larguraMarca - 2, align: 'center' });
+        });
         
-        const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), larguraQtd);
-        const yQtdStart = yTop + (alturaLinha - qtdLinhas.length * 3.5) / 2 + 2.5;
+        const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), larguraQtd - 2);
+        const yQtdStart = yTop + (alturaLinha - qtdLinhas.length * 4) / 2 + 3;
         const centerQtdX = colQtdX + (larguraQtd / 2);
-        doc.text(qtdLinhas, centerQtdX, yQtdStart, { maxWidth: larguraQtd, align: 'center' });
+        qtdLinhas.forEach((linha: string, index: number) => {
+          doc.text(linha, centerQtdX, yQtdStart + (index * 4), { maxWidth: larguraQtd - 2, align: 'center' });
+        });
         
         const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, larguraUnid - 4);
-        const yUnidStart = yTop + (alturaLinha - unidLinhas.length * 3.5) / 2 + 2.5;
+        const yUnidStart = yTop + (alturaLinha - unidLinhas.length * 4) / 2 + 3;
         const centerUnidX = colUnidX + (larguraUnid / 2);
-        doc.text(unidLinhas, centerUnidX, yUnidStart, { maxWidth: larguraUnid - 4, align: 'center' });
+        unidLinhas.forEach((linha: string, index: number) => {
+          doc.text(linha, centerUnidX, yUnidStart + (index * 4), { maxWidth: larguraUnid - 4, align: 'center' });
+        });
         
         const valorUnitFormatted = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const valorTotalFormatted = valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
-        const vlUnitLinhas = doc.splitTextToSize(valorUnitFormatted, larguraVlUnit);
-        const yVlUnitStart = yTop + (alturaLinha - vlUnitLinhas.length * 3.5) / 2 + 2.5;
+        const vlUnitLinhas = doc.splitTextToSize(valorUnitFormatted, larguraVlUnit - 2);
+        const yVlUnitStart = yTop + (alturaLinha - vlUnitLinhas.length * 4) / 2 + 3;
         const rightVlUnitX = colVlUnitX + larguraVlUnit - 2;
-        doc.text(vlUnitLinhas, rightVlUnitX, yVlUnitStart, { maxWidth: larguraVlUnit, align: 'right' });
+        vlUnitLinhas.forEach((linha: string, index: number) => {
+          doc.text(linha, rightVlUnitX, yVlUnitStart + (index * 4), { maxWidth: larguraVlUnit - 2, align: 'right' });
+        });
         
-        const vlTotalLinhas = doc.splitTextToSize(valorTotalFormatted, larguraVlTotal);
-        const yVlTotalStart = yTop + (alturaLinha - vlTotalLinhas.length * 3.5) / 2 + 2.5;
-        const rightVlTotalX = colVlTotalX + larguraVlTotal - 1;
-        doc.text(vlTotalLinhas, rightVlTotalX, yVlTotalStart, { maxWidth: larguraVlTotal, align: 'right' });
+        const vlTotalLinhas = doc.splitTextToSize(valorTotalFormatted, larguraVlTotal - 2);
+        const yVlTotalStart = yTop + (alturaLinha - vlTotalLinhas.length * 4) / 2 + 3;
+        const rightVlTotalX = colVlTotalX + larguraVlTotal - 2;
+        vlTotalLinhas.forEach((linha: string, index: number) => {
+          doc.text(linha, rightVlTotalX, yVlTotalStart + (index * 4), { maxWidth: larguraVlTotal - 2, align: 'right' });
+        });
       }
       
       y += alturaLinha;
