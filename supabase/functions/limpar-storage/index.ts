@@ -65,12 +65,12 @@ Deno.serve(async (req) => {
               .replace(/.*\/processo-anexos\//, '')
               .replace(/.*\/documents\//, '');
 
-            // MATCH EXATO - não usar pattern matching LIKE
-            // Buscar por URL exata ou com prefixos de bucket
+            // MATCH EXATO - buscar por URL completa sem pattern matching
+            // Testa 3 variações: path limpo, com processo-anexos/, e com documents/
             const { error: deleteError, count } = await supabase
               .from(tabela)
               .delete({ count: 'exact' })
-              .or(`${coluna}.eq.${pathNormalizado},${coluna}.eq.processo-anexos/${pathNormalizado},${coluna}.eq.documents/${pathNormalizado}`);
+              .or(`${coluna}.eq."${pathNormalizado}",${coluna}.eq."processo-anexos/${pathNormalizado}",${coluna}.eq."documents/${pathNormalizado}"`);
 
             if (deleteError) {
               console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
