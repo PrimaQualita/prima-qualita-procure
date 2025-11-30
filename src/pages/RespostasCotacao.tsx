@@ -306,6 +306,34 @@ export default function RespostasCotacao() {
     try {
       console.log("🗑️ [RespostasCotacao] Excluindo análise para cotação:", cotacaoId);
       
+      // Buscar URL do documento antes de deletar
+      const { data: analise, error: fetchError } = await supabase
+        .from("analises_compliance")
+        .select("url_documento")
+        .eq("id", analiseParaExcluir.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Deletar arquivo do storage primeiro
+      if (analise?.url_documento) {
+        try {
+          const path = analise.url_documento.replace('documents/', '');
+          const { error: storageError } = await supabase.storage
+            .from("documents")
+            .remove([path]);
+          
+          if (storageError) {
+            console.error("❌ [RespostasCotacao] Erro ao deletar arquivo do storage:", storageError);
+          } else {
+            console.log("✅ [RespostasCotacao] Arquivo deletado do storage");
+          }
+        } catch (err) {
+          console.log("⚠️ [RespostasCotacao] Erro ao deletar arquivo:", err);
+        }
+      }
+
+      // Deletar registro do banco
       const { error: dbError } = await supabase
         .from("analises_compliance")
         .delete()
