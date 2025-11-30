@@ -248,6 +248,7 @@ Deno.serve(async (req) => {
     // Normalizar URLs - extrair apenas caminhos relativos
     const pathsDB = new Set<string>();
     const urlsOriginais = new Map<string, string>(); // Mapear path normalizado -> URL original
+    const nomeArquivoDB = new Set<string>(); // Set com apenas nomes de arquivos para fallback
     
     for (const ref of (referencias || [])) {
       const url = ref.url;
@@ -266,14 +267,26 @@ Deno.serve(async (req) => {
         // URL completa mas sem processo-anexos ou documents no meio
         continue;
       } else {
-        // Path relativo direto - assumir processo-anexos por padrão
-        normalizedPath = `processo-anexos/${url.split('?')[0]}`;
+        // Path relativo direto - pode ser só nome de arquivo ou com subpastas
+        const cleanUrl = url.split('?')[0];
+        normalizedPath = `processo-anexos/${cleanUrl}`;
+        
+        // Também adicionar apenas o nome do arquivo para fallback (última parte do path)
+        const fileName = cleanUrl.split('/').pop() || cleanUrl;
+        nomeArquivoDB.add(fileName);
       }
       
       if (normalizedPath) {
         pathsDB.add(normalizedPath);
         urlsOriginais.set(normalizedPath, url);
         console.log(`  🔗 DB: "${normalizedPath}" <- "${url}"`);
+        
+        // Se o path tem subpastas, também adicionar o nome do arquivo sozinho
+        const parts = normalizedPath.split('/');
+        if (parts.length > 2) {
+          const fileName = parts[parts.length - 1];
+          nomeArquivoDB.add(fileName);
+        }
       }
     }
 
@@ -920,10 +933,21 @@ Deno.serve(async (req) => {
     const arquivosOrfaos: Array<{ path: string; size: number }> = [];
     let tamanhoOrfaos = 0;
     for (const [arquivo, metadata] of arquivosStorage) {
-      if (!pathsDB.has(arquivo)) {
-        arquivosOrfaos.push({ path: arquivo, size: metadata.size });
-        tamanhoOrfaos += metadata.size;
+      // Primeiro verifica path completo
+      if (pathsDB.has(arquivo)) {
+        continue;
       }
+      
+      // Se não encontrou por path completo, verifica apenas pelo nome do arquivo
+      const fileName = arquivo.split('/').pop() || arquivo;
+      if (nomeArquivoDB.has(fileName)) {
+        console.log(`✅ Arquivo "${fileName}" encontrado no DB (fallback por nome)`);
+        continue;
+      }
+      
+      // Não encontrou de jeito nenhum - é órfão
+      arquivosOrfaos.push({ path: arquivo, size: metadata.size });
+      tamanhoOrfaos += metadata.size;
     }
 
     const referenciasOrfas: string[] = [];
