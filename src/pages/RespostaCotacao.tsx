@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { createClient } from "@supabase/supabase-js";
+import { supabasePublic as supabaseAnon } from "@/integrations/supabase/public-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,19 +15,6 @@ import { Upload, FileText, X } from "lucide-react";
 import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-
-// Cliente Supabase sem autenticação persistente - usa sessionStorage isolado
-const supabaseAnon = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  {
-    auth: {
-      persistSession: false, // Não persiste sessão
-      autoRefreshToken: false, // Não atualiza token
-      detectSessionInUrl: false // Não detecta sessão na URL
-    }
-  }
-);
 
 const UFS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
