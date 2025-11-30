@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { supabasePublic as supabaseAnon } from '@/integrations/supabase/public-client';
+import { supabase } from '@/integrations/supabase/client';
 import { gerarHashDocumento } from './certificacaoDigital';
 
 // Função para formatar CNPJ
@@ -61,7 +61,7 @@ export async function gerarPropostaFornecedorPDF(
     console.log('🔍 Buscando itens para resposta ID:', respostaId);
     console.log('📋 Critério de julgamento:', criterioJulgamento);
     
-    const { data: itens, error: itensError } = await supabaseAnon
+    const { data: itens, error: itensError } = await supabase
       .from('respostas_itens_fornecedor')
       .select(`
         valor_unitario_ofertado,
@@ -452,7 +452,7 @@ export async function gerarPropostaFornecedorPDF(
     const protocolo = gerarProtocolo();
 
     // Salvar o protocolo no banco
-    const { error: protocoloError } = await supabaseAnon
+    const { error: protocoloError } = await supabase
       .from('cotacao_respostas_fornecedor')
       .update({ 
         protocolo: protocolo
@@ -627,7 +627,7 @@ export async function gerarPropostaFornecedorPDF(
     const nomeArquivo = `proposta_${fornecedor.cnpj.replace(/[^\d]/g, '')}_${Date.now()}.pdf`;
 
     // Upload para o storage
-    const { data: uploadData, error: uploadError } = await supabaseAnon.storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
       .from('processo-anexos')
       .upload(nomeArquivo, pdfFinalBlob, {
         contentType: 'application/pdf',
