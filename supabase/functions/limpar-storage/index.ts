@@ -65,11 +65,12 @@ Deno.serve(async (req) => {
               .replace(/.*\/processo-anexos\//, '')
               .replace(/.*\/documents\//, '');
 
-            // Deletar registros que referenciam este arquivo (normalizado)
+            // MATCH EXATO - não usar pattern matching LIKE
+            // Buscar por URL exata ou com prefixos de bucket
             const { error: deleteError, count } = await supabase
               .from(tabela)
               .delete({ count: 'exact' })
-              .ilike(coluna, `%${pathNormalizado}%`);
+              .or(`${coluna}.eq.${pathNormalizado},${coluna}.eq.processo-anexos/${pathNormalizado},${coluna}.eq.documents/${pathNormalizado}`);
 
             if (deleteError) {
               console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
@@ -153,11 +154,33 @@ Deno.serve(async (req) => {
         pathsParaDeletar = allFiles.filter(file => !referenciasSet.has(file.path));
         console.log(`📋 Encontrados ${pathsParaDeletar.length} arquivos órfãos para deletar`);
       } else {
-        // Paths fornecidos manualmente - assumir que são do processo-anexos por padrão
-        pathsParaDeletar = (paths || []).map((p: string) => ({
-          path: p,
-          bucket: 'processo-anexos'
-        }));
+        // Paths fornecidos manualmente - detectar bucket e limpar path
+        pathsParaDeletar = (paths || []).map((p: string) => {
+          let bucket = 'processo-anexos';
+          let cleanPath = p;
+          
+          // Detectar e extrair bucket do path
+          if (p.startsWith('processo-anexos/')) {
+            bucket = 'processo-anexos';
+            cleanPath = p.replace('processo-anexos/', '');
+          } else if (p.startsWith('documents/')) {
+            bucket = 'documents';
+            cleanPath = p.replace('documents/', '');
+          } else if (p.includes('processo-anexos/')) {
+            bucket = 'processo-anexos';
+            cleanPath = p.substring(p.indexOf('processo-anexos/') + 'processo-anexos/'.length);
+          } else if (p.includes('documents/')) {
+            bucket = 'documents';
+            cleanPath = p.substring(p.indexOf('documents/') + 'documents/'.length);
+          }
+          
+          console.log(`📦 Path original: "${p}" -> Bucket: "${bucket}", Path limpo: "${cleanPath}"`);
+          
+          return {
+            path: cleanPath,
+            bucket: bucket
+          };
+        });
       }
 
       if (pathsParaDeletar.length === 0) {
