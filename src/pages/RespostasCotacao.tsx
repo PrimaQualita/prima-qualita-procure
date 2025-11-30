@@ -1204,7 +1204,16 @@ export default function RespostasCotacao() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(analise.url_documento, '_blank')}
+                          onClick={async () => {
+                            // Extrair o path correto (remover prefixo "documents/" se existir)
+                            const path = analise.url_documento.replace('documents/', '');
+                            const { data } = await supabase.storage
+                              .from('documents')
+                              .createSignedUrl(path, 3600);
+                            if (data?.signedUrl) {
+                              window.open(data.signedUrl, '_blank');
+                            }
+                          }}
                           className="flex-1"
                         >
                           <Eye className="mr-2 h-4 w-4" />
@@ -1213,11 +1222,22 @@ export default function RespostasCotacao() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = analise.url_documento;
-                            link.download = analise.nome_arquivo || 'analise_compliance.pdf';
-                            link.click();
+                          onClick={async () => {
+                            // Extrair o path correto (remover prefixo "documents/" se existir)
+                            const path = analise.url_documento.replace('documents/', '');
+                            const { data, error } = await supabase.storage
+                              .from('documents')
+                              .download(path);
+                            if (error) {
+                              toast.error('Erro ao baixar arquivo');
+                              return;
+                            }
+                            const blob = new Blob([data], { type: 'application/pdf' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = analise.nome_arquivo || 'analise_compliance.pdf';
+                            a.click();
                           }}
                           className="flex-1"
                         >
