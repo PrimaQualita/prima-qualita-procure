@@ -522,9 +522,21 @@ export default function PortalFornecedor() {
     }
 
     try {
+      // Buscar o nome do campo para usar no nome do arquivo
+      const { data: campoData } = await supabase
+        .from('campos_documentos_finalizacao')
+        .select('nome_campo')
+        .eq('id', campoId)
+        .single();
+      
+      const nomeCampo = campoData?.nome_campo || 'documento';
+      // Sanitizar nome do campo e razão social para usar em nome de arquivo
+      const nomeCampoSanitizado = nomeCampo.replace(/[^a-zA-Z0-9À-ÿ\s]/g, '').replace(/\s+/g, '_');
+      const razaoSocialSanitizada = fornecedor.razao_social.replace(/[^a-zA-Z0-9À-ÿ\s]/g, '').replace(/\s+/g, '_');
+      
       console.log("📤 Fazendo upload para storage...");
       const fileExt = file.name.split('.').pop();
-      const fileName = `fornecedor_${fornecedor.id}/${campoId}_selecao_${Date.now()}.${fileExt}`;
+      const fileName = `habilitacao/${nomeCampoSanitizado}_${razaoSocialSanitizada}_${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('processo-anexos')
@@ -543,6 +555,9 @@ export default function PortalFornecedor() {
 
       console.log("📝 Salvando registro do documento...");
       
+      // Nome do arquivo para exibição: nome do campo + nome da empresa
+      const nomeArquivoExibicao = `${nomeCampo} - ${fornecedor.razao_social}`;
+      
       // Usar upsert para inserir ou atualizar automaticamente
       const { error: upsertError } = await supabase
         .from('documentos_finalizacao_fornecedor')
@@ -550,7 +565,7 @@ export default function PortalFornecedor() {
           fornecedor_id: fornecedor.id,
           campo_documento_id: campoId,
           url_arquivo: publicUrl,
-          nome_arquivo: file.name,
+          nome_arquivo: nomeArquivoExibicao,
           data_upload: new Date().toISOString()
         }, {
           onConflict: 'fornecedor_id,campo_documento_id'
