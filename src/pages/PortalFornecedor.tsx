@@ -377,7 +377,7 @@ export default function PortalFornecedor() {
       console.log("🔍 Carregando inabilitações pendentes de recurso...");
       
       // Buscar rejeições em cotações onde o fornecedor ainda pode recorrer
-      // (não revertidas e sem recurso já enviado ou com status diferente de "deferido")
+      // (não revertidas e SEM recurso já enviado - apenas 'sem_recurso' ou null)
       const { data: rejeicoes, error } = await supabase
         .from("fornecedores_rejeitados_cotacao")
         .select(`
@@ -396,7 +396,7 @@ export default function PortalFornecedor() {
         `)
         .eq("fornecedor_id", fornecedorId)
         .eq("revertido", false)
-        .or("status_recurso.is.null,status_recurso.neq.deferido");
+        .or("status_recurso.is.null,status_recurso.eq.sem_recurso");
 
       if (error) throw error;
       
@@ -986,7 +986,10 @@ export default function PortalFornecedor() {
             <div className="space-y-6">
               {/* Notificação de Rejeição com Recurso */}
               {fornecedor?.id && (
-                <NotificacaoRejeicao fornecedorId={fornecedor.id} />
+                <NotificacaoRejeicao 
+                  fornecedorId={fornecedor.id} 
+                  onRecursoEnviado={() => loadInabilitacoesPendentes(fornecedor.id)}
+                />
               )}
 
               {/* Documentos Pendentes de Cotações */}
