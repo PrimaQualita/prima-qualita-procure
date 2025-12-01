@@ -95,6 +95,8 @@ const Cotacoes = () => {
   const [dialogLoteOpen, setDialogLoteOpen] = useState(false);
   const [dialogFinalizarOpen, setDialogFinalizarOpen] = useState(false);
   const [dialogCriarSelecaoOpen, setDialogCriarSelecaoOpen] = useState(false);
+  const [dialogEditarCotacaoOpen, setDialogEditarCotacaoOpen] = useState(false);
+  const [cotacaoEditando, setCotacaoEditando] = useState<Cotacao | null>(null);
   
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
   const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
@@ -1377,6 +1379,17 @@ const Cotacoes = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
+                                setCotacaoEditando(cotacao);
+                                setDialogEditarCotacaoOpen(true);
+                              }}
+                              title="Editar cotação"
+                            >
+                              <Edit className="h-4 w-4 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
                                 setCotacaoParaExcluir(cotacao.id);
                                 setConfirmDeleteCotacaoOpen(true);
                               }}
@@ -2400,6 +2413,77 @@ const Cotacoes = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de edição de cotação */}
+      <Dialog open={dialogEditarCotacaoOpen} onOpenChange={(open) => {
+        setDialogEditarCotacaoOpen(open);
+        if (!open) setCotacaoEditando(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Cotação</DialogTitle>
+            <DialogDescription>
+              Altere as informações da cotação
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-titulo">Título</Label>
+              <Input
+                id="edit-titulo"
+                value={cotacaoEditando?.titulo_cotacao || ""}
+                onChange={(e) => setCotacaoEditando(prev => prev ? {...prev, titulo_cotacao: e.target.value} : null)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-prazo">Prazo para Resposta</Label>
+              <Input
+                id="edit-prazo"
+                type="datetime-local"
+                value={cotacaoEditando?.data_limite_resposta ? new Date(cotacaoEditando.data_limite_resposta).toISOString().slice(0, 16) : ""}
+                onChange={(e) => setCotacaoEditando(prev => prev ? {...prev, data_limite_resposta: e.target.value} : null)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setDialogEditarCotacaoOpen(false);
+              setCotacaoEditando(null);
+            }}>
+              Cancelar
+            </Button>
+            <Button onClick={async () => {
+              if (!cotacaoEditando) return;
+              try {
+                const { error } = await supabase
+                  .from("cotacoes_precos")
+                  .update({
+                    titulo_cotacao: cotacaoEditando.titulo_cotacao,
+                    data_limite_resposta: new Date(cotacaoEditando.data_limite_resposta).toISOString()
+                  })
+                  .eq("id", cotacaoEditando.id);
+                
+                if (error) throw error;
+                
+                // Atualizar lista de cotações
+                setCotacoes(prev => prev.map(c => 
+                  c.id === cotacaoEditando.id 
+                    ? {...c, titulo_cotacao: cotacaoEditando.titulo_cotacao, data_limite_resposta: new Date(cotacaoEditando.data_limite_resposta).toISOString()}
+                    : c
+                ));
+                
+                toast.success("Cotação atualizada com sucesso!");
+                setDialogEditarCotacaoOpen(false);
+                setCotacaoEditando(null);
+              } catch (error: any) {
+                toast.error("Erro ao atualizar cotação: " + error.message);
+              }
+            }}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
