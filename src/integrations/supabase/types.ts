@@ -2824,6 +2824,10 @@ export type Database = {
         Args: { p_coluna: string; p_path: string; p_tabela: string }
         Returns: number
       }
+      fornecedor_has_proposta_cotacao: {
+        Args: { _cotacao_id: string; _user_id: string }
+        Returns: boolean
+      }
       get_all_file_references: {
         Args: never
         Returns: {
