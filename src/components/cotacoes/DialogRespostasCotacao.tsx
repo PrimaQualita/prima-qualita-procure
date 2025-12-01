@@ -624,6 +624,7 @@ export function DialogRespostasCotacao({
   };
 
   const gerarESalvarPDFProposta = async (resposta: RespostaFornecedor) => {
+    console.log('🚀 INICIANDO gerarESalvarPDFProposta para resposta ID:', resposta.id);
     try {
       setGerandoPDF(resposta.id);
       
@@ -704,7 +705,8 @@ export function DialogRespostasCotacao({
         }
       }
       
-      const { url, nome, hash, protocolo } = await gerarPropostaFornecedorPDF(
+      console.log('🔧 Chamando gerarPropostaFornecedorPDF...');
+      const resultado = await gerarPropostaFornecedorPDF(
         resposta.id,
         resposta.fornecedor,
         resposta.valor_total_anual_ofertado,
@@ -716,25 +718,35 @@ export function DialogRespostasCotacao({
         cotacaoData?.criterio_julgamento
       );
 
-      console.log('✅ PDF gerado com protocolo:', protocolo);
+      console.log('✅ PDF GERADO - Resultado completo:', { 
+        url: resultado.url, 
+        nome: resultado.nome, 
+        hash: resultado.hash, 
+        protocolo: resultado.protocolo 
+      });
 
       // Atualizar hash e protocolo de certificação
-      const { error: updateError } = await supabase
+      console.log('💾 Atualizando banco de dados com protocolo:', resultado.protocolo);
+      const { data: updateData, error: updateError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .update({ 
-          hash_certificacao: hash,
-          protocolo: protocolo
+          hash_certificacao: resultado.hash,
+          protocolo: resultado.protocolo
         })
-        .eq("id", resposta.id);
+        .eq("id", resposta.id)
+        .select();
+
+      console.log('📊 Resposta do UPDATE:', { data: updateData, error: updateError });
 
       if (updateError) {
         console.error('❌ ERRO ao atualizar protocolo no banco:', updateError);
         throw updateError;
       }
 
-      console.log('✅ Protocolo salvo no banco com sucesso:', protocolo);
+      console.log('✅ Protocolo salvo no banco com sucesso:', resultado.protocolo);
 
       // Deletar APENAS anexo PROPOSTA anterior (manter COMPROVANTES)
+      console.log('🗑️ Deletando anexo PROPOSTA anterior...');
       await supabase
         .from('anexos_cotacao_fornecedor')
         .delete()
@@ -742,21 +754,26 @@ export function DialogRespostasCotacao({
         .eq('tipo_anexo', 'PROPOSTA');
 
       // Salvar novo anexo
+      console.log('💾 Salvando novo anexo com URL:', resultado.url);
       const { error: anexoError } = await supabase
         .from('anexos_cotacao_fornecedor')
         .insert({
           cotacao_resposta_fornecedor_id: resposta.id,
-          nome_arquivo: nome,
-          url_arquivo: url,
+          nome_arquivo: resultado.nome,
+          url_arquivo: resultado.url,
           tipo_anexo: 'PROPOSTA'
         });
 
-      if (anexoError) throw anexoError;
+      if (anexoError) {
+        console.error('❌ ERRO ao salvar anexo:', anexoError);
+        throw anexoError;
+      }
 
+      console.log('✅ Anexo salvo com sucesso!');
       toast.success('PDF da proposta gerado e salvo com sucesso!');
       loadRespostas(); // Recarregar para mostrar o PDF
     } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
+      console.error('❌ ERRO GERAL ao gerar PDF:', error);
       toast.error('Erro ao gerar PDF da proposta');
     } finally {
       setGerandoPDF(null);
