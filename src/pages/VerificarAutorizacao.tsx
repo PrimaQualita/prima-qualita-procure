@@ -384,7 +384,47 @@ export default function VerificarAutorizacao() {
         return;
       }
 
-      // 7. Recursos de Inabilitação (Recurso do Fornecedor)
+      // 7. Recursos de Fornecedor (Cotação/Rejeição)
+      console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_fornecedor...');
+      const { data: allRecursosFornecedor, error: recursoFornecedorError } = await supabase
+        .from('recursos_fornecedor')
+        .select('*');
+      
+      const recursoFornecedorData = allRecursosFornecedor?.find((doc: any) => 
+        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
+      );
+
+      console.log('📋 [VERIFICAÇÃO] Resultado recursos_fornecedor:', { 
+        encontrado: !!recursoFornecedorData, 
+        erro: recursoFornecedorError?.message 
+      });
+
+      if (recursoFornecedorData) {
+        console.log('✅ [VERIFICAÇÃO] Recurso de Cotação encontrado!');
+        
+        const { data: fornecedor } = await supabase
+          .from('fornecedores')
+          .select('razao_social, cnpj')
+          .eq('id', recursoFornecedorData.fornecedor_id)
+          .single();
+
+        setAutorizacao({
+          ...recursoFornecedorData,
+          protocolo: recursoFornecedorData.protocolo,
+          data_geracao: recursoFornecedorData.data_envio,
+          usuario: { nome_completo: fornecedor?.razao_social },
+          url_arquivo: recursoFornecedorData.url_arquivo
+        });
+        setTipoDocumento('recurso');
+
+        toast({
+          title: "Recurso verificado",
+          description: "Documento autêntico encontrado no sistema",
+        });
+        return;
+      }
+
+      // 8. Recursos de Inabilitação em Seleção (Recurso do Fornecedor)
       console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_inabilitacao_selecao (recurso)...');
       // @ts-ignore - Supabase type inference too deep
       const recursoResult = await supabase
@@ -426,7 +466,7 @@ export default function VerificarAutorizacao() {
         return;
       }
 
-      // 8. Recursos de Inabilitação (Resposta do Gestor)
+      // 9. Recursos de Inabilitação (Resposta do Gestor)
       console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_inabilitacao_selecao (resposta)...');
       // @ts-ignore - Supabase type inference too deep
       const respostaRecursoResult = await supabase

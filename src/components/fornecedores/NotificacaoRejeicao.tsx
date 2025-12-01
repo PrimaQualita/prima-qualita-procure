@@ -176,7 +176,7 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
         rejeicao.cotacoes_precos?.titulo_cotacao || ''
       );
 
-      // Salvar recurso no banco
+      // Salvar recurso no banco com protocolo
       const { error: insertError } = await supabase
         .from('recursos_fornecedor')
         .insert({
@@ -184,7 +184,8 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
           fornecedor_id: fornecedorId,
           url_arquivo: pdfResult.storagePath,
           nome_arquivo: pdfResult.fileName,
-          mensagem_fornecedor: texto
+          mensagem_fornecedor: texto,
+          protocolo: pdfResult.protocolo
         })
         .select();
 
