@@ -716,14 +716,23 @@ export function DialogRespostasCotacao({
         cotacaoData?.criterio_julgamento
       );
 
+      console.log('✅ PDF gerado com protocolo:', protocolo);
+
       // Atualizar hash e protocolo de certificação
-      await supabase
+      const { error: updateError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .update({ 
           hash_certificacao: hash,
           protocolo: protocolo
         })
         .eq("id", resposta.id);
+
+      if (updateError) {
+        console.error('❌ ERRO ao atualizar protocolo no banco:', updateError);
+        throw updateError;
+      }
+
+      console.log('✅ Protocolo salvo no banco com sucesso:', protocolo);
 
       // Deletar APENAS anexo PROPOSTA anterior (manter COMPROVANTES)
       await supabase
