@@ -24,6 +24,7 @@ interface ItemResposta {
   valor_unitario_ofertado: number;
   observacao: string | null;
   percentual_desconto?: number | null;
+  marca?: string | null;
   itens_cotacao: {
     numero_item: number;
     descricao: string;
@@ -85,6 +86,7 @@ export function DialogConsultarProposta({
           valor_unitario_ofertado,
           percentual_desconto,
           observacao,
+          marca,
           item_cotacao_id,
           itens_cotacao (
             numero_item,
@@ -215,11 +217,12 @@ export function DialogConsultarProposta({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                     <Table>
+                   <Table>
                        <TableHeader>
                          <TableRow>
                            <TableHead className="w-20">Item</TableHead>
                            <TableHead>Descrição</TableHead>
+                           <TableHead className="w-32">Marca</TableHead>
                            <TableHead className="w-28 text-right">Quantidade</TableHead>
                            {cotacao?.criterio_julgamento === "desconto" ? (
                              <TableHead className="w-32 text-right">Desconto (%)</TableHead>
@@ -245,8 +248,9 @@ export function DialogConsultarProposta({
                                      Obs: {item.observacao}
                                    </p>
                                  )}
-                               </div>
+                             </div>
                              </TableCell>
+                             <TableCell>{item.marca || "-"}</TableCell>
                              <TableCell className="text-right">
                                {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade}
                              </TableCell>
@@ -270,7 +274,7 @@ export function DialogConsultarProposta({
                          ))}
                          {cotacao?.criterio_julgamento !== "desconto" && (
                            <TableRow className="bg-blue-50 dark:bg-blue-950/20 font-semibold">
-                             <TableCell colSpan={4} className="text-right">
+                             <TableCell colSpan={5} className="text-right">
                                Total do Lote:
                              </TableCell>
                              <TableCell className="text-right">
@@ -296,6 +300,7 @@ export function DialogConsultarProposta({
                      <TableRow>
                        <TableHead className="w-20">Item</TableHead>
                        <TableHead>Descrição</TableHead>
+                       <TableHead className="w-32">Marca</TableHead>
                        <TableHead className="w-28 text-right">Quantidade</TableHead>
                        {cotacao?.criterio_julgamento === "desconto" ? (
                          <TableHead className="w-32 text-right">Desconto (%)</TableHead>
@@ -321,8 +326,9 @@ export function DialogConsultarProposta({
                                  Obs: {item.observacao}
                                </p>
                              )}
-                           </div>
+                             </div>
                          </TableCell>
+                         <TableCell>{item.marca || "-"}</TableCell>
                          <TableCell className="text-right">
                            {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade}
                          </TableCell>
