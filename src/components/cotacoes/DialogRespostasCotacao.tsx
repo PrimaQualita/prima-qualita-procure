@@ -624,7 +624,9 @@ export function DialogRespostasCotacao({
   };
 
   const gerarESalvarPDFProposta = async (resposta: RespostaFornecedor) => {
-    console.log('🚀 INICIANDO gerarESalvarPDFProposta para resposta ID:', resposta.id);
+    console.log('🚀🚀🚀 INICIANDO gerarESalvarPDFProposta para resposta ID:', resposta.id);
+    toast.info("Gerando PDF da proposta...", { duration: 2000 });
+    
     try {
       setGerandoPDF(resposta.id);
       
@@ -726,7 +728,10 @@ export function DialogRespostasCotacao({
       });
 
       // Atualizar hash e protocolo de certificação
-      console.log('💾 Atualizando banco de dados com protocolo:', resultado.protocolo);
+      console.log('💾💾💾 SALVANDO PROTOCOLO NO BANCO:', resultado.protocolo);
+      console.log('Resposta ID:', resposta.id);
+      console.log('Hash:', resultado.hash);
+      
       const { data: updateData, error: updateError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .update({ 
@@ -736,14 +741,59 @@ export function DialogRespostasCotacao({
         .eq("id", resposta.id)
         .select();
 
-      console.log('📊 Resposta do UPDATE:', { data: updateData, error: updateError });
+      console.log('📊📊📊 RESULTADO DO UPDATE:', { 
+        sucesso: !updateError,
+        data: updateData, 
+        error: updateError,
+        protocoloSalvo: resultado.protocolo
+      });
 
       if (updateError) {
-        console.error('❌ ERRO ao atualizar protocolo no banco:', updateError);
+        console.error('❌❌❌ ERRO CRÍTICO ao salvar protocolo:', updateError);
+        toast.error("ERRO: Protocolo não foi salvo no banco!");
         throw updateError;
       }
 
-      console.log('✅ Protocolo salvo no banco com sucesso:', resultado.protocolo);
+      if (!updateData || updateData.length === 0) {
+        console.error('❌❌❌ UPDATE não retornou dados - registro pode não existir!');
+        toast.error("ERRO: Não foi possível confirmar salvamento do protocolo!");
+        throw new Error('Update não retornou dados');
+      }
+
+      console.log('✅✅✅ PROTOCOLO SALVO COM SUCESSO:', resultado.protocolo);
+      
+      // VERIFICAÇÃO CRÍTICA: Confirmar que o protocolo foi realmente salvo
+      const { data: verificacao, error: verifError } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select("protocolo, hash_certificacao")
+        .eq("id", resposta.id)
+        .single();
+      
+      if (verifError || !verificacao?.protocolo) {
+        console.error('❌❌❌ FALHA NA VERIFICAÇÃO - Protocolo NÃO foi salvo!');
+        toast.error("ERRO CRÍTICO: Protocolo não foi salvo no banco!");
+        throw new Error('Protocolo não foi persistido');
+      }
+      
+      console.log('🎯 CONFIRMADO NO BANCO:', verificacao);
+      
+      // Mostrar protocolo salvo em alerta grande
+      const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${resultado.protocolo}`;
+      console.log('🔗🔗🔗 LINK DE VERIFICAÇÃO:', linkVerificacao);
+      console.log('📋 PROTOCOLO SALVO:', resultado.protocolo);
+      
+      toast.success(
+        `✅ PDF gerado! Protocolo: ${resultado.protocolo}`,
+        { duration: 10000 }
+      );
+      
+      // Copiar link para clipboard automaticamente
+      try {
+        await navigator.clipboard.writeText(linkVerificacao);
+        toast.info('🔗 Link de verificação copiado!', { duration: 5000 });
+      } catch (e) {
+        console.log('Clipboard copy failed, but not critical');
+      }
 
       // Deletar APENAS anexo PROPOSTA anterior (manter COMPROVANTES)
       console.log('🗑️ Deletando anexo PROPOSTA anterior...');
