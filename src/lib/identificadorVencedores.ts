@@ -38,6 +38,7 @@ interface FornecedorPlanilha {
   itens: Array<{
     numero_item: number;
     valor_unitario: number;
+    percentual_desconto?: number;
     eh_vencedor?: boolean;
   }>;
 }
@@ -48,7 +49,7 @@ export async function identificarVencedoresPorCriterio(
   respostas: Resposta[],
   itens: ItemResposta[]
 ): Promise<Fornecedor[]> {
-  console.log(`🏆 [identificadorVencedores] Buscando vencedores da PLANILHA CONSOLIDADA`);
+  console.log(`🏆 [identificadorVencedores] Identificando vencedores com RECÁLCULO DINÂMICO`);
   console.log(`  → Cotação ID: ${cotacaoId}`);
   console.log(`  → Critério: ${criterio}`);
 
@@ -70,32 +71,29 @@ export async function identificarVencedoresPorCriterio(
   
   const fornecedoresPlanilha = planilha.fornecedores_incluidos as unknown as FornecedorPlanilha[];
   console.log(`  → Total de fornecedores na planilha: ${fornecedoresPlanilha?.length || 0}`);
-  
-  // DEBUG: Ver estrutura da planilha
-  if (fornecedoresPlanilha && fornecedoresPlanilha.length > 0) {
-    console.log(`  📊 ESTRUTURA DA PLANILHA (primeiro fornecedor):`, {
-      fornecedor_id: fornecedoresPlanilha[0].fornecedor_id,
-      razao_social: fornecedoresPlanilha[0].razao_social,
-      totalItens: fornecedoresPlanilha[0].itens?.length || 0,
-      primeiroItem: fornecedoresPlanilha[0].itens?.[0],
-      estruturaCompleta: fornecedoresPlanilha[0]
-    });
-  }
 
   if (!fornecedoresPlanilha || fornecedoresPlanilha.length === 0) {
     return [];
   }
-  // Buscar rejeições revertidas
+
+  // Buscar rejeições ativas E revertidas
+  const { data: rejeicoesAtivas } = await supabase
+    .from('fornecedores_rejeitados_cotacao')
+    .select('fornecedor_id')
+    .eq('cotacao_id', cotacaoId)
+    .eq('revertido', false);
+
   const { data: rejeicoesRevertidas } = await supabase
     .from('fornecedores_rejeitados_cotacao')
     .select('fornecedor_id')
     .eq('cotacao_id', cotacaoId)
     .eq('revertido', true);
 
+  const fornecedoresRejeitadosAtivos = new Set(rejeicoesAtivas?.map(r => r.fornecedor_id) || []);
   const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
 
-  // Identificar vencedores baseado nos dados da planilha consolidada
-  const fornecedoresVencedoresSet = new Set<string>();
+  console.log(`  → Fornecedores rejeitados ativamente: ${fornecedoresRejeitadosAtivos.size}`);
+  console.log(`  → Fornecedores com rejeição revertida: ${fornecedoresRevertidos.size}`);
 
   // CRÍTICO: Identificar CNPJs de preços públicos (sequenciais)
   const ehPrecoPublico = (cnpj: string) => {
@@ -104,49 +102,151 @@ export async function identificarVencedoresPorCriterio(
     return cnpj.split('').every(d => d === primeiroDigito);
   };
 
-  // Para cada fornecedor na planilha
-  fornecedoresPlanilha.forEach(fornecedorPlanilha => {
-    console.log(`  🔍 Analisando fornecedor: ${fornecedorPlanilha.razao_social}`);
-    console.log(`    → CNPJ: ${fornecedorPlanilha.cnpj}`);
-    console.log(`    → Total de itens deste fornecedor: ${fornecedorPlanilha.itens?.length || 0}`);
+  // Separar fornecedores válidos (não rejeitados, não preço público)
+  const fornecedoresValidos = fornecedoresPlanilha.filter(f => {
+    const resposta = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
+    const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(f.fornecedor_id);
+    const rejeitadoNoBanco = fornecedoresRejeitadosAtivos.has(f.fornecedor_id);
     
-    // Verificar se o fornecedor foi rejeitado e não foi revertido
-    const resposta = respostas.find(r => r.fornecedor_id === fornecedorPlanilha.fornecedor_id);
-    const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(fornecedorPlanilha.fornecedor_id);
-    
-    console.log(`    → Está rejeitado? ${estaRejeitado}`);
-    console.log(`    → É preço público? ${ehPrecoPublico(fornecedorPlanilha.cnpj)}`);
-    
-    if (estaRejeitado) {
-      console.log(`  ⏭️ Pulando fornecedor rejeitado: ${fornecedorPlanilha.razao_social}`);
-      return;
-    }
-
-    // DEBUG: Ver estrutura dos itens
-    if (fornecedorPlanilha.itens && fornecedorPlanilha.itens.length > 0) {
-      console.log(`    → Estrutura do primeiro item:`, fornecedorPlanilha.itens[0]);
-      console.log(`    → Itens com valores:`, fornecedorPlanilha.itens.slice(0, 3).map(i => ({
-        num: i.numero_item,
-        valor: i.valor_unitario,
-        vencedor: i.eh_vencedor
-      })));
-    }
-
-    // CRÍTICO: Verificar se tem itens REALMENTE vencedores (eh_vencedor=true)
-    const itensVencedores = fornecedorPlanilha.itens?.filter(item => item.eh_vencedor === true) || [];
-    
-    console.log(`    → Itens com eh_vencedor=true: ${itensVencedores.length}`);
-    
-    // APENAS adicionar se tem itens vencedores E não é preço público
-    if (itensVencedores.length > 0 && !ehPrecoPublico(fornecedorPlanilha.cnpj)) {
-      fornecedoresVencedoresSet.add(fornecedorPlanilha.fornecedor_id);
-      console.log(`  ✅ Vencedor CONFIRMADO: ${fornecedorPlanilha.razao_social} (${itensVencedores.length} itens)`);
-    } else if (itensVencedores.length > 0 && ehPrecoPublico(fornecedorPlanilha.cnpj)) {
-      console.log(`  ⏭️ Preço público ignorado: ${fornecedorPlanilha.razao_social}`);
-    } else {
-      console.log(`  ⏭️ SEM itens vencedores: ${fornecedorPlanilha.razao_social}`);
-    }
+    return !estaRejeitado && !rejeitadoNoBanco && !ehPrecoPublico(f.cnpj);
   });
+
+  console.log(`  → Fornecedores válidos para cálculo: ${fornecedoresValidos.length}`);
+
+  // ============================================================
+  // RECÁLCULO DINÂMICO DOS VENCEDORES
+  // ============================================================
+  const fornecedoresVencedoresSet = new Set<string>();
+
+  // Mapear todos os itens únicos
+  const numerosItensUnicos = new Set<number>();
+  fornecedoresValidos.forEach(f => {
+    f.itens.forEach(item => numerosItensUnicos.add(item.numero_item));
+  });
+
+  console.log(`  → Total de itens únicos: ${numerosItensUnicos.size}`);
+
+  if (criterio === "global") {
+    // GLOBAL: menor valor total vence TODOS os itens
+    let menorTotal = Infinity;
+    let fornecedorVencedor: FornecedorPlanilha | null = null;
+
+    fornecedoresValidos.forEach(f => {
+      const valorTotal = f.itens.reduce((sum, item) => {
+        const itemOriginal = itens.find(i => 
+          i.itens_cotacao.numero_item === item.numero_item &&
+          respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
+        );
+        const quantidade = itemOriginal?.itens_cotacao.quantidade || 1;
+        return sum + (item.valor_unitario * quantidade);
+      }, 0);
+
+      console.log(`    → ${f.razao_social}: Total R$ ${valorTotal.toFixed(2)}`);
+
+      if (valorTotal > 0 && valorTotal < menorTotal) {
+        menorTotal = valorTotal;
+        fornecedorVencedor = f;
+      }
+    });
+
+    if (fornecedorVencedor) {
+      fornecedoresVencedoresSet.add(fornecedorVencedor.fornecedor_id);
+      console.log(`  ✅ Vencedor GLOBAL: ${fornecedorVencedor.razao_social}`);
+    }
+
+  } else if (criterio === "desconto" || criterio === "maior_percentual_desconto") {
+    // DESCONTO: maior percentual por item vence
+    numerosItensUnicos.forEach(numeroItem => {
+      let maiorDesconto = -1;
+      let fornecedorVencedor: FornecedorPlanilha | null = null;
+
+      fornecedoresValidos.forEach(f => {
+        const item = f.itens.find(i => i.numero_item === numeroItem);
+        const desconto = item?.percentual_desconto || 0;
+
+        if (desconto > 0 && desconto > maiorDesconto) {
+          maiorDesconto = desconto;
+          fornecedorVencedor = f;
+        }
+      });
+
+      if (fornecedorVencedor) {
+        fornecedoresVencedoresSet.add(fornecedorVencedor.fornecedor_id);
+        console.log(`    Item ${numeroItem}: ${fornecedorVencedor.razao_social} (${maiorDesconto.toFixed(2)}%)`);
+      }
+    });
+
+  } else if (criterio === "por_lote" || criterio === "lote") {
+    // POR LOTE: menor valor total do lote
+    const lotesUnicos = new Set<string>();
+    fornecedoresValidos.forEach(f => {
+      f.itens.forEach(item => {
+        const itemOriginal = itens.find(i => 
+          i.itens_cotacao.numero_item === item.numero_item &&
+          respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
+        );
+        if (itemOriginal?.itens_cotacao.lote_id) {
+          lotesUnicos.add(itemOriginal.itens_cotacao.lote_id);
+        }
+      });
+    });
+
+    lotesUnicos.forEach(loteId => {
+      let menorTotalLote = Infinity;
+      let fornecedorVencedor: FornecedorPlanilha | null = null;
+
+      fornecedoresValidos.forEach(f => {
+        const itensDoLote = f.itens.filter(item => {
+          const itemOriginal = itens.find(i => 
+            i.itens_cotacao.numero_item === item.numero_item &&
+            respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
+          );
+          return itemOriginal?.itens_cotacao.lote_id === loteId;
+        });
+
+        const totalLote = itensDoLote.reduce((sum, item) => {
+          const itemOriginal = itens.find(i => 
+            i.itens_cotacao.numero_item === item.numero_item &&
+            respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
+          );
+          const quantidade = itemOriginal?.itens_cotacao.quantidade || 1;
+          return sum + (item.valor_unitario * quantidade);
+        }, 0);
+
+        if (totalLote > 0 && totalLote < menorTotalLote) {
+          menorTotalLote = totalLote;
+          fornecedorVencedor = f;
+        }
+      });
+
+      if (fornecedorVencedor) {
+        fornecedoresVencedoresSet.add(fornecedorVencedor.fornecedor_id);
+        console.log(`    Lote ${loteId}: ${fornecedorVencedor.razao_social}`);
+      }
+    });
+
+  } else {
+    // POR ITEM (padrão): menor valor unitário por item vence
+    numerosItensUnicos.forEach(numeroItem => {
+      let menorValor = Infinity;
+      let fornecedorVencedor: FornecedorPlanilha | null = null;
+
+      fornecedoresValidos.forEach(f => {
+        const item = f.itens.find(i => i.numero_item === numeroItem);
+        const valor = item?.valor_unitario || 0;
+
+        if (valor > 0 && valor < menorValor) {
+          menorValor = valor;
+          fornecedorVencedor = f;
+        }
+      });
+
+      if (fornecedorVencedor) {
+        fornecedoresVencedoresSet.add(fornecedorVencedor.fornecedor_id);
+        console.log(`    Item ${numeroItem}: ${fornecedorVencedor.razao_social} (R$ ${menorValor.toFixed(2)})`);
+      }
+    });
+  }
 
   // Converter Set em array de objetos Fornecedor
   const fornecedoresVencedores = Array.from(fornecedoresVencedoresSet).map(id => {
@@ -167,8 +267,7 @@ export async function carregarItensVencedoresPorFornecedor(
   respostas: Resposta[],
   todosItens: ItemResposta[]
 ): Promise<ItemResposta[]> {
-  console.log(`🔍 [carregarItensVencedores] Buscando itens vencedores da PLANILHA`);
-  console.log(`  → Fornecedor ID: ${fornecedorId}`);
+  console.log(`🔍 [carregarItensVencedores] RECÁLCULO DINÂMICO para fornecedor ${fornecedorId}`);
   
   // Buscar a última planilha consolidada
   const { data: planilha, error } = await supabase
@@ -185,78 +284,204 @@ export async function carregarItensVencedoresPorFornecedor(
   }
 
   const fornecedoresPlanilha = planilha.fornecedores_incluidos as unknown as FornecedorPlanilha[];
-  const fornecedorPlanilha = fornecedoresPlanilha?.find(f => f.fornecedor_id === fornecedorId);
 
-  if (!fornecedorPlanilha) {
+  // Buscar rejeições ativas
+  const { data: rejeicoesAtivas } = await supabase
+    .from('fornecedores_rejeitados_cotacao')
+    .select('fornecedor_id')
+    .eq('cotacao_id', cotacaoId)
+    .eq('revertido', false);
+
+  const { data: rejeicoesRevertidas } = await supabase
+    .from('fornecedores_rejeitados_cotacao')
+    .select('fornecedor_id')
+    .eq('cotacao_id', cotacaoId)
+    .eq('revertido', true);
+
+  const fornecedoresRejeitadosAtivos = new Set(rejeicoesAtivas?.map(r => r.fornecedor_id) || []);
+  const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
+
+  // CRÍTICO: Identificar CNPJs de preços públicos
+  const ehPrecoPublico = (cnpj: string) => {
+    if (!cnpj) return false;
+    const primeiroDigito = cnpj.charAt(0);
+    return cnpj.split('').every(d => d === primeiroDigito);
+  };
+
+  // Fornecedores válidos (não rejeitados)
+  const fornecedoresValidos = fornecedoresPlanilha.filter(f => {
+    const resposta = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
+    const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(f.fornecedor_id);
+    const rejeitadoNoBanco = fornecedoresRejeitadosAtivos.has(f.fornecedor_id);
+    
+    return !estaRejeitado && !rejeitadoNoBanco && !ehPrecoPublico(f.cnpj);
+  });
+
+  const fornecedorAtual = fornecedoresPlanilha.find(f => f.fornecedor_id === fornecedorId);
+  if (!fornecedorAtual) {
     console.log(`  ❌ Fornecedor não encontrado na planilha`);
     return [];
   }
 
-  console.log(`  ✅ Fornecedor encontrado na planilha: ${fornecedorPlanilha.razao_social}`);
-  console.log(`  📊 Total de itens do fornecedor na planilha: ${fornecedorPlanilha.itens?.length || 0}`);
-  
-  // DEBUG: Ver estrutura dos itens deste fornecedor
-  if (fornecedorPlanilha.itens && fornecedorPlanilha.itens.length > 0) {
-    console.log(`  📋 Exemplo de item:`, fornecedorPlanilha.itens[0]);
-  }
-
-  // Obter os números dos itens vencidos da planilha
-  const numerosItensVencidos = fornecedorPlanilha.itens
-    ?.filter(item => item.eh_vencedor === true)
-    .map(item => item.numero_item) || [];
-
-  console.log(`  → Itens vencedores segundo planilha: ${numerosItensVencidos.length}`);
-  if (numerosItensVencidos.length <= 15) {
-    console.log(`  → Números: ${numerosItensVencidos.join(', ')}`);
-  } else {
-    console.log(`  → Primeiros 15 números: ${numerosItensVencidos.slice(0, 15).join(', ')}`);
-  }
-
-  // Buscar os objetos ItemResposta correspondentes
+  // Verificar se o fornecedor atual está válido
   const resposta = respostas.find(r => r.fornecedor_id === fornecedorId);
   if (!resposta) {
     console.log(`  ❌ Resposta não encontrada`);
     return [];
   }
 
-  console.log(`  ✅ Resposta encontrada - ID: ${resposta.id}`);
-  console.log(`  📦 Total de itens disponíveis para filtrar: ${todosItens.length}`);
-  
-  // DEBUG: Ver estrutura dos itens disponíveis
-  if (todosItens.length > 0) {
-    console.log(`  📋 Exemplo de item disponível:`, {
-      id: todosItens[0].id,
-      cotacao_resposta_fornecedor_id: todosItens[0].cotacao_resposta_fornecedor_id,
-      numero_item: todosItens[0].itens_cotacao?.numero_item
+  // ============================================================
+  // RECÁLCULO DINÂMICO DOS ITENS VENCEDORES PARA ESTE FORNECEDOR
+  // ============================================================
+  const numerosItensVencedores = new Set<number>();
+
+  // Mapear todos os itens únicos
+  const numerosItensUnicos = new Set<number>();
+  fornecedoresValidos.forEach(f => {
+    f.itens.forEach(item => numerosItensUnicos.add(item.numero_item));
+  });
+
+  if (criterio === "global") {
+    // GLOBAL: se este fornecedor tem menor total, todos os itens são dele
+    let menorTotal = Infinity;
+    let fornecedorVencedorId: string | null = null;
+
+    fornecedoresValidos.forEach(f => {
+      const valorTotal = f.itens.reduce((sum, item) => {
+        const itemOriginal = todosItens.find(i => 
+          i.itens_cotacao.numero_item === item.numero_item &&
+          respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
+        );
+        const quantidade = itemOriginal?.itens_cotacao.quantidade || 1;
+        return sum + (item.valor_unitario * quantidade);
+      }, 0);
+
+      if (valorTotal > 0 && valorTotal < menorTotal) {
+        menorTotal = valorTotal;
+        fornecedorVencedorId = f.fornecedor_id;
+      }
+    });
+
+    if (fornecedorVencedorId === fornecedorId) {
+      fornecedorAtual.itens.forEach(item => numerosItensVencedores.add(item.numero_item));
+    }
+
+  } else if (criterio === "desconto" || criterio === "maior_percentual_desconto") {
+    // DESCONTO: maior percentual por item
+    numerosItensUnicos.forEach(numeroItem => {
+      let maiorDesconto = -1;
+      let fornecedorVencedorId: string | null = null;
+
+      fornecedoresValidos.forEach(f => {
+        const item = f.itens.find(i => i.numero_item === numeroItem);
+        const desconto = item?.percentual_desconto || 0;
+
+        if (desconto > 0 && desconto > maiorDesconto) {
+          maiorDesconto = desconto;
+          fornecedorVencedorId = f.fornecedor_id;
+        }
+      });
+
+      if (fornecedorVencedorId === fornecedorId) {
+        numerosItensVencedores.add(numeroItem);
+      }
+    });
+
+  } else if (criterio === "por_lote" || criterio === "lote") {
+    // POR LOTE: menor valor total do lote
+    const lotesUnicos = new Set<string>();
+    fornecedoresValidos.forEach(f => {
+      f.itens.forEach(item => {
+        const itemOriginal = todosItens.find(i => 
+          i.itens_cotacao.numero_item === item.numero_item &&
+          respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
+        );
+        if (itemOriginal?.itens_cotacao.lote_id) {
+          lotesUnicos.add(itemOriginal.itens_cotacao.lote_id);
+        }
+      });
+    });
+
+    const lotesVencedores = new Set<string>();
+    lotesUnicos.forEach(loteId => {
+      let menorTotalLote = Infinity;
+      let fornecedorVencedorId: string | null = null;
+
+      fornecedoresValidos.forEach(f => {
+        const itensDoLote = f.itens.filter(item => {
+          const itemOriginal = todosItens.find(i => 
+            i.itens_cotacao.numero_item === item.numero_item &&
+            respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
+          );
+          return itemOriginal?.itens_cotacao.lote_id === loteId;
+        });
+
+        const totalLote = itensDoLote.reduce((sum, item) => {
+          const itemOriginal = todosItens.find(i => 
+            i.itens_cotacao.numero_item === item.numero_item &&
+            respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
+          );
+          const quantidade = itemOriginal?.itens_cotacao.quantidade || 1;
+          return sum + (item.valor_unitario * quantidade);
+        }, 0);
+
+        if (totalLote > 0 && totalLote < menorTotalLote) {
+          menorTotalLote = totalLote;
+          fornecedorVencedorId = f.fornecedor_id;
+        }
+      });
+
+      if (fornecedorVencedorId === fornecedorId) {
+        lotesVencedores.add(loteId);
+      }
+    });
+
+    // Adicionar itens dos lotes vencidos
+    fornecedorAtual.itens.forEach(item => {
+      const itemOriginal = todosItens.find(i => 
+        i.itens_cotacao.numero_item === item.numero_item &&
+        respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === fornecedorId
+      );
+      if (itemOriginal?.itens_cotacao.lote_id && lotesVencedores.has(itemOriginal.itens_cotacao.lote_id)) {
+        numerosItensVencedores.add(item.numero_item);
+      }
+    });
+
+  } else {
+    // POR ITEM (padrão): menor valor unitário por item
+    numerosItensUnicos.forEach(numeroItem => {
+      let menorValor = Infinity;
+      let fornecedorVencedorId: string | null = null;
+
+      fornecedoresValidos.forEach(f => {
+        const item = f.itens.find(i => i.numero_item === numeroItem);
+        const valor = item?.valor_unitario || 0;
+
+        if (valor > 0 && valor < menorValor) {
+          menorValor = valor;
+          fornecedorVencedorId = f.fornecedor_id;
+        }
+      });
+
+      if (fornecedorVencedorId === fornecedorId) {
+        numerosItensVencedores.add(numeroItem);
+      }
     });
   }
 
+  console.log(`  → Itens vencedores após recálculo: ${numerosItensVencedores.size}`);
+  if (numerosItensVencedores.size <= 15) {
+    console.log(`  → Números: ${Array.from(numerosItensVencedores).join(', ')}`);
+  }
+
+  // Buscar os objetos ItemResposta correspondentes
   const itensVencidos = todosItens.filter(item => {
     const pertenceAoFornecedor = item.cotacao_resposta_fornecedor_id === resposta.id;
-    const ehVencedor = numerosItensVencidos.includes(item.itens_cotacao.numero_item);
-    
-    // DEBUG dos primeiros 3 itens
-    if (todosItens.indexOf(item) < 3) {
-      console.log(`    🔍 Item ${item.itens_cotacao?.numero_item}:`, {
-        pertenceAoFornecedor,
-        ehVencedor,
-        resposta_id_item: item.cotacao_resposta_fornecedor_id,
-        resposta_id_esperado: resposta.id,
-        numero_item: item.itens_cotacao.numero_item,
-        esta_na_lista: numerosItensVencidos.includes(item.itens_cotacao.numero_item)
-      });
-    }
-    
+    const ehVencedor = numerosItensVencedores.has(item.itens_cotacao.numero_item);
     return pertenceAoFornecedor && ehVencedor;
   });
 
   console.log(`  ✅ Total de itens vencidos carregados: ${itensVencidos.length}`);
-  if (itensVencidos.length > 0) {
-    console.log(`  📋 Estrutura do primeiro item vencido:`, itensVencidos[0]);
-    console.log(`  📊 Números dos itens vencidos (primeiros 10):`, 
-      itensVencidos.slice(0, 10).map(i => i.itens_cotacao?.numero_item)
-    );
-  }
 
-  return itensVencidos;
+  return itensVencidos.sort((a, b) => a.itens_cotacao.numero_item - b.itens_cotacao.numero_item);
 }
