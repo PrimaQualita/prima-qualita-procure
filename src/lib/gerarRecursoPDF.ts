@@ -14,7 +14,8 @@ export const gerarRecursoPDF = async (
   fornecedorCnpj: string,
   numeroProcesso: string,
   motivoInabilitacao: string,
-  numeroSelecao?: string
+  numeroSelecao?: string,
+  tituloCotacao?: string
 ): Promise<RecursoResult> => {
   console.log('[PDF] Iniciando geração - Recurso de Inabilitação');
   
@@ -74,6 +75,15 @@ export const gerarRecursoPDF = async (
     doc.text(labelSelecao, margemTexto, y);
     doc.setFont('helvetica', 'normal');
     doc.text('   ' + numeroSelecao, margemTexto + doc.getTextWidth(labelSelecao), y);
+  }
+  
+  if (tituloCotacao) {
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    const labelCotacao = 'Cotação de Preços:';
+    doc.text(labelCotacao, margemTexto, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text('   ' + tituloCotacao, margemTexto + doc.getTextWidth(labelCotacao), y);
   }
   
   y += 6;
