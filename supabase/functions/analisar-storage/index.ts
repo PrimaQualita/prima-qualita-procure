@@ -427,7 +427,7 @@ Deno.serve(async (req) => {
       processos_anexos_outros: { arquivos: 0, tamanho: 0, detalhes: [] },
       capas_processo: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       cotacoes: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
-      habilitacao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
+      habilitacao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map(), porProcesso: new Map() },
       outros: { arquivos: 0, tamanho: 0, detalhes: [] }
     };
 
@@ -881,12 +881,13 @@ Deno.serve(async (req) => {
           console.log(`❌ Análise compliance sem processo_numero no banco`);
         }
       } else if (pathSemBucket.startsWith('habilitacao/')) {
-        // Documentos de habilitação (solicitados durante análise documental de seleção)
+        // Documentos de habilitação (solicitados durante análise documental de seleção OU compra direta/cotação)
         estatisticasPorCategoria.habilitacao.arquivos++;
         estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
         estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
         
-        // Buscar selecao_id via documentos_finalizacao_fornecedor e campos_documentos_finalizacao
+        // Buscar dados via documentos_finalizacao_fornecedor e campos_documentos_finalizacao
+        // Pode ser de seleção (selecao_id) ou de cotação/compra direta (cotacao_id)
         const { data: docFinalizacao } = await supabase
           .from('documentos_finalizacao_fornecedor')
           .select(`
@@ -894,7 +895,14 @@ Deno.serve(async (req) => {
             nome_arquivo,
             campos_documentos_finalizacao!inner(
               selecao_id,
-              selecoes_fornecedores(titulo_selecao, numero_selecao)
+              cotacao_id,
+              selecoes_fornecedores(titulo_selecao, numero_selecao),
+              cotacoes_precos(
+                id,
+                titulo_cotacao,
+                processo_compra_id,
+                processos_compras(numero_processo_interno, objeto_resumido)
+              )
             )
           `)
           .ilike('url_arquivo', `%${fileNameRaw}%`)
@@ -903,9 +911,12 @@ Deno.serve(async (req) => {
         if (docFinalizacao) {
           const campo = (docFinalizacao as any).campos_documentos_finalizacao;
           const selecaoId = campo?.selecao_id;
+          const cotacaoId = campo?.cotacao_id;
           const selecao = campo?.selecoes_fornecedores;
+          const cotacao = campo?.cotacoes_precos;
           
           if (selecaoId && selecao) {
+            // É documento de seleção de fornecedores
             if (!estatisticasPorCategoria.habilitacao.porSelecao!.has(selecaoId)) {
               estatisticasPorCategoria.habilitacao.porSelecao!.set(selecaoId, {
                 selecaoId,
@@ -920,6 +931,28 @@ Deno.serve(async (req) => {
               fileName: docFinalizacao.nome_arquivo || fileName,
               size: metadata.size
             });
+          } else if (cotacaoId && cotacao) {
+            // É documento de compra direta/cotação - agrupar por processo
+            const processo = cotacao.processos_compras;
+            const processoId = cotacao.processo_compra_id;
+            
+            if (processoId) {
+              if (!estatisticasPorCategoria.habilitacao.porProcesso!.has(processoId)) {
+                estatisticasPorCategoria.habilitacao.porProcesso!.set(processoId, {
+                  processoId,
+                  processoNumero: processo?.numero_processo_interno || processoId.substring(0, 8),
+                  processoObjeto: processo?.objeto_resumido || 'Sem objeto',
+                  credenciamento: false,
+                  documentos: []
+                });
+              }
+              
+              estatisticasPorCategoria.habilitacao.porProcesso!.get(processoId)!.documentos.push({
+                path,
+                fileName: docFinalizacao.nome_arquivo || fileName,
+                size: metadata.size
+              });
+            }
           }
         }
       } else if (
@@ -1106,7 +1139,8 @@ Deno.serve(async (req) => {
           arquivos: estatisticasPorCategoria.habilitacao.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.habilitacao.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.habilitacao.detalhes,
-          porSelecao: Array.from(estatisticasPorCategoria.habilitacao.porSelecao!.values())
+          porSelecao: Array.from(estatisticasPorCategoria.habilitacao.porSelecao!.values()),
+          porProcesso: Array.from(estatisticasPorCategoria.habilitacao.porProcesso!.values())
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,
