@@ -435,12 +435,19 @@ export default function RespostasCotacao() {
         return;
       }
 
-      // Verificar se já existe PDF gerado
-      if (resposta.anexos && resposta.anexos.length > 0) {
+      // Buscar protocolo atual do banco
+      const { data: respostaBanco } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select("protocolo")
+        .eq("id", respostaId)
+        .single();
+
+      // Se já existe PDF e tem protocolo válido no banco, abrir o existente
+      if (resposta.anexos && resposta.anexos.length > 0 && respostaBanco?.protocolo) {
         const propostaPDF = resposta.anexos.find(a => a.tipo_anexo === 'PROPOSTA');
         
         if (propostaPDF) {
-          // Abrir PDF existente
+          console.log('📄 Abrindo PDF existente com protocolo válido:', respostaBanco.protocolo);
           const { data: fileData, error: downloadError } = await supabase.storage
             .from('processo-anexos')
             .download(propostaPDF.url_arquivo);
@@ -454,7 +461,19 @@ export default function RespostasCotacao() {
         }
       }
 
-      // Se não existe, gerar novo PDF
+      // Se não existe PDF ou não tem protocolo válido no banco, (re)gerar PDF
+      console.log('🔄 Gerando novo PDF - protocolo atual no banco:', respostaBanco?.protocolo || 'NENHUM');
+      
+      // Deletar PDF antigo se existir (para regenerar com protocolo correto)
+      if (resposta.anexos && resposta.anexos.length > 0) {
+        const propostaPDFAntigo = resposta.anexos.find(a => a.tipo_anexo === 'PROPOSTA');
+        if (propostaPDFAntigo) {
+          console.log('🗑️ Deletando PDF antigo sem protocolo válido');
+          await supabase.storage.from('processo-anexos').remove([propostaPDFAntigo.url_arquivo]);
+          await supabase.from('anexos_cotacao_fornecedor').delete().eq('id', propostaPDFAntigo.id);
+        }
+      }
+
       // Buscar dados do usuário logado quando for preços públicos
       let usuarioNome: string | undefined;
       let usuarioCpf: string | undefined;
@@ -488,13 +507,21 @@ export default function RespostasCotacao() {
       );
 
       // Atualizar protocolo e hash de certificação
-      await supabase
+      console.log('💾 Salvando protocolo no banco:', resultado.protocolo);
+      const { error: updateError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .update({ 
           protocolo: resultado.protocolo,
           hash_certificacao: resultado.hash
         })
         .eq("id", respostaId);
+
+      if (updateError) {
+        console.error('❌ Erro ao salvar protocolo:', updateError);
+        toast.error("Erro ao salvar protocolo!");
+        throw updateError;
+      }
+      console.log('✅ Protocolo salvo com sucesso');
 
       // Criar registro do anexo em anexos_cotacao_fornecedor
       const { error: anexoError } = await supabase
@@ -524,7 +551,7 @@ export default function RespostasCotacao() {
       const pdfUrl = URL.createObjectURL(fileData);
       window.open(pdfUrl, '_blank');
       
-      toast.success("Proposta gerada com sucesso!");
+      toast.success(`Proposta gerada! Protocolo: ${resultado.protocolo}`);
     } catch (error) {
       console.error("Erro ao visualizar proposta:", error);
       toast.error("Erro ao visualizar proposta");
@@ -577,13 +604,21 @@ export default function RespostasCotacao() {
       );
 
       // Atualizar protocolo e hash de certificação
-      await supabase
+      console.log('💾 [Baixar] Salvando protocolo:', resultado.protocolo);
+      const { error: updateError } = await supabase
         .from("cotacao_respostas_fornecedor")
         .update({ 
           protocolo: resultado.protocolo,
           hash_certificacao: resultado.hash
         })
         .eq("id", respostaId);
+
+      if (updateError) {
+        console.error('❌ [Baixar] Erro ao salvar protocolo:', updateError);
+        toast.error("Erro ao salvar protocolo!");
+        throw updateError;
+      }
+      console.log('✅ [Baixar] Protocolo salvo com sucesso');
 
       // Buscar o arquivo do storage
       const { data: fileData, error: downloadError } = await supabase.storage
@@ -597,7 +632,7 @@ export default function RespostasCotacao() {
       link.href = pdfUrl;
       link.download = resultado.nome;
       link.click();
-      toast.success("Proposta baixada com sucesso!");
+      toast.success(`Proposta baixada! Protocolo: ${resultado.protocolo}`);
     } catch (error) {
       console.error("Erro ao baixar proposta:", error);
       toast.error("Erro ao baixar proposta");
