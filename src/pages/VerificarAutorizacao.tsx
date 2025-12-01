@@ -512,6 +512,50 @@ export default function VerificarAutorizacao() {
         return;
       }
 
+      // 10. Respostas de Recursos (Cotação/Rejeição)
+      console.log('🔎 [VERIFICAÇÃO] Buscando em respostas_recursos...');
+      const { data: allRespostasRecursos, error: respostasRecursosError } = await supabase
+        .from('respostas_recursos')
+        .select('*');
+      
+      const respostaRecursoFornecedorData = allRespostasRecursos?.find((doc: any) => 
+        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
+      );
+
+      console.log('📋 [VERIFICAÇÃO] Resultado respostas_recursos:', { 
+        encontrado: !!respostaRecursoFornecedorData, 
+        erro: respostasRecursosError?.message 
+      });
+
+      if (respostaRecursoFornecedorData) {
+        console.log('✅ [VERIFICAÇÃO] Resposta de Recurso (Cotação) encontrada!');
+        
+        let usuario = null;
+        if (respostaRecursoFornecedorData.usuario_respondeu_id) {
+          const { data: usuarioData } = await supabase
+            .from('profiles')
+            .select('nome_completo, cpf')
+            .eq('id', respostaRecursoFornecedorData.usuario_respondeu_id)
+            .single();
+          usuario = usuarioData;
+        }
+
+        setAutorizacao({
+          ...respostaRecursoFornecedorData,
+          protocolo: respostaRecursoFornecedorData.protocolo,
+          data_geracao: respostaRecursoFornecedorData.data_resposta,
+          usuario,
+          url_arquivo: respostaRecursoFornecedorData.url_documento
+        });
+        setTipoDocumento('resposta_recurso');
+
+        toast({
+          title: "Resposta de Recurso verificada",
+          description: "Documento autêntico encontrado no sistema",
+        });
+        return;
+      }
+
       // Não encontrou em nenhuma tabela
       console.error('❌ [VERIFICAÇÃO] Documento não encontrado em nenhuma tabela');
       console.error('🔍 [VERIFICAÇÃO] Protocolo buscado:', protocoloLimpo);
