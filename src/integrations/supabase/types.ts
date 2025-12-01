@@ -1256,6 +1256,7 @@ export type Database = {
           data_reversao: string | null
           fornecedor_id: string
           id: string
+          itens_afetados: number[] | null
           motivo_rejeicao: string
           motivo_reversao: string | null
           revertido: boolean | null
@@ -1270,6 +1271,7 @@ export type Database = {
           data_reversao?: string | null
           fornecedor_id: string
           id?: string
+          itens_afetados?: number[] | null
           motivo_rejeicao: string
           motivo_reversao?: string | null
           revertido?: boolean | null
@@ -1284,6 +1286,7 @@ export type Database = {
           data_reversao?: string | null
           fornecedor_id?: string
           id?: string
+          itens_afetados?: number[] | null
           motivo_rejeicao?: string
           motivo_reversao?: string | null
           revertido?: boolean | null
@@ -2343,10 +2346,12 @@ export type Database = {
           data_resposta: string
           decisao: string
           id: string
+          itens_reabilitados: number[] | null
           nome_arquivo: string
           protocolo: string
           recurso_id: string
           texto_resposta: string
+          tipo_provimento: string | null
           url_documento: string
           usuario_respondeu_id: string | null
         }
@@ -2355,10 +2360,12 @@ export type Database = {
           data_resposta?: string
           decisao: string
           id?: string
+          itens_reabilitados?: number[] | null
           nome_arquivo: string
           protocolo: string
           recurso_id: string
           texto_resposta: string
+          tipo_provimento?: string | null
           url_documento: string
           usuario_respondeu_id?: string | null
         }
@@ -2367,10 +2374,12 @@ export type Database = {
           data_resposta?: string
           decisao?: string
           id?: string
+          itens_reabilitados?: number[] | null
           nome_arquivo?: string
           protocolo?: string
           recurso_id?: string
           texto_resposta?: string
+          tipo_provimento?: string | null
           url_documento?: string
           usuario_respondeu_id?: string | null
         }
