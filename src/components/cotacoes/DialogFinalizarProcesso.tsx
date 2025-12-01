@@ -130,6 +130,18 @@ export function DialogFinalizarProcesso({
   const [encaminhamentos, setEncaminhamentos] = useState<any[]>([]);
   const [autorizacoes, setAutorizacoes] = useState<any[]>([]);
   const [foiEnviadoParaSelecao, setFoiEnviadoParaSelecao] = useState(false);
+  
+  // Estados para rejeição por item/lote
+  const [criterioJulgamento, setCriterioJulgamento] = useState<string>("global");
+  const [itensCotacao, setItensCotacao] = useState<any[]>([]);
+  const [lotesCotacao, setLotesCotacao] = useState<any[]>([]);
+  const [itensParaRejeitar, setItensParaRejeitar] = useState<number[]>([]);
+  const [lotesParaRejeitar, setLotesParaRejeitar] = useState<string[]>([]);
+  
+  // Estados para provimento parcial
+  const [tipoProvimento, setTipoProvimento] = useState<'total' | 'parcial'>('total');
+  const [itensParaReabilitar, setItensParaReabilitar] = useState<number[]>([]);
+  const [rejeicaoDoRecurso, setRejeicaoDoRecurso] = useState<any>(null);
 
   useEffect(() => {
     if (open) {
@@ -142,8 +154,30 @@ export function DialogFinalizarProcesso({
       checkResponsavelLegal();
       loadFornecedoresRejeitados();
       loadRecursos();
+      loadItensCotacao();
+      loadLotesCotacao();
     }
   }, [open, cotacaoId]);
+
+  const loadItensCotacao = async () => {
+    if (!cotacaoId) return;
+    const { data } = await supabase
+      .from('itens_cotacao')
+      .select('numero_item, descricao, lote_id')
+      .eq('cotacao_id', cotacaoId)
+      .order('numero_item');
+    setItensCotacao(data || []);
+  };
+
+  const loadLotesCotacao = async () => {
+    if (!cotacaoId) return;
+    const { data } = await supabase
+      .from('lotes_cotacao')
+      .select('id, numero_lote, descricao_lote')
+      .eq('cotacao_id', cotacaoId)
+      .order('numero_lote');
+    setLotesCotacao(data || []);
+  };
 
   // Realtime: Atualizar automaticamente quando fornecedores ou documentos mudarem
   useEffect(() => {
@@ -288,6 +322,9 @@ export function DialogFinalizarProcesso({
       console.log("📊 Critério de julgamento:", cotacao?.criterio_julgamento);
       console.log("📋 Documentos aprovados RAW do banco:", JSON.stringify(cotacao?.documentos_aprovados));
       console.log("🔄 Foi enviado para seleção:", cotacao?.enviado_para_selecao);
+      
+      // Atualizar estado do critério de julgamento
+      setCriterioJulgamento(cotacao?.criterio_julgamento || "global");
       
       // Atualizar estado
       setFoiEnviadoParaSelecao(cotacao?.enviado_para_selecao || false);
@@ -1925,40 +1962,57 @@ export function DialogFinalizarProcesso({
       return;
     }
 
+    // Validar itens selecionados para critérios granulares
+    const permiteParcial = criterioJulgamento !== 'global';
+    const itensAfetados = permiteParcial 
+      ? (criterioJulgamento === 'por_lote' || criterioJulgamento === 'lote'
+          ? itensCotacao.filter(i => lotesParaRejeitar.includes(i.lote_id)).map(i => i.numero_item)
+          : itensParaRejeitar)
+      : [];
+
     try {
       setLoading(true);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Salvar registro de rejeição
+      // Salvar registro de rejeição com itens afetados
       const { error: rejeicaoError } = await supabase
         .from('fornecedores_rejeitados_cotacao')
         .insert({
           cotacao_id: cotacaoId,
           fornecedor_id: fornecedorParaRejeitar,
           motivo_rejeicao: motivo.trim(),
-          usuario_rejeitou_id: user.id
+          usuario_rejeitou_id: user.id,
+          itens_afetados: itensAfetados
         });
 
       if (rejeicaoError) throw rejeicaoError;
 
-      // Marcar fornecedor como rejeitado
-      const { error } = await supabase
-        .from("cotacao_respostas_fornecedor")
-        .update({
-          rejeitado: true,
-          motivo_rejeicao: motivo.trim(),
-          data_rejeicao: new Date().toISOString()
-        })
-        .eq("id", fornData.respostaId);
+      // Marcar fornecedor como rejeitado (apenas se rejeição for total)
+      if (!permiteParcial || itensAfetados.length === 0 || itensAfetados.length === itensCotacao.length) {
+        const { error } = await supabase
+          .from("cotacao_respostas_fornecedor")
+          .update({
+            rejeitado: true,
+            motivo_rejeicao: motivo.trim(),
+            data_rejeicao: new Date().toISOString()
+          })
+          .eq("id", fornData.respostaId);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
-      toast.success(`Fornecedor ${fornData.fornecedor.razao_social} rejeitado`);
+      const mensagemSucesso = itensAfetados.length > 0 && itensAfetados.length < itensCotacao.length
+        ? `Fornecedor ${fornData.fornecedor.razao_social} rejeitado nos itens: ${itensAfetados.join(', ')}`
+        : `Fornecedor ${fornData.fornecedor.razao_social} rejeitado`;
+      
+      toast.success(mensagemSucesso);
       setDialogRejeicaoOpen(false);
       setFornecedorParaRejeitar(null);
       setMotivoRejeicaoFornecedor(prev => ({ ...prev, [fornecedorParaRejeitar]: "" }));
+      setItensParaRejeitar([]);
+      setLotesParaRejeitar([]);
       
       // Recarregar fornecedores para atualizar a lista com próximo colocado
       await loadAllFornecedores();
@@ -2643,45 +2697,90 @@ export function DialogFinalizarProcesso({
                             }}
                           >
                             <FileText className="h-4 w-4 mr-2" />
-                            Visualizar: {recurso.nome_arquivo}
+                          Visualizar: {recurso.nome_arquivo}
                           </Button>
                           
                           {/* Verificar se já existe resposta */}
                           {!(recurso as any).respostas_recursos?.length ? (
-                            <>
+                            <div className="flex flex-wrap gap-2">
                               <Button
                                 variant="default"
                                 size="sm"
-                                onClick={() => {
+                                onClick={async () => {
+                                  // Buscar rejeição associada ao recurso
+                                  const { data: rej } = await supabase
+                                    .from('fornecedores_rejeitados_cotacao')
+                                    .select('id, itens_afetados')
+                                    .eq('id', recurso.rejeicao_id)
+                                    .single();
+                                  setRejeicaoDoRecurso(rej);
                                   setRecursoSelecionado(recurso.id);
                                   setDecisaoRecurso('provimento');
+                                  setTipoProvimento('total');
+                                  setItensParaReabilitar([]);
                                   setDialogRespostaRecursoOpen(true);
                                 }}
                               >
-                                Dar Provimento
+                                Dar Provimento Total
                               </Button>
+                              {criterioJulgamento !== 'global' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    const { data: rej } = await supabase
+                                      .from('fornecedores_rejeitados_cotacao')
+                                      .select('id, itens_afetados')
+                                      .eq('id', recurso.rejeicao_id)
+                                      .single();
+                                    setRejeicaoDoRecurso(rej);
+                                    setRecursoSelecionado(recurso.id);
+                                    setDecisaoRecurso('provimento');
+                                    setTipoProvimento('parcial');
+                                    setItensParaReabilitar([]);
+                                    setDialogRespostaRecursoOpen(true);
+                                  }}
+                                >
+                                  Dar Provimento Parcial
+                                </Button>
+                              )}
                               <Button
                                 variant="destructive"
                                 size="sm"
                                 onClick={() => {
                                   setRecursoSelecionado(recurso.id);
                                   setDecisaoRecurso('negado');
+                                  setTipoProvimento('total');
                                   setDialogRespostaRecursoOpen(true);
                                 }}
                               >
                                 Negar Provimento
                               </Button>
-                            </>
+                            </div>
                           ) : (
                             <div className="w-full space-y-2 border-t pt-3 mt-2">
                               <div className="flex items-center justify-between">
-                                <Badge variant={(recurso as any).respostas_recursos[0].decisao === 'provimento' ? 'default' : 'destructive'}>
-                                  {(recurso as any).respostas_recursos[0].decisao === 'provimento' ? '✅ Provimento Concedido' : '❌ Provimento Negado'}
+                                <Badge variant={
+                                  (recurso as any).respostas_recursos[0].decisao === 'provimento' || 
+                                  (recurso as any).respostas_recursos[0].tipo_provimento === 'parcial' 
+                                    ? 'default' 
+                                    : 'destructive'
+                                }>
+                                  {(recurso as any).respostas_recursos[0].decisao === 'provimento' 
+                                    ? ((recurso as any).respostas_recursos[0].tipo_provimento === 'parcial' 
+                                        ? '⚠️ Provimento Parcial' 
+                                        : '✅ Provimento Concedido')
+                                    : '❌ Provimento Negado'}
                                 </Badge>
                                 <span className="text-xs text-muted-foreground">
                                   {new Date((recurso as any).respostas_recursos[0].data_resposta).toLocaleString('pt-BR')}
                                 </span>
                               </div>
+                              {(recurso as any).respostas_recursos[0].itens_reabilitados?.length > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                  Itens reabilitados: {(recurso as any).respostas_recursos[0].itens_reabilitados.join(', ')}
+                                </p>
+                              )}
                               <div className="flex gap-2">
                                 <Button
                                   variant="outline"
@@ -2955,12 +3054,76 @@ export function DialogFinalizarProcesso({
                   rows={4}
                 />
               </div>
+              
+              {/* Seleção de itens para rejeição parcial */}
+              {criterioJulgamento !== 'global' && (
+                <div className="space-y-2 border-t pt-4">
+                  <Label className="font-medium">
+                    {criterioJulgamento === 'por_lote' || criterioJulgamento === 'lote' 
+                      ? 'Selecione os Lotes a rejeitar (deixe vazio para rejeição total)'
+                      : 'Selecione os Itens a rejeitar (deixe vazio para rejeição total)'}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Se nenhum item/lote for selecionado, o fornecedor será rejeitado em todos os itens.
+                  </p>
+                  
+                  {criterioJulgamento === 'por_lote' || criterioJulgamento === 'lote' ? (
+                    <div className="max-h-48 overflow-y-auto border rounded-md p-2 space-y-1">
+                      {lotesCotacao.map((lote) => (
+                        <div key={lote.id} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`lote-${lote.id}`}
+                            checked={lotesParaRejeitar.includes(lote.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setLotesParaRejeitar(prev => [...prev, lote.id]);
+                              } else {
+                                setLotesParaRejeitar(prev => prev.filter(l => l !== lote.id));
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <label htmlFor={`lote-${lote.id}`} className="text-sm">
+                            Lote {lote.numero_lote}: {lote.descricao_lote}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto border rounded-md p-2 space-y-1">
+                      {itensCotacao.map((item) => (
+                        <div key={item.numero_item} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`item-${item.numero_item}`}
+                            checked={itensParaRejeitar.includes(item.numero_item)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setItensParaRejeitar(prev => [...prev, item.numero_item]);
+                              } else {
+                                setItensParaRejeitar(prev => prev.filter(i => i !== item.numero_item));
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <label htmlFor={`item-${item.numero_item}`} className="text-sm">
+                            Item {item.numero_item}: {item.descricao.substring(0, 50)}...
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => {
                 setDialogRejeicaoOpen(false);
                 setFornecedorParaRejeitar(null);
+                setItensParaRejeitar([]);
+                setLotesParaRejeitar([]);
               }}>
                 Cancelar
               </Button>
@@ -2982,12 +3145,19 @@ export function DialogFinalizarProcesso({
             setRecursoSelecionado(null);
             setDecisaoRecurso(null);
             setTextoRespostaRecurso("");
+            setTipoProvimento('total');
+            setItensParaReabilitar([]);
+            setRejeicaoDoRecurso(null);
           }
         }}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {decisaoRecurso === 'provimento' ? '✅ Dar Provimento ao Recurso' : '❌ Negar Provimento ao Recurso'}
+                {decisaoRecurso === 'negado' 
+                  ? '❌ Negar Provimento ao Recurso' 
+                  : tipoProvimento === 'parcial'
+                    ? '⚠️ Dar Provimento Parcial ao Recurso'
+                    : '✅ Dar Provimento Total ao Recurso'}
               </DialogTitle>
               <DialogDescription>
                 Escreva a fundamentação da decisão. Será gerado um documento oficial com certificação digital.
@@ -2995,6 +3165,51 @@ export function DialogFinalizarProcesso({
             </DialogHeader>
             
             <div className="space-y-4 py-4">
+              {/* Seleção de itens para provimento parcial */}
+              {tipoProvimento === 'parcial' && decisaoRecurso === 'provimento' && (
+                <div className="space-y-2 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200">
+                  <Label className="font-medium text-yellow-800 dark:text-yellow-200">
+                    Selecione os itens a serem reabilitados:
+                  </Label>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                    {rejeicaoDoRecurso?.itens_afetados?.length > 0 
+                      ? `Itens originalmente rejeitados: ${rejeicaoDoRecurso.itens_afetados.join(', ')}`
+                      : 'Todos os itens foram rejeitados. Selecione quais deseja reabilitar.'}
+                  </p>
+                  <div className="max-h-48 overflow-y-auto border rounded-md p-2 space-y-1 bg-white dark:bg-gray-900">
+                    {itensCotacao
+                      .filter(item => 
+                        rejeicaoDoRecurso?.itens_afetados?.length > 0 
+                          ? rejeicaoDoRecurso.itens_afetados.includes(item.numero_item)
+                          : true
+                      )
+                      .map((item) => (
+                        <div key={item.numero_item} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`reabilitar-${item.numero_item}`}
+                            checked={itensParaReabilitar.includes(item.numero_item)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setItensParaReabilitar(prev => [...prev, item.numero_item]);
+                              } else {
+                                setItensParaReabilitar(prev => prev.filter(i => i !== item.numero_item));
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <label htmlFor={`reabilitar-${item.numero_item}`} className="text-sm">
+                            Item {item.numero_item}: {item.descricao.substring(0, 50)}...
+                          </label>
+                        </div>
+                      ))}
+                  </div>
+                  {itensParaReabilitar.length === 0 && (
+                    <p className="text-xs text-red-500">Selecione ao menos um item para reabilitar</p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="texto-resposta">Fundamentação *</Label>
                 <Textarea
@@ -3016,6 +3231,11 @@ export function DialogFinalizarProcesso({
                 onClick={async () => {
                   if (!recursoSelecionado || !decisaoRecurso || !textoRespostaRecurso.trim()) {
                     toast.error("Preencha a fundamentação da decisão");
+                    return;
+                  }
+                  
+                  if (tipoProvimento === 'parcial' && itensParaReabilitar.length === 0) {
+                    toast.error("Selecione ao menos um item para reabilitar");
                     return;
                   }
 
@@ -3048,8 +3268,11 @@ export function DialogFinalizarProcesso({
                     const recurso = recursosRecebidos.find(r => r.id === recursoSelecionado);
                     const fornecedorNome = recurso?.fornecedores?.razao_social || '';
 
+                    // Determinar decisão final para o PDF
+                    const decisaoFinal = tipoProvimento === 'parcial' ? 'provimento_parcial' : decisaoRecurso;
+
                     const pdfResult = await gerarRespostaRecursoPDF(
-                      decisaoRecurso,
+                      decisaoFinal as any,
                       textoRespostaRecurso,
                       perfil.nome_completo,
                       perfil.cpf,
@@ -3066,17 +3289,81 @@ export function DialogFinalizarProcesso({
                         url_documento: pdfResult.url,
                         nome_arquivo: pdfResult.fileName,
                         protocolo: pdfResult.protocolo,
-                        usuario_respondeu_id: user.id
+                        usuario_respondeu_id: user.id,
+                        tipo_provimento: tipoProvimento,
+                        itens_reabilitados: tipoProvimento === 'parcial' ? itensParaReabilitar : []
                       });
 
                     if (insertError) throw insertError;
 
-                    toast.success("Resposta de recurso gerada com sucesso!");
+                    // Se provimento (total ou parcial), atualizar rejeição
+                    if (decisaoRecurso === 'provimento') {
+                      if (tipoProvimento === 'total') {
+                        // Provimento total: reverter rejeição completamente
+                        await supabase
+                          .from('fornecedores_rejeitados_cotacao')
+                          .update({ 
+                            revertido: true, 
+                            motivo_reversao: `Provimento total concedido: ${textoRespostaRecurso.substring(0, 100)}...`,
+                            data_reversao: new Date().toISOString(),
+                            usuario_reverteu_id: user.id
+                          })
+                          .eq('id', recurso.rejeicao_id);
+                        
+                        // Atualizar resposta do fornecedor
+                        const fornecedorId = recurso.fornecedor_id;
+                        await supabase
+                          .from('cotacao_respostas_fornecedor')
+                          .update({ rejeitado: false, motivo_rejeicao: null, data_rejeicao: null })
+                          .eq('fornecedor_id', fornecedorId)
+                          .eq('cotacao_id', cotacaoId);
+                      } else {
+                        // Provimento parcial: atualizar apenas itens_afetados
+                        const itensAindaRejeitados = (rejeicaoDoRecurso?.itens_afetados || [])
+                          .filter((item: number) => !itensParaReabilitar.includes(item));
+                        
+                        if (itensAindaRejeitados.length === 0) {
+                          // Todos os itens foram reabilitados, reverter completamente
+                          await supabase
+                            .from('fornecedores_rejeitados_cotacao')
+                            .update({ 
+                              revertido: true,
+                              motivo_reversao: `Provimento parcial concedeu todos os itens`,
+                              data_reversao: new Date().toISOString(),
+                              usuario_reverteu_id: user.id
+                            })
+                            .eq('id', recurso.rejeicao_id);
+                          
+                          const fornecedorId = recurso.fornecedor_id;
+                          await supabase
+                            .from('cotacao_respostas_fornecedor')
+                            .update({ rejeitado: false, motivo_rejeicao: null, data_rejeicao: null })
+                            .eq('fornecedor_id', fornecedorId)
+                            .eq('cotacao_id', cotacaoId);
+                        } else {
+                          // Atualizar itens afetados
+                          await supabase
+                            .from('fornecedores_rejeitados_cotacao')
+                            .update({ itens_afetados: itensAindaRejeitados })
+                            .eq('id', recurso.rejeicao_id);
+                        }
+                      }
+                    }
+
+                    const mensagem = tipoProvimento === 'parcial' 
+                      ? `Provimento parcial concedido! Itens reabilitados: ${itensParaReabilitar.join(', ')}`
+                      : "Resposta de recurso gerada com sucesso!";
+                    toast.success(mensagem);
                     setDialogRespostaRecursoOpen(false);
                     setRecursoSelecionado(null);
                     setDecisaoRecurso(null);
                     setTextoRespostaRecurso("");
+                    setTipoProvimento('total');
+                    setItensParaReabilitar([]);
+                    setRejeicaoDoRecurso(null);
                     await loadRecursos();
+                    await loadAllFornecedores();
+                    await loadFornecedoresRejeitados();
                   } catch (error) {
                     console.error('Erro ao gerar resposta:', error);
                     toast.error('Erro ao gerar resposta de recurso');
@@ -3084,9 +3371,13 @@ export function DialogFinalizarProcesso({
                     setLoading(false);
                   }
                 }}
-                disabled={!textoRespostaRecurso.trim() || loading}
+                disabled={!textoRespostaRecurso.trim() || loading || (tipoProvimento === 'parcial' && itensParaReabilitar.length === 0)}
               >
-                {decisaoRecurso === 'provimento' ? 'Dar Provimento' : 'Negar Provimento'}
+                {decisaoRecurso === 'negado' 
+                  ? 'Negar Provimento' 
+                  : tipoProvimento === 'parcial' 
+                    ? 'Dar Provimento Parcial'
+                    : 'Dar Provimento Total'}
               </Button>
             </DialogFooter>
           </DialogContent>

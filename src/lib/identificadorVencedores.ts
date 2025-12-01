@@ -79,7 +79,7 @@ export async function identificarVencedoresPorCriterio(
   // Buscar rejeições ativas E revertidas
   const { data: rejeicoesAtivas } = await supabase
     .from('fornecedores_rejeitados_cotacao')
-    .select('fornecedor_id')
+    .select('fornecedor_id, itens_afetados')
     .eq('cotacao_id', cotacaoId)
     .eq('revertido', false);
 
@@ -89,10 +89,29 @@ export async function identificarVencedoresPorCriterio(
     .eq('cotacao_id', cotacaoId)
     .eq('revertido', true);
 
-  const fornecedoresRejeitadosAtivos = new Set(rejeicoesAtivas?.map(r => r.fornecedor_id) || []);
+  // Mapear fornecedores rejeitados globalmente (sem itens específicos ou todos os itens)
+  const fornecedoresRejeitadosGlobal = new Set<string>();
+  // Mapear itens rejeitados por fornecedor
+  const itensRejeitadosPorFornecedor = new Map<string, Set<number>>();
+  
+  rejeicoesAtivas?.forEach(r => {
+    const itensAfetados = r.itens_afetados as number[] | null;
+    if (!itensAfetados || itensAfetados.length === 0) {
+      // Rejeição global (todos os itens)
+      fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
+    } else {
+      // Rejeição por itens específicos
+      if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+        itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+      }
+      itensAfetados.forEach(item => itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item));
+    }
+  });
+  
   const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
 
-  console.log(`  → Fornecedores rejeitados ativamente: ${fornecedoresRejeitadosAtivos.size}`);
+  console.log(`  → Fornecedores rejeitados globalmente: ${fornecedoresRejeitadosGlobal.size}`);
+  console.log(`  → Fornecedores com rejeição por item: ${itensRejeitadosPorFornecedor.size}`);
   console.log(`  → Fornecedores com rejeição revertida: ${fornecedoresRevertidos.size}`);
 
   // CRÍTICO: Identificar CNPJs de preços públicos (sequenciais)
@@ -102,13 +121,17 @@ export async function identificarVencedoresPorCriterio(
     return cnpj.split('').every(d => d === primeiroDigito);
   };
 
-  // Separar fornecedores válidos (não rejeitados, não preço público)
+  // Separar fornecedores válidos (não rejeitados globalmente, não preço público)
+  // Fornecedores com rejeição por item são considerados válidos mas serão filtrados por item
   const fornecedoresValidos = fornecedoresPlanilha.filter(f => {
     const resposta = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
     const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(f.fornecedor_id);
-    const rejeitadoNoBanco = fornecedoresRejeitadosAtivos.has(f.fornecedor_id);
+    const rejeitadoGlobalNoBanco = fornecedoresRejeitadosGlobal.has(f.fornecedor_id);
     
-    return !estaRejeitado && !rejeitadoNoBanco && !ehPrecoPublico(f.cnpj);
+    // Se tem rejeição apenas por itens específicos, ainda é válido para outros itens
+    const temRejeicaoParcial = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
+    
+    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || temRejeicaoParcial && !ehPrecoPublico(f.cnpj);
   });
 
   console.log(`  → Fornecedores válidos para cálculo: ${fornecedoresValidos.length}`);
@@ -226,12 +249,17 @@ export async function identificarVencedoresPorCriterio(
     });
 
   } else {
-    // POR ITEM (padrão): menor valor unitário por item vence
+  // POR ITEM (padrão): menor valor unitário por item vence
     numerosItensUnicos.forEach(numeroItem => {
       let menorValor = Infinity;
       let fornecedorVencedor: FornecedorPlanilha | null = null;
 
       fornecedoresValidos.forEach(f => {
+        // Verificar se fornecedor está rejeitado neste item específico
+        const itensRejeitados = itensRejeitadosPorFornecedor.get(f.fornecedor_id);
+        if (itensRejeitados?.has(numeroItem)) return;
+        if (fornecedoresRejeitadosGlobal.has(f.fornecedor_id)) return;
+        
         const item = f.itens.find(i => i.numero_item === numeroItem);
         const valor = item?.valor_unitario || 0;
 
