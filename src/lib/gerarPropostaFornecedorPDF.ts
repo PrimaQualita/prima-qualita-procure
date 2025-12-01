@@ -161,7 +161,7 @@ export async function gerarPropostaFornecedorPDF(
     
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Ref: ${tituloCotacao}`, 105, 38, { align: 'center' });
+    doc.text(`Ref. Processo: ${tituloCotacao}`, 105, 38, { align: 'center' });
     
     y = 60;
 
