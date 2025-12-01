@@ -444,9 +444,23 @@ export default function PortalFornecedor() {
     }
 
     try {
+      // Buscar o nome do campo de documento
+      const { data: campoData } = await supabase
+        .from('campos_documentos_finalizacao')
+        .select('nome_campo')
+        .eq('id', campoId)
+        .single();
+
+      const nomeCampo = campoData?.nome_campo || 'Documento';
+      
+      // Sanitizar nomes para uso em arquivo
+      const sanitizedNomeCampo = nomeCampo.replace(/[^a-zA-Z0-9]/g, '_');
+      const sanitizedRazaoSocial = fornecedor.razao_social.replace(/[^a-zA-Z0-9]/g, '_');
+
       console.log("📤 Fazendo upload para storage...");
       const fileExt = file.name.split('.').pop();
-      const fileName = `fornecedor_${fornecedor.id}/${campoId}_${Date.now()}.${fileExt}`;
+      // Salvar na categoria habilitacao com nome do campo + empresa
+      const fileName = `habilitacao/${sanitizedNomeCampo}_${sanitizedRazaoSocial}_${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('processo-anexos')
@@ -466,13 +480,14 @@ export default function PortalFornecedor() {
       console.log("📝 Salvando registro do documento...");
       
       // Usar upsert para inserir ou atualizar automaticamente
+      // nome_arquivo com formato: Nome do Campo - Razão Social
       const { error: upsertError } = await supabase
         .from('documentos_finalizacao_fornecedor')
         .upsert({
           fornecedor_id: fornecedor.id,
           campo_documento_id: campoId,
           url_arquivo: publicUrl,
-          nome_arquivo: file.name,
+          nome_arquivo: `${nomeCampo} - ${fornecedor.razao_social}`,
           data_upload: new Date().toISOString()
         }, {
           onConflict: 'fornecedor_id,campo_documento_id'
