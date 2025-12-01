@@ -569,6 +569,34 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
+              <Card className="border-rose-200 bg-rose-50/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-rose-900">Habilitação</p>
+                      <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.habilitacao?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-rose-600">
+                        {resultado.estatisticasPorCategoria?.habilitacao?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-rose-700/70">Docs solicitados</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.habilitacao?.porSelecao?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Documentos de Habilitação',
+                          tipo: 'selecao',
+                          grupos: resultado.estatisticasPorCategoria.habilitacao.porSelecao
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="border-slate-200 bg-slate-50/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-2">

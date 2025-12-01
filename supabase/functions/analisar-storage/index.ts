@@ -170,6 +170,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Documentos de habilitação (finalizacao)
+    const { data: docsHabilitacao } = await supabase.from('documentos_finalizacao_fornecedor').select('url_arquivo, nome_arquivo');
+    if (docsHabilitacao) {
+      for (const doc of docsHabilitacao) {
+        const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
+        nomesBonitos.set(path, doc.nome_arquivo);
+      }
+    }
+
     // E-mails de cotação
     const { data: emailsCotacao } = await supabase.from('emails_cotacao_anexados').select('url_arquivo, nome_arquivo');
     if (emailsCotacao) {
@@ -418,6 +427,7 @@ Deno.serve(async (req) => {
       processos_anexos_outros: { arquivos: 0, tamanho: 0, detalhes: [] },
       capas_processo: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
       cotacoes: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
+      habilitacao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
       outros: { arquivos: 0, tamanho: 0, detalhes: [] }
     };
 
@@ -870,6 +880,48 @@ Deno.serve(async (req) => {
         } else {
           console.log(`❌ Análise compliance sem processo_numero no banco`);
         }
+      } else if (pathSemBucket.startsWith('habilitacao/')) {
+        // Documentos de habilitação (solicitados durante análise documental de seleção)
+        estatisticasPorCategoria.habilitacao.arquivos++;
+        estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
+        estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
+        
+        // Buscar selecao_id via documentos_finalizacao_fornecedor e campos_documentos_finalizacao
+        const { data: docFinalizacao } = await supabase
+          .from('documentos_finalizacao_fornecedor')
+          .select(`
+            id,
+            nome_arquivo,
+            campos_documentos_finalizacao!inner(
+              selecao_id,
+              selecoes_fornecedores(titulo_selecao, numero_selecao)
+            )
+          `)
+          .ilike('url_arquivo', `%${fileNameRaw}%`)
+          .single();
+        
+        if (docFinalizacao) {
+          const campo = (docFinalizacao as any).campos_documentos_finalizacao;
+          const selecaoId = campo?.selecao_id;
+          const selecao = campo?.selecoes_fornecedores;
+          
+          if (selecaoId && selecao) {
+            if (!estatisticasPorCategoria.habilitacao.porSelecao!.has(selecaoId)) {
+              estatisticasPorCategoria.habilitacao.porSelecao!.set(selecaoId, {
+                selecaoId,
+                selecaoTitulo: selecao.titulo_selecao || 'Sem título',
+                selecaoNumero: selecao.numero_selecao || selecaoId.substring(0, 8),
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.habilitacao.porSelecao!.get(selecaoId)!.documentos.push({
+              path,
+              fileName: docFinalizacao.nome_arquivo || fileName,
+              size: metadata.size
+            });
+          }
+        }
       } else if (
         pathSemBucket.includes('proposta_fornecedor') || 
         pathSemBucket.includes('proposta_preco_publico') ||
@@ -1049,6 +1101,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.cotacoes.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.cotacoes.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.cotacoes.porProcesso!.values())
+        },
+        habilitacao: {
+          arquivos: estatisticasPorCategoria.habilitacao.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.habilitacao.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.habilitacao.detalhes,
+          porSelecao: Array.from(estatisticasPorCategoria.habilitacao.porSelecao!.values())
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,
