@@ -2828,6 +2828,10 @@ export type Database = {
         Args: { _cotacao_id: string; _user_id: string }
         Returns: boolean
       }
+      fornecedor_has_resposta_cotacao: {
+        Args: { _cotacao_id: string; _user_id: string }
+        Returns: boolean
+      }
       get_all_file_references: {
         Args: never
         Returns: {
