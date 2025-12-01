@@ -101,8 +101,9 @@ export function DialogConsultarProposta({
 
       if (itensError) throw itensError;
       
-      // Ordenar itens pelo numero_item após carregar
-      const itensSorted = (itensData || []).sort((a: any, b: any) => 
+      // Filtrar itens que têm itens_cotacao válido e ordenar
+      const itensValidos = (itensData || []).filter((item: any) => item.itens_cotacao !== null);
+      const itensSorted = itensValidos.sort((a: any, b: any) => 
         (a.itens_cotacao?.numero_item || 0) - (b.itens_cotacao?.numero_item || 0)
       );
       
