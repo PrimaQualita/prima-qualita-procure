@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { DialogGrupoDetalhes } from "@/components/storage/DialogGrupoDetalhes";
 import { DialogArquivosOrfaos } from "@/components/storage/DialogArquivosOrfaos";
 import { DialogDocumentosSimples } from "@/components/storage/DialogDocumentosSimples";
+import { DialogHabilitacao } from "@/components/storage/DialogHabilitacao";
 
 export default function GestaoStorage() {
   const [analisando, setAnalisando] = useState(false);
@@ -16,6 +17,7 @@ export default function GestaoStorage() {
   const [grupoDetalhes, setGrupoDetalhes] = useState<{titulo: string, tipo: string, grupos: any[]} | null>(null);
   const [documentosGrupo, setDocumentosGrupo] = useState<{nome: string, documentos: any[]} | null>(null);
   const [dialogOrfaosAberto, setDialogOrfaosAberto] = useState(false);
+  const [dialogHabilitacaoAberto, setDialogHabilitacaoAberto] = useState(false);
 
   const executarAnalise = async () => {
     setAnalisando(true);
@@ -580,36 +582,16 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-rose-700/70">Docs solicitados</p>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      {resultado.estatisticasPorCategoria?.habilitacao?.porSelecao?.length > 0 && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setGrupoDetalhes({
-                            titulo: 'Habilitação - Seleções',
-                            tipo: 'selecao',
-                            grupos: resultado.estatisticasPorCategoria.habilitacao.porSelecao
-                          })}
-                          title="Ver por Seleção"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {resultado.estatisticasPorCategoria?.habilitacao?.porProcesso?.length > 0 && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setGrupoDetalhes({
-                            titulo: 'Habilitação - Compra Direta',
-                            tipo: 'processo',
-                            grupos: resultado.estatisticasPorCategoria.habilitacao.porProcesso
-                          })}
-                          title="Ver por Processo"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                    {resultado.estatisticasPorCategoria?.habilitacao?.porProcesso?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDialogHabilitacaoAberto(true)}
+                        title="Ver por Processo → Fornecedor"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -752,6 +734,12 @@ export default function GestaoStorage() {
         onOpenChange={setDialogOrfaosAberto}
         arquivos={resultado?.arquivosOrfaos || []}
         onArquivosDeletados={executarAnalise}
+      />
+
+      <DialogHabilitacao
+        open={dialogHabilitacaoAberto}
+        onOpenChange={setDialogHabilitacaoAberto}
+        processos={resultado?.estatisticasPorCategoria?.habilitacao?.porProcesso || []}
       />
     </div>
   );

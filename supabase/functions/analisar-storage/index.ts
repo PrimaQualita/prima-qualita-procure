@@ -439,29 +439,33 @@ Deno.serve(async (req) => {
     }
 
     // Calcular estatísticas por categoria
-    const estatisticasPorCategoria: Record<string, { 
-      arquivos: number; 
-      tamanho: number; 
-      detalhes: Array<{ path: string; fileName: string; size: number; selecaoId?: string; processoId?: string }>;
-      porFornecedor?: Map<string, { fornecedorId: string; fornecedorNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
-      porSelecao?: Map<string, { selecaoId: string; selecaoTitulo: string; selecaoNumero: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
-      porProcesso?: Map<string, { processoId: string; processoNumero: string; processoObjeto: string; credenciamento: boolean; documentos: Array<{ path: string; fileName: string; size: number }> }>;
-    }> = {
-      documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [], porFornecedor: new Map() },
-      propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
-      anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
-      planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
-      recursos: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map() },
-      encaminhamentos: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
-      analises_compliance: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
-      termos_referencia: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
-      requisicoes: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
-      autorizacao_despesa: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
-      processos_anexos_outros: { arquivos: 0, tamanho: 0, detalhes: [] },
-      capas_processo: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
-      cotacoes: { arquivos: 0, tamanho: 0, detalhes: [], porProcesso: new Map() },
-      habilitacao: { arquivos: 0, tamanho: 0, detalhes: [], porSelecao: new Map(), porProcesso: new Map() },
-      outros: { arquivos: 0, tamanho: 0, detalhes: [] }
+    const estatisticasPorCategoria = {
+      documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porFornecedor: new Map<string, any>() },
+      propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
+      anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
+      planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
+      recursos: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
+      encaminhamentos: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      analises_compliance: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      termos_referencia: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      requisicoes: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      autorizacao_despesa: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      processos_anexos_outros: { arquivos: 0, tamanho: 0, detalhes: [] as any[] },
+      capas_processo: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      cotacoes: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      habilitacao: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porProcessoHierarquico: new Map<string, { 
+          processoId: string; 
+          processoNumero: string; 
+          processoObjeto: string; 
+          credenciamento: boolean; 
+          fornecedores: Map<string, { fornecedorId: string; fornecedorNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
+        }>()
+      },
+      outros: { arquivos: 0, tamanho: 0, detalhes: [] as any[] }
     };
 
     for (const [path, metadata] of arquivosStorage) {
@@ -632,50 +636,57 @@ Deno.serve(async (req) => {
         console.log(`Arquivo categorizado como habilitação: ${fileName} (${path})`);
         
         if (docHabilitacao) {
-          const fornecedorNome = fornecedoresMap.get(docHabilitacao.fornecedorId) || `Fornecedor ${docHabilitacao.fornecedorId.substring(0, 8)}`;
+          const fornecedorId = docHabilitacao.fornecedorId;
+          const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+          let processoId: string | null = null;
+          let processo: { numero: string; objeto: string; credenciamento: boolean } | undefined;
           
+          // Identificar o processo (tanto para seleção quanto para cotação)
           if (docHabilitacao.selecaoId) {
-            // Documento de habilitação de seleção
-            const selecao = selecoesMap.get(docHabilitacao.selecaoId);
-            if (selecao) {
-              if (!estatisticasPorCategoria.habilitacao.porSelecao!.has(docHabilitacao.selecaoId)) {
-                estatisticasPorCategoria.habilitacao.porSelecao!.set(docHabilitacao.selecaoId, {
-                  selecaoId: docHabilitacao.selecaoId,
-                  selecaoTitulo: selecao.titulo,
-                  selecaoNumero: selecao.numero,
-                  documentos: []
-                });
-              }
-              estatisticasPorCategoria.habilitacao.porSelecao!.get(docHabilitacao.selecaoId)!.documentos.push({
-                path,
-                fileName: docHabilitacao.nomeArquivo || fileName,
-                size: metadata.size
-              });
+            // Buscar processo da seleção
+            const { data: selecaoData } = await supabase
+              .from('selecoes_fornecedores')
+              .select('processo_compra_id')
+              .eq('id', docHabilitacao.selecaoId)
+              .single();
+            if (selecaoData?.processo_compra_id) {
+              processoId = selecaoData.processo_compra_id;
+              processo = processosMap.get(processoId as string) || undefined;
             }
           } else if (docHabilitacao.cotacaoId) {
-            // Documento de habilitação de compra direta (cotação)
             const cotacao = cotacoesMap.get(docHabilitacao.cotacaoId);
             if (cotacao) {
-              const processoId = cotacao.processoId;
-              const processo = processosMap.get(processoId);
-              
-              if (processo) {
-                if (!estatisticasPorCategoria.habilitacao.porProcesso!.has(processoId)) {
-                  estatisticasPorCategoria.habilitacao.porProcesso!.set(processoId, {
-                    processoId,
-                    processoNumero: processo.numero,
-                    processoObjeto: processo.objeto,
-                    credenciamento: processo.credenciamento,
-                    documentos: []
-                  });
-                }
-                estatisticasPorCategoria.habilitacao.porProcesso!.get(processoId)!.documentos.push({
-                  path,
-                  fileName: docHabilitacao.nomeArquivo || fileName,
-                  size: metadata.size
-                });
-              }
+              processoId = cotacao.processoId;
+              processo = processosMap.get(processoId);
             }
+          }
+          
+          // Adicionar na estrutura hierárquica: Processo → Fornecedor → Documentos
+          if (processoId && processo) {
+            if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
+              estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
+                processoId,
+                processoNumero: processo.numero,
+                processoObjeto: processo.objeto,
+                credenciamento: processo.credenciamento,
+                fornecedores: new Map()
+              });
+            }
+            
+            const processoHab = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
+            if (!processoHab.fornecedores.has(fornecedorId)) {
+              processoHab.fornecedores.set(fornecedorId, {
+                fornecedorId,
+                fornecedorNome,
+                documentos: []
+              });
+            }
+            
+            processoHab.fornecedores.get(fornecedorId)!.documentos.push({
+              path,
+              fileName: docHabilitacao.nomeArquivo || fileName,
+              size: metadata.size
+            });
           }
         }
       } else if (pathSemBucket.startsWith('fornecedor_') && !pathSemBucket.includes('selecao')) {
@@ -981,10 +992,11 @@ Deno.serve(async (req) => {
           .select(`
             id,
             nome_arquivo,
+            fornecedor_id,
             campos_documentos_finalizacao!inner(
               selecao_id,
               cotacao_id,
-              selecoes_fornecedores(titulo_selecao, numero_selecao),
+              selecoes_fornecedores(titulo_selecao, numero_selecao, processo_compra_id),
               cotacoes_precos(
                 id,
                 titulo_cotacao,
@@ -1003,44 +1015,58 @@ Deno.serve(async (req) => {
           const selecao = campo?.selecoes_fornecedores;
           const cotacao = campo?.cotacoes_precos;
           
+          const fornecedorId = docFinalizacao.fornecedor_id;
+          const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId?.substring(0, 8) || 'Desconhecido'}`;
+          let processoId: string | null = null;
+          let processoNumero = '';
+          let processoObjeto = '';
+          let credenciamento = false;
+          
           if (selecaoId && selecao) {
-            // É documento de seleção de fornecedores
-            if (!estatisticasPorCategoria.habilitacao.porSelecao!.has(selecaoId)) {
-              estatisticasPorCategoria.habilitacao.porSelecao!.set(selecaoId, {
-                selecaoId,
-                selecaoTitulo: selecao.titulo_selecao || 'Sem título',
-                selecaoNumero: selecao.numero_selecao || selecaoId.substring(0, 8),
+            // É documento de seleção de fornecedores - buscar processo da seleção
+            processoId = selecao.processo_compra_id;
+            if (processoId) {
+              const procData = processosMap.get(processoId as string);
+              if (procData) {
+                processoNumero = procData.numero;
+                processoObjeto = procData.objeto;
+                credenciamento = procData.credenciamento;
+              }
+            }
+          } else if (cotacaoId && cotacao) {
+            // É documento de compra direta/cotação
+            processoId = cotacao.processo_compra_id;
+            const processo = cotacao.processos_compras;
+            processoNumero = processo?.numero_processo_interno || processoId?.substring(0, 8) || '';
+            processoObjeto = processo?.objeto_resumido || 'Sem objeto';
+          }
+          
+          // Adicionar na estrutura hierárquica: Processo → Fornecedor → Documentos
+          if (processoId && fornecedorId) {
+            if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
+              estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
+                processoId,
+                processoNumero,
+                processoObjeto,
+                credenciamento,
+                fornecedores: new Map()
+              });
+            }
+            
+            const processoHab = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
+            if (!processoHab.fornecedores.has(fornecedorId)) {
+              processoHab.fornecedores.set(fornecedorId, {
+                fornecedorId,
+                fornecedorNome,
                 documentos: []
               });
             }
             
-            estatisticasPorCategoria.habilitacao.porSelecao!.get(selecaoId)!.documentos.push({
+            processoHab.fornecedores.get(fornecedorId)!.documentos.push({
               path,
               fileName: docFinalizacao.nome_arquivo || fileName,
               size: metadata.size
             });
-          } else if (cotacaoId && cotacao) {
-            // É documento de compra direta/cotação - agrupar por processo
-            const processo = cotacao.processos_compras;
-            const processoId = cotacao.processo_compra_id;
-            
-            if (processoId) {
-              if (!estatisticasPorCategoria.habilitacao.porProcesso!.has(processoId)) {
-                estatisticasPorCategoria.habilitacao.porProcesso!.set(processoId, {
-                  processoId,
-                  processoNumero: processo?.numero_processo_interno || processoId.substring(0, 8),
-                  processoObjeto: processo?.objeto_resumido || 'Sem objeto',
-                  credenciamento: false,
-                  documentos: []
-                });
-              }
-              
-              estatisticasPorCategoria.habilitacao.porProcesso!.get(processoId)!.documentos.push({
-                path,
-                fileName: docFinalizacao.nome_arquivo || fileName,
-                size: metadata.size
-              });
-            }
           }
         }
       } else if (
@@ -1227,8 +1253,13 @@ Deno.serve(async (req) => {
           arquivos: estatisticasPorCategoria.habilitacao.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.habilitacao.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.habilitacao.detalhes,
-          porSelecao: Array.from(estatisticasPorCategoria.habilitacao.porSelecao!.values()),
-          porProcesso: Array.from(estatisticasPorCategoria.habilitacao.porProcesso!.values())
+          porProcesso: Array.from(estatisticasPorCategoria.habilitacao.porProcessoHierarquico.values()).map(proc => ({
+            processoId: proc.processoId,
+            processoNumero: proc.processoNumero,
+            processoObjeto: proc.processoObjeto,
+            credenciamento: proc.credenciamento,
+            fornecedores: Array.from(proc.fornecedores.values())
+          }))
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,
