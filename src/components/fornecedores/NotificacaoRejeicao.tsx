@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { AlertCircle, Upload, FileText } from "lucide-react";
-import { useDropzone } from "react-dropzone";
+import { AlertCircle, FileText, Eye, Trash2 } from "lucide-react";
+import { gerarRecursoPDF } from "@/lib/gerarRecursoPDF";
 
 interface Rejeicao {
   id: string;
@@ -35,14 +35,24 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
   const [desejaRecorrer, setDesejaRecorrer] = useState<{ [key: string]: boolean }>({});
   const [desejaDeclinar, setDesejaDeclinar] = useState<{ [key: string]: boolean }>({});
   const [mensagemRecurso, setMensagemRecurso] = useState<{ [key: string]: string }>({});
-  const [arquivoRecurso, setArquivoRecurso] = useState<{ [key: string]: File | null }>({});
   const [enviandoRecurso, setEnviandoRecurso] = useState<{ [key: string]: boolean }>({});
   const [recursosEnviados, setRecursosEnviados] = useState<any[]>([]);
+  const [fornecedorData, setFornecedorData] = useState<any>(null);
 
   useEffect(() => {
     loadRejeicoes();
     loadRecursos();
+    loadFornecedor();
   }, [fornecedorId]);
+
+  const loadFornecedor = async () => {
+    const { data } = await supabase
+      .from('fornecedores')
+      .select('razao_social, cnpj')
+      .eq('id', fornecedorId)
+      .single();
+    setFornecedorData(data);
+  };
 
   const loadRejeicoes = async () => {
     try {
@@ -165,10 +175,10 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
     }
   };
 
-  const handleEnviarRecurso = async (rejeicaoId: string) => {
-    const arquivo = arquivoRecurso[rejeicaoId];
-    if (!arquivo) {
-      toast.error('Por favor, anexe o arquivo do recurso');
+  const handleEnviarRecurso = async (rejeicaoId: string, rejeicao: Rejeicao) => {
+    const texto = mensagemRecurso[rejeicaoId];
+    if (!texto || texto.trim().length === 0) {
+      toast.error('Por favor, descreva os motivos do seu recurso');
       return;
     }
 
@@ -181,17 +191,24 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
         toast.error('Você precisa estar autenticado para enviar recursos');
         return;
       }
-      
-      // Upload do arquivo
-      const fileExt = arquivo.name.split('.').pop();
-      const fileName = `recurso_${rejeicaoId}_${Date.now()}.${fileExt}`;
-      const filePath = `recursos/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('processo-anexos')
-        .upload(filePath, arquivo);
+      if (!fornecedorData) {
+        toast.error('Dados do fornecedor não encontrados');
+        return;
+      }
       
-      if (uploadError) throw uploadError;
+      toast.info('Gerando PDF do recurso...');
+      
+      // Gerar PDF certificado
+      const pdfResult = await gerarRecursoPDF(
+        texto,
+        fornecedorData.razao_social,
+        fornecedorData.cnpj,
+        rejeicao.cotacoes_precos?.processos_compras?.numero_processo_interno || '',
+        rejeicao.motivo_rejeicao,
+        undefined, // numeroSelecao
+        rejeicao.cotacoes_precos?.titulo_cotacao || ''
+      );
 
       // Salvar recurso no banco
       const { error: insertError } = await supabase
@@ -199,9 +216,9 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
         .insert({
           rejeicao_id: rejeicaoId,
           fornecedor_id: fornecedorId,
-          url_arquivo: filePath,
-          nome_arquivo: arquivo.name,
-          mensagem_fornecedor: mensagemRecurso[rejeicaoId] || null
+          url_arquivo: pdfResult.storagePath,
+          nome_arquivo: pdfResult.fileName,
+          mensagem_fornecedor: texto
         })
         .select();
 
@@ -216,6 +233,9 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
       if (updateError) throw updateError;
 
       await loadRejeicoes();
+      await loadRecursos();
+      setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
+      setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
       toast.success('Recurso enviado com sucesso!');
     } catch (error) {
       console.error('Erro ao enviar recurso:', error);
@@ -227,6 +247,27 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
   const handleExcluirRecurso = async (recursoId: string) => {
     try {
+      // Buscar dados do recurso para pegar o caminho do arquivo e rejeicao_id
+      const { data: recursoData, error: fetchError } = await supabase
+        .from('recursos_fornecedor')
+        .select('url_arquivo, rejeicao_id')
+        .eq('id', recursoId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Deletar arquivo do storage se existir
+      if (recursoData?.url_arquivo) {
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove([recursoData.url_arquivo]);
+        
+        if (storageError) {
+          console.error('Erro ao deletar arquivo do storage:', storageError);
+        }
+      }
+
+      // Deletar registro do banco
       const { error } = await supabase
         .from('recursos_fornecedor')
         .delete()
@@ -234,46 +275,21 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
 
       if (error) throw error;
 
+      // Atualizar status da rejeição de volta para 'sem_recurso'
+      if (recursoData?.rejeicao_id) {
+        await supabase
+          .from('fornecedores_rejeitados_cotacao')
+          .update({ status_recurso: 'sem_recurso' })
+          .eq('id', recursoData.rejeicao_id);
+      }
+
       toast.success("Recurso excluído com sucesso!");
       await loadRecursos();
+      await loadRejeicoes();
     } catch (error) {
       console.error('Erro ao excluir recurso:', error);
       toast.error("Erro ao excluir recurso");
     }
-  };
-
-  const DropzoneRecurso = ({ rejeicaoId }: { rejeicaoId: string }) => {
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-      accept: {
-        'application/pdf': ['.pdf'],
-        'application/msword': ['.doc'],
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
-      },
-      maxFiles: 1,
-      onDrop: (acceptedFiles) => {
-        if (acceptedFiles.length > 0) {
-          setArquivoRecurso(prev => ({ ...prev, [rejeicaoId]: acceptedFiles[0] }));
-          toast.success('Arquivo anexado com sucesso');
-        }
-      }
-    });
-
-    return (
-      <div
-        {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-          isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-        }`}
-      >
-        <input {...getInputProps()} />
-        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          {arquivoRecurso[rejeicaoId]
-            ? arquivoRecurso[rejeicaoId]!.name
-            : 'Clique ou arraste o arquivo do recurso (PDF, DOC, DOCX)'}
-        </p>
-      </div>
-    );
   };
 
   return (
@@ -294,34 +310,52 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
                         <p className="text-sm font-medium">
                           📅 Enviado em: {new Date(recurso.data_envio).toLocaleString('pt-BR')}
                         </p>
-                        {recurso.mensagem_fornecedor && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            💬 Mensagem: {recurso.mensagem_fornecedor}
-                          </p>
-                        )}
                       </div>
-                      {!respostaRecurso && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleExcluirRecurso(recurso.id)}
-                        >
-                          Excluir Recurso
-                        </Button>
-                      )}
                     </div>
 
-                    {/* Documento enviado */}
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      <a
-                        href={recurso.url_arquivo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline"
-                      >
-                        {recurso.nome_arquivo}
-                      </a>
+                    {/* Documento PDF Certificado */}
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="text-sm font-medium">{recurso.nome_arquivo}</p>
+                          <p className="text-xs text-muted-foreground">Documento PDF Certificado</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const { data, error } = await supabase.storage
+                                .from('processo-anexos')
+                                .createSignedUrl(recurso.url_arquivo, 3600);
+                              
+                              if (error || !data?.signedUrl) {
+                                toast.error('Erro ao abrir documento');
+                                return;
+                              }
+                              window.open(data.signedUrl, '_blank');
+                            } catch (err) {
+                              toast.error('Erro ao abrir documento');
+                            }
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Visualizar
+                        </Button>
+                        {!respostaRecurso && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleExcluirRecurso(recurso.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Excluir
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Status/Resposta */}
@@ -472,32 +506,29 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
               <div className="space-y-4 border-t pt-4">
                 <div>
                   <Label htmlFor={`mensagem-${rejeicao.id}`}>
-                    Mensagem do Recurso (Opcional)
+                    Razões do Recurso (Obrigatório)
                   </Label>
                   <Textarea
                     id={`mensagem-${rejeicao.id}`}
-                    placeholder="Descreva os motivos do seu recurso..."
+                    placeholder="Descreva detalhadamente os motivos e fundamentos do seu recurso..."
                     value={mensagemRecurso[rejeicao.id] || ''}
                     onChange={(e) =>
                       setMensagemRecurso(prev => ({ ...prev, [rejeicao.id]: e.target.value }))
                     }
-                    className="mt-2"
+                    className="mt-2 min-h-[150px]"
+                    rows={6}
                   />
-                </div>
-
-                <div>
-                  <Label>Anexar Recurso (Obrigatório)</Label>
-                  <div className="mt-2">
-                    <DropzoneRecurso rejeicaoId={rejeicao.id} />
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Um documento PDF certificado será gerado automaticamente com suas razões.
+                  </p>
                 </div>
 
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => handleEnviarRecurso(rejeicao.id)}
-                    disabled={enviandoRecurso[rejeicao.id]}
+                    onClick={() => handleEnviarRecurso(rejeicao.id, rejeicao)}
+                    disabled={enviandoRecurso[rejeicao.id] || !mensagemRecurso[rejeicao.id]?.trim()}
                   >
-                    {enviandoRecurso[rejeicao.id] ? 'Enviando...' : 'Enviar Recurso'}
+                    {enviandoRecurso[rejeicao.id] ? 'Gerando PDF...' : 'Enviar Recurso'}
                   </Button>
                   <Button
                     variant="outline"
@@ -627,42 +658,19 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
               </div>
             )}
 
-            {/* Formulário para declinar recurso */}
+            {/* Formulário para declinar recurso - Simplificado */}
             {desejaDeclinar[rejeicao.id] && rejeicao.status_recurso === 'recurso_enviado' && (
               <div className="space-y-4 border-t pt-4 mt-4">
                 <p className="text-sm font-medium text-destructive">
-                  Você está declinando do recurso protocolado
+                  Você está declinando do recurso protocolado. Esta ação é irreversível.
                 </p>
-                <div>
-                  <Label>Anexar Documento de Declínio (Obrigatório)</Label>
-                  <div className="mt-2">
-                    <DropzoneRecurso rejeicaoId={rejeicao.id} />
-                  </div>
-                </div>
                 <div className="flex gap-2">
                   <Button
                     variant="destructive"
                     onClick={async () => {
-                      const arquivo = arquivoRecurso[rejeicao.id];
-                      if (!arquivo) {
-                        toast.error('Anexe o documento de declínio');
-                        return;
-                      }
-                      
                       setEnviandoRecurso(prev => ({ ...prev, [rejeicao.id]: true }));
                       
                       try {
-                        // Upload do documento de declínio
-                        const fileExt = arquivo.name.split('.').pop();
-                        const fileName = `declinio_recurso_${rejeicao.id}_${Date.now()}.${fileExt}`;
-                        const filePath = `recursos/${fileName}`;
-                        
-                        const { error: uploadError } = await supabase.storage
-                          .from('processo-anexos')
-                          .upload(filePath, arquivo);
-                        
-                        if (uploadError) throw uploadError;
-                        
                         // Atualizar status para declinado
                         const { error: updateError } = await supabase
                           .from('fornecedores_rejeitados_cotacao')
@@ -674,7 +682,6 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
                         toast.success('Recurso declinado com sucesso');
                         loadRejeicoes();
                         setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: false }));
-                        setArquivoRecurso(prev => ({ ...prev, [rejeicao.id]: null }));
                       } catch (error) {
                         console.error('Erro ao declinar recurso:', error);
                         toast.error('Erro ao declinar recurso');
