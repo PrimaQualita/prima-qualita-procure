@@ -800,7 +800,7 @@ const RespostaCotacao = () => {
         console.log(`  ${index + 1}. ${arquivo.name} (${arquivo.type})`);
       });
       
-      const { url: pdfUrl, nome: pdfNome } = await gerarPropostaFornecedorPDF(
+      const { url: pdfUrl, nome: pdfNome, hash: hashProposta, protocolo } = await gerarPropostaFornecedorPDF(
         respostaCriada.id,
         {
           razao_social: dadosEmpresa.razao_social,
@@ -815,6 +815,15 @@ const RespostaCotacao = () => {
         undefined,
         processoCompra?.criterio_julgamento
       );
+
+      // Atualizar resposta com protocolo e hash
+      await supabaseAnon
+        .from('cotacao_respostas_fornecedor')
+        .update({
+          protocolo: protocolo,
+          hash_certificacao: hashProposta
+        })
+        .eq('id', respostaCriada.id);
 
       // Salvar anexo da proposta no banco
       await supabaseAnon

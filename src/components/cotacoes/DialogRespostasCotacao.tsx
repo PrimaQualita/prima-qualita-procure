@@ -704,7 +704,7 @@ export function DialogRespostasCotacao({
         }
       }
       
-      const { url, nome, hash } = await gerarPropostaFornecedorPDF(
+      const { url, nome, hash, protocolo } = await gerarPropostaFornecedorPDF(
         resposta.id,
         resposta.fornecedor,
         resposta.valor_total_anual_ofertado,
@@ -716,10 +716,13 @@ export function DialogRespostasCotacao({
         cotacaoData?.criterio_julgamento
       );
 
-      // Atualizar hash de certificação
+      // Atualizar hash e protocolo de certificação
       await supabase
         .from("cotacao_respostas_fornecedor")
-        .update({ hash_certificacao: hash })
+        .update({ 
+          hash_certificacao: hash,
+          protocolo: protocolo
+        })
         .eq("id", resposta.id);
 
       // Deletar APENAS anexo PROPOSTA anterior (manter COMPROVANTES)

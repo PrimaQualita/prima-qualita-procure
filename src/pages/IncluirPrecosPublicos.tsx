@@ -510,7 +510,7 @@ const IncluirPrecosPublicos = () => {
         }
       }
 
-      const { url: urlProposta, nome: nomeProposta, hash: hashProposta } = await gerarPropostaFornecedorPDF(
+      const { url: urlProposta, nome: nomeProposta, hash: hashProposta, protocolo } = await gerarPropostaFornecedorPDF(
         respostaCotacao.id,
         dadosFornecedor,
         valorTotal,
@@ -522,10 +522,11 @@ const IncluirPrecosPublicos = () => {
         processoCompra?.criterio_julgamento
       );
 
-      // Atualizar com hash E URLs dos comprovantes
+      // Atualizar com protocolo, hash E URLs dos comprovantes
       await supabase
         .from("cotacao_respostas_fornecedor")
         .update({ 
+          protocolo: protocolo,
           hash_certificacao: hashProposta,
           comprovantes_urls: comprovanteUrls
         })
