@@ -648,6 +648,53 @@ export default function RespostasCotacao() {
     if (!respostaParaExcluir) return;
     
     try {
+      // 1. Buscar TODOS os anexos (PDF proposta + comprovantes) e comprovantes_urls
+      const { data: respostaData, error: fetchError } = await supabase
+        .from('cotacao_respostas_fornecedor')
+        .select('comprovantes_urls, anexos_cotacao_fornecedor(id, url_arquivo)')
+        .eq('id', respostaParaExcluir)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const arquivosParaDeletar: string[] = [];
+
+      // Adicionar anexos (PDF proposta)
+      if (respostaData?.anexos_cotacao_fornecedor) {
+        respostaData.anexos_cotacao_fornecedor.forEach((anexo: any) => {
+          arquivosParaDeletar.push(anexo.url_arquivo);
+        });
+      }
+
+      // Adicionar comprovantes
+      if (respostaData?.comprovantes_urls && Array.isArray(respostaData.comprovantes_urls)) {
+        arquivosParaDeletar.push(...respostaData.comprovantes_urls);
+      }
+
+      // 2. Deletar TODOS os arquivos do storage PRIMEIRO
+      if (arquivosParaDeletar.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove(arquivosParaDeletar);
+
+        if (storageError) {
+          console.error("Erro ao deletar arquivos do storage:", storageError);
+          // Não bloqueia - continua para deletar registros do banco
+        }
+      }
+
+      // 3. Deletar registros de anexos
+      const { error: anexosError } = await supabase
+        .from('anexos_cotacao_fornecedor')
+        .delete()
+        .eq('cotacao_resposta_fornecedor_id', respostaParaExcluir);
+
+      if (anexosError) {
+        console.error("Erro ao deletar anexos:", anexosError);
+        // Não bloqueia - continua
+      }
+
+      // 4. ENTÃO deletar registro principal da resposta (que limpa protocolo também)
       const { error } = await supabase
         .from("cotacao_respostas_fornecedor")
         .delete()
@@ -655,7 +702,7 @@ export default function RespostasCotacao() {
 
       if (error) throw error;
 
-      toast.success("Fornecedor excluído com sucesso!");
+      toast.success("Fornecedor excluído com sucesso! Todos os arquivos e dados foram removidos.");
       setConfirmDeleteRespostaOpen(false);
       setRespostaParaExcluir(null);
       loadRespostas();
