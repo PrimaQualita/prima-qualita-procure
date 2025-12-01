@@ -374,6 +374,39 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Buscar mapeamento de documentos de habilitação (finalizacao) para identificar quais arquivos são de habilitação
+    const { data: docsHabilitacaoData } = await supabase
+      .from('documentos_finalizacao_fornecedor')
+      .select(`
+        url_arquivo,
+        fornecedor_id,
+        nome_arquivo,
+        campo_documento_id,
+        campos_documentos_finalizacao!inner(
+          selecao_id,
+          cotacao_id
+        )
+      `);
+    const docsHabilitacaoMap = new Map<string, { 
+      fornecedorId: string; 
+      nomeArquivo: string; 
+      selecaoId: string | null;
+      cotacaoId: string | null;
+    }>();
+    if (docsHabilitacaoData) {
+      for (const doc of docsHabilitacaoData) {
+        const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
+        const campos = (doc as any).campos_documentos_finalizacao;
+        docsHabilitacaoMap.set(path, {
+          fornecedorId: doc.fornecedor_id,
+          nomeArquivo: doc.nome_arquivo,
+          selecaoId: campos?.selecao_id || null,
+          cotacaoId: campos?.cotacao_id || null
+        });
+      }
+    }
+    console.log(`📋 Documentos de habilitação mapeados: ${docsHabilitacaoMap.size}`);
+
     // Buscar mapeamento de paths de planilhas consolidadas para cotacao_id
     const { data: planilhasDB } = await supabase.from('planilhas_consolidadas').select('url_arquivo, cotacao_id');
     const planilhasConsolidadasMap = new Map<string, string>();
@@ -590,6 +623,61 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.processos_anexos_outros.arquivos++;
         estatisticasPorCategoria.processos_anexos_outros.tamanho += metadata.size;
         estatisticasPorCategoria.processos_anexos_outros.detalhes.push({ path, fileName, size: metadata.size });
+      } else if (docsHabilitacaoMap.has(pathSemBucket) || pathSemBucket.startsWith('habilitacao/')) {
+        // Documentos de habilitação (documentos adicionais solicitados em compra direta ou seleção)
+        const docHabilitacao = docsHabilitacaoMap.get(pathSemBucket);
+        estatisticasPorCategoria.habilitacao.arquivos++;
+        estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
+        estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
+        console.log(`Arquivo categorizado como habilitação: ${fileName} (${path})`);
+        
+        if (docHabilitacao) {
+          const fornecedorNome = fornecedoresMap.get(docHabilitacao.fornecedorId) || `Fornecedor ${docHabilitacao.fornecedorId.substring(0, 8)}`;
+          
+          if (docHabilitacao.selecaoId) {
+            // Documento de habilitação de seleção
+            const selecao = selecoesMap.get(docHabilitacao.selecaoId);
+            if (selecao) {
+              if (!estatisticasPorCategoria.habilitacao.porSelecao!.has(docHabilitacao.selecaoId)) {
+                estatisticasPorCategoria.habilitacao.porSelecao!.set(docHabilitacao.selecaoId, {
+                  selecaoId: docHabilitacao.selecaoId,
+                  selecaoTitulo: selecao.titulo,
+                  selecaoNumero: selecao.numero,
+                  documentos: []
+                });
+              }
+              estatisticasPorCategoria.habilitacao.porSelecao!.get(docHabilitacao.selecaoId)!.documentos.push({
+                path,
+                fileName: docHabilitacao.nomeArquivo || fileName,
+                size: metadata.size
+              });
+            }
+          } else if (docHabilitacao.cotacaoId) {
+            // Documento de habilitação de compra direta (cotação)
+            const cotacao = cotacoesMap.get(docHabilitacao.cotacaoId);
+            if (cotacao) {
+              const processoId = cotacao.processoId;
+              const processo = processosMap.get(processoId);
+              
+              if (processo) {
+                if (!estatisticasPorCategoria.habilitacao.porProcesso!.has(processoId)) {
+                  estatisticasPorCategoria.habilitacao.porProcesso!.set(processoId, {
+                    processoId,
+                    processoNumero: processo.numero,
+                    processoObjeto: processo.objeto,
+                    credenciamento: processo.credenciamento,
+                    documentos: []
+                  });
+                }
+                estatisticasPorCategoria.habilitacao.porProcesso!.get(processoId)!.documentos.push({
+                  path,
+                  fileName: docHabilitacao.nomeArquivo || fileName,
+                  size: metadata.size
+                });
+              }
+            }
+          }
+        }
       } else if (pathSemBucket.startsWith('fornecedor_') && !pathSemBucket.includes('selecao')) {
         // Documentos de cadastro de fornecedores (CNDs, CNPJ, relatórios KPMG, etc.)
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
