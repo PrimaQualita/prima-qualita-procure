@@ -31,8 +31,8 @@ export default function VerificarPlanilha() {
     setResultado(null);
 
     try {
-      // SEMPRE PEGAR A PLANILHA MAIS RECENTE POR DATA DE GERAÇÃO
-      const { data, error } = await supabase
+      // Primeiro, tentar buscar em planilhas_lances_selecao (seleção de fornecedores)
+      const { data: dataLances, error: errorLances } = await supabase
         .from("planilhas_lances_selecao")
         .select("*")
         .eq("protocolo", prot.trim())
@@ -40,13 +40,27 @@ export default function VerificarPlanilha() {
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
-
-      if (!data) {
-        setResultado({ encontrado: false });
-      } else {
-        setResultado({ encontrado: true, dados: data });
+      if (dataLances) {
+        setResultado({ encontrado: true, dados: dataLances, tipo: 'selecao' });
+        return;
       }
+
+      // Se não encontrou, tentar buscar em planilhas_consolidadas (cotação de preços)
+      const { data: dataConsolidadas, error: errorConsolidadas } = await supabase
+        .from("planilhas_consolidadas")
+        .select("*")
+        .eq("protocolo", prot.trim())
+        .order("data_geracao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (dataConsolidadas) {
+        setResultado({ encontrado: true, dados: dataConsolidadas, tipo: 'cotacao' });
+        return;
+      }
+
+      // Não encontrou em nenhuma tabela
+      setResultado({ encontrado: false });
     } catch (error: any) {
       console.error("Erro ao verificar planilha:", error);
       setResultado({ encontrado: false });
@@ -59,7 +73,7 @@ export default function VerificarPlanilha() {
     if (!protocolo.trim()) {
       toast({
         title: "Protocolo obrigatório",
-        description: "Por favor, informe o protocolo da planilha consolidada.",
+        description: "Por favor, informe o protocolo da planilha.",
         variant: "destructive",
       });
       return;
@@ -80,10 +94,10 @@ export default function VerificarPlanilha() {
             />
           </div>
           <h1 className="text-4xl font-bold text-blue-900 mb-2">
-            Verificação de Planilha de Lances
+            Verificação de Planilha
           </h1>
           <p className="text-gray-600">
-            Verifique a autenticidade de uma planilha de lances através do protocolo
+            Verifique a autenticidade de uma planilha através do protocolo
           </p>
         </div>
 
@@ -91,7 +105,7 @@ export default function VerificarPlanilha() {
           <CardHeader>
             <CardTitle>Buscar Planilha</CardTitle>
             <CardDescription>
-              Insira o protocolo da planilha de lances para verificar sua autenticidade
+              Insira o protocolo da planilha para verificar sua autenticidade
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -119,7 +133,7 @@ export default function VerificarPlanilha() {
                 <div>
                   <p className="text-sm">Planilha não encontrada</p>
                   <p className="text-sm">
-                    Nenhuma planilha de lances foi encontrada com o protocolo informado.
+                    Nenhuma planilha foi encontrada com o protocolo informado.
                   </p>
                 </div>
               </div>
@@ -134,7 +148,7 @@ export default function VerificarPlanilha() {
                 <CheckCircle className="h-8 w-8 text-green-600 flex-shrink-0 mt-1" />
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg text-green-900 mb-1">
-                    Planilha de Lances Autêntica
+                    {resultado.tipo === 'cotacao' ? 'Planilha Consolidada Autêntica' : 'Planilha de Lances Autêntica'}
                   </h3>
                   <p className="text-sm text-green-700">
                     Esta planilha foi gerada oficialmente pelo sistema Prima Qualitá Saúde
@@ -162,8 +176,10 @@ export default function VerificarPlanilha() {
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold text-gray-600">ID da Seleção</p>
-                  <p className="text-sm font-mono">{resultado.dados.selecao_id}</p>
+                  <p className="text-sm font-semibold text-gray-600">Tipo</p>
+                  <p className="text-sm">
+                    {resultado.tipo === 'cotacao' ? 'Planilha Consolidada (Cotação de Preços)' : 'Planilha de Lances (Seleção de Fornecedores)'}
+                  </p>
                 </div>
 
                 <div>
