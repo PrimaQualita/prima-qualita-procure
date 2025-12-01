@@ -2056,6 +2056,7 @@ export type Database = {
           id: string
           mensagem_fornecedor: string | null
           nome_arquivo: string
+          protocolo: string | null
           rejeicao_id: string
           url_arquivo: string
         }
@@ -2066,6 +2067,7 @@ export type Database = {
           id?: string
           mensagem_fornecedor?: string | null
           nome_arquivo: string
+          protocolo?: string | null
           rejeicao_id: string
           url_arquivo: string
         }
@@ -2076,6 +2078,7 @@ export type Database = {
           id?: string
           mensagem_fornecedor?: string | null
           nome_arquivo?: string
+          protocolo?: string | null
           rejeicao_id?: string
           url_arquivo?: string
         }
