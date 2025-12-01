@@ -30,7 +30,12 @@ interface Rejeicao {
   };
 }
 
-export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) {
+interface NotificacaoRejeicaoProps {
+  fornecedorId: string;
+  onRecursoEnviado?: () => void;
+}
+
+export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: NotificacaoRejeicaoProps) {
   const [rejeicoes, setRejeicoes] = useState<Rejeicao[]>([]);
   const [desejaRecorrer, setDesejaRecorrer] = useState<{ [key: string]: boolean }>({});
   const [desejaDeclinar, setDesejaDeclinar] = useState<{ [key: string]: boolean }>({});
@@ -237,6 +242,11 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
       setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
       setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
       toast.success('Recurso enviado com sucesso!');
+      
+      // Notificar o componente pai para atualizar o alerta
+      if (onRecursoEnviado) {
+        onRecursoEnviado();
+      }
     } catch (error) {
       console.error('Erro ao enviar recurso:', error);
       toast.error('Erro ao enviar recurso');
@@ -286,6 +296,11 @@ export function NotificacaoRejeicao({ fornecedorId }: { fornecedorId: string }) 
       toast.success("Recurso excluído com sucesso!");
       await loadRecursos();
       await loadRejeicoes();
+      
+      // Notificar o componente pai para atualizar o alerta
+      if (onRecursoEnviado) {
+        onRecursoEnviado();
+      }
     } catch (error) {
       console.error('Erro ao excluir recurso:', error);
       toast.error("Erro ao excluir recurso");
