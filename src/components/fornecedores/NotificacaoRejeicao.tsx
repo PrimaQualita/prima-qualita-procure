@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { AlertCircle, FileText, Eye, Trash2 } from "lucide-react";
+import { AlertCircle, FileText } from "lucide-react";
 import { gerarRecursoPDF } from "@/lib/gerarRecursoPDF";
 
 interface Rejeicao {
@@ -41,12 +41,10 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
   const [desejaDeclinar, setDesejaDeclinar] = useState<{ [key: string]: boolean }>({});
   const [mensagemRecurso, setMensagemRecurso] = useState<{ [key: string]: string }>({});
   const [enviandoRecurso, setEnviandoRecurso] = useState<{ [key: string]: boolean }>({});
-  const [recursosEnviados, setRecursosEnviados] = useState<any[]>([]);
   const [fornecedorData, setFornecedorData] = useState<any>(null);
 
   useEffect(() => {
     loadRejeicoes();
-    loadRecursos();
     loadFornecedor();
   }, [fornecedorId]);
 
@@ -123,9 +121,6 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
           console.error('Erro ao carregar recursos:', recursosError);
         }
 
-        // Separar recursos com respostas para exibir na seção própria
-        setRecursosEnviados(recursos || []);
-
         // Combinar dados
         const rejeicoesComDados = data.map(rejeicao => {
           const cotacao = cotacoes?.find(c => c.id === rejeicao.cotacao_id);
@@ -143,40 +138,6 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
       }
     } catch (error) {
       console.error('Erro ao carregar rejeições:', error);
-    }
-  };
-
-  const loadRecursos = async () => {
-    try {
-      // Buscar recursos diretamente pelo fornecedor_id
-      const { data: recursos, error } = await supabase
-        .from('recursos_fornecedor')
-        .select(`
-          id,
-          rejeicao_id,
-          mensagem_fornecedor,
-          data_envio,
-          nome_arquivo,
-          url_arquivo,
-          respostas_recursos (
-            decisao,
-            texto_resposta,
-            url_documento,
-            nome_arquivo,
-            data_resposta
-          )
-        `)
-        .eq('fornecedor_id', fornecedorId)
-        .order('data_envio', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao carregar recursos:', error);
-        return;
-      }
-
-      setRecursosEnviados(recursos || []);
-    } catch (error) {
-      console.error('Erro ao carregar recursos:', error);
     }
   };
 
@@ -238,7 +199,6 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
       if (updateError) throw updateError;
 
       await loadRejeicoes();
-      await loadRecursos();
       setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
       setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
       toast.success('Recurso enviado com sucesso!');
@@ -255,159 +215,8 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
     }
   };
 
-  const handleExcluirRecurso = async (recursoId: string) => {
-    try {
-      // Buscar dados do recurso para pegar o caminho do arquivo e rejeicao_id
-      const { data: recursoData, error: fetchError } = await supabase
-        .from('recursos_fornecedor')
-        .select('url_arquivo, rejeicao_id')
-        .eq('id', recursoId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Deletar arquivo do storage se existir
-      if (recursoData?.url_arquivo) {
-        const { error: storageError } = await supabase.storage
-          .from('processo-anexos')
-          .remove([recursoData.url_arquivo]);
-        
-        if (storageError) {
-          console.error('Erro ao deletar arquivo do storage:', storageError);
-        }
-      }
-
-      // Deletar registro do banco
-      const { error } = await supabase
-        .from('recursos_fornecedor')
-        .delete()
-        .eq('id', recursoId);
-
-      if (error) throw error;
-
-      // Atualizar status da rejeição de volta para 'sem_recurso'
-      if (recursoData?.rejeicao_id) {
-        await supabase
-          .from('fornecedores_rejeitados_cotacao')
-          .update({ status_recurso: 'sem_recurso' })
-          .eq('id', recursoData.rejeicao_id);
-      }
-
-      toast.success("Recurso excluído com sucesso!");
-      await loadRecursos();
-      await loadRejeicoes();
-      
-      // Notificar o componente pai para atualizar o alerta
-      if (onRecursoEnviado) {
-        onRecursoEnviado();
-      }
-    } catch (error) {
-      console.error('Erro ao excluir recurso:', error);
-      toast.error("Erro ao excluir recurso");
-    }
-  };
-
   return (
     <div className="space-y-6">
-      {/* Seção de Recursos Enviados */}
-      {recursosEnviados.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">📄 Meus Recursos Enviados</h3>
-          <div className="space-y-4">
-            {recursosEnviados.map((recurso) => {
-              const respostaRecurso = (recurso as any).respostas_recursos?.[0];
-              
-              return (
-                <Card key={recurso.id} className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">
-                          📅 Enviado em: {new Date(recurso.data_envio).toLocaleString('pt-BR')}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Documento PDF Certificado */}
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-primary" />
-                        <div>
-                          <p className="text-sm font-medium">{recurso.nome_arquivo}</p>
-                          <p className="text-xs text-muted-foreground">Documento PDF Certificado</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const { data, error } = await supabase.storage
-                                .from('processo-anexos')
-                                .createSignedUrl(recurso.url_arquivo, 3600);
-                              
-                              if (error || !data?.signedUrl) {
-                                toast.error('Erro ao abrir documento');
-                                return;
-                              }
-                              window.open(data.signedUrl, '_blank');
-                            } catch (err) {
-                              toast.error('Erro ao abrir documento');
-                            }
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Visualizar
-                        </Button>
-                        {!respostaRecurso && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleExcluirRecurso(recurso.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Excluir
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Status/Resposta */}
-                    {respostaRecurso ? (
-                      <div className="mt-3 p-3 bg-muted rounded-md space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={respostaRecurso.decisao === 'provimento' ? 'default' : 'destructive'}>
-                            {respostaRecurso.decisao === 'provimento' ? '✅ Provimento Concedido' : '❌ Provimento Negado'}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {new Date(respostaRecurso.data_resposta).toLocaleString('pt-BR')}
-                          </span>
-                        </div>
-                        <p className="text-sm">{respostaRecurso.texto_resposta}</p>
-                        {respostaRecurso.url_documento && (
-                          <a
-                            href={respostaRecurso.url_documento}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline flex items-center gap-1"
-                          >
-                            <FileText className="h-4 w-4" />
-                            {respostaRecurso.nome_arquivo}
-                          </a>
-                        )}
-                      </div>
-                    ) : (
-                      <Badge variant="outline">⏳ Aguardando análise</Badge>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </Card>
-      )}
-
       {/* Seção de Notificações de Rejeição */}
       {rejeicoes.length > 0 && (
         <>
