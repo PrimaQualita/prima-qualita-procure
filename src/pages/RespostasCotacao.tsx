@@ -487,6 +487,15 @@ export default function RespostasCotacao() {
         cotacao?.criterio_julgamento
       );
 
+      // Atualizar protocolo e hash de certificação
+      await supabase
+        .from("cotacao_respostas_fornecedor")
+        .update({ 
+          protocolo: resultado.protocolo,
+          hash_certificacao: resultado.hash
+        })
+        .eq("id", respostaId);
+
       // Criar registro do anexo em anexos_cotacao_fornecedor
       const { error: anexoError } = await supabase
         .from('anexos_cotacao_fornecedor')
@@ -566,6 +575,15 @@ export default function RespostasCotacao() {
         usuarioCpf,
         cotacao?.criterio_julgamento
       );
+
+      // Atualizar protocolo e hash de certificação
+      await supabase
+        .from("cotacao_respostas_fornecedor")
+        .update({ 
+          protocolo: resultado.protocolo,
+          hash_certificacao: resultado.hash
+        })
+        .eq("id", respostaId);
 
       // Buscar o arquivo do storage
       const { data: fileData, error: downloadError } = await supabase.storage

@@ -45,7 +45,7 @@ export async function gerarPropostaFornecedorPDF(
   usuarioNome?: string,
   usuarioCpf?: string,
   criterioJulgamento?: string
-): Promise<{ url: string; nome: string; hash: string }> {
+): Promise<{ url: string; nome: string; hash: string; protocolo: string }> {
   try {
     console.log('📄 Dados recebidos no gerarPropostaFornecedorPDF:', {
       fornecedor,
@@ -546,18 +546,6 @@ export async function gerarPropostaFornecedorPDF(
     // Gerar protocolo
     const protocolo = gerarProtocolo();
 
-    // Salvar o protocolo no banco
-    const { error: protocoloError } = await supabase
-      .from('cotacao_respostas_fornecedor')
-      .update({ 
-        protocolo: protocolo
-      })
-      .eq('id', respostaId);
-
-    if (protocoloError) {
-      console.error('Erro ao salvar protocolo:', protocoloError);
-    }
-
     // Gerar PDF base como blob
     const pdfBlob = doc.output('blob');
     
@@ -734,7 +722,8 @@ export async function gerarPropostaFornecedorPDF(
     return {
       url: uploadData.path,
       nome: nomeArquivo,
-      hash: hash
+      hash: hash,
+      protocolo: protocolo
     };
 
   } catch (error) {
