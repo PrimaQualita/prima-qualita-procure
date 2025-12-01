@@ -25,6 +25,7 @@ export default function PortalFornecedor() {
   const [documentosPendentes, setDocumentosPendentes] = useState<any[]>([]);
   const [documentosPendentesSelecao, setDocumentosPendentesSelecao] = useState<any[]>([]);
   const [atasPendentes, setAtasPendentes] = useState<any[]>([]);
+  const [inabilitacoesPendentes, setInabilitacoesPendentes] = useState<any[]>([]);
   const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<string>("");
@@ -106,6 +107,7 @@ export default function PortalFornecedor() {
     await loadDocumentosPendentes(fornecedorData.id);
     await loadDocumentosPendentesSelecao(fornecedorData.id);
     await loadAtasPendentes(fornecedorData.id);
+    await loadInabilitacoesPendentes(fornecedorData.id);
     setLoading(false);
   };
 
@@ -367,6 +369,41 @@ export default function PortalFornecedor() {
       setAtasPendentes(data || []);
     } catch (error) {
       console.error("Erro ao carregar atas pendentes:", error);
+    }
+  };
+
+  const loadInabilitacoesPendentes = async (fornecedorId: string) => {
+    try {
+      console.log("🔍 Carregando inabilitações pendentes de recurso...");
+      
+      // Buscar rejeições em cotações onde o fornecedor ainda pode recorrer
+      // (não revertidas e sem recurso já enviado ou com status diferente de "deferido")
+      const { data: rejeicoes, error } = await supabase
+        .from("fornecedores_rejeitados_cotacao")
+        .select(`
+          id,
+          motivo_rejeicao,
+          data_rejeicao,
+          status_recurso,
+          cotacao_id,
+          cotacoes_precos (
+            titulo_cotacao,
+            processo_compra_id,
+            processos_compras (
+              numero_processo_interno
+            )
+          )
+        `)
+        .eq("fornecedor_id", fornecedorId)
+        .eq("revertido", false)
+        .or("status_recurso.is.null,status_recurso.neq.deferido");
+
+      if (error) throw error;
+      
+      console.log("✅ Inabilitações encontradas:", rejeicoes);
+      setInabilitacoesPendentes(rejeicoes || []);
+    } catch (error) {
+      console.error("❌ Erro ao carregar inabilitações pendentes:", error);
     }
   };
 
@@ -753,6 +790,51 @@ export default function PortalFornecedor() {
                       </div>
                     ))}
                   </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Alerta de Inabilitações em Cotações - Possibilidade de Recurso */}
+        {inabilitacoesPendentes.length > 0 && (
+          <Card className="mb-6 border-red-500/50 bg-red-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-red-700 dark:text-red-400 mb-3">
+                    ⚠️ Você foi inabilitado em {inabilitacoesPendentes.length} cotação(ões)! Você pode apresentar recurso.
+                  </p>
+                  <div className="space-y-3">
+                    {inabilitacoesPendentes.map((inabilitacao) => (
+                      <div key={inabilitacao.id} className="p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg border">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">
+                              {inabilitacao.cotacoes_precos?.processos_compras?.numero_processo_interno || "Processo"} - {inabilitacao.cotacoes_precos?.titulo_cotacao || "Cotação"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Motivo: {inabilitacao.motivo_rejeicao}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Data: {new Date(inabilitacao.data_rejeicao).toLocaleDateString()}
+                            </p>
+                            {inabilitacao.status_recurso && (
+                              <Badge variant="outline" className="mt-1 text-xs">
+                                Recurso: {inabilitacao.status_recurso === 'pendente' ? 'Em análise' : 
+                                         inabilitacao.status_recurso === 'indeferido' ? 'Indeferido' : 
+                                         inabilitacao.status_recurso}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-red-600 dark:text-red-300 mt-3">
+                    Acesse a aba "Cotações de Preços" para visualizar detalhes e enviar seu recurso.
+                  </p>
                 </div>
               </div>
             </CardContent>
