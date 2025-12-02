@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Mail, Clock, XCircle, RefreshCw, Undo2 } from "lucide-react";
+import { Plus, Trash2, ExternalLink, FileText, CheckCircle, AlertCircle, Download, Eye, Send, Mail, Clock, XCircle, RefreshCw, Undo2, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/gerarAutorizacaoPDF";
@@ -2707,7 +2707,83 @@ export function DialogFinalizarProcesso({
                             }}
                           >
                             <FileText className="h-4 w-4 mr-2" />
-                          Visualizar: {recurso.nome_arquivo}
+                            Visualizar Recurso
+                          </Button>
+                          
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={async () => {
+                              if (!confirm('Tem certeza que deseja apagar este recurso? Esta ação não pode ser desfeita.')) return;
+                              
+                              try {
+                                // Deletar resposta se existir
+                                const respostaExistente = (recurso as any).respostas_recursos?.[0];
+                                if (respostaExistente) {
+                                  // Deletar arquivo da resposta
+                                  if (respostaExistente.url_documento) {
+                                    let filePath = respostaExistente.url_documento;
+                                    if (filePath.includes('https://')) {
+                                      const urlParts = filePath.split('/processo-anexos/');
+                                      filePath = urlParts[1] || filePath;
+                                    }
+                                    await supabase.storage.from('processo-anexos').remove([filePath]);
+                                  }
+                                  
+                                  // Deletar resposta do banco
+                                  await supabase
+                                    .from('respostas_recursos')
+                                    .delete()
+                                    .eq('recurso_id', recurso.id);
+                                  
+                                  // Reverter status da rejeição se foi dado provimento
+                                  if (respostaExistente.decisao === 'provimento') {
+                                    await supabase
+                                      .from('fornecedores_rejeitados_cotacao')
+                                      .update({ 
+                                        revertido: false,
+                                        itens_afetados: [],
+                                        motivo_reversao: null,
+                                        data_reversao: null,
+                                        usuario_reverteu_id: null
+                                      })
+                                      .eq('id', recurso.rejeicao_id);
+                                  }
+                                }
+                                
+                                // Deletar arquivo do recurso
+                                if (recurso.url_arquivo) {
+                                  let filePath = recurso.url_arquivo;
+                                  if (filePath.includes('https://')) {
+                                    const urlParts = filePath.split('/processo-anexos/');
+                                    filePath = urlParts[1] || filePath;
+                                  }
+                                  await supabase.storage.from('processo-anexos').remove([filePath]);
+                                }
+                                
+                                // Deletar recurso do banco
+                                await supabase
+                                  .from('recursos_fornecedor')
+                                  .delete()
+                                  .eq('id', recurso.id);
+                                
+                                // Atualizar status da rejeição para sem_recurso
+                                await supabase
+                                  .from('fornecedores_rejeitados_cotacao')
+                                  .update({ status_recurso: 'sem_recurso' })
+                                  .eq('id', recurso.rejeicao_id);
+                                
+                                toast.success('Recurso apagado com sucesso!');
+                                await loadRecursos();
+                                await loadFornecedoresRejeitados();
+                              } catch (error) {
+                                console.error('Erro ao apagar recurso:', error);
+                                toast.error('Erro ao apagar recurso');
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Apagar Recurso
                           </Button>
                           
                           {/* Verificar se já existe resposta */}
@@ -2791,7 +2867,7 @@ export function DialogFinalizarProcesso({
                                   Itens reabilitados: {(recurso as any).respostas_recursos[0].itens_reabilitados.join(', ')}
                                 </p>
                               )}
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 flex-wrap">
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -2816,7 +2892,7 @@ export function DialogFinalizarProcesso({
                                   }}
                                 >
                                   <Eye className="h-4 w-4 mr-2" />
-                                  Visualizar Resposta
+                                  Visualizar
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -2852,7 +2928,82 @@ export function DialogFinalizarProcesso({
                                   }}
                                 >
                                   <Download className="h-4 w-4 mr-2" />
-                                  Baixar Resposta
+                                  Baixar
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    // Buscar rejeição associada ao recurso
+                                    const { data: rej } = await supabase
+                                      .from('fornecedores_rejeitados_cotacao')
+                                      .select('id, itens_afetados')
+                                      .eq('id', recurso.rejeicao_id)
+                                      .single();
+                                    setRejeicaoDoRecurso(rej);
+                                    setRecursoSelecionado(recurso.id);
+                                    // Setar com valores da resposta existente para edição
+                                    const respostaAtual = (recurso as any).respostas_recursos[0];
+                                    setDecisaoRecurso(respostaAtual.decisao);
+                                    setTipoProvimento(respostaAtual.tipo_provimento || 'total');
+                                    setTextoRespostaRecurso(respostaAtual.texto_resposta || '');
+                                    setItensParaReabilitar(respostaAtual.itens_reabilitados || []);
+                                    setDialogRespostaRecursoOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Editar
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={async () => {
+                                    if (!confirm('Tem certeza que deseja apagar esta resposta? O recurso voltará a aguardar resposta.')) return;
+                                    
+                                    try {
+                                      const respostaAtual = (recurso as any).respostas_recursos[0];
+                                      
+                                      // Deletar arquivo do storage
+                                      if (respostaAtual.url_documento) {
+                                        let filePath = respostaAtual.url_documento;
+                                        if (filePath.includes('https://')) {
+                                          const urlParts = filePath.split('/processo-anexos/');
+                                          filePath = urlParts[1] || filePath;
+                                        }
+                                        await supabase.storage.from('processo-anexos').remove([filePath]);
+                                      }
+                                      
+                                      // Deletar resposta do banco
+                                      await supabase
+                                        .from('respostas_recursos')
+                                        .delete()
+                                        .eq('recurso_id', recurso.id);
+                                      
+                                      // Reverter status da rejeição se foi dado provimento
+                                      if (respostaAtual.decisao === 'provimento') {
+                                        await supabase
+                                          .from('fornecedores_rejeitados_cotacao')
+                                          .update({ 
+                                            revertido: false,
+                                            itens_afetados: [],
+                                            motivo_reversao: null,
+                                            data_reversao: null,
+                                            usuario_reverteu_id: null
+                                          })
+                                          .eq('id', recurso.rejeicao_id);
+                                      }
+                                      
+                                      toast.success('Resposta apagada com sucesso!');
+                                      await loadRecursos();
+                                      await loadFornecedoresRejeitados();
+                                    } catch (error) {
+                                      console.error('Erro ao apagar resposta:', error);
+                                      toast.error('Erro ao apagar resposta');
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Apagar Resposta
                                 </Button>
                               </div>
                             </div>
