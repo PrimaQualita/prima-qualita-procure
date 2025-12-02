@@ -10,26 +10,24 @@ interface RespostaRecursoResult {
   storagePath: string;
 }
 
-// Função auxiliar para converter imagem em base64
-const loadImageAsBase64 = (src: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } else {
-        reject(new Error('Erro ao criar canvas'));
-      }
-    };
-    img.onerror = () => reject(new Error('Erro ao carregar imagem'));
-    img.src = src;
-  });
+// Função auxiliar para converter imagem em base64 usando fetch (mais robusto)
+const loadImageAsBase64 = async (src: string): Promise<string> => {
+  try {
+    const response = await fetch(src);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Erro ao ler blob'));
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('[PDF] Erro ao carregar imagem:', src, error);
+    throw new Error(`Erro ao carregar imagem: ${src}`);
+  }
 };
 
 // Função para justificar texto de forma mais natural
