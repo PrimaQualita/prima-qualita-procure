@@ -3523,22 +3523,58 @@ export function DialogFinalizarProcesso({
                       numeroProcesso
                     );
 
-                    const { error: insertError } = await supabase
-                      .from('respostas_recursos')
-                      .insert({
-                        recurso_id: recursoSelecionado,
-                        decisao: decisaoRecurso,
-                        texto_resposta: textoRespostaRecurso,
-                        url_documento: pdfResult.url,
-                        nome_arquivo: pdfResult.fileName,
-                        protocolo: pdfResult.protocolo,
-                        usuario_respondeu_id: user.id,
-                        tipo_provimento: tipoProvimento,
-                        itens_reabilitados: tipoProvimento === 'parcial' ? itensParaReabilitar : []
-                      });
+                    // Verificar se é edição (resposta já existe)
+                    const respostaExistente = (recurso as any)?.respostas_recursos?.[0];
+                    
+                    if (respostaExistente) {
+                      // É EDIÇÃO - deletar arquivo antigo e fazer UPDATE
+                      if (respostaExistente.url_documento) {
+                        let oldFilePath = respostaExistente.url_documento;
+                        if (oldFilePath.includes('https://')) {
+                          const urlParts = oldFilePath.split('/processo-anexos/');
+                          oldFilePath = urlParts[1] || oldFilePath;
+                        }
+                        await supabase.storage.from('processo-anexos').remove([oldFilePath]);
+                      }
+                      
+                      const { error: updateError } = await supabase
+                        .from('respostas_recursos')
+                        .update({
+                          decisao: decisaoRecurso,
+                          texto_resposta: textoRespostaRecurso,
+                          url_documento: pdfResult.url,
+                          nome_arquivo: pdfResult.fileName,
+                          protocolo: pdfResult.protocolo,
+                          usuario_respondeu_id: user.id,
+                          tipo_provimento: tipoProvimento,
+                          itens_reabilitados: tipoProvimento === 'parcial' ? itensParaReabilitar : [],
+                          data_resposta: new Date().toISOString()
+                        })
+                        .eq('id', respostaExistente.id);
 
-                    if (insertError) throw insertError;
+                      if (updateError) throw updateError;
+                    } else {
+                      // É NOVA RESPOSTA - fazer INSERT
+                      const { error: insertError } = await supabase
+                        .from('respostas_recursos')
+                        .insert({
+                          recurso_id: recursoSelecionado,
+                          decisao: decisaoRecurso,
+                          texto_resposta: textoRespostaRecurso,
+                          url_documento: pdfResult.url,
+                          nome_arquivo: pdfResult.fileName,
+                          protocolo: pdfResult.protocolo,
+                          usuario_respondeu_id: user.id,
+                          tipo_provimento: tipoProvimento,
+                          itens_reabilitados: tipoProvimento === 'parcial' ? itensParaReabilitar : []
+                        });
 
+                      if (insertError) throw insertError;
+                    }
+
+                    // Atualizar itens_afetados na rejeição de acordo com a nova decisão
+                    const fornecedorId = recurso.fornecedor_id;
+                    
                     // Se provimento (total ou parcial), atualizar rejeição
                     if (decisaoRecurso === 'provimento') {
                       if (tipoProvimento === 'total') {
@@ -3547,6 +3583,7 @@ export function DialogFinalizarProcesso({
                           .from('fornecedores_rejeitados_cotacao')
                           .update({ 
                             revertido: true, 
+                            itens_afetados: [],
                             motivo_reversao: `Provimento total concedido: ${textoRespostaRecurso.substring(0, 100)}...`,
                             data_reversao: new Date().toISOString(),
                             usuario_reverteu_id: user.id
@@ -3554,22 +3591,19 @@ export function DialogFinalizarProcesso({
                           .eq('id', recurso.rejeicao_id);
                         
                         // Atualizar resposta do fornecedor
-                        const fornecedorId = recurso.fornecedor_id;
                         await supabase
                           .from('cotacao_respostas_fornecedor')
                           .update({ rejeitado: false, motivo_rejeicao: null, data_rejeicao: null })
                           .eq('fornecedor_id', fornecedorId)
                           .eq('cotacao_id', cotacaoId);
                       } else {
-                        // Provimento parcial: atualizar apenas itens_afetados
-                        // Se rejeição era global (itens_afetados vazio), usar todos os itens da cotação
+                        // Provimento parcial: atualizar itens_afetados
+                        // Todos os itens NÃO marcados para reabilitar permanecerão inabilitados
                         const todosItens = itensCotacao.map(i => i.numero_item);
-                        const itensOriginaisRejeitados = (rejeicaoDoRecurso?.itens_afetados && rejeicaoDoRecurso.itens_afetados.length > 0)
-                          ? rejeicaoDoRecurso.itens_afetados
-                          : todosItens;
+                        const itensAindaRejeitados = todosItens.filter(item => !itensParaReabilitar.includes(item));
                         
-                        const itensAindaRejeitados = itensOriginaisRejeitados
-                          .filter((item: number) => !itensParaReabilitar.includes(item));
+                        console.log('Provimento parcial - itens para reabilitar:', itensParaReabilitar);
+                        console.log('Provimento parcial - itens ainda rejeitados:', itensAindaRejeitados);
                         
                         if (itensAindaRejeitados.length === 0) {
                           // Todos os itens foram reabilitados, reverter completamente
@@ -3577,13 +3611,13 @@ export function DialogFinalizarProcesso({
                             .from('fornecedores_rejeitados_cotacao')
                             .update({ 
                               revertido: true,
+                              itens_afetados: [],
                               motivo_reversao: `Provimento parcial concedeu todos os itens`,
                               data_reversao: new Date().toISOString(),
                               usuario_reverteu_id: user.id
                             })
                             .eq('id', recurso.rejeicao_id);
                           
-                          const fornecedorId = recurso.fornecedor_id;
                           await supabase
                             .from('cotacao_respostas_fornecedor')
                             .update({ rejeitado: false, motivo_rejeicao: null, data_rejeicao: null })
@@ -3593,10 +3627,21 @@ export function DialogFinalizarProcesso({
                           // Atualizar itens afetados com os que permanecem rejeitados
                           await supabase
                             .from('fornecedores_rejeitados_cotacao')
-                            .update({ itens_afetados: itensAindaRejeitados })
+                            .update({ 
+                              itens_afetados: itensAindaRejeitados,
+                              revertido: false
+                            })
                             .eq('id', recurso.rejeicao_id);
                         }
                       }
+                    } else {
+                      // Negado: garantir que rejeição permanece ativa
+                      await supabase
+                        .from('fornecedores_rejeitados_cotacao')
+                        .update({ 
+                          revertido: false
+                        })
+                        .eq('id', recurso.rejeicao_id);
                     }
 
                     const mensagem = tipoProvimento === 'parcial' 
