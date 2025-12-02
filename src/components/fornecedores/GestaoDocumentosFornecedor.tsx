@@ -211,10 +211,10 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
 
     setProcessando(true);
     try {
-      // 1. Buscar documento antigo em vigor
+      // 1. Buscar documento antigo em vigor (com todos os campos para snapshot)
       const { data: docAntigoData } = await supabase
         .from("documentos_fornecedor")
-        .select("id, url_arquivo")
+        .select("id, url_arquivo, nome_arquivo, data_emissao, data_validade, em_vigor")
         .eq("fornecedor_id", fornecedorId)
         .eq("tipo_documento", tipoDocumentoAtualizar)
         .eq("em_vigor", true)
@@ -232,27 +232,90 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         .from("processo-anexos")
         .getPublicUrl(fileName);
 
-      // 3. Verificar se documento antigo está em uso em alguma habilitação (documentos_processo_finalizado)
-      // antes de deletar do storage
+      // 3. Verificar se fornecedor está vinculado a algum processo finalizado (habilitação)
+      // Se está, criar SNAPSHOT do documento ANTES de atualizar (preservar versão que estava vigente)
       if (docAntigoData?.url_arquivo) {
         const pathMatch = docAntigoData.url_arquivo.match(/processo-anexos\/(.+)$/);
         const nomeArquivoAntigo = docAntigoData.url_arquivo.split('/').pop() || '';
         
-        // Verificar se arquivo está referenciado em documentos_processo_finalizado (habilitação)
-        const { data: docHabilitacao } = await supabase
-          .from("documentos_processo_finalizado")
-          .select("id")
-          .or(`url_arquivo.ilike.%${nomeArquivoAntigo}%,url_arquivo.eq.${docAntigoData.url_arquivo}`)
-          .limit(1);
+        // Verificar se fornecedor é vencedor em alguma cotação finalizada (compra direta)
+        const { data: cotacoesFinalizadas } = await supabase
+          .from("cotacoes_precos")
+          .select("id, titulo_cotacao")
+          .eq("fornecedor_vencedor_id", fornecedorId)
+          .eq("processo_finalizado", true);
         
-        const estaEmUsoHabilitacao = docHabilitacao && docHabilitacao.length > 0;
+        // Verificar se fornecedor é vencedor em alguma seleção finalizada
+        const { data: selecoesFinalizadas } = await supabase
+          .from("selecao_propostas_fornecedor")
+          .select(`
+            selecao_id,
+            selecoes_fornecedores!inner(id, sessao_finalizada)
+          `)
+          .eq("fornecedor_id", fornecedorId)
+          .eq("desclassificado", false)
+          .eq("selecoes_fornecedores.sessao_finalizada", true);
         
-        if (estaEmUsoHabilitacao) {
-          // Documento está em uso em habilitação - NÃO deletar do storage
-          // O arquivo físico permanece para os processos finalizados que o referenciam
-          console.log(`📁 Documento "${nomeArquivoAntigo}" está em uso em habilitação - arquivo mantido no storage`);
+        const estaVinculadoProcesso = 
+          (cotacoesFinalizadas && cotacoesFinalizadas.length > 0) ||
+          (selecoesFinalizadas && selecoesFinalizadas.length > 0);
+        
+        if (estaVinculadoProcesso) {
+          // Fornecedor está vinculado a processo finalizado - CRIAR SNAPSHOT antes de atualizar
+          console.log(`📸 Criando snapshot do documento "${nomeArquivoAntigo}" - fornecedor vinculado a processo finalizado`);
+          
+          // Calcular hash do arquivo antigo para deduplicação
+          const response = await fetch(docAntigoData.url_arquivo);
+          const blob = await response.blob();
+          const arrayBuffer = await blob.arrayBuffer();
+          const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hashArquivo = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+          
+          // Criar snapshot para cada cotação finalizada onde é vencedor
+          if (cotacoesFinalizadas) {
+            for (const cotacao of cotacoesFinalizadas) {
+              // Verificar se já existe snapshot deste documento nesta cotação
+              const { data: snapshotExistente } = await supabase
+                .from("documentos_processo_finalizado")
+                .select("id")
+                .eq("cotacao_id", cotacao.id)
+                .eq("fornecedor_id", fornecedorId)
+                .eq("tipo_documento", tipoDocumentoAtualizar)
+                .limit(1);
+              
+              if (!snapshotExistente || snapshotExistente.length === 0) {
+                // Criar snapshot do documento antigo
+                const { error: snapshotError } = await supabase
+                  .from("documentos_processo_finalizado")
+                  .insert({
+                    cotacao_id: cotacao.id,
+                    fornecedor_id: fornecedorId,
+                    tipo_documento: tipoDocumentoAtualizar,
+                    nome_arquivo: docAntigoData.nome_arquivo,
+                    url_arquivo: docAntigoData.url_arquivo,
+                    data_emissao: docAntigoData.data_emissao,
+                    data_validade: docAntigoData.data_validade,
+                    em_vigor: docAntigoData.em_vigor,
+                    data_snapshot: new Date().toISOString(),
+                    hash_arquivo: hashArquivo,
+                  });
+                
+                if (snapshotError) {
+                  console.error(`❌ Erro ao criar snapshot para cotação ${cotacao.id}:`, snapshotError);
+                } else {
+                  console.log(`✅ Snapshot criado para cotação ${cotacao.titulo_cotacao}`);
+                }
+              } else {
+                console.log(`ℹ️ Snapshot já existe para cotação ${cotacao.titulo_cotacao}`);
+              }
+            }
+          }
+          
+          // Arquivo antigo NÃO é deletado - permanece para os snapshots
+          console.log(`📁 Arquivo antigo mantido no storage (snapshot criado)`);
         } else {
-          // Documento NÃO está em uso - pode deletar do storage
+          // Fornecedor NÃO está vinculado a processo - pode deletar do storage
           if (pathMatch) {
             const filePath = pathMatch[1];
             const { error: deleteError } = await supabase.storage
@@ -262,7 +325,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
             if (deleteError) {
               console.warn(`⚠️ Erro ao deletar arquivo antigo: ${deleteError.message}`);
             } else {
-              console.log(`🗑️ Arquivo antigo "${nomeArquivoAntigo}" deletado do storage (não estava em uso)`);
+              console.log(`🗑️ Arquivo antigo "${nomeArquivoAntigo}" deletado do storage (não vinculado a processo)`);
             }
           }
         }

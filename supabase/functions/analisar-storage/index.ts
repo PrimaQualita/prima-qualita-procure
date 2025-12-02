@@ -1651,8 +1651,21 @@ Deno.serve(async (req) => {
       
       // 3. Verificar se é documento finalizado pelo path (pasta documentos_finalizados/)
       if (pathSemBucket.startsWith('documentos_finalizados/')) {
-        // Documentos finalizados nunca são órfãos - são snapshots de processo
-        console.log(`✅ Arquivo "${fileName}" está em documentos_finalizados - não é órfão`);
+        // Documentos finalizados DEVEM ter referência em documentos_processo_finalizado
+        // Se não tiverem, são ÓRFÃOS (snapshots de processos que foram deletados/corrigidos)
+        if (pathsDB.has(arquivo)) {
+          console.log(`✅ Arquivo "${fileName}" em documentos_finalizados está referenciado no banco`);
+          continue;
+        }
+        // Verificar também por nome do arquivo (fallback)
+        if (nomeArquivoDB.has(fileName)) {
+          console.log(`✅ Arquivo "${fileName}" em documentos_finalizados encontrado por nome`);
+          continue;
+        }
+        // Se não está referenciado, é ÓRFÃO
+        console.log(`⚠️ ÓRFÃO: Arquivo "${fileName}" em documentos_finalizados mas NÃO está referenciado no banco`);
+        arquivosOrfaos.push({ path: arquivo, size: metadata.size });
+        tamanhoOrfaos += metadata.size;
         continue;
       }
       
