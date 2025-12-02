@@ -1620,15 +1620,16 @@ Deno.serve(async (req) => {
       }
       
       // Verificar se é documento de fornecedor pelo path (pasta fornecedor_xxx/)
+      // IMPORTANTE: Não basta o fornecedor existir - o arquivo ESPECÍFICO deve estar em documentos_fornecedor
       const fornecedorMatch = pathSemBucket.match(/^fornecedor_([a-f0-9-]+)\//);
       if (fornecedorMatch) {
-        // Se arquivo está na pasta de fornecedor, verificar se fornecedor existe
-        const fornecedorId = fornecedorMatch[1];
-        if (fornecedoresMap.has(fornecedorId)) {
-          // Fornecedor existe - provavelmente documento de cadastro válido
-          console.log(`✅ Arquivo "${fileName}" está na pasta do fornecedor "${fornecedoresMap.get(fornecedorId)}"`);
+        // Verificar se este arquivo específico está em docsCadastroAtivosMap
+        if (docsCadastroAtivosMap.has(pathSemBucket)) {
+          console.log(`✅ Arquivo "${fileName}" está referenciado em documentos_fornecedor (ativo)`);
           continue;
         }
+        // Se não está ativo, é ÓRFÃO - não fazer continue
+        console.log(`⚠️ Arquivo "${fileName}" em pasta fornecedor mas NÃO está em documentos_fornecedor - marcando como órfão`);
       }
       
       // Verificar se é documento finalizado pelo path (pasta documentos_finalizados/)
