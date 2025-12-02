@@ -9,6 +9,7 @@ import { DialogGrupoDetalhes } from "@/components/storage/DialogGrupoDetalhes";
 import { DialogArquivosOrfaos } from "@/components/storage/DialogArquivosOrfaos";
 import { DialogDocumentosSimples } from "@/components/storage/DialogDocumentosSimples";
 import { DialogHabilitacao } from "@/components/storage/DialogHabilitacao";
+import { DialogRecursos } from "@/components/storage/DialogRecursos";
 
 export default function GestaoStorage() {
   const [analisando, setAnalisando] = useState(false);
@@ -18,6 +19,7 @@ export default function GestaoStorage() {
   const [documentosGrupo, setDocumentosGrupo] = useState<{nome: string, documentos: any[]} | null>(null);
   const [dialogOrfaosAberto, setDialogOrfaosAberto] = useState(false);
   const [dialogHabilitacaoAberto, setDialogHabilitacaoAberto] = useState(false);
+  const [dialogRecursosAberto, setDialogRecursosAberto] = useState(false);
 
   const executarAnalise = async () => {
     setAnalisando(true);
@@ -331,15 +333,11 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-amber-700/70">Enviados e respostas</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.recursos?.porSelecao?.length > 0 && (
+                    {(resultado.estatisticasPorCategoria?.recursos?.porProcessoHierarquico?.length > 0 || resultado.estatisticasPorCategoria?.recursos?.porSelecao?.length > 0) && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Recursos',
-                          tipo: 'selecao',
-                          grupos: resultado.estatisticasPorCategoria.recursos.porSelecao
-                        })}
+                        onClick={() => setDialogRecursosAberto(true)}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -740,6 +738,12 @@ export default function GestaoStorage() {
         open={dialogHabilitacaoAberto}
         onOpenChange={setDialogHabilitacaoAberto}
         processos={resultado?.estatisticasPorCategoria?.habilitacao?.porProcesso || []}
+      />
+
+      <DialogRecursos
+        open={dialogRecursosAberto}
+        onOpenChange={setDialogRecursosAberto}
+        processos={resultado?.estatisticasPorCategoria?.recursos?.porProcessoHierarquico || []}
       />
     </div>
   );
