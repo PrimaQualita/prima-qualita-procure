@@ -3326,6 +3326,56 @@ export function DialogFinalizarProcesso({
             </DialogHeader>
             
             <div className="space-y-4 py-4">
+              {/* Seleção do tipo de decisão */}
+              <div className="space-y-2">
+                <Label className="font-medium">Tipo de Decisão</Label>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="tipo-decisao"
+                      checked={decisaoRecurso === 'provimento' && tipoProvimento === 'total'}
+                      onChange={() => {
+                        setDecisaoRecurso('provimento');
+                        setTipoProvimento('total');
+                        setItensParaReabilitar([]);
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm">✅ Dar Provimento Total</span>
+                  </label>
+                  {criterioJulgamento !== 'global' && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tipo-decisao"
+                        checked={decisaoRecurso === 'provimento' && tipoProvimento === 'parcial'}
+                        onChange={() => {
+                          setDecisaoRecurso('provimento');
+                          setTipoProvimento('parcial');
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">⚠️ Dar Provimento Parcial</span>
+                    </label>
+                  )}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="tipo-decisao"
+                      checked={decisaoRecurso === 'negado'}
+                      onChange={() => {
+                        setDecisaoRecurso('negado');
+                        setTipoProvimento('total');
+                        setItensParaReabilitar([]);
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm">❌ Negar Provimento</span>
+                  </label>
+                </div>
+              </div>
+
               {/* Seleção de itens para provimento parcial */}
               {tipoProvimento === 'parcial' && decisaoRecurso === 'provimento' && (
                 <div className="space-y-2 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200">
