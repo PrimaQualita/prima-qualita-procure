@@ -1326,9 +1326,9 @@ export function DialogFinalizarProcesso({
         return;
       }
 
-      // Aprovar todos os campos solicitados que estão em análise
+      // Aprovar todos os campos solicitados que não estão aprovados
       const camposParaAprovar = fornecedorData.campos.filter(c => 
-        c.status_solicitacao === "em_analise" || c.status_solicitacao === "enviado"
+        c.status_solicitacao !== "aprovado"
       );
 
       if (camposParaAprovar.length > 0) {
