@@ -1522,8 +1522,19 @@ Deno.serve(async (req) => {
     const arquivosOrfaos: Array<{ path: string; size: number }> = [];
     let tamanhoOrfaos = 0;
     for (const [arquivo, metadata] of arquivosStorage) {
+      const pathSemBucket = arquivo.replace(/^(processo-anexos|documents)\//, '');
+      
       // Primeiro verifica path completo
       if (pathsDB.has(arquivo)) {
+        continue;
+      }
+      
+      // Verifica se está nos mapeamentos já carregados do banco
+      // (documentos de processo finalizado, documentos de habilitação, etc.)
+      if (docsProcessoFinalizadoMap.has(pathSemBucket)) {
+        continue;
+      }
+      if (docsHabilitacaoMap.has(pathSemBucket)) {
         continue;
       }
       
@@ -1531,6 +1542,25 @@ Deno.serve(async (req) => {
       const fileName = arquivo.split('/').pop() || arquivo;
       if (nomeArquivoDB.has(fileName)) {
         console.log(`✅ Arquivo "${fileName}" encontrado no DB (fallback por nome)`);
+        continue;
+      }
+      
+      // Verificar se é documento de fornecedor pelo path (pasta fornecedor_xxx/)
+      const fornecedorMatch = pathSemBucket.match(/^fornecedor_([a-f0-9-]+)\//);
+      if (fornecedorMatch) {
+        // Se arquivo está na pasta de fornecedor, verificar se fornecedor existe
+        const fornecedorId = fornecedorMatch[1];
+        if (fornecedoresMap.has(fornecedorId)) {
+          // Fornecedor existe - provavelmente documento de cadastro válido
+          console.log(`✅ Arquivo "${fileName}" está na pasta do fornecedor "${fornecedoresMap.get(fornecedorId)}"`);
+          continue;
+        }
+      }
+      
+      // Verificar se é documento finalizado pelo path (pasta documentos_finalizados/)
+      if (pathSemBucket.startsWith('documentos_finalizados/')) {
+        // Documentos finalizados nunca são órfãos - são snapshots de processo
+        console.log(`✅ Arquivo "${fileName}" está em documentos_finalizados - não é órfão`);
         continue;
       }
       

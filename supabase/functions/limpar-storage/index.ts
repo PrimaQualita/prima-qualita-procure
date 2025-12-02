@@ -28,6 +28,9 @@ Deno.serve(async (req) => {
       console.log(`📋 Processando ${limite} de ${refPaths.length} referências...`);
       
       // Lista de tabelas e colunas para verificar
+      // CRÍTICO: NÃO incluir documentos_fornecedor nem documentos_processo_finalizado
+      // pois são documentos de cadastro que só devem ser deletados quando atualizados pelo fornecedor
+      // e snapshots de processo que nunca devem ser deletados automaticamente
       const queries = [
         { tabela: 'anexos_processo_compra', coluna: 'url_arquivo' },
         { tabela: 'analises_compliance', coluna: 'url_documento' },
@@ -47,9 +50,9 @@ Deno.serve(async (req) => {
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
         { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
-        { tabela: 'documentos_fornecedor', coluna: 'url_arquivo' },
-        { tabela: 'documentos_processo_finalizado', coluna: 'url_arquivo' },
         { tabela: 'respostas_recursos', coluna: 'url_documento' },
+        // REMOVIDOS: documentos_fornecedor e documentos_processo_finalizado
+        // Estes NUNCA devem ser deletados automaticamente pela limpeza de órfãos
       ];
 
       for (let i = 0; i < limite; i++) {
