@@ -341,6 +341,18 @@ Deno.serve(async (req) => {
       if (normalizedPath) {
         pathsDB.add(normalizedPath);
         urlsOriginais.set(normalizedPath, url);
+        
+        // Também adicionar versão decodificada para comparação com storage
+        try {
+          const decodedPath = decodeURIComponent(normalizedPath);
+          if (decodedPath !== normalizedPath) {
+            pathsDB.add(decodedPath);
+            urlsOriginais.set(decodedPath, url);
+          }
+        } catch (e) {
+          // Ignorar erros de decodificação
+        }
+        
         console.log(`  🔗 DB: "${normalizedPath}" <- "${url}"`);
         
         // Se o path tem subpastas, também adicionar o nome do arquivo sozinho
@@ -348,6 +360,15 @@ Deno.serve(async (req) => {
         if (parts.length > 2) {
           const fileName = parts[parts.length - 1];
           nomeArquivoDB.add(fileName);
+          // Também adicionar versão decodificada do nome
+          try {
+            const decodedFileName = decodeURIComponent(fileName);
+            if (decodedFileName !== fileName) {
+              nomeArquivoDB.add(decodedFileName);
+            }
+          } catch (e) {
+            // Ignorar
+          }
         }
       }
     }
@@ -1614,7 +1635,23 @@ Deno.serve(async (req) => {
 
     const referenciasOrfas: string[] = [];
     for (const path of pathsDB) {
-      if (!arquivosStorage.has(path)) {
+      // Decodificar URL para comparar com arquivos do storage (que vêm decodificados)
+      let pathDecoded = path;
+      try {
+        pathDecoded = decodeURIComponent(path);
+      } catch (e) {
+        // Fallback se já estiver decodificado ou inválido
+        pathDecoded = path;
+      }
+      
+      // Verificar tanto path original quanto decodificado
+      if (!arquivosStorage.has(path) && !arquivosStorage.has(pathDecoded)) {
+        // Verificar se é documento_finalizado - esses não devem ser reportados como órfãos de referência
+        const pathSemBucket = path.replace(/^(processo-anexos|documents)\//, '');
+        if (pathSemBucket.startsWith('documentos_finalizados/')) {
+          console.log(`⚠️ Referência de documentos_finalizados não encontrada no storage: ${path}`);
+          continue; // Não reportar como órfão, pode ser problema de sync
+        }
         referenciasOrfas.push(path);
       }
     }
