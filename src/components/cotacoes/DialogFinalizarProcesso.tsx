@@ -3528,6 +3528,24 @@ export function DialogFinalizarProcesso({
                   }
 
                   setLoading(true);
+                  
+                  // Variáveis para controle de limpeza em caso de erro
+                  let pdfResultForCleanup: { url: string; fileName: string; protocolo: string; storagePath: string } | null = null;
+                  let dbUpdateSuccess = false;
+                  
+                  // Função auxiliar para extrair path limpo do storage
+                  const extractStoragePath = (url: string): string | null => {
+                    if (!url) return null;
+                    let path = url;
+                    path = path.split('?')[0];
+                    if (path.includes('/processo-anexos/')) {
+                      path = path.split('/processo-anexos/')[1];
+                    } else if (path.includes('processo-anexos/')) {
+                      path = path.split('processo-anexos/')[1];
+                    }
+                    return path || null;
+                  };
+                  
                   try {
                     const { data: { user } } = await supabase.auth.getUser();
                     if (!user) throw new Error("Usuário não autenticado");
@@ -3576,21 +3594,9 @@ export function DialogFinalizarProcesso({
                       fornecedorNome,
                       numeroProcesso
                     );
-
-                    // Função auxiliar para extrair path limpo do storage
-                    const extractStoragePath = (url: string): string | null => {
-                      if (!url) return null;
-                      let path = url;
-                      // Remover query strings primeiro
-                      path = path.split('?')[0];
-                      // Extrair path após processo-anexos/
-                      if (path.includes('/processo-anexos/')) {
-                        path = path.split('/processo-anexos/')[1];
-                      } else if (path.includes('processo-anexos/')) {
-                        path = path.split('processo-anexos/')[1];
-                      }
-                      return path || null;
-                    };
+                    
+                    // Guardar para limpeza em caso de erro
+                    pdfResultForCleanup = pdfResult;
 
                     // Guardar URL antiga para deletar DEPOIS do UPDATE bem sucedido
                     let oldFilePathToDelete: string | null = null;
@@ -3621,15 +3627,11 @@ export function DialogFinalizarProcesso({
 
                       if (updateError) {
                         console.error('[Recurso] Erro no UPDATE:', updateError);
-                        // Deletar arquivo novo para não ficar órfão
-                        const newFilePath = extractStoragePath(pdfResult.url);
-                        if (newFilePath) {
-                          console.log('[Recurso] Deletando arquivo novo após erro:', newFilePath);
-                          await supabase.storage.from('processo-anexos').remove([newFilePath]);
-                        }
                         throw updateError;
                       }
                       
+                      // UPDATE bem sucedido - marcar flag
+                      dbUpdateSuccess = true;
                       console.log('[Recurso] UPDATE bem sucedido:', updateData);
                       
                       // Extrair path do novo arquivo
@@ -3667,13 +3669,11 @@ export function DialogFinalizarProcesso({
 
                       if (insertError) {
                         console.error('[Recurso] Erro no INSERT:', insertError);
-                        // Deletar arquivo novo para não ficar órfão, mas erro ainda propaga
-                        const newFilePath = pdfResult.url.split('/processo-anexos/')[1];
-                        if (newFilePath) {
-                          await supabase.storage.from('processo-anexos').remove([newFilePath]);
-                        }
-                        throw insertError; // Usuário vê o erro e pode tentar novamente
+                        throw insertError;
                       }
+                      
+                      // INSERT bem sucedido - marcar flag
+                      dbUpdateSuccess = true;
                     }
 
                     // Atualizar itens_afetados na rejeição de acordo com a nova decisão
@@ -3750,37 +3750,37 @@ export function DialogFinalizarProcesso({
                             .from('fornecedores_rejeitados_cotacao')
                             .update({ 
                               itens_afetados: itensAindaRejeitados,
-                              revertido: false
+                              motivo_reversao: `Provimento parcial: reabilitados itens ${itensParaReabilitar.join(', ')}`,
+                              data_reversao: new Date().toISOString(),
+                              usuario_reverteu_id: user.id
                             })
                             .eq('id', recurso.rejeicao_id);
                         }
                       }
-                    } else {
-                      // Negado: garantir que rejeição permanece ativa
-                      await supabase
-                        .from('fornecedores_rejeitados_cotacao')
-                        .update({ 
-                          revertido: false
-                        })
-                        .eq('id', recurso.rejeicao_id);
                     }
 
-                    const mensagem = tipoProvimento === 'parcial' 
-                      ? `Provimento parcial concedido! Itens reabilitados: ${itensParaReabilitar.join(', ')}`
-                      : "Resposta de recurso gerada com sucesso!";
-                    toast.success(mensagem);
+                    toast.success('Resposta de recurso registrada com sucesso!');
                     setDialogRespostaRecursoOpen(false);
                     setRecursoSelecionado(null);
                     setDecisaoRecurso(null);
-                    setTextoRespostaRecurso("");
+                    setTextoRespostaRecurso('');
                     setTipoProvimento('total');
                     setItensParaReabilitar([]);
-                    setRejeicaoDoRecurso(null);
                     await loadRecursos();
                     await loadAllFornecedores();
                     await loadFornecedoresRejeitados();
                   } catch (error) {
                     console.error('Erro ao gerar resposta:', error);
+                    
+                    // Se o arquivo foi criado mas o banco NÃO foi atualizado, deletar arquivo órfão
+                    if (pdfResultForCleanup && !dbUpdateSuccess) {
+                      const orphanPath = extractStoragePath(pdfResultForCleanup.url);
+                      if (orphanPath) {
+                        console.log('[Recurso] Deletando arquivo órfão após erro:', orphanPath);
+                        await supabase.storage.from('processo-anexos').remove([orphanPath]);
+                      }
+                    }
+                    
                     toast.error('Erro ao gerar resposta de recurso');
                   } finally {
                     setLoading(false);
