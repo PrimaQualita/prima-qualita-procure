@@ -189,14 +189,30 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Documentos de fornecedor
-    const { data: docsFornecedor } = await supabase.from('documentos_fornecedor').select('url_arquivo, nome_arquivo');
+    // Documentos de fornecedor (todos para nomes bonitos)
+    const { data: docsFornecedor } = await supabase.from('documentos_fornecedor').select('url_arquivo, nome_arquivo, em_vigor, fornecedor_id, tipo_documento');
+    // Mapa de documentos de cadastro ATIVOS (em_vigor = true) - usado para categorização
+    const docsCadastroAtivosMap = new Map<string, { 
+      fornecedorId: string; 
+      nomeArquivo: string; 
+      tipoDocumento: string;
+    }>();
     if (docsFornecedor) {
       for (const doc of docsFornecedor) {
         const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
         nomesBonitos.set(path, doc.nome_arquivo);
+        
+        // Adicionar ao mapa de cadastro ativo apenas se em_vigor = true
+        if (doc.em_vigor === true) {
+          docsCadastroAtivosMap.set(path, {
+            fornecedorId: doc.fornecedor_id,
+            nomeArquivo: doc.nome_arquivo,
+            tipoDocumento: doc.tipo_documento
+          });
+        }
       }
     }
+    console.log(`📋 Documentos de cadastro ATIVOS mapeados: ${docsCadastroAtivosMap.size}`);
 
     // Documentos de habilitação (finalizacao)
     const { data: docsHabilitacao } = await supabase.from('documentos_finalizacao_fornecedor').select('url_arquivo, nome_arquivo');
@@ -745,13 +761,42 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.processos_anexos_outros.arquivos++;
         estatisticasPorCategoria.processos_anexos_outros.tamanho += metadata.size;
         estatisticasPorCategoria.processos_anexos_outros.detalhes.push({ path, fileName, size: metadata.size });
-      } else if (docsHabilitacaoMap.has(pathSemBucket) || pathSemBucket.startsWith('habilitacao/')) {
-        // Documentos de habilitação (documentos adicionais solicitados em compra direta ou seleção)
+      }
+      
+      // === VERIFICAÇÕES INDEPENDENTES (um arquivo pode aparecer em múltiplas categorias) ===
+      
+      // 1. Verificar se é documento de cadastro ATIVO (em_vigor=true em documentos_fornecedor)
+      const docCadastroAtivo = docsCadastroAtivosMap.get(pathSemBucket);
+      if (docCadastroAtivo && !tipoAnexo) {
+        estatisticasPorCategoria.documentos_fornecedores.arquivos++;
+        estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
+        estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
+        console.log(`📁 Documento de cadastro ATIVO: ${fileName}`);
+        
+        const fornecedorId = docCadastroAtivo.fornecedorId;
+        const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+        
+        if (!estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.has(fornecedorId)) {
+          estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.set(fornecedorId, {
+            fornecedorId,
+            fornecedorNome,
+            documentos: []
+          });
+        }
+        
+        estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.get(fornecedorId)!.documentos.push({
+          path,
+          fileName: docCadastroAtivo.nomeArquivo || fileName,
+          size: metadata.size
+        });
+      }
+      
+      // 2. Verificar se é documento de habilitação (documentos adicionais solicitados)
+      if ((docsHabilitacaoMap.has(pathSemBucket) || pathSemBucket.startsWith('habilitacao/')) && !tipoAnexo) {
         const docHabilitacao = docsHabilitacaoMap.get(pathSemBucket);
         estatisticasPorCategoria.habilitacao.arquivos++;
         estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
         estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
-        console.log(`Arquivo categorizado como habilitação: ${fileName} (${path})`);
         
         if (docHabilitacao) {
           const fornecedorId = docHabilitacao.fornecedorId;
@@ -759,9 +804,7 @@ Deno.serve(async (req) => {
           let processoId: string | null = null;
           let processo: { numero: string; objeto: string; credenciamento: boolean } | undefined;
           
-          // Identificar o processo (tanto para seleção quanto para cotação)
           if (docHabilitacao.selecaoId) {
-            // Buscar processo da seleção
             const { data: selecaoData } = await supabase
               .from('selecoes_fornecedores')
               .select('processo_compra_id')
@@ -779,7 +822,6 @@ Deno.serve(async (req) => {
             }
           }
           
-          // Adicionar na estrutura hierárquica: Processo → Fornecedor → Documentos
           if (processoId && processo) {
             if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
               estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
@@ -807,13 +849,14 @@ Deno.serve(async (req) => {
             });
           }
         }
-      } else if (docsProcessoFinalizadoMap.has(pathSemBucket) || pathSemBucket.startsWith('documentos_finalizados/')) {
-        // Documentos de processo finalizado (snapshot de documentos de cadastro)
+      }
+      
+      // 3. Verificar se é documento de processo finalizado (snapshot de cadastro para habilitação)
+      if ((docsProcessoFinalizadoMap.has(pathSemBucket) || pathSemBucket.startsWith('documentos_finalizados/')) && !tipoAnexo) {
         const docProcessoFinalizado = docsProcessoFinalizadoMap.get(pathSemBucket);
         estatisticasPorCategoria.habilitacao.arquivos++;
         estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
         estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
-        console.log(`Arquivo categorizado como habilitação (processo finalizado): ${fileName} (${path})`);
         
         if (docProcessoFinalizado) {
           const fornecedorId = docProcessoFinalizado.fornecedorId;
@@ -821,7 +864,6 @@ Deno.serve(async (req) => {
           const processoId = docProcessoFinalizado.processoId;
           const processo = processoId ? processosMap.get(processoId) : undefined;
           
-          // Adicionar na estrutura hierárquica: Processo → Fornecedor → Documentos
           if (processoId && processo) {
             if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
               estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
@@ -849,13 +891,15 @@ Deno.serve(async (req) => {
             });
           }
         }
-      } else if (pathSemBucket.startsWith('fornecedor_') && !pathSemBucket.includes('selecao')) {
-        // Documentos de cadastro de fornecedores (CNDs, CNPJ, relatórios KPMG, etc.)
+      }
+      
+      // 4. Fallback: pasta fornecedor_ não coberta (documentos antigos ou não ativos)
+      if (!docCadastroAtivo && !docsHabilitacaoMap.has(pathSemBucket) && !docsProcessoFinalizadoMap.has(pathSemBucket) && 
+          pathSemBucket.startsWith('fornecedor_') && !pathSemBucket.includes('selecao') && !tipoAnexo) {
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
         estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
         estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
         
-        // Agrupar por fornecedor
         const fornecedorIdMatch = pathSemBucket.match(/^fornecedor_([a-f0-9-]+)\//);
         if (fornecedorIdMatch) {
           const fornecedorId = fornecedorIdMatch[1];
@@ -875,124 +919,123 @@ Deno.serve(async (req) => {
             size: metadata.size
           });
         }
-      } else if (pathSemBucket.startsWith('avaliacao_')) {
-        // Documentos de avaliação (relatórios KPMG)
-        estatisticasPorCategoria.documentos_fornecedores.arquivos++;
-        estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
-        estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
-        
-        // Mapear avaliacao_id para fornecedor_id
-        const avaliacaoIdMatch = pathSemBucket.match(/^avaliacao_([a-f0-9-]+)\//);
-        if (avaliacaoIdMatch) {
-          const avaliacaoId = avaliacaoIdMatch[1];
-          const fornecedorId = avaliacoesMap.get(avaliacaoId);
+      }
+      
+      // 5. Documentos de avaliação (relatórios KPMG)
+      if (pathSemBucket.startsWith('avaliacao_') && !tipoAnexo) {
+          // Documentos de avaliação (relatórios KPMG)
+          estatisticasPorCategoria.documentos_fornecedores.arquivos++;
+          estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
+          estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
           
-          if (fornecedorId) {
-            const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+          const avaliacaoIdMatch = pathSemBucket.match(/^avaliacao_([a-f0-9-]+)\//);
+          if (avaliacaoIdMatch) {
+            const avaliacaoId = avaliacaoIdMatch[1];
+            const fornecedorId = avaliacoesMap.get(avaliacaoId);
             
-            if (!estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.has(fornecedorId)) {
-              estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.set(fornecedorId, {
-                fornecedorId,
-                fornecedorNome,
-                documentos: []
+            if (fornecedorId) {
+              const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+              
+              if (!estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.has(fornecedorId)) {
+                estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.set(fornecedorId, {
+                  fornecedorId,
+                  fornecedorNome,
+                  documentos: []
+                });
+              }
+              
+              estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.get(fornecedorId)!.documentos.push({
+                path,
+                fileName,
+                size: metadata.size
               });
             }
-            
-            estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.get(fornecedorId)!.documentos.push({
-              path,
-              fileName,
-              size: metadata.size
-            });
           }
-        }
-      } else if (pathSemBucket.startsWith('fornecedor_') && pathSemBucket.includes('selecao')) {
-        // Propostas de fornecedores em seleções
-        estatisticasPorCategoria.propostas_selecao.arquivos++;
-        estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
-        estatisticasPorCategoria.propostas_selecao.detalhes.push({ path, fileName, size: metadata.size });
-        
-        // Agrupar por seleção - extrair ID da seleção do path
-        const selecaoIdMatch = pathSemBucket.match(/selecao_([a-f0-9-]+)/);
-        if (selecaoIdMatch) {
-          const selecaoId = selecaoIdMatch[1];
-          const selecao = selecoesMap.get(selecaoId);
+        } else if (!categorizadoCadastro && !categorizadoHabilitacao && pathSemBucket.startsWith('fornecedor_') && pathSemBucket.includes('selecao')) {
+          // Propostas de fornecedores em seleções
+          estatisticasPorCategoria.propostas_selecao.arquivos++;
+          estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
+          estatisticasPorCategoria.propostas_selecao.detalhes.push({ path, fileName, size: metadata.size });
           
-          if (selecao) {
-            if (!estatisticasPorCategoria.propostas_selecao.porSelecao!.has(selecaoId)) {
-              estatisticasPorCategoria.propostas_selecao.porSelecao!.set(selecaoId, {
-                selecaoId,
-                selecaoTitulo: selecao.titulo,
-                selecaoNumero: selecao.numero,
-                documentos: []
+          const selecaoIdMatch = pathSemBucket.match(/selecao_([a-f0-9-]+)/);
+          if (selecaoIdMatch) {
+            const selecaoId = selecaoIdMatch[1];
+            const selecao = selecoesMap.get(selecaoId);
+            
+            if (selecao) {
+              if (!estatisticasPorCategoria.propostas_selecao.porSelecao!.has(selecaoId)) {
+                estatisticasPorCategoria.propostas_selecao.porSelecao!.set(selecaoId, {
+                  selecaoId,
+                  selecaoTitulo: selecao.titulo,
+                  selecaoNumero: selecao.numero,
+                  documentos: []
+                });
+              }
+              
+              estatisticasPorCategoria.propostas_selecao.porSelecao!.get(selecaoId)!.documentos.push({
+                path,
+                fileName,
+                size: metadata.size
               });
             }
-            
-            estatisticasPorCategoria.propostas_selecao.porSelecao!.get(selecaoId)!.documentos.push({
-              path,
-              fileName,
-              size: metadata.size
-            });
           }
-        }
-      } else if (pathSemBucket.startsWith('selecoes/')) {
-        // Anexos de seleção (avisos, editais)
-        estatisticasPorCategoria.anexos_selecao.arquivos++;
-        estatisticasPorCategoria.anexos_selecao.tamanho += metadata.size;
-        estatisticasPorCategoria.anexos_selecao.detalhes.push({ path, fileName, size: metadata.size });
-        
-        // Agrupar por seleção - extrair ID da seleção do path
-        const selecaoIdMatch = pathSemBucket.match(/selecoes\/([a-f0-9-]+)/);
-        if (selecaoIdMatch) {
-          const selecaoId = selecaoIdMatch[1];
-          const selecao = selecoesMap.get(selecaoId);
+        } else if (!categorizadoCadastro && !categorizadoHabilitacao && pathSemBucket.startsWith('selecoes/')) {
+          // Anexos de seleção (avisos, editais)
+          estatisticasPorCategoria.anexos_selecao.arquivos++;
+          estatisticasPorCategoria.anexos_selecao.tamanho += metadata.size;
+          estatisticasPorCategoria.anexos_selecao.detalhes.push({ path, fileName, size: metadata.size });
           
-          if (selecao) {
-            if (!estatisticasPorCategoria.anexos_selecao.porSelecao!.has(selecaoId)) {
-              estatisticasPorCategoria.anexos_selecao.porSelecao!.set(selecaoId, {
-                selecaoId,
-                selecaoTitulo: selecao.titulo,
-                selecaoNumero: selecao.numero,
-                documentos: []
+          const selecaoIdMatch = pathSemBucket.match(/selecoes\/([a-f0-9-]+)/);
+          if (selecaoIdMatch) {
+            const selecaoId = selecaoIdMatch[1];
+            const selecao = selecoesMap.get(selecaoId);
+            
+            if (selecao) {
+              if (!estatisticasPorCategoria.anexos_selecao.porSelecao!.has(selecaoId)) {
+                estatisticasPorCategoria.anexos_selecao.porSelecao!.set(selecaoId, {
+                  selecaoId,
+                  selecaoTitulo: selecao.titulo,
+                  selecaoNumero: selecao.numero,
+                  documentos: []
+                });
+              }
+              
+              estatisticasPorCategoria.anexos_selecao.porSelecao!.get(selecaoId)!.documentos.push({
+                path,
+                fileName,
+                size: metadata.size
               });
             }
-            
-            estatisticasPorCategoria.anexos_selecao.porSelecao!.get(selecaoId)!.documentos.push({
-              path,
-              fileName,
-              size: metadata.size
-            });
           }
-        }
-      } else if (pathSemBucket.startsWith('selecao_') && pathSemBucket.includes('planilha')) {
-        // Planilhas de lances
-        estatisticasPorCategoria.planilhas_lances.arquivos++;
-        estatisticasPorCategoria.planilhas_lances.tamanho += metadata.size;
-        estatisticasPorCategoria.planilhas_lances.detalhes.push({ path, fileName, size: metadata.size });
-        
-        // Agrupar por seleção - extrair ID da seleção do path
-        const selecaoIdMatch = pathSemBucket.match(/selecao_([a-f0-9-]+)/);
-        if (selecaoIdMatch) {
-          const selecaoId = selecaoIdMatch[1];
-          const selecao = selecoesMap.get(selecaoId);
+        } else if (!categorizadoCadastro && !categorizadoHabilitacao && pathSemBucket.startsWith('selecao_') && pathSemBucket.includes('planilha')) {
+          // Planilhas de lances
+          estatisticasPorCategoria.planilhas_lances.arquivos++;
+          estatisticasPorCategoria.planilhas_lances.tamanho += metadata.size;
+          estatisticasPorCategoria.planilhas_lances.detalhes.push({ path, fileName, size: metadata.size });
           
-          if (selecao) {
-            if (!estatisticasPorCategoria.planilhas_lances.porSelecao!.has(selecaoId)) {
-              estatisticasPorCategoria.planilhas_lances.porSelecao!.set(selecaoId, {
-                selecaoId,
-                selecaoTitulo: selecao.titulo,
-                selecaoNumero: selecao.numero,
-                documentos: []
+          const selecaoIdMatch = pathSemBucket.match(/selecao_([a-f0-9-]+)/);
+          if (selecaoIdMatch) {
+            const selecaoId = selecaoIdMatch[1];
+            const selecao = selecoesMap.get(selecaoId);
+            
+            if (selecao) {
+              if (!estatisticasPorCategoria.planilhas_lances.porSelecao!.has(selecaoId)) {
+                estatisticasPorCategoria.planilhas_lances.porSelecao!.set(selecaoId, {
+                  selecaoId,
+                  selecaoTitulo: selecao.titulo,
+                  selecaoNumero: selecao.numero,
+                  documentos: []
+                });
+              }
+              
+              estatisticasPorCategoria.planilhas_lances.porSelecao!.get(selecaoId)!.documentos.push({
+                path,
+                fileName,
+                size: metadata.size
               });
             }
-            
-            estatisticasPorCategoria.planilhas_lances.porSelecao!.get(selecaoId)!.documentos.push({
-              path,
-              fileName,
-              size: metadata.size
-            });
           }
-        }
-      } else if (pathSemBucket.startsWith('recursos/')) {
+        } else if (!categorizadoCadastro && !categorizadoHabilitacao && pathSemBucket.startsWith('recursos/')) {
         // Recursos e respostas - só contabilizar se arquivo existe no DB
         const isOrfao = !pathsDB.has(path) && !nomeArquivoDB.has(fileName);
         if (!isOrfao) {
