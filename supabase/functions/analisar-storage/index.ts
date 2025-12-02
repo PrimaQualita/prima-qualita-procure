@@ -1321,83 +1321,24 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
-    // INCLUIR DOCUMENTOS DE CADASTRO DOS FORNECEDORES VENCEDORES NA HABILITAÇÃO
+    // INCLUIR DOCUMENTOS DE CADASTRO DOS FORNECEDORES NA HABILITAÇÃO
+    // (para todos que já têm documentos de finalização/habilitação)
     // ============================================
-    console.log('📄 Buscando documentos de cadastro dos fornecedores vencedores...');
+    console.log('📄 Buscando documentos de cadastro dos fornecedores na habilitação...');
 
-    // 1. Buscar fornecedores vencedores de compra direta (cotações finalizadas)
-    const { data: cotacoesVencedoras } = await supabase
-      .from('cotacoes_precos')
-      .select(`
-        id,
-        processo_compra_id,
-        fornecedor_vencedor_id,
-        processos_compras!inner(
-          id,
-          numero_processo_interno,
-          objeto_resumido,
-          credenciamento
-        )
-      `)
-      .not('fornecedor_vencedor_id', 'is', null);
-
-    // 2. Buscar fornecedores vencedores de seleções (lances vencedores)
-    const { data: lancesVencedores } = await supabase
-      .from('lances_fornecedores')
-      .select(`
-        fornecedor_id,
-        selecao_id,
-        selecoes_fornecedores!inner(
-          processo_compra_id,
-          processos_compras!inner(
-            id,
-            numero_processo_interno,
-            objeto_resumido,
-            credenciamento
-          )
-        )
-      `)
-      .eq('indicativo_lance_vencedor', true);
-
-    // 3. Criar mapa de fornecedores vencedores por processo
-    const vencedoresPorProcesso = new Map<string, Set<string>>();
-
-    if (cotacoesVencedoras) {
-      for (const cot of cotacoesVencedoras) {
-        const processoId = cot.processo_compra_id;
-        const fornecedorId = cot.fornecedor_vencedor_id;
-        if (processoId && fornecedorId) {
-          if (!vencedoresPorProcesso.has(processoId)) {
-            vencedoresPorProcesso.set(processoId, new Set());
-          }
-          vencedoresPorProcesso.get(processoId)!.add(fornecedorId);
-        }
+    // Coletar todos os fornecedores que já estão na estrutura de habilitação
+    const fornecedoresHabilitacao = new Set<string>();
+    for (const [processoId, processoData] of estatisticasPorCategoria.habilitacao.porProcessoHierarquico) {
+      for (const [fornecedorId] of processoData.fornecedores) {
+        fornecedoresHabilitacao.add(fornecedorId);
       }
     }
 
-    if (lancesVencedores) {
-      for (const lance of lancesVencedores) {
-        const processoId = (lance as any).selecoes_fornecedores?.processo_compra_id;
-        const fornecedorId = lance.fornecedor_id;
-        if (processoId && fornecedorId) {
-          if (!vencedoresPorProcesso.has(processoId)) {
-            vencedoresPorProcesso.set(processoId, new Set());
-          }
-          vencedoresPorProcesso.get(processoId)!.add(fornecedorId);
-        }
-      }
-    }
+    console.log(`📊 Encontrados ${fornecedoresHabilitacao.size} fornecedores na habilitação`);
 
-    console.log(`📊 Encontrados ${vencedoresPorProcesso.size} processos com fornecedores vencedores`);
-
-    // 4. Para cada processo com vencedores, buscar documentos de cadastro
-    for (const [processoId, fornecedoresIds] of vencedoresPorProcesso) {
-      const processo = processosMap.get(processoId);
-      if (!processo) continue;
-
-      // Buscar dados dos fornecedores
-      const fornecedoresArray = Array.from(fornecedoresIds);
-      const { data: docsVencedores } = await supabase
+    if (fornecedoresHabilitacao.size > 0) {
+      // Buscar documentos de cadastro de todos esses fornecedores
+      const { data: docsCadastro } = await supabase
         .from('documentos_fornecedor')
         .select(`
           id,
@@ -1407,59 +1348,43 @@ Deno.serve(async (req) => {
           url_arquivo,
           fornecedores!inner(razao_social)
         `)
-        .in('fornecedor_id', fornecedoresArray);
+        .in('fornecedor_id', Array.from(fornecedoresHabilitacao));
 
-      if (!docsVencedores || docsVencedores.length === 0) continue;
+      console.log(`📋 Encontrados ${docsCadastro?.length || 0} documentos de cadastro`);
 
-      // Inicializar processo na estrutura de habilitação se não existir
-      if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
-        estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
-          processoId,
-          processoNumero: processo.numero,
-          processoObjeto: processo.objeto,
-          credenciamento: processo.credenciamento,
-          fornecedores: new Map()
-        });
-      }
+      if (docsCadastro && docsCadastro.length > 0) {
+        // Para cada documento de cadastro, adicionar ao processo/fornecedor correspondente
+        for (const doc of docsCadastro) {
+          const fornecedorId = doc.fornecedor_id;
+          const fornecedorNome = (doc as any).fornecedores?.razao_social || 'Desconhecido';
 
-      const processoHab = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
+          // Encontrar em qual processo esse fornecedor está
+          for (const [processoId, processoData] of estatisticasPorCategoria.habilitacao.porProcessoHierarquico) {
+            if (processoData.fornecedores.has(fornecedorId)) {
+              // Extrair path do arquivo
+              let path = doc.url_arquivo;
+              if (path.includes('processo-anexos/')) {
+                path = path.split('processo-anexos/')[1].split('?')[0];
+              } else if (path.includes('/')) {
+                path = path.split('/').pop()?.split('?')[0] || path;
+              }
 
-      // Agrupar documentos por fornecedor
-      for (const doc of docsVencedores) {
-        const fornecedorId = doc.fornecedor_id;
-        const fornecedorNome = (doc as any).fornecedores?.razao_social || 'Desconhecido';
-
-        // Inicializar fornecedor se não existir
-        if (!processoHab.fornecedores.has(fornecedorId)) {
-          processoHab.fornecedores.set(fornecedorId, {
-            fornecedorId,
-            fornecedorNome,
-            documentos: []
-          });
-        }
-
-        // Extrair path do arquivo
-        let path = doc.url_arquivo;
-        if (path.includes('processo-anexos/')) {
-          path = path.split('processo-anexos/')[1].split('?')[0];
-        } else if (path.includes('/')) {
-          path = path.split('/').pop()?.split('?')[0] || path;
-        }
-
-        // Adicionar documento (se não for duplicado)
-        const fornecedorDocs = processoHab.fornecedores.get(fornecedorId)!;
-        const jaExiste = fornecedorDocs.documentos.some(d => d.fileName === doc.nome_arquivo);
-        
-        if (!jaExiste) {
-          fornecedorDocs.documentos.push({
-            path: `processo-anexos/${path}`,
-            fileName: doc.nome_arquivo,
-            size: 0
-          });
+              // Adicionar documento (se não for duplicado)
+              const fornecedorDocs = processoData.fornecedores.get(fornecedorId)!;
+              const jaExiste = fornecedorDocs.documentos.some(d => d.fileName === doc.nome_arquivo);
+              
+              if (!jaExiste) {
+                fornecedorDocs.documentos.push({
+                  path: `processo-anexos/${path}`,
+                  fileName: doc.nome_arquivo,
+                  size: 0
+                });
+                console.log(`  ✅ Adicionado ${doc.nome_arquivo} para ${fornecedorNome}`);
+              }
+            }
+          }
         }
       }
-
-      console.log(`✅ Adicionados documentos de cadastro para processo ${processo.numero}`);
     }
 
     const resultado = {
