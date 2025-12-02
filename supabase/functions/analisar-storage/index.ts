@@ -610,6 +610,7 @@ Deno.serve(async (req) => {
       cotacoes: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       relatorios_finais: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       autorizacoes_compra_direta: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      processos_finalizados: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       habilitacao: {
         arquivos: 0, 
         tamanho: 0, 
@@ -783,6 +784,52 @@ Deno.serve(async (req) => {
             });
           }
         }
+      } else if (tipoAnexo === 'PROCESSO_COMPLETO') {
+        // Processos Finalizados (PDFs mesclados de compra direta e seleção)
+        estatisticasPorCategoria.processos_finalizados.arquivos++;
+        estatisticasPorCategoria.processos_finalizados.tamanho += metadata.size;
+        
+        // Buscar processo_id do banco via anexos_processo_compra
+        const { data: anexoProcessoCompleto } = await supabase
+          .from('anexos_processo_compra')
+          .select('processo_compra_id')
+          .eq('url_arquivo', pathSemBucket)
+          .single();
+        
+        let processoNumeroDisplay = '';
+        if (anexoProcessoCompleto) {
+          const processoId = anexoProcessoCompleto.processo_compra_id;
+          const processo = processosMap.get(processoId);
+          processoNumeroDisplay = processo?.numero || processoId.substring(0, 8);
+          
+          // Nome amigável: "Processo {numero}"
+          const nomeAmigavel = `Processo ${processoNumeroDisplay}`;
+          
+          const detalheProc = { path, fileName: nomeAmigavel, size: metadata.size, processoId };
+          estatisticasPorCategoria.processos_finalizados.detalhes.push(detalheProc);
+          
+          if (processo) {
+            if (!estatisticasPorCategoria.processos_finalizados.porProcesso!.has(processoId)) {
+              estatisticasPorCategoria.processos_finalizados.porProcesso!.set(processoId, {
+                processoId,
+                processoNumero: processo.numero,
+                processoObjeto: processo.objeto,
+                credenciamento: processo.credenciamento,
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.processos_finalizados.porProcesso!.get(processoId)!.documentos.push({
+              path,
+              fileName: nomeAmigavel,
+              size: metadata.size
+            });
+          }
+        } else {
+          // Fallback caso não encontre no banco
+          estatisticasPorCategoria.processos_finalizados.detalhes.push({ path, fileName, size: metadata.size });
+        }
+        categorizadoEmTipoAnexo = true;
       } else if (tipoAnexo) {
         // Outros anexos de processo que não se encaixam nas categorias acima
         estatisticasPorCategoria.processos_anexos_outros.arquivos++;
@@ -1969,6 +2016,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.autorizacoes_compra_direta.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.autorizacoes_compra_direta.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso!.values())
+        },
+        processos_finalizados: {
+          arquivos: estatisticasPorCategoria.processos_finalizados.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.processos_finalizados.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.processos_finalizados.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.processos_finalizados.porProcesso!.values())
         },
         habilitacao: {
           arquivos: estatisticasPorCategoria.habilitacao.arquivos,
