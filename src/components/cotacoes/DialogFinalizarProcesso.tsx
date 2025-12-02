@@ -3571,18 +3571,22 @@ export function DialogFinalizarProcesso({
                     // Verificar se é edição (resposta já existe)
                     const respostaExistente = (recurso as any)?.respostas_recursos?.[0];
                     
-                    if (respostaExistente) {
-                      // É EDIÇÃO - deletar arquivo antigo e fazer UPDATE
+                    // Guardar URL antiga para deletar DEPOIS do UPDATE bem sucedido
+                    let oldFilePathToDelete: string | null = null;
+                    
+                    if (respostaExistente && respostaExistente.id) {
+                      // É EDIÇÃO - fazer UPDATE PRIMEIRO, só deletar arquivo antigo se UPDATE funcionar
                       if (respostaExistente.url_documento) {
                         let oldFilePath = respostaExistente.url_documento;
                         if (oldFilePath.includes('https://')) {
                           const urlParts = oldFilePath.split('/processo-anexos/');
                           oldFilePath = urlParts[1] || oldFilePath;
                         }
-                        await supabase.storage.from('processo-anexos').remove([oldFilePath]);
+                        oldFilePathToDelete = oldFilePath;
                       }
                       
-                      const { error: updateError } = await supabase
+                      console.log('[Recurso] Atualizando resposta existente ID:', respostaExistente.id);
+                      const { error: updateError, data: updateData } = await supabase
                         .from('respostas_recursos')
                         .update({
                           decisao: decisaoRecurso,
@@ -3595,11 +3599,29 @@ export function DialogFinalizarProcesso({
                           itens_reabilitados: tipoProvimento === 'parcial' ? itensParaReabilitar : [],
                           data_resposta: new Date().toISOString()
                         })
-                        .eq('id', respostaExistente.id);
+                        .eq('id', respostaExistente.id)
+                        .select();
 
-                      if (updateError) throw updateError;
+                      if (updateError) {
+                        console.error('[Recurso] Erro no UPDATE:', updateError);
+                        // Deletar arquivo novo que ficou órfão
+                        const newFilePath = pdfResult.url.split('/processo-anexos/')[1];
+                        if (newFilePath) {
+                          await supabase.storage.from('processo-anexos').remove([newFilePath]);
+                        }
+                        throw updateError;
+                      }
+                      
+                      console.log('[Recurso] UPDATE bem sucedido:', updateData);
+                      
+                      // Só deletar arquivo antigo APÓS UPDATE bem sucedido
+                      if (oldFilePathToDelete && oldFilePathToDelete !== pdfResult.url.split('/processo-anexos/')[1]) {
+                        console.log('[Recurso] Deletando arquivo antigo:', oldFilePathToDelete);
+                        await supabase.storage.from('processo-anexos').remove([oldFilePathToDelete]);
+                      }
                     } else {
                       // É NOVA RESPOSTA - fazer INSERT
+                      console.log('[Recurso] Criando nova resposta para recurso:', recursoSelecionado);
                       const { error: insertError } = await supabase
                         .from('respostas_recursos')
                         .insert({
@@ -3614,7 +3636,15 @@ export function DialogFinalizarProcesso({
                           itens_reabilitados: tipoProvimento === 'parcial' ? itensParaReabilitar : []
                         });
 
-                      if (insertError) throw insertError;
+                      if (insertError) {
+                        console.error('[Recurso] Erro no INSERT:', insertError);
+                        // Deletar arquivo que ficou órfão
+                        const newFilePath = pdfResult.url.split('/processo-anexos/')[1];
+                        if (newFilePath) {
+                          await supabase.storage.from('processo-anexos').remove([newFilePath]);
+                        }
+                        throw insertError;
+                      }
                     }
 
                     // Atualizar itens_afetados na rejeição de acordo com a nova decisão
