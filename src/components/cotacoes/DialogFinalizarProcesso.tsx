@@ -3186,34 +3186,64 @@ export function DialogFinalizarProcesso({
                       ? `Itens originalmente rejeitados: ${rejeicaoDoRecurso.itens_afetados.join(', ')}`
                       : 'Todos os itens foram rejeitados. Selecione quais deseja reabilitar.'}
                   </p>
-                  <div className="max-h-48 overflow-y-auto border rounded-md p-2 space-y-1 bg-white dark:bg-gray-900">
-                    {itensCotacao
+                  {(() => {
+                    const itensDisponiveis = itensCotacao
                       .filter(item => 
                         rejeicaoDoRecurso?.itens_afetados?.length > 0 
                           ? rejeicaoDoRecurso.itens_afetados.includes(item.numero_item)
                           : true
-                      )
-                      .map((item) => (
-                        <div key={item.numero_item} className="flex items-center gap-2">
+                      );
+                    const todosNumeros = itensDisponiveis.map(i => i.numero_item);
+                    const todosSelecionados = todosNumeros.length > 0 && todosNumeros.every(n => itensParaReabilitar.includes(n));
+                    
+                    return (
+                      <div className="border rounded-md bg-white dark:bg-gray-900">
+                        {/* Marcar todos */}
+                        <div className="flex items-center gap-2 p-2 border-b bg-muted/50">
                           <input
                             type="checkbox"
-                            id={`reabilitar-${item.numero_item}`}
-                            checked={itensParaReabilitar.includes(item.numero_item)}
+                            id="marcar-todos-reabilitar"
+                            checked={todosSelecionados}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setItensParaReabilitar(prev => [...prev, item.numero_item]);
+                                setItensParaReabilitar(todosNumeros);
                               } else {
-                                setItensParaReabilitar(prev => prev.filter(i => i !== item.numero_item));
+                                setItensParaReabilitar([]);
                               }
                             }}
                             className="rounded"
                           />
-                          <label htmlFor={`reabilitar-${item.numero_item}`} className="text-sm">
-                            Item {item.numero_item}: {item.descricao.substring(0, 50)}...
+                          <label htmlFor="marcar-todos-reabilitar" className="text-sm font-medium cursor-pointer">
+                            Marcar todos ({todosNumeros.length} itens)
                           </label>
                         </div>
-                      ))}
-                  </div>
+                        
+                        {/* Lista de itens */}
+                        <div className="max-h-48 overflow-y-auto p-2 space-y-1">
+                          {itensDisponiveis.map((item) => (
+                            <div key={item.numero_item} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`reabilitar-${item.numero_item}`}
+                                checked={itensParaReabilitar.includes(item.numero_item)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setItensParaReabilitar(prev => [...prev, item.numero_item]);
+                                  } else {
+                                    setItensParaReabilitar(prev => prev.filter(i => i !== item.numero_item));
+                                  }
+                                }}
+                                className="rounded"
+                              />
+                              <label htmlFor={`reabilitar-${item.numero_item}`} className="text-sm">
+                                Item {item.numero_item}: {item.descricao.substring(0, 50)}...
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {itensParaReabilitar.length === 0 && (
                     <p className="text-xs text-red-500">Selecione ao menos um item para reabilitar</p>
                   )}
