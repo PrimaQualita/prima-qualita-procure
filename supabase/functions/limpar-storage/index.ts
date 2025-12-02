@@ -101,23 +101,45 @@ Deno.serve(async (req) => {
 
     // Fluxo de deletar arquivos órfãos (seletivo ou todos)
     if (paths || deletarTudo) {
+      // CRÍTICO: Buscar TODAS as referências do banco PRIMEIRO para evitar deletar arquivos válidos
+      console.log('🔒 Buscando todas as referências do banco para proteção...');
+      const { data: referencias } = await supabase.rpc('get_all_file_references');
+      
+      // Criar sets normalizados para verificação rápida
+      const referenciasProtegidas = new Set<string>();
+      const nomesArquivosProtegidos = new Set<string>();
+      
+      for (const ref of (referencias || [])) {
+        const url = ref.url || '';
+        if (!url) continue;
+        
+        // Normalizar para path relativo (ex: emails/.../file.pdf)
+        let normalizedPath = url
+          .replace(/^https?:\/\/[^\/]+\/storage\/v1\/object\/public\//, '')
+          .replace(/^processo-anexos\//, '')
+          .replace(/^documents\//, '')
+          .split('?')[0];
+        
+        if (normalizedPath) {
+          referenciasProtegidas.add(normalizedPath);
+          // Também proteger com prefixo de bucket
+          referenciasProtegidas.add(`processo-anexos/${normalizedPath}`);
+          referenciasProtegidas.add(`documents/${normalizedPath}`);
+          
+          // Adicionar nome do arquivo para proteção extra
+          const fileName = normalizedPath.split('/').pop();
+          if (fileName) {
+            nomesArquivosProtegidos.add(fileName);
+          }
+        }
+      }
+      console.log(`🔒 Total de paths protegidos: ${referenciasProtegidas.size}, nomes protegidos: ${nomesArquivosProtegidos.size}`);
+      
       let pathsParaDeletar: Array<{path: string, bucket: string}> = [];
       
       // Se deletarTudo, buscar todos os arquivos órfãos
       if (deletarTudo) {
         console.log('🗑️ Buscando todos os arquivos órfãos para deletar...');
-        
-        // Buscar todas as referências do banco
-        const { data: referencias } = await supabase.rpc('get_all_file_references');
-        const referenciasSet = new Set(
-          (referencias || []).map((ref: any) => {
-            const url = ref.url || '';
-            // Normalizar removendo prefixo de bucket
-            return url
-              .replace(/.*\/processo-anexos\//, '')
-              .replace(/.*\/documents\//, '');
-          }).filter(Boolean)
-        );
 
         // Função para listar arquivos recursivamente de um bucket
         const listAllFilesFromBucket = async (bucketName: string) => {
@@ -150,12 +172,28 @@ Deno.serve(async (req) => {
         const filesDocuments = await listAllFilesFromBucket('documents');
         const allFiles = [...filesProcessoAnexos, ...filesDocuments];
         
-        // Filtrar apenas órfãos
-        pathsParaDeletar = allFiles.filter(file => !referenciasSet.has(file.path));
+        // Filtrar apenas órfãos - verificando TODAS as variações possíveis
+        pathsParaDeletar = allFiles.filter(file => {
+          const pathCompleto = `${file.bucket}/${file.path}`;
+          const fileName = file.path.split('/').pop() || '';
+          
+          // Se QUALQUER variação estiver protegida, não deletar
+          const isProtegido = 
+            referenciasProtegidas.has(file.path) ||
+            referenciasProtegidas.has(pathCompleto) ||
+            nomesArquivosProtegidos.has(fileName);
+          
+          if (isProtegido) {
+            console.log(`🔒 PROTEGIDO (não será deletado): ${pathCompleto}`);
+          }
+          
+          return !isProtegido;
+        });
+        
         console.log(`📋 Encontrados ${pathsParaDeletar.length} arquivos órfãos para deletar`);
       } else {
         // Paths fornecidos manualmente - detectar bucket e limpar path
-        pathsParaDeletar = (paths || []).map((p: string) => {
+        const pathsCandidatos = (paths || []).map((p: string) => {
           let bucket = 'processo-anexos';
           let cleanPath = p;
           
@@ -174,23 +212,44 @@ Deno.serve(async (req) => {
             cleanPath = p.substring(p.indexOf('documents/') + 'documents/'.length);
           }
           
-          console.log(`📦 Path original: "${p}" -> Bucket: "${bucket}", Path limpo: "${cleanPath}"`);
-          
           return {
             path: cleanPath,
-            bucket: bucket
+            bucket: bucket,
+            originalPath: p
           };
         });
+        
+        // CRÍTICO: Filtrar apenas arquivos que NÃO têm referência no banco
+        pathsParaDeletar = pathsCandidatos.filter((file: any) => {
+          const pathCompleto = `${file.bucket}/${file.path}`;
+          const fileName = file.path.split('/').pop() || '';
+          
+          // Se QUALQUER variação estiver protegida, não deletar
+          const isProtegido = 
+            referenciasProtegidas.has(file.path) ||
+            referenciasProtegidas.has(pathCompleto) ||
+            nomesArquivosProtegidos.has(fileName);
+          
+          if (isProtegido) {
+            console.log(`🚫 BLOQUEADO: "${pathCompleto}" tem referência no banco - NÃO será deletado!`);
+          } else {
+            console.log(`📦 Órfão confirmado: "${pathCompleto}" - será deletado`);
+          }
+          
+          return !isProtegido;
+        });
+        
+        console.log(`📋 ${pathsCandidatos.length} paths recebidos, ${pathsParaDeletar.length} confirmados como órfãos`);
       }
 
       if (pathsParaDeletar.length === 0) {
         return new Response(
-          JSON.stringify({ deletados: 0, message: 'Nenhum arquivo para deletar' }),
+          JSON.stringify({ deletados: 0, message: 'Nenhum arquivo órfão confirmado para deletar. Arquivos com referência no banco foram protegidos.' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log(`🗑️ Deletando ${pathsParaDeletar.length} arquivo(s) órfão(s)...`);
+      console.log(`🗑️ Deletando ${pathsParaDeletar.length} arquivo(s) órfão(s) confirmados...`);
       
       let deletados = 0;
       for (const file of pathsParaDeletar) {
@@ -207,7 +266,7 @@ Deno.serve(async (req) => {
       }
       
       return new Response(
-        JSON.stringify({ deletados }),
+        JSON.stringify({ deletados, protegidos: (paths?.length || 0) - deletados }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
