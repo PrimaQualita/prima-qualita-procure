@@ -1364,6 +1364,9 @@ Deno.serve(async (req) => {
     }
 
     console.log(`📊 Processos com fornecedores para hab: ${fornecedoresPorProcessoHab.size}`);
+    for (const [procId, fornIds] of fornecedoresPorProcessoHab) {
+      console.log(`  Processo ${procId.substring(0,8)}: ${fornIds.size} fornecedores`);
+    }
 
     // Coletar todos os IDs de fornecedores
     const todosFornecedoresHabIds: string[] = [];
@@ -1376,6 +1379,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`📊 Total de fornecedores para hab: ${todosFornecedoresHabIds.length}`);
+    console.log(`  IDs: ${todosFornecedoresHabIds.join(', ')}`);
 
     // Buscar dados de fornecedores e seus documentos de cadastro
     if (todosFornecedoresHabIds.length > 0) {
@@ -1435,6 +1439,8 @@ Deno.serve(async (req) => {
 
           // Adicionar documentos de cadastro deste fornecedor
           const docsDoFornecedor = (docsCadastroHab || []).filter(d => d.fornecedor_id === fornecedorId);
+          console.log(`  📝 ${fornecedorNome}: ${docsDoFornecedor.length} docs de cadastro`);
+          
           for (const doc of docsDoFornecedor) {
             // Extrair path do arquivo
             let path = doc.url_arquivo;
@@ -1455,7 +1461,9 @@ Deno.serve(async (req) => {
                 size: 0
               });
               estatisticasPorCategoria.habilitacao.arquivos++;
-              console.log(`  ✅ Adicionado ${doc.nome_arquivo} para ${fornecedorNome}`);
+              console.log(`    ✅ Adicionado: ${doc.nome_arquivo}`);
+            } else {
+              console.log(`    ⚠️ Duplicado: ${doc.nome_arquivo}`);
             }
           }
         }
