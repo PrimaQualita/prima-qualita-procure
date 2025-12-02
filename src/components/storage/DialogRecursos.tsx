@@ -32,20 +32,25 @@ interface DialogRecursosProps {
   processos: Processo[];
 }
 
+type TipoRecurso = 'enviados' | 'respostas';
+
 export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursosProps) {
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState<Fornecedor | null>(null);
+  const [tipoRecursoSelecionado, setTipoRecursoSelecionado] = useState<TipoRecurso | null>(null);
   const [searchProcessos, setSearchProcessos] = useState("");
   const [searchFornecedores, setSearchFornecedores] = useState("");
   const [searchRecursos, setSearchRecursos] = useState("");
 
-  // View atual: 'processos' | 'fornecedores' | 'recursos'
-  const view = fornecedorSelecionado ? 'recursos' : processoSelecionado ? 'fornecedores' : 'processos';
+  // View atual: 'processos' | 'fornecedores' | 'tipos' | 'recursos'
+  const view = tipoRecursoSelecionado ? 'recursos' : fornecedorSelecionado ? 'tipos' : processoSelecionado ? 'fornecedores' : 'processos';
 
   const handleVoltar = () => {
     if (view === 'recursos') {
-      setFornecedorSelecionado(null);
+      setTipoRecursoSelecionado(null);
       setSearchRecursos("");
+    } else if (view === 'tipos') {
+      setFornecedorSelecionado(null);
     } else if (view === 'fornecedores') {
       setProcessoSelecionado(null);
       setSearchFornecedores("");
@@ -56,6 +61,7 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
     onOpenChange(false);
     setProcessoSelecionado(null);
     setFornecedorSelecionado(null);
+    setTipoRecursoSelecionado(null);
     setSearchProcessos("");
     setSearchFornecedores("");
     setSearchRecursos("");
@@ -80,14 +86,36 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
     );
   }, [processoSelecionado, searchFornecedores]);
 
-  const recursosFiltrados = useMemo(() => {
+  // Separar recursos enviados e respostas
+  const getRecursosPorTipo = (fornecedor: Fornecedor, tipo: TipoRecurso) => {
+    return fornecedor.recursos.filter(rec => {
+      if (tipo === 'enviados') {
+        return rec.path.includes('/enviados/') || (rec.path.includes('recurso_') && !rec.path.includes('resposta_recurso'));
+      } else {
+        return rec.path.includes('/respostas/') || rec.path.includes('resposta_recurso');
+      }
+    });
+  };
+
+  const recursosEnviados = useMemo(() => {
     if (!fornecedorSelecionado) return [];
-    if (!searchRecursos.trim()) return fornecedorSelecionado.recursos;
+    return getRecursosPorTipo(fornecedorSelecionado, 'enviados');
+  }, [fornecedorSelecionado]);
+
+  const recursosRespostas = useMemo(() => {
+    if (!fornecedorSelecionado) return [];
+    return getRecursosPorTipo(fornecedorSelecionado, 'respostas');
+  }, [fornecedorSelecionado]);
+
+  const recursosFiltrados = useMemo(() => {
+    if (!fornecedorSelecionado || !tipoRecursoSelecionado) return [];
+    const recursos = tipoRecursoSelecionado === 'enviados' ? recursosEnviados : recursosRespostas;
+    if (!searchRecursos.trim()) return recursos;
     const termo = searchRecursos.toLowerCase();
-    return fornecedorSelecionado.recursos.filter((rec) => 
+    return recursos.filter((rec) => 
       rec.fileName.toLowerCase().includes(termo)
     );
-  }, [fornecedorSelecionado, searchRecursos]);
+  }, [fornecedorSelecionado, tipoRecursoSelecionado, recursosEnviados, recursosRespostas, searchRecursos]);
 
   const getTotalRecursosProcesso = (proc: Processo) => {
     return proc.fornecedores.reduce((sum, forn) => sum + forn.recursos.length, 0);
@@ -99,7 +127,10 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
     );
   };
 
-  const formatRecursoName = (recurso: Recurso) => {
+  const formatRecursoName = (recurso: Recurso, tipo: TipoRecurso) => {
+    if (tipo === 'respostas') {
+      return `Resposta Recurso ${recurso.fornecedorNome}`;
+    }
     return `Recurso ${recurso.fornecedorNome}`;
   };
 
@@ -116,29 +147,32 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
             <DialogTitle>
               {view === 'processos' && 'Recursos - Processos'}
               {view === 'fornecedores' && `Processo ${processoSelecionado!.processoNumero} - Fornecedores`}
-              {view === 'recursos' && `${fornecedorSelecionado!.fornecedorNome} - Recursos`}
+              {view === 'tipos' && `${fornecedorSelecionado!.fornecedorNome} - Tipos de Recurso`}
+              {view === 'recursos' && `${tipoRecursoSelecionado === 'enviados' ? 'Recursos Enviados' : 'Respostas de Recursos'}`}
             </DialogTitle>
           </div>
         </DialogHeader>
 
         {/* Barra de pesquisa */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={
-              view === 'processos' ? "Pesquisar processos..." :
-              view === 'fornecedores' ? "Pesquisar fornecedores..." :
-              "Pesquisar recursos..."
-            }
-            value={view === 'processos' ? searchProcessos : view === 'fornecedores' ? searchFornecedores : searchRecursos}
-            onChange={(e) => {
-              if (view === 'processos') setSearchProcessos(e.target.value);
-              else if (view === 'fornecedores') setSearchFornecedores(e.target.value);
-              else setSearchRecursos(e.target.value);
-            }}
-            className="pl-9"
-          />
-        </div>
+        {view !== 'tipos' && (
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={
+                view === 'processos' ? "Pesquisar processos..." :
+                view === 'fornecedores' ? "Pesquisar fornecedores..." :
+                "Pesquisar recursos..."
+              }
+              value={view === 'processos' ? searchProcessos : view === 'fornecedores' ? searchFornecedores : searchRecursos}
+              onChange={(e) => {
+                if (view === 'processos') setSearchProcessos(e.target.value);
+                else if (view === 'fornecedores') setSearchFornecedores(e.target.value);
+                else setSearchRecursos(e.target.value);
+              }}
+              className="pl-9"
+            />
+          </div>
+        )}
 
         {/* Listagem de Processos */}
         {view === 'processos' && (
@@ -200,7 +234,6 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
                       variant="outline"
                       onClick={() => {
                         setFornecedorSelecionado(forn);
-                        setSearchRecursos("");
                       }}
                     >
                       <Eye className="h-4 w-4 mr-2" />
@@ -218,12 +251,63 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
           </div>
         )}
 
+        {/* Seleção de Tipo de Recurso */}
+        {view === 'tipos' && (
+          <div className="space-y-4 overflow-y-auto flex-1 pr-2">
+            <Card className="border-amber-200">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">Recursos Enviados</h3>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {recursosEnviados.length} arquivo{recursosEnviados.length !== 1 ? 's' : ''} • {' '}
+                      {(recursosEnviados.reduce((sum, rec) => sum + rec.size, 0) / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setTipoRecursoSelecionado('enviados')}
+                    disabled={recursosEnviados.length === 0}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Ver
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-amber-200">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">Respostas de Recursos</h3>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {recursosRespostas.length} arquivo{recursosRespostas.length !== 1 ? 's' : ''} • {' '}
+                      {(recursosRespostas.reduce((sum, rec) => sum + rec.size, 0) / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setTipoRecursoSelecionado('respostas')}
+                    disabled={recursosRespostas.length === 0}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Ver
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Listagem de Recursos */}
         {view === 'recursos' && (
           <div className="space-y-2 overflow-y-auto flex-1 pr-2">
             {recursosFiltrados.map((rec, i) => (
               <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
-                <span className="truncate flex-1 text-sm font-medium">{formatRecursoName(rec)}</span>
+                <span className="truncate flex-1 text-sm font-medium">{formatRecursoName(rec, tipoRecursoSelecionado!)}</span>
                 <span className="ml-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
                   {(rec.size / 1024).toFixed(1)} KB
                 </span>
