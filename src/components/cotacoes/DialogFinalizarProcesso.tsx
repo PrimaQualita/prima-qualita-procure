@@ -1667,16 +1667,35 @@ export function DialogFinalizarProcesso({
     if (!relatorioParaExcluir) return;
 
     try {
-      const filePath = relatorioParaExcluir.url_arquivo.split("/processo-anexos/")[1];
-
-      const { error: storageError } = await supabase.storage
-        .from("processo-anexos")
-        .remove([filePath]);
-
-      if (storageError) {
-        console.error("Erro ao remover do storage:", storageError);
+      // Extrair path corretamente - remover query params e pegar apenas o path dentro do bucket
+      let urlSemParams = relatorioParaExcluir.url_arquivo.split("?")[0];
+      let filePath = "";
+      
+      // Tentar extrair o path de diferentes formatos de URL
+      if (urlSemParams.includes("/processo-anexos/")) {
+        filePath = urlSemParams.split("/processo-anexos/")[1];
+      } else if (urlSemParams.includes("relatorios-finais/")) {
+        // Se o path já começa com relatorios-finais
+        const match = urlSemParams.match(/relatorios-finais\/.+/);
+        if (match) filePath = match[0];
       }
 
+      console.log("[Relatório Final] Deletando arquivo:", filePath);
+
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from("processo-anexos")
+          .remove([filePath]);
+
+        if (storageError) {
+          console.error("Erro ao remover do storage:", storageError);
+          // Continuar mesmo com erro para deletar do banco
+        } else {
+          console.log("[Relatório Final] Arquivo removido do storage com sucesso");
+        }
+      }
+
+      // Deletar do banco de dados
       const { error: dbError } = await supabase
         .from("relatorios_finais")
         .delete()
