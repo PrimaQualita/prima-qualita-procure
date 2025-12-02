@@ -3383,18 +3383,11 @@ export function DialogFinalizarProcesso({
                     Selecione os itens a serem reabilitados:
                   </Label>
                   <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                    {rejeicaoDoRecurso?.itens_afetados?.length > 0 
-                      ? `Itens originalmente rejeitados: ${rejeicaoDoRecurso.itens_afetados.join(', ')}`
-                      : 'Todos os itens foram rejeitados. Selecione quais deseja reabilitar.'}
+                    Itens marcados serão reabilitados. Itens não marcados permanecerão inabilitados.
                   </p>
                   {(() => {
-                    const itensDisponiveis = itensCotacao
-                      .filter(item => 
-                        rejeicaoDoRecurso?.itens_afetados?.length > 0 
-                          ? rejeicaoDoRecurso.itens_afetados.includes(item.numero_item)
-                          : true
-                      );
-                    const todosNumeros = itensDisponiveis.map(i => i.numero_item);
+                    // Mostrar TODOS os itens para permitir flexibilidade na edição
+                    const todosNumeros = itensCotacao.map(i => i.numero_item);
                     const todosSelecionados = todosNumeros.length > 0 && todosNumeros.every(n => itensParaReabilitar.includes(n));
                     
                     return (
@@ -3421,7 +3414,7 @@ export function DialogFinalizarProcesso({
                         
                         {/* Lista de itens */}
                         <div className="max-h-48 overflow-y-auto p-2 space-y-1">
-                          {itensDisponiveis.map((item) => (
+                          {itensCotacao.map((item) => (
                             <div key={item.numero_item} className="flex items-center gap-2">
                               <input
                                 type="checkbox"
