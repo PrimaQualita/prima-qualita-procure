@@ -3038,7 +3038,7 @@ export function DialogFinalizarProcesso({
 
         {/* Dialog de Rejeição de Fornecedor */}
         <Dialog open={dialogRejeicaoOpen} onOpenChange={setDialogRejeicaoOpen}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Rejeitar Fornecedor</DialogTitle>
               <DialogDescription>
