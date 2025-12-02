@@ -792,11 +792,11 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.processos_finalizados.arquivos++;
         estatisticasPorCategoria.processos_finalizados.tamanho += metadata.size;
         
-        // Buscar processo_id do banco via anexos_processo_compra
+        // Buscar processo_id do banco via anexos_processo_compra (buscar por path dentro da URL)
         const { data: anexoProcessoCompleto } = await supabase
           .from('anexos_processo_compra')
           .select('processo_compra_id')
-          .eq('url_arquivo', pathSemBucket)
+          .ilike('url_arquivo', `%${pathSemBucket}%`)
           .single();
         
         let processoNumeroDisplay = '';
