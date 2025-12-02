@@ -1612,15 +1612,13 @@ Deno.serve(async (req) => {
         continue;
       }
       
-      // Se não encontrou por path completo, verifica apenas pelo nome do arquivo
       const fileName = arquivo.split('/').pop() || arquivo;
-      if (nomeArquivoDB.has(fileName)) {
-        console.log(`✅ Arquivo "${fileName}" encontrado no DB (fallback por nome)`);
-        continue;
-      }
       
-      // Verificar se é documento de fornecedor pelo path (pasta fornecedor_xxx/)
-      // IMPORTANTE: Não basta o fornecedor existir - o arquivo ESPECÍFICO deve estar em documentos_fornecedor
+      // === VERIFICAÇÃO ESPECÍFICA POR TIPO DE PASTA ===
+      
+      // 1. Verificar se é documento de fornecedor pelo path (pasta fornecedor_xxx/)
+      // IMPORTANTE: Arquivos em pastas de fornecedor devem ser verificados ESTRITAMENTE pelo path
+      // NÃO usar fallback por nome para evitar false negatives
       const fornecedorMatch = pathSemBucket.match(/^fornecedor_([a-f0-9-]+)\//);
       if (fornecedorMatch) {
         // Verificar se este arquivo específico está em docsCadastroAtivosMap
@@ -1628,14 +1626,39 @@ Deno.serve(async (req) => {
           console.log(`✅ Arquivo "${fileName}" está referenciado em documentos_fornecedor (ativo)`);
           continue;
         }
-        // Se não está ativo, é ÓRFÃO - não fazer continue
-        console.log(`⚠️ Arquivo "${fileName}" em pasta fornecedor mas NÃO está em documentos_fornecedor - marcando como órfão`);
+        // Se não está em docsCadastroAtivosMap, é ÓRFÃO
+        console.log(`⚠️ ÓRFÃO: Arquivo "${fileName}" em pasta fornecedor mas NÃO está em documentos_fornecedor`);
+        arquivosOrfaos.push({ path: arquivo, size: metadata.size });
+        tamanhoOrfaos += metadata.size;
+        continue;
       }
       
-      // Verificar se é documento finalizado pelo path (pasta documentos_finalizados/)
+      // 2. Verificar se é documento de avaliação (pasta avaliacao_xxx/)
+      // Similar: deve estar estritamente referenciado no banco
+      const avaliacaoMatch = pathSemBucket.match(/^avaliacao_([a-f0-9-]+)\//);
+      if (avaliacaoMatch) {
+        // Verificar se este arquivo específico está em docsCadastroAtivosMap (relatórios KPMG)
+        if (docsCadastroAtivosMap.has(pathSemBucket)) {
+          console.log(`✅ Arquivo "${fileName}" de avaliação está referenciado no banco`);
+          continue;
+        }
+        // Se não está, é ÓRFÃO
+        console.log(`⚠️ ÓRFÃO: Arquivo "${fileName}" em pasta avaliacao mas NÃO está referenciado no banco`);
+        arquivosOrfaos.push({ path: arquivo, size: metadata.size });
+        tamanhoOrfaos += metadata.size;
+        continue;
+      }
+      
+      // 3. Verificar se é documento finalizado pelo path (pasta documentos_finalizados/)
       if (pathSemBucket.startsWith('documentos_finalizados/')) {
         // Documentos finalizados nunca são órfãos - são snapshots de processo
         console.log(`✅ Arquivo "${fileName}" está em documentos_finalizados - não é órfão`);
+        continue;
+      }
+      
+      // 4. Para outros tipos de arquivos, usar fallback por nome
+      if (nomeArquivoDB.has(fileName)) {
+        console.log(`✅ Arquivo "${fileName}" encontrado no DB (fallback por nome)`);
         continue;
       }
       
