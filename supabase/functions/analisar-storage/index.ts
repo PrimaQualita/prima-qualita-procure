@@ -873,44 +873,56 @@ Deno.serve(async (req) => {
       }
       
       // 3. Verificar se é documento de processo finalizado (snapshot de cadastro para habilitação)
+      // IMPORTANTE: Só adiciona na categoria habilitação se o documento NÃO ESTÁ MAIS ATIVO no cadastro
+      // Se o documento ainda está em_vigor=true, ele já foi categorizado em "documentos_fornecedores" e não deve duplicar
       if ((docsProcessoFinalizadoMap.has(pathSemBucket) || pathSemBucket.startsWith('documentos_finalizados/')) && !tipoAnexo) {
         const docProcessoFinalizado = docsProcessoFinalizadoMap.get(pathSemBucket);
-        estatisticasPorCategoria.habilitacao.arquivos++;
-        estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
-        estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
         
-        if (docProcessoFinalizado) {
-          const fornecedorId = docProcessoFinalizado.fornecedorId;
-          const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
-          const processoId = docProcessoFinalizado.processoId;
-          const processo = processoId ? processosMap.get(processoId) : undefined;
+        // Verificar se este documento ainda está ativo no cadastro
+        // Se estiver, NÃO adicionar na habilitação (já está em cadastros)
+        const aindaAtivoNoCadastro = docsCadastroAtivosMap.has(pathSemBucket);
+        
+        if (!aindaAtivoNoCadastro) {
+          // Documento foi substituído no cadastro - agora é apenas snapshot histórico de habilitação
+          estatisticasPorCategoria.habilitacao.arquivos++;
+          estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
+          estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
           
-          if (processoId && processo) {
-            if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
-              estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
-                processoId,
-                processoNumero: processo.numero,
-                processoObjeto: processo.objeto,
-                credenciamento: processo.credenciamento,
-                fornecedores: new Map()
+          if (docProcessoFinalizado) {
+            const fornecedorId = docProcessoFinalizado.fornecedorId;
+            const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+            const processoId = docProcessoFinalizado.processoId;
+            const processo = processoId ? processosMap.get(processoId) : undefined;
+            
+            if (processoId && processo) {
+              if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
+                estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
+                  processoId,
+                  processoNumero: processo.numero,
+                  processoObjeto: processo.objeto,
+                  credenciamento: processo.credenciamento,
+                  fornecedores: new Map()
+                });
+              }
+              
+              const processoHab = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
+              if (!processoHab.fornecedores.has(fornecedorId)) {
+                processoHab.fornecedores.set(fornecedorId, {
+                  fornecedorId,
+                  fornecedorNome,
+                  documentos: []
+                });
+              }
+              
+              processoHab.fornecedores.get(fornecedorId)!.documentos.push({
+                path,
+                fileName: docProcessoFinalizado.nomeArquivo || docProcessoFinalizado.tipoDocumento || fileName,
+                size: metadata.size
               });
             }
-            
-            const processoHab = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
-            if (!processoHab.fornecedores.has(fornecedorId)) {
-              processoHab.fornecedores.set(fornecedorId, {
-                fornecedorId,
-                fornecedorNome,
-                documentos: []
-              });
-            }
-            
-            processoHab.fornecedores.get(fornecedorId)!.documentos.push({
-              path,
-              fileName: docProcessoFinalizado.nomeArquivo || docProcessoFinalizado.tipoDocumento || fileName,
-              size: metadata.size
-            });
           }
+        } else {
+          console.log(`📁 Documento de processo finalizado ainda ativo no cadastro (não duplicar em habilitação): ${fileName}`);
         }
       }
       
@@ -1573,10 +1585,20 @@ Deno.serve(async (req) => {
           console.log(`❌ Autorização sem dados de processo no banco`);
         }
       } else {
-        // Outros
-        estatisticasPorCategoria.outros.arquivos++;
-        estatisticasPorCategoria.outros.tamanho += metadata.size;
-        estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
+        // Outros - mas verificar se não foi já categorizado em documentos de fornecedor ou habilitação
+        // Para não duplicar documentos de cadastro que já foram contados nas verificações independentes
+        const jaCategorizadoEmCadastro = docsCadastroAtivosMap.has(pathSemBucket);
+        const jaCategorizadoEmHabilitacao = docsHabilitacaoMap.has(pathSemBucket) || docsProcessoFinalizadoMap.has(pathSemBucket);
+        const ehPastaFornecedor = pathSemBucket.startsWith('fornecedor_') && !pathSemBucket.includes('selecao');
+        
+        // Só adiciona em "outros" se NÃO foi categorizado em outra categoria
+        if (!jaCategorizadoEmCadastro && !jaCategorizadoEmHabilitacao && !ehPastaFornecedor) {
+          estatisticasPorCategoria.outros.arquivos++;
+          estatisticasPorCategoria.outros.tamanho += metadata.size;
+          estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
+        } else {
+          console.log(`📁 Arquivo ignorado em "outros" (já categorizado): ${fileName}`);
+        }
       }
       
       console.log(`Arquivo categorizado: ${fileName} (${path})`);
