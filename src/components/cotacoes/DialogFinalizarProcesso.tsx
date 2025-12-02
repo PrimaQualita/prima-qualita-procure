@@ -1482,14 +1482,19 @@ export function DialogFinalizarProcesso({
 
     try {
       const arquivoUrl = autorizacaoParaExcluir.url_arquivo;
-      const filePath = arquivoUrl.split("/processo-anexos/")[1];
+      let filePath = arquivoUrl.split("/processo-anexos/")[1];
+      
+      // Remover query params se houver (URLs assinadas)
+      if (filePath) {
+        filePath = filePath.split("?")[0];
 
-      const { error: storageError } = await supabase.storage
-        .from("processo-anexos")
-        .remove([filePath]);
+        const { error: storageError } = await supabase.storage
+          .from("processo-anexos")
+          .remove([filePath]);
 
-      if (storageError) {
-        console.error("Erro ao remover do storage:", storageError);
+        if (storageError) {
+          console.error("Erro ao remover do storage:", storageError);
+        }
       }
 
       const { error: dbError } = await supabase
