@@ -894,14 +894,22 @@ Deno.serve(async (req) => {
         continue; // Não verificar outras categorias
       }
       
-      // 3. Documentos de processo finalizado - NÃO adicionar em habilitação
-      // Estes são snapshots históricos que ficam apenas na pasta documentos_finalizados
-      // e NÃO devem aparecer duplicados em nenhuma categoria visível
-      if (docsProcessoFinalizadoMap.has(pathSemBucket) || pathSemBucket.startsWith('documentos_finalizados/')) {
-        // Não categorizar - são snapshots internos
+      // 3. Documentos de processo finalizado - verificar se está REALMENTE referenciado no banco
+      // Arquivos em documentos_finalizados/ SÓ devem ser marcados se existirem em docsProcessoFinalizadoMap
+      // Se estão na pasta mas NÃO no mapa, serão detectados como órfãos posteriormente
+      if (docsProcessoFinalizadoMap.has(pathSemBucket)) {
+        // Arquivo está referenciado em documentos_processo_finalizado - é snapshot válido
         arquivosJaCategorizados.add(path);
-        console.log(`📁 Documento de processo finalizado (snapshot interno): ${fileName}`);
+        console.log(`📁 Documento de processo finalizado (snapshot válido): ${fileName}`);
         console.log(`Arquivo categorizado: ${fileName} (${path})`);
+        continue;
+      }
+      
+      // Se está na pasta documentos_finalizados/ mas NÃO no mapa, NÃO categorizar
+      // Será verificado como órfão na próxima seção
+      if (pathSemBucket.startsWith('documentos_finalizados/')) {
+        console.log(`⚠️ Arquivo em documentos_finalizados/ SEM referência no banco: ${fileName}`);
+        // NÃO adicionar em arquivosJaCategorizados - deixar para verificação de órfãos
         continue;
       }
       
