@@ -951,7 +951,7 @@ Deno.serve(async (req) => {
               });
             }
           }
-        } else if (!categorizadoCadastro && !categorizadoHabilitacao && pathSemBucket.startsWith('fornecedor_') && pathSemBucket.includes('selecao')) {
+        } else if (pathSemBucket.startsWith('fornecedor_') && pathSemBucket.includes('selecao')) {
           // Propostas de fornecedores em seleções
           estatisticasPorCategoria.propostas_selecao.arquivos++;
           estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
@@ -979,7 +979,7 @@ Deno.serve(async (req) => {
               });
             }
           }
-        } else if (!categorizadoCadastro && !categorizadoHabilitacao && pathSemBucket.startsWith('selecoes/')) {
+        } else if (pathSemBucket.startsWith('selecoes/')) {
           // Anexos de seleção (avisos, editais)
           estatisticasPorCategoria.anexos_selecao.arquivos++;
           estatisticasPorCategoria.anexos_selecao.tamanho += metadata.size;
@@ -1007,7 +1007,7 @@ Deno.serve(async (req) => {
               });
             }
           }
-        } else if (!categorizadoCadastro && !categorizadoHabilitacao && pathSemBucket.startsWith('selecao_') && pathSemBucket.includes('planilha')) {
+        } else if (pathSemBucket.startsWith('selecao_') && pathSemBucket.includes('planilha')) {
           // Planilhas de lances
           estatisticasPorCategoria.planilhas_lances.arquivos++;
           estatisticasPorCategoria.planilhas_lances.tamanho += metadata.size;
@@ -1035,7 +1035,7 @@ Deno.serve(async (req) => {
               });
             }
           }
-        } else if (!categorizadoCadastro && !categorizadoHabilitacao && pathSemBucket.startsWith('recursos/')) {
+        } else if (pathSemBucket.startsWith('recursos/')) {
         // Recursos e respostas - só contabilizar se arquivo existe no DB
         const isOrfao = !pathsDB.has(path) && !nomeArquivoDB.has(fileName);
         if (!isOrfao) {
