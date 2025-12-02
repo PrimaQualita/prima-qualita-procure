@@ -1741,13 +1741,47 @@ export function DialogFinalizarProcesso({
         `)
         .eq("cotacao_id", cotacaoId);
 
-      // Filtrar fornecedores rejeitados
-      const fornecedoresRejeitados = (todasRespostas || [])
+      // Buscar inabilitações da tabela fornecedores_rejeitados_cotacao (inclui parciais)
+      const { data: inabilitacoes } = await supabase
+        .from("fornecedores_rejeitados_cotacao")
+        .select(`
+          fornecedor_id,
+          motivo_rejeicao,
+          itens_afetados,
+          revertido,
+          fornecedores!inner(razao_social, cnpj)
+        `)
+        .eq("cotacao_id", cotacaoId)
+        .eq("revertido", false);
+
+      // Filtrar fornecedores rejeitados (da proposta)
+      const fornecedoresRejeitadosProposta = (todasRespostas || [])
         .filter(r => r.rejeitado)
         .map(r => ({
           razaoSocial: r.fornecedores.razao_social,
           motivoRejeicao: r.motivo_rejeicao || "Não especificado"
         }));
+
+      // Adicionar inabilitações (parciais ou globais)
+      const fornecedoresInabilitados = (inabilitacoes || []).map(inab => {
+        const itensAfetados = inab.itens_afetados || [];
+        const ehParcial = itensAfetados.length > 0;
+        const textoItens = ehParcial 
+          ? `Inabilitada nos itens: ${itensAfetados.join(", ")}. Motivo: ${inab.motivo_rejeicao}`
+          : inab.motivo_rejeicao;
+        
+        return {
+          razaoSocial: inab.fornecedores.razao_social,
+          motivoRejeicao: textoItens
+        };
+      });
+
+      // Combinar, removendo duplicatas por razão social
+      const razoesSociaisInabilitados = new Set(fornecedoresInabilitados.map(f => f.razaoSocial));
+      const fornecedoresRejeitados = [
+        ...fornecedoresInabilitados,
+        ...fornecedoresRejeitadosProposta.filter(f => !razoesSociaisInabilitados.has(f.razaoSocial))
+      ];
 
       // CRÍTICO: Buscar TODOS os itens em chunks para evitar limite de 1000
       console.log(`📤 [Relatório Final] Buscando itens para ${todasRespostas?.length || 0} respostas`);
