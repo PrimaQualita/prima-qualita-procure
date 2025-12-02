@@ -830,10 +830,11 @@ Deno.serve(async (req) => {
         continue; // Não verificar outras categorias
       }
       
-      // 2. Verificar se é documento de habilitação ESPECÍFICO (documentos adicionais solicitados, NÃO docs de cadastro)
+      // 2. Verificar se é documento de habilitação ESPECÍFICO (documentos adicionais solicitados via campos_documentos_finalizacao)
       // Só entra aqui se não é documento de cadastro ativo
+      // IMPORTANTE: Documentos de habilitação podem estar em qualquer pasta (ex: fornecedor_xxx/)
       const docHabilitacao = docsHabilitacaoMap.get(pathSemBucket);
-      if (docHabilitacao && pathSemBucket.startsWith('habilitacao/')) {
+      if (docHabilitacao) {
         estatisticasPorCategoria.habilitacao.arquivos++;
         estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
         estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
