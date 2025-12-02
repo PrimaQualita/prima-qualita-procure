@@ -3604,8 +3604,12 @@ export function DialogFinalizarProcesso({
 
                       if (updateError) {
                         console.error('[Recurso] Erro no UPDATE:', updateError);
-                        // NÃO deletar arquivo novo - deixar erro propagar para usuário saber que falhou
-                        throw updateError;
+                        // Deletar arquivo novo para não ficar órfão, mas erro ainda propaga
+                        const newFilePath = pdfResult.url.split('/processo-anexos/')[1];
+                        if (newFilePath) {
+                          await supabase.storage.from('processo-anexos').remove([newFilePath]);
+                        }
+                        throw updateError; // Usuário vê o erro e pode tentar novamente
                       }
                       
                       console.log('[Recurso] UPDATE bem sucedido:', updateData);
@@ -3634,8 +3638,12 @@ export function DialogFinalizarProcesso({
 
                       if (insertError) {
                         console.error('[Recurso] Erro no INSERT:', insertError);
-                        // NÃO deletar arquivo novo - deixar erro propagar para usuário saber que falhou
-                        throw insertError;
+                        // Deletar arquivo novo para não ficar órfão, mas erro ainda propaga
+                        const newFilePath = pdfResult.url.split('/processo-anexos/')[1];
+                        if (newFilePath) {
+                          await supabase.storage.from('processo-anexos').remove([newFilePath]);
+                        }
+                        throw insertError; // Usuário vê o erro e pode tentar novamente
                       }
                     }
 
