@@ -480,6 +480,41 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Buscar mapeamento de paths de relatórios finais para processo
+    const { data: relatoriosFinaisDB } = await supabase
+      .from('relatorios_finais')
+      .select(`
+        url_arquivo, 
+        nome_arquivo,
+        cotacao_id,
+        cotacoes_precos!inner(
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno, objeto_resumido)
+        )
+      `);
+    const relatoriosFinaisMap = new Map<string, { 
+      nomeArquivo: string; 
+      processoId: string; 
+      processoNumero: string;
+      processoObjeto: string;
+    }>();
+    if (relatoriosFinaisDB) {
+      for (const rel of relatoriosFinaisDB) {
+        const path = rel.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || rel.url_arquivo;
+        const cotacao = (rel as any).cotacoes_precos;
+        const processo = cotacao?.processos_compras;
+        relatoriosFinaisMap.set(path, {
+          nomeArquivo: rel.nome_arquivo,
+          processoId: cotacao?.processo_compra_id || '',
+          processoNumero: processo?.numero_processo_interno || '',
+          processoObjeto: processo?.objeto_resumido || ''
+        });
+        // Também mapear o nome bonito
+        nomesBonitos.set(path, rel.nome_arquivo);
+      }
+    }
+    console.log(`📋 Relatórios finais mapeados: ${relatoriosFinaisMap.size}`);
+
     // Calcular estatísticas por categoria
     const estatisticasPorCategoria = {
       documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porFornecedor: new Map<string, any>() },
@@ -506,6 +541,7 @@ Deno.serve(async (req) => {
       processos_anexos_outros: { arquivos: 0, tamanho: 0, detalhes: [] as any[] },
       capas_processo: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       cotacoes: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      relatorios_finais: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       habilitacao: { 
         arquivos: 0, 
         tamanho: 0, 
@@ -1371,6 +1407,42 @@ Deno.serve(async (req) => {
             }
           }
         }
+      } else if (pathSemBucket.startsWith('relatorios-finais/') || relatoriosFinaisMap.has(pathSemBucket)) {
+        // Relatórios Finais - agrupar por processo
+        estatisticasPorCategoria.relatorios_finais.arquivos++;
+        estatisticasPorCategoria.relatorios_finais.tamanho += metadata.size;
+        estatisticasPorCategoria.relatorios_finais.detalhes.push({ path, fileName, size: metadata.size });
+        
+        console.log(`🔍 Processando relatório final: ${path}`);
+        
+        // Buscar dados do relatório final no mapa pré-carregado
+        const relatorioData = relatoriosFinaisMap.get(pathSemBucket);
+        
+        if (relatorioData && relatorioData.processoId) {
+          const processoId = relatorioData.processoId;
+          
+          if (!estatisticasPorCategoria.relatorios_finais.porProcesso!.has(processoId)) {
+            estatisticasPorCategoria.relatorios_finais.porProcesso!.set(processoId, {
+              processoId,
+              processoNumero: relatorioData.processoNumero,
+              processoObjeto: relatorioData.processoObjeto,
+              documentos: []
+            });
+          }
+          
+          // Nome do documento: "Relatório Final + número do processo"
+          const nomeRelatorio = `Relatório Final ${relatorioData.processoNumero}`;
+          
+          estatisticasPorCategoria.relatorios_finais.porProcesso!.get(processoId)!.documentos.push({
+            path,
+            fileName: nomeRelatorio,
+            size: metadata.size
+          });
+          
+          console.log(`✅ Relatório final adicionado ao processo ${relatorioData.processoNumero}`);
+        } else {
+          console.log(`❌ Relatório final sem dados de processo no banco`);
+        }
       } else {
         // Outros
         estatisticasPorCategoria.outros.arquivos++;
@@ -1655,6 +1727,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.cotacoes.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.cotacoes.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.cotacoes.porProcesso!.values())
+        },
+        relatorios_finais: {
+          arquivos: estatisticasPorCategoria.relatorios_finais.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.relatorios_finais.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.relatorios_finais.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.relatorios_finais.porProcesso!.values())
         },
         habilitacao: {
           arquivos: estatisticasPorCategoria.habilitacao.arquivos,
