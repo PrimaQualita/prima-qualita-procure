@@ -355,8 +355,8 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   // Verificar espaço para certificação (50mm de altura)
   if (yPos + 50 > pageHeight - 23) {
     doc.addPage();
-    yPos = 20;
     await adicionarLogoERodape();
+    yPos = 50; // Posicionar abaixo do logo (40mm de altura + margem)
   }
   
   doc.setFillColor(245, 245, 245);
