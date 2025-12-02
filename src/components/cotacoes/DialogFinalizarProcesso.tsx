@@ -3556,6 +3556,15 @@ export function DialogFinalizarProcesso({
                     const recurso = recursosRecebidos.find(r => r.id === recursoSelecionado);
                     const fornecedorNome = recurso?.fornecedores?.razao_social || '';
 
+                    // BUSCAR DIRETAMENTE DO BANCO SE JÁ EXISTE RESPOSTA (evita problema de estado desatualizado)
+                    const { data: respostaExistenteDB } = await supabase
+                      .from('respostas_recursos')
+                      .select('id, url_documento')
+                      .eq('recurso_id', recursoSelecionado)
+                      .maybeSingle();
+                    
+                    console.log('[Recurso] Busca direta no banco - resposta existente:', respostaExistenteDB);
+
                     // Determinar decisão final para o PDF
                     const decisaoFinal = tipoProvimento === 'parcial' ? 'provimento_parcial' : decisaoRecurso;
 
@@ -3568,16 +3577,14 @@ export function DialogFinalizarProcesso({
                       numeroProcesso
                     );
 
-                    // Verificar se é edição (resposta já existe)
-                    const respostaExistente = (recurso as any)?.respostas_recursos?.[0];
-                    
                     // Guardar URL antiga para deletar DEPOIS do UPDATE bem sucedido
                     let oldFilePathToDelete: string | null = null;
                     
-                    if (respostaExistente && respostaExistente.id) {
+                    // USAR DADOS DO BANCO (respostaExistenteDB) ao invés do estado
+                    if (respostaExistenteDB && respostaExistenteDB.id) {
                       // É EDIÇÃO - fazer UPDATE PRIMEIRO, só deletar arquivo antigo se UPDATE funcionar
-                      if (respostaExistente.url_documento) {
-                        let oldFilePath = respostaExistente.url_documento;
+                      if (respostaExistenteDB.url_documento) {
+                        let oldFilePath = respostaExistenteDB.url_documento;
                         if (oldFilePath.includes('https://')) {
                           const urlParts = oldFilePath.split('/processo-anexos/');
                           oldFilePath = urlParts[1] || oldFilePath;
@@ -3585,7 +3592,7 @@ export function DialogFinalizarProcesso({
                         oldFilePathToDelete = oldFilePath;
                       }
                       
-                      console.log('[Recurso] Atualizando resposta existente ID:', respostaExistente.id);
+                      console.log('[Recurso] Atualizando resposta existente ID:', respostaExistenteDB.id);
                       const { error: updateError, data: updateData } = await supabase
                         .from('respostas_recursos')
                         .update({
@@ -3599,7 +3606,7 @@ export function DialogFinalizarProcesso({
                           itens_reabilitados: tipoProvimento === 'parcial' ? itensParaReabilitar : [],
                           data_resposta: new Date().toISOString()
                         })
-                        .eq('id', respostaExistente.id)
+                        .eq('id', respostaExistenteDB.id)
                         .select();
 
                       if (updateError) {
