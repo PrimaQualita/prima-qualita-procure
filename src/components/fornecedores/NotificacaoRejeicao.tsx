@@ -27,6 +27,7 @@ interface Rejeicao {
     url_documento: string;
     nome_arquivo: string;
     data_resposta: string;
+    tipo_provimento?: string;
   };
 }
 
@@ -109,7 +110,8 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
               texto_resposta,
               url_documento,
               nome_arquivo,
-              data_resposta
+              data_resposta,
+              tipo_provimento
             )
           `)
           .in('rejeicao_id', rejeicaoIds);
@@ -255,19 +257,29 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
               <div className="space-y-3">
                 <div className={`rounded-lg p-4 border ${
                   rejeicao.resposta_recurso.decisao === 'provimento'
-                    ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+                    ? (rejeicao.resposta_recurso.tipo_provimento === 'parcial' 
+                        ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800'
+                        : 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800')
                     : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
                 }`}>
                   <p className={`text-sm font-semibold ${
                     rejeicao.resposta_recurso.decisao === 'provimento'
-                      ? 'text-green-900 dark:text-green-100'
+                      ? (rejeicao.resposta_recurso.tipo_provimento === 'parcial'
+                          ? 'text-yellow-900 dark:text-yellow-100'
+                          : 'text-green-900 dark:text-green-100')
                       : 'text-red-900 dark:text-red-100'
                   }`}>
-                    {rejeicao.resposta_recurso.decisao === 'provimento' ? '✓ Recurso Aceito' : '✗ Recurso Negado'}
+                    {rejeicao.resposta_recurso.decisao === 'provimento' 
+                      ? (rejeicao.resposta_recurso.tipo_provimento === 'parcial' 
+                          ? '⚠️ Recurso Parcialmente Aceito' 
+                          : '✓ Recurso Aceito')
+                      : '✗ Recurso Negado'}
                   </p>
                   <p className={`text-xs mt-1 ${
                     rejeicao.resposta_recurso.decisao === 'provimento'
-                      ? 'text-green-700 dark:text-green-300'
+                      ? (rejeicao.resposta_recurso.tipo_provimento === 'parcial'
+                          ? 'text-yellow-700 dark:text-yellow-300'
+                          : 'text-green-700 dark:text-green-300')
                       : 'text-red-700 dark:text-red-300'
                   }`}>
                     Resposta recebida em: {new Date(rejeicao.resposta_recurso.data_resposta).toLocaleString('pt-BR')}
@@ -533,8 +545,12 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
               <div className="space-y-4 border-t pt-4 mt-4 bg-muted/50 p-4 rounded-lg">
                 <div className="flex items-center justify-between">
                   <h4 className="font-semibold text-lg">📋 Resposta do Departamento de Compras</h4>
-                  <Badge variant={rejeicao.resposta_recurso.decisao === 'provimento' ? 'default' : 'destructive'}>
-                    {rejeicao.resposta_recurso.decisao === 'provimento' ? '✅ PROVIMENTO CONCEDIDO' : '❌ PROVIMENTO NEGADO'}
+                  <Badge variant={rejeicao.resposta_recurso.decisao === 'provimento' ? (rejeicao.resposta_recurso.tipo_provimento === 'parcial' ? 'secondary' : 'default') : 'destructive'}>
+                    {rejeicao.resposta_recurso.decisao === 'provimento' 
+                      ? (rejeicao.resposta_recurso.tipo_provimento === 'parcial' 
+                          ? '⚠️ PROVIMENTO PARCIAL' 
+                          : '✅ PROVIMENTO TOTAL')
+                      : '❌ PROVIMENTO NEGADO'}
                   </Badge>
                 </div>
                 
