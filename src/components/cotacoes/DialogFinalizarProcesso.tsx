@@ -3577,20 +3577,30 @@ export function DialogFinalizarProcesso({
                       numeroProcesso
                     );
 
+                    // Função auxiliar para extrair path limpo do storage
+                    const extractStoragePath = (url: string): string | null => {
+                      if (!url) return null;
+                      let path = url;
+                      // Remover query strings primeiro
+                      path = path.split('?')[0];
+                      // Extrair path após processo-anexos/
+                      if (path.includes('/processo-anexos/')) {
+                        path = path.split('/processo-anexos/')[1];
+                      } else if (path.includes('processo-anexos/')) {
+                        path = path.split('processo-anexos/')[1];
+                      }
+                      return path || null;
+                    };
+
                     // Guardar URL antiga para deletar DEPOIS do UPDATE bem sucedido
                     let oldFilePathToDelete: string | null = null;
                     
                     // USAR DADOS DO BANCO (respostaExistenteDB) ao invés do estado
                     if (respostaExistenteDB && respostaExistenteDB.id) {
-                      // É EDIÇÃO - fazer UPDATE PRIMEIRO, só deletar arquivo antigo se UPDATE funcionar
-                      if (respostaExistenteDB.url_documento) {
-                        let oldFilePath = respostaExistenteDB.url_documento;
-                        if (oldFilePath.includes('https://')) {
-                          const urlParts = oldFilePath.split('/processo-anexos/');
-                          oldFilePath = urlParts[1] || oldFilePath;
-                        }
-                        oldFilePathToDelete = oldFilePath;
-                      }
+                      // É EDIÇÃO - extrair path antigo ANTES de qualquer operação
+                      oldFilePathToDelete = extractStoragePath(respostaExistenteDB.url_documento);
+                      console.log('[Recurso] Path antigo extraído:', oldFilePathToDelete);
+                      console.log('[Recurso] URL antiga completa:', respostaExistenteDB.url_documento);
                       
                       console.log('[Recurso] Atualizando resposta existente ID:', respostaExistenteDB.id);
                       const { error: updateError, data: updateData } = await supabase
@@ -3611,20 +3621,32 @@ export function DialogFinalizarProcesso({
 
                       if (updateError) {
                         console.error('[Recurso] Erro no UPDATE:', updateError);
-                        // Deletar arquivo novo para não ficar órfão, mas erro ainda propaga
-                        const newFilePath = pdfResult.url.split('/processo-anexos/')[1];
+                        // Deletar arquivo novo para não ficar órfão
+                        const newFilePath = extractStoragePath(pdfResult.url);
                         if (newFilePath) {
+                          console.log('[Recurso] Deletando arquivo novo após erro:', newFilePath);
                           await supabase.storage.from('processo-anexos').remove([newFilePath]);
                         }
-                        throw updateError; // Usuário vê o erro e pode tentar novamente
+                        throw updateError;
                       }
                       
                       console.log('[Recurso] UPDATE bem sucedido:', updateData);
                       
-                      // Só deletar arquivo antigo APÓS UPDATE bem sucedido
-                      if (oldFilePathToDelete && oldFilePathToDelete !== pdfResult.url.split('/processo-anexos/')[1]) {
+                      // Extrair path do novo arquivo
+                      const newFilePath = extractStoragePath(pdfResult.url);
+                      console.log('[Recurso] Path novo:', newFilePath);
+                      
+                      // Deletar arquivo antigo APÓS UPDATE bem sucedido (se for diferente do novo)
+                      if (oldFilePathToDelete && newFilePath && oldFilePathToDelete !== newFilePath) {
                         console.log('[Recurso] Deletando arquivo antigo:', oldFilePathToDelete);
-                        await supabase.storage.from('processo-anexos').remove([oldFilePathToDelete]);
+                        const { error: deleteError } = await supabase.storage.from('processo-anexos').remove([oldFilePathToDelete]);
+                        if (deleteError) {
+                          console.warn('[Recurso] Aviso: Não foi possível deletar arquivo antigo:', deleteError);
+                        } else {
+                          console.log('[Recurso] Arquivo antigo deletado com sucesso');
+                        }
+                      } else {
+                        console.log('[Recurso] Paths iguais ou inválidos, nenhum arquivo deletado');
                       }
                     } else {
                       // É NOVA RESPOSTA - fazer INSERT
