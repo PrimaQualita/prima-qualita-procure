@@ -2762,16 +2762,25 @@ export function DialogFinalizarProcesso({
                                 }
                                 
                                 // Deletar recurso do banco
-                                await supabase
+                                const { error: deleteError } = await supabase
                                   .from('recursos_fornecedor')
                                   .delete()
                                   .eq('id', recurso.id);
                                 
+                                if (deleteError) {
+                                  console.error('Erro ao deletar recurso:', deleteError);
+                                  throw deleteError;
+                                }
+                                
                                 // Atualizar status da rejeição para sem_recurso
-                                await supabase
+                                const { error: updateError } = await supabase
                                   .from('fornecedores_rejeitados_cotacao')
                                   .update({ status_recurso: 'sem_recurso' })
                                   .eq('id', recurso.rejeicao_id);
+                                
+                                if (updateError) {
+                                  console.error('Erro ao atualizar status:', updateError);
+                                }
                                 
                                 toast.success('Recurso apagado com sucesso!');
                                 await loadRecursos();
