@@ -3598,10 +3598,27 @@ export function DialogFinalizarProcesso({
                           .eq('cotacao_id', cotacaoId);
                       } else {
                         // Provimento parcial: atualizar itens_afetados
-                        // Todos os itens NÃO marcados para reabilitar permanecerão inabilitados
-                        const todosItens = itensCotacao.map(i => i.numero_item);
-                        const itensAindaRejeitados = todosItens.filter(item => !itensParaReabilitar.includes(item));
+                        // Buscar resposta do fornecedor
+                        const { data: respostaFornecedor } = await supabase
+                          .from('cotacao_respostas_fornecedor')
+                          .select('id')
+                          .eq('fornecedor_id', fornecedorId)
+                          .eq('cotacao_id', cotacaoId)
+                          .single();
                         
+                        // Buscar itens da proposta do fornecedor com join para pegar numero_item
+                        const { data: itensFornecedor } = await supabase
+                          .from('respostas_itens_fornecedor')
+                          .select('item_cotacao_id, itens_cotacao!inner(numero_item)')
+                          .eq('cotacao_resposta_fornecedor_id', respostaFornecedor?.id || '');
+                        
+                        // Itens da proposta do fornecedor
+                        const itensDoFornecedor = itensFornecedor?.map(i => (i.itens_cotacao as any)?.numero_item).filter(Boolean) || [];
+                        
+                        // Itens rejeitados = itens da proposta que NÃO estão marcados para reabilitar
+                        const itensAindaRejeitados = itensDoFornecedor.filter((item: number) => !itensParaReabilitar.includes(item));
+                        
+                        console.log('Provimento parcial - itens do fornecedor:', itensDoFornecedor);
                         console.log('Provimento parcial - itens para reabilitar:', itensParaReabilitar);
                         console.log('Provimento parcial - itens ainda rejeitados:', itensAindaRejeitados);
                         
