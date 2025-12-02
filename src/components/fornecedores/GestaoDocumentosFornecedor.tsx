@@ -211,10 +211,10 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
 
     setProcessando(true);
     try {
-      // 1. Buscar documento antigo em vigor para deletar arquivo
+      // 1. Buscar documento antigo em vigor
       const { data: docAntigoData } = await supabase
         .from("documentos_fornecedor")
-        .select("url_arquivo")
+        .select("id, url_arquivo")
         .eq("fornecedor_id", fornecedorId)
         .eq("tipo_documento", tipoDocumentoAtualizar)
         .eq("em_vigor", true)
@@ -232,18 +232,43 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         .from("processo-anexos")
         .getPublicUrl(fileName);
 
-      // 3. Deletar arquivo antigo do storage
+      // 3. Verificar se documento antigo está em uso em alguma habilitação (documentos_processo_finalizado)
+      // antes de deletar do storage
       if (docAntigoData?.url_arquivo) {
         const pathMatch = docAntigoData.url_arquivo.match(/processo-anexos\/(.+)$/);
-        if (pathMatch) {
-          const filePath = pathMatch[1];
-          await supabase.storage
-            .from('processo-anexos')
-            .remove([filePath]);
+        const nomeArquivoAntigo = docAntigoData.url_arquivo.split('/').pop() || '';
+        
+        // Verificar se arquivo está referenciado em documentos_processo_finalizado (habilitação)
+        const { data: docHabilitacao } = await supabase
+          .from("documentos_processo_finalizado")
+          .select("id")
+          .or(`url_arquivo.ilike.%${nomeArquivoAntigo}%,url_arquivo.eq.${docAntigoData.url_arquivo}`)
+          .limit(1);
+        
+        const estaEmUsoHabilitacao = docHabilitacao && docHabilitacao.length > 0;
+        
+        if (estaEmUsoHabilitacao) {
+          // Documento está em uso em habilitação - NÃO deletar do storage
+          // O arquivo físico permanece para os processos finalizados que o referenciam
+          console.log(`📁 Documento "${nomeArquivoAntigo}" está em uso em habilitação - arquivo mantido no storage`);
+        } else {
+          // Documento NÃO está em uso - pode deletar do storage
+          if (pathMatch) {
+            const filePath = pathMatch[1];
+            const { error: deleteError } = await supabase.storage
+              .from('processo-anexos')
+              .remove([filePath]);
+            
+            if (deleteError) {
+              console.warn(`⚠️ Erro ao deletar arquivo antigo: ${deleteError.message}`);
+            } else {
+              console.log(`🗑️ Arquivo antigo "${nomeArquivoAntigo}" deletado do storage (não estava em uso)`);
+            }
+          }
         }
       }
 
-      // 4. Desativar documento antigo no banco
+      // 4. Desativar documento antigo no banco (mantém registro histórico)
       await supabase
         .from("documentos_fornecedor")
         .update({ em_vigor: false })
