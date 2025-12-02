@@ -109,14 +109,42 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Autorizações
-    const { data: autorizacoes } = await supabase.from('autorizacoes_processo').select('url_arquivo, nome_arquivo');
+    // Autorizações - com dados do processo para categorização
+    const { data: autorizacoes } = await supabase
+      .from('autorizacoes_processo')
+      .select(`
+        url_arquivo, 
+        nome_arquivo,
+        tipo_autorizacao,
+        cotacao_id,
+        cotacoes_precos!inner(
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno, objeto_resumido)
+        )
+      `);
+    const autorizacoesMap = new Map<string, { 
+      nomeArquivo: string; 
+      tipoAutorizacao: string;
+      processoId: string; 
+      processoNumero: string;
+      processoObjeto: string;
+    }>();
     if (autorizacoes) {
       for (const aut of autorizacoes) {
         const path = aut.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || aut.url_arquivo;
+        const cotacao = (aut as any).cotacoes_precos;
+        const processo = cotacao?.processos_compras;
+        autorizacoesMap.set(path, {
+          nomeArquivo: aut.nome_arquivo,
+          tipoAutorizacao: aut.tipo_autorizacao,
+          processoId: cotacao?.processo_compra_id || '',
+          processoNumero: processo?.numero_processo_interno || '',
+          processoObjeto: processo?.objeto_resumido || ''
+        });
         nomesBonitos.set(path, aut.nome_arquivo);
       }
     }
+    console.log(`📋 Autorizações mapeadas: ${autorizacoesMap.size}`);
 
     // Encaminhamentos
     const { data: encaminhamentos } = await supabase.from('encaminhamentos_processo').select('url, storage_path, nome_arquivo, processo_numero');
@@ -542,7 +570,8 @@ Deno.serve(async (req) => {
       capas_processo: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       cotacoes: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       relatorios_finais: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
-      habilitacao: { 
+      autorizacoes_compra_direta: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      habilitacao: {
         arquivos: 0, 
         tamanho: 0, 
         detalhes: [] as any[], 
@@ -1443,6 +1472,42 @@ Deno.serve(async (req) => {
         } else {
           console.log(`❌ Relatório final sem dados de processo no banco`);
         }
+      } else if (pathSemBucket.startsWith('autorizacoes/') || autorizacoesMap.has(pathSemBucket)) {
+        // Autorizações de Compra Direta - agrupar por processo
+        estatisticasPorCategoria.autorizacoes_compra_direta.arquivos++;
+        estatisticasPorCategoria.autorizacoes_compra_direta.tamanho += metadata.size;
+        estatisticasPorCategoria.autorizacoes_compra_direta.detalhes.push({ path, fileName, size: metadata.size });
+        
+        console.log(`🔍 Processando autorização: ${path}`);
+        
+        // Buscar dados da autorização no mapa pré-carregado
+        const autorizacaoData = autorizacoesMap.get(pathSemBucket);
+        
+        if (autorizacaoData && autorizacaoData.processoId) {
+          const processoId = autorizacaoData.processoId;
+          
+          if (!estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso!.has(processoId)) {
+            estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso!.set(processoId, {
+              processoId,
+              processoNumero: autorizacaoData.processoNumero,
+              processoObjeto: autorizacaoData.processoObjeto,
+              documentos: []
+            });
+          }
+          
+          // Nome do documento: "Autorização Compra Direta + número do processo"
+          const nomeAutorizacao = `Autorização Compra Direta ${autorizacaoData.processoNumero}`;
+          
+          estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso!.get(processoId)!.documentos.push({
+            path,
+            fileName: nomeAutorizacao,
+            size: metadata.size
+          });
+          
+          console.log(`✅ Autorização adicionada ao processo ${autorizacaoData.processoNumero}`);
+        } else {
+          console.log(`❌ Autorização sem dados de processo no banco`);
+        }
       } else {
         // Outros
         estatisticasPorCategoria.outros.arquivos++;
@@ -1733,6 +1798,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.relatorios_finais.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.relatorios_finais.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.relatorios_finais.porProcesso!.values())
+        },
+        autorizacoes_compra_direta: {
+          arquivos: estatisticasPorCategoria.autorizacoes_compra_direta.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.autorizacoes_compra_direta.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.autorizacoes_compra_direta.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso!.values())
         },
         habilitacao: {
           arquivos: estatisticasPorCategoria.habilitacao.arquivos,

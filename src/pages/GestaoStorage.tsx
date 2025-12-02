@@ -622,6 +622,34 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
+              <Card className="border-green-200 bg-green-50/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-green-900">Autorizações Compra Direta</p>
+                      <p className="text-2xl font-bold text-green-700">{resultado.estatisticasPorCategoria?.autorizacoes_compra_direta?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-green-600">
+                        {resultado.estatisticasPorCategoria?.autorizacoes_compra_direta?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-green-700/70">PDFs de autorização</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.autorizacoes_compra_direta?.porProcesso?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Autorizações de Compra Direta',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="border-slate-200 bg-slate-50/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-2">
