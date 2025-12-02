@@ -415,19 +415,19 @@ export const gerarProcessoCompletoPDF = async (
     // Data base para documentos de fornecedores (após última data cronológica)
     let dataBaseFornecedores = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
 
-    // Ordenação customizada dos documentos de cadastro
+    // Ordenação customizada dos documentos de cadastro (usar chaves do banco, não labels)
     const ordemDocumentos = [
-      "Contrato Social",
-      "CNPJ",
-      "Inscrição Municipal ou Estadual",
-      "CND Federal",
-      "CND Tributos Estaduais",
-      "CND Dívida Ativa Estadual",
-      "CND Tributos Municipais",
-      "CND Dívida Ativa Municipal",
-      "CRF FGTS",
-      "CNDT",
-      "Certificado de Fornecedor"
+      "contrato_social",             // 1 - Contrato Social
+      "cartao_cnpj",                 // 2 - CNPJ
+      "inscricao_estadual_municipal", // 3 - Inscrição Estadual ou Municipal
+      "cnd_federal",                 // 4 - CND Federal
+      "cnd_tributos_estaduais",      // 5 - CND Tributos Estaduais
+      "cnd_divida_ativa_estadual",   // 6 - CND Dívida Ativa Estadual
+      "cnd_tributos_municipais",     // 7 - CND Tributos Municipais
+      "cnd_divida_ativa_municipal",  // 8 - CND Dívida Ativa Municipal
+      "crf_fgts",                    // 9 - CRF FGTS
+      "cndt",                        // 10 - CNDT
+      "certificado_gestor"           // 11 - Certificado
     ];
 
     // Processar cada fornecedor (vencedores e inabilitados)
