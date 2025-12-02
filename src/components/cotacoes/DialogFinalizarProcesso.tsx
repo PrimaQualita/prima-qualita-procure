@@ -3168,7 +3168,7 @@ export function DialogFinalizarProcesso({
           </div>
         </ScrollArea>
 
-        <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
+        <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0 max-h-[50vh] overflow-y-auto">
           <div className="flex flex-col w-full gap-3">
             {/* Relatórios Finais - Qualquer gestor/colaborador pode gerar e deletar */}
             <div className="flex flex-col gap-2">
@@ -3182,7 +3182,7 @@ export function DialogFinalizarProcesso({
               </Button>
               
               {relatoriosFinais.length > 0 && (
-                <div className="flex flex-col gap-2 mt-2">
+                <div className="flex flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
                   <Label className="text-sm font-semibold">Relatórios Finais Gerados:</Label>
                   {relatoriosFinais.map((relatorio) => (
                     <div key={relatorio.id} className="flex items-center gap-2 p-2 bg-muted rounded-md">
@@ -3270,7 +3270,7 @@ export function DialogFinalizarProcesso({
                 )}
 
                 {isResponsavelLegal && autorizacoes.length > 0 && (
-                  <div className="flex flex-col gap-2 mt-2">
+                  <div className="flex flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
                     <Label className="text-sm font-semibold">Autorizações Geradas:</Label>
                     {autorizacoes.map((aut) => (
                       <div key={aut.id} className="flex items-center gap-2 p-2 bg-muted rounded-md">

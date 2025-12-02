@@ -174,9 +174,10 @@ export const gerarAutorizacaoCompraDireta = async (
   const linhasAssunto = doc.splitTextToSize(`Assunto: ${textoLimpo}`, 170);
   doc.text(linhasAssunto, 20, 72, { align: 'justify', maxWidth: 170 });
   
-  // Texto principal
+  // Calcular posição do texto principal baseado no tamanho do assunto
   doc.setFontSize(11);
-  let yPos = 90;
+  const espacamentoAposAssunto = 15; // Espaçamento fixo após o assunto
+  let yPos = 72 + (linhasAssunto.length * 6) + espacamentoAposAssunto;
   
   const texto1 = 'Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, ratifico a realização da presente despesa, e a contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES, conforme requisição, aferição da economicidade e justificativas anexas, nos termos do Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, em favor da(s) empresa(s):';
   
