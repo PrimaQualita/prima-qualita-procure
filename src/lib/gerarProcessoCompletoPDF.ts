@@ -123,8 +123,15 @@ export const gerarProcessoCompletoPDF = async (
           
           console.log(`  Buscando: ${email.nome_arquivo}`);
           
-          // Extrair storage path da URL (pode ser signed URL ou URL com query params)
+          // Extrair storage path - O path pode incluir "processo-anexos/" no início que precisa ser removido
           let storagePath = email.url_arquivo;
+          
+          // Remover prefixo do bucket se existir
+          if (storagePath.startsWith('processo-anexos/')) {
+            storagePath = storagePath.replace('processo-anexos/', '');
+          }
+          
+          // Se for URL completa, extrair apenas o path
           if (storagePath.includes('/storage/v1/object/')) {
             const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
             if (match) {
@@ -291,11 +298,17 @@ export const gerarProcessoCompletoPDF = async (
     if (analises && analises.length > 0) {
       analises.forEach(analise => {
         if (analise.url_documento) {
+          // Extrair storage path - O path pode incluir "documents/" no início que precisa ser removido
+          let storagePath = analise.url_documento;
+          if (storagePath.startsWith('documents/')) {
+            storagePath = storagePath.replace('documents/', '');
+          }
+          
           documentosOrdenados.push({
             tipo: "Análise de Compliance",
             data: analise.data_analise || analise.created_at,
             nome: analise.nome_arquivo || `Análise ${analise.protocolo}`,
-            url: analise.url_documento,
+            storagePath: storagePath,
             bucket: "documents"
           });
         }
@@ -402,6 +415,21 @@ export const gerarProcessoCompletoPDF = async (
     // Data base para documentos de fornecedores (após última data cronológica)
     let dataBaseFornecedores = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
 
+    // Ordenação customizada dos documentos de cadastro
+    const ordemDocumentos = [
+      "Contrato Social",
+      "CNPJ",
+      "Inscrição Municipal ou Estadual",
+      "CND Federal",
+      "CND Tributos Estaduais",
+      "CND Dívida Ativa Estadual",
+      "CND Tributos Municipais",
+      "CND Dívida Ativa Municipal",
+      "CRF FGTS",
+      "CNDT",
+      "Certificado de Fornecedor"
+    ];
+
     // Processar cada fornecedor (vencedores e inabilitados)
     for (let index = 0; index < todosFornecedoresProcesso.length; index++) {
       const fornecedorId = todosFornecedoresProcesso[index];
@@ -411,7 +439,7 @@ export const gerarProcessoCompletoPDF = async (
       // Data específica para este fornecedor
       const dataFornecedor = new Date(new Date(dataBaseFornecedores).getTime() + (index * 100)).toISOString();
       
-      // 1. Buscar documentos de cadastro (snapshot) deste fornecedor - APENAS VERSÃO MAIS RECENTE (DISTINCT)
+      // 1. Buscar documentos de cadastro (snapshot) deste fornecedor
       const { data: docsSnapshot, error: snapshotError } = await supabase
         .from("documentos_processo_finalizado")
         .select("*")
@@ -421,33 +449,44 @@ export const gerarProcessoCompletoPDF = async (
 
       if (snapshotError) {
         console.error(`  ❌ Erro ao buscar documentos snapshot:`, snapshotError);
-        continue;
       }
 
       // Remover duplicatas mantendo apenas a versão mais recente de cada tipo
-      const docsUnicos = docsSnapshot?.reduce((acc, doc) => {
+      let docsUnicos = docsSnapshot?.reduce((acc, doc) => {
         if (!acc.find((d: any) => d.tipo_documento === doc.tipo_documento)) {
           acc.push(doc);
         }
         return acc;
       }, [] as any[]) || [];
 
-      console.log(`  📄 Documentos de cadastro: ${docsUnicos.length}`);
+      console.log(`  📄 Documentos snapshot encontrados: ${docsUnicos.length}`);
       
-      // Ordenação customizada dos documentos
-      const ordemDocumentos = [
-        "Contrato Social",
-        "CNPJ",
-        "Inscrição Municipal ou Estadual",
-        "CND Federal",
-        "CND Tributos Estaduais",
-        "CND Dívida Ativa Estadual",
-        "CND Tributos Municipais",
-        "CND Dívida Ativa Municipal",
-        "CRF FGTS",
-        "CNDT",
-        "Certificado de Fornecedor"
-      ];
+      // Se não encontrou snapshots, buscar de documentos_fornecedor (cadastro original)
+      if (docsUnicos.length === 0) {
+        console.log(`  🔄 Buscando documentos de cadastro originais...`);
+        
+        const { data: docsCadastro, error: cadastroError } = await supabase
+          .from("documentos_fornecedor")
+          .select("*")
+          .eq("fornecedor_id", fornecedorId)
+          .order("data_upload", { ascending: false });
+        
+        if (cadastroError) {
+          console.error(`  ❌ Erro ao buscar documentos de cadastro:`, cadastroError);
+        } else if (docsCadastro && docsCadastro.length > 0) {
+          // Remover duplicatas mantendo versão mais recente
+          docsUnicos = docsCadastro.reduce((acc, doc) => {
+            if (!acc.find((d: any) => d.tipo_documento === doc.tipo_documento)) {
+              acc.push({
+                ...doc,
+                url_arquivo: doc.url_arquivo
+              });
+            }
+            return acc;
+          }, [] as any[]);
+          console.log(`  📄 Documentos de cadastro encontrados: ${docsUnicos.length}`);
+        }
+      }
 
       const docsOrdenados = docsUnicos.sort((a, b) => {
         const indexA = ordemDocumentos.indexOf(a.tipo_documento);
@@ -515,15 +554,14 @@ export const gerarProcessoCompletoPDF = async (
     // 11b. BUSCAR RECURSOS DE INABILITAÇÃO EM ORDEM CRONOLÓGICA (recurso + resposta)
     console.log("\n📝 === BUSCANDO RECURSOS DE INABILITAÇÃO ===");
     
+    // Buscar recursos com dados do fornecedor e da rejeição
     const { data: recursosInabilitacao, error: recursosError } = await supabase
       .from("recursos_fornecedor")
       .select(`
         *,
         fornecedores(razao_social),
         fornecedores_rejeitados_cotacao!inner(
-          cotacao_id,
-          url_resposta_recurso,
-          data_resposta_recurso
+          cotacao_id
         )
       `)
       .order("data_envio", { ascending: true });
@@ -540,13 +578,31 @@ export const gerarProcessoCompletoPDF = async (
     
     console.log(`📝 Recursos de inabilitação encontrados: ${recursosFiltrados.length}`);
     
+    // Buscar respostas dos recursos (tabela separada respostas_recursos)
+    const recursosIds = recursosFiltrados.map(r => r.id);
+    let respostasRecursos: any[] = [];
+    
+    if (recursosIds.length > 0) {
+      const { data: respostas, error: respostasError } = await supabase
+        .from("respostas_recursos")
+        .select("*")
+        .in("recurso_id", recursosIds);
+      
+      if (respostasError) {
+        console.error("Erro ao buscar respostas de recursos:", respostasError);
+      } else {
+        respostasRecursos = respostas || [];
+      }
+    }
+    
+    console.log(`📝 Respostas de recursos encontradas: ${respostasRecursos.length}`);
+    
     // Data base para recursos (após documentos dos fornecedores)
     const dataBaseRecursos = new Date(new Date(dataBaseFornecedores).getTime() + (todosFornecedoresProcesso.length * 100) + 500).toISOString();
     
     // Adicionar recursos em ordem cronológica: recurso seguido de sua resposta
     for (let i = 0; i < recursosFiltrados.length; i++) {
       const recurso = recursosFiltrados[i];
-      const rejeicao = recurso.fornecedores_rejeitados_cotacao as any;
       const razaoSocial = (recurso.fornecedores as any)?.razao_social || 'Fornecedor';
       
       // Data do recurso (mantém ordem cronológica)
@@ -565,18 +621,21 @@ export const gerarProcessoCompletoPDF = async (
         console.log(`  📝 Recurso: ${razaoSocial} - ${recurso.data_envio}`);
       }
       
+      // Buscar resposta deste recurso específico
+      const resposta = respostasRecursos.find(r => r.recurso_id === recurso.id);
+      
       // Adicionar a resposta do recurso (imediatamente após o recurso)
-      if (rejeicao?.url_resposta_recurso) {
+      if (resposta?.url_documento) {
         const dataResposta = new Date(new Date(dataRecurso).getTime() + 1).toISOString();
         documentosOrdenados.push({
           tipo: "Resposta de Recurso",
           data: dataResposta,
           nome: `Resposta Recurso - ${razaoSocial}`,
-          url: rejeicao.url_resposta_recurso,
+          url: resposta.url_documento,
           bucket: "processo-anexos",
           fornecedor: recurso.fornecedor_id
         });
-        console.log(`  📝 Resposta Recurso: ${razaoSocial} - ${rejeicao.data_resposta_recurso}`);
+        console.log(`  📝 Resposta Recurso: ${razaoSocial} - ${resposta.data_resposta}`);
       }
     }
 
