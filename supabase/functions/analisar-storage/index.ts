@@ -300,6 +300,9 @@ Deno.serve(async (req) => {
         let normalizedPath = '';
         if (anexo.url_arquivo.includes('processo-anexos/')) {
           normalizedPath = anexo.url_arquivo.split('processo-anexos/')[1].split('?')[0];
+        } else if (anexo.url_arquivo.includes('/documents/')) {
+          // Extrair path após /documents/ para arquivos no bucket documents
+          normalizedPath = anexo.url_arquivo.split('/documents/')[1].split('?')[0];
         } else {
           normalizedPath = anexo.url_arquivo.split('?')[0];
         }
