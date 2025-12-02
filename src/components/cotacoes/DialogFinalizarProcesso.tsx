@@ -144,6 +144,12 @@ export function DialogFinalizarProcesso({
   const [tipoProvimento, setTipoProvimento] = useState<'total' | 'parcial'>('total');
   const [itensParaReabilitar, setItensParaReabilitar] = useState<number[]>([]);
   const [rejeicaoDoRecurso, setRejeicaoDoRecurso] = useState<any>(null);
+  
+  // Estados para confirmação de exclusão de recurso/resposta
+  const [confirmDeleteRecursoOpen, setConfirmDeleteRecursoOpen] = useState(false);
+  const [recursoParaExcluir, setRecursoParaExcluir] = useState<any>(null);
+  const [confirmDeleteRespostaRecursoOpen, setConfirmDeleteRespostaRecursoOpen] = useState(false);
+  const [respostaRecursoParaExcluir, setRespostaRecursoParaExcluir] = useState<any>(null);
 
   useEffect(() => {
     if (open) {
@@ -1503,6 +1509,129 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const deletarRecurso = async () => {
+    if (!recursoParaExcluir) return;
+
+    try {
+      // Deletar resposta se existir
+      const respostaExistente = (recursoParaExcluir as any).respostas_recursos?.[0];
+      if (respostaExistente) {
+        // Deletar arquivo da resposta
+        if (respostaExistente.url_documento) {
+          let filePath = respostaExistente.url_documento;
+          if (filePath.includes('https://')) {
+            const urlParts = filePath.split('/processo-anexos/');
+            filePath = urlParts[1] || filePath;
+          }
+          await supabase.storage.from('processo-anexos').remove([filePath]);
+        }
+        
+        // Deletar resposta do banco
+        await supabase
+          .from('respostas_recursos')
+          .delete()
+          .eq('recurso_id', recursoParaExcluir.id);
+        
+        // Reverter status da rejeição se foi dado provimento
+        if (respostaExistente.decisao === 'provimento') {
+          await supabase
+            .from('fornecedores_rejeitados_cotacao')
+            .update({ 
+              revertido: false,
+              itens_afetados: [],
+              motivo_reversao: null,
+              data_reversao: null,
+              usuario_reverteu_id: null
+            })
+            .eq('id', recursoParaExcluir.rejeicao_id);
+        }
+      }
+      
+      // Deletar arquivo do recurso
+      if (recursoParaExcluir.url_arquivo) {
+        let filePath = recursoParaExcluir.url_arquivo;
+        if (filePath.includes('https://')) {
+          const urlParts = filePath.split('/processo-anexos/');
+          filePath = urlParts[1] || filePath;
+        }
+        await supabase.storage.from('processo-anexos').remove([filePath]);
+      }
+      
+      // Deletar recurso do banco
+      const { error: deleteError } = await supabase
+        .from('recursos_fornecedor')
+        .delete()
+        .eq('id', recursoParaExcluir.id);
+      
+      if (deleteError) {
+        console.error('Erro ao deletar recurso:', deleteError);
+        throw deleteError;
+      }
+      
+      // Atualizar status da rejeição para sem_recurso
+      await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .update({ status_recurso: 'sem_recurso' })
+        .eq('id', recursoParaExcluir.rejeicao_id);
+      
+      setRecursoParaExcluir(null);
+      setConfirmDeleteRecursoOpen(false);
+      toast.success('Recurso apagado com sucesso!');
+      await loadRecursos();
+      await loadFornecedoresRejeitados();
+    } catch (error) {
+      console.error('Erro ao apagar recurso:', error);
+      toast.error('Erro ao apagar recurso');
+    }
+  };
+
+  const deletarRespostaRecurso = async () => {
+    if (!respostaRecursoParaExcluir) return;
+
+    try {
+      const respostaAtual = (respostaRecursoParaExcluir as any).respostas_recursos[0];
+      
+      // Deletar arquivo do storage
+      if (respostaAtual.url_documento) {
+        let filePath = respostaAtual.url_documento;
+        if (filePath.includes('https://')) {
+          const urlParts = filePath.split('/processo-anexos/');
+          filePath = urlParts[1] || filePath;
+        }
+        await supabase.storage.from('processo-anexos').remove([filePath]);
+      }
+      
+      // Deletar resposta do banco
+      await supabase
+        .from('respostas_recursos')
+        .delete()
+        .eq('recurso_id', respostaRecursoParaExcluir.id);
+      
+      // Reverter status da rejeição se foi dado provimento
+      if (respostaAtual.decisao === 'provimento') {
+        await supabase
+          .from('fornecedores_rejeitados_cotacao')
+          .update({ 
+            revertido: false,
+            itens_afetados: [],
+            motivo_reversao: null,
+            data_reversao: null,
+            usuario_reverteu_id: null
+          })
+          .eq('id', respostaRecursoParaExcluir.rejeicao_id);
+      }
+      
+      setRespostaRecursoParaExcluir(null);
+      setConfirmDeleteRespostaRecursoOpen(false);
+      toast.success('Resposta apagada com sucesso!');
+      await loadRecursos();
+      await loadFornecedoresRejeitados();
+    } catch (error) {
+      console.error('Erro ao apagar resposta:', error);
+      toast.error('Erro ao apagar resposta');
+    }
+  };
+
   const handleSolicitarAtualizacaoDocumento = async () => {
     if (!documentoParaAtualizar) return;
     
@@ -2758,82 +2887,9 @@ export function DialogFinalizarProcesso({
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={async () => {
-                              if (!confirm('Tem certeza que deseja apagar este recurso? Esta ação não pode ser desfeita.')) return;
-                              
-                              try {
-                                // Deletar resposta se existir
-                                const respostaExistente = (recurso as any).respostas_recursos?.[0];
-                                if (respostaExistente) {
-                                  // Deletar arquivo da resposta
-                                  if (respostaExistente.url_documento) {
-                                    let filePath = respostaExistente.url_documento;
-                                    if (filePath.includes('https://')) {
-                                      const urlParts = filePath.split('/processo-anexos/');
-                                      filePath = urlParts[1] || filePath;
-                                    }
-                                    await supabase.storage.from('processo-anexos').remove([filePath]);
-                                  }
-                                  
-                                  // Deletar resposta do banco
-                                  await supabase
-                                    .from('respostas_recursos')
-                                    .delete()
-                                    .eq('recurso_id', recurso.id);
-                                  
-                                  // Reverter status da rejeição se foi dado provimento
-                                  if (respostaExistente.decisao === 'provimento') {
-                                    await supabase
-                                      .from('fornecedores_rejeitados_cotacao')
-                                      .update({ 
-                                        revertido: false,
-                                        itens_afetados: [],
-                                        motivo_reversao: null,
-                                        data_reversao: null,
-                                        usuario_reverteu_id: null
-                                      })
-                                      .eq('id', recurso.rejeicao_id);
-                                  }
-                                }
-                                
-                                // Deletar arquivo do recurso
-                                if (recurso.url_arquivo) {
-                                  let filePath = recurso.url_arquivo;
-                                  if (filePath.includes('https://')) {
-                                    const urlParts = filePath.split('/processo-anexos/');
-                                    filePath = urlParts[1] || filePath;
-                                  }
-                                  await supabase.storage.from('processo-anexos').remove([filePath]);
-                                }
-                                
-                                // Deletar recurso do banco
-                                const { error: deleteError } = await supabase
-                                  .from('recursos_fornecedor')
-                                  .delete()
-                                  .eq('id', recurso.id);
-                                
-                                if (deleteError) {
-                                  console.error('Erro ao deletar recurso:', deleteError);
-                                  throw deleteError;
-                                }
-                                
-                                // Atualizar status da rejeição para sem_recurso
-                                const { error: updateError } = await supabase
-                                  .from('fornecedores_rejeitados_cotacao')
-                                  .update({ status_recurso: 'sem_recurso' })
-                                  .eq('id', recurso.rejeicao_id);
-                                
-                                if (updateError) {
-                                  console.error('Erro ao atualizar status:', updateError);
-                                }
-                                
-                                toast.success('Recurso apagado com sucesso!');
-                                await loadRecursos();
-                                await loadFornecedoresRejeitados();
-                              } catch (error) {
-                                console.error('Erro ao apagar recurso:', error);
-                                toast.error('Erro ao apagar recurso');
-                              }
+                            onClick={() => {
+                              setRecursoParaExcluir(recurso);
+                              setConfirmDeleteRecursoOpen(true);
                             }}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -3011,49 +3067,9 @@ export function DialogFinalizarProcesso({
                                 <Button
                                   variant="destructive"
                                   size="sm"
-                                  onClick={async () => {
-                                    if (!confirm('Tem certeza que deseja apagar esta resposta? O recurso voltará a aguardar resposta.')) return;
-                                    
-                                    try {
-                                      const respostaAtual = (recurso as any).respostas_recursos[0];
-                                      
-                                      // Deletar arquivo do storage
-                                      if (respostaAtual.url_documento) {
-                                        let filePath = respostaAtual.url_documento;
-                                        if (filePath.includes('https://')) {
-                                          const urlParts = filePath.split('/processo-anexos/');
-                                          filePath = urlParts[1] || filePath;
-                                        }
-                                        await supabase.storage.from('processo-anexos').remove([filePath]);
-                                      }
-                                      
-                                      // Deletar resposta do banco
-                                      await supabase
-                                        .from('respostas_recursos')
-                                        .delete()
-                                        .eq('recurso_id', recurso.id);
-                                      
-                                      // Reverter status da rejeição se foi dado provimento
-                                      if (respostaAtual.decisao === 'provimento') {
-                                        await supabase
-                                          .from('fornecedores_rejeitados_cotacao')
-                                          .update({ 
-                                            revertido: false,
-                                            itens_afetados: [],
-                                            motivo_reversao: null,
-                                            data_reversao: null,
-                                            usuario_reverteu_id: null
-                                          })
-                                          .eq('id', recurso.rejeicao_id);
-                                      }
-                                      
-                                      toast.success('Resposta apagada com sucesso!');
-                                      await loadRecursos();
-                                      await loadFornecedoresRejeitados();
-                                    } catch (error) {
-                                      console.error('Erro ao apagar resposta:', error);
-                                      toast.error('Erro ao apagar resposta');
-                                    }
+                                  onClick={() => {
+                                    setRespostaRecursoParaExcluir(recurso);
+                                    setConfirmDeleteRespostaRecursoOpen(true);
                                   }}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
@@ -3989,6 +4005,28 @@ export function DialogFinalizarProcesso({
           description="Esta ação irá mesclar todos os documentos do processo (anexos, e-mails, propostas de fornecedores, planilha consolidada, relatório final e autorização) em um único PDF consolidado na ordem cronológica de criação. O processo será enviado para contratação. Deseja continuar?"
           confirmText="Sim, Finalizar Processo"
           cancelText="Cancelar"
+        />
+
+        <ConfirmDialog
+          open={confirmDeleteRecursoOpen}
+          onOpenChange={setConfirmDeleteRecursoOpen}
+          onConfirm={deletarRecurso}
+          title="Confirmar Exclusão de Recurso"
+          description="Tem certeza que deseja apagar este recurso? Esta ação não pode ser desfeita."
+          confirmText="Excluir Recurso"
+          cancelText="Cancelar"
+          variant="destructive"
+        />
+
+        <ConfirmDialog
+          open={confirmDeleteRespostaRecursoOpen}
+          onOpenChange={setConfirmDeleteRespostaRecursoOpen}
+          onConfirm={deletarRespostaRecurso}
+          title="Confirmar Exclusão de Resposta"
+          description="Tem certeza que deseja apagar esta resposta? O recurso voltará a aguardar resposta."
+          confirmText="Excluir Resposta"
+          cancelText="Cancelar"
+          variant="destructive"
         />
       </DialogContent>
 
