@@ -3359,7 +3359,13 @@ export function DialogFinalizarProcesso({
                           .eq('cotacao_id', cotacaoId);
                       } else {
                         // Provimento parcial: atualizar apenas itens_afetados
-                        const itensAindaRejeitados = (rejeicaoDoRecurso?.itens_afetados || [])
+                        // Se rejeição era global (itens_afetados vazio), usar todos os itens da cotação
+                        const todosItens = itensCotacao.map(i => i.numero_item);
+                        const itensOriginaisRejeitados = (rejeicaoDoRecurso?.itens_afetados && rejeicaoDoRecurso.itens_afetados.length > 0)
+                          ? rejeicaoDoRecurso.itens_afetados
+                          : todosItens;
+                        
+                        const itensAindaRejeitados = itensOriginaisRejeitados
                           .filter((item: number) => !itensParaReabilitar.includes(item));
                         
                         if (itensAindaRejeitados.length === 0) {
@@ -3381,7 +3387,7 @@ export function DialogFinalizarProcesso({
                             .eq('fornecedor_id', fornecedorId)
                             .eq('cotacao_id', cotacaoId);
                         } else {
-                          // Atualizar itens afetados
+                          // Atualizar itens afetados com os que permanecem rejeitados
                           await supabase
                             .from('fornecedores_rejeitados_cotacao')
                             .update({ itens_afetados: itensAindaRejeitados })
