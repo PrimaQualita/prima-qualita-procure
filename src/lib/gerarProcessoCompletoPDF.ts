@@ -828,13 +828,23 @@ export const gerarProcessoCompletoPDF = async (
           
           // Se conseguiu o arrayBuffer, mesclar o PDF
           if (arrayBuffer) {
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-            copiedPages.forEach((page) => pdfFinal.addPage(page));
-            console.log(`    ✓ Mesclado (${copiedPages.length} páginas)`);
+            // Verificar se é um PDF válido (deve começar com %PDF)
+            const uint8Array = new Uint8Array(arrayBuffer);
+            const header = String.fromCharCode(...uint8Array.slice(0, 5));
+            
+            if (!header.startsWith('%PDF')) {
+              console.error(`    ✗ Arquivo não é um PDF válido (header: ${header.substring(0, 20)})`);
+              console.log(`    ⚠️ Pulando documento inválido: ${doc.nome}`);
+            } else {
+              const pdfDoc = await PDFDocument.load(arrayBuffer);
+              const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+              copiedPages.forEach((page) => pdfFinal.addPage(page));
+              console.log(`    ✓ Mesclado (${copiedPages.length} páginas)`);
+            }
           }
         } catch (error) {
           console.error(`    ✗ Erro ao mesclar documento:`, error);
+          console.log(`    ⚠️ Documento será ignorado: ${doc.nome}`);
         }
       }
     } else {
