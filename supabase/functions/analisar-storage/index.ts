@@ -956,7 +956,7 @@ Deno.serve(async (req) => {
               .from('respostas_recursos')
               .select(`
                 id,
-                url_resposta,
+                url_documento,
                 recursos_fornecedor!inner(
                   fornecedor_id,
                   fornecedores!inner(razao_social),
@@ -973,7 +973,7 @@ Deno.serve(async (req) => {
                   )
                 )
               `)
-              .or(`url_resposta.ilike.%${pathSemBucket}%,url_resposta.ilike.%${fileName}%`)
+              .or(`url_documento.ilike.%${pathSemBucket}%,url_documento.ilike.%${fileName}%`)
               .maybeSingle();
             
             if (respostaRecurso) {
