@@ -81,6 +81,7 @@ interface FornecedorData {
   rejeitado: boolean;
   motivoRejeicao: string | null;
   respostaId: string;
+  itensRejeitados: number[]; // Itens específicos rejeitados (provimento parcial)
 }
 
 interface DialogFinalizarProcessoProps {
@@ -429,7 +430,21 @@ export function DialogFinalizarProcesso({
         .eq('cotacao_id', cotacaoId)
         .eq('revertido', true);
 
+      // Buscar rejeições ativas com itens afetados
+      const { data: rejeicoesAtivas } = await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .select('fornecedor_id, itens_afetados')
+        .eq('cotacao_id', cotacaoId)
+        .eq('revertido', false);
+
       const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
+      
+      // Mapear itens rejeitados por fornecedor
+      const itensRejeitadosPorFornecedor = new Map<string, number[]>();
+      rejeicoesAtivas?.forEach(r => {
+        const itensAfetados = (r.itens_afetados as number[] | null) || [];
+        itensRejeitadosPorFornecedor.set(r.fornecedor_id, itensAfetados);
+      });
 
       // Carregar dados de cada fornecedor vencedor
       const fornecedoresComDados = await Promise.all(
@@ -444,6 +459,9 @@ export function DialogFinalizarProcesso({
           // Se foi revertido, NÃO está mais rejeitado
           const foiRevertido = fornecedoresRevertidos.has(forn.id);
           const estaRejeitado = resposta?.rejeitado && !foiRevertido;
+          
+          // Obter itens rejeitados (para provimento parcial)
+          const itensRejeitados = itensRejeitadosPorFornecedor.get(forn.id) || [];
 
           console.log(`📋 Fornecedor ${forn.razao_social}:`, {
             rejeitadoDB: resposta?.rejeitado || false,
@@ -451,7 +469,8 @@ export function DialogFinalizarProcesso({
             estaRejeitado,
             itensVencedores: itensVenc.length,
             numeros: itensVenc.map(i => i.itens_cotacao?.numero_item),
-            primeiroItemCompleto: itensVenc[0] || null
+            primeiroItemCompleto: itensVenc[0] || null,
+            itensRejeitados
           });
 
           // CRÍTICO: Usar dados FRESCOS do banco, não do estado React
@@ -465,7 +484,8 @@ export function DialogFinalizarProcesso({
             todosDocumentosAprovados: todosAprovados,
             rejeitado: estaRejeitado,
             motivoRejeicao: estaRejeitado ? (resposta?.motivo_rejeicao || null) : null,
-            respostaId: resposta?.id || ""
+            respostaId: resposta?.id || "",
+            itensRejeitados
           };
         })
       );
@@ -1196,13 +1216,17 @@ export function DialogFinalizarProcesso({
 
   const aprovarDocumento = async (campoId: string) => {
     try {
-      const { error } = await supabase
+      console.log("📋 Aprovando documento:", campoId);
+      const { data, error } = await supabase
         .from("campos_documentos_finalizacao")
         .update({
           status_solicitacao: "aprovado",
           data_aprovacao: new Date().toISOString()
         })
-        .eq("id", campoId);
+        .eq("id", campoId)
+        .select();
+
+      console.log("📋 Resultado da aprovação:", { data, error });
 
       if (error) throw error;
 
@@ -2232,6 +2256,13 @@ export function DialogFinalizarProcesso({
                                 .join(", ")}
                             </span>
                           )}
+                          {fornData.itensRejeitados && fornData.itensRejeitados.length > 0 && (
+                            <div className="mt-1">
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                                ⚠️ Itens desabilitados (provimento parcial): {fornData.itensRejeitados.join(", ")}
+                              </Badge>
+                            </div>
+                          )}
                           {fornData.rejeitado && fornData.motivoRejeicao && (
                             <div className="mt-2 p-2 bg-destructive/10 rounded text-sm">
                               <strong>Motivo da rejeição:</strong> {fornData.motivoRejeicao}
@@ -2527,16 +2558,26 @@ export function DialogFinalizarProcesso({
                             </Button>
                           </div>
                         ) : (
-                          <Button
-                            onClick={() => handleAprovarDocumentosFornecedor(fornData.fornecedor.id)}
-                            variant="default"
-                            size="lg"
-                            className="gap-2"
-                            disabled={fornData.documentosExistentes.some(doc => !doc.em_vigor)}
-                          >
-                            <CheckCircle className="h-5 w-5" />
-                            Aprovar Documentos do Fornecedor
-                          </Button>
+                          <div className="flex flex-col items-end gap-2">
+                            {fornData.itensRejeitados && fornData.itensRejeitados.length > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                Aprovação válida apenas para itens: {fornData.itensVencedores
+                                  .map(i => i.itens_cotacao?.numero_item || i.numero_item)
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </span>
+                            )}
+                            <Button
+                              onClick={() => handleAprovarDocumentosFornecedor(fornData.fornecedor.id)}
+                              variant="default"
+                              size="lg"
+                              className="gap-2"
+                              disabled={fornData.documentosExistentes.some(doc => !doc.em_vigor)}
+                            >
+                              <CheckCircle className="h-5 w-5" />
+                              Aprovar Documentos do Fornecedor
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
