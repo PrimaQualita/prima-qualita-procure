@@ -179,6 +179,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Documentos de processo finalizado (snapshot de documentos de cadastro)
+    const { data: docsProcessoFinalizado } = await supabase.from('documentos_processo_finalizado').select('url_arquivo, nome_arquivo, tipo_documento');
+    if (docsProcessoFinalizado) {
+      for (const doc of docsProcessoFinalizado) {
+        const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
+        nomesBonitos.set(path, doc.nome_arquivo || doc.tipo_documento);
+      }
+    }
+
     // E-mails de cotação
     const { data: emailsCotacao } = await supabase.from('emails_cotacao_anexados').select('url_arquivo, nome_arquivo');
     if (emailsCotacao) {
@@ -406,6 +415,39 @@ Deno.serve(async (req) => {
       }
     }
     console.log(`📋 Documentos de habilitação mapeados: ${docsHabilitacaoMap.size}`);
+
+    // Buscar mapeamento de documentos de processo finalizado (snapshots de documentos de cadastro)
+    const { data: docsProcessoFinalizadoData } = await supabase
+      .from('documentos_processo_finalizado')
+      .select(`
+        url_arquivo,
+        fornecedor_id,
+        nome_arquivo,
+        tipo_documento,
+        cotacao_id,
+        cotacoes_precos!inner(processo_compra_id)
+      `);
+    const docsProcessoFinalizadoMap = new Map<string, { 
+      fornecedorId: string; 
+      nomeArquivo: string; 
+      tipoDocumento: string;
+      cotacaoId: string;
+      processoId: string;
+    }>();
+    if (docsProcessoFinalizadoData) {
+      for (const doc of docsProcessoFinalizadoData) {
+        const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
+        const cotacaoData = (doc as any).cotacoes_precos;
+        docsProcessoFinalizadoMap.set(path, {
+          fornecedorId: doc.fornecedor_id,
+          nomeArquivo: doc.nome_arquivo,
+          tipoDocumento: doc.tipo_documento,
+          cotacaoId: doc.cotacao_id,
+          processoId: cotacaoData?.processo_compra_id || ''
+        });
+      }
+    }
+    console.log(`📋 Documentos de processo finalizado mapeados: ${docsProcessoFinalizadoMap.size}`);
 
     // Buscar mapeamento de paths de planilhas consolidadas para cotacao_id
     const { data: planilhasDB } = await supabase.from('planilhas_consolidadas').select('url_arquivo, cotacao_id');
@@ -696,6 +738,48 @@ Deno.serve(async (req) => {
             processoHab.fornecedores.get(fornecedorId)!.documentos.push({
               path,
               fileName: docHabilitacao.nomeArquivo || fileName,
+              size: metadata.size
+            });
+          }
+        }
+      } else if (docsProcessoFinalizadoMap.has(pathSemBucket) || pathSemBucket.startsWith('documentos_finalizados/')) {
+        // Documentos de processo finalizado (snapshot de documentos de cadastro)
+        const docProcessoFinalizado = docsProcessoFinalizadoMap.get(pathSemBucket);
+        estatisticasPorCategoria.habilitacao.arquivos++;
+        estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
+        estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
+        console.log(`Arquivo categorizado como habilitação (processo finalizado): ${fileName} (${path})`);
+        
+        if (docProcessoFinalizado) {
+          const fornecedorId = docProcessoFinalizado.fornecedorId;
+          const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+          const processoId = docProcessoFinalizado.processoId;
+          const processo = processoId ? processosMap.get(processoId) : undefined;
+          
+          // Adicionar na estrutura hierárquica: Processo → Fornecedor → Documentos
+          if (processoId && processo) {
+            if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
+              estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
+                processoId,
+                processoNumero: processo.numero,
+                processoObjeto: processo.objeto,
+                credenciamento: processo.credenciamento,
+                fornecedores: new Map()
+              });
+            }
+            
+            const processoHab = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
+            if (!processoHab.fornecedores.has(fornecedorId)) {
+              processoHab.fornecedores.set(fornecedorId, {
+                fornecedorId,
+                fornecedorNome,
+                documentos: []
+              });
+            }
+            
+            processoHab.fornecedores.get(fornecedorId)!.documentos.push({
+              path,
+              fileName: docProcessoFinalizado.nomeArquivo || docProcessoFinalizado.tipoDocumento || fileName,
               size: metadata.size
             });
           }
