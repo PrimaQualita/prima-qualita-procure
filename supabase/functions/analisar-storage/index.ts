@@ -928,10 +928,15 @@ Deno.serve(async (req) => {
           }
         }
       } else if (pathSemBucket.startsWith('recursos/')) {
-        // Recursos e respostas
-        estatisticasPorCategoria.recursos.arquivos++;
-        estatisticasPorCategoria.recursos.tamanho += metadata.size;
-        estatisticasPorCategoria.recursos.detalhes.push({ path, fileName, size: metadata.size });
+        // Recursos e respostas - só contabilizar se arquivo existe no DB
+        const isOrfao = !pathsDB.has(path) && !nomeArquivoDB.has(fileName);
+        if (!isOrfao) {
+          estatisticasPorCategoria.recursos.arquivos++;
+          estatisticasPorCategoria.recursos.tamanho += metadata.size;
+          estatisticasPorCategoria.recursos.detalhes.push({ path, fileName, size: metadata.size });
+        } else {
+          console.log(`⚠️ Arquivo órfão em recursos: ${fileName}`);
+        }
         
         // Tentar identificar se é recurso de seleção ou cotação
         const selecaoIdMatch = pathSemBucket.match(/recursos\/selecao_([a-f0-9-]+)/);
