@@ -199,19 +199,35 @@ export function DialogAnexosProcesso({
 
     try {
       const anexo = anexoToDelete;
-      // Extrai o caminho relativo (pode ser URL completa antiga ou caminho relativo novo)
-      let filePath = anexo.url_arquivo;
+      const urlArquivo = anexo.url_arquivo;
       
-      // Se for URL completa antiga, extrair apenas o caminho relativo
-      if (filePath.includes('/storage/v1/object/public/processo-anexos/')) {
-        filePath = filePath.split('/storage/v1/object/public/processo-anexos/')[1];
+      // Determinar bucket e path baseado na URL
+      let bucket = "processo-anexos";
+      let filePath = urlArquivo;
+      
+      if (urlArquivo.includes('/documents/')) {
+        // Arquivo no bucket documents
+        bucket = "documents";
+        filePath = urlArquivo.split('/documents/')[1]?.split('?')[0] || '';
+      } else if (urlArquivo.includes('/processo-anexos/')) {
+        // Arquivo no bucket processo-anexos (URL completa)
+        filePath = urlArquivo.split('/processo-anexos/')[1]?.split('?')[0] || '';
+      } else if (!urlArquivo.startsWith('http')) {
+        // Path relativo já
+        filePath = urlArquivo;
       }
 
-      // Delete from storage (apenas se não for URL http completa)
-      if (!anexo.url_arquivo.startsWith('http')) {
-        await supabase.storage
-          .from("processo-anexos")
+      // Delete from storage se tiver path válido
+      if (filePath) {
+        console.log(`Deletando arquivo do bucket ${bucket}: ${filePath}`);
+        const { error: storageError } = await supabase.storage
+          .from(bucket)
           .remove([filePath]);
+        
+        if (storageError) {
+          console.error("Erro ao deletar do storage:", storageError);
+          // Continua mesmo se falhar no storage
+        }
       }
 
       // Delete from database
