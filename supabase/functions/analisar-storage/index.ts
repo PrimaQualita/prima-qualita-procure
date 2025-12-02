@@ -849,9 +849,11 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.recursos.tamanho += metadata.size;
         estatisticasPorCategoria.recursos.detalhes.push({ path, fileName, size: metadata.size });
         
-        // Agrupar por seleção - extrair ID da seleção do path (recursos/selecao_XXX/)
+        // Tentar identificar se é recurso de seleção ou cotação
         const selecaoIdMatch = pathSemBucket.match(/recursos\/selecao_([a-f0-9-]+)/);
+        
         if (selecaoIdMatch) {
+          // Recurso de seleção de fornecedores
           const selecaoId = selecaoIdMatch[1];
           const selecao = selecoesMap.get(selecaoId);
           
@@ -914,6 +916,107 @@ Deno.serve(async (req) => {
               
               // Adicionar recurso
               procHier.fornecedores.get(recursoData.fornecedor_id)!.recursos.push({
+                path,
+                fileName,
+                size: metadata.size,
+                fornecedorNome
+              });
+            }
+          }
+        } else {
+          // Recurso de cotação de preços (recursos/enviados/ ou recursos/respostas/)
+          // Buscar na tabela recursos_fornecedor pelo path do arquivo
+          const { data: recursoCotacao } = await supabase
+            .from('recursos_fornecedor')
+            .select(`
+              id,
+              fornecedor_id,
+              rejeicao_id,
+              url_arquivo,
+              fornecedores!inner(razao_social),
+              fornecedores_rejeitados_cotacao!inner(
+                cotacao_id,
+                cotacoes_precos!inner(
+                  processo_compra_id,
+                  processos_compras!inner(
+                    id,
+                    numero_processo_interno,
+                    objeto_resumido
+                  )
+                )
+              )
+            `)
+            .or(`url_arquivo.ilike.%${pathSemBucket}%,url_arquivo.ilike.%${fileName}%`)
+            .maybeSingle();
+          
+          // Se não encontrou, tentar buscar nas respostas de recursos
+          let recursoEncontrado = recursoCotacao;
+          if (!recursoEncontrado) {
+            const { data: respostaRecurso } = await supabase
+              .from('respostas_recursos')
+              .select(`
+                id,
+                url_resposta,
+                recursos_fornecedor!inner(
+                  fornecedor_id,
+                  fornecedores!inner(razao_social),
+                  fornecedores_rejeitados_cotacao!inner(
+                    cotacao_id,
+                    cotacoes_precos!inner(
+                      processo_compra_id,
+                      processos_compras!inner(
+                        id,
+                        numero_processo_interno,
+                        objeto_resumido
+                      )
+                    )
+                  )
+                )
+              `)
+              .or(`url_resposta.ilike.%${pathSemBucket}%,url_resposta.ilike.%${fileName}%`)
+              .maybeSingle();
+            
+            if (respostaRecurso) {
+              const rf = (respostaRecurso as any).recursos_fornecedor;
+              recursoEncontrado = {
+                fornecedor_id: rf.fornecedor_id,
+                fornecedores: rf.fornecedores,
+                fornecedores_rejeitados_cotacao: rf.fornecedores_rejeitados_cotacao
+              } as any;
+            }
+          }
+          
+          if (recursoEncontrado) {
+            const fornecedorNome = (recursoEncontrado as any).fornecedores?.razao_social || 'Desconhecido';
+            const rejeicao = (recursoEncontrado as any).fornecedores_rejeitados_cotacao;
+            const cotacao = rejeicao?.cotacoes_precos;
+            const processo = cotacao?.processos_compras;
+            const processoId = processo?.id;
+            
+            if (processo && processoId) {
+              // Inicializar processo se não existir
+              if (!estatisticasPorCategoria.recursos.porProcessoHierarquico!.has(processoId)) {
+                estatisticasPorCategoria.recursos.porProcessoHierarquico!.set(processoId, {
+                  processoId,
+                  processoNumero: processo.numero_processo_interno,
+                  processoObjeto: processo.objeto_resumido,
+                  fornecedores: new Map()
+                });
+              }
+              
+              const procHier = estatisticasPorCategoria.recursos.porProcessoHierarquico!.get(processoId)!;
+              
+              // Inicializar fornecedor se não existir
+              if (!procHier.fornecedores.has(recursoEncontrado.fornecedor_id)) {
+                procHier.fornecedores.set(recursoEncontrado.fornecedor_id, {
+                  fornecedorId: recursoEncontrado.fornecedor_id,
+                  fornecedorNome,
+                  recursos: []
+                });
+              }
+              
+              // Adicionar recurso
+              procHier.fornecedores.get(recursoEncontrado.fornecedor_id)!.recursos.push({
                 path,
                 fileName,
                 size: metadata.size,
