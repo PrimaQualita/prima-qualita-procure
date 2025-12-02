@@ -77,11 +77,9 @@ export async function identificarVencedoresPorCriterio(
   }
 
   // Buscar rejeições ativas E revertidas
-  // CRÍTICO: Rejeições com recurso pendente (status_recurso = 'recurso_enviado') NÃO devem ser consideradas
-  // até que o gestor responda ao recurso
   const { data: rejeicoesAtivas } = await supabase
     .from('fornecedores_rejeitados_cotacao')
-    .select('fornecedor_id, itens_afetados, status_recurso')
+    .select('fornecedor_id, itens_afetados')
     .eq('cotacao_id', cotacaoId)
     .eq('revertido', false);
 
@@ -97,14 +95,6 @@ export async function identificarVencedoresPorCriterio(
   const itensRejeitadosPorFornecedor = new Map<string, Set<number>>();
   
   rejeicoesAtivas?.forEach(r => {
-    // CRÍTICO: Se recurso foi enviado e ainda não foi respondido, NÃO aplicar inabilitação
-    // Inabilitação só é aplicada quando: não tem recurso OU recurso foi indeferido
-    const statusRecurso = (r as any).status_recurso;
-    if (statusRecurso === 'recurso_enviado') {
-      console.log(`  ⏳ Ignorando rejeição de ${r.fornecedor_id} - recurso pendente de resposta`);
-      return; // Pula esta rejeição - recurso ainda não foi respondido
-    }
-    
     const itensAfetados = r.itens_afetados as number[] | null;
     if (!itensAfetados || itensAfetados.length === 0) {
       // Rejeição global (todos os itens)
@@ -324,10 +314,9 @@ export async function carregarItensVencedoresPorFornecedor(
   const fornecedoresPlanilha = planilha.fornecedores_incluidos as unknown as FornecedorPlanilha[];
 
   // Buscar rejeições ativas E revertidas
-  // CRÍTICO: Rejeições com recurso pendente (status_recurso = 'recurso_enviado') NÃO devem ser consideradas
   const { data: rejeicoesAtivas } = await supabase
     .from('fornecedores_rejeitados_cotacao')
-    .select('fornecedor_id, itens_afetados, status_recurso')
+    .select('fornecedor_id, itens_afetados')
     .eq('cotacao_id', cotacaoId)
     .eq('revertido', false);
 
@@ -343,12 +332,6 @@ export async function carregarItensVencedoresPorFornecedor(
   const itensRejeitadosPorFornecedor = new Map<string, Set<number>>();
   
   rejeicoesAtivas?.forEach(r => {
-    // CRÍTICO: Se recurso foi enviado e ainda não foi respondido, NÃO aplicar inabilitação
-    const statusRecurso = (r as any).status_recurso;
-    if (statusRecurso === 'recurso_enviado') {
-      return; // Pula esta rejeição - recurso ainda não foi respondido
-    }
-    
     const itensAfetados = r.itens_afetados as number[] | null;
     if (!itensAfetados || itensAfetados.length === 0) {
       // Rejeição global (todos os itens)
