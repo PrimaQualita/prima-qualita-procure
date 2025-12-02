@@ -444,7 +444,18 @@ Deno.serve(async (req) => {
       propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
       anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
       planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
-      recursos: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
+      recursos: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porSelecao: new Map<string, any>(),
+        porProcessoHierarquico: new Map<string, { 
+          processoId: string; 
+          processoNumero: string; 
+          processoObjeto: string; 
+          fornecedores: Map<string, { fornecedorId: string; fornecedorNome: string; recursos: Array<{ path: string; fileName: string; size: number; fornecedorNome: string }> }>;
+        }>()
+      },
       encaminhamentos: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       analises_compliance: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       termos_referencia: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
@@ -860,6 +871,56 @@ Deno.serve(async (req) => {
               size: metadata.size
             });
           }
+          
+          // Buscar recurso no banco para obter fornecedor e processo
+          const { data: recursoData } = await supabase
+            .from('recursos_inabilitacao_selecao')
+            .select(`
+              fornecedor_id,
+              selecao_id,
+              fornecedores!inner(razao_social),
+              selecoes_fornecedores!inner(processo_compra_id)
+            `)
+            .eq('selecao_id', selecaoId)
+            .or(`url_pdf_recurso.ilike.%${pathSemBucket}%,url_pdf_resposta.ilike.%${pathSemBucket}%`)
+            .maybeSingle();
+          
+          if (recursoData) {
+            const fornecedorNome = (recursoData as any).fornecedores?.razao_social || 'Desconhecido';
+            const processoId = (recursoData as any).selecoes_fornecedores?.processo_compra_id;
+            const processo = processoId ? processosMap.get(processoId) : null;
+            
+            if (processo && processoId) {
+              // Inicializar processo se não existir
+              if (!estatisticasPorCategoria.recursos.porProcessoHierarquico!.has(processoId)) {
+                estatisticasPorCategoria.recursos.porProcessoHierarquico!.set(processoId, {
+                  processoId,
+                  processoNumero: processo.numero,
+                  processoObjeto: processo.objeto,
+                  fornecedores: new Map()
+                });
+              }
+              
+              const procHier = estatisticasPorCategoria.recursos.porProcessoHierarquico!.get(processoId)!;
+              
+              // Inicializar fornecedor se não existir
+              if (!procHier.fornecedores.has(recursoData.fornecedor_id)) {
+                procHier.fornecedores.set(recursoData.fornecedor_id, {
+                  fornecedorId: recursoData.fornecedor_id,
+                  fornecedorNome,
+                  recursos: []
+                });
+              }
+              
+              // Adicionar recurso
+              procHier.fornecedores.get(recursoData.fornecedor_id)!.recursos.push({
+                path,
+                fileName,
+                size: metadata.size,
+                fornecedorNome
+              });
+            }
+          }
         }
        } else if (pathSemBucket.startsWith('encaminhamentos/')) {
         // Encaminhamentos - agrupar por processo
@@ -1200,7 +1261,11 @@ Deno.serve(async (req) => {
           arquivos: estatisticasPorCategoria.recursos.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.recursos.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.recursos.detalhes,
-          porSelecao: Array.from(estatisticasPorCategoria.recursos.porSelecao!.values())
+          porSelecao: Array.from(estatisticasPorCategoria.recursos.porSelecao!.values()),
+          porProcessoHierarquico: Array.from(estatisticasPorCategoria.recursos.porProcessoHierarquico!.values()).map(proc => ({
+            ...proc,
+            fornecedores: Array.from(proc.fornecedores.values())
+          }))
         },
         encaminhamentos: {
           arquivos: estatisticasPorCategoria.encaminhamentos.arquivos,
