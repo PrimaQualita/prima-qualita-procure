@@ -308,7 +308,8 @@ Deno.serve(async (req) => {
     }
 
     // Normalizar URLs - extrair apenas caminhos relativos
-    const pathsDB = new Set<string>();
+    const pathsDBOriginal = new Set<string>(); // Set com paths originais únicos para contagem
+    const pathsDB = new Set<string>(); // Set expandido incluindo versões decodificadas para comparação
     const urlsOriginais = new Map<string, string>(); // Mapear path normalizado -> URL original
     const nomeArquivoDB = new Set<string>(); // Set com apenas nomes de arquivos para fallback
     
@@ -339,14 +340,15 @@ Deno.serve(async (req) => {
       }
       
       if (normalizedPath) {
+        pathsDBOriginal.add(normalizedPath); // Apenas para contagem real
         pathsDB.add(normalizedPath);
         urlsOriginais.set(normalizedPath, url);
         
-        // Também adicionar versão decodificada para comparação com storage
+        // Também adicionar versão decodificada para comparação com storage (não inflaciona contagem)
         try {
           const decodedPath = decodeURIComponent(normalizedPath);
           if (decodedPath !== normalizedPath) {
-            pathsDB.add(decodedPath);
+            pathsDB.add(decodedPath); // Apenas para comparação, não contagem
             urlsOriginais.set(decodedPath, url);
           }
         } catch (e) {
@@ -373,7 +375,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`📊 Referências no banco: ${pathsDB.size}`);
+    console.log(`📊 Referências no banco: ${pathsDBOriginal.size}`);
 
     // Buscar dados de fornecedores para agrupar documentos
     const { data: fornecedores } = await supabase.from('fornecedores').select('id, razao_social');
@@ -1832,7 +1834,7 @@ Deno.serve(async (req) => {
       totalArquivosStorage: arquivosStorage.size,
       tamanhoTotalBytes: tamanhoTotal,
       tamanhoTotalMB: Number((tamanhoTotal / (1024 * 1024)).toFixed(2)),
-      totalReferenciasDB: pathsDB.size,
+      totalReferenciasDB: pathsDBOriginal.size,
       arquivosOrfaos: arquivosOrfaos.slice(0, 100),
       totalArquivosOrfaos: arquivosOrfaos.length,
       tamanhoOrfaosMB: Number((tamanhoOrfaos / (1024 * 1024)).toFixed(2)),
