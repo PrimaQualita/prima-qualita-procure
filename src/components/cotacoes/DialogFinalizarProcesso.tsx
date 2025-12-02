@@ -2100,17 +2100,18 @@ export function DialogFinalizarProcesso({
             numeroProcesso
           );
 
-          // Criar snapshots com as NOVAS URLs (cópias)
+          // Criar snapshots com as NOVAS URLs (cópias) e hash para deduplicação
           const snapshots = documentosCopiados.map(doc => ({
             cotacao_id: cotacaoId,
             fornecedor_id: fornecedorData.fornecedor.id,
             tipo_documento: doc.tipo_documento,
             nome_arquivo: doc.nome_arquivo,
-            url_arquivo: doc.url_arquivo, // URL da cópia, não do original
+            url_arquivo: doc.url_arquivo, // URL da cópia (ou reutilizada se deduplicada)
             data_emissao: doc.data_emissao,
             data_validade: doc.data_validade,
             em_vigor: doc.em_vigor,
             data_snapshot: new Date().toISOString(),
+            hash_arquivo: doc.hash_arquivo, // Hash para deduplicação
           }));
 
           const { error: snapshotError } = await supabase

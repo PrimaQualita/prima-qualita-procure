@@ -972,6 +972,7 @@ export type Database = {
           data_validade: string | null
           em_vigor: boolean | null
           fornecedor_id: string
+          hash_arquivo: string | null
           id: string
           nome_arquivo: string
           tipo_documento: string
@@ -985,6 +986,7 @@ export type Database = {
           data_validade?: string | null
           em_vigor?: boolean | null
           fornecedor_id: string
+          hash_arquivo?: string | null
           id?: string
           nome_arquivo: string
           tipo_documento: string
@@ -998,6 +1000,7 @@ export type Database = {
           data_validade?: string | null
           em_vigor?: boolean | null
           fornecedor_id?: string
+          hash_arquivo?: string | null
           id?: string
           nome_arquivo?: string
           tipo_documento?: string
