@@ -279,11 +279,15 @@ export function DialogFinalizarProcesso({
               cnpj
             ),
             respostas_recursos (
+              id,
               decisao,
               texto_resposta,
               url_documento,
               nome_arquivo,
-              data_resposta
+              data_resposta,
+              tipo_provimento,
+              itens_reabilitados,
+              protocolo
             )
           `)
           .in('rejeicao_id', rejeitados.map(r => r.id));
