@@ -27,6 +27,7 @@ import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { stripHtml } from "@/lib/htmlUtils";
 import { identificarVencedoresPorCriterio, carregarItensVencedoresPorFornecedor } from "@/lib/identificadorVencedores";
+import { copiarDocumentosFornecedorParaProcesso } from "@/lib/copiarArquivoStorage";
 
 interface FornecedorVencedor {
   razaoSocial: string;
@@ -2084,20 +2085,28 @@ export function DialogFinalizarProcesso({
 
       console.log("✅ Snapshots anteriores limpos com sucesso!");
 
-      // DEPOIS: Salvar snapshots dos documentos dos fornecedores vencedores
-      console.log("📸 Salvando snapshots dos documentos dos fornecedores vencedores...");
+      // DEPOIS: Copiar fisicamente e salvar snapshots dos documentos dos fornecedores vencedores
+      console.log("📸 Copiando e salvando snapshots dos documentos dos fornecedores vencedores...");
       
       for (const fornecedorData of fornecedoresData) {
         if (!fornecedorData.rejeitado && fornecedorData.documentosExistentes.length > 0) {
-          console.log(`📄 Salvando ${fornecedorData.documentosExistentes.length} documentos do fornecedor ${fornecedorData.fornecedor.razao_social}`);
+          console.log(`📄 Copiando ${fornecedorData.documentosExistentes.length} documentos do fornecedor ${fornecedorData.fornecedor.razao_social}`);
           
-          // Criar snapshots dos documentos existentes
-          const snapshots = fornecedorData.documentosExistentes.map(doc => ({
+          // Copiar fisicamente os arquivos para pasta do processo
+          const documentosCopiados = await copiarDocumentosFornecedorParaProcesso(
+            fornecedorData.documentosExistentes,
+            cotacaoId,
+            fornecedorData.fornecedor.id,
+            numeroProcesso
+          );
+
+          // Criar snapshots com as NOVAS URLs (cópias)
+          const snapshots = documentosCopiados.map(doc => ({
             cotacao_id: cotacaoId,
             fornecedor_id: fornecedorData.fornecedor.id,
             tipo_documento: doc.tipo_documento,
             nome_arquivo: doc.nome_arquivo,
-            url_arquivo: doc.url_arquivo,
+            url_arquivo: doc.url_arquivo, // URL da cópia, não do original
             data_emissao: doc.data_emissao,
             data_validade: doc.data_validade,
             em_vigor: doc.em_vigor,
