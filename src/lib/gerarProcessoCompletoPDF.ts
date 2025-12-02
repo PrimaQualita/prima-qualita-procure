@@ -115,8 +115,38 @@ export const gerarProcessoCompletoPDF = async (
       console.log(`📧 Mesclando ${emails.length} e-mails enviados aos fornecedores...`);
       for (const email of emails) {
         try {
+          // Verificar se é PDF
+          if (!email.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+            console.log(`  ⚠️ AVISO: ${email.nome_arquivo} não é PDF. Apenas PDFs podem ser mesclados.`);
+            continue;
+          }
+          
           console.log(`  Buscando: ${email.nome_arquivo}`);
-          const response = await fetch(email.url_arquivo);
+          
+          // Extrair storage path da URL (pode ser signed URL ou URL com query params)
+          let storagePath = email.url_arquivo;
+          if (storagePath.includes('/storage/v1/object/')) {
+            const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
+            if (match) {
+              storagePath = match[1].split('?')[0];
+            }
+          } else if (storagePath.includes('?')) {
+            storagePath = storagePath.split('?')[0];
+          }
+          
+          console.log(`  Storage path: ${storagePath}`);
+          
+          // Gerar signed URL para o arquivo
+          const { data: signedUrlData, error: signedError } = await supabase.storage
+            .from('processo-anexos')
+            .createSignedUrl(storagePath, 60);
+          
+          if (signedError || !signedUrlData) {
+            console.error(`  ✗ Erro ao gerar URL assinada para ${email.nome_arquivo}:`, signedError?.message);
+            continue;
+          }
+          
+          const response = await fetch(signedUrlData.signedUrl);
           if (response.ok) {
             const arrayBuffer = await response.arrayBuffer();
             const pdfDoc = await PDFDocument.load(arrayBuffer);
@@ -340,22 +370,43 @@ export const gerarProcessoCompletoPDF = async (
 
     // Extrair IDs únicos de fornecedores vencedores da planilha
     const fornecedoresData = planilhaMaisRecente?.fornecedores_incluidos || [];
-    const fornecedoresUnicos = Array.from(
+    const fornecedoresVencedores = Array.from(
       new Set(
         fornecedoresData
           .filter((f: any) => f.itens?.some((item: any) => item.eh_vencedor))
           .map((f: any) => f.fornecedor_id)
       )
     ).sort();
-    console.log(`👥 Fornecedores vencedores únicos: ${fornecedoresUnicos.length}`);
+    console.log(`👥 Fornecedores vencedores únicos: ${fornecedoresVencedores.length}`);
+
+    // Buscar fornecedores inabilitados/rejeitados para incluir seus documentos também
+    const { data: fornecedoresRejeitados, error: rejeitadosError } = await supabase
+      .from("fornecedores_rejeitados_cotacao")
+      .select("fornecedor_id")
+      .eq("cotacao_id", cotacaoId)
+      .eq("revertido", false);
+    
+    if (rejeitadosError) {
+      console.error("Erro ao buscar fornecedores rejeitados:", rejeitadosError);
+    }
+    
+    const fornecedoresInabilitadosIds = fornecedoresRejeitados?.map(r => r.fornecedor_id) || [];
+    console.log(`👥 Fornecedores inabilitados: ${fornecedoresInabilitadosIds.length}`);
+    
+    // Combinar fornecedores vencedores E inabilitados (sem duplicatas)
+    const todosFornecedoresProcesso = Array.from(
+      new Set([...fornecedoresVencedores, ...fornecedoresInabilitadosIds])
+    ).sort();
+    console.log(`👥 Total de fornecedores para documentos: ${todosFornecedoresProcesso.length}`);
 
     // Data base para documentos de fornecedores (após última data cronológica)
     let dataBaseFornecedores = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
 
-    // Processar cada fornecedor vencedor
-    for (let index = 0; index < fornecedoresUnicos.length; index++) {
-      const fornecedorId = fornecedoresUnicos[index];
-      console.log(`\n📋 Processando fornecedor ${index + 1}/${fornecedoresUnicos.length}: ${fornecedorId}`);
+    // Processar cada fornecedor (vencedores e inabilitados)
+    for (let index = 0; index < todosFornecedoresProcesso.length; index++) {
+      const fornecedorId = todosFornecedoresProcesso[index];
+      const isInabilitado = fornecedoresInabilitadosIds.includes(fornecedorId);
+      console.log(`\n📋 Processando fornecedor ${index + 1}/${todosFornecedoresProcesso.length}: ${fornecedorId} ${isInabilitado ? '(INABILITADO)' : '(VENCEDOR)'}`);
       
       // Data específica para este fornecedor
       const dataFornecedor = new Date(new Date(dataBaseFornecedores).getTime() + (index * 100)).toISOString();
@@ -412,7 +463,7 @@ export const gerarProcessoCompletoPDF = async (
       // Adicionar documentos de cadastro na ordem correta
       for (const doc of docsOrdenados) {
         documentosOrdenados.push({
-          tipo: "Documento Fornecedor",
+          tipo: isInabilitado ? "Documento Fornecedor Inabilitado" : "Documento Fornecedor",
           data: dataFornecedor,
           nome: `${doc.tipo_documento} - ${doc.nome_arquivo}`,
           url: doc.url_arquivo,
@@ -451,7 +502,7 @@ export const gerarProcessoCompletoPDF = async (
       for (const doc of docsFaltantesFiltrados) {
         const campo = doc.campos_documentos_finalizacao as any;
         documentosOrdenados.push({
-          tipo: "Documento Adicional",
+          tipo: isInabilitado ? "Documento Adicional Inabilitado" : "Documento Adicional",
           data: dataFornecedor,
           nome: `${campo?.nome_campo || 'Documento'} - ${doc.nome_arquivo}`,
           url: doc.url_arquivo,
@@ -460,13 +511,81 @@ export const gerarProcessoCompletoPDF = async (
         });
       }
     }
+    
+    // 11b. BUSCAR RECURSOS DE INABILITAÇÃO EM ORDEM CRONOLÓGICA (recurso + resposta)
+    console.log("\n📝 === BUSCANDO RECURSOS DE INABILITAÇÃO ===");
+    
+    const { data: recursosInabilitacao, error: recursosError } = await supabase
+      .from("recursos_fornecedor")
+      .select(`
+        *,
+        fornecedores(razao_social),
+        fornecedores_rejeitados_cotacao!inner(
+          cotacao_id,
+          url_resposta_recurso,
+          data_resposta_recurso
+        )
+      `)
+      .order("data_envio", { ascending: true });
+    
+    if (recursosError) {
+      console.error("Erro ao buscar recursos:", recursosError);
+    }
+    
+    // Filtrar apenas recursos desta cotação
+    const recursosFiltrados = recursosInabilitacao?.filter(r => {
+      const rejeicao = r.fornecedores_rejeitados_cotacao as any;
+      return rejeicao?.cotacao_id === cotacaoId;
+    }) || [];
+    
+    console.log(`📝 Recursos de inabilitação encontrados: ${recursosFiltrados.length}`);
+    
+    // Data base para recursos (após documentos dos fornecedores)
+    const dataBaseRecursos = new Date(new Date(dataBaseFornecedores).getTime() + (todosFornecedoresProcesso.length * 100) + 500).toISOString();
+    
+    // Adicionar recursos em ordem cronológica: recurso seguido de sua resposta
+    for (let i = 0; i < recursosFiltrados.length; i++) {
+      const recurso = recursosFiltrados[i];
+      const rejeicao = recurso.fornecedores_rejeitados_cotacao as any;
+      const razaoSocial = (recurso.fornecedores as any)?.razao_social || 'Fornecedor';
+      
+      // Data do recurso (mantém ordem cronológica)
+      const dataRecurso = new Date(new Date(dataBaseRecursos).getTime() + (i * 200)).toISOString();
+      
+      // Adicionar o recurso
+      if (recurso.url_arquivo) {
+        documentosOrdenados.push({
+          tipo: "Recurso de Inabilitação",
+          data: dataRecurso,
+          nome: `Recurso - ${razaoSocial}`,
+          url: recurso.url_arquivo,
+          bucket: "processo-anexos",
+          fornecedor: recurso.fornecedor_id
+        });
+        console.log(`  📝 Recurso: ${razaoSocial} - ${recurso.data_envio}`);
+      }
+      
+      // Adicionar a resposta do recurso (imediatamente após o recurso)
+      if (rejeicao?.url_resposta_recurso) {
+        const dataResposta = new Date(new Date(dataRecurso).getTime() + 1).toISOString();
+        documentosOrdenados.push({
+          tipo: "Resposta de Recurso",
+          data: dataResposta,
+          nome: `Resposta Recurso - ${razaoSocial}`,
+          url: rejeicao.url_resposta_recurso,
+          bucket: "processo-anexos",
+          fornecedor: recurso.fornecedor_id
+        });
+        console.log(`  📝 Resposta Recurso: ${razaoSocial} - ${rejeicao.data_resposta_recurso}`);
+      }
+    }
 
     console.log(`\n✅ Total de documentos no array final: ${documentosOrdenados.length}`);
 
-    // 12. Adicionar relatórios finais APÓS documentos dos fornecedores
+    // 12. Adicionar relatórios finais APÓS recursos (usar data base dos recursos + offset)
     if (relatorios && relatorios.length > 0) {
-      // Adicionar 2 segundos à última data
-      const dataRelatorios = new Date(new Date(ultimaDataCronologica).getTime() + 2000).toISOString();
+      // Adicionar após os recursos
+      const dataRelatorios = new Date(new Date(dataBaseRecursos).getTime() + (recursosFiltrados.length * 200) + 1000).toISOString();
       
       relatorios.forEach(relatorio => {
         // Extrair storage path da URL (pode ser signed URL ou public URL)
@@ -491,8 +610,8 @@ export const gerarProcessoCompletoPDF = async (
 
     // 13. Adicionar autorizações APÓS relatórios finais
     if (autorizacoes && autorizacoes.length > 0) {
-      // Adicionar 3 segundos à última data
-      const dataAutorizacoes = new Date(new Date(ultimaDataCronologica).getTime() + 3000).toISOString();
+      // Adicionar após os relatórios
+      const dataAutorizacoes = new Date(new Date(dataBaseRecursos).getTime() + (recursosFiltrados.length * 200) + 2000).toISOString();
       
       autorizacoes.forEach(aut => {
         documentosOrdenados.push({
@@ -525,10 +644,39 @@ export const gerarProcessoCompletoPDF = async (
           console.log(`  [${new Date(doc.data).toLocaleString('pt-BR')}] ${doc.tipo}: ${doc.nome}`);
           
           let pdfUrl: string | null = null;
+          let arrayBuffer: ArrayBuffer | null = null;
 
-          // Se tem URL pública (análises), usar diretamente
+          // Se tem URL pública (análises), tentar usar diretamente
           if (doc.url) {
-            pdfUrl = doc.url;
+            // Verificar se é uma URL do storage que precisa de signed URL
+            if (doc.url.includes('/storage/v1/object/')) {
+              // Extrair storage path da URL
+              let storagePath = doc.url;
+              const bucketMatch = storagePath.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(\?|$)/);
+              
+              if (bucketMatch) {
+                const bucket = bucketMatch[1];
+                const path = bucketMatch[2].split('?')[0];
+                
+                console.log(`    🔄 Extraindo path do storage: bucket=${bucket}, path=${path}`);
+                
+                // Gerar signed URL
+                const { data: signedUrlData, error: signedError } = await supabase.storage
+                  .from(bucket)
+                  .createSignedUrl(path, 60);
+                
+                if (!signedError && signedUrlData) {
+                  pdfUrl = signedUrlData.signedUrl;
+                } else {
+                  console.error(`    ⚠️ Erro ao gerar signed URL: ${signedError?.message}`);
+                  pdfUrl = doc.url; // Tentar URL original como fallback
+                }
+              } else {
+                pdfUrl = doc.url;
+              }
+            } else {
+              pdfUrl = doc.url;
+            }
           }
           // Se tem storage path, gerar signed URL
           else if (doc.storagePath) {
@@ -548,13 +696,33 @@ export const gerarProcessoCompletoPDF = async (
             try {
               const response = await fetch(pdfUrl);
               if (response.ok) {
-                const arrayBuffer = await response.arrayBuffer();
-                const pdfDoc = await PDFDocument.load(arrayBuffer);
-                const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-                copiedPages.forEach((page) => pdfFinal.addPage(page));
-                console.log(`    ✓ Mesclado (${copiedPages.length} páginas)`);
+                arrayBuffer = await response.arrayBuffer();
               } else {
-                console.error(`    ✗ Erro HTTP ${response.status}`);
+                console.error(`    ✗ Erro HTTP ${response.status} - tentando fallback...`);
+                
+                // Tentar fallback com signed URL se doc.url estava sendo usada diretamente
+                if (doc.url && doc.bucket === 'documents') {
+                  // Extrair path e tentar signed URL
+                  let storagePath = doc.url;
+                  if (storagePath.includes('/storage/v1/object/')) {
+                    const match = storagePath.match(/\/documents\/(.+?)(\?|$)/);
+                    if (match) {
+                      storagePath = match[1].split('?')[0];
+                    }
+                  }
+                  
+                  const { data: signedUrlData, error: signedError } = await supabase.storage
+                    .from('documents')
+                    .createSignedUrl(storagePath, 60);
+                  
+                  if (!signedError && signedUrlData) {
+                    const retryResponse = await fetch(signedUrlData.signedUrl);
+                    if (retryResponse.ok) {
+                      arrayBuffer = await retryResponse.arrayBuffer();
+                      console.log(`    ✓ Fallback com signed URL funcionou`);
+                    }
+                  }
+                }
               }
             } catch (fetchError) {
               console.error(`    ✗ Erro ao buscar arquivo:`, fetchError);
@@ -570,11 +738,8 @@ export const gerarProcessoCompletoPDF = async (
                   if (publicUrlData?.publicUrl) {
                     const retryResponse = await fetch(publicUrlData.publicUrl);
                     if (retryResponse.ok) {
-                      const arrayBuffer = await retryResponse.arrayBuffer();
-                      const pdfDoc = await PDFDocument.load(arrayBuffer);
-                      const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-                      copiedPages.forEach((page) => pdfFinal.addPage(page));
-                      console.log(`    ✓ Mesclado do bucket documents (${copiedPages.length} páginas)`);
+                      arrayBuffer = await retryResponse.arrayBuffer();
+                      console.log(`    ✓ Busca do bucket documents funcionou`);
                     }
                   }
                 } catch (retryError) {
@@ -582,6 +747,14 @@ export const gerarProcessoCompletoPDF = async (
                 }
               }
             }
+          }
+          
+          // Se conseguiu o arrayBuffer, mesclar o PDF
+          if (arrayBuffer) {
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach((page) => pdfFinal.addPage(page));
+            console.log(`    ✓ Mesclado (${copiedPages.length} páginas)`);
           }
         } catch (error) {
           console.error(`    ✗ Erro ao mesclar documento:`, error);
