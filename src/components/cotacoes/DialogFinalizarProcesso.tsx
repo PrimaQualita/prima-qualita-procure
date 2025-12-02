@@ -2637,6 +2637,33 @@ export function DialogFinalizarProcesso({
                                       Reverter Aprovação
                                     </Button>
                                   )}
+                                  {campo.status_solicitacao === "rejeitado" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={async () => {
+                                        try {
+                                          const { error } = await supabase
+                                            .from("campos_documentos_finalizacao")
+                                            .update({
+                                              status_solicitacao: "em_analise",
+                                              data_aprovacao: null
+                                            })
+                                            .eq("id", campo.id!);
+
+                                          if (error) throw error;
+
+                                          toast.success("Rejeição revertida");
+                                          await loadAllFornecedores();
+                                        } catch (error) {
+                                          console.error("Erro ao reverter rejeição:", error);
+                                          toast.error("Erro ao reverter rejeição");
+                                        }
+                                      }}
+                                    >
+                                      Reverter Rejeição
+                                    </Button>
+                                  )}
                                   <Button
                                     size="sm"
                                     variant="destructive"
