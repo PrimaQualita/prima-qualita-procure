@@ -422,26 +422,56 @@ const Cotacoes = () => {
   };
 
   const deletarAutorizacao = async (autorizacaoId: string, tipo: 'compra_direta' | 'selecao_fornecedores') => {
-    const { error } = await (supabase as any)
-      .from("autorizacoes_processo")
-      .delete()
-      .eq("id", autorizacaoId);
+    try {
+      // Buscar a URL do arquivo para deletar do storage
+      const { data: autorizacao } = await supabase
+        .from("autorizacoes_processo")
+        .select("url_arquivo")
+        .eq("id", autorizacaoId)
+        .single();
 
-    if (error) {
+      if (autorizacao?.url_arquivo) {
+        // Extrair path corretamente, removendo parâmetros de URL assinada
+        let filePath = autorizacao.url_arquivo.split("/processo-anexos/")[1];
+        if (filePath) {
+          // Remover query params se houver (URLs assinadas)
+          filePath = filePath.split("?")[0];
+          
+          const { error: storageError } = await supabase.storage
+            .from("processo-anexos")
+            .remove([filePath]);
+
+          if (storageError) {
+            console.error("Erro ao remover do storage:", storageError);
+          }
+        }
+      }
+
+      // Deletar do banco de dados
+      const { error } = await supabase
+        .from("autorizacoes_processo")
+        .delete()
+        .eq("id", autorizacaoId);
+
+      if (error) {
+        toast.error("Erro ao deletar autorização");
+        console.error(error);
+        return;
+      }
+
+      if (tipo === 'compra_direta') {
+        setAutorizacaoDiretaUrl('');
+        setAutorizacaoDiretaId('');
+      } else {
+        setAutorizacaoSelecaoUrl('');
+        setAutorizacaoSelecaoId('');
+      }
+
+      toast.success("Autorização deletada com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao deletar autorização:", error);
       toast.error("Erro ao deletar autorização");
-      console.error(error);
-      return;
     }
-
-    if (tipo === 'compra_direta') {
-      setAutorizacaoDiretaUrl('');
-      setAutorizacaoDiretaId('');
-    } else {
-      setAutorizacaoSelecaoUrl('');
-      setAutorizacaoSelecaoId('');
-    }
-
-    toast.success("Autorização deletada com sucesso");
   };
 
   const loadEmailsAnexados = async (cotacaoId: string) => {
