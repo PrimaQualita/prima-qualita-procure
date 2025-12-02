@@ -226,8 +226,8 @@ export const gerarAutorizacaoCompraDireta = async (
       // Verificar se precisa de nova página
       if (yPos + alturaLinha > pageHeight - 30) {
         doc.addPage();
-        yPos = 20;
         await adicionarLogoERodape(doc.getNumberOfPages());
+        yPos = 50; // Posicionar abaixo do logo (40mm de altura + margem)
       }
       
       doc.rect(20, yPos, 80, alturaLinha);
@@ -279,6 +279,13 @@ export const gerarAutorizacaoCompraDireta = async (
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += 10;
+  
+  // Verificar espaço para certificação (45mm de altura)
+  if (yPos + 45 > pageHeight - 30) {
+    doc.addPage();
+    await adicionarLogoERodape(doc.getNumberOfPages());
+    yPos = 50; // Posicionar abaixo do logo (40mm de altura + margem)
+  }
   
   // Certificação Digital - versão compacta
   doc.setFillColor(240, 249, 255);
@@ -507,6 +514,13 @@ export const gerarAutorizacaoSelecao = async (
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += 25;
+  
+  // Verificar espaço para certificação (45mm de altura)
+  if (yPos + 45 > pageHeight - 30) {
+    doc.addPage();
+    await adicionarLogoERodape(doc.getNumberOfPages());
+    yPos = 50; // Posicionar abaixo do logo (40mm de altura + margem)
+  }
   
   // Certificação Digital - versão compacta
   doc.setFillColor(240, 249, 255);
