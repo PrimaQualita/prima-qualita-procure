@@ -624,6 +624,8 @@ Deno.serve(async (req) => {
       },
       outros: { arquivos: 0, tamanho: 0, detalhes: [] as any[] }
     };
+    // Set para rastrear arquivos já categorizados - cada arquivo deve aparecer em APENAS UMA categoria
+    const arquivosJaCategorizados = new Set<string>();
 
     for (const [path, metadata] of arquivosStorage) {
       // Normalizar path sem o prefixo do bucket para comparação
@@ -636,12 +638,14 @@ Deno.serve(async (req) => {
       
       // Verificar primeiro se é um anexo de processo pelo tipo no banco
       const tipoAnexo = anexosTipoMap.get(pathSemBucket);
+      let categorizadoEmTipoAnexo = false;
       
       if (pathSemBucket.includes('capa_processo')) {
         // Capas de processo
         estatisticasPorCategoria.capas_processo.arquivos++;
         estatisticasPorCategoria.capas_processo.tamanho += metadata.size;
         estatisticasPorCategoria.capas_processo.detalhes.push({ path, fileName, size: metadata.size });
+        categorizadoEmTipoAnexo = true;
         
         // Agrupar por processo - extrair ID do processo do path
         // Path format: {processoId}/capa_processo_{timestamp}.pdf
@@ -784,16 +788,25 @@ Deno.serve(async (req) => {
         estatisticasPorCategoria.processos_anexos_outros.arquivos++;
         estatisticasPorCategoria.processos_anexos_outros.tamanho += metadata.size;
         estatisticasPorCategoria.processos_anexos_outros.detalhes.push({ path, fileName, size: metadata.size });
+        categorizadoEmTipoAnexo = true;
       }
       
-      // === VERIFICAÇÕES INDEPENDENTES (um arquivo pode aparecer em múltiplas categorias) ===
+      // Se foi categorizado por tipoAnexo ou nas categorias de processo, marcar e continuar
+      if (categorizadoEmTipoAnexo || tipoAnexo) {
+        arquivosJaCategorizados.add(path);
+        console.log(`Arquivo categorizado: ${fileName} (${path})`);
+        continue;
+      }
+      
+      // === CATEGORIZAÇÃO EXCLUSIVA - cada arquivo vai para UMA categoria apenas ===
       
       // 1. Verificar se é documento de cadastro ATIVO (em_vigor=true em documentos_fornecedor)
       const docCadastroAtivo = docsCadastroAtivosMap.get(pathSemBucket);
-      if (docCadastroAtivo && !tipoAnexo) {
+      if (docCadastroAtivo) {
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
         estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
         estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
+        arquivosJaCategorizados.add(path);
         console.log(`📁 Documento de cadastro ATIVO: ${fileName}`);
         
         const fornecedorId = docCadastroAtivo.fornecedorId;
@@ -812,128 +825,91 @@ Deno.serve(async (req) => {
           fileName: docCadastroAtivo.nomeArquivo || fileName,
           size: metadata.size
         });
+        
+        console.log(`Arquivo categorizado: ${fileName} (${path})`);
+        continue; // Não verificar outras categorias
       }
       
-      // 2. Verificar se é documento de habilitação (documentos adicionais solicitados)
-      if ((docsHabilitacaoMap.has(pathSemBucket) || pathSemBucket.startsWith('habilitacao/')) && !tipoAnexo) {
-        const docHabilitacao = docsHabilitacaoMap.get(pathSemBucket);
+      // 2. Verificar se é documento de habilitação ESPECÍFICO (documentos adicionais solicitados, NÃO docs de cadastro)
+      // Só entra aqui se não é documento de cadastro ativo
+      const docHabilitacao = docsHabilitacaoMap.get(pathSemBucket);
+      if (docHabilitacao && pathSemBucket.startsWith('habilitacao/')) {
         estatisticasPorCategoria.habilitacao.arquivos++;
         estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
         estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
+        arquivosJaCategorizados.add(path);
         
-        if (docHabilitacao) {
-          const fornecedorId = docHabilitacao.fornecedorId;
-          const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
-          let processoId: string | null = null;
-          let processo: { numero: string; objeto: string; credenciamento: boolean } | undefined;
-          
-          if (docHabilitacao.selecaoId) {
-            const { data: selecaoData } = await supabase
-              .from('selecoes_fornecedores')
-              .select('processo_compra_id')
-              .eq('id', docHabilitacao.selecaoId)
-              .single();
-            if (selecaoData?.processo_compra_id) {
-              processoId = selecaoData.processo_compra_id;
-              processo = processosMap.get(processoId as string) || undefined;
-            }
-          } else if (docHabilitacao.cotacaoId) {
-            const cotacao = cotacoesMap.get(docHabilitacao.cotacaoId);
-            if (cotacao) {
-              processoId = cotacao.processoId;
-              processo = processosMap.get(processoId);
-            }
+        const fornecedorId = docHabilitacao.fornecedorId;
+        const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+        let processoId: string | null = null;
+        let processo: { numero: string; objeto: string; credenciamento: boolean } | undefined;
+        
+        if (docHabilitacao.selecaoId) {
+          const { data: selecaoData } = await supabase
+            .from('selecoes_fornecedores')
+            .select('processo_compra_id')
+            .eq('id', docHabilitacao.selecaoId)
+            .single();
+          if (selecaoData?.processo_compra_id) {
+            processoId = selecaoData.processo_compra_id;
+            processo = processosMap.get(processoId as string) || undefined;
           }
-          
-          if (processoId && processo) {
-            if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
-              estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
-                processoId,
-                processoNumero: processo.numero,
-                processoObjeto: processo.objeto,
-                credenciamento: processo.credenciamento,
-                fornecedores: new Map()
-              });
-            }
-            
-            const processoHab = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
-            if (!processoHab.fornecedores.has(fornecedorId)) {
-              processoHab.fornecedores.set(fornecedorId, {
-                fornecedorId,
-                fornecedorNome,
-                documentos: []
-              });
-            }
-            
-            processoHab.fornecedores.get(fornecedorId)!.documentos.push({
-              path,
-              fileName: docHabilitacao.nomeArquivo || fileName,
-              size: metadata.size
+        } else if (docHabilitacao.cotacaoId) {
+          const cotacao = cotacoesMap.get(docHabilitacao.cotacaoId);
+          if (cotacao) {
+            processoId = cotacao.processoId;
+            processo = processosMap.get(processoId);
+          }
+        }
+        
+        if (processoId && processo) {
+          if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
+            estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
+              processoId,
+              processoNumero: processo.numero,
+              processoObjeto: processo.objeto,
+              credenciamento: processo.credenciamento,
+              fornecedores: new Map()
             });
           }
+          
+          const processoHab = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
+          if (!processoHab.fornecedores.has(fornecedorId)) {
+            processoHab.fornecedores.set(fornecedorId, {
+              fornecedorId,
+              fornecedorNome,
+              documentos: []
+            });
+          }
+          
+          processoHab.fornecedores.get(fornecedorId)!.documentos.push({
+            path,
+            fileName: docHabilitacao.nomeArquivo || fileName,
+            size: metadata.size
+          });
         }
+        
+        console.log(`Arquivo categorizado: ${fileName} (${path})`);
+        continue; // Não verificar outras categorias
       }
       
-      // 3. Verificar se é documento de processo finalizado (snapshot de cadastro para habilitação)
-      // IMPORTANTE: Só adiciona na categoria habilitação se o documento NÃO ESTÁ MAIS ATIVO no cadastro
-      // Se o documento ainda está em_vigor=true, ele já foi categorizado em "documentos_fornecedores" e não deve duplicar
-      if ((docsProcessoFinalizadoMap.has(pathSemBucket) || pathSemBucket.startsWith('documentos_finalizados/')) && !tipoAnexo) {
-        const docProcessoFinalizado = docsProcessoFinalizadoMap.get(pathSemBucket);
-        
-        // Verificar se este documento ainda está ativo no cadastro
-        // Se estiver, NÃO adicionar na habilitação (já está em cadastros)
-        const aindaAtivoNoCadastro = docsCadastroAtivosMap.has(pathSemBucket);
-        
-        if (!aindaAtivoNoCadastro) {
-          // Documento foi substituído no cadastro - agora é apenas snapshot histórico de habilitação
-          estatisticasPorCategoria.habilitacao.arquivos++;
-          estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
-          estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
-          
-          if (docProcessoFinalizado) {
-            const fornecedorId = docProcessoFinalizado.fornecedorId;
-            const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
-            const processoId = docProcessoFinalizado.processoId;
-            const processo = processoId ? processosMap.get(processoId) : undefined;
-            
-            if (processoId && processo) {
-              if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
-                estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
-                  processoId,
-                  processoNumero: processo.numero,
-                  processoObjeto: processo.objeto,
-                  credenciamento: processo.credenciamento,
-                  fornecedores: new Map()
-                });
-              }
-              
-              const processoHab = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
-              if (!processoHab.fornecedores.has(fornecedorId)) {
-                processoHab.fornecedores.set(fornecedorId, {
-                  fornecedorId,
-                  fornecedorNome,
-                  documentos: []
-                });
-              }
-              
-              processoHab.fornecedores.get(fornecedorId)!.documentos.push({
-                path,
-                fileName: docProcessoFinalizado.nomeArquivo || docProcessoFinalizado.tipoDocumento || fileName,
-                size: metadata.size
-              });
-            }
-          }
-        } else {
-          console.log(`📁 Documento de processo finalizado ainda ativo no cadastro (não duplicar em habilitação): ${fileName}`);
-        }
+      // 3. Documentos de processo finalizado - NÃO adicionar em habilitação
+      // Estes são snapshots históricos que ficam apenas na pasta documentos_finalizados
+      // e NÃO devem aparecer duplicados em nenhuma categoria visível
+      if (docsProcessoFinalizadoMap.has(pathSemBucket) || pathSemBucket.startsWith('documentos_finalizados/')) {
+        // Não categorizar - são snapshots internos
+        arquivosJaCategorizados.add(path);
+        console.log(`📁 Documento de processo finalizado (snapshot interno): ${fileName}`);
+        console.log(`Arquivo categorizado: ${fileName} (${path})`);
+        continue;
       }
       
       // 4. Fallback: pasta fornecedor_ não coberta (documentos antigos ou não ativos)
-      if (!docCadastroAtivo && !docsHabilitacaoMap.has(pathSemBucket) && !docsProcessoFinalizadoMap.has(pathSemBucket) && 
-          pathSemBucket.startsWith('fornecedor_') && !pathSemBucket.includes('selecao') && !tipoAnexo) {
+      if (pathSemBucket.startsWith('fornecedor_') && !pathSemBucket.includes('selecao')) {
         estatisticasPorCategoria.documentos_fornecedores.arquivos++;
         estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
         estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
+        arquivosJaCategorizados.add(path);
         
         const fornecedorIdMatch = pathSemBucket.match(/^fornecedor_([a-f0-9-]+)\//);
         if (fornecedorIdMatch) {
@@ -954,68 +930,82 @@ Deno.serve(async (req) => {
             size: metadata.size
           });
         }
+        
+        console.log(`Arquivo categorizado: ${fileName} (${path})`);
+        continue;
       }
       
       // 5. Documentos de avaliação (relatórios KPMG)
-      if (pathSemBucket.startsWith('avaliacao_') && !tipoAnexo) {
-          // Documentos de avaliação (relatórios KPMG)
-          estatisticasPorCategoria.documentos_fornecedores.arquivos++;
-          estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
-          estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
+      if (pathSemBucket.startsWith('avaliacao_')) {
+        estatisticasPorCategoria.documentos_fornecedores.arquivos++;
+        estatisticasPorCategoria.documentos_fornecedores.tamanho += metadata.size;
+        estatisticasPorCategoria.documentos_fornecedores.detalhes.push({ path, fileName, size: metadata.size });
+        arquivosJaCategorizados.add(path);
+        
+        const avaliacaoIdMatch = pathSemBucket.match(/^avaliacao_([a-f0-9-]+)\//);
+        if (avaliacaoIdMatch) {
+          const avaliacaoId = avaliacaoIdMatch[1];
+          const fornecedorId = avaliacoesMap.get(avaliacaoId);
           
-          const avaliacaoIdMatch = pathSemBucket.match(/^avaliacao_([a-f0-9-]+)\//);
-          if (avaliacaoIdMatch) {
-            const avaliacaoId = avaliacaoIdMatch[1];
-            const fornecedorId = avaliacoesMap.get(avaliacaoId);
+          if (fornecedorId) {
+            const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
             
-            if (fornecedorId) {
-              const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
-              
-              if (!estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.has(fornecedorId)) {
-                estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.set(fornecedorId, {
-                  fornecedorId,
-                  fornecedorNome,
-                  documentos: []
-                });
-              }
-              
-              estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.get(fornecedorId)!.documentos.push({
-                path,
-                fileName,
-                size: metadata.size
+            if (!estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.has(fornecedorId)) {
+              estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.set(fornecedorId, {
+                fornecedorId,
+                fornecedorNome,
+                documentos: []
               });
             }
-          }
-        } else if (pathSemBucket.startsWith('fornecedor_') && pathSemBucket.includes('selecao')) {
-          // Propostas de fornecedores em seleções
-          estatisticasPorCategoria.propostas_selecao.arquivos++;
-          estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
-          estatisticasPorCategoria.propostas_selecao.detalhes.push({ path, fileName, size: metadata.size });
-          
-          const selecaoIdMatch = pathSemBucket.match(/selecao_([a-f0-9-]+)/);
-          if (selecaoIdMatch) {
-            const selecaoId = selecaoIdMatch[1];
-            const selecao = selecoesMap.get(selecaoId);
             
-            if (selecao) {
-              if (!estatisticasPorCategoria.propostas_selecao.porSelecao!.has(selecaoId)) {
-                estatisticasPorCategoria.propostas_selecao.porSelecao!.set(selecaoId, {
-                  selecaoId,
-                  selecaoTitulo: selecao.titulo,
-                  selecaoNumero: selecao.numero,
-                  documentos: []
-                });
-              }
-              
-              estatisticasPorCategoria.propostas_selecao.porSelecao!.get(selecaoId)!.documentos.push({
-                path,
-                fileName,
-                size: metadata.size
+            estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.get(fornecedorId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+          }
+        }
+        
+        console.log(`Arquivo categorizado: ${fileName} (${path})`);
+        continue;
+      }
+      
+      // 6. Propostas de fornecedores em seleções
+      if (pathSemBucket.startsWith('fornecedor_') && pathSemBucket.includes('selecao')) {
+        estatisticasPorCategoria.propostas_selecao.arquivos++;
+        estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
+        estatisticasPorCategoria.propostas_selecao.detalhes.push({ path, fileName, size: metadata.size });
+        arquivosJaCategorizados.add(path);
+        
+        const selecaoIdMatch = pathSemBucket.match(/selecao_([a-f0-9-]+)/);
+        if (selecaoIdMatch) {
+          const selecaoId = selecaoIdMatch[1];
+          const selecao = selecoesMap.get(selecaoId);
+          
+          if (selecao) {
+            if (!estatisticasPorCategoria.propostas_selecao.porSelecao!.has(selecaoId)) {
+              estatisticasPorCategoria.propostas_selecao.porSelecao!.set(selecaoId, {
+                selecaoId,
+                selecaoTitulo: selecao.titulo,
+                selecaoNumero: selecao.numero,
+                documentos: []
               });
             }
+            
+            estatisticasPorCategoria.propostas_selecao.porSelecao!.get(selecaoId)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
           }
-        } else if (pathSemBucket.startsWith('selecoes/')) {
-          // Anexos de seleção (avisos, editais)
+        }
+        
+        console.log(`Arquivo categorizado: ${fileName} (${path})`);
+        continue;
+      }
+      
+      // 7. Anexos de seleção (avisos, editais)
+      if (pathSemBucket.startsWith('selecoes/')) {
           estatisticasPorCategoria.anexos_selecao.arquivos++;
           estatisticasPorCategoria.anexos_selecao.tamanho += metadata.size;
           estatisticasPorCategoria.anexos_selecao.detalhes.push({ path, fileName, size: metadata.size });
@@ -1587,17 +1577,12 @@ Deno.serve(async (req) => {
           console.log(`❌ Autorização sem dados de processo no banco`);
         }
       } else {
-        // Outros - mas verificar se não foi já categorizado em documentos de fornecedor ou habilitação
-        // Para não duplicar documentos de cadastro que já foram contados nas verificações independentes
-        const jaCategorizadoEmCadastro = docsCadastroAtivosMap.has(pathSemBucket);
-        const jaCategorizadoEmHabilitacao = docsHabilitacaoMap.has(pathSemBucket) || docsProcessoFinalizadoMap.has(pathSemBucket);
-        const ehPastaFornecedor = pathSemBucket.startsWith('fornecedor_') && !pathSemBucket.includes('selecao');
-        
-        // Só adiciona em "outros" se NÃO foi categorizado em outra categoria
-        if (!jaCategorizadoEmCadastro && !jaCategorizadoEmHabilitacao && !ehPastaFornecedor) {
+        // Outros - verificar se já foi categorizado anteriormente
+        if (!arquivosJaCategorizados.has(path)) {
           estatisticasPorCategoria.outros.arquivos++;
           estatisticasPorCategoria.outros.tamanho += metadata.size;
           estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
+          arquivosJaCategorizados.add(path);
         } else {
           console.log(`📁 Arquivo ignorado em "outros" (já categorizado): ${fileName}`);
         }
