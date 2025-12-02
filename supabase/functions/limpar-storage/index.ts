@@ -58,19 +58,18 @@ Deno.serve(async (req) => {
         
         console.log(`\n🔍 [${i + 1}/${limite}] Processando: ${path}`);
 
+        // Extrair apenas o nome do arquivo para busca mais flexível
+        const fileName = path.split('/').pop() || '';
+        console.log(`  📁 Nome do arquivo: ${fileName}`);
+
         for (const { tabela, coluna } of queries) {
           try {
-            // Normalizar path removendo prefixos de bucket
-            const pathNormalizado = path
-              .replace(/.*\/processo-anexos\//, '')
-              .replace(/.*\/documents\//, '');
-
-            // MATCH EXATO - buscar por URL completa sem pattern matching
-            // Testa 3 variações: path limpo, com processo-anexos/, e com documents/
+            // Usar ILIKE para buscar URLs que CONTENHAM o nome do arquivo
+            // Isso funciona tanto para paths relativos quanto URLs completas
             const { error: deleteError, count } = await supabase
               .from(tabela)
               .delete({ count: 'exact' })
-              .or(`${coluna}.eq."${pathNormalizado}",${coluna}.eq."processo-anexos/${pathNormalizado}",${coluna}.eq."documents/${pathNormalizado}"`);
+              .ilike(coluna, `%${fileName}`);
 
             if (deleteError) {
               console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
