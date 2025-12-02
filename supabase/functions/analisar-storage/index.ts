@@ -1321,23 +1321,127 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
-    // INCLUIR DOCUMENTOS DE CADASTRO DOS FORNECEDORES NA HABILITAÇÃO
-    // (para todos que já têm documentos de finalização/habilitação)
+    // INCLUIR DOCUMENTOS DE CADASTRO DOS FORNECEDORES VENCEDORES NA HABILITAÇÃO
+    // (fornecedores vencedores em cotações e seleções)
     // ============================================
-    console.log('📄 Buscando documentos de cadastro dos fornecedores na habilitação...');
+    console.log('📄 Buscando fornecedores vencedores para habilitação...');
 
-    // Coletar todos os fornecedores que já estão na estrutura de habilitação
-    const fornecedoresHabilitacao = new Set<string>();
-    for (const [processoId, processoData] of estatisticasPorCategoria.habilitacao.porProcessoHierarquico) {
-      for (const [fornecedorId] of processoData.fornecedores) {
-        fornecedoresHabilitacao.add(fornecedorId);
+    // 1. Buscar fornecedores vencedores de cotações (compra direta)
+    const { data: cotacoesVencedores } = await supabase
+      .from('cotacoes_precos')
+      .select(`
+        id,
+        processo_compra_id,
+        fornecedor_vencedor_id,
+        fornecedores!cotacoes_precos_fornecedor_vencedor_id_fkey(id, razao_social),
+        processos_compras!inner(id, numero_processo_interno, objeto_resumido, credenciamento)
+      `)
+      .not('fornecedor_vencedor_id', 'is', null);
+
+    console.log(`📊 Cotações com vencedor: ${cotacoesVencedores?.length || 0}`);
+
+    // 2. Buscar fornecedores vencedores de seleções (lances vencedores)
+    const { data: lancesVencedores } = await supabase
+      .from('lances_fornecedores')
+      .select(`
+        fornecedor_id,
+        selecao_id,
+        indicativo_lance_vencedor,
+        fornecedores!inner(id, razao_social),
+        selecoes_fornecedores!inner(
+          id,
+          processo_compra_id,
+          processos_compras!inner(id, numero_processo_interno, objeto_resumido, credenciamento)
+        )
+      `)
+      .eq('indicativo_lance_vencedor', true);
+
+    console.log(`📊 Lances vencedores: ${lancesVencedores?.length || 0}`);
+
+    // Coletar todos os fornecedores vencedores por processo
+    const fornecedoresVencedoresPorProcesso = new Map<string, {
+      processoId: string;
+      processoNumero: string;
+      processoObjeto: string;
+      credenciamento: boolean;
+      fornecedores: Map<string, { fornecedorId: string; fornecedorNome: string }>;
+    }>();
+
+    // Processar cotações vencedoras
+    if (cotacoesVencedores) {
+      for (const cotacao of cotacoesVencedores) {
+        const processo = (cotacao as any).processos_compras;
+        const fornecedor = (cotacao as any).fornecedores;
+        if (!processo || !fornecedor) continue;
+
+        const processoId = processo.id;
+        const fornecedorId = fornecedor.id;
+
+        if (!fornecedoresVencedoresPorProcesso.has(processoId)) {
+          fornecedoresVencedoresPorProcesso.set(processoId, {
+            processoId,
+            processoNumero: processo.numero_processo_interno,
+            processoObjeto: processo.objeto_resumido?.replace(/<[^>]+>/g, '').trim() || '',
+            credenciamento: processo.credenciamento || false,
+            fornecedores: new Map()
+          });
+        }
+
+        if (!fornecedoresVencedoresPorProcesso.get(processoId)!.fornecedores.has(fornecedorId)) {
+          fornecedoresVencedoresPorProcesso.get(processoId)!.fornecedores.set(fornecedorId, {
+            fornecedorId,
+            fornecedorNome: fornecedor.razao_social
+          });
+        }
       }
     }
 
-    console.log(`📊 Encontrados ${fornecedoresHabilitacao.size} fornecedores na habilitação`);
+    // Processar lances vencedores (seleção)
+    if (lancesVencedores) {
+      for (const lance of lancesVencedores) {
+        const selecao = (lance as any).selecoes_fornecedores;
+        const processo = selecao?.processos_compras;
+        const fornecedor = (lance as any).fornecedores;
+        if (!processo || !fornecedor) continue;
 
-    if (fornecedoresHabilitacao.size > 0) {
-      // Buscar documentos de cadastro de todos esses fornecedores
+        const processoId = processo.id;
+        const fornecedorId = fornecedor.id;
+
+        if (!fornecedoresVencedoresPorProcesso.has(processoId)) {
+          fornecedoresVencedoresPorProcesso.set(processoId, {
+            processoId,
+            processoNumero: processo.numero_processo_interno,
+            processoObjeto: processo.objeto_resumido?.replace(/<[^>]+>/g, '').trim() || '',
+            credenciamento: processo.credenciamento || false,
+            fornecedores: new Map()
+          });
+        }
+
+        if (!fornecedoresVencedoresPorProcesso.get(processoId)!.fornecedores.has(fornecedorId)) {
+          fornecedoresVencedoresPorProcesso.get(processoId)!.fornecedores.set(fornecedorId, {
+            fornecedorId,
+            fornecedorNome: fornecedor.razao_social
+          });
+        }
+      }
+    }
+
+    console.log(`📊 Processos com vencedores: ${fornecedoresVencedoresPorProcesso.size}`);
+
+    // Coletar todos os IDs de fornecedores vencedores
+    const todosVencedoresIds: string[] = [];
+    for (const [, procData] of fornecedoresVencedoresPorProcesso) {
+      for (const [fornId] of procData.fornecedores) {
+        if (!todosVencedoresIds.includes(fornId)) {
+          todosVencedoresIds.push(fornId);
+        }
+      }
+    }
+
+    console.log(`📊 Total de fornecedores vencedores: ${todosVencedoresIds.length}`);
+
+    // Buscar documentos de cadastro de todos os fornecedores vencedores
+    if (todosVencedoresIds.length > 0) {
       const { data: docsCadastro } = await supabase
         .from('documentos_fornecedor')
         .select(`
@@ -1345,42 +1449,61 @@ Deno.serve(async (req) => {
           fornecedor_id,
           tipo_documento,
           nome_arquivo,
-          url_arquivo,
-          fornecedores!inner(razao_social)
+          url_arquivo
         `)
-        .in('fornecedor_id', Array.from(fornecedoresHabilitacao));
+        .in('fornecedor_id', todosVencedoresIds);
 
-      console.log(`📋 Encontrados ${docsCadastro?.length || 0} documentos de cadastro`);
+      console.log(`📋 Documentos de cadastro encontrados: ${docsCadastro?.length || 0}`);
 
-      if (docsCadastro && docsCadastro.length > 0) {
-        // Para cada documento de cadastro, adicionar ao processo/fornecedor correspondente
-        for (const doc of docsCadastro) {
-          const fornecedorId = doc.fornecedor_id;
-          const fornecedorNome = (doc as any).fornecedores?.razao_social || 'Desconhecido';
+      // Para cada processo com vencedores, criar/atualizar estrutura de habilitação
+      for (const [processoId, procData] of fornecedoresVencedoresPorProcesso) {
+        // Criar estrutura se não existir
+        if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
+          estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
+            processoId,
+            processoNumero: procData.processoNumero,
+            processoObjeto: procData.processoObjeto,
+            credenciamento: procData.credenciamento,
+            fornecedores: new Map()
+          });
+        }
 
-          // Encontrar em qual processo esse fornecedor está
-          for (const [processoId, processoData] of estatisticasPorCategoria.habilitacao.porProcessoHierarquico) {
-            if (processoData.fornecedores.has(fornecedorId)) {
-              // Extrair path do arquivo
-              let path = doc.url_arquivo;
-              if (path.includes('processo-anexos/')) {
-                path = path.split('processo-anexos/')[1].split('?')[0];
-              } else if (path.includes('/')) {
-                path = path.split('/').pop()?.split('?')[0] || path;
-              }
+        const habProc = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
 
-              // Adicionar documento (se não for duplicado)
-              const fornecedorDocs = processoData.fornecedores.get(fornecedorId)!;
-              const jaExiste = fornecedorDocs.documentos.some(d => d.fileName === doc.nome_arquivo);
-              
-              if (!jaExiste) {
-                fornecedorDocs.documentos.push({
-                  path: `processo-anexos/${path}`,
-                  fileName: doc.nome_arquivo,
-                  size: 0
-                });
-                console.log(`  ✅ Adicionado ${doc.nome_arquivo} para ${fornecedorNome}`);
-              }
+        // Para cada fornecedor vencedor do processo
+        for (const [fornecedorId, fornData] of procData.fornecedores) {
+          // Criar entrada de fornecedor se não existir
+          if (!habProc.fornecedores.has(fornecedorId)) {
+            habProc.fornecedores.set(fornecedorId, {
+              fornecedorId,
+              fornecedorNome: fornData.fornecedorNome,
+              documentos: []
+            });
+          }
+
+          // Adicionar documentos de cadastro deste fornecedor
+          const docsDoFornecedor = (docsCadastro || []).filter(d => d.fornecedor_id === fornecedorId);
+          for (const doc of docsDoFornecedor) {
+            // Extrair path do arquivo
+            let path = doc.url_arquivo;
+            if (path.includes('processo-anexos/')) {
+              path = path.split('processo-anexos/')[1].split('?')[0];
+            } else if (path.includes('/')) {
+              path = path.split('/').pop()?.split('?')[0] || path;
+            }
+
+            // Verificar duplicidade
+            const fornecedorDocs = habProc.fornecedores.get(fornecedorId)!;
+            const jaExiste = fornecedorDocs.documentos.some(d => d.fileName === doc.nome_arquivo);
+            
+            if (!jaExiste) {
+              fornecedorDocs.documentos.push({
+                path: `processo-anexos/${path}`,
+                fileName: doc.nome_arquivo,
+                size: 0
+              });
+              estatisticasPorCategoria.habilitacao.arquivos++;
+              console.log(`  ✅ Adicionado ${doc.nome_arquivo} para ${fornData.fornecedorNome}`);
             }
           }
         }
