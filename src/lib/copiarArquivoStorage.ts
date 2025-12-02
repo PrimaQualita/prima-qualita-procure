@@ -1,6 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
+ * Calcula hash SHA-256 de um Blob/ArrayBuffer (retorna primeiros 32 chars)
+ */
+async function calcularHash(data: Blob | ArrayBuffer): Promise<string> {
+  const buffer = data instanceof Blob ? await data.arrayBuffer() : data;
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex.substring(0, 32); // Usar primeiros 32 chars como identificador único
+}
+
+/**
  * Copia um arquivo de uma URL para uma nova localização no storage
  * Retorna a nova URL do arquivo copiado
  */
@@ -22,7 +33,6 @@ export async function copiarArquivoStorage(
         const bucketOriginal = match[1];
         pathOriginal = match[2];
         
-        // Se o bucket original for diferente, precisamos baixar e fazer upload
         // Baixar o arquivo original
         const { data: downloadData, error: downloadError } = await supabase.storage
           .from(bucketOriginal)
@@ -57,7 +67,6 @@ export async function copiarArquivoStorage(
     }
 
     // Se não conseguiu extrair, tentar usar a URL diretamente
-    // Isso pode acontecer se for um path relativo
     try {
       const response = await fetch(urlOriginal);
       if (!response.ok) {
@@ -97,7 +106,8 @@ export async function copiarArquivoStorage(
 
 /**
  * Copia múltiplos documentos de fornecedor para pasta de processo finalizado
- * Retorna array com documentos e suas novas URLs
+ * COM DEDUPLICAÇÃO por hash - se documento idêntico já existe, reutiliza URL
+ * Retorna array com documentos e suas URLs (novas ou existentes)
  */
 export async function copiarDocumentosFornecedorParaProcesso(
   documentos: Array<{
@@ -119,6 +129,7 @@ export async function copiarDocumentosFornecedorParaProcesso(
   data_emissao: string | null;
   data_validade: string | null;
   em_vigor: boolean | null;
+  hash_arquivo: string | null;
 }>> {
   const resultados: Array<{
     tipo_documento: string;
@@ -127,32 +138,108 @@ export async function copiarDocumentosFornecedorParaProcesso(
     data_emissao: string | null;
     data_validade: string | null;
     em_vigor: boolean | null;
+    hash_arquivo: string | null;
   }> = [];
 
   // Sanitizar número do processo para usar em path
   const processoSanitizado = processoNumero.replace(/[/\\]/g, '_');
   
   for (const doc of documentos) {
-    // Criar path único para o documento copiado
-    const timestamp = Date.now();
-    const extensao = doc.nome_arquivo.split('.').pop() || 'pdf';
-    const nomeArquivoSanitizado = doc.nome_arquivo.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const novoCaminho = `documentos_finalizados/${processoSanitizado}/${fornecedorId}/${doc.tipo_documento}_${timestamp}.${extensao}`;
+    try {
+      console.log(`📄 Processando documento: ${doc.nome_arquivo}`);
+      
+      // 1. Baixar o arquivo para calcular hash
+      const response = await fetch(doc.url_arquivo);
+      if (!response.ok) {
+        console.error(`❌ Erro ao buscar arquivo ${doc.nome_arquivo}: ${response.status}`);
+        // Fallback: manter URL original
+        resultados.push({
+          tipo_documento: doc.tipo_documento,
+          nome_arquivo: doc.nome_arquivo,
+          url_arquivo: doc.url_arquivo,
+          data_emissao: doc.data_emissao,
+          data_validade: doc.data_validade,
+          em_vigor: doc.em_vigor,
+          hash_arquivo: null,
+        });
+        continue;
+      }
+      
+      const blob = await response.blob();
+      
+      // 2. Calcular hash do conteúdo
+      const hash = await calcularHash(blob);
+      console.log(`🔐 Hash calculado para ${doc.nome_arquivo}: ${hash}`);
+      
+      // 3. Verificar se já existe documento com mesmo hash
+      const { data: existente } = await supabase
+        .from('documentos_processo_finalizado')
+        .select('url_arquivo')
+        .eq('hash_arquivo', hash)
+        .limit(1)
+        .maybeSingle();
+      
+      if (existente) {
+        // Documento idêntico já existe - reutilizar URL
+        console.log(`♻️ Reutilizando documento existente: ${doc.nome_arquivo} (hash: ${hash})`);
+        resultados.push({
+          tipo_documento: doc.tipo_documento,
+          nome_arquivo: doc.nome_arquivo,
+          url_arquivo: existente.url_arquivo,
+          data_emissao: doc.data_emissao,
+          data_validade: doc.data_validade,
+          em_vigor: doc.em_vigor,
+          hash_arquivo: hash,
+        });
+        continue;
+      }
+      
+      // 4. Documento novo - fazer cópia física
+      const timestamp = Date.now();
+      const extensao = doc.nome_arquivo.split('.').pop() || 'pdf';
+      const novoCaminho = `documentos_finalizados/${processoSanitizado}/${fornecedorId}/${doc.tipo_documento}_${timestamp}.${extensao}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('processo-anexos')
+        .upload(novoCaminho, blob, {
+          cacheControl: '3600',
+          upsert: true
+        });
 
-    const novaUrl = await copiarArquivoStorage(doc.url_arquivo, novoCaminho);
+      if (uploadError) {
+        console.error(`❌ Erro ao fazer upload de ${doc.nome_arquivo}:`, uploadError);
+        // Fallback: manter URL original
+        resultados.push({
+          tipo_documento: doc.tipo_documento,
+          nome_arquivo: doc.nome_arquivo,
+          url_arquivo: doc.url_arquivo,
+          data_emissao: doc.data_emissao,
+          data_validade: doc.data_validade,
+          em_vigor: doc.em_vigor,
+          hash_arquivo: hash,
+        });
+        continue;
+      }
 
-    if (novaUrl) {
+      const { data: publicUrl } = supabase.storage
+        .from('processo-anexos')
+        .getPublicUrl(novoCaminho);
+
+      console.log(`✅ Documento copiado: ${doc.nome_arquivo} -> ${publicUrl.publicUrl}`);
+      
       resultados.push({
         tipo_documento: doc.tipo_documento,
         nome_arquivo: doc.nome_arquivo,
-        url_arquivo: novaUrl, // Nova URL da cópia
+        url_arquivo: publicUrl.publicUrl,
         data_emissao: doc.data_emissao,
         data_validade: doc.data_validade,
         em_vigor: doc.em_vigor,
+        hash_arquivo: hash,
       });
-    } else {
-      // Se falhou em copiar, manter a URL original (fallback)
-      console.warn(`⚠️ Falha ao copiar ${doc.nome_arquivo}, mantendo URL original`);
+      
+    } catch (error) {
+      console.error(`❌ Erro ao processar ${doc.nome_arquivo}:`, error);
+      // Fallback: manter URL original
       resultados.push({
         tipo_documento: doc.tipo_documento,
         nome_arquivo: doc.nome_arquivo,
@@ -160,6 +247,7 @@ export async function copiarDocumentosFornecedorParaProcesso(
         data_emissao: doc.data_emissao,
         data_validade: doc.data_validade,
         em_vigor: doc.em_vigor,
+        hash_arquivo: null,
       });
     }
   }
