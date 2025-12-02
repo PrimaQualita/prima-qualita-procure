@@ -650,6 +650,34 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
+              <Card className="border-orange-200 bg-orange-50/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-orange-900">Processos Finalizados</p>
+                      <p className="text-2xl font-bold text-orange-700">{resultado.estatisticasPorCategoria?.processos_finalizados?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-orange-600">
+                        {resultado.estatisticasPorCategoria?.processos_finalizados?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-orange-700/70">PDFs mesclados completos</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.processos_finalizados?.porProcesso?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Processos Finalizados',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.processos_finalizados.porProcesso
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="border-slate-200 bg-slate-50/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-2">
