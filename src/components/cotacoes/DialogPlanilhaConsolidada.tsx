@@ -555,6 +555,7 @@ export function DialogPlanilhaConsolidada({
             itensComVencedor = resposta.itens.map(item => ({
               numero_item: item.numero_item,
               valor_unitario: Number(item.valor_unitario_ofertado),
+              lote_id: item.lote_id, // CRÍTICO: incluir lote_id para identificação por lote
               eh_vencedor: ehVencedorGlobal // Todos os itens herdam o status global
             }));
             
@@ -602,6 +603,7 @@ export function DialogPlanilhaConsolidada({
               return {
                 numero_item: item.numero_item,
                 valor_unitario: Number(item.valor_unitario_ofertado),
+                lote_id: item.lote_id, // CRÍTICO: incluir lote_id para identificação por lote
                 eh_vencedor: ehVencedor
               };
             });
@@ -627,6 +629,7 @@ export function DialogPlanilhaConsolidada({
                   numero_item: item.numero_item,
                   valor_unitario: Number(item.valor_unitario_ofertado),
                   percentual_desconto: descontoAtual,
+                  lote_id: item.lote_id, // CRÍTICO: incluir lote_id
                   eh_vencedor: false
                 };
               }
@@ -641,6 +644,7 @@ export function DialogPlanilhaConsolidada({
                 numero_item: item.numero_item,
                 valor_unitario: Number(item.valor_unitario_ofertado),
                 percentual_desconto: descontoAtual,
+                lote_id: item.lote_id, // CRÍTICO: incluir lote_id
                 eh_vencedor: ehVencedor
               };
             });
@@ -664,6 +668,7 @@ export function DialogPlanilhaConsolidada({
                 return {
                   numero_item: item.numero_item,
                   valor_unitario: valorAtual,
+                  lote_id: item.lote_id, // CRÍTICO: incluir lote_id
                   eh_vencedor: false
                 };
               }
@@ -675,6 +680,7 @@ export function DialogPlanilhaConsolidada({
               return {
                 numero_item: item.numero_item,
                 valor_unitario: valorAtual,
+                lote_id: item.lote_id, // CRÍTICO: incluir lote_id para identificação por lote
                 eh_vencedor: ehVencedor
               };
             });

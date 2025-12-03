@@ -39,6 +39,7 @@ interface FornecedorPlanilha {
     numero_item: number;
     valor_unitario: number;
     percentual_desconto?: number;
+    lote_id?: string | null; // CRÍTICO: incluir lote_id para identificação por lote
     eh_vencedor?: boolean;
   }>;
 }
