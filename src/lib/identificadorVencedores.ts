@@ -200,41 +200,46 @@ export async function identificarVencedoresPorCriterio(
     });
 
   } else if (criterio === "por_lote" || criterio === "lote") {
-    // POR LOTE: menor valor total do lote
+    // POR LOTE: menor valor total do lote - usa item_cotacao_id para identificação correta
+    // Primeiro, identificar todos os lotes únicos a partir dos itens originais
     const lotesUnicos = new Set<string>();
-    fornecedoresValidos.forEach(f => {
-      f.itens.forEach(item => {
-        const itemOriginal = itens.find(i => 
-          i.itens_cotacao.numero_item === item.numero_item &&
-          respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
-        );
-        if (itemOriginal?.itens_cotacao.lote_id) {
-          lotesUnicos.add(itemOriginal.itens_cotacao.lote_id);
-        }
-      });
+    itens.forEach(item => {
+      if (item.itens_cotacao.lote_id) {
+        lotesUnicos.add(item.itens_cotacao.lote_id);
+      }
     });
+
+    console.log(`  → Lotes únicos encontrados: ${lotesUnicos.size}`);
 
     lotesUnicos.forEach(loteId => {
       let menorTotalLote = Infinity;
       let fornecedorVencedor: FornecedorPlanilha | null = null;
 
+      // Para cada fornecedor válido, calcular o valor total do lote
       fornecedoresValidos.forEach(f => {
-        const itensDoLote = f.itens.filter(item => {
-          const itemOriginal = itens.find(i => 
-            i.itens_cotacao.numero_item === item.numero_item &&
-            respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
-          );
-          return itemOriginal?.itens_cotacao.lote_id === loteId;
-        });
+        // Verificar se está rejeitado globalmente
+        if (fornecedoresRejeitadosGlobal.has(f.fornecedor_id)) return;
+        
+        // Buscar a resposta do fornecedor
+        const resposta = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
+        if (!resposta) return;
 
-        const totalLote = itensDoLote.reduce((sum, item) => {
-          const itemOriginal = itens.find(i => 
-            i.itens_cotacao.numero_item === item.numero_item &&
-            respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
-          );
-          const quantidade = itemOriginal?.itens_cotacao.quantidade || 1;
-          return sum + (item.valor_unitario * quantidade);
+        // Buscar todos os itens do fornecedor que pertencem a este lote
+        const itensDoFornecedorNoLote = itens.filter(item => 
+          item.itens_cotacao.lote_id === loteId &&
+          item.cotacao_resposta_fornecedor_id === resposta.id
+        );
+
+        if (itensDoFornecedorNoLote.length === 0) return;
+
+        // Calcular valor total do lote para este fornecedor
+        const totalLote = itensDoFornecedorNoLote.reduce((sum, item) => {
+          const quantidade = item.itens_cotacao.quantidade || 1;
+          const valorUnitario = item.valor_unitario_ofertado || 0;
+          return sum + (valorUnitario * quantidade);
         }, 0);
+
+        console.log(`    → ${f.razao_social} - Lote ${loteId}: R$ ${totalLote.toFixed(2)} (${itensDoFornecedorNoLote.length} itens)`);
 
         if (totalLote > 0 && totalLote < menorTotalLote) {
           menorTotalLote = totalLote;
@@ -244,7 +249,7 @@ export async function identificarVencedoresPorCriterio(
 
       if (fornecedorVencedor) {
         fornecedoresVencedoresSet.add(fornecedorVencedor.fornecedor_id);
-        console.log(`    Lote ${loteId}: ${fornecedorVencedor.razao_social}`);
+        console.log(`  ✅ Vencedor Lote ${loteId}: ${fornecedorVencedor.razao_social} (R$ ${menorTotalLote.toFixed(2)})`);
       }
     });
 
@@ -442,47 +447,44 @@ export async function carregarItensVencedoresPorFornecedor(
     });
 
   } else if (criterio === "por_lote" || criterio === "lote") {
-    // POR LOTE: menor valor total do lote
+    // POR LOTE: menor valor total do lote - usa dados diretos das respostas
+    // Primeiro, identificar todos os lotes únicos a partir dos itens originais
     const lotesUnicos = new Set<string>();
-    fornecedoresValidos.forEach(f => {
-      // Não incluir fornecedores rejeitados globalmente
-      if (fornecedoresRejeitadosGlobal.has(f.fornecedor_id)) return;
-      
-      f.itens.forEach(item => {
-        const itemOriginal = todosItens.find(i => 
-          i.itens_cotacao.numero_item === item.numero_item &&
-          respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
-        );
-        if (itemOriginal?.itens_cotacao.lote_id) {
-          lotesUnicos.add(itemOriginal.itens_cotacao.lote_id);
-        }
-      });
+    todosItens.forEach(item => {
+      if (item.itens_cotacao.lote_id) {
+        lotesUnicos.add(item.itens_cotacao.lote_id);
+      }
     });
+
+    console.log(`  → Lotes únicos encontrados: ${lotesUnicos.size}`);
 
     const lotesVencedores = new Set<string>();
     lotesUnicos.forEach(loteId => {
       let menorTotalLote = Infinity;
       let fornecedorVencedorId: string | null = null;
 
+      // Para cada fornecedor válido, calcular o valor total do lote
       fornecedoresValidos.forEach(f => {
-        // Não incluir fornecedores rejeitados globalmente
+        // Verificar se está rejeitado globalmente
         if (fornecedoresRejeitadosGlobal.has(f.fornecedor_id)) return;
         
-        const itensDoLote = f.itens.filter(item => {
-          const itemOriginal = todosItens.find(i => 
-            i.itens_cotacao.numero_item === item.numero_item &&
-            respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
-          );
-          return itemOriginal?.itens_cotacao.lote_id === loteId;
-        });
+        // Buscar a resposta do fornecedor
+        const respostaF = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
+        if (!respostaF) return;
 
-        const totalLote = itensDoLote.reduce((sum, item) => {
-          const itemOriginal = todosItens.find(i => 
-            i.itens_cotacao.numero_item === item.numero_item &&
-            respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === f.fornecedor_id
-          );
-          const quantidade = itemOriginal?.itens_cotacao.quantidade || 1;
-          return sum + (item.valor_unitario * quantidade);
+        // Buscar todos os itens do fornecedor que pertencem a este lote
+        const itensDoFornecedorNoLote = todosItens.filter(item => 
+          item.itens_cotacao.lote_id === loteId &&
+          item.cotacao_resposta_fornecedor_id === respostaF.id
+        );
+
+        if (itensDoFornecedorNoLote.length === 0) return;
+
+        // Calcular valor total do lote para este fornecedor
+        const totalLote = itensDoFornecedorNoLote.reduce((sum, item) => {
+          const quantidade = item.itens_cotacao.quantidade || 1;
+          const valorUnitario = item.valor_unitario_ofertado || 0;
+          return sum + (valorUnitario * quantidade);
         }, 0);
 
         if (totalLote > 0 && totalLote < menorTotalLote) {
@@ -493,18 +495,20 @@ export async function carregarItensVencedoresPorFornecedor(
 
       if (fornecedorVencedorId === fornecedorId) {
         lotesVencedores.add(loteId);
+        console.log(`  ✅ Fornecedor ${fornecedorId} venceu lote ${loteId}`);
       }
     });
 
-    // Adicionar itens dos lotes vencidos
-    fornecedorAtual.itens.forEach(item => {
-      const itemOriginal = todosItens.find(i => 
-        i.itens_cotacao.numero_item === item.numero_item &&
-        respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id)?.fornecedor_id === fornecedorId
-      );
-      if (itemOriginal?.itens_cotacao.lote_id && lotesVencedores.has(itemOriginal.itens_cotacao.lote_id)) {
-        numerosItensVencedores.add(item.numero_item);
-      }
+    // Buscar os itens vencedores deste fornecedor (todos os itens dos lotes que ganhou)
+    const itensDoFornecedorVencedores = todosItens.filter(item => 
+      item.cotacao_resposta_fornecedor_id === resposta.id &&
+      item.itens_cotacao.lote_id &&
+      lotesVencedores.has(item.itens_cotacao.lote_id)
+    );
+
+    // Adicionar números dos itens (para compatibilidade)
+    itensDoFornecedorVencedores.forEach(item => {
+      numerosItensVencedores.add(item.itens_cotacao.numero_item);
     });
 
   } else {
