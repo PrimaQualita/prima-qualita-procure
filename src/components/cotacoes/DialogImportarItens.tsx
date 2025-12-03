@@ -66,25 +66,25 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([]);
 
-    // Lote I
-    XLSX.utils.sheet_add_aoa(ws, [["LOTE I - MEDICAMENTOS"]], { origin: "A1" });
+    // Lote I - Em branco para preenchimento
+    XLSX.utils.sheet_add_aoa(ws, [["LOTE I - (PREENCHER DESCRIÇÃO DO LOTE)"]], { origin: "A1" });
     XLSX.utils.sheet_add_aoa(ws, [["Item", "Descrição", "Quantidade", "Unidade"]], { origin: "A2" });
     XLSX.utils.sheet_add_aoa(ws, [
-      [1, "Dipirona 500mg", 100, "CX"],
-      [2, "Paracetamol 750mg", 50, "CX"],
-      [3, "Ibuprofeno 600mg", 30, "CX"]
+      [1, "", "", ""],
+      [2, "", "", ""],
+      [3, "", "", ""]
     ], { origin: "A3" });
 
     // Linha em branco
     const proximaLinhaLote2 = 7;
 
-    // Lote II
-    XLSX.utils.sheet_add_aoa(ws, [["LOTE II - MATERIAL DE LIMPEZA"]], { origin: `A${proximaLinhaLote2}` });
+    // Lote II - Em branco para preenchimento
+    XLSX.utils.sheet_add_aoa(ws, [["LOTE II - (PREENCHER DESCRIÇÃO DO LOTE)"]], { origin: `A${proximaLinhaLote2}` });
     XLSX.utils.sheet_add_aoa(ws, [["Item", "Descrição", "Quantidade", "Unidade"]], { origin: `A${proximaLinhaLote2 + 1}` });
     XLSX.utils.sheet_add_aoa(ws, [
-      [1, "Desinfetante 5L", 20, "UND"],
-      [2, "Sabão Líquido 5L", 15, "UND"],
-      [3, "Álcool 70% 1L", 40, "UND"]
+      [1, "", "", ""],
+      [2, "", "", ""],
+      [3, "", "", ""]
     ], { origin: `A${proximaLinhaLote2 + 2}` });
 
     // Mesclar células dos títulos dos lotes
