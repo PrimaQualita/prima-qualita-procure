@@ -281,7 +281,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
       fillColor: [41, 128, 185],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      halign: 'center'
+      halign: 'center',
+      overflow: 'linebreak',
+      cellPadding: 1,
+      minCellHeight: 8
     },
     columnStyles: {
       item: { cellWidth: 12, halign: 'center' },
