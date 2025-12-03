@@ -230,6 +230,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
     return { valor: melhorValor, empresa: empresaVencedora };
   };
 
+  // Totais por fornecedor e vencedor
+  const totaisPorFornecedor: number[] = new Array(respostas.length).fill(0);
+  let totalVencedor = 0;
+
   itens.forEach((item) => {
     const linha: any = {
       item: item.numero_item,
@@ -244,7 +248,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
         if (isDesconto) {
           linha[`fornecedor_${idx}`] = formatarPercentual(itemResposta.percentual_desconto || itemResposta.valor_unitario_ofertado);
         } else {
-          linha[`fornecedor_${idx}`] = formatarMoeda(itemResposta.valor_unitario_ofertado);
+          const valorUnitario = itemResposta.valor_unitario_ofertado;
+          const valorTotal = valorUnitario * item.quantidade;
+          linha[`fornecedor_${idx}`] = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotal)})`;
+          totaisPorFornecedor[idx] += valorTotal;
         }
       } else {
         linha[`fornecedor_${idx}`] = "-";
@@ -254,8 +261,15 @@ export async function gerarPlanilhaHabilitacaoPDF(
     // Adicionar dados do vencedor
     const vencedor = encontrarVencedor(item.numero_item);
     if (vencedor.valor !== null) {
-      linha.valor_vencedor = isDesconto ? formatarPercentual(vencedor.valor) : formatarMoeda(vencedor.valor);
-      linha.empresa_vencedora = vencedor.empresa.substring(0, 25);
+      if (isDesconto) {
+        linha.valor_vencedor = formatarPercentual(vencedor.valor);
+        linha.empresa_vencedora = vencedor.empresa.substring(0, 25);
+      } else {
+        const valorTotalVencedor = vencedor.valor * item.quantidade;
+        linha.valor_vencedor = `${formatarMoeda(vencedor.valor)}\n(Total: ${formatarMoeda(valorTotalVencedor)})`;
+        linha.empresa_vencedora = vencedor.empresa.substring(0, 25);
+        totalVencedor += valorTotalVencedor;
+      }
     } else {
       linha.valor_vencedor = "-";
       linha.empresa_vencedora = "-";
@@ -263,6 +277,25 @@ export async function gerarPlanilhaHabilitacaoPDF(
 
     dados.push(linha);
   });
+
+  // Adicionar linha de VALOR TOTAL apenas se NÃO for critério de desconto
+  if (!isDesconto) {
+    const linhaTotalGeral: any = {
+      item: 'VALOR TOTAL',
+      descricao: '',
+      quantidade: '',
+      unidade: ''
+    };
+
+    respostas.forEach((_, idx) => {
+      linhaTotalGeral[`fornecedor_${idx}`] = formatarMoeda(totaisPorFornecedor[idx]);
+    });
+
+    linhaTotalGeral.valor_vencedor = formatarMoeda(totalVencedor);
+    linhaTotalGeral.empresa_vencedora = '';
+
+    dados.push(linhaTotalGeral);
+  }
 
   // Gerar tabela
   autoTable(doc, {
@@ -295,8 +328,25 @@ export async function gerarPlanilhaHabilitacaoPDF(
       empresa_vencedora: { cellWidth: 35, halign: 'center', fontStyle: 'bold' }
     },
     didParseCell: (data) => {
-      // Marcar empresas/itens inabilitados em vermelho
-      if (data.section === 'body' && data.column.dataKey && typeof data.column.dataKey === 'string' && data.column.dataKey.startsWith('fornecedor_')) {
+      const isLinhaTotal = !isDesconto && data.row.index === dados.length - 1;
+      
+      // Destacar linha de totais
+      if (isLinhaTotal) {
+        data.cell.styles.fillColor = [226, 232, 240];
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 8;
+        
+        // Mesclar as 4 primeiras colunas na linha de total
+        if (data.column.index === 0) {
+          data.cell.colSpan = 4;
+          data.cell.styles.halign = 'left';
+        } else if (data.column.index >= 1 && data.column.index <= 3) {
+          data.cell.text = [''];
+        }
+      }
+      
+      // Marcar empresas/itens inabilitados em vermelho (exceto linha de total)
+      if (!isLinhaTotal && data.section === 'body' && data.column.dataKey && typeof data.column.dataKey === 'string' && data.column.dataKey.startsWith('fornecedor_')) {
         const fornecedorIdx = parseInt(data.column.dataKey.replace('fornecedor_', ''));
         const resposta = respostas[fornecedorIdx];
         const numeroItem = dados[data.row.index]?.item;
@@ -308,8 +358,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
         }
       }
       
-      // Destacar colunas de vencedor em verde
-      if (data.section === 'body' && data.column.dataKey && 
+      // Destacar colunas de vencedor em verde (exceto linha de total)
+      if (!isLinhaTotal && data.section === 'body' && data.column.dataKey && 
           (data.column.dataKey === 'valor_vencedor' || data.column.dataKey === 'empresa_vencedora')) {
         data.cell.styles.textColor = [0, 100, 0];
         data.cell.styles.fontStyle = 'bold';
