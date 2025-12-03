@@ -993,12 +993,13 @@ const RespostaCotacao = () => {
         processoCompra?.criterio_julgamento
       );
 
-      // Atualizar resposta com protocolo e hash
+      // Atualizar resposta com protocolo, hash e URL do PDF
       await supabaseAnon
         .from('cotacao_respostas_fornecedor')
         .update({
           protocolo: protocolo,
-          hash_certificacao: hashProposta
+          hash_certificacao: hashProposta,
+          url_pdf_proposta: pdfUrl
         })
         .eq('id', respostaCriada.id);
 

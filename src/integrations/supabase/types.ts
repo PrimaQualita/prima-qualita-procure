@@ -722,6 +722,7 @@ export type Database = {
           observacoes_fornecedor: string | null
           protocolo: string | null
           rejeitado: boolean | null
+          url_pdf_proposta: string | null
           usuario_gerador_id: string | null
           valor_total_anual_ofertado: number
         }
@@ -738,6 +739,7 @@ export type Database = {
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           rejeitado?: boolean | null
+          url_pdf_proposta?: string | null
           usuario_gerador_id?: string | null
           valor_total_anual_ofertado: number
         }
@@ -754,6 +756,7 @@ export type Database = {
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           rejeitado?: boolean | null
+          url_pdf_proposta?: string | null
           usuario_gerador_id?: string | null
           valor_total_anual_ofertado?: number
         }
