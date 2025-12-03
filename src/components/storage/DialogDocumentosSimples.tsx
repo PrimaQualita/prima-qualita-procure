@@ -42,11 +42,26 @@ export function DialogDocumentosSimples({ open, onOpenChange, titulo, documentos
           {documentosFiltrados.map((doc: any, i: number) => {
             const handleVisualizarDocumento = async () => {
               try {
-                const { data } = await supabase.storage
-                  .from('processo-anexos')
-                  .createSignedUrl(doc.path, 3600);
-                if (data?.signedUrl) {
-                  window.open(data.signedUrl, '_blank');
+                let cleanPath = doc.path || '';
+                
+                if (cleanPath.includes('processo-anexos/')) {
+                  const match = cleanPath.match(/processo-anexos\/(.+?)(?:\?|$)/);
+                  if (match) {
+                    cleanPath = match[1];
+                  }
+                }
+                
+                if (cleanPath.startsWith('processo-anexos/')) {
+                  cleanPath = cleanPath.replace('processo-anexos/', '');
+                }
+                
+                if (cleanPath) {
+                  const { data } = await supabase.storage
+                    .from('processo-anexos')
+                    .createSignedUrl(cleanPath, 3600);
+                  if (data?.signedUrl) {
+                    window.open(data.signedUrl, '_blank');
+                  }
                 }
               } catch (error) {
                 console.error('Erro ao gerar URL:', error);

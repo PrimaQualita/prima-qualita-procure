@@ -168,11 +168,26 @@ export function DialogArquivosOrfaos({ open, onOpenChange, arquivos, onArquivosD
             const handleVisualizarArquivo = async (e: React.MouseEvent) => {
               e.stopPropagation();
               try {
-                const { data } = await supabase.storage
-                  .from('processo-anexos')
-                  .createSignedUrl(path, 3600);
-                if (data?.signedUrl) {
-                  window.open(data.signedUrl, '_blank');
+                let cleanPath = path || '';
+                
+                if (cleanPath.includes('processo-anexos/')) {
+                  const match = cleanPath.match(/processo-anexos\/(.+?)(?:\?|$)/);
+                  if (match) {
+                    cleanPath = match[1];
+                  }
+                }
+                
+                if (cleanPath.startsWith('processo-anexos/')) {
+                  cleanPath = cleanPath.replace('processo-anexos/', '');
+                }
+                
+                if (cleanPath) {
+                  const { data } = await supabase.storage
+                    .from('processo-anexos')
+                    .createSignedUrl(cleanPath, 3600);
+                  if (data?.signedUrl) {
+                    window.open(data.signedUrl, '_blank');
+                  }
                 }
               } catch (error) {
                 console.error('Erro ao gerar URL:', error);
