@@ -387,14 +387,14 @@ export function DialogPlanilhaConsolidada({
       
       console.log('📦 Respostas formatadas para PDF:', JSON.stringify(respostasFormatadas, null, 2));
       
-      // Preparar dados dos itens
+      // Preparar dados dos itens (campos de lote são numero_lote e descricao_lote em todosItens)
       const itensFormatados = todosItens.map(item => ({
         numero_item: item.numero_item,
         descricao: item.descricao,
         quantidade: item.quantidade,
         unidade: item.unidade,
-        lote_numero: item.lote_numero,
-        lote_descricao: item.lote_descricao
+        lote_numero: item.numero_lote,
+        lote_descricao: item.descricao_lote
       }));
       
       // Gerar protocolo
