@@ -31,7 +31,21 @@ export default function VerificarPlanilha() {
     setResultado(null);
 
     try {
-      // Primeiro, tentar buscar em planilhas_lances_selecao (seleção de fornecedores)
+      // Primeiro, tentar buscar em planilhas_habilitacao (planilha final)
+      const { data: dataHabilitacao, error: errorHabilitacao } = await supabase
+        .from("planilhas_habilitacao")
+        .select("*")
+        .eq("protocolo", prot.trim())
+        .order("data_geracao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (dataHabilitacao) {
+        setResultado({ encontrado: true, dados: dataHabilitacao, tipo: 'habilitacao' });
+        return;
+      }
+
+      // Tentar buscar em planilhas_lances_selecao (seleção de fornecedores)
       const { data: dataLances, error: errorLances } = await supabase
         .from("planilhas_lances_selecao")
         .select("*")
@@ -147,8 +161,9 @@ export default function VerificarPlanilha() {
               <div className="flex items-start gap-3 mb-6">
                 <CheckCircle className="h-8 w-8 text-green-600 flex-shrink-0 mt-1" />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg text-green-900 mb-1">
-                    {resultado.tipo === 'cotacao' ? 'Planilha Consolidada Autêntica' : 'Planilha de Lances Autêntica'}
+                <h3 className="font-semibold text-lg text-green-900 mb-1">
+                    {resultado.tipo === 'habilitacao' ? 'Planilha Final de Habilitação Autêntica' : 
+                     resultado.tipo === 'cotacao' ? 'Planilha Consolidada Autêntica' : 'Planilha de Lances Autêntica'}
                   </h3>
                   <p className="text-sm text-green-700">
                     Esta planilha foi gerada oficialmente pelo sistema Prima Qualitá Saúde
@@ -178,7 +193,8 @@ export default function VerificarPlanilha() {
                 <div>
                   <p className="text-sm font-semibold text-gray-600">Tipo</p>
                   <p className="text-sm">
-                    {resultado.tipo === 'cotacao' ? 'Planilha Consolidada (Cotação de Preços)' : 'Planilha de Lances (Seleção de Fornecedores)'}
+                    {resultado.tipo === 'habilitacao' ? 'Planilha Final de Habilitação (Compra Direta)' :
+                     resultado.tipo === 'cotacao' ? 'Planilha Consolidada (Cotação de Preços)' : 'Planilha de Lances (Seleção de Fornecedores)'}
                   </p>
                 </div>
 

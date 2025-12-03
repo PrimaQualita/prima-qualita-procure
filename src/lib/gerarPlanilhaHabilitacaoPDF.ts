@@ -330,34 +330,46 @@ export async function gerarPlanilhaHabilitacaoPDF(
     });
   }
 
-  // Certificação Digital
+  // Certificação Digital com quadro estilizado
   let certY = (doc as any).lastAutoTable?.finalY || 150;
   if (empresasInabilitadas.length > 0) {
-    certY = doc.internal.pageSize.getHeight() - 50;
+    certY = doc.internal.pageSize.getHeight() - 55;
   } else {
     certY += 15;
   }
   
-  if (certY > pageHeight - 45) {
+  if (certY > pageHeight - 50) {
     doc.addPage();
     adicionarCabecalho();
     certY = 40;
   }
 
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text("CERTIFICAÇÃO DIGITAL", margemEsquerda, certY);
-  certY += 5;
+  // Quadro de certificação
+  doc.setFillColor(245, 245, 245);
+  doc.rect(margemEsquerda, certY, larguraUtil, 35, 'F');
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(margemEsquerda, certY, larguraUtil, 35, 'S');
 
+  certY += 6;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 139);
+  doc.text("CERTIFICAÇÃO DIGITAL", pageWidth / 2, certY, { align: 'center' });
+  
+  certY += 6;
+  doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text(`Protocolo:  ${dadosProtocolo.protocolo}`, margemEsquerda, certY);
+  doc.setTextColor(0, 0, 0);
+
+  doc.text(`Protocolo:  ${dadosProtocolo.protocolo}`, margemEsquerda + 3, certY);
   certY += 5;
-  doc.text(`Responsável:  ${dadosProtocolo.usuario.nome_completo}`, margemEsquerda, certY);
+  doc.text(`Responsável:  ${dadosProtocolo.usuario.nome_completo}`, margemEsquerda + 3, certY);
   certY += 5;
   
   const baseUrl = window.location.origin;
   const linkVerificacao = `${baseUrl}/verificar-planilha?protocolo=${dadosProtocolo.protocolo}`;
-  doc.text(`Verificação:  ${linkVerificacao}`, margemEsquerda, certY);
+  doc.text(`Verificação:  ${linkVerificacao}`, margemEsquerda + 3, certY);
 
   // Gerar blob
   const blob = doc.output("blob");
