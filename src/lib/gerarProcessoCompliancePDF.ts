@@ -8,10 +8,19 @@ interface ProcessoComplianceResult {
   blob?: Blob;
 }
 
+interface DocumentoOrdenado {
+  tipo: string;
+  data: Date;
+  url: string;
+  nome: string;
+  bucket?: string;
+}
+
 /**
  * Gera PDF do processo para visualização no compliance
- * Inclui APENAS: anexos do processo, emails, propostas dos fornecedores e planilhas consolidadas
- * NÃO inclui: documentos de habilitação, recursos, análises de compliance, relatório final
+ * Inclui: anexos do processo, emails, propostas, planilhas consolidadas, encaminhamentos e análises de compliance
+ * NÃO inclui: documentos de habilitação, recursos, relatório final
+ * Tudo em ordem cronológica
  */
 export const gerarProcessoCompliancePDF = async (
   cotacaoId: string,
@@ -20,8 +29,10 @@ export const gerarProcessoCompliancePDF = async (
 ): Promise<ProcessoComplianceResult> => {
   console.log(`[Compliance PDF] Iniciando geração para cotação ${cotacaoId}...`);
   
-  // Criar PDF final que irá conter todos os documentos mesclados
   const pdfFinal = await PDFDocument.create();
+  
+  // Array para armazenar todos os documentos com suas datas para ordenação
+  const documentosOrdenados: DocumentoOrdenado[] = [];
 
   try {
     // 1. Buscar anexos do processo (CAPA, REQUISIÇÃO, AUTORIZAÇÃO, TERMO DE REFERÊNCIA)
@@ -36,8 +47,6 @@ export const gerarProcessoCompliancePDF = async (
       throw cotacaoError;
     }
 
-    console.log(`[Compliance PDF] Cotação encontrada. Processo ID: ${cotacao?.processo_compra_id}`);
-
     if (cotacao?.processo_compra_id) {
       const { data: anexos, error: anexosError } = await supabase
         .from("anexos_processo_compra")
@@ -45,48 +54,19 @@ export const gerarProcessoCompliancePDF = async (
         .eq("processo_compra_id", cotacao.processo_compra_id)
         .order("data_upload", { ascending: true });
 
-      if (anexosError) {
-        console.error("[Compliance PDF] Erro ao buscar anexos:", anexosError);
-      }
-
-      console.log(`[Compliance PDF] Anexos do processo encontrados: ${anexos?.length || 0}`);
-
-      if (anexos && anexos.length > 0) {
-        console.log(`📄 [Compliance PDF] Mesclando ${anexos.length} documentos iniciais do processo...`);
-        for (const anexo of anexos) {
-          try {
-            if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-              console.log(`  ⚠️ ${anexo.nome_arquivo} não é PDF, ignorando...`);
-              continue;
-            }
-            
-            console.log(`  Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
-            
-            const { data: signedUrlData, error: signedError } = await supabase.storage
-              .from('processo-anexos')
-              .createSignedUrl(anexo.url_arquivo, 60);
-            
-            if (signedError || !signedUrlData) {
-              console.error(`  ✗ Erro ao gerar URL assinada para ${anexo.nome_arquivo}:`, signedError?.message);
-              continue;
-            }
-            
-            const response = await fetch(signedUrlData.signedUrl);
-            
-            if (!response.ok) {
-              console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${anexo.nome_arquivo}`);
-              continue;
-            }
-            
-            const arrayBuffer = await response.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-            copiedPages.forEach((page) => pdfFinal.addPage(page));
-            console.log(`  ✓ Mesclado: ${anexo.tipo_anexo} (${copiedPages.length} páginas)`);
-          } catch (error) {
-            console.error(`  ✗ Erro ao mesclar ${anexo.nome_arquivo}:`, error);
+      if (!anexosError && anexos) {
+        anexos.forEach(anexo => {
+          if (anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+            documentosOrdenados.push({
+              tipo: 'anexo_processo',
+              data: new Date(anexo.data_upload),
+              url: anexo.url_arquivo,
+              nome: anexo.nome_arquivo,
+              bucket: 'processo-anexos'
+            });
           }
-        }
+        });
+        console.log(`[Compliance PDF] Anexos do processo: ${anexos.length}`);
       }
     }
 
@@ -94,60 +74,21 @@ export const gerarProcessoCompliancePDF = async (
     const { data: emails, error: emailsError } = await supabase
       .from("emails_cotacao_anexados")
       .select("*")
-      .eq("cotacao_id", cotacaoId)
-      .order("data_upload", { ascending: true });
+      .eq("cotacao_id", cotacaoId);
 
-    if (emailsError) {
-      console.error("[Compliance PDF] Erro ao buscar emails:", emailsError);
-    }
-
-    console.log(`[Compliance PDF] E-mails encontrados: ${emails?.length || 0}`);
-
-    if (emails && emails.length > 0) {
-      console.log(`📧 [Compliance PDF] Mesclando ${emails.length} e-mails...`);
-      for (const email of emails) {
-        try {
-          if (!email.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-            continue;
-          }
-          
-          let storagePath = email.url_arquivo;
-          if (storagePath.startsWith('processo-anexos/')) {
-            storagePath = storagePath.replace('processo-anexos/', '');
-          }
-          if (storagePath.includes('/storage/v1/object/')) {
-            const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
-            if (match) {
-              storagePath = match[1].split('?')[0];
-            }
-          } else if (storagePath.includes('?')) {
-            storagePath = storagePath.split('?')[0];
-          }
-          
-          const { data: signedUrlData, error: signedError } = await supabase.storage
-            .from('processo-anexos')
-            .createSignedUrl(storagePath, 60);
-          
-          if (signedError || !signedUrlData) {
-            console.error(`  ✗ Erro ao gerar URL para email ${email.nome_arquivo}:`, signedError?.message);
-            continue;
-          }
-          
-          const response = await fetch(signedUrlData.signedUrl);
-          
-          if (!response.ok) {
-            continue;
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-          copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`  ✓ E-mail mesclado: ${email.nome_arquivo}`);
-        } catch (error) {
-          console.error(`  ✗ Erro ao mesclar email ${email.nome_arquivo}:`, error);
+    if (!emailsError && emails) {
+      emails.forEach(email => {
+        if (email.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+          documentosOrdenados.push({
+            tipo: 'email',
+            data: new Date(email.data_upload),
+            url: email.url_arquivo,
+            nome: email.nome_arquivo,
+            bucket: 'processo-anexos'
+          });
         }
-      }
+      });
+      console.log(`[Compliance PDF] E-mails: ${emails.length}`);
     }
 
     // 3. Buscar propostas dos fornecedores
@@ -157,116 +98,134 @@ export const gerarProcessoCompliancePDF = async (
         *,
         fornecedor:fornecedores (razao_social, cnpj)
       `)
-      .eq("cotacao_id", cotacaoId)
-      .order("data_envio_resposta", { ascending: true });
+      .eq("cotacao_id", cotacaoId);
 
-    if (propostasError) {
-      console.error("[Compliance PDF] Erro ao buscar propostas:", propostasError);
-    }
-
-    console.log(`[Compliance PDF] Propostas encontradas: ${propostas?.length || 0}`);
-
-    if (propostas && propostas.length > 0) {
-      console.log(`📋 [Compliance PDF] Mesclando ${propostas.length} propostas de fornecedores...`);
-      for (const proposta of propostas) {
-        if (!proposta.url_pdf_proposta) {
-          console.log(`  ⚠️ Proposta de ${proposta.fornecedor?.razao_social} sem PDF`);
-          continue;
+    if (!propostasError && propostas) {
+      propostas.forEach(proposta => {
+        if (proposta.url_pdf_proposta) {
+          documentosOrdenados.push({
+            tipo: 'proposta',
+            data: new Date(proposta.data_envio_resposta || proposta.created_at),
+            url: proposta.url_pdf_proposta,
+            nome: `Proposta_${proposta.fornecedor?.razao_social || 'Fornecedor'}.pdf`,
+            bucket: 'processo-anexos'
+          });
         }
-
-        try {
-          let storagePath = proposta.url_pdf_proposta;
-          if (storagePath.startsWith('processo-anexos/')) {
-            storagePath = storagePath.replace('processo-anexos/', '');
-          }
-          if (storagePath.includes('/storage/v1/object/')) {
-            const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
-            if (match) {
-              storagePath = match[1].split('?')[0];
-            }
-          } else if (storagePath.includes('?')) {
-            storagePath = storagePath.split('?')[0];
-          }
-          
-          const { data: signedUrlData, error: signedError } = await supabase.storage
-            .from('processo-anexos')
-            .createSignedUrl(storagePath, 60);
-          
-          if (signedError || !signedUrlData) {
-            console.error(`  ✗ Erro URL proposta ${proposta.fornecedor?.razao_social}:`, signedError?.message);
-            continue;
-          }
-          
-          const response = await fetch(signedUrlData.signedUrl);
-          
-          if (!response.ok) {
-            continue;
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-          copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`  ✓ Proposta mesclada: ${proposta.fornecedor?.razao_social}`);
-        } catch (error) {
-          console.error(`  ✗ Erro proposta ${proposta.fornecedor?.razao_social}:`, error);
-        }
-      }
+      });
+      console.log(`[Compliance PDF] Propostas: ${propostas.length}`);
     }
 
     // 4. Buscar planilhas consolidadas
     const { data: planilhas, error: planilhasError } = await supabase
       .from("planilhas_consolidadas")
       .select("*")
-      .eq("cotacao_id", cotacaoId)
-      .order("data_geracao", { ascending: true });
+      .eq("cotacao_id", cotacaoId);
 
-    if (planilhasError) {
-      console.error("[Compliance PDF] Erro ao buscar planilhas:", planilhasError);
+    if (!planilhasError && planilhas) {
+      planilhas.forEach(planilha => {
+        documentosOrdenados.push({
+          tipo: 'planilha_consolidada',
+          data: new Date(planilha.data_geracao),
+          url: planilha.url_arquivo,
+          nome: planilha.nome_arquivo,
+          bucket: 'processo-anexos'
+        });
+      });
+      console.log(`[Compliance PDF] Planilhas consolidadas: ${planilhas.length}`);
     }
 
-    console.log(`[Compliance PDF] Planilhas consolidadas encontradas: ${planilhas?.length || 0}`);
+    // 5. Buscar encaminhamentos de processo
+    const { data: encaminhamentos, error: encaminhamentosError } = await supabase
+      .from("encaminhamentos_processo")
+      .select("*")
+      .eq("cotacao_id", cotacaoId);
 
-    if (planilhas && planilhas.length > 0) {
-      console.log(`📊 [Compliance PDF] Mesclando ${planilhas.length} planilhas consolidadas...`);
-      for (const planilha of planilhas) {
-        try {
-          let storagePath = planilha.url_arquivo;
-          if (storagePath.startsWith('processo-anexos/')) {
-            storagePath = storagePath.replace('processo-anexos/', '');
-          }
-          if (storagePath.includes('/storage/v1/object/')) {
-            const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
-            if (match) {
-              storagePath = match[1].split('?')[0];
-            }
-          } else if (storagePath.includes('?')) {
-            storagePath = storagePath.split('?')[0];
-          }
-          
-          const { data: signedUrlData, error: signedError } = await supabase.storage
-            .from('processo-anexos')
-            .createSignedUrl(storagePath, 60);
-          
-          if (signedError || !signedUrlData) {
-            console.error(`  ✗ Erro URL planilha:`, signedError?.message);
-            continue;
-          }
-          
-          const response = await fetch(signedUrlData.signedUrl);
-          
-          if (!response.ok) {
-            continue;
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
-          const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-          copiedPages.forEach((page) => pdfFinal.addPage(page));
-          console.log(`  ✓ Planilha mesclada: ${planilha.nome_arquivo}`);
-        } catch (error) {
-          console.error(`  ✗ Erro planilha:`, error);
+    if (!encaminhamentosError && encaminhamentos) {
+      encaminhamentos.forEach(enc => {
+        documentosOrdenados.push({
+          tipo: 'encaminhamento',
+          data: new Date(enc.created_at),
+          url: enc.url || enc.storage_path,
+          nome: enc.nome_arquivo || `Encaminhamento_${enc.protocolo}.pdf`,
+          bucket: 'processo-anexos'
+        });
+      });
+      console.log(`[Compliance PDF] Encaminhamentos: ${encaminhamentos.length}`);
+    }
+
+    // 6. Buscar análises de compliance já existentes
+    const { data: analises, error: analisesError } = await supabase
+      .from("analises_compliance")
+      .select("*")
+      .eq("cotacao_id", cotacaoId);
+
+    if (!analisesError && analises) {
+      analises.forEach(analise => {
+        if (analise.url_documento) {
+          documentosOrdenados.push({
+            tipo: 'analise_compliance',
+            data: new Date(analise.data_analise || analise.created_at),
+            url: analise.url_documento,
+            nome: analise.nome_arquivo || `Analise_Compliance_${analise.protocolo}.pdf`,
+            bucket: 'documents'
+          });
         }
+      });
+      console.log(`[Compliance PDF] Análises de compliance: ${analises.length}`);
+    }
+
+    // Ordenar todos os documentos cronologicamente
+    documentosOrdenados.sort((a, b) => a.data.getTime() - b.data.getTime());
+
+    console.log(`[Compliance PDF] Total de documentos a mesclar: ${documentosOrdenados.length}`);
+
+    // Mesclar documentos em ordem cronológica
+    for (const doc of documentosOrdenados) {
+      try {
+        let storagePath = doc.url;
+        const bucket = doc.bucket || 'processo-anexos';
+        
+        // Limpar o path
+        if (storagePath.startsWith(`${bucket}/`)) {
+          storagePath = storagePath.replace(`${bucket}/`, '');
+        }
+        if (storagePath.startsWith('documents/')) {
+          storagePath = storagePath.replace('documents/', '');
+        }
+        if (storagePath.includes('/storage/v1/object/')) {
+          const match = storagePath.match(new RegExp(`\\/${bucket}\\/(.+?)(\\?|$)`));
+          if (match) {
+            storagePath = match[1].split('?')[0];
+          }
+        } else if (storagePath.includes('?')) {
+          storagePath = storagePath.split('?')[0];
+        }
+        
+        console.log(`  📄 Mesclando [${doc.tipo}]: ${doc.nome}`);
+        
+        const { data: signedUrlData, error: signedError } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(storagePath, 60);
+        
+        if (signedError || !signedUrlData) {
+          console.error(`    ✗ Erro ao gerar URL para ${doc.nome}:`, signedError?.message);
+          continue;
+        }
+        
+        const response = await fetch(signedUrlData.signedUrl);
+        
+        if (!response.ok) {
+          console.error(`    ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
+          continue;
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(arrayBuffer);
+        const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        copiedPages.forEach((page) => pdfFinal.addPage(page));
+        console.log(`    ✓ Mesclado: ${doc.nome} (${copiedPages.length} páginas)`);
+      } catch (error) {
+        console.error(`    ✗ Erro ao mesclar ${doc.nome}:`, error);
       }
     }
 
