@@ -302,7 +302,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
     columns: colunas,
     body: dados,
     startY: yPosition,
-    margin: { left: margemEsquerda, right: margemDireita },
+    margin: { left: margemEsquerda, right: margemDireita, top: 35 },
     styles: {
       fontSize: 7,
       cellPadding: 2,
