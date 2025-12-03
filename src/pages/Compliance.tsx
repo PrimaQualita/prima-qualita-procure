@@ -234,8 +234,9 @@ export default function Compliance() {
       console.log(`📊 [Compliance] Iniciando visualização do processo ${processo.numero_processo_interno}`);
       console.log(`📊 [Compliance] Cotação ID: ${processo.cotacao_id}`);
       
-      const { gerarProcessoCompletoPDF } = await import("@/lib/gerarProcessoCompletoPDF");
-      const resultado = await gerarProcessoCompletoPDF(
+      // Usar função específica para compliance que NÃO inclui documentos de habilitação
+      const { gerarProcessoCompliancePDF } = await import("@/lib/gerarProcessoCompliancePDF");
+      const resultado = await gerarProcessoCompliancePDF(
         processo.cotacao_id,
         processo.numero_processo_interno,
         true // temporário = true para não salvar no storage
