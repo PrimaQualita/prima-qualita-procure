@@ -404,6 +404,8 @@ const RespostaCotacao = () => {
             
             // Adicionar itens deste lote
             const itensDoLote = itensCotacao.filter(item => item.lote_id === lote.id);
+            const primeiraLinhaItens = worksheet.rowCount + 1;
+            
             itensDoLote.forEach(item => {
               const row = worksheet.addRow({
                 item: item.numero_item,
@@ -419,6 +421,69 @@ const RespostaCotacao = () => {
               const rowNumber = row.number;
               row.getCell(7).value = { formula: `C${rowNumber}*F${rowNumber}` };
             });
+            
+            const ultimaLinhaItens = worksheet.rowCount;
+            
+            // Adicionar linha de subtotal do lote
+            const subtotalRow = worksheet.addRow({
+              item: '',
+              descricao: '',
+              quantidade: '',
+              unidade: '',
+              marca: '',
+              valorUnitario: `SUBTOTAL LOTE ${lote.numero_lote}:`,
+              valorTotal: ''
+            });
+            
+            // Fórmula para somar valores totais do lote
+            subtotalRow.getCell(7).value = { formula: `SUM(G${primeiraLinhaItens}:G${ultimaLinhaItens})` };
+            
+            // Estilizar linha de subtotal
+            subtotalRow.eachCell((cell) => {
+              cell.font = { bold: true };
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFDDEEFF' }
+              };
+              cell.protection = { locked: true };
+            });
+          });
+          
+          // Adicionar linha de total geral
+          const totalGeralRow = worksheet.addRow({
+            item: '',
+            descricao: '',
+            quantidade: '',
+            unidade: '',
+            marca: '',
+            valorUnitario: 'VALOR TOTAL GERAL:',
+            valorTotal: ''
+          });
+          
+          // Soma de todos os subtotais (coluna G onde temos os valores)
+          const linhasSubtotal: number[] = [];
+          worksheet.eachRow((row, rowNumber) => {
+            const cell = row.getCell(6);
+            if (cell.value && String(cell.value).includes('SUBTOTAL LOTE')) {
+              linhasSubtotal.push(rowNumber);
+            }
+          });
+          
+          if (linhasSubtotal.length > 0) {
+            const formula = linhasSubtotal.map(r => `G${r}`).join('+');
+            totalGeralRow.getCell(7).value = { formula };
+          }
+          
+          // Estilizar linha de total geral
+          totalGeralRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FF1E40AF' }
+            };
+            cell.protection = { locked: true };
           });
         } else {
           // Adicionar linhas - outros critérios (global ou item)
@@ -1144,6 +1209,10 @@ const RespostaCotacao = () => {
                   <>
                     {lotes.map((lote) => {
                       const itensDoLote = itensCotacao.filter(item => item.lote_id === lote.id);
+                      const subtotalLote = itensDoLote.reduce((acc, item) => {
+                        return acc + (item.quantidade * (respostas[item.id]?.valor_unitario_ofertado || 0));
+                      }, 0);
+                      
                       return (
                         <React.Fragment key={`lote-group-${lote.id}`}>
                           {/* Linha de título do lote */}
@@ -1213,15 +1282,24 @@ const RespostaCotacao = () => {
                               </TableCell>
                             </TableRow>
                           ))}
+                          {/* Linha de subtotal do lote */}
+                          <TableRow className="bg-blue-50">
+                            <TableCell colSpan={6} className="text-right font-semibold">
+                              SUBTOTAL LOTE {lote.numero_lote}:
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              R$ {subtotalLote.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
                         </React.Fragment>
                       );
                     })}
-                    <TableRow className="font-bold bg-muted/50">
+                    <TableRow className="font-bold bg-primary text-primary-foreground">
                       <TableCell colSpan={6} className="text-right">
-                        TOTAL GERAL:
+                        VALOR TOTAL GERAL:
                       </TableCell>
                       <TableCell className="text-right">
-                        R$ {calcularValorTotal().toFixed(2)}
+                        R$ {calcularValorTotal().toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   </>
@@ -1329,13 +1407,14 @@ const RespostaCotacao = () => {
                         )}
                       </TableRow>
                     ))}
-                    {processoCompra?.criterio_julgamento !== "desconto" && (
+                    {processoCompra?.criterio_julgamento !== "desconto" && 
+                     processoCompra?.criterio_julgamento !== "por_lote" && (
                       <TableRow className="font-bold bg-muted/50">
                         <TableCell colSpan={6} className="text-right">
                           TOTAL GERAL:
                         </TableCell>
                         <TableCell className="text-right">
-                          R$ {calcularValorTotal().toFixed(2)}
+                          R$ {calcularValorTotal().toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>
                     )}
