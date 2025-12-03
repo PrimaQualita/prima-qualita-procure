@@ -50,6 +50,7 @@ interface Processo {
   tipo: "material" | "servico" | "mao_obra_exclusiva" | "outros";
   centro_custo?: string;
   valor_estimado_anual: number;
+  valor_total_cotacao?: number;
   status_processo: "planejado" | "em_cotacao" | "cotacao_concluida" | "em_selecao" | "contratado" | "concluido" | "cancelado" | "contratacao";
   data_abertura?: string;
   data_encerramento_prevista?: string;
@@ -484,7 +485,7 @@ const ProcessosCompras = () => {
                       <TableHead>Objeto</TableHead>
                       <TableHead>Ano</TableHead>
                       <TableHead>Tipo</TableHead>
-                      <TableHead>Valor Estimado</TableHead>
+                      <TableHead>Valor Total</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Anexos</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
@@ -505,7 +506,7 @@ const ProcessosCompras = () => {
                           {new Intl.NumberFormat("pt-BR", {
                             style: "currency",
                             currency: "BRL",
-                          }).format(processo.valor_estimado_anual)}
+                          }).format(processo.valor_total_cotacao || 0)}
                         </TableCell>
                         <TableCell>{getStatusBadge(processo.status_processo)}</TableCell>
                         <TableCell>
