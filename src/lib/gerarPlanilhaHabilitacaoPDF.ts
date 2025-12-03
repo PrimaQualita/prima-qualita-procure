@@ -1,6 +1,5 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { gerarHashDocumento } from './certificacaoDigital';
 
 interface ItemCotacao {
   numero_item: number;
@@ -63,6 +62,28 @@ const decodeHtmlEntities = (text: string): string => {
   return textarea.value;
 };
 
+// Função para justificar texto manualmente no jsPDF
+const justificarTexto = (doc: any, texto: string, x: number, y: number, larguraMaxima: number) => {
+  const palavras = texto.trim().split(/\s+/);
+  
+  if (palavras.length === 1) {
+    doc.text(texto, x, y);
+    return;
+  }
+  
+  const textoSemEspacos = palavras.join('');
+  const larguraTexto = doc.getTextWidth(textoSemEspacos);
+  const espacoDisponivel = larguraMaxima - larguraTexto;
+  const numEspacos = palavras.length - 1;
+  const espacoPorPalavra = espacoDisponivel / numEspacos;
+  
+  let xAtual = x;
+  palavras.forEach((palavra, index) => {
+    doc.text(palavra, xAtual, y);
+    xAtual += doc.getTextWidth(palavra) + espacoPorPalavra;
+  });
+};
+
 export async function gerarPlanilhaHabilitacaoPDF(
   processo: { numero: string; objeto: string },
   cotacao: { titulo_cotacao: string },
@@ -78,84 +99,69 @@ export async function gerarPlanilhaHabilitacaoPDF(
   });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 10;
+  const margemEsquerda = 10;
+  const margemDireita = 10;
+  const larguraUtil = pageWidth - margemEsquerda - margemDireita;
 
-  // Carregar imagens
-  let logoExpandidoBase64 = "";
-  let rodapeExpandidoBase64 = "";
-  
-  try {
-    const logoResponse = await fetch("/src/assets/prima-qualita-logo-horizontal.png");
-    const logoBlob = await logoResponse.blob();
-    logoExpandidoBase64 = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(logoBlob);
-    });
-  } catch (e) {
-    console.log("Logo expandido não encontrado");
-  }
-
-  try {
-    const rodapeResponse = await fetch("/src/assets/capa-processo-rodape.png");
-    const rodapeBlob = await rodapeResponse.blob();
-    rodapeExpandidoBase64 = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(rodapeBlob);
-    });
-  } catch (e) {
-    console.log("Rodapé expandido não encontrado");
-  }
-
-  const adicionarCabecalhoERodape = () => {
-    // Logo expandido no topo (ocupando toda largura com margens de 1.5mm)
-    if (logoExpandidoBase64) {
-      const logoMargin = 1.5;
-      const logoWidth = pageWidth - (logoMargin * 2);
-      const logoHeight = 25;
-      doc.addImage(logoExpandidoBase64, "PNG", logoMargin, logoMargin, logoWidth, logoHeight);
-    }
+  const adicionarCabecalho = () => {
+    // Cabeçalho azul claro (paleta Prima Qualitá) - igual planilha consolidada
+    doc.setFillColor(120, 190, 225);
+    doc.rect(0, 0, pageWidth, 30, 'F');
     
-    // Rodapé expandido no final
-    if (rodapeExpandidoBase64) {
-      const rodapeMargin = 1.5;
-      const rodapeWidth = pageWidth - (rodapeMargin * 2);
-      const rodapeHeight = 15;
-      doc.addImage(rodapeExpandidoBase64, "PNG", rodapeMargin, pageHeight - rodapeHeight - rodapeMargin, rodapeWidth, rodapeHeight);
-    }
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PLANILHA FINAL DE HABILITAÇÃO', pageWidth / 2, 12, { align: 'center' });
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`PROCESSO ${processo.numero}`, pageWidth / 2, 18, { align: 'center' });
   };
 
-  // Primeira página
-  adicionarCabecalhoERodape();
+  // Primeira página - adicionar cabeçalho
+  adicionarCabecalho();
 
-  let yPosition = 35;
+  let yPosition = 40; // Posição após a faixa azul
 
-  // Título
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text("PLANILHA DE HABILITAÇÃO", pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 10;
-
-  // Informações do processo
+  // OBJETO (abaixo da faixa azul)
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Processo:  ${processo.numero}`, margin, yPosition);
-  yPosition += 6;
+  doc.setFont('helvetica', 'bold');
+  const textoObjeto = 'Objeto:';
+  doc.text(textoObjeto, margemEsquerda, yPosition);
   
-  const objetoLimpo = decodeHtmlEntities(processo.objeto.replace(/<[^>]*>/g, ''));
-  const objetoLinhas = doc.splitTextToSize(`Objeto:  ${objetoLimpo}`, pageWidth - 2 * margin);
-  doc.text(objetoLinhas, margin, yPosition);
-  yPosition += objetoLinhas.length * 5 + 4;
+  const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<\/?p>/g, '');
+  doc.setFont('helvetica', 'normal');
+  
+  const larguraObjeto = doc.getTextWidth(textoObjeto);
+  const larguraPrimeiraLinha = larguraUtil - larguraObjeto - 2;
+  const linhasPrimeiraLinha = doc.splitTextToSize(objetoDecodificado, larguraPrimeiraLinha);
+  justificarTexto(doc, linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto + 2, yPosition, larguraPrimeiraLinha);
+  
+  yPosition += 5;
+  const textoRestante = objetoDecodificado.substring(linhasPrimeiraLinha[0].length).trim();
+  if (textoRestante) {
+    const linhasRestantes = doc.splitTextToSize(textoRestante, larguraUtil);
+    linhasRestantes.forEach((linha: string) => {
+      justificarTexto(doc, linha, margemEsquerda, yPosition, larguraUtil);
+      yPosition += 5;
+    });
+  }
+  
+  yPosition += 3;
 
-  doc.text(`Cotação:  ${cotacao.titulo_cotacao}`, margin, yPosition);
+  // Cotação
+  doc.setFont('helvetica', 'bold');
+  doc.text('Cotação:', margemEsquerda, yPosition);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`  ${cotacao.titulo_cotacao}`, margemEsquerda + doc.getTextWidth('Cotação:'), yPosition);
   yPosition += 8;
 
   // Legenda
   doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
+  doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 0, 0);
-  doc.text("■ Vermelho = Empresa/Item Inabilitado", margin, yPosition);
+  doc.text("■ Vermelho = Empresa/Item Inabilitado", margemEsquerda, yPosition);
   doc.setTextColor(0, 0, 0);
   yPosition += 8;
 
@@ -209,7 +215,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
     columns: colunas,
     body: dados,
     startY: yPosition,
-    margin: { left: margin, right: margin },
+    margin: { left: margemEsquerda, right: margemDireita },
     styles: {
       fontSize: 7,
       cellPadding: 2,
@@ -262,7 +268,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
       }
     },
     didDrawPage: (data) => {
-      adicionarCabecalhoERodape();
+      // Adicionar cabeçalho em novas páginas
+      if (data.pageNumber > 1) {
+        adicionarCabecalho();
+      }
     }
   });
 
@@ -274,14 +283,14 @@ export async function gerarPlanilhaHabilitacaoPDF(
     
     if (currentY > pageHeight - 60) {
       doc.addPage();
-      adicionarCabecalhoERodape();
-      currentY = 35;
+      adicionarCabecalho();
+      currentY = 40;
     }
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(180, 0, 0);
-    doc.text("EMPRESAS INABILITADAS", margin, currentY);
+    doc.text("EMPRESAS INABILITADAS", margemEsquerda, currentY);
     doc.setTextColor(0, 0, 0);
     currentY += 6;
 
@@ -291,29 +300,29 @@ export async function gerarPlanilhaHabilitacaoPDF(
     empresasInabilitadas.forEach((empresa) => {
       if (currentY > pageHeight - 40) {
         doc.addPage();
-        adicionarCabecalhoERodape();
-        currentY = 35;
+        adicionarCabecalho();
+        currentY = 40;
       }
 
       doc.setFont("helvetica", "bold");
-      doc.text(`• ${empresa.fornecedor.razao_social}`, margin, currentY);
+      doc.text(`• ${empresa.fornecedor.razao_social}`, margemEsquerda, currentY);
       doc.setFont("helvetica", "normal");
       currentY += 5;
       
-      doc.text(`  CNPJ: ${formatarCNPJ(empresa.fornecedor.cnpj)}`, margin, currentY);
+      doc.text(`  CNPJ: ${formatarCNPJ(empresa.fornecedor.cnpj)}`, margemEsquerda, currentY);
       currentY += 5;
 
       if (empresa.rejeitado) {
-        doc.text(`  Status: Inabilitado totalmente`, margin, currentY);
+        doc.text(`  Status: Inabilitado totalmente`, margemEsquerda, currentY);
         currentY += 5;
       } else if (empresa.itens_rejeitados.length > 0) {
-        doc.text(`  Status: Inabilitado nos itens: ${empresa.itens_rejeitados.join(', ')}`, margin, currentY);
+        doc.text(`  Status: Inabilitado nos itens: ${empresa.itens_rejeitados.join(', ')}`, margemEsquerda, currentY);
         currentY += 5;
       }
 
       if (empresa.motivo_rejeicao) {
-        const motivoLinhas = doc.splitTextToSize(`  Motivo: ${empresa.motivo_rejeicao}`, pageWidth - 2 * margin - 10);
-        doc.text(motivoLinhas, margin, currentY);
+        const motivoLinhas = doc.splitTextToSize(`  Motivo: ${empresa.motivo_rejeicao}`, larguraUtil - 10);
+        doc.text(motivoLinhas, margemEsquerda, currentY);
         currentY += motivoLinhas.length * 4 + 2;
       }
 
@@ -331,24 +340,24 @@ export async function gerarPlanilhaHabilitacaoPDF(
   
   if (certY > pageHeight - 45) {
     doc.addPage();
-    adicionarCabecalhoERodape();
-    certY = 35;
+    adicionarCabecalho();
+    certY = 40;
   }
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("CERTIFICAÇÃO DIGITAL", margin, certY);
+  doc.text("CERTIFICAÇÃO DIGITAL", margemEsquerda, certY);
   certY += 5;
 
   doc.setFont("helvetica", "normal");
-  doc.text(`Protocolo:  ${dadosProtocolo.protocolo}`, margin, certY);
+  doc.text(`Protocolo:  ${dadosProtocolo.protocolo}`, margemEsquerda, certY);
   certY += 5;
-  doc.text(`Responsável:  ${dadosProtocolo.usuario.nome_completo}`, margin, certY);
+  doc.text(`Responsável:  ${dadosProtocolo.usuario.nome_completo}`, margemEsquerda, certY);
   certY += 5;
   
   const baseUrl = window.location.origin;
   const linkVerificacao = `${baseUrl}/verificar-planilha?protocolo=${dadosProtocolo.protocolo}`;
-  doc.text(`Verificação:  ${linkVerificacao}`, margin, certY);
+  doc.text(`Verificação:  ${linkVerificacao}`, margemEsquerda, certY);
 
   // Gerar blob
   const blob = doc.output("blob");

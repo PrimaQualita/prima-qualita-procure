@@ -1889,10 +1889,10 @@ export function DialogFinalizarProcesso({
       if (insertError) throw insertError;
 
       await loadPlanilhasHabilitacao();
-      toast.success("Planilha de Habilitação gerada com sucesso!");
+      toast.success("Planilha Final gerada com sucesso!");
     } catch (error) {
-      console.error("Erro ao gerar planilha de habilitação:", error);
-      toast.error("Erro ao gerar planilha de habilitação");
+      console.error("Erro ao gerar planilha final:", error);
+      toast.error("Erro ao gerar planilha final");
     } finally {
       setLoading(false);
     }
@@ -1915,7 +1915,7 @@ export function DialogFinalizarProcesso({
         }
       }
 
-      console.log("[Planilha Habilitação] Deletando arquivo:", filePath);
+      console.log("[Planilha Final] Deletando arquivo:", filePath);
 
       if (filePath) {
         const { error: storageError } = await supabase.storage
@@ -1925,7 +1925,7 @@ export function DialogFinalizarProcesso({
         if (storageError) {
           console.error("Erro ao remover do storage:", storageError);
         } else {
-          console.log("[Planilha Habilitação] Arquivo removido do storage com sucesso");
+          console.log("[Planilha Final] Arquivo removido do storage com sucesso");
         }
       }
 
@@ -1940,10 +1940,10 @@ export function DialogFinalizarProcesso({
       setPlanilhaHabParaExcluir(null);
       setConfirmDeletePlanilhaHabOpen(false);
       await loadPlanilhasHabilitacao();
-      toast.success("Planilha de habilitação excluída com sucesso");
+      toast.success("Planilha final excluída com sucesso");
     } catch (error: any) {
-      console.error("Erro ao excluir planilha de habilitação:", error);
-      toast.error("Erro ao excluir planilha de habilitação");
+      console.error("Erro ao excluir planilha final:", error);
+      toast.error("Erro ao excluir planilha final");
     }
   };
 
@@ -3390,15 +3390,14 @@ export function DialogFinalizarProcesso({
                 onClick={gerarPlanilhaHabilitacao}
                 disabled={loading}
                 className="w-full"
-                variant="outline"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Gerar Planilha de Habilitação
+                Gerar Planilha Final
               </Button>
               
               {planilhasHabilitacao.length > 0 && (
                 <div className="flex flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
-                  <Label className="text-sm font-semibold">Planilhas de Habilitação Geradas:</Label>
+                  <Label className="text-sm font-semibold">Planilhas Finais Geradas:</Label>
                   {planilhasHabilitacao.map((planilha) => (
                     <div key={planilha.id} className="flex items-center gap-2 p-2 bg-muted rounded-md">
                       <div className="flex-1 text-sm">
