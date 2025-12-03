@@ -123,15 +123,29 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
             />
           </div>
           <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-            {documentosFiltrados.map((doc: any, i: number) => {
+          {documentosFiltrados.map((doc: any, i: number) => {
               const handleVisualizarDocumento = async () => {
                 try {
-                  if (doc.url) {
-                    window.open(doc.url, '_blank');
-                  } else if (doc.path) {
+                  // Extrair path limpo da URL ou usar path direto
+                  let cleanPath = doc.path || '';
+                  
+                  // Se for URL completa, extrair apenas o path
+                  if (cleanPath.includes('processo-anexos/')) {
+                    const match = cleanPath.match(/processo-anexos\/(.+?)(?:\?|$)/);
+                    if (match) {
+                      cleanPath = match[1];
+                    }
+                  }
+                  
+                  // Remover prefixo duplicado se existir
+                  if (cleanPath.startsWith('processo-anexos/')) {
+                    cleanPath = cleanPath.replace('processo-anexos/', '');
+                  }
+                  
+                  if (cleanPath) {
                     const { data } = await supabase.storage
                       .from('processo-anexos')
-                      .createSignedUrl(doc.path, 3600);
+                      .createSignedUrl(cleanPath, 3600);
                     if (data?.signedUrl) {
                       window.open(data.signedUrl, '_blank');
                     }
