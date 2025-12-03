@@ -602,6 +602,19 @@ const Cotacoes = () => {
 
     setSavingCotacao(true);
     try {
+      // Converter datetime-local para UTC
+      // Input datetime-local retorna "2025-12-03T19:00" - interpretar como Brasília (UTC-3)
+      const dataLocalStr = novaCotacao.data_limite_resposta;
+      let dataISO: string;
+      
+      if (dataLocalStr && dataLocalStr.includes('T') && !dataLocalStr.includes('Z') && !dataLocalStr.includes('+')) {
+        // Formato datetime-local sem timezone - interpretar como Brasília e converter para UTC
+        const dataComOffset = new Date(dataLocalStr + ':00-03:00');
+        dataISO = dataComOffset.toISOString();
+      } else {
+        dataISO = dataLocalStr ? new Date(dataLocalStr).toISOString() : new Date().toISOString();
+      }
+      
       // Usa o critério de julgamento do processo
       const { error } = await supabase
         .from("cotacoes_precos")
@@ -609,7 +622,7 @@ const Cotacoes = () => {
           processo_compra_id: processoSelecionado.id,
           titulo_cotacao: novaCotacao.titulo_cotacao,
           descricao_cotacao: novaCotacao.descricao_cotacao,
-          data_limite_resposta: novaCotacao.data_limite_resposta,
+          data_limite_resposta: dataISO,
           criterio_julgamento: processoSelecionado.criterio_julgamento || 'global',
         });
 
@@ -2547,11 +2560,16 @@ const Cotacoes = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-prazo">Prazo para Resposta</Label>
+              <Label htmlFor="edit-prazo">Prazo para Resposta (Horário de Brasília)</Label>
               <Input
                 id="edit-prazo"
                 type="datetime-local"
-                value={cotacaoEditando?.data_limite_resposta ? new Date(cotacaoEditando.data_limite_resposta).toISOString().slice(0, 16) : ""}
+                value={cotacaoEditando?.data_limite_resposta ? (() => {
+                  // Converter de UTC para Brasília (UTC-3) para exibição
+                  const dataUTC = new Date(cotacaoEditando.data_limite_resposta);
+                  const dataBrasilia = new Date(dataUTC.getTime() - (3 * 60 * 60 * 1000));
+                  return dataBrasilia.toISOString().slice(0, 16);
+                })() : ""}
                 onChange={(e) => setCotacaoEditando(prev => prev ? {...prev, data_limite_resposta: e.target.value} : null)}
               />
             </div>
