@@ -257,6 +257,37 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
+    // 4b. Buscar TODAS as planilhas de habilitação (Resultado Final)
+    const { data: planilhasHabilitacao, error: planilhasHabError } = await supabase
+      .from("planilhas_habilitacao")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_geracao", { ascending: true });
+
+    if (planilhasHabError) {
+      console.error("Erro ao buscar planilhas de habilitação:", planilhasHabError);
+    }
+
+    console.log(`Planilhas de habilitação (Resultado Final) encontradas: ${planilhasHabilitacao?.length || 0}`);
+    
+    if (planilhasHabilitacao && planilhasHabilitacao.length > 0) {
+      planilhasHabilitacao.forEach(planilha => {
+        // Extrair storage path corretamente
+        let storagePath = planilha.storage_path || planilha.url_arquivo;
+        if (storagePath?.startsWith('processo-anexos/')) {
+          storagePath = storagePath.replace('processo-anexos/', '');
+        }
+        
+        documentosOrdenados.push({
+          tipo: "Planilha de Habilitação",
+          data: planilha.data_geracao,
+          nome: planilha.nome_arquivo,
+          storagePath: storagePath,
+          bucket: "processo-anexos"
+        });
+      });
+    }
+
     // 5. Buscar TODOS os encaminhamentos ao compliance
     const { data: encaminhamentos, error: encaminhamentosError } = await supabase
       .from("encaminhamentos_processo")
