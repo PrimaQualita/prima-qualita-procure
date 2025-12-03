@@ -267,8 +267,15 @@ const RespostaCotacao = () => {
       }
 
       // Verificar data limite - apenas setar flag, continua carregando itens
+      // Usar fuso horário de Brasília (America/Sao_Paulo = UTC-3)
       const dataLimite = new Date(cotacaoData.data_limite_resposta);
-      if (dataLimite < new Date()) {
+      const agora = new Date();
+      
+      // Converter para horário de Brasília para comparação correta
+      const agoraBrasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const dataLimiteBrasilia = new Date(dataLimite.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      
+      if (dataLimiteBrasilia < agoraBrasilia) {
         setPrazoExpirado(true);
       }
 
