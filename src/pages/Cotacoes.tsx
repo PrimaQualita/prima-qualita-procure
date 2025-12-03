@@ -104,6 +104,8 @@ const Cotacoes = () => {
   const [cotacaoParaExcluir, setCotacaoParaExcluir] = useState<string | null>(null);
   const [itemEditando, setItemEditando] = useState<ItemCotacao | null>(null);
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
+  const [confirmDeleteLoteOpen, setConfirmDeleteLoteOpen] = useState(false);
+  const [loteParaExcluir, setLoteParaExcluir] = useState<string | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
   const [criterioJulgamento, setCriterioJulgamento] = useState<'por_item' | 'global' | 'por_lote' | 'desconto'>('global');
   const [naoRequerSelecao, setNaoRequerSelecao] = useState(false);
@@ -1096,8 +1098,16 @@ const Cotacoes = () => {
     }
   };
 
-  const handleDeleteLote = async (id: string) => {
-    if (!confirm("Deseja realmente excluir este lote? Todos os itens vinculados a ele também serão excluídos.")) return;
+  const handleDeleteLote = (id: string) => {
+    setLoteParaExcluir(id);
+    setConfirmDeleteLoteOpen(true);
+  };
+
+  const confirmarDeleteLote = async () => {
+    if (!loteParaExcluir) return;
+    const id = loteParaExcluir;
+    setConfirmDeleteLoteOpen(false);
+    setLoteParaExcluir(null);
 
     try {
       // Buscar itens do lote
@@ -2535,6 +2545,27 @@ const Cotacoes = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de confirmação para exclusão de lote */}
+      <AlertDialog open={confirmDeleteLoteOpen} onOpenChange={setConfirmDeleteLoteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja realmente excluir este lote? Todos os itens vinculados a ele também serão excluídos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLoteParaExcluir(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmarDeleteLote}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
