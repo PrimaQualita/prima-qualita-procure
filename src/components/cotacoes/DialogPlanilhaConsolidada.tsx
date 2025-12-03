@@ -380,7 +380,8 @@ export function DialogPlanilhaConsolidada({
           numero_item: item.numero_item,
           valor_unitario_ofertado: item.valor_unitario_ofertado,
           percentual_desconto: item.percentual_desconto,
-          marca: item.marca || undefined
+          marca: item.marca || undefined,
+          lote_numero: item.lote_numero
         })),
         valor_total: resposta.valor_total
       }));
