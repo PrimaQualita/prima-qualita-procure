@@ -390,10 +390,18 @@ export async function gerarPlanilhaHabilitacaoPDF(
           doc.setFillColor(180, 0, 0);
           doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
           doc.setTextColor(255, 255, 255);
-          doc.setFontSize(7);
+          doc.setFontSize(6);
           doc.setFont("helvetica", "bold");
-          const text = data.cell.text.join(' ');
-          doc.text(text, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 1, { align: 'center' });
+          
+          // Quebrar texto em múltiplas linhas
+          const textoCompleto = data.cell.text.join(' ');
+          const linhas = doc.splitTextToSize(textoCompleto, data.cell.width - 2);
+          const alturaLinha = 3;
+          const yInicio = data.cell.y + (data.cell.height - (linhas.length * alturaLinha)) / 2 + alturaLinha;
+          
+          linhas.forEach((linha: string, idx: number) => {
+            doc.text(linha, data.cell.x + data.cell.width / 2, yInicio + (idx * alturaLinha), { align: 'center' });
+          });
         }
       }
     },
