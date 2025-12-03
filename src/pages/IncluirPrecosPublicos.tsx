@@ -319,34 +319,55 @@ const IncluirPrecosPublicos = () => {
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       
-      // Converter para JSON mantendo as colunas originais
-      const jsonData = XLSX.utils.sheet_to_json<{
-        'Item': number;
-        'Descrição': string;
-        'Quantidade': number;
-        'Unidade': string;
-        'Valor Unitário': string | number;
-        'Marca': string;
-      }>(worksheet);
+      // Converter para array de arrays para processar linha por linha
+      const dados = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
       
-      console.log("Dados importados:", jsonData);
+      console.log("Dados brutos importados:", dados);
       
       const novasRespostas = { ...respostas };
       let itensImportados = 0;
       
-      jsonData.forEach((row, index) => {
-        const numItem = row['Item'];
-        const valorStr = String(row['Valor Unitário'] || '').trim();
-        const marca = String(row['Marca'] || '').trim();
+      // Ignorar cabeçalho (primeira linha)
+      for (let i = 1; i < dados.length; i++) {
+        const row = dados[i];
+        if (!row || row.length === 0) continue;
         
-        console.log(`Linha ${index + 2} - Item: ${numItem}, Valor: "${valorStr}", Marca: "${marca}"`);
+        const itemCol = row[0];
+        const descricaoCol = row[1];
+        const marcaCol = row[4];
+        const valorCol = row[5];
         
-        if (!numItem || !valorStr || valorStr === '') {
-          console.log(`Linha ${index + 2}: item ou valor vazio`);
-          return;
+        // Pular linhas de título de lote (começam com "LOTE")
+        if (typeof itemCol === 'string' && itemCol.toUpperCase().startsWith('LOTE')) {
+          console.log(`Linha ${i + 1}: Pulando título de lote - ${itemCol}`);
+          continue;
         }
         
-        const item = itens.find(i => i.numero_item === numItem);
+        // Pular linhas de subtotal e total geral
+        if (typeof valorCol === 'string' && (valorCol.includes('SUBTOTAL') || valorCol.includes('TOTAL'))) {
+          console.log(`Linha ${i + 1}: Pulando linha de subtotal/total`);
+          continue;
+        }
+        
+        // Verificar se é uma linha válida de item (número de item válido)
+        const numItem = typeof itemCol === 'number' ? itemCol : parseInt(String(itemCol));
+        if (isNaN(numItem) || numItem <= 0) {
+          console.log(`Linha ${i + 1}: item inválido - ${itemCol}`);
+          continue;
+        }
+        
+        const valorStr = String(valorCol || '').trim();
+        const marca = String(marcaCol || '').trim();
+        
+        console.log(`Linha ${i + 1} - Item: ${numItem}, Valor: "${valorStr}", Marca: "${marca}"`);
+        
+        // Pular itens sem valor preenchido
+        if (!valorStr || valorStr === '' || valorStr === '0') {
+          console.log(`Linha ${i + 1}: valor vazio ou zero`);
+          continue;
+        }
+        
+        const item = itens.find(it => it.numero_item === numItem);
         
         if (item) {
           // Limpa e formata o valor (aceita tanto vírgula quanto ponto)
@@ -361,9 +382,9 @@ const IncluirPrecosPublicos = () => {
           console.log(`✅ Item ${numItem} importado - Valor: "${valorLimpo}", Marca: "${marca}"`);
           itensImportados++;
         } else {
-          console.log(`❌ Item ${numItem} não encontrado`);
+          console.log(`❌ Item ${numItem} não encontrado na lista de itens`);
         }
-      });
+      }
       
       console.log("Novas respostas:", novasRespostas);
       setRespostas(novasRespostas);

@@ -570,35 +570,71 @@ const RespostaCotacao = () => {
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const dados = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
+        const isDesconto = processoCompra?.criterio_julgamento === "desconto";
+
         // Ignorar cabeçalho (primeira linha)
         for (let i = 1; i < dados.length; i++) {
-          let numeroItem, marca, valorUnitario;
+          const row = dados[i];
+          if (!row || row.length === 0) continue;
           
-          const isDesconto = processoCompra?.criterio_julgamento === "desconto";
+          const itemCol = row[0];
+          const marcaCol = row[4];
+          const valorCol = row[5];
           
-          if (isDesconto) {
-            // Colunas: Item, Descrição, Quantidade, Unidade, Marca, Desconto
-            [numeroItem, , , , marca, valorUnitario] = dados[i];
-          } else {
-            // Colunas: Item, Descrição, Quantidade, Unidade, Marca, Valor Unitário, Valor Total
-            [numeroItem, , , , marca, valorUnitario] = dados[i];
+          // Pular linhas de título de lote (começam com "LOTE")
+          if (typeof itemCol === 'string' && itemCol.toUpperCase().startsWith('LOTE')) {
+            console.log(`Linha ${i + 1}: Pulando título de lote - ${itemCol}`);
+            continue;
           }
           
-          if (!numeroItem) continue;
-
-          const item = itensCotacao.find(it => it.numero_item === parseInt(numeroItem.toString()));
+          // Pular linhas de subtotal e total geral
+          if (typeof valorCol === 'string' && (valorCol.includes('SUBTOTAL') || valorCol.includes('TOTAL'))) {
+            console.log(`Linha ${i + 1}: Pulando linha de subtotal/total`);
+            continue;
+          }
           
-          if (item && valorUnitario) {
-            const valorNumerico = parseFloat(valorUnitario.toString().replace(/,/g, '.'));
+          // Verificar se é uma linha válida de item (número de item válido)
+          const numeroItem = typeof itemCol === 'number' ? itemCol : parseInt(String(itemCol));
+          if (isNaN(numeroItem) || numeroItem <= 0) {
+            console.log(`Linha ${i + 1}: item inválido - ${itemCol}`);
+            continue;
+          }
+          
+          const marca = marcaCol ? String(marcaCol).trim() : '';
+          const valorUnitario = valorCol;
+          
+          // Pular itens sem valor preenchido
+          if (!valorUnitario || String(valorUnitario).trim() === '' || String(valorUnitario).trim() === '0') {
+            console.log(`Linha ${i + 1}: valor vazio ou zero`);
+            continue;
+          }
+
+          const item = itensCotacao.find(it => it.numero_item === numeroItem);
+          
+          if (item) {
+            const valorNumerico = parseFloat(String(valorUnitario).replace(/,/g, '.'));
             const valorFormatado = valorNumerico.toFixed(2).replace('.', ',');
             
-            novasRespostas[item.id] = {
-              ...novasRespostas[item.id],
-              valor_unitario_ofertado: valorNumerico,
-              valor_display: valorFormatado,
-              marca_ofertada: marca ? marca.toString() : ''
-            };
+            if (isDesconto) {
+              novasRespostas[item.id] = {
+                ...novasRespostas[item.id],
+                percentual_desconto: valorNumerico,
+                percentual_desconto_display: valorFormatado,
+                marca_ofertada: marca,
+                valor_unitario_ofertado: 0
+              };
+            } else {
+              novasRespostas[item.id] = {
+                ...novasRespostas[item.id],
+                valor_unitario_ofertado: valorNumerico,
+                valor_display: valorFormatado,
+                marca_ofertada: marca
+              };
+            }
             importados++;
+            console.log(`✅ Item ${numeroItem} importado - Valor: "${valorFormatado}", Marca: "${marca}"`);
+          } else {
+            console.log(`❌ Item ${numeroItem} não encontrado na lista de itens`);
           }
         }
       } else {
