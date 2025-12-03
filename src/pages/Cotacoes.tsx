@@ -2348,7 +2348,7 @@ const Cotacoes = () => {
         open={dialogItemOpen}
         onOpenChange={setDialogItemOpen}
         item={itemEditando}
-        numeroProximo={itens.length > 0 ? Math.max(...itens.map(i => i.numero_item)) + 1 : 1}
+        numeroProximo={itens.length + 1}
         tipoProcesso={processoSelecionado?.tipo}
         onSave={handleSaveItem}
       />
