@@ -2314,10 +2314,31 @@ export function DialogFinalizarProcesso({
         throw anexoError;
       }
 
-      // Atualizar status do processo para concluído
+      // Calcular valor total dos fornecedores vencedores
+      let valorTotalFechamento = 0;
+      
+      // Para critério de desconto, não calcular valor total em reais
+      if (criterioJulgamento !== "desconto") {
+        fornecedoresData.forEach(fornData => {
+          if (!fornData.rejeitado && fornData.itensVencedores) {
+            fornData.itensVencedores.forEach(item => {
+              const quantidade = item.itens_cotacao?.quantidade || 1;
+              const valorUnitario = item.valor_unitario_ofertado || 0;
+              valorTotalFechamento += valorUnitario * quantidade;
+            });
+          }
+        });
+      }
+      
+      console.log(`💰 Valor total de fechamento calculado: R$ ${valorTotalFechamento.toFixed(2)}`);
+
+      // Atualizar status do processo para concluído e salvar valor total de fechamento
       const { error: statusError } = await supabase
         .from("processos_compras")
-        .update({ status_processo: "concluido" })
+        .update({ 
+          status_processo: "concluido",
+          valor_total_cotacao: valorTotalFechamento
+        })
         .eq("id", processoId);
 
       if (statusError) {
