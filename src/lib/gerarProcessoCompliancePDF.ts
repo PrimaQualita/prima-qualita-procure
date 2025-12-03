@@ -18,7 +18,7 @@ interface DocumentoOrdenado {
 
 /**
  * Gera PDF do processo para visualização no compliance
- * Inclui: anexos do processo, emails, propostas, planilhas consolidadas, encaminhamentos e análises de compliance
+ * Inclui: anexos do processo, emails, propostas dos fornecedores (anexos), planilhas consolidadas, encaminhamentos e análises de compliance
  * NÃO inclui: documentos de habilitação, recursos, relatório final
  * Tudo em ordem cronológica
  */
@@ -91,28 +91,44 @@ export const gerarProcessoCompliancePDF = async (
       console.log(`[Compliance PDF] E-mails: ${emails.length}`);
     }
 
-    // 3. Buscar propostas dos fornecedores
-    const { data: propostas, error: propostasError } = await supabase
+    // 3. Buscar propostas dos fornecedores (através dos anexos)
+    const { data: respostas, error: respostasError } = await supabase
       .from("cotacao_respostas_fornecedor")
       .select(`
-        *,
-        fornecedor:fornecedores (razao_social, cnpj)
+        id,
+        data_envio_resposta,
+        fornecedores (razao_social, cnpj)
       `)
       .eq("cotacao_id", cotacaoId);
 
-    if (!propostasError && propostas) {
-      propostas.forEach(proposta => {
-        if (proposta.url_pdf_proposta) {
-          documentosOrdenados.push({
-            tipo: 'proposta',
-            data: new Date(proposta.data_envio_resposta || proposta.created_at),
-            url: proposta.url_pdf_proposta,
-            nome: `Proposta_${proposta.fornecedor?.razao_social || 'Fornecedor'}.pdf`,
-            bucket: 'processo-anexos'
+    if (!respostasError && respostas) {
+      console.log(`[Compliance PDF] Respostas de fornecedores encontradas: ${respostas.length}`);
+      
+      for (const resposta of respostas) {
+        // Buscar anexos (PDFs das propostas) para cada resposta
+        const { data: anexosFornecedor, error: anexosFornError } = await supabase
+          .from("anexos_cotacao_fornecedor")
+          .select("*")
+          .eq("cotacao_resposta_fornecedor_id", resposta.id)
+          .order("data_upload", { ascending: true });
+
+        if (!anexosFornError && anexosFornecedor) {
+          const razaoSocial = (resposta.fornecedores as any)?.razao_social || 'Fornecedor';
+          
+          anexosFornecedor.forEach(anexo => {
+            if (anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+              documentosOrdenados.push({
+                tipo: 'proposta_fornecedor',
+                data: new Date(anexo.data_upload || resposta.data_envio_resposta),
+                url: anexo.url_arquivo,
+                nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
+                bucket: 'processo-anexos'
+              });
+            }
           });
+          console.log(`  [Compliance PDF] Anexos de ${razaoSocial}: ${anexosFornecedor.length}`);
         }
-      });
-      console.log(`[Compliance PDF] Propostas: ${propostas.length}`);
+      }
     }
 
     // 4. Buscar planilhas consolidadas
@@ -145,7 +161,7 @@ export const gerarProcessoCompliancePDF = async (
         documentosOrdenados.push({
           tipo: 'encaminhamento',
           data: new Date(enc.created_at),
-          url: enc.url || enc.storage_path,
+          url: enc.storage_path || enc.url,
           nome: enc.nome_arquivo || `Encaminhamento_${enc.protocolo}.pdf`,
           bucket: 'processo-anexos'
         });
@@ -185,15 +201,20 @@ export const gerarProcessoCompliancePDF = async (
         let storagePath = doc.url;
         const bucket = doc.bucket || 'processo-anexos';
         
-        // Limpar o path
+        // Limpar o path - remover prefixos de bucket
         if (storagePath.startsWith(`${bucket}/`)) {
           storagePath = storagePath.replace(`${bucket}/`, '');
+        }
+        if (storagePath.startsWith('processo-anexos/')) {
+          storagePath = storagePath.replace('processo-anexos/', '');
         }
         if (storagePath.startsWith('documents/')) {
           storagePath = storagePath.replace('documents/', '');
         }
+        
+        // Se for URL completa, extrair apenas o path
         if (storagePath.includes('/storage/v1/object/')) {
-          const match = storagePath.match(new RegExp(`\\/${bucket}\\/(.+?)(\\?|$)`));
+          const match = storagePath.match(/\/(?:processo-anexos|documents)\/(.+?)(\?|$)/);
           if (match) {
             storagePath = match[1].split('?')[0];
           }
@@ -202,6 +223,7 @@ export const gerarProcessoCompliancePDF = async (
         }
         
         console.log(`  📄 Mesclando [${doc.tipo}]: ${doc.nome}`);
+        console.log(`     Path: ${storagePath}, Bucket: ${bucket}`);
         
         const { data: signedUrlData, error: signedError } = await supabase.storage
           .from(bucket)
