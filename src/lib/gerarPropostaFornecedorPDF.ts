@@ -448,6 +448,10 @@ export async function gerarPropostaFornecedorPDF(
       // Usar mesma cor do cabeçalho da tabela (corSecundaria)
       doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
       doc.rect(15, y - 4, 180, 8, 'F');
+      // Borda cinza clara ao redor do título do lote
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.1);
+      doc.rect(15, y - 4, 180, 8, 'S');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
@@ -623,7 +627,7 @@ export async function gerarPropostaFornecedorPDF(
       if (criterioJulgamento === 'desconto') {
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * itemLineHeight) / 2 + 2;
         linhasDescricao.forEach((linha: string, index: number) => {
-          doc.text(linha, 32, yDescStart + (index * itemLineHeight), { maxWidth: 92 });
+          doc.text(linha, 32, yDescStart + (index * itemLineHeight), { maxWidth: 92, align: 'justify' });
         });
         doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 142.5, yCenter, { align: 'center' });
         doc.text(sanitizarTexto(itemCotacao.unidade || ''), 163.5, yCenter, { align: 'center' });
@@ -634,7 +638,7 @@ export async function gerarPropostaFornecedorPDF(
       } else {
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * itemLineHeight) / 2 + 2;
         linhasDescricao.forEach((linha: string, index: number) => {
-          doc.text(linha, colDescX + 2, yDescStart + (index * itemLineHeight), { maxWidth: 52 });
+          doc.text(linha, colDescX + 2, yDescStart + (index * itemLineHeight), { maxWidth: 52, align: 'justify' });
         });
         
         const marcaSanitizada = sanitizarTexto(item.marca || '-');
