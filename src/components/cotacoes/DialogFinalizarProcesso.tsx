@@ -2646,10 +2646,43 @@ export function DialogFinalizarProcesso({
                         <CardDescription>
                           {fornData.itensVencedores && fornData.itensVencedores.length > 0 && (
                             <span className="text-sm font-medium">
-                              Itens vencedores: {fornData.itensVencedores
-                                .map(i => i.itens_cotacao?.numero_item || i.numero_item || 'N/A')
-                                .filter(Boolean)
-                                .join(", ")}
+                              {criterioJulgamento === 'por_lote' ? (
+                                <>
+                                  Lotes vencedores: {(() => {
+                                    // Agrupar itens por lote e identificar quais lotes foram ganhos
+                                    const lotesVencedoresIds = new Set<string>();
+                                    fornData.itensVencedores.forEach(item => {
+                                      const loteId = item.itens_cotacao?.lote_id;
+                                      if (loteId) lotesVencedoresIds.add(loteId);
+                                    });
+                                    
+                                    // Mapear lote_id para número do lote
+                                    const numerosLotes = Array.from(lotesVencedoresIds)
+                                      .map(loteId => {
+                                        const lote = lotesCotacao.find(l => l.id === loteId);
+                                        return lote?.numero_lote || 0;
+                                      })
+                                      .filter(n => n > 0)
+                                      .sort((a, b) => a - b);
+                                    
+                                    // Converter para romanos
+                                    const toRoman = (num: number) => {
+                                      const romanNumerals = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+                                      return num <= 10 ? romanNumerals[num] : num.toString();
+                                    };
+                                    
+                                    return numerosLotes.map(n => toRoman(n)).join(", ");
+                                  })()}
+                                </>
+                              ) : (
+                                <>
+                                  Itens vencedores: {fornData.itensVencedores
+                                    .map(i => i.itens_cotacao?.numero_item || i.numero_item || 'N/A')
+                                    .filter(Boolean)
+                                    .sort((a, b) => Number(a) - Number(b))
+                                    .join(", ")}
+                                </>
+                              )}
                             </span>
                           )}
                           {fornData.itensRejeitados && fornData.itensRejeitados.length > 0 && (
