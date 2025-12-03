@@ -544,7 +544,13 @@ export async function gerarPlanilhaConsolidadaPDF(
     margin: { left: margemEsquerda, right: margemDireita },
     tableWidth: 'auto',
     didParseCell: function(data) {
-      // Garantir que todo texto seja preto por padrão
+      // IGNORAR cabeçalho da tabela (head) - só formatar o corpo (body)
+      if (data.section === 'head') {
+        // Manter estilos padrão do cabeçalho (azul claro com texto branco)
+        return;
+      }
+      
+      // Garantir que todo texto seja preto por padrão no corpo
       data.cell.styles.textColor = [0, 0, 0];
       
       const linhaAtual = linhas[data.row.index];
