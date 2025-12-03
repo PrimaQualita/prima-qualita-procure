@@ -180,9 +180,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
 
   // Adicionar colunas por fornecedor
   respostas.forEach((resposta, idx) => {
-    const nomeAbreviado = resposta.fornecedor.razao_social.substring(0, 20);
     colunas.push({
-      header: `${nomeAbreviado}${resposta.rejeitado ? ' (INAB.)' : ''}`,
+      header: `${resposta.fornecedor.razao_social}${resposta.rejeitado ? ' (INAB.)' : ''}`,
       dataKey: `fornecedor_${idx}`
     });
   });
@@ -268,11 +267,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
     if (vencedor.valor !== null) {
       if (isDesconto) {
         linha.valor_vencedor = formatarPercentual(vencedor.valor);
-        linha.empresa_vencedora = vencedor.empresa.substring(0, 25);
+        linha.empresa_vencedora = vencedor.empresa;
       } else {
         const valorTotalVencedor = vencedor.valor * item.quantidade;
         linha.valor_vencedor = `${formatarMoeda(vencedor.valor)}\n(Total: ${formatarMoeda(valorTotalVencedor)})`;
-        linha.empresa_vencedora = vencedor.empresa.substring(0, 25);
+        linha.empresa_vencedora = vencedor.empresa;
         totalVencedor += valorTotalVencedor;
       }
     } else {
@@ -332,7 +331,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
       quantidade: { cellWidth: 12, halign: 'center' },
       unidade: { cellWidth: 12, halign: 'center' },
       valor_vencedor: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
-      empresa_vencedora: { cellWidth: 35, halign: 'center', fontStyle: 'bold' }
+      empresa_vencedora: { cellWidth: 40, halign: 'center', fontStyle: 'bold', overflow: 'linebreak' }
     },
     didParseCell: (data) => {
       const isLinhaTotal = !isDesconto && data.row.index === dados.length - 1;
