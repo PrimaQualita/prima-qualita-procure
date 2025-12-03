@@ -201,7 +201,7 @@ export async function identificarVencedoresPorCriterio(
     });
 
   } else if (criterio === "por_lote" || criterio === "lote") {
-    // POR LOTE: menor valor total do lote - usa item_cotacao_id para identificação correta
+    // POR LOTE: menor valor total do lote - usa dados DIRETOS do banco, não da planilha
     // Primeiro, identificar todos os lotes únicos a partir dos itens originais
     const lotesUnicos = new Set<string>();
     itens.forEach(item => {
@@ -214,16 +214,21 @@ export async function identificarVencedoresPorCriterio(
 
     lotesUnicos.forEach(loteId => {
       let menorTotalLote = Infinity;
-      let fornecedorVencedor: FornecedorPlanilha | null = null;
+      let fornecedorVencedorId: string | null = null;
 
-      // Para cada fornecedor válido, calcular o valor total do lote
-      fornecedoresValidos.forEach(f => {
-        // Verificar se está rejeitado globalmente
-        if (fornecedoresRejeitadosGlobal.has(f.fornecedor_id)) return;
+      // CRÍTICO: Iterar sobre TODAS as respostas do banco, não fornecedoresValidos da planilha
+      respostas.forEach(resposta => {
+        // Verificar se está rejeitado
+        if (resposta.rejeitado) return;
+        if (fornecedoresRejeitadosGlobal.has(resposta.fornecedor_id)) return;
         
-        // Buscar a resposta do fornecedor
-        const resposta = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
-        if (!resposta) return;
+        // Verificar se é preço público (CNPJ sequencial)
+        const cnpj = resposta.fornecedores?.cnpj || '';
+        if (cnpj) {
+          const primeiroDigito = cnpj.charAt(0);
+          const ehPrecoPublico = cnpj.split('').every(d => d === primeiroDigito);
+          if (ehPrecoPublico) return;
+        }
 
         // Buscar todos os itens do fornecedor que pertencem a este lote
         const itensDoFornecedorNoLote = itens.filter(item => 
@@ -240,17 +245,18 @@ export async function identificarVencedoresPorCriterio(
           return sum + (valorUnitario * quantidade);
         }, 0);
 
-        console.log(`    → ${f.razao_social} - Lote ${loteId}: R$ ${totalLote.toFixed(2)} (${itensDoFornecedorNoLote.length} itens)`);
+        console.log(`    → ${resposta.fornecedores?.razao_social} - Lote ${loteId}: R$ ${totalLote.toFixed(2)} (${itensDoFornecedorNoLote.length} itens)`);
 
         if (totalLote > 0 && totalLote < menorTotalLote) {
           menorTotalLote = totalLote;
-          fornecedorVencedor = f;
+          fornecedorVencedorId = resposta.fornecedor_id;
         }
       });
 
-      if (fornecedorVencedor) {
-        fornecedoresVencedoresSet.add(fornecedorVencedor.fornecedor_id);
-        console.log(`  ✅ Vencedor Lote ${loteId}: ${fornecedorVencedor.razao_social} (R$ ${menorTotalLote.toFixed(2)})`);
+      if (fornecedorVencedorId) {
+        fornecedoresVencedoresSet.add(fornecedorVencedorId);
+        const fornecedorNome = respostas.find(r => r.fornecedor_id === fornecedorVencedorId)?.fornecedores?.razao_social;
+        console.log(`  ✅ Vencedor Lote ${loteId}: ${fornecedorNome} (R$ ${menorTotalLote.toFixed(2)})`);
       }
     });
 
@@ -448,7 +454,7 @@ export async function carregarItensVencedoresPorFornecedor(
     });
 
   } else if (criterio === "por_lote" || criterio === "lote") {
-    // POR LOTE: menor valor total do lote - usa dados diretos das respostas
+    // POR LOTE: menor valor total do lote - usa dados DIRETOS do banco, não da planilha
     // Primeiro, identificar todos os lotes únicos a partir dos itens originais
     const lotesUnicos = new Set<string>();
     todosItens.forEach(item => {
@@ -464,14 +470,19 @@ export async function carregarItensVencedoresPorFornecedor(
       let menorTotalLote = Infinity;
       let fornecedorVencedorId: string | null = null;
 
-      // Para cada fornecedor válido, calcular o valor total do lote
-      fornecedoresValidos.forEach(f => {
-        // Verificar se está rejeitado globalmente
-        if (fornecedoresRejeitadosGlobal.has(f.fornecedor_id)) return;
+      // CRÍTICO: Iterar sobre TODAS as respostas do banco, não fornecedoresValidos da planilha
+      respostas.forEach(respostaF => {
+        // Verificar se está rejeitado
+        if (respostaF.rejeitado) return;
+        if (fornecedoresRejeitadosGlobal.has(respostaF.fornecedor_id)) return;
         
-        // Buscar a resposta do fornecedor
-        const respostaF = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
-        if (!respostaF) return;
+        // Verificar se é preço público (CNPJ sequencial)
+        const cnpj = respostaF.fornecedores?.cnpj || '';
+        if (cnpj) {
+          const primeiroDigito = cnpj.charAt(0);
+          const ehPrecoPublico = cnpj.split('').every(d => d === primeiroDigito);
+          if (ehPrecoPublico) return;
+        }
 
         // Buscar todos os itens do fornecedor que pertencem a este lote
         const itensDoFornecedorNoLote = todosItens.filter(item => 
@@ -490,7 +501,7 @@ export async function carregarItensVencedoresPorFornecedor(
 
         if (totalLote > 0 && totalLote < menorTotalLote) {
           menorTotalLote = totalLote;
-          fornecedorVencedorId = f.fornecedor_id;
+          fornecedorVencedorId = respostaF.fornecedor_id;
         }
       });
 
