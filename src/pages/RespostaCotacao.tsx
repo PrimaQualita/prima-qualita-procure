@@ -116,6 +116,7 @@ const RespostaCotacao = () => {
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [prazoExpirado, setPrazoExpirado] = useState(false);
   const [cotacao, setCotacao] = useState<any>(null);
   const [processoCompra, setProcessoCompra] = useState<any>(null);
   const [itensCotacao, setItensCotacao] = useState<ItemCotacao[]>([]);
@@ -265,12 +266,10 @@ const RespostaCotacao = () => {
         return;
       }
 
-      // Verificar data limite
+      // Verificar data limite - apenas setar flag, continua carregando itens
       const dataLimite = new Date(cotacaoData.data_limite_resposta);
       if (dataLimite < new Date()) {
-        toast.error("O prazo para resposta desta cotação expirou");
-        setLoading(false);
-        return;
+        setPrazoExpirado(true);
       }
 
       setCotacao(cotacaoData);
@@ -1073,7 +1072,7 @@ const RespostaCotacao = () => {
                   <TableHead>Descrição</TableHead>
                   <TableHead className="text-center">Qtd</TableHead>
                   <TableHead className="text-center">Unid.</TableHead>
-                  {processoCompra?.tipo === "material" && processoCompra?.criterio_julgamento !== "desconto" && (
+                  {processoCompra?.criterio_julgamento !== "desconto" && (
                     <TableHead className="text-center">Marca *</TableHead>
                   )}
                   {processoCompra?.criterio_julgamento === "desconto" ? (
@@ -1132,24 +1131,22 @@ const RespostaCotacao = () => {
                     ) : (
                       // Modo Valor Unitário
                       <>
-                        {processoCompra?.tipo === "material" && (
-                          <TableCell>
-                            <Input
-                              type="text"
-                              placeholder="Informe a marca"
-                              value={respostas[item.id]?.marca_ofertada || ""}
-                              onChange={(e) =>
-                                setRespostas({
-                                  ...respostas,
-                                  [item.id]: {
-                                    ...respostas[item.id],
-                                    marca_ofertada: e.target.value,
-                                  },
-                                })
-                              }
-                            />
-                          </TableCell>
-                        )}
+                        <TableCell>
+                          <Input
+                            type="text"
+                            placeholder="Informe a marca"
+                            value={respostas[item.id]?.marca_ofertada || ""}
+                            onChange={(e) =>
+                              setRespostas({
+                                ...respostas,
+                                [item.id]: {
+                                  ...respostas[item.id],
+                                  marca_ofertada: e.target.value,
+                                },
+                              })
+                            }
+                          />
+                        </TableCell>
                         <TableCell>
                           <Input
                             type="text"
@@ -1192,7 +1189,7 @@ const RespostaCotacao = () => {
                 ))}
                 {processoCompra?.criterio_julgamento !== "desconto" && (
                   <TableRow className="font-bold bg-muted/50">
-                    <TableCell colSpan={processoCompra?.tipo === "material" ? 6 : 5} className="text-right">
+                    <TableCell colSpan={6} className="text-right">
                       TOTAL GERAL:
                     </TableCell>
                     <TableCell className="text-right">
@@ -1229,6 +1226,13 @@ const RespostaCotacao = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {prazoExpirado && (
+              <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-md">
+                <p className="font-semibold">O prazo para envio desta cotação expirou.</p>
+                <p className="text-sm">Não é mais possível enviar propostas para esta cotação.</p>
+              </div>
+            )}
+            
             {/* Área de Upload de Anexos */}
             <div className="space-y-2">
               <Label>Comprovantes em PDF (Opcional)</Label>
@@ -1240,6 +1244,7 @@ const RespostaCotacao = () => {
                   multiple
                   accept=".pdf,application/pdf"
                   className="hidden"
+                  disabled={prazoExpirado}
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);
                     
@@ -1264,6 +1269,7 @@ const RespostaCotacao = () => {
                   type="button"
                   variant="outline"
                   size="sm"
+                  disabled={prazoExpirado}
                   onClick={() => document.getElementById('upload-comprovantes')?.click()}
                 >
                   <Upload className="h-4 w-4 mr-2" />
@@ -1305,10 +1311,10 @@ const RespostaCotacao = () => {
             
             <Button 
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || prazoExpirado}
               className="w-full"
             >
-              {submitting ? "Enviando Proposta..." : "Enviar Proposta"}
+              {submitting ? "Enviando Proposta..." : prazoExpirado ? "Prazo Expirado" : "Enviar Proposta"}
             </Button>
             
             {submitting && (
