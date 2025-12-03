@@ -162,7 +162,7 @@ export default function VerificarPlanilha() {
                 <CheckCircle className="h-8 w-8 text-green-600 flex-shrink-0 mt-1" />
                 <div className="flex-1">
                 <h3 className="font-semibold text-lg text-green-900 mb-1">
-                    {resultado.tipo === 'habilitacao' ? 'Planilha Final de Habilitação Autêntica' : 
+                    {resultado.tipo === 'habilitacao' ? 'Planilha Final Autêntica' : 
                      resultado.tipo === 'cotacao' ? 'Planilha Consolidada Autêntica' : 'Planilha de Lances Autêntica'}
                   </h3>
                   <p className="text-sm text-green-700">
@@ -193,7 +193,7 @@ export default function VerificarPlanilha() {
                 <div>
                   <p className="text-sm font-semibold text-gray-600">Tipo</p>
                   <p className="text-sm">
-                    {resultado.tipo === 'habilitacao' ? 'Planilha Final de Habilitação (Compra Direta)' :
+                    {resultado.tipo === 'habilitacao' ? 'Planilha Final (Compra Direta)' :
                      resultado.tipo === 'cotacao' ? 'Planilha Consolidada (Cotação de Preços)' : 'Planilha de Lances (Seleção de Fornecedores)'}
                   </p>
                 </div>
