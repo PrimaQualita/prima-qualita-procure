@@ -2314,6 +2314,16 @@ export function DialogFinalizarProcesso({
         throw anexoError;
       }
 
+      // Atualizar status do processo para concluído
+      const { error: statusError } = await supabase
+        .from("processos_compras")
+        .update({ status_processo: "concluido" })
+        .eq("id", processoId);
+
+      if (statusError) {
+        console.error("Erro ao atualizar status do processo:", statusError);
+      }
+
       const { error } = await supabase
         .from("cotacoes_precos")
         .update({
