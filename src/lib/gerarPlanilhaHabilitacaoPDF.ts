@@ -111,7 +111,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('PLANILHA FINAL DE HABILITAÇÃO', pageWidth / 2, 12, { align: 'center' });
+    doc.text('RESULTADO FINAL', pageWidth / 2, 12, { align: 'center' });
     
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
