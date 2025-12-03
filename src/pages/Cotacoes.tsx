@@ -750,15 +750,42 @@ const Cotacoes = () => {
       if (fetchError) throw fetchError;
       if (!itensRestantes || itensRestantes.length === 0) return;
 
-      // Atualizar numeração sequencial
-      const updates = itensRestantes.map((item, index) => 
-        supabase
-          .from("itens_cotacao")
-          .update({ numero_item: index + 1 })
-          .eq("id", item.id)
-      );
+      // Verificar se é critério por lote
+      const criterio = processoSelecionado?.criterio_julgamento;
+      
+      if (criterio === 'por_lote') {
+        // Renumerar por lote - cada lote tem numeração independente
+        const itensPorLote: { [loteId: string]: typeof itensRestantes } = {};
+        
+        itensRestantes.forEach(item => {
+          const loteId = item.lote_id || 'sem_lote';
+          if (!itensPorLote[loteId]) itensPorLote[loteId] = [];
+          itensPorLote[loteId].push(item);
+        });
 
-      await Promise.all(updates);
+        for (const itensDoLote of Object.values(itensPorLote)) {
+          for (let i = 0; i < itensDoLote.length; i++) {
+            const item = itensDoLote[i];
+            if (item.numero_item !== i + 1) {
+              await supabase
+                .from("itens_cotacao")
+                .update({ numero_item: i + 1 })
+                .eq("id", item.id);
+            }
+          }
+        }
+      } else {
+        // Renumerar globalmente - numeração sequencial única
+        for (let i = 0; i < itensRestantes.length; i++) {
+          const item = itensRestantes[i];
+          if (item.numero_item !== i + 1) {
+            await supabase
+              .from("itens_cotacao")
+              .update({ numero_item: i + 1 })
+              .eq("id", item.id);
+          }
+        }
+      }
     } catch (error) {
       console.error("Erro ao renumerar itens:", error);
     }
