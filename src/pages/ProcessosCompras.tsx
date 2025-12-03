@@ -147,7 +147,7 @@ const ProcessosCompras = () => {
         .from("processos_compras")
         .select("*")
         .eq("contrato_gestao_id", contratoId)
-        .order("created_at", { ascending: false });
+        .order("numero_processo_interno", { ascending: true });
 
       if (error) throw error;
       setProcessos(data || []);
