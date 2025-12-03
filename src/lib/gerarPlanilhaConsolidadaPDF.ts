@@ -593,8 +593,8 @@ export async function gerarPlanilhaConsolidadaPDF(
       
       // Destacar linha de VALOR TOTAL GERAL (última linha se não for desconto)
       if (criterioJulgamento !== 'desconto' && data.row.index === linhas.length - 1) {
-        data.cell.styles.fillColor = [120, 190, 225]; // Azul claro (mesmo do cabeçalho)
-        data.cell.styles.textColor = [255, 255, 255];
+        data.cell.styles.fillColor = [180, 180, 180]; // Cinza mais escuro que subtotal
+        data.cell.styles.textColor = [0, 0, 0];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 9;
         
