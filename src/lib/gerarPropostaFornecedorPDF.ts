@@ -625,8 +625,9 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
-        // Renderizar descrição justificada - passar texto inteiro de uma vez
-        const yDescStart = yTop + 2;
+        // Calcular altura do texto para centralizar verticalmente
+        const textHeight = linhasDescricao.length * itemLineHeight * 1.3; // 1.3 é o lineHeightFactor
+        const yDescStart = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
         doc.text(descricaoSanitizada, 32, yDescStart, { 
           maxWidth: 92, 
           align: 'justify',
@@ -639,8 +640,9 @@ export async function gerarPropostaFornecedorPDF(
           : '-';
         doc.text(descontoFormatted, 183.5, yCenter, { align: 'center' });
       } else {
-        // Renderizar descrição justificada - passar texto inteiro de uma vez
-        const yDescStart = yTop + 2;
+        // Calcular altura do texto para centralizar verticalmente
+        const textHeight = linhasDescricao.length * itemLineHeight * 1.3; // 1.3 é o lineHeightFactor
+        const yDescStart = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
         doc.text(descricaoSanitizada, colDescX + 2, yDescStart, { 
           maxWidth: 52, 
           align: 'justify',
@@ -649,14 +651,16 @@ export async function gerarPropostaFornecedorPDF(
         
         const marcaSanitizada = sanitizarTexto(item.marca || '-');
         const marcaLinhas = doc.splitTextToSize(marcaSanitizada, larguraMarca - 4);
-        const yMarcaStart = yTop + (alturaLinha - marcaLinhas.length * itemLineHeight) / 2 + 2;
+        const marcaTextHeight = marcaLinhas.length * itemLineHeight;
+        const yMarcaStart = yTop + (alturaLinha - marcaTextHeight) / 2 + itemLineHeight * 0.7;
         const centerMarcaX = colMarcaX + (larguraMarca / 2);
         marcaLinhas.forEach((linha: string, index: number) => {
           doc.text(linha, centerMarcaX, yMarcaStart + (index * itemLineHeight), { maxWidth: larguraMarca - 4, align: 'center' });
         });
         
         const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), larguraQtd - 2);
-        const yQtdStart = yTop + (alturaLinha - qtdLinhas.length * itemLineHeight) / 2 + 2;
+        const qtdTextHeight = qtdLinhas.length * itemLineHeight;
+        const yQtdStart = yTop + (alturaLinha - qtdTextHeight) / 2 + itemLineHeight * 0.7;
         const centerQtdX = colQtdX + (larguraQtd / 2);
         qtdLinhas.forEach((linha: string, index: number) => {
           doc.text(linha, centerQtdX, yQtdStart + (index * itemLineHeight), { maxWidth: larguraQtd - 2, align: 'center' });
@@ -664,7 +668,8 @@ export async function gerarPropostaFornecedorPDF(
         
         const unidadeSanitizada = sanitizarTexto(itemCotacao.unidade || '');
         const unidLinhas = doc.splitTextToSize(unidadeSanitizada, larguraUnid - 4);
-        const yUnidStart = yTop + (alturaLinha - unidLinhas.length * itemLineHeight) / 2 + 2;
+        const unidTextHeight = unidLinhas.length * itemLineHeight;
+        const yUnidStart = yTop + (alturaLinha - unidTextHeight) / 2 + itemLineHeight * 0.7;
         const centerUnidX = colUnidX + (larguraUnid / 2);
         unidLinhas.forEach((linha: string, index: number) => {
           doc.text(linha, centerUnidX, yUnidStart + (index * itemLineHeight), { maxWidth: larguraUnid - 4, align: 'center' });
@@ -674,14 +679,16 @@ export async function gerarPropostaFornecedorPDF(
         const valorTotalFormatted = valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
         const vlUnitLinhas = doc.splitTextToSize(valorUnitFormatted, larguraVlUnit - 2);
-        const yVlUnitStart = yTop + (alturaLinha - vlUnitLinhas.length * itemLineHeight) / 2 + 2;
+        const vlUnitTextHeight = vlUnitLinhas.length * itemLineHeight;
+        const yVlUnitStart = yTop + (alturaLinha - vlUnitTextHeight) / 2 + itemLineHeight * 0.7;
         const rightVlUnitX = colVlUnitX + larguraVlUnit - 2;
         vlUnitLinhas.forEach((linha: string, index: number) => {
           doc.text(linha, rightVlUnitX, yVlUnitStart + (index * itemLineHeight), { maxWidth: larguraVlUnit - 2, align: 'right' });
         });
         
         const vlTotalLinhas = doc.splitTextToSize(valorTotalFormatted, larguraVlTotal - 2);
-        const yVlTotalStart = yTop + (alturaLinha - vlTotalLinhas.length * itemLineHeight) / 2 + 2;
+        const vlTotalTextHeight = vlTotalLinhas.length * itemLineHeight;
+        const yVlTotalStart = yTop + (alturaLinha - vlTotalTextHeight) / 2 + itemLineHeight * 0.7;
         const rightVlTotalX = colVlTotalX + larguraVlTotal - 2;
         vlTotalLinhas.forEach((linha: string, index: number) => {
           doc.text(linha, rightVlTotalX, yVlTotalStart + (index * itemLineHeight), { maxWidth: larguraVlTotal - 2, align: 'right' });
