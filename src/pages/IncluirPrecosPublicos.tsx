@@ -164,9 +164,11 @@ const IncluirPrecosPublicos = () => {
               cell.protection = { locked: true };
             });
 
+            const primeiraLinhaItens = worksheet.rowCount + 1;
+            
             // Adicionar itens do lote
             itensDoLote.forEach(item => {
-              worksheet.addRow({
+              const row = worksheet.addRow({
                 item: item.numero_item,
                 descricao: item.descricao,
                 quantidade: item.quantidade,
@@ -175,13 +177,80 @@ const IncluirPrecosPublicos = () => {
                 valor: '',
                 valor_total: ''
               });
+              
+              // Fórmula para calcular Valor Total (Quantidade * Valor Unitário)
+              const rowNumber = row.number;
+              row.getCell(7).value = { formula: `C${rowNumber}*F${rowNumber}` };
+            });
+            
+            const ultimaLinhaItens = worksheet.rowCount;
+            
+            // Adicionar linha de subtotal do lote
+            const subtotalRow = worksheet.addRow({
+              item: '',
+              descricao: '',
+              quantidade: '',
+              unidade: '',
+              marca: '',
+              valor: `SUBTOTAL LOTE ${lote.numero_lote}:`,
+              valor_total: ''
+            });
+            
+            // Fórmula para somar valores totais do lote
+            subtotalRow.getCell(7).value = { formula: `SUM(G${primeiraLinhaItens}:G${ultimaLinhaItens})` };
+            
+            // Estilizar linha de subtotal
+            subtotalRow.eachCell((cell) => {
+              cell.font = { bold: true };
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFDDEEFF' }
+              };
+              cell.protection = { locked: true };
             });
           }
+        });
+        
+        // Adicionar linha de total geral
+        const totalGeralRow = worksheet.addRow({
+          item: '',
+          descricao: '',
+          quantidade: '',
+          unidade: '',
+          marca: '',
+          valor: 'VALOR TOTAL GERAL:',
+          valor_total: ''
+        });
+        
+        // Soma de todos os subtotais
+        const linhasSubtotal: number[] = [];
+        worksheet.eachRow((row, rowNumber) => {
+          const cell = row.getCell(6);
+          if (cell.value && String(cell.value).includes('SUBTOTAL LOTE')) {
+            linhasSubtotal.push(rowNumber);
+          }
+        });
+        
+        if (linhasSubtotal.length > 0) {
+          const formula = linhasSubtotal.map(r => `G${r}`).join('+');
+          totalGeralRow.getCell(7).value = { formula };
+        }
+        
+        // Estilizar linha de total geral
+        totalGeralRow.eachCell((cell) => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1E40AF' }
+          };
+          cell.protection = { locked: true };
         });
       } else {
         // Adicionar dados dos itens sem agrupamento
         itens.forEach(item => {
-          worksheet.addRow({
+          const row = worksheet.addRow({
             item: item.numero_item,
             descricao: item.descricao,
             quantidade: item.quantidade,
@@ -190,6 +259,10 @@ const IncluirPrecosPublicos = () => {
             valor: '',
             valor_total: ''
           });
+          
+          // Fórmula para calcular Valor Total
+          const rowNumber = row.number;
+          row.getCell(7).value = { formula: `C${rowNumber}*F${rowNumber}` };
         });
       }
 
@@ -724,10 +797,19 @@ const IncluirPrecosPublicos = () => {
                           itensAgrupados.get(loteId)!.push(item);
                         });
 
-                        return lotes.map(lote => {
+                        const elementosLotes = lotes.map(lote => {
                           const itensDoLote = itensAgrupados.get(lote.id) || [];
                           
                           if (itensDoLote.length === 0) return null;
+                          
+                          // Calcular subtotal do lote
+                          const subtotalLote = itensDoLote.reduce((acc, item) => {
+                            const resposta = respostas[item.id];
+                            const valorUnitario = resposta?.valor_unitario 
+                              ? parseFloat(resposta.valor_unitario.replace(/,/g, "."))
+                              : 0;
+                            return acc + (valorUnitario * item.quantidade);
+                          }, 0);
 
                           return (
                             <React.Fragment key={lote.id}>
@@ -791,9 +873,34 @@ const IncluirPrecosPublicos = () => {
                                   </TableRow>
                                 );
                               })}
+                              
+                              {/* Linha de subtotal do lote */}
+                              <TableRow className="bg-blue-50">
+                                <TableCell colSpan={6} className="text-right font-semibold">
+                                  SUBTOTAL LOTE {lote.numero_lote}:
+                                </TableCell>
+                                <TableCell className="text-right font-semibold">
+                                  R$ {subtotalLote.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </TableCell>
+                              </TableRow>
                             </React.Fragment>
                           );
                         });
+                        
+                        // Retornar lotes + linha de total geral
+                        return (
+                          <>
+                            {elementosLotes}
+                            <TableRow className="font-bold bg-primary text-primary-foreground">
+                              <TableCell colSpan={6} className="text-right">
+                                VALOR TOTAL GERAL:
+                              </TableCell>
+                              <TableCell className="text-right">
+                                R$ {calcularValorTotal().toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                            </TableRow>
+                          </>
+                        );
                       }
 
                       // Outros critérios - renderização normal
@@ -874,7 +981,9 @@ const IncluirPrecosPublicos = () => {
                         );
                       });
                     })()}
-                    {processoCompra?.criterio_julgamento !== "desconto" && (
+                    {processoCompra?.criterio_julgamento !== "desconto" && 
+                     processoCompra?.criterio_julgamento !== "lote" && 
+                     processoCompra?.criterio_julgamento !== "por_lote" && (
                       <TableRow className="bg-muted/50 font-bold">
                         <TableCell colSpan={6} className="text-right">
                           VALOR TOTAL:
