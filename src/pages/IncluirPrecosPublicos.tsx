@@ -433,22 +433,16 @@ const IncluirPrecosPublicos = () => {
 
   const handleSubmit = async () => {
     try {
-      // Verificar se o prazo da cotação já expirou usando timezone de Brasília
-      const dataLimiteStr = cotacao.data_limite_resposta;
-      
-      // Criar data limite - se não tiver timezone, adiciona Brasília (UTC-3)
-      let dataLimite: Date;
-      if (dataLimiteStr.includes('T') && !dataLimiteStr.includes('Z') && !dataLimiteStr.includes('+') && !dataLimiteStr.includes('-', 10)) {
-        // Formato datetime-local sem timezone - interpretar como Brasília
-        dataLimite = new Date(dataLimiteStr + '-03:00');
-      } else if (dataLimiteStr.includes('Z')) {
-        // Formato UTC - converter diretamente
-        dataLimite = new Date(dataLimiteStr);
-      } else {
-        dataLimite = new Date(dataLimiteStr);
-      }
-      
+      // Verificar se o prazo da cotação já expirou
+      // O banco retorna formato "2025-12-03 22:00:00+00" (UTC)
+      // Basta converter para Date - JavaScript interpreta corretamente o +00 como UTC
+      const dataLimite = new Date(cotacao.data_limite_resposta);
       const agora = new Date();
+      
+      console.log("DEBUG PRAZO - dataLimiteStr:", cotacao.data_limite_resposta);
+      console.log("DEBUG PRAZO - dataLimite (UTC):", dataLimite.toISOString());
+      console.log("DEBUG PRAZO - agora (UTC):", agora.toISOString());
+      console.log("DEBUG PRAZO - agora > dataLimite:", agora > dataLimite);
       
       if (agora > dataLimite) {
         toast.error("O prazo para envio de respostas desta cotação foi encerrado em " + 
