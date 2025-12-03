@@ -54,10 +54,69 @@ const formatarCNPJ = (cnpj: string): string => {
   return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
 };
 
+// Função para converter número para romano
+const converterNumeroRomano = (num: number): string => {
+  const romanos = [
+    { valor: 1000, numeral: 'M' },
+    { valor: 900, numeral: 'CM' },
+    { valor: 500, numeral: 'D' },
+    { valor: 400, numeral: 'CD' },
+    { valor: 100, numeral: 'C' },
+    { valor: 90, numeral: 'XC' },
+    { valor: 50, numeral: 'L' },
+    { valor: 40, numeral: 'XL' },
+    { valor: 10, numeral: 'X' },
+    { valor: 9, numeral: 'IX' },
+    { valor: 5, numeral: 'V' },
+    { valor: 4, numeral: 'IV' },
+    { valor: 1, numeral: 'I' }
+  ];
+  let resultado = '';
+  let numero = num;
+  for (const { valor, numeral } of romanos) {
+    while (numero >= valor) {
+      resultado += numeral;
+      numero -= valor;
+    }
+  }
+  return resultado;
+};
+
 const decodeHtmlEntities = (text: string): string => {
   const textarea = document.createElement('textarea');
   textarea.innerHTML = text;
   return textarea.value;
+};
+
+// Função para sanitizar texto - remove/substitui caracteres especiais que jsPDF não renderiza bem
+const sanitizarTexto = (texto: string): string => {
+  if (!texto) return '';
+  
+  return texto
+    .replace(/²/g, '2')      // Superscript 2
+    .replace(/₂/g, '2')      // Subscript 2 (SpO₂)
+    .replace(/³/g, '3')      // Superscript 3
+    .replace(/₃/g, '3')      // Subscript 3
+    .replace(/¹/g, '1')      // Superscript 1
+    .replace(/₁/g, '1')      // Subscript 1
+    .replace(/⁰/g, '0').replace(/₀/g, '0')
+    .replace(/⁴/g, '4').replace(/₄/g, '4')
+    .replace(/⁵/g, '5').replace(/₅/g, '5')
+    .replace(/⁶/g, '6').replace(/₆/g, '6')
+    .replace(/⁷/g, '7').replace(/₇/g, '7')
+    .replace(/⁸/g, '8').replace(/₈/g, '8')
+    .replace(/⁹/g, '9').replace(/₉/g, '9')
+    .replace(/°/g, 'o')      // Degree symbol
+    .replace(/º/g, 'o')      // Ordinal masculine
+    .replace(/ª/g, 'a')      // Ordinal feminine
+    .replace(/µ/g, 'u')      // Micro
+    .replace(/μ/g, 'u')      // Greek mu
+    .replace(/–/g, '-')      // En dash
+    .replace(/—/g, '-')      // Em dash
+    .replace(/'/g, "'").replace(/'/g, "'")
+    .replace(/"/g, '"').replace(/"/g, '"')
+    .replace(/…/g, '...')    // Ellipsis
+    .replace(/•/g, '-');     // Bullet
 };
 
 // Função para justificar texto manualmente no jsPDF
@@ -231,13 +290,34 @@ export async function gerarPlanilhaConsolidadaPDF(
   });
   
   console.log('🔄 Iniciando loop de itens...');
-  itens.forEach(item => {
+  
+  // Agrupar itens por lote
+  const itensComLote = itens.filter(item => item.lote_numero && item.lote_numero > 0);
+  const itensSemLote = itens.filter(item => !item.lote_numero || item.lote_numero <= 0);
+  const temLotes = itensComLote.length > 0;
+  
+  // Se tem lotes, organizar por lote
+  const lotesMap = new Map<number, { descricao: string, itens: typeof itens }>();
+  if (temLotes) {
+    itensComLote.forEach(item => {
+      if (!lotesMap.has(item.lote_numero!)) {
+        lotesMap.set(item.lote_numero!, { descricao: item.lote_descricao || `Lote ${item.lote_numero}`, itens: [] });
+      }
+      lotesMap.get(item.lote_numero!)!.itens.push(item);
+    });
+  }
+  
+  // Totais por lote para subtotais
+  const totaisPorLote: Map<number, { fornecedores: { [cnpj: string]: number }, estimativa: number }> = new Map();
+  
+  // Função para processar um item e retornar a linha
+  const processarItem = (item: ItemCotacao) => {
     console.log(`🔄 Processando item ${item.numero_item}...`);
     const linha: any = {
       item: item.numero_item.toString(),
-      descricao: item.descricao,
-      quantidade: item.quantidade.toLocaleString('pt-BR'), // Formatar número com separador de milhares
-      unidade: item.unidade
+      descricao: sanitizarTexto(item.descricao),
+      quantidade: item.quantidade.toLocaleString('pt-BR'),
+      unidade: sanitizarTexto(item.unidade)
     };
 
     const valoresItem: number[] = [];
@@ -245,7 +325,6 @@ export async function gerarPlanilhaConsolidadaPDF(
     respostas.forEach((resposta) => {
       const respostaItem = resposta.itens.find(i => i.numero_item === item.numero_item);
       if (respostaItem) {
-        // Se critério é desconto, usar percentual_desconto; senão, usar valor_unitario_ofertado
         const percentualDesconto = respostaItem.percentual_desconto;
         const valorUnitario = respostaItem.valor_unitario_ofertado;
         
@@ -255,53 +334,46 @@ export async function gerarPlanilhaConsolidadaPDF(
         
         const valorTotal = (typeof valorUnitario === 'number' ? valorUnitario : 0) * item.quantidade;
         
-        console.log(`📊 Item ${item.numero_item} - Fornecedor ${resposta.fornecedor.cnpj}: percentual=${percentualDesconto}, valorUnit=${valorUnitario}, criterio=${criterioJulgamento}, usado=${valorParaCalculo}`);
-        
-        // Se critério é desconto, mostrar percentual ou "-" se zero
         if (criterioJulgamento === 'desconto') {
           linha[`fornecedor_${resposta.fornecedor.cnpj}`] = valorParaCalculo > 0 ? formatarPercentual(valorParaCalculo) : '-';
         } else {
-          // Mostrar valor unitário na primeira linha e total na segunda
           linha[`fornecedor_${resposta.fornecedor.cnpj}`] = `${formatarMoeda(valorParaCalculo)}\n(Total: ${formatarMoeda(valorTotal)})`;
         }
         
         totaisPorFornecedor[resposta.fornecedor.cnpj] += valorTotal;
+        
+        // Acumular para subtotal do lote
+        if (item.lote_numero) {
+          if (!totaisPorLote.has(item.lote_numero)) {
+            totaisPorLote.set(item.lote_numero, { fornecedores: {}, estimativa: 0 });
+          }
+          const loteData = totaisPorLote.get(item.lote_numero)!;
+          loteData.fornecedores[resposta.fornecedor.cnpj] = (loteData.fornecedores[resposta.fornecedor.cnpj] || 0) + valorTotal;
+        }
+        
         valoresItem.push(valorParaCalculo);
       } else {
         linha[`fornecedor_${resposta.fornecedor.cnpj}`] = '-';
       }
     });
 
-    // Calcular estimativa baseado no critério específico do item
+    // Calcular estimativa
     if (valoresItem.length > 0) {
-      // Buscar critério específico deste item, ou usar 'menor' como padrão
       const criterioItem = calculosPorItem[item.numero_item] || 'menor';
-      
-      console.log(`📐 Item ${item.numero_item}: critério=${criterioItem}, valores=[${valoresItem.join(', ')}]`);
-      
       let valorEstimativa: number;
       
       if (criterioItem === 'menor') {
-        // Se critério é desconto, pegar o MAIOR desconto (quanto maior desconto, menor o preço)
         if (criterioJulgamento === 'desconto') {
           valorEstimativa = Math.max(...valoresItem);
-          console.log(`   → Maior desconto: ${valorEstimativa}%`);
         } else {
           valorEstimativa = Math.min(...valoresItem);
-          console.log(`   → Menor preço: ${valorEstimativa}`);
         }
       } else if (criterioItem === 'media') {
-        // Filtrar apenas valores verdadeiramente cotados (> 0) para média
         const valoresCotados = valoresItem.filter(v => v > 0);
-        if (valoresCotados.length > 0) {
-          valorEstimativa = valoresCotados.reduce((a, b) => a + b, 0) / valoresCotados.length;
-          console.log(`   → Média: ${valorEstimativa} (de ${valoresCotados.length} valores cotados)`);
-        } else {
-          valorEstimativa = 0;
-          console.log(`   → Média: 0 (nenhum valor cotado)`);
-        }
-      } else { // mediana
-        // Filtrar apenas valores verdadeiramente cotados (> 0) para mediana
+        valorEstimativa = valoresCotados.length > 0 
+          ? valoresCotados.reduce((a, b) => a + b, 0) / valoresCotados.length 
+          : 0;
+      } else {
         const valoresCotados = valoresItem.filter(v => v > 0);
         if (valoresCotados.length > 0) {
           const sorted = [...valoresCotados].sort((a, b) => a - b);
@@ -309,19 +381,14 @@ export async function gerarPlanilhaConsolidadaPDF(
           valorEstimativa = sorted.length % 2 === 0 
             ? (sorted[middle - 1] + sorted[middle]) / 2 
             : sorted[middle];
-          console.log(`   → Mediana: ${valorEstimativa} (de ${valoresCotados.length} valores cotados, ordenados: [${sorted.join(', ')}])`);
         } else {
           valorEstimativa = 0;
-          console.log(`   → Mediana: 0 (nenhum valor cotado)`);
         }
       }
       
       const valorTotalEstimativa = valorEstimativa * item.quantidade;
-      
-      // CRÍTICO: Armazenar estimativa calculada
       estimativasCalculadas[item.numero_item] = valorEstimativa;
       
-      // Se critério é desconto, mostrar percentual (inclusive zero)
       if (criterioJulgamento === 'desconto') {
         linha.estimativa = formatarPercentual(valorEstimativa);
       } else {
@@ -329,14 +396,66 @@ export async function gerarPlanilhaConsolidadaPDF(
       }
       
       totalGeralEstimativa += valorTotalEstimativa;
+      
+      // Acumular para subtotal do lote
+      if (item.lote_numero && totaisPorLote.has(item.lote_numero)) {
+        totaisPorLote.get(item.lote_numero)!.estimativa += valorTotalEstimativa;
+      }
     } else {
       linha.estimativa = '-';
       estimativasCalculadas[item.numero_item] = 0;
     }
 
-    linhas.push(linha);
-    console.log(`✅ Item ${item.numero_item} processado com sucesso`);
-  });
+    return linha;
+  };
+  
+  // Se tem lotes, processar por lote com cabeçalhos e subtotais
+  if (temLotes) {
+    const lotesOrdenados = Array.from(lotesMap.entries()).sort((a, b) => a[0] - b[0]);
+    
+    lotesOrdenados.forEach(([loteNum, loteData]) => {
+      // Adicionar linha de cabeçalho do lote
+      const linhaHeaderLote: any = {
+        item: '',
+        descricao: `LOTE ${converterNumeroRomano(loteNum)} - ${loteData.descricao}`,
+        quantidade: '',
+        unidade: '',
+        isLoteHeader: true
+      };
+      respostas.forEach(r => { linhaHeaderLote[`fornecedor_${r.fornecedor.cnpj}`] = ''; });
+      linhaHeaderLote.estimativa = '';
+      linhas.push(linhaHeaderLote);
+      
+      // Processar itens do lote
+      loteData.itens.sort((a, b) => a.numero_item - b.numero_item).forEach(item => {
+        linhas.push(processarItem(item));
+      });
+      
+      // Adicionar linha de subtotal do lote (apenas se NÃO for critério de desconto)
+      if (criterioJulgamento !== 'desconto') {
+        const linhaSubtotal: any = {
+          item: '',
+          descricao: `SUBTOTAL LOTE ${converterNumeroRomano(loteNum)}`,
+          quantidade: '',
+          unidade: '',
+          isSubtotal: true
+        };
+        
+        const loteSubtotais = totaisPorLote.get(loteNum);
+        respostas.forEach(r => {
+          const valorLote = loteSubtotais?.fornecedores[r.fornecedor.cnpj] || 0;
+          linhaSubtotal[`fornecedor_${r.fornecedor.cnpj}`] = formatarMoeda(valorLote);
+        });
+        linhaSubtotal.estimativa = formatarMoeda(loteSubtotais?.estimativa || 0);
+        linhas.push(linhaSubtotal);
+      }
+    });
+  } else {
+    // Processar itens normalmente sem agrupamento
+    itens.forEach(item => {
+      linhas.push(processarItem(item));
+    });
+  }
   
   console.log('✅ Todos os itens processados!');
   console.log('📊 Estimativas finais calculadas:', estimativasCalculadas);
@@ -426,9 +545,46 @@ export async function gerarPlanilhaConsolidadaPDF(
       // Garantir que todo texto seja preto
       data.cell.styles.textColor = [0, 0, 0];
       
-      // Destacar linha de totais e mesclar primeiras colunas (apenas se houver linha de total)
+      const linhaAtual = linhas[data.row.index];
+      
+      // Formatar linha de cabeçalho de lote (fundo azul escuro, texto branco)
+      if (linhaAtual && linhaAtual.isLoteHeader) {
+        data.cell.styles.fillColor = [70, 130, 180]; // Azul médio
+        data.cell.styles.textColor = [255, 255, 255];
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 9;
+        
+        // Mesclar todas as colunas para o cabeçalho do lote
+        if (data.column.index === 0) {
+          data.cell.colSpan = colunas.length;
+          data.cell.styles.halign = 'center';
+        } else {
+          data.cell.text = [''];
+        }
+        return;
+      }
+      
+      // Formatar linha de subtotal do lote (fundo cinza claro)
+      if (linhaAtual && linhaAtual.isSubtotal) {
+        data.cell.styles.fillColor = [230, 230, 230];
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 8;
+        
+        // Mesclar as 4 primeiras colunas na linha de subtotal
+        if (data.column.index === 0) {
+          data.cell.colSpan = 4;
+          data.cell.styles.halign = 'left';
+          data.cell.styles.cellPadding = { left: 3 };
+        } else if (data.column.index >= 1 && data.column.index <= 3) {
+          data.cell.text = [''];
+        }
+        return;
+      }
+      
+      // Destacar linha de totais gerais (última linha se não for desconto)
       if (criterioJulgamento !== 'desconto' && data.row.index === linhas.length - 1) {
-        data.cell.styles.fillColor = [226, 232, 240];
+        data.cell.styles.fillColor = [120, 190, 225]; // Azul claro (mesmo do cabeçalho)
+        data.cell.styles.textColor = [255, 255, 255];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 9;
         
@@ -438,7 +594,6 @@ export async function gerarPlanilhaConsolidadaPDF(
           data.cell.styles.halign = 'left';
           data.cell.styles.cellPadding = { left: 3 };
         } else if (data.column.index >= 1 && data.column.index <= 3) {
-          // Ocultar conteúdo das células mescladas (mas a célula ainda existe)
           data.cell.text = [''];
         }
       }
