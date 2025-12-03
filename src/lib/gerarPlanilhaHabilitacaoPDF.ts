@@ -320,9 +320,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       halign: 'center',
+      valign: 'middle',
       overflow: 'linebreak',
-      cellPadding: 1,
-      minCellHeight: 8
+      cellPadding: 2,
+      minCellHeight: 15,
+      fontSize: 7
     },
     columnStyles: {
       item: { cellWidth: 12, halign: 'center' },
