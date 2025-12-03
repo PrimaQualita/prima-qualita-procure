@@ -142,8 +142,13 @@ export async function gerarPlanilhaHabilitacaoPDF(
   const textoRestante = objetoDecodificado.substring(linhasPrimeiraLinha[0].length).trim();
   if (textoRestante) {
     const linhasRestantes = doc.splitTextToSize(textoRestante, larguraUtil);
-    linhasRestantes.forEach((linha: string) => {
-      justificarTexto(doc, linha, margemEsquerda, yPosition, larguraUtil);
+    linhasRestantes.forEach((linha: string, index: number) => {
+      // Não justificar a última linha
+      if (index < linhasRestantes.length - 1) {
+        justificarTexto(doc, linha, margemEsquerda, yPosition, larguraUtil);
+      } else {
+        doc.text(linha, margemEsquerda, yPosition);
+      }
       yPosition += 5;
     });
   }
@@ -161,7 +166,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 0, 0);
-  doc.text("■ Vermelho = Empresa/Item Inabilitado", margemEsquerda, yPosition);
+  doc.text("Vermelho = Empresa/Item Inabilitado", margemEsquerda, yPosition);
   doc.setTextColor(0, 0, 0);
   yPosition += 8;
 
