@@ -1152,22 +1152,37 @@ const Cotacoes = () => {
 
       if (error) throw error;
 
-      // Renumerar lotes restantes em ordem crescente
+      // Renumerar lotes restantes em ordem crescente (número e descrição com romano)
       if (cotacaoSelecionada) {
         const { data: lotesRestantes } = await supabase
           .from("lotes_cotacao")
-          .select("id, numero_lote")
+          .select("id, numero_lote, descricao_lote")
           .eq("cotacao_id", cotacaoSelecionada.id)
           .order("numero_lote", { ascending: true });
 
         if (lotesRestantes && lotesRestantes.length > 0) {
+          const numerosRomanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+          
           for (let i = 0; i < lotesRestantes.length; i++) {
             const novoNumero = i + 1;
-            if (lotesRestantes[i].numero_lote !== novoNumero) {
+            const loteAtual = lotesRestantes[i];
+            
+            if (loteAtual.numero_lote !== novoNumero) {
+              // Atualizar número romano na descrição
+              let novaDescricao = loteAtual.descricao_lote;
+              // Regex para encontrar "LOTE X -" ou "LOTE X-" onde X é número romano
+              const regexRomano = /LOTE\s+([IVXLCDM]+)\s*-/i;
+              if (regexRomano.test(novaDescricao)) {
+                novaDescricao = novaDescricao.replace(regexRomano, `LOTE ${numerosRomanos[i]} -`);
+              }
+              
               await supabase
                 .from("lotes_cotacao")
-                .update({ numero_lote: novoNumero })
-                .eq("id", lotesRestantes[i].id);
+                .update({ 
+                  numero_lote: novoNumero,
+                  descricao_lote: novaDescricao
+                })
+                .eq("id", loteAtual.id);
             }
           }
         }
