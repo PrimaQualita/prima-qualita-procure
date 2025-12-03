@@ -695,12 +695,13 @@ const IncluirPrecosPublicos = () => {
         processoCompra?.criterio_julgamento
       );
 
-      // Atualizar com protocolo, hash E URLs dos comprovantes
+      // Atualizar com protocolo, hash, URL do PDF E URLs dos comprovantes
       await supabase
         .from("cotacao_respostas_fornecedor")
         .update({ 
           protocolo: protocolo,
           hash_certificacao: hashProposta,
+          url_pdf_proposta: urlProposta,
           comprovantes_urls: comprovanteUrls
         })
         .eq("id", respostaCotacao.id);

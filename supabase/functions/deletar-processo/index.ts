@@ -52,14 +52,23 @@ Deno.serve(async (req) => {
     if (cotacoes && cotacoes.length > 0) {
       const cotacaoIds = cotacoes.map(c => c.id);
 
-      // 2.1 Respostas de fornecedores (comprovantes)
+      // 2.1 Respostas de fornecedores (comprovantes E PDFs de propostas)
       const { data: respostasFornecedor } = await supabase
         .from('cotacao_respostas_fornecedor')
-        .select('comprovantes_urls')
+        .select('comprovantes_urls, url_pdf_proposta')
         .in('cotacao_id', cotacaoIds);
 
       if (respostasFornecedor) {
         respostasFornecedor.forEach(r => {
+          // PDFs de propostas
+          if (r.url_pdf_proposta) {
+            // url_pdf_proposta pode ser só o path ou URL completa
+            const path = r.url_pdf_proposta.includes('processo-anexos/') 
+              ? r.url_pdf_proposta.split('processo-anexos/')[1]?.split('?')[0]
+              : r.url_pdf_proposta;
+            if (path) arquivosParaDeletar.push(path);
+          }
+          // Comprovantes
           if (r.comprovantes_urls && Array.isArray(r.comprovantes_urls)) {
             r.comprovantes_urls.forEach((url: string) => {
               const path = url.split('processo-anexos/')[1]?.split('?')[0];
