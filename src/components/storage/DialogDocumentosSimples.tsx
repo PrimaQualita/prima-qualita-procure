@@ -1,7 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, Eye } from "lucide-react";
 import { useState, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DialogDocumentosSimplesProps {
   open: boolean;
@@ -37,14 +39,40 @@ export function DialogDocumentosSimples({ open, onOpenChange, titulo, documentos
           />
         </div>
         <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-          {documentosFiltrados.map((doc: any, i: number) => (
-            <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
-              <span className="truncate flex-1 text-sm font-medium">{doc.fileName}</span>
-              <span className="ml-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
-                {(doc.size / 1024).toFixed(1)} KB
-              </span>
-            </div>
-          ))}
+          {documentosFiltrados.map((doc: any, i: number) => {
+            const handleVisualizarDocumento = async () => {
+              try {
+                const { data } = await supabase.storage
+                  .from('processo-anexos')
+                  .createSignedUrl(doc.path, 3600);
+                if (data?.signedUrl) {
+                  window.open(data.signedUrl, '_blank');
+                }
+              } catch (error) {
+                console.error('Erro ao gerar URL:', error);
+              }
+            };
+
+            return (
+              <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
+                <span className="truncate flex-1 text-sm font-medium">{doc.fileName}</span>
+                <div className="flex items-center gap-2 ml-4">
+                  <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                    {(doc.size / 1024).toFixed(1)} KB
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={handleVisualizarDocumento}
+                    title="Visualizar documento"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
           {documentosFiltrados.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               Nenhum documento encontrado

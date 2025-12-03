@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Trash2, Loader2 } from "lucide-react";
+import { Search, Trash2, Loader2, Eye } from "lucide-react";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -165,6 +165,20 @@ export function DialogArquivosOrfaos({ open, onOpenChange, arquivos, onArquivosD
             const size = typeof arq === 'object' ? arq.size : 0;
             const estaSelecionado = selecionados.has(path);
 
+            const handleVisualizarArquivo = async (e: React.MouseEvent) => {
+              e.stopPropagation();
+              try {
+                const { data } = await supabase.storage
+                  .from('processo-anexos')
+                  .createSignedUrl(path, 3600);
+                if (data?.signedUrl) {
+                  window.open(data.signedUrl, '_blank');
+                }
+              } catch (error) {
+                console.error('Erro ao gerar URL:', error);
+              }
+            };
+
             return (
               <div 
                 key={i} 
@@ -182,9 +196,20 @@ export function DialogArquivosOrfaos({ open, onOpenChange, arquivos, onArquivosD
                   <p className="truncate text-sm font-medium">{fileName}</p>
                   <p className="text-xs text-muted-foreground truncate">{path}</p>
                 </div>
-                <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-                  {(size / 1024).toFixed(1)} KB
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                    {(size / 1024).toFixed(1)} KB
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={handleVisualizarArquivo}
+                    title="Visualizar documento"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             );
           })}
