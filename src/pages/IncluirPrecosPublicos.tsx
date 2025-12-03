@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -111,28 +111,87 @@ const IncluirPrecosPublicos = () => {
     try {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Preços Públicos');
+      const criterio = processoCompra?.criterio_julgamento;
 
-      // Definir colunas
+      // Definir colunas com 7 colunas (incluindo Valor Total)
       worksheet.columns = [
         { header: 'Item', key: 'item', width: 10 },
         { header: 'Descrição', key: 'descricao', width: 50 },
         { header: 'Quantidade', key: 'quantidade', width: 12 },
-        { header: 'Unidade', key: 'unidade', width: 12 },
+        { header: 'Unidade de Medida', key: 'unidade', width: 18 },
+        { header: 'Marca', key: 'marca', width: 30 },
         { header: 'Valor Unitário', key: 'valor', width: 15 },
-        { header: 'Marca', key: 'marca', width: 30 }
+        { header: 'Valor Total', key: 'valor_total', width: 15 }
       ];
 
-      // Adicionar dados dos itens
-      itens.forEach(item => {
-        worksheet.addRow({
-          item: item.numero_item,
-          descricao: item.descricao,
-          quantidade: item.quantidade,
-          unidade: item.unidade,
-          valor: '',
-          marca: ''
+      // Se critério for por_lote, agrupar itens por lote
+      if (criterio === "lote" || criterio === "por_lote") {
+        // Agrupar itens por lote
+        const itensAgrupados = new Map<string, ItemCotacao[]>();
+        
+        itens.forEach(item => {
+          const loteId = item.lote_id || 'sem_lote';
+          if (!itensAgrupados.has(loteId)) {
+            itensAgrupados.set(loteId, []);
+          }
+          itensAgrupados.get(loteId)!.push(item);
         });
-      });
+
+        // Adicionar dados agrupados por lote
+        lotes.forEach(lote => {
+          const itensDoLote = itensAgrupados.get(lote.id) || [];
+          
+          if (itensDoLote.length > 0) {
+            // Adicionar linha de título do lote
+            const loteRow = worksheet.addRow({
+              item: `LOTE ${lote.numero_lote}`,
+              descricao: lote.descricao_lote,
+              quantidade: '',
+              unidade: '',
+              marca: '',
+              valor: '',
+              valor_total: ''
+            });
+            
+            // Estilizar linha do lote (negrito, fundo cinza)
+            loteRow.eachCell((cell) => {
+              cell.font = { bold: true };
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFE0E0E0' }
+              };
+              cell.protection = { locked: true };
+            });
+
+            // Adicionar itens do lote
+            itensDoLote.forEach(item => {
+              worksheet.addRow({
+                item: item.numero_item,
+                descricao: item.descricao,
+                quantidade: item.quantidade,
+                unidade: item.unidade,
+                marca: '',
+                valor: '',
+                valor_total: ''
+              });
+            });
+          }
+        });
+      } else {
+        // Adicionar dados dos itens sem agrupamento
+        itens.forEach(item => {
+          worksheet.addRow({
+            item: item.numero_item,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            marca: '',
+            valor: '',
+            valor_total: ''
+          });
+        });
+      }
 
       // IMPORTANTE: Desproteger TODAS as células primeiro
       worksheet.eachRow((row) => {
@@ -141,21 +200,11 @@ const IncluirPrecosPublicos = () => {
         });
       });
 
-      // Agora proteger APENAS as colunas 1, 2, 3 e 4 (Item, Descrição, Quantidade, Unidade)
-      worksheet.getColumn(1).eachCell((cell) => {
-        cell.protection = { locked: true };
-      });
-
-      worksheet.getColumn(2).eachCell((cell) => {
-        cell.protection = { locked: true };
-      });
-
-      worksheet.getColumn(3).eachCell((cell) => {
-        cell.protection = { locked: true };
-      });
-
-      worksheet.getColumn(4).eachCell((cell) => {
-        cell.protection = { locked: true };
+      // Proteger colunas que não devem ser editadas (1-Item, 2-Descrição, 3-Quantidade, 4-Unidade, 7-Valor Total)
+      [1, 2, 3, 4, 7].forEach(colNum => {
+        worksheet.getColumn(colNum).eachCell((cell) => {
+          cell.protection = { locked: true };
+        });
       });
 
       // Aplicar proteção na planilha
@@ -183,7 +232,7 @@ const IncluirPrecosPublicos = () => {
       link.click();
       window.URL.revokeObjectURL(url);
 
-      toast.success("Template baixado! Apenas 'Valor Unitário' e 'Marca' são editáveis.");
+      toast.success("Template baixado! Apenas 'Marca' e 'Valor Unitário' são editáveis.");
     } catch (error) {
       console.error("Erro ao gerar template:", error);
       toast.error("Erro ao gerar template");
@@ -645,99 +694,186 @@ const IncluirPrecosPublicos = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-16 text-center">Item</TableHead>
-                      <TableHead className="w-24 text-center">Descrição</TableHead>
+                      <TableHead className="text-center">Descrição</TableHead>
                       <TableHead className="w-20 text-center">Qtd</TableHead>
-                      <TableHead className="w-20 text-center">Unid</TableHead>
+                      <TableHead className="w-24 text-center">Unid. Medida</TableHead>
                       {processoCompra?.criterio_julgamento === "desconto" ? (
                         <TableHead className="w-48 text-center">Percentual de Desconto (%) *</TableHead>
                       ) : (
                         <>
-                          <TableHead className="w-48 text-center">Valor Unit. (R$) *</TableHead>
                           <TableHead className="w-32 text-center">Marca</TableHead>
-                          <TableHead className="w-48 text-center">Vlr Total</TableHead>
+                          <TableHead className="w-36 text-center">Valor Unit. (R$) *</TableHead>
+                          <TableHead className="w-36 text-center">Valor Total</TableHead>
                         </>
                       )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {itens.map((item) => {
-                      const resposta = respostas[item.id];
-                      const valorUnitario = resposta?.valor_unitario 
-                        ? parseFloat(resposta.valor_unitario.replace(/,/g, "."))
-                        : 0;
-                      const valorTotal = valorUnitario * item.quantidade;
+                    {(() => {
+                      const criterio = processoCompra?.criterio_julgamento;
+                      
+                      // Se critério for por_lote, agrupar e renderizar por lote
+                      if (criterio === "lote" || criterio === "por_lote") {
+                        const itensAgrupados = new Map<string, ItemCotacao[]>();
+                        
+                        itens.forEach(item => {
+                          const loteId = item.lote_id || 'sem_lote';
+                          if (!itensAgrupados.has(loteId)) {
+                            itensAgrupados.set(loteId, []);
+                          }
+                          itensAgrupados.get(loteId)!.push(item);
+                        });
 
-                      return (
-                        <TableRow key={item.id}>
-                          <TableCell className="text-center">{item.numero_item}</TableCell>
-                          <TableCell>{item.descricao}</TableCell>
-                          <TableCell className="text-center">{item.quantidade}</TableCell>
-                          <TableCell className="text-center">{item.unidade}</TableCell>
+                        return lotes.map(lote => {
+                          const itensDoLote = itensAgrupados.get(lote.id) || [];
                           
-                          {processoCompra?.criterio_julgamento === "desconto" ? (
-                            // Modo Percentual de Desconto
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold">%</span>
-                                <Input
-                                  type="text"
-                                  value={resposta?.percentual_desconto || ""}
-                                  onChange={(e) => {
-                                    const valor = e.target.value.replace(/[^0-9,]/g, "");
-                                    setRespostas({
-                                      ...respostas,
-                                      [item.id]: { ...resposta, percentual_desconto: valor },
-                                    });
-                                  }}
-                                  placeholder="0,00"
-                                  className="text-right flex-1"
-                                />
-                              </div>
-                            </TableCell>
-                          ) : (
-                            // Modo Valor Unitário
-                            <>
+                          if (itensDoLote.length === 0) return null;
+
+                          return (
+                            <React.Fragment key={lote.id}>
+                              {/* Linha de título do lote */}
+                              <TableRow className="bg-muted/70">
+                                <TableCell colSpan={7} className="font-bold text-primary py-3">
+                                  LOTE {lote.numero_lote} - {lote.descricao_lote}
+                                </TableCell>
+                              </TableRow>
+                              
+                              {/* Itens do lote */}
+                              {itensDoLote.map((item) => {
+                                const resposta = respostas[item.id];
+                                const valorUnitario = resposta?.valor_unitario 
+                                  ? parseFloat(resposta.valor_unitario.replace(/,/g, "."))
+                                  : 0;
+                                const valorTotal = valorUnitario * item.quantidade;
+
+                                return (
+                                  <TableRow key={item.id}>
+                                    <TableCell className="text-center">{item.numero_item}</TableCell>
+                                    <TableCell>{item.descricao}</TableCell>
+                                    <TableCell className="text-center">{item.quantidade}</TableCell>
+                                    <TableCell className="text-center">{item.unidade}</TableCell>
+                                    <TableCell>
+                                      <Input
+                                        type="text"
+                                        value={resposta?.marca || ""}
+                                        onChange={(e) => {
+                                          setRespostas({
+                                            ...respostas,
+                                            [item.id]: { ...resposta, marca: e.target.value },
+                                          });
+                                        }}
+                                        placeholder="Marca"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        type="text"
+                                        value={resposta?.valor_unitario || ""}
+                                        onChange={(e) => {
+                                          const valor = e.target.value.replace(/[^0-9,]/g, "");
+                                          setRespostas({
+                                            ...respostas,
+                                            [item.id]: { ...resposta, valor_unitario: valor },
+                                          });
+                                        }}
+                                        placeholder="0,00"
+                                        className="text-right"
+                                      />
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold">
+                                      {!isNaN(valorTotal) && valorTotal > 0
+                                        ? `R$ ${valorTotal.toLocaleString("pt-BR", {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          })}`
+                                        : "R$ 0,00"}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        });
+                      }
+
+                      // Outros critérios - renderização normal
+                      return itens.map((item) => {
+                        const resposta = respostas[item.id];
+                        const valorUnitario = resposta?.valor_unitario 
+                          ? parseFloat(resposta.valor_unitario.replace(/,/g, "."))
+                          : 0;
+                        const valorTotal = valorUnitario * item.quantidade;
+
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell className="text-center">{item.numero_item}</TableCell>
+                            <TableCell>{item.descricao}</TableCell>
+                            <TableCell className="text-center">{item.quantidade}</TableCell>
+                            <TableCell className="text-center">{item.unidade}</TableCell>
+                            
+                            {criterio === "desconto" ? (
                               <TableCell>
-                                <Input
-                                  type="text"
-                                  value={resposta?.valor_unitario || ""}
-                                  onChange={(e) => {
-                                    const valor = e.target.value.replace(/[^0-9,]/g, "");
-                                    setRespostas({
-                                      ...respostas,
-                                      [item.id]: { ...resposta, valor_unitario: valor },
-                                    });
-                                  }}
-                                  placeholder="0,00"
-                                  className="text-right"
-                                />
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold">%</span>
+                                  <Input
+                                    type="text"
+                                    value={resposta?.percentual_desconto || ""}
+                                    onChange={(e) => {
+                                      const valor = e.target.value.replace(/[^0-9,]/g, "");
+                                      setRespostas({
+                                        ...respostas,
+                                        [item.id]: { ...resposta, percentual_desconto: valor },
+                                      });
+                                    }}
+                                    placeholder="0,00"
+                                    className="text-right flex-1"
+                                  />
+                                </div>
                               </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="text"
-                                  value={resposta?.marca || ""}
-                                  onChange={(e) => {
-                                    setRespostas({
-                                      ...respostas,
-                                      [item.id]: { ...resposta, marca: e.target.value },
-                                    });
-                                  }}
-                                  placeholder="Marca (opcional)"
-                                />
-                              </TableCell>
-                              <TableCell className="text-right font-semibold">
-                                {!isNaN(valorTotal) && valorTotal > 0
-                                  ? `R$ ${valorTotal.toLocaleString("pt-BR", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}`
-                                  : "R$ 0,00"}
-                              </TableCell>
-                            </>
-                          )}
-                        </TableRow>
-                      );
-                    })}
+                            ) : (
+                              <>
+                                <TableCell>
+                                  <Input
+                                    type="text"
+                                    value={resposta?.marca || ""}
+                                    onChange={(e) => {
+                                      setRespostas({
+                                        ...respostas,
+                                        [item.id]: { ...resposta, marca: e.target.value },
+                                      });
+                                    }}
+                                    placeholder="Marca"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="text"
+                                    value={resposta?.valor_unitario || ""}
+                                    onChange={(e) => {
+                                      const valor = e.target.value.replace(/[^0-9,]/g, "");
+                                      setRespostas({
+                                        ...respostas,
+                                        [item.id]: { ...resposta, valor_unitario: valor },
+                                      });
+                                    }}
+                                    placeholder="0,00"
+                                    className="text-right"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right font-semibold">
+                                  {!isNaN(valorTotal) && valorTotal > 0
+                                    ? `R$ ${valorTotal.toLocaleString("pt-BR", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}`
+                                    : "R$ 0,00"}
+                                </TableCell>
+                              </>
+                            )}
+                          </TableRow>
+                        );
+                      });
+                    })()}
                     {processoCompra?.criterio_julgamento !== "desconto" && (
                       <TableRow className="bg-muted/50 font-bold">
                         <TableCell colSpan={6} className="text-right">
