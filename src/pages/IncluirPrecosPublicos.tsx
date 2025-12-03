@@ -433,13 +433,27 @@ const IncluirPrecosPublicos = () => {
 
   const handleSubmit = async () => {
     try {
-      // Verificar se o prazo da cotação já expirou
-      const dataLimite = new Date(cotacao.data_limite_resposta);
+      // Verificar se o prazo da cotação já expirou usando timezone de Brasília
+      const dataLimiteStr = cotacao.data_limite_resposta;
+      
+      // Criar data limite - se não tiver timezone, adiciona Brasília (UTC-3)
+      let dataLimite: Date;
+      if (dataLimiteStr.includes('T') && !dataLimiteStr.includes('Z') && !dataLimiteStr.includes('+') && !dataLimiteStr.includes('-', 10)) {
+        // Formato datetime-local sem timezone - interpretar como Brasília
+        dataLimite = new Date(dataLimiteStr + '-03:00');
+      } else if (dataLimiteStr.includes('Z')) {
+        // Formato UTC - converter diretamente
+        dataLimite = new Date(dataLimiteStr);
+      } else {
+        dataLimite = new Date(dataLimiteStr);
+      }
+      
       const agora = new Date();
       
       if (agora > dataLimite) {
         toast.error("O prazo para envio de respostas desta cotação foi encerrado em " + 
-          dataLimite.toLocaleDateString("pt-BR", {
+          dataLimite.toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
             day: "2-digit",
             month: "2-digit",
             year: "numeric",

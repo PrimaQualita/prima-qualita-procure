@@ -2566,11 +2566,24 @@ const Cotacoes = () => {
             <Button onClick={async () => {
               if (!cotacaoEditando) return;
               try {
+                // Converter datetime-local para ISO com timezone de Brasília
+                // datetime-local retorna valor como "2025-12-03T19:00" (sem timezone)
+                // Precisamos interpretar isso como horário de Brasília (UTC-3)
+                const dataLocalStr = cotacaoEditando.data_limite_resposta;
+                let dataISO: string;
+                
+                if (dataLocalStr.includes('T') && !dataLocalStr.includes('Z') && !dataLocalStr.includes('+')) {
+                  // Formato datetime-local sem timezone - adicionar offset de Brasília (UTC-3)
+                  dataISO = dataLocalStr + ':00-03:00';
+                } else {
+                  dataISO = new Date(dataLocalStr).toISOString();
+                }
+                
                 const { error } = await supabase
                   .from("cotacoes_precos")
                   .update({
                     titulo_cotacao: cotacaoEditando.titulo_cotacao,
-                    data_limite_resposta: new Date(cotacaoEditando.data_limite_resposta).toISOString()
+                    data_limite_resposta: dataISO
                   })
                   .eq("id", cotacaoEditando.id);
                 
@@ -2579,7 +2592,7 @@ const Cotacoes = () => {
                 // Atualizar lista de cotações
                 setCotacoes(prev => prev.map(c => 
                   c.id === cotacaoEditando.id 
-                    ? {...c, titulo_cotacao: cotacaoEditando.titulo_cotacao, data_limite_resposta: new Date(cotacaoEditando.data_limite_resposta).toISOString()}
+                    ? {...c, titulo_cotacao: cotacaoEditando.titulo_cotacao, data_limite_resposta: dataISO}
                     : c
                 ));
                 
