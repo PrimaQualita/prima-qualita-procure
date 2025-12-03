@@ -1869,6 +1869,50 @@ export type Database = {
           },
         ]
       }
+      planilhas_habilitacao: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          data_geracao: string
+          id: string
+          nome_arquivo: string
+          protocolo: string
+          storage_path: string | null
+          url_arquivo: string
+          usuario_gerador_id: string
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          data_geracao?: string
+          id?: string
+          nome_arquivo: string
+          protocolo: string
+          storage_path?: string | null
+          url_arquivo: string
+          usuario_gerador_id: string
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          data_geracao?: string
+          id?: string
+          nome_arquivo?: string
+          protocolo?: string
+          storage_path?: string | null
+          url_arquivo?: string
+          usuario_gerador_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planilhas_habilitacao_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planilhas_lances_selecao: {
         Row: {
           created_at: string | null
