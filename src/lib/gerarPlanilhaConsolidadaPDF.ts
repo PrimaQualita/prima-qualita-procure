@@ -414,10 +414,11 @@ export async function gerarPlanilhaConsolidadaPDF(
     const lotesOrdenados = Array.from(lotesMap.entries()).sort((a, b) => a[0] - b[0]);
     
     lotesOrdenados.forEach(([loteNum, loteData]) => {
-      // Adicionar linha de cabeçalho do lote
+      // Adicionar linha de cabeçalho do lote - TEXTO EM "item" para colSpan funcionar
+      const textoLote = `LOTE ${converterNumeroRomano(loteNum)} - ${loteData.descricao}`;
       const linhaHeaderLote: any = {
-        item: '',
-        descricao: `LOTE ${converterNumeroRomano(loteNum)} - ${loteData.descricao}`,
+        item: textoLote, // Texto aqui porque colSpan é aplicado na coluna 0
+        descricao: '',
         quantidade: '',
         unidade: '',
         isLoteHeader: true
@@ -433,9 +434,10 @@ export async function gerarPlanilhaConsolidadaPDF(
       
       // Adicionar linha de subtotal do lote (apenas se NÃO for critério de desconto)
       if (criterioJulgamento !== 'desconto') {
+        const textoSubtotal = `SUBTOTAL LOTE ${converterNumeroRomano(loteNum)}`;
         const linhaSubtotal: any = {
-          item: '',
-          descricao: `SUBTOTAL LOTE ${converterNumeroRomano(loteNum)}`,
+          item: textoSubtotal, // Texto aqui porque colSpan mescla as 4 primeiras colunas
+          descricao: '',
           quantidade: '',
           unidade: '',
           isSubtotal: true
@@ -542,58 +544,61 @@ export async function gerarPlanilhaConsolidadaPDF(
     margin: { left: margemEsquerda, right: margemDireita },
     tableWidth: 'auto',
     didParseCell: function(data) {
-      // Garantir que todo texto seja preto
+      // Garantir que todo texto seja preto por padrão
       data.cell.styles.textColor = [0, 0, 0];
       
       const linhaAtual = linhas[data.row.index];
       
-      // Formatar linha de cabeçalho de lote (fundo azul escuro, texto branco)
+      // Formatar linha de cabeçalho de lote (fundo azul médio, texto branco, mesclada)
       if (linhaAtual && linhaAtual.isLoteHeader) {
         data.cell.styles.fillColor = [70, 130, 180]; // Azul médio
         data.cell.styles.textColor = [255, 255, 255];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 9;
         
-        // Mesclar todas as colunas para o cabeçalho do lote
+        // Mesclar todas as colunas para o cabeçalho do lote - texto vem da coluna 0
         if (data.column.index === 0) {
           data.cell.colSpan = colunas.length;
           data.cell.styles.halign = 'center';
         } else {
+          // Limpar texto das outras colunas (já mescladas)
           data.cell.text = [''];
         }
         return;
       }
       
-      // Formatar linha de subtotal do lote (fundo cinza claro)
+      // Formatar linha de subtotal do lote (fundo cinza claro, negrito)
       if (linhaAtual && linhaAtual.isSubtotal) {
         data.cell.styles.fillColor = [230, 230, 230];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 8;
         
-        // Mesclar as 4 primeiras colunas na linha de subtotal
+        // Mesclar as 4 primeiras colunas na linha de subtotal - texto vem da coluna 0
         if (data.column.index === 0) {
           data.cell.colSpan = 4;
           data.cell.styles.halign = 'left';
-          data.cell.styles.cellPadding = { left: 3 };
+          data.cell.styles.cellPadding = { top: 3, right: 2, bottom: 3, left: 5 };
         } else if (data.column.index >= 1 && data.column.index <= 3) {
+          // Limpar texto das colunas 1-3 (já mescladas)
           data.cell.text = [''];
         }
         return;
       }
       
-      // Destacar linha de totais gerais (última linha se não for desconto)
+      // Destacar linha de VALOR TOTAL GERAL (última linha se não for desconto)
       if (criterioJulgamento !== 'desconto' && data.row.index === linhas.length - 1) {
         data.cell.styles.fillColor = [120, 190, 225]; // Azul claro (mesmo do cabeçalho)
         data.cell.styles.textColor = [255, 255, 255];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 9;
         
-        // Mesclar as 4 primeiras colunas na linha de total
+        // Mesclar as 4 primeiras colunas na linha de total - texto vem da coluna 0
         if (data.column.index === 0) {
           data.cell.colSpan = 4;
           data.cell.styles.halign = 'left';
-          data.cell.styles.cellPadding = { left: 3 };
+          data.cell.styles.cellPadding = { top: 3, right: 2, bottom: 3, left: 5 };
         } else if (data.column.index >= 1 && data.column.index <= 3) {
+          // Limpar texto das colunas 1-3 (já mescladas)
           data.cell.text = [''];
         }
       }
