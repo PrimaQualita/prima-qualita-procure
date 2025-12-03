@@ -238,11 +238,11 @@ export function DialogAnexosProcesso({
 
       if (error) throw error;
 
-      // Se deletou o processo completo, voltar status para em_cotacao
+      // Se deletou o processo completo, voltar status para em_cotacao e zerar valor total
       if (anexo.tipo_anexo === "PROCESSO_COMPLETO" && processoId) {
         const { error: statusError } = await supabase
           .from("processos_compras")
-          .update({ status_processo: "em_cotacao" })
+          .update({ status_processo: "em_cotacao", valor_total_cotacao: 0 })
           .eq("id", processoId);
 
         if (statusError) {
