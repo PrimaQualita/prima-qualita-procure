@@ -571,6 +571,11 @@ const RespostaCotacao = () => {
         const dados = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
         const isDesconto = processoCompra?.criterio_julgamento === "desconto";
+        const criterio = processoCompra?.criterio_julgamento;
+        const isPorLote = criterio === "lote" || criterio === "por_lote";
+        
+        // Variável para rastrear o lote atual durante a importação
+        let loteAtualId: string | null = null;
 
         // Ignorar cabeçalho (primeira linha)
         for (let i = 1; i < dados.length; i++) {
@@ -581,9 +586,18 @@ const RespostaCotacao = () => {
           const marcaCol = row[4];
           const valorCol = row[5];
           
-          // Pular linhas de título de lote (começam com "LOTE")
+          // Detectar linha de título de lote e atualizar lote atual
           if (typeof itemCol === 'string' && itemCol.toUpperCase().startsWith('LOTE')) {
-            console.log(`Linha ${i + 1}: Pulando título de lote - ${itemCol}`);
+            if (isPorLote) {
+              // Extrair número do lote (ex: "LOTE 1" ou "LOTE 2")
+              const matchLote = itemCol.match(/LOTE\s*(\d+)/i);
+              if (matchLote) {
+                const numeroLote = parseInt(matchLote[1]);
+                const loteEncontrado = lotes.find(l => l.numero_lote === numeroLote);
+                loteAtualId = loteEncontrado?.id || null;
+                console.log(`Linha ${i + 1}: Detectado título de lote ${numeroLote}, lote_id: ${loteAtualId}`);
+              }
+            }
             continue;
           }
           
@@ -603,13 +617,23 @@ const RespostaCotacao = () => {
           const marca = marcaCol ? String(marcaCol).trim() : '';
           const valorUnitario = valorCol;
           
+          console.log(`Linha ${i + 1} - Item: ${numeroItem}, LoteAtual: ${loteAtualId}, Valor: "${valorUnitario}", Marca: "${marca}"`);
+          
           // Pular itens sem valor preenchido
           if (!valorUnitario || String(valorUnitario).trim() === '' || String(valorUnitario).trim() === '0') {
             console.log(`Linha ${i + 1}: valor vazio ou zero`);
             continue;
           }
 
-          const item = itensCotacao.find(it => it.numero_item === numeroItem);
+          // Buscar item pelo numero_item E lote_id (quando aplicável)
+          let item: ItemCotacao | undefined;
+          if (isPorLote && loteAtualId) {
+            // Buscar item pelo numero_item dentro do lote atual
+            item = itensCotacao.find(it => it.numero_item === numeroItem && it.lote_id === loteAtualId);
+          } else {
+            // Buscar item apenas pelo numero_item (critérios não lotizados)
+            item = itensCotacao.find(it => it.numero_item === numeroItem);
+          }
           
           if (item) {
             const valorNumerico = parseFloat(String(valorUnitario).replace(/,/g, '.'));
@@ -632,9 +656,9 @@ const RespostaCotacao = () => {
               };
             }
             importados++;
-            console.log(`✅ Item ${numeroItem} importado - Valor: "${valorFormatado}", Marca: "${marca}"`);
+            console.log(`✅ Item ${numeroItem} (lote: ${loteAtualId}) importado - Valor: "${valorFormatado}", Marca: "${marca}"`);
           } else {
-            console.log(`❌ Item ${numeroItem} não encontrado na lista de itens`);
+            console.log(`❌ Item ${numeroItem} não encontrado ${isPorLote ? `no lote ${loteAtualId}` : 'na lista de itens'}`);
           }
         }
       } else {

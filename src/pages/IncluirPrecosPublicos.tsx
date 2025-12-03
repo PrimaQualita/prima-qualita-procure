@@ -327,19 +327,33 @@ const IncluirPrecosPublicos = () => {
       const novasRespostas = { ...respostas };
       let itensImportados = 0;
       
+      const criterio = processoCompra?.criterio_julgamento;
+      const isPorLote = criterio === "lote" || criterio === "por_lote";
+      
+      // Variável para rastrear o lote atual durante a importação
+      let loteAtualId: string | null = null;
+      
       // Ignorar cabeçalho (primeira linha)
       for (let i = 1; i < dados.length; i++) {
         const row = dados[i];
         if (!row || row.length === 0) continue;
         
         const itemCol = row[0];
-        const descricaoCol = row[1];
         const marcaCol = row[4];
         const valorCol = row[5];
         
-        // Pular linhas de título de lote (começam com "LOTE")
+        // Detectar linha de título de lote e atualizar lote atual
         if (typeof itemCol === 'string' && itemCol.toUpperCase().startsWith('LOTE')) {
-          console.log(`Linha ${i + 1}: Pulando título de lote - ${itemCol}`);
+          if (isPorLote) {
+            // Extrair número do lote (ex: "LOTE 1" ou "LOTE 2")
+            const matchLote = itemCol.match(/LOTE\s*(\d+)/i);
+            if (matchLote) {
+              const numeroLote = parseInt(matchLote[1]);
+              const loteEncontrado = lotes.find(l => l.numero_lote === numeroLote);
+              loteAtualId = loteEncontrado?.id || null;
+              console.log(`Linha ${i + 1}: Detectado título de lote ${numeroLote}, lote_id: ${loteAtualId}`);
+            }
+          }
           continue;
         }
         
@@ -359,7 +373,7 @@ const IncluirPrecosPublicos = () => {
         const valorStr = String(valorCol || '').trim();
         const marca = String(marcaCol || '').trim();
         
-        console.log(`Linha ${i + 1} - Item: ${numItem}, Valor: "${valorStr}", Marca: "${marca}"`);
+        console.log(`Linha ${i + 1} - Item: ${numItem}, LoteAtual: ${loteAtualId}, Valor: "${valorStr}", Marca: "${marca}"`);
         
         // Pular itens sem valor preenchido
         if (!valorStr || valorStr === '' || valorStr === '0') {
@@ -367,7 +381,15 @@ const IncluirPrecosPublicos = () => {
           continue;
         }
         
-        const item = itens.find(it => it.numero_item === numItem);
+        // Buscar item pelo numero_item E lote_id (quando aplicável)
+        let item: ItemCotacao | undefined;
+        if (isPorLote && loteAtualId) {
+          // Buscar item pelo numero_item dentro do lote atual
+          item = itens.find(it => it.numero_item === numItem && it.lote_id === loteAtualId);
+        } else {
+          // Buscar item apenas pelo numero_item (critérios não lotizados)
+          item = itens.find(it => it.numero_item === numItem);
+        }
         
         if (item) {
           // Limpa e formata o valor (aceita tanto vírgula quanto ponto)
@@ -379,10 +401,10 @@ const IncluirPrecosPublicos = () => {
             marca: marca,
           };
           
-          console.log(`✅ Item ${numItem} importado - Valor: "${valorLimpo}", Marca: "${marca}"`);
+          console.log(`✅ Item ${numItem} (lote: ${loteAtualId}) importado - Valor: "${valorLimpo}", Marca: "${marca}"`);
           itensImportados++;
         } else {
-          console.log(`❌ Item ${numItem} não encontrado na lista de itens`);
+          console.log(`❌ Item ${numItem} não encontrado ${isPorLote ? `no lote ${loteAtualId}` : 'na lista de itens'}`);
         }
       }
       
