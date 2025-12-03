@@ -72,10 +72,35 @@ export async function gerarPropostaFornecedorPDF(
           numero_item,
           descricao,
           quantidade,
-          unidade
+          unidade,
+          lote_id,
+          lotes_cotacao (
+            id,
+            numero_lote,
+            descricao_lote
+          )
         )
       `)
       .eq('cotacao_resposta_fornecedor_id', respostaId);
+    
+    // Buscar lotes se critério for por_lote
+    let lotesMap: Map<string, { numero_lote: number; descricao_lote: string }> = new Map();
+    if (criterioJulgamento === 'por_lote' && itens && itens.length > 0) {
+      const primeiroItem = itens[0] as any;
+      const itemCot = Array.isArray(primeiroItem.itens_cotacao) ? primeiroItem.itens_cotacao[0] : primeiroItem.itens_cotacao;
+      if (itemCot?.lotes_cotacao) {
+        // Extrair lotes únicos de todos os itens
+        itens.forEach((item: any) => {
+          const ic = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
+          if (ic?.lote_id && ic?.lotes_cotacao) {
+            const lote = ic.lotes_cotacao;
+            if (!lotesMap.has(ic.lote_id)) {
+              lotesMap.set(ic.lote_id, { numero_lote: lote.numero_lote, descricao_lote: lote.descricao_lote });
+            }
+          }
+        });
+      }
+    }
 
     console.log('📊 Resultado da busca:', {
       encontrou: itens?.length || 0,
@@ -310,12 +335,54 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
 
-    for (const item of itensOrdenados) {
+    // Função auxiliar para renderizar linha de título de lote
+    const renderLoteTitulo = (loteNumero: number, loteDescricao: string) => {
+      if (y + 10 > 270) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFillColor(0, 102, 102);
+      doc.rect(15, y - 4, 180, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`LOTE ${loteNumero} - ${loteDescricao}`, 105, y, { align: 'center' });
+      y += 8;
+      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      isAlternate = false;
+    };
+
+    // Função auxiliar para renderizar subtotal de lote
+    const renderSubtotalLote = (loteNumero: number, subtotal: number) => {
+      if (criterioJulgamento === 'desconto') return;
+      if (y + 10 > 270) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFillColor(207, 238, 247);
+      doc.rect(15, y - 4, 180, 8, 'F');
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.1);
+      doc.rect(15, y - 4, 180, 8, 'S');
+      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Subtotal Lote ${loteNumero}:`, 140, y, { align: 'right' });
+      doc.text(subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 193, y, { align: 'right' });
+      y += 10;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+    };
+
+    // Função auxiliar para renderizar um item
+    const renderItem = (item: any) => {
       const itemCotacao: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
       
       if (!itemCotacao) {
         console.warn('Item sem dados de cotação:', item);
-        continue;
+        return 0;
       }
       
       // Quebrar descrição em múltiplas linhas com alinhamento justificado
@@ -326,11 +393,9 @@ export async function gerarPropostaFornecedorPDF(
       let maxLinhas = linhasDescricao.length;
       
       if (criterioJulgamento !== 'desconto') {
-        // Para outros critérios, verificar todas as colunas
         const marcaLinhas = doc.splitTextToSize(item.marca || '-', larguraMarca);
         const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, larguraUnid - 4);
         const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), larguraQtd);
-        
         maxLinhas = Math.max(maxLinhas, marcaLinhas.length, unidLinhas.length, qtdLinhas.length);
       }
       
@@ -344,26 +409,20 @@ export async function gerarPropostaFornecedorPDF(
         // Repetir cabeçalho da tabela
         doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
         doc.rect(15, y - 5, 180, 8, 'F');
-        
-        // Borda superior da tabela na nova página
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.1);
         doc.line(15, y - 5, 195, y - 5);
-        
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
         
-        // Posições diferentes baseado no critério (IDÊNTICAS à primeira página)
         if (criterioJulgamento === 'desconto') {
-          // Critério DESCONTO: ITEM | DESCRIÇÃO | QTD | UNID | DESCONTO
           doc.text('ITEM', 22.5, y, { maxWidth: 15, align: 'center' });
           doc.text('DESCRIÇÃO', 80, y, { maxWidth: 96, align: 'center' });
           doc.text('QTD', 142.5, y, { maxWidth: 16, align: 'center' });
           doc.text('UNID', 163.5, y, { maxWidth: 18, align: 'center' });
           doc.text('DESCONTO (%)', 183.5, y, { maxWidth: 23, align: 'center' });
         } else {
-          // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
           const centerItemX = colItemX + 7.5;
           const centerDescX = colDescX + 29;
           const centerMarcaX = colMarcaX + (larguraMarca / 2);
@@ -386,7 +445,6 @@ export async function gerarPropostaFornecedorPDF(
         doc.setFontSize(8);
       }
       
-      // Usar o valor correto dependendo do critério de julgamento
       const valorUnitario = criterioJulgamento === 'desconto' 
         ? (item.percentual_desconto || 0)
         : item.valor_unitario_ofertado;
@@ -398,66 +456,52 @@ export async function gerarPropostaFornecedorPDF(
         doc.rect(15, y - 4, 180, alturaLinha, 'F');
       }
 
-      // Bordas cinzas suaves
+      // Bordas
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.1);
-      
-      // Linha horizontal inferior
       doc.line(15, y + alturaLinha - 4, 195, y + alturaLinha - 4);
       
-      // Linhas verticais entre colunas
       const yTop = y - 4;
       const yBottom = y + alturaLinha - 4;
       
       if (criterioJulgamento === 'desconto') {
-        // Critério DESCONTO: ITEM | DESCRIÇÃO | QTD | UNID | DESCONTO
-        doc.line(30, yTop, 30, yBottom);   // Após ITEM
-        doc.line(130, yTop, 130, yBottom); // Após DESCRIÇÃO
-        doc.line(155, yTop, 155, yBottom); // Após QTD
-        doc.line(172, yTop, 172, yBottom); // Após UNID
+        doc.line(30, yTop, 30, yBottom);
+        doc.line(130, yTop, 130, yBottom);
+        doc.line(155, yTop, 155, yBottom);
+        doc.line(172, yTop, 172, yBottom);
       } else {
-        // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-        doc.line(colDescX, yTop, colDescX, yBottom);       // Após ITEM
-        doc.line(colMarcaX, yTop, colMarcaX, yBottom);     // Após DESCRIÇÃO
-        doc.line(colQtdX, yTop, colQtdX, yBottom);         // Após MARCA
-        doc.line(colUnidX, yTop, colUnidX, yBottom);       // Após QTD
-        doc.line(colVlUnitX, yTop, colVlUnitX, yBottom);   // Após UNID
-        doc.line(colVlTotalX, yTop, colVlTotalX, yBottom); // Após VL. UNIT.
+        doc.line(colDescX, yTop, colDescX, yBottom);
+        doc.line(colMarcaX, yTop, colMarcaX, yBottom);
+        doc.line(colQtdX, yTop, colQtdX, yBottom);
+        doc.line(colUnidX, yTop, colUnidX, yBottom);
+        doc.line(colVlUnitX, yTop, colVlUnitX, yBottom);
+        doc.line(colVlTotalX, yTop, colVlTotalX, yBottom);
       }
       
-      // Bordas externas da tabela (esquerda e direita)
-      doc.line(15, yTop, 15, yBottom); // Borda esquerda
-      doc.line(195, yTop, 195, yBottom); // Borda direita
+      doc.line(15, yTop, 15, yBottom);
+      doc.line(195, yTop, 195, yBottom);
 
-      // Calcular centro vertical real da célula (baseline do texto)
       const yCenter = yTop + (alturaLinha / 2) + 1.5;
       
-      // Número do item (centralizado verticalmente)
       doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
-        // Critério DESCONTO: largura maior para descrição (96)
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 4) / 2 + 3;
         linhasDescricao.forEach((linha: string, index: number) => {
           doc.text(linha, 32, yDescStart + (index * 4), { maxWidth: 94, align: 'justify' });
         });
-        
         doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 142.5, yCenter, { align: 'center' });
         doc.text(itemCotacao.unidade, 163.5, yCenter, { align: 'center' });
-        
-        // Desconto
         const descontoFormatted = (valorUnitario && valorUnitario > 0)
           ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
           : '-';
         doc.text(descontoFormatted, 183.5, yCenter, { align: 'center' });
       } else {
-        // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
         const yDescStart = yTop + (alturaLinha - linhasDescricao.length * 4) / 2 + 3;
         linhasDescricao.forEach((linha: string, index: number) => {
           doc.text(linha, colDescX + 2, yDescStart + (index * 4), { maxWidth: 54, align: 'justify' });
         });
         
-        // Quebrar texto das outras colunas também
         const marcaLinhas = doc.splitTextToSize(item.marca || '-', larguraMarca - 2);
         const yMarcaStart = yTop + (alturaLinha - marcaLinhas.length * 4) / 2 + 3;
         const centerMarcaX = colMarcaX + (larguraMarca / 2);
@@ -499,6 +543,46 @@ export async function gerarPropostaFornecedorPDF(
       
       y += alturaLinha;
       isAlternate = !isAlternate;
+      
+      return criterioJulgamento === 'desconto' ? 0 : valorTotalItem;
+    };
+
+    // Renderizar itens - agrupados por lote se critério for por_lote
+    if (criterioJulgamento === 'por_lote' && lotesMap.size > 0) {
+      // Agrupar itens por lote_id
+      const itensPorLote = new Map<string, any[]>();
+      for (const item of itensOrdenados) {
+        const itemCot: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
+        const loteId = itemCot?.lote_id;
+        if (loteId) {
+          if (!itensPorLote.has(loteId)) {
+            itensPorLote.set(loteId, []);
+          }
+          itensPorLote.get(loteId)!.push(item);
+        }
+      }
+      
+      // Ordenar lotes por numero_lote
+      const lotesOrdenados = Array.from(lotesMap.entries()).sort((a, b) => a[1].numero_lote - b[1].numero_lote);
+      
+      for (const [loteId, loteInfo] of lotesOrdenados) {
+        const itensDoLote = itensPorLote.get(loteId) || [];
+        if (itensDoLote.length === 0) continue;
+        
+        renderLoteTitulo(loteInfo.numero_lote, loteInfo.descricao_lote);
+        
+        let subtotalLote = 0;
+        for (const item of itensDoLote) {
+          subtotalLote += renderItem(item);
+        }
+        
+        renderSubtotalLote(loteInfo.numero_lote, subtotalLote);
+      }
+    } else {
+      // Renderização normal sem lotes
+      for (const item of itensOrdenados) {
+        renderItem(item);
+      }
     }
 
     // Linha de separação

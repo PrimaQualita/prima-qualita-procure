@@ -1313,11 +1313,14 @@ const ParticiparSelecao = () => {
                       <>
                         {lotes.map(lote => {
                           const itensLote = itens.filter(i => i.lote_id === lote.id);
+                          const subtotalLote = criterioJulgamento !== "desconto" 
+                            ? itensLote.reduce((acc, item) => acc + ((respostas[item.id]?.valor_unitario_ofertado || 0) * item.quantidade), 0)
+                            : 0;
                           return (
                             <React.Fragment key={lote.id}>
-                              <TableRow className="bg-muted/50">
-                                <TableCell colSpan={8} className="font-semibold">
-                                  Lote {lote.numero_lote} - {lote.descricao_lote}
+                              <TableRow className="bg-primary/20">
+                                <TableCell colSpan={criterioJulgamento === "desconto" ? 6 : 8} className="font-bold text-primary">
+                                  LOTE {lote.numero_lote} - {lote.descricao_lote}
                                 </TableCell>
                               </TableRow>
                               {itensLote.map(item => (
@@ -1388,9 +1391,31 @@ const ParticiparSelecao = () => {
                                    )}
                                 </TableRow>
                               ))}
+                              {/* Subtotal do Lote */}
+                              {criterioJulgamento !== "desconto" && (
+                                <TableRow className="bg-blue-50 dark:bg-blue-950">
+                                  <TableCell colSpan={processo?.tipo === "material" ? 7 : 6} className="text-right font-semibold">
+                                    Subtotal Lote {lote.numero_lote}:
+                                  </TableCell>
+                                  <TableCell className="text-right font-bold text-primary">
+                                    {formatCurrency(subtotalLote)}
+                                  </TableCell>
+                                </TableRow>
+                              )}
                             </React.Fragment>
                           );
                         })}
+                        {/* Total Geral */}
+                        {criterioJulgamento !== "desconto" && (
+                          <TableRow className="bg-primary text-primary-foreground">
+                            <TableCell colSpan={processo?.tipo === "material" ? 7 : 6} className="text-right font-bold">
+                              VALOR TOTAL GERAL:
+                            </TableCell>
+                            <TableCell className="text-right font-bold">
+                              {formatCurrency(calcularValorTotal())}
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </>
                     ) : (
                       <>
