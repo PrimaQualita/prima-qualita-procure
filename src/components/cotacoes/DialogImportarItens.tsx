@@ -66,32 +66,25 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([]);
 
-    // Lote I - Em branco para preenchimento
+    // Lote I - Estrutura base (usuário adiciona itens abaixo do cabeçalho)
     XLSX.utils.sheet_add_aoa(ws, [["LOTE I - (PREENCHER DESCRIÇÃO DO LOTE)"]], { origin: "A1" });
     XLSX.utils.sheet_add_aoa(ws, [["Item", "Descrição", "Quantidade", "Unidade"]], { origin: "A2" });
-    XLSX.utils.sheet_add_aoa(ws, [
-      [1, "", "", ""],
-      [2, "", "", ""],
-      [3, "", "", ""]
-    ], { origin: "A3" });
+    // Linhas 3+ ficam livres para o usuário preencher quantos itens precisar
 
-    // Linha em branco
-    const proximaLinhaLote2 = 7;
+    // Lote II começa na linha 4 como exemplo (usuário deve mover para baixo conforme necessário)
+    XLSX.utils.sheet_add_aoa(ws, [["LOTE II - (PREENCHER DESCRIÇÃO DO LOTE)"]], { origin: "A4" });
+    XLSX.utils.sheet_add_aoa(ws, [["Item", "Descrição", "Quantidade", "Unidade"]], { origin: "A5" });
+    // Linhas 6+ ficam livres para o usuário preencher quantos itens precisar
 
-    // Lote II - Em branco para preenchimento
-    XLSX.utils.sheet_add_aoa(ws, [["LOTE II - (PREENCHER DESCRIÇÃO DO LOTE)"]], { origin: `A${proximaLinhaLote2}` });
-    XLSX.utils.sheet_add_aoa(ws, [["Item", "Descrição", "Quantidade", "Unidade"]], { origin: `A${proximaLinhaLote2 + 1}` });
-    XLSX.utils.sheet_add_aoa(ws, [
-      [1, "", "", ""],
-      [2, "", "", ""],
-      [3, "", "", ""]
-    ], { origin: `A${proximaLinhaLote2 + 2}` });
+    // Adicionar instrução na planilha
+    XLSX.utils.sheet_add_aoa(ws, [["INSTRUÇÕES: Adicione quantas linhas de itens precisar abaixo de cada cabeçalho de lote. Para mais lotes, copie a estrutura (título do lote + cabeçalho das colunas)."]], { origin: "A8" });
 
-    // Mesclar células dos títulos dos lotes
+    // Mesclar células dos títulos dos lotes e instrução
     if (!ws['!merges']) ws['!merges'] = [];
     ws['!merges'].push(
       { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, // LOTE I
-      { s: { r: proximaLinhaLote2 - 1, c: 0 }, e: { r: proximaLinhaLote2 - 1, c: 3 } } // LOTE II
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 3 } }, // LOTE II
+      { s: { r: 7, c: 0 }, e: { r: 7, c: 3 } }  // INSTRUÇÕES
     );
 
     // Definir larguras das colunas
