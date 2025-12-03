@@ -106,6 +106,8 @@ const Cotacoes = () => {
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [confirmDeleteLoteOpen, setConfirmDeleteLoteOpen] = useState(false);
   const [loteParaExcluir, setLoteParaExcluir] = useState<string | null>(null);
+  const [confirmDeleteItemOpen, setConfirmDeleteItemOpen] = useState(false);
+  const [itemParaExcluir, setItemParaExcluir] = useState<string | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
   const [criterioJulgamento, setCriterioJulgamento] = useState<'por_item' | 'global' | 'por_lote' | 'desconto'>('global');
   const [naoRequerSelecao, setNaoRequerSelecao] = useState(false);
@@ -663,10 +665,16 @@ const Cotacoes = () => {
     }
   };
 
-  const handleDeleteItem = async (id: string) => {
-    if (!confirm("Deseja realmente excluir este item?")) return;
+  const handleDeleteItem = (id: string) => {
+    setItemParaExcluir(id);
+    setConfirmDeleteItemOpen(true);
+  };
 
-    if (!cotacaoSelecionada) return;
+  const confirmarDeleteItem = async () => {
+    if (!itemParaExcluir || !cotacaoSelecionada) return;
+    const id = itemParaExcluir;
+    setConfirmDeleteItemOpen(false);
+    setItemParaExcluir(null);
 
     try {
       // Primeiro, deletar todas as respostas de fornecedores da cotação
@@ -2559,6 +2567,27 @@ const Cotacoes = () => {
             <AlertDialogCancel onClick={() => setLoteParaExcluir(null)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmarDeleteLote}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para exclusão de item */}
+      <AlertDialog open={confirmDeleteItemOpen} onOpenChange={setConfirmDeleteItemOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja realmente excluir este item?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setItemParaExcluir(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmarDeleteItem}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
