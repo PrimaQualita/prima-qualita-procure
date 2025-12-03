@@ -3596,7 +3596,7 @@ export function DialogFinalizarProcesso({
             )}
             
             {/* Botões de Ação */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 px-4 pb-4">
               <Button onClick={() => onOpenChange(false)} variant="outline" className="flex-1">
                 Cancelar
               </Button>
