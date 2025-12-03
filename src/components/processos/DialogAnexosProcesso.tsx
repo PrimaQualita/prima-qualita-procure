@@ -359,6 +359,21 @@ export function DialogAnexosProcesso({
 
             if (!anexo) return null;
 
+            // Formatar nome amigável para processo completo
+            const formatarNomeProcessoCompleto = (nomeArquivo: string) => {
+              // Extrair número do processo do nome do arquivo (ex: processo_completo_001-2025_...)
+              const match = nomeArquivo.match(/processo_completo_(\d+-\d+)/i);
+              if (match) {
+                const numero = match[1].replace('-', '/');
+                return `Processo ${numero}`;
+              }
+              return nomeArquivo;
+            };
+
+            const nomeExibicao = tipo === "PROCESSO_COMPLETO" 
+              ? formatarNomeProcessoCompleto(anexo.nome_arquivo)
+              : anexo.nome_arquivo;
+
             return (
               <div key={tipo} className="border-2 border-primary rounded-lg p-4 bg-primary/5">
                 <div className="flex items-center justify-between mb-2">
@@ -373,7 +388,7 @@ export function DialogAnexosProcesso({
 
                 <div className="flex items-center justify-between bg-background p-3 rounded">
                   <div className="flex-1">
-                    <p className="text-sm font-medium">{anexo.nome_arquivo}</p>
+                    <p className="text-sm font-medium">{nomeExibicao}</p>
                     <p className="text-xs text-muted-foreground">
                       Gerado em {new Date(anexo.data_upload).toLocaleString("pt-BR")}
                     </p>
