@@ -24,10 +24,31 @@ const gerarProtocolo = (): string => {
 // Função para sanitizar texto - remove/substitui caracteres especiais que jsPDF não renderiza bem
 const sanitizarTexto = (texto: string): string => {
   if (!texto) return '';
-  return texto
-    .replace(/²/g, '2')      // Superscript 2
+  
+  // Primeiro, substituir caracteres especiais conhecidos
+  let resultado = texto
+    // Superscript e subscript (SpO₂ usa subscript!)
+    .replace(/²/g, '2')      // Superscript 2 (U+00B2)
+    .replace(/₂/g, '2')      // Subscript 2 (U+2082)
     .replace(/³/g, '3')      // Superscript 3
+    .replace(/₃/g, '3')      // Subscript 3
     .replace(/¹/g, '1')      // Superscript 1
+    .replace(/₁/g, '1')      // Subscript 1
+    .replace(/⁰/g, '0')      // Superscript 0
+    .replace(/₀/g, '0')      // Subscript 0
+    .replace(/⁴/g, '4')      // Superscript 4
+    .replace(/₄/g, '4')      // Subscript 4
+    .replace(/⁵/g, '5')      // Superscript 5
+    .replace(/₅/g, '5')      // Subscript 5
+    .replace(/⁶/g, '6')      // Superscript 6
+    .replace(/₆/g, '6')      // Subscript 6
+    .replace(/⁷/g, '7')      // Superscript 7
+    .replace(/₇/g, '7')      // Subscript 7
+    .replace(/⁸/g, '8')      // Superscript 8
+    .replace(/₈/g, '8')      // Subscript 8
+    .replace(/⁹/g, '9')      // Superscript 9
+    .replace(/₉/g, '9')      // Subscript 9
+    // Símbolos
     .replace(/°/g, 'o')      // Degree symbol
     .replace(/º/g, 'o')      // Ordinal masculine
     .replace(/ª/g, 'a')      // Ordinal feminine
@@ -39,28 +60,53 @@ const sanitizarTexto = (texto: string): string => {
     .replace(/±/g, '+/-')    // Plus-minus
     .replace(/≥/g, '>=')     // Greater or equal
     .replace(/≤/g, '<=')     // Less or equal
-    .replace(/µ/g, 'u')      // Micro
+    .replace(/µ/g, 'u')      // Micro (U+00B5)
+    .replace(/μ/g, 'u')      // Greek mu (U+03BC)
     .replace(/®/g, '(R)')    // Registered
     .replace(/™/g, '(TM)')   // Trademark
     .replace(/©/g, '(C)')    // Copyright
-    .replace(/[^\x00-\x7F]/g, (char) => {
-      // Manter caracteres acentuados portugueses
-      const acentos: { [key: string]: string } = {
-        'á': 'a', 'à': 'a', 'ã': 'a', 'â': 'a', 'ä': 'a',
-        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
-        'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
-        'ó': 'o', 'ò': 'o', 'õ': 'o', 'ô': 'o', 'ö': 'o',
-        'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
-        'ç': 'c', 'ñ': 'n',
-        'Á': 'A', 'À': 'A', 'Ã': 'A', 'Â': 'A', 'Ä': 'A',
-        'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
-        'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
-        'Ó': 'O', 'Ò': 'O', 'Õ': 'O', 'Ô': 'O', 'Ö': 'O',
-        'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
-        'Ç': 'C', 'Ñ': 'N'
-      };
-      return acentos[char] || char;
-    });
+    .replace(/–/g, '-')      // En dash
+    .replace(/—/g, '-')      // Em dash
+    .replace(/'/g, "'")      // Smart quote
+    .replace(/'/g, "'")      // Smart quote
+    .replace(/"/g, '"')      // Smart quote
+    .replace(/"/g, '"')      // Smart quote
+    .replace(/…/g, '...')    // Ellipsis
+    .replace(/•/g, '-')      // Bullet
+    .replace(/→/g, '->')     // Arrow
+    .replace(/←/g, '<-')     // Arrow
+    .replace(/≈/g, '~')      // Approximately
+    .replace(/≠/g, '!=')     // Not equal
+    .replace(/∞/g, 'inf')    // Infinity
+    .replace(/Ω/g, 'Ohm')    // Ohm
+    .replace(/α/g, 'alfa')   // Alpha
+    .replace(/β/g, 'beta')   // Beta
+    .replace(/γ/g, 'gama')   // Gamma
+    .replace(/δ/g, 'delta'); // Delta
+  
+  // Depois, converter caracteres acentuados para versão sem acento (jsPDF Helvetica não suporta bem)
+  const acentos: { [key: string]: string } = {
+    'á': 'a', 'à': 'a', 'ã': 'a', 'â': 'a', 'ä': 'a',
+    'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+    'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+    'ó': 'o', 'ò': 'o', 'õ': 'o', 'ô': 'o', 'ö': 'o',
+    'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
+    'ç': 'c', 'ñ': 'n',
+    'Á': 'A', 'À': 'A', 'Ã': 'A', 'Â': 'A', 'Ä': 'A',
+    'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+    'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
+    'Ó': 'O', 'Ò': 'O', 'Õ': 'O', 'Ô': 'O', 'Ö': 'O',
+    'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
+    'Ç': 'C', 'Ñ': 'N'
+  };
+  
+  // Aplicar conversão de acentos
+  resultado = resultado.split('').map(char => acentos[char] || char).join('');
+  
+  // Por fim, remover qualquer caractere não-ASCII restante que possa causar problemas
+  resultado = resultado.replace(/[^\x20-\x7E\n\r\t]/g, '');
+  
+  return resultado;
 };
 
 interface ItemProposta {
