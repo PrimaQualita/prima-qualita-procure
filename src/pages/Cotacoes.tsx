@@ -1134,6 +1134,27 @@ const Cotacoes = () => {
 
       if (error) throw error;
 
+      // Renumerar lotes restantes em ordem crescente
+      if (cotacaoSelecionada) {
+        const { data: lotesRestantes } = await supabase
+          .from("lotes_cotacao")
+          .select("id, numero_lote")
+          .eq("cotacao_id", cotacaoSelecionada.id)
+          .order("numero_lote", { ascending: true });
+
+        if (lotesRestantes && lotesRestantes.length > 0) {
+          for (let i = 0; i < lotesRestantes.length; i++) {
+            const novoNumero = i + 1;
+            if (lotesRestantes[i].numero_lote !== novoNumero) {
+              await supabase
+                .from("lotes_cotacao")
+                .update({ numero_lote: novoNumero })
+                .eq("id", lotesRestantes[i].id);
+            }
+          }
+        }
+      }
+
       toast.success("Lote e todos os itens vinculados excluídos com sucesso");
       if (cotacaoSelecionada) {
         loadLotes(cotacaoSelecionada.id);
