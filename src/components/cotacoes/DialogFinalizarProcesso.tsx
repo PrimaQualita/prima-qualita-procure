@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/gerarAutorizacaoPDF";
 import { gerarRelatorioFinal } from "@/lib/gerarRelatorioFinalPDF";
 import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
+import { gerarPlanilhaHabilitacaoPDF } from "@/lib/gerarPlanilhaHabilitacaoPDF";
 import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { stripHtml } from "@/lib/htmlUtils";
@@ -131,6 +132,9 @@ export function DialogFinalizarProcesso({
   const [relatorioParaExcluir, setRelatorioParaExcluir] = useState<any>(null);
   const [encaminhamentos, setEncaminhamentos] = useState<any[]>([]);
   const [autorizacoes, setAutorizacoes] = useState<any[]>([]);
+  const [planilhasHabilitacao, setPlanilhasHabilitacao] = useState<any[]>([]);
+  const [confirmDeletePlanilhaHabOpen, setConfirmDeletePlanilhaHabOpen] = useState(false);
+  const [planilhaHabParaExcluir, setPlanilhaHabParaExcluir] = useState<any>(null);
   const [foiEnviadoParaSelecao, setFoiEnviadoParaSelecao] = useState(false);
   
   // Estados para rejeição por item/lote
@@ -159,6 +163,7 @@ export function DialogFinalizarProcesso({
       loadEncaminhamentos();
       loadAutorizacoes();
       loadRelatorioFinal();
+      loadPlanilhasHabilitacao();
       checkResponsavelLegal();
       loadFornecedoresRejeitados();
       loadRecursos();
@@ -1102,6 +1107,20 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const loadPlanilhasHabilitacao = async () => {
+    const { data, error } = await supabase
+      .from("planilhas_habilitacao")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_geracao", { ascending: false });
+
+    if (error) {
+      console.error("Erro ao carregar planilhas de habilitação:", error);
+    } else {
+      setPlanilhasHabilitacao(data || []);
+    }
+  };
+
   const checkResponsavelLegal = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user.id) return;
@@ -1715,6 +1734,216 @@ export function DialogFinalizarProcesso({
     } catch (error: any) {
       console.error("Erro ao excluir relatório final:", error);
       toast.error("Erro ao excluir relatório final");
+    }
+  };
+
+  const gerarPlanilhaHabilitacao = async () => {
+    try {
+      setLoading(true);
+      
+      // Buscar dados do processo
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select("processo_compra_id, criterio_julgamento")
+        .eq("id", cotacaoId)
+        .single();
+      
+      if (!cotacaoData) throw new Error("Cotação não encontrada");
+
+      const { data: processo } = await supabase
+        .from("processos_compras")
+        .select("numero_processo_interno, objeto_resumido")
+        .eq("id", cotacaoData.processo_compra_id)
+        .single();
+
+      if (!processo) throw new Error("Processo não encontrado");
+
+      const { data: cotacao } = await supabase
+        .from("cotacoes_precos")
+        .select("titulo_cotacao")
+        .eq("id", cotacaoId)
+        .single();
+
+      // Buscar itens da cotação
+      const { data: itensData } = await supabase
+        .from("itens_cotacao")
+        .select(`
+          numero_item,
+          descricao,
+          quantidade,
+          unidade,
+          lotes_cotacao(numero_lote, descricao_lote)
+        `)
+        .eq("cotacao_id", cotacaoId)
+        .order("numero_item");
+
+      // Buscar respostas dos fornecedores
+      const { data: respostasData } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          id,
+          fornecedor_id,
+          rejeitado,
+          motivo_rejeicao,
+          fornecedores!inner(id, razao_social, cnpj)
+        `)
+        .eq("cotacao_id", cotacaoId);
+
+      // Buscar fornecedores rejeitados
+      const { data: rejeitadosData } = await supabase
+        .from("fornecedores_rejeitados_cotacao")
+        .select("fornecedor_id, itens_afetados, motivo_rejeicao, revertido")
+        .eq("cotacao_id", cotacaoId)
+        .eq("revertido", false);
+
+      // Montar estrutura de respostas com itens
+      const respostasFormatadas: any[] = [];
+      
+      for (const resposta of respostasData || []) {
+        const { data: itensResposta } = await supabase
+          .from("respostas_itens_fornecedor")
+          .select(`
+            valor_unitario_ofertado,
+            percentual_desconto,
+            marca,
+            itens_cotacao!inner(numero_item)
+          `)
+          .eq("cotacao_resposta_fornecedor_id", resposta.id);
+
+        const rejeicao = rejeitadosData?.find(r => r.fornecedor_id === resposta.fornecedor_id);
+        
+        respostasFormatadas.push({
+          fornecedor: {
+            id: resposta.fornecedores.id,
+            razao_social: resposta.fornecedores.razao_social,
+            cnpj: resposta.fornecedores.cnpj
+          },
+          itens: (itensResposta || []).map(ir => ({
+            numero_item: ir.itens_cotacao.numero_item,
+            valor_unitario_ofertado: ir.valor_unitario_ofertado,
+            percentual_desconto: ir.percentual_desconto,
+            marca: ir.marca
+          })),
+          valor_total: (itensResposta || []).reduce((sum, ir) => sum + (ir.valor_unitario_ofertado || 0), 0),
+          rejeitado: !!rejeicao && (!rejeicao.itens_afetados || rejeicao.itens_afetados.length === 0),
+          itens_rejeitados: rejeicao?.itens_afetados || [],
+          motivo_rejeicao: rejeicao?.motivo_rejeicao || resposta.motivo_rejeicao
+        });
+      }
+
+      // Gerar protocolo
+      const protocolo = `${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+      // Buscar dados do usuário
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: usuario } = await supabase
+        .from("profiles")
+        .select("nome_completo, cpf")
+        .eq("id", user!.id)
+        .single();
+
+      const itensFormatados = (itensData || []).map(item => ({
+        numero_item: item.numero_item,
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        lote_numero: item.lotes_cotacao?.numero_lote,
+        lote_descricao: item.lotes_cotacao?.descricao_lote
+      }));
+
+      // Gerar PDF
+      const { blob, storagePath } = await gerarPlanilhaHabilitacaoPDF(
+        { numero: processo.numero_processo_interno, objeto: processo.objeto_resumido },
+        { titulo_cotacao: cotacao?.titulo_cotacao || "" },
+        itensFormatados,
+        respostasFormatadas,
+        { protocolo, usuario: { nome_completo: usuario?.nome_completo || "", cpf: usuario?.cpf || "" } },
+        criterioJulgamento
+      );
+
+      // Upload para storage
+      const { error: uploadError } = await supabase.storage
+        .from("processo-anexos")
+        .upload(storagePath, blob, { contentType: "application/pdf" });
+
+      if (uploadError) throw uploadError;
+
+      // Obter URL pública
+      const { data: urlData } = supabase.storage
+        .from("processo-anexos")
+        .getPublicUrl(storagePath);
+
+      // Salvar no banco
+      const { error: insertError } = await supabase
+        .from("planilhas_habilitacao")
+        .insert({
+          cotacao_id: cotacaoId,
+          protocolo,
+          nome_arquivo: `Planilha_Habilitacao_${processo.numero_processo_interno.replace(/\//g, '-')}.pdf`,
+          url_arquivo: urlData.publicUrl,
+          storage_path: storagePath,
+          usuario_gerador_id: user!.id,
+          data_geracao: new Date().toISOString()
+        });
+
+      if (insertError) throw insertError;
+
+      await loadPlanilhasHabilitacao();
+      toast.success("Planilha de Habilitação gerada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao gerar planilha de habilitação:", error);
+      toast.error("Erro ao gerar planilha de habilitação");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deletarPlanilhaHabilitacao = async () => {
+    if (!planilhaHabParaExcluir) return;
+
+    try {
+      // Extrair path do storage
+      let filePath = planilhaHabParaExcluir.storage_path;
+      
+      if (!filePath) {
+        const urlSemParams = planilhaHabParaExcluir.url_arquivo.split("?")[0];
+        if (urlSemParams.includes("/processo-anexos/")) {
+          filePath = urlSemParams.split("/processo-anexos/")[1];
+        } else if (urlSemParams.includes("planilhas-habilitacao/")) {
+          const match = urlSemParams.match(/planilhas-habilitacao\/.+/);
+          if (match) filePath = match[0];
+        }
+      }
+
+      console.log("[Planilha Habilitação] Deletando arquivo:", filePath);
+
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from("processo-anexos")
+          .remove([filePath]);
+
+        if (storageError) {
+          console.error("Erro ao remover do storage:", storageError);
+        } else {
+          console.log("[Planilha Habilitação] Arquivo removido do storage com sucesso");
+        }
+      }
+
+      // Deletar do banco de dados
+      const { error: dbError } = await supabase
+        .from("planilhas_habilitacao")
+        .delete()
+        .eq("id", planilhaHabParaExcluir.id);
+
+      if (dbError) throw dbError;
+
+      setPlanilhaHabParaExcluir(null);
+      setConfirmDeletePlanilhaHabOpen(false);
+      await loadPlanilhasHabilitacao();
+      toast.success("Planilha de habilitação excluída com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao excluir planilha de habilitação:", error);
+      toast.error("Erro ao excluir planilha de habilitação");
     }
   };
 
@@ -3155,6 +3384,67 @@ export function DialogFinalizarProcesso({
 
         <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0 max-h-[50vh] overflow-y-auto">
           <div className="flex flex-col w-full gap-3">
+            {/* Planilha de Habilitação - Acima do Relatório Final */}
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={gerarPlanilhaHabilitacao}
+                disabled={loading}
+                className="w-full"
+                variant="outline"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Gerar Planilha de Habilitação
+              </Button>
+              
+              {planilhasHabilitacao.length > 0 && (
+                <div className="flex flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
+                  <Label className="text-sm font-semibold">Planilhas de Habilitação Geradas:</Label>
+                  {planilhasHabilitacao.map((planilha) => (
+                    <div key={planilha.id} className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                      <div className="flex-1 text-sm">
+                        <div className="font-medium">Protocolo: {planilha.protocolo}</div>
+                        <div className="text-muted-foreground">
+                          {new Date(planilha.data_geracao).toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => window.open(planilha.url_arquivo, '_blank')}
+                        variant="outline"
+                        size="icon"
+                        title="Ver Planilha"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = planilha.url_arquivo;
+                          link.download = planilha.nome_arquivo;
+                          link.click();
+                        }}
+                        variant="outline"
+                        size="icon"
+                        title="Baixar"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setPlanilhaHabParaExcluir(planilha);
+                          setConfirmDeletePlanilhaHabOpen(true);
+                        }}
+                        variant="destructive"
+                        size="icon"
+                        title="Excluir"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Relatórios Finais - Qualquer gestor/colaborador pode gerar e deletar */}
             <div className="flex flex-col gap-2">
               <Button
@@ -4058,6 +4348,21 @@ export function DialogFinalizarProcesso({
               : ""
           }
           confirmText="Excluir Relatório"
+          cancelText="Cancelar"
+          variant="destructive"
+        />
+
+        <ConfirmDialog
+          open={confirmDeletePlanilhaHabOpen}
+          onOpenChange={setConfirmDeletePlanilhaHabOpen}
+          onConfirm={deletarPlanilhaHabilitacao}
+          title="Confirmar Exclusão de Planilha de Habilitação"
+          description={
+            planilhaHabParaExcluir 
+              ? `Tem certeza que deseja excluir esta planilha de habilitação?\n\nProtocolo: ${planilhaHabParaExcluir.protocolo}\n\nEsta ação não pode ser desfeita. Você poderá gerar uma nova planilha de habilitação a qualquer momento.`
+              : ""
+          }
+          confirmText="Excluir Planilha"
           cancelText="Cancelar"
           variant="destructive"
         />
