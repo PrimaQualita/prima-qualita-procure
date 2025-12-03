@@ -182,9 +182,53 @@ export async function gerarPlanilhaHabilitacaoPDF(
     });
   });
 
+  // Adicionar colunas de vencedor no final
+  colunas.push({ header: "Valor Vencedor", dataKey: "valor_vencedor" });
+  colunas.push({ header: "Empresa Vencedora", dataKey: "empresa_vencedora" });
+
   // Construir dados da tabela
   const dados: any[] = [];
   const isDesconto = criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto";
+
+  // Função para encontrar vencedor de um item
+  const encontrarVencedor = (numeroItem: number): { valor: number | null; empresa: string } => {
+    let melhorValor: number | null = null;
+    let empresaVencedora = "-";
+
+    respostas.forEach((resposta) => {
+      // Ignorar fornecedores totalmente rejeitados ou rejeitados neste item
+      if (resposta.rejeitado || resposta.itens_rejeitados.includes(numeroItem)) {
+        return;
+      }
+
+      const itemResposta = resposta.itens.find(i => i.numero_item === numeroItem);
+      if (itemResposta) {
+        const valor = isDesconto 
+          ? (itemResposta.percentual_desconto || itemResposta.valor_unitario_ofertado)
+          : itemResposta.valor_unitario_ofertado;
+
+        if (melhorValor === null) {
+          melhorValor = valor;
+          empresaVencedora = resposta.fornecedor.razao_social;
+        } else {
+          // Para desconto, maior é melhor; para preço, menor é melhor
+          if (isDesconto) {
+            if (valor > melhorValor) {
+              melhorValor = valor;
+              empresaVencedora = resposta.fornecedor.razao_social;
+            }
+          } else {
+            if (valor < melhorValor) {
+              melhorValor = valor;
+              empresaVencedora = resposta.fornecedor.razao_social;
+            }
+          }
+        }
+      }
+    });
+
+    return { valor: melhorValor, empresa: empresaVencedora };
+  };
 
   itens.forEach((item) => {
     const linha: any = {
@@ -206,6 +250,16 @@ export async function gerarPlanilhaHabilitacaoPDF(
         linha[`fornecedor_${idx}`] = "-";
       }
     });
+
+    // Adicionar dados do vencedor
+    const vencedor = encontrarVencedor(item.numero_item);
+    if (vencedor.valor !== null) {
+      linha.valor_vencedor = isDesconto ? formatarPercentual(vencedor.valor) : formatarMoeda(vencedor.valor);
+      linha.empresa_vencedora = vencedor.empresa.substring(0, 25);
+    } else {
+      linha.valor_vencedor = "-";
+      linha.empresa_vencedora = "-";
+    }
 
     dados.push(linha);
   });
@@ -231,9 +285,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
     },
     columnStyles: {
       item: { cellWidth: 12, halign: 'center' },
-      descricao: { cellWidth: 60, halign: 'left' },
-      quantidade: { cellWidth: 15, halign: 'center' },
-      unidade: { cellWidth: 15, halign: 'center' }
+      descricao: { cellWidth: 50, halign: 'left' },
+      quantidade: { cellWidth: 12, halign: 'center' },
+      unidade: { cellWidth: 12, halign: 'center' },
+      valor_vencedor: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
+      empresa_vencedora: { cellWidth: 35, halign: 'center', fontStyle: 'bold' }
     },
     didParseCell: (data) => {
       // Marcar empresas/itens inabilitados em vermelho
@@ -247,6 +303,13 @@ export async function gerarPlanilhaHabilitacaoPDF(
           data.cell.styles.textColor = [255, 0, 0];
           data.cell.styles.fontStyle = 'bold';
         }
+      }
+      
+      // Destacar colunas de vencedor em verde
+      if (data.section === 'body' && data.column.dataKey && 
+          (data.column.dataKey === 'valor_vencedor' || data.column.dataKey === 'empresa_vencedora')) {
+        data.cell.styles.textColor = [0, 100, 0];
+        data.cell.styles.fontStyle = 'bold';
       }
     },
     didDrawCell: (data) => {
