@@ -301,6 +301,21 @@ export async function gerarPlanilhaHabilitacaoPDF(
     dados.push(linhaTotalGeral);
   }
 
+  // Construir estilos de coluna dinamicamente
+  const columnStyles: any = {
+    item: { cellWidth: 12, halign: 'center' },
+    descricao: { cellWidth: 45, halign: 'left', overflow: 'linebreak' },
+    quantidade: { cellWidth: 12, halign: 'center' },
+    unidade: { cellWidth: 12, halign: 'center' },
+    valor_vencedor: { cellWidth: 22, halign: 'center', fontStyle: 'bold', overflow: 'linebreak' },
+    empresa_vencedora: { cellWidth: 35, halign: 'center', fontStyle: 'bold', overflow: 'linebreak' }
+  };
+
+  // Adicionar estilos para colunas de fornecedores
+  respostas.forEach((_, idx) => {
+    columnStyles[`fornecedor_${idx}`] = { halign: 'center', overflow: 'linebreak' };
+  });
+
   // Gerar tabela
   autoTable(doc, {
     columns: colunas,
@@ -322,17 +337,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
       valign: 'middle',
       overflow: 'linebreak',
       cellPadding: 2,
-      minCellHeight: 15,
-      fontSize: 7
+      minCellHeight: 18,
+      fontSize: 6
     },
-    columnStyles: {
-      item: { cellWidth: 12, halign: 'center' },
-      descricao: { cellWidth: 50, halign: 'left' },
-      quantidade: { cellWidth: 12, halign: 'center' },
-      unidade: { cellWidth: 12, halign: 'center' },
-      valor_vencedor: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
-      empresa_vencedora: { cellWidth: 40, halign: 'center', fontStyle: 'bold', overflow: 'linebreak' }
-    },
+    columnStyles,
     didParseCell: (data) => {
       const isLinhaTotal = !isDesconto && data.row.index === dados.length - 1;
       
