@@ -257,37 +257,6 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 4b. Buscar TODAS as planilhas de habilitação (Resultado Final)
-    const { data: planilhasHabilitacao, error: planilhasHabError } = await supabase
-      .from("planilhas_habilitacao")
-      .select("*")
-      .eq("cotacao_id", cotacaoId)
-      .order("data_geracao", { ascending: true });
-
-    if (planilhasHabError) {
-      console.error("Erro ao buscar planilhas de habilitação:", planilhasHabError);
-    }
-
-    console.log(`Planilhas de habilitação (Resultado Final) encontradas: ${planilhasHabilitacao?.length || 0}`);
-    
-    if (planilhasHabilitacao && planilhasHabilitacao.length > 0) {
-      planilhasHabilitacao.forEach(planilha => {
-        // Extrair storage path corretamente
-        let storagePath = planilha.storage_path || planilha.url_arquivo;
-        if (storagePath?.startsWith('processo-anexos/')) {
-          storagePath = storagePath.replace('processo-anexos/', '');
-        }
-        
-        documentosOrdenados.push({
-          tipo: "Planilha de Habilitação",
-          data: planilha.data_geracao,
-          nome: planilha.nome_arquivo,
-          storagePath: storagePath,
-          bucket: "processo-anexos"
-        });
-      });
-    }
-
     // 5. Buscar TODOS os encaminhamentos ao compliance
     const { data: encaminhamentos, error: encaminhamentosError } = await supabase
       .from("encaminhamentos_processo")
@@ -670,12 +639,53 @@ export const gerarProcessoCompletoPDF = async (
       }
     }
 
+    console.log(`\n✅ Total de documentos após recursos: ${documentosOrdenados.length}`);
+
+    // 11c. BUSCAR PLANILHAS DE HABILITAÇÃO (Resultado Final) - APÓS recursos
+    console.log("\n📊 === BUSCANDO PLANILHAS DE HABILITAÇÃO (RESULTADO FINAL) ===");
+    
+    const { data: planilhasHabilitacao, error: planilhasHabError } = await supabase
+      .from("planilhas_habilitacao")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_geracao", { ascending: true });
+
+    if (planilhasHabError) {
+      console.error("Erro ao buscar planilhas de habilitação:", planilhasHabError);
+    }
+
+    console.log(`📊 Planilhas de habilitação encontradas: ${planilhasHabilitacao?.length || 0}`);
+    
+    // Data base para planilhas de habilitação (após recursos)
+    const dataPlanilhasHab = new Date(new Date(dataBaseRecursos).getTime() + (recursosFiltrados.length * 200) + 500).toISOString();
+    
+    if (planilhasHabilitacao && planilhasHabilitacao.length > 0) {
+      planilhasHabilitacao.forEach((planilha, idx) => {
+        // Extrair storage path corretamente
+        let storagePath = planilha.storage_path || planilha.url_arquivo;
+        if (storagePath?.startsWith('processo-anexos/')) {
+          storagePath = storagePath.replace('processo-anexos/', '');
+        }
+        
+        const dataPlanilha = new Date(new Date(dataPlanilhasHab).getTime() + (idx * 100)).toISOString();
+        
+        documentosOrdenados.push({
+          tipo: "Planilha de Habilitação",
+          data: dataPlanilha,
+          nome: planilha.nome_arquivo,
+          storagePath: storagePath,
+          bucket: "processo-anexos"
+        });
+        console.log(`  📊 Planilha de Habilitação: ${planilha.nome_arquivo}`);
+      });
+    }
+
     console.log(`\n✅ Total de documentos no array final: ${documentosOrdenados.length}`);
 
-    // 12. Adicionar relatórios finais APÓS recursos (usar data base dos recursos + offset)
+    // 12. Adicionar relatórios finais APÓS planilhas de habilitação
     if (relatorios && relatorios.length > 0) {
-      // Adicionar após os recursos
-      const dataRelatorios = new Date(new Date(dataBaseRecursos).getTime() + (recursosFiltrados.length * 200) + 1000).toISOString();
+      // Adicionar após as planilhas de habilitação
+      const dataRelatorios = new Date(new Date(dataPlanilhasHab).getTime() + ((planilhasHabilitacao?.length || 0) * 100) + 500).toISOString();
       
       relatorios.forEach(relatorio => {
         // Extrair storage path da URL (pode ser signed URL ou public URL)
@@ -701,7 +711,7 @@ export const gerarProcessoCompletoPDF = async (
     // 13. Adicionar autorizações APÓS relatórios finais
     if (autorizacoes && autorizacoes.length > 0) {
       // Adicionar após os relatórios
-      const dataAutorizacoes = new Date(new Date(dataBaseRecursos).getTime() + (recursosFiltrados.length * 200) + 2000).toISOString();
+      const dataAutorizacoes = new Date(new Date(dataPlanilhasHab).getTime() + ((planilhasHabilitacao?.length || 0) * 100) + 1000).toISOString();
       
       autorizacoes.forEach(aut => {
         documentosOrdenados.push({
