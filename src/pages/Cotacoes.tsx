@@ -2566,15 +2566,16 @@ const Cotacoes = () => {
             <Button onClick={async () => {
               if (!cotacaoEditando) return;
               try {
-                // Converter datetime-local para ISO com timezone de Brasília
-                // datetime-local retorna valor como "2025-12-03T19:00" (sem timezone)
-                // Precisamos interpretar isso como horário de Brasília (UTC-3)
+                // Converter datetime-local para UTC (ISO)
+                // datetime-local retorna "2025-12-03T19:00" - interpretar como Brasília (UTC-3)
+                // 19:00 Brasília = 22:00 UTC
                 const dataLocalStr = cotacaoEditando.data_limite_resposta;
                 let dataISO: string;
                 
-                if (dataLocalStr.includes('T') && !dataLocalStr.includes('Z') && !dataLocalStr.includes('+')) {
-                  // Formato datetime-local sem timezone - adicionar offset de Brasília (UTC-3)
-                  dataISO = dataLocalStr + ':00-03:00';
+                if (dataLocalStr.includes('T') && !dataLocalStr.includes('Z') && !dataLocalStr.includes('+') && !dataLocalStr.includes('-', 10)) {
+                  // Formato datetime-local sem timezone - interpretar como Brasília e converter para UTC
+                  const dataComOffset = new Date(dataLocalStr + ':00-03:00');
+                  dataISO = dataComOffset.toISOString();
                 } else {
                   dataISO = new Date(dataLocalStr).toISOString();
                 }
