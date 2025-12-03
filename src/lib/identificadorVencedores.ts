@@ -506,10 +506,12 @@ export async function carregarItensVencedoresPorFornecedor(
       lotesVencedores.has(item.itens_cotacao.lote_id)
     );
 
-    // Adicionar números dos itens (para compatibilidade)
-    itensDoFornecedorVencedores.forEach(item => {
-      numerosItensVencedores.add(item.itens_cotacao.numero_item);
-    });
+    console.log(`  → Lotes vencedores para este fornecedor: ${Array.from(lotesVencedores).join(', ')}`);
+    console.log(`  → Itens dos lotes vencedores: ${itensDoFornecedorVencedores.length}`);
+
+    // Para critério por lote, retornar diretamente os itens dos lotes vencedores
+    // (não usar numerosItensVencedores pois pode haver conflito de números entre lotes)
+    return itensDoFornecedorVencedores.sort((a, b) => a.itens_cotacao.numero_item - b.itens_cotacao.numero_item);
 
   } else {
     // POR ITEM (padrão): menor valor unitário por item
