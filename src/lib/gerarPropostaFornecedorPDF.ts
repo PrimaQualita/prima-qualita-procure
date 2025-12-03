@@ -21,6 +21,48 @@ const gerarProtocolo = (): string => {
   return `${parte1}-${parte2}-${parte3}-${parte4}`;
 };
 
+// Função para sanitizar texto - remove/substitui caracteres especiais que jsPDF não renderiza bem
+const sanitizarTexto = (texto: string): string => {
+  if (!texto) return '';
+  return texto
+    .replace(/²/g, '2')      // Superscript 2
+    .replace(/³/g, '3')      // Superscript 3
+    .replace(/¹/g, '1')      // Superscript 1
+    .replace(/°/g, 'o')      // Degree symbol
+    .replace(/º/g, 'o')      // Ordinal masculine
+    .replace(/ª/g, 'a')      // Ordinal feminine
+    .replace(/½/g, '1/2')    // Fraction
+    .replace(/¼/g, '1/4')    // Fraction
+    .replace(/¾/g, '3/4')    // Fraction
+    .replace(/×/g, 'x')      // Multiplication
+    .replace(/÷/g, '/')      // Division
+    .replace(/±/g, '+/-')    // Plus-minus
+    .replace(/≥/g, '>=')     // Greater or equal
+    .replace(/≤/g, '<=')     // Less or equal
+    .replace(/µ/g, 'u')      // Micro
+    .replace(/®/g, '(R)')    // Registered
+    .replace(/™/g, '(TM)')   // Trademark
+    .replace(/©/g, '(C)')    // Copyright
+    .replace(/[^\x00-\x7F]/g, (char) => {
+      // Manter caracteres acentuados portugueses
+      const acentos: { [key: string]: string } = {
+        'á': 'a', 'à': 'a', 'ã': 'a', 'â': 'a', 'ä': 'a',
+        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+        'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+        'ó': 'o', 'ò': 'o', 'õ': 'o', 'ô': 'o', 'ö': 'o',
+        'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
+        'ç': 'c', 'ñ': 'n',
+        'Á': 'A', 'À': 'A', 'Ã': 'A', 'Â': 'A', 'Ä': 'A',
+        'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+        'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
+        'Ó': 'O', 'Ò': 'O', 'Õ': 'O', 'Ô': 'O', 'Ö': 'O',
+        'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
+        'Ç': 'C', 'Ñ': 'N'
+      };
+      return acentos[char] || char;
+    });
+};
+
 interface ItemProposta {
   numero_item: number;
   descricao: string;
@@ -291,10 +333,26 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
     doc.rect(15, y - 5, 180, 8, 'F');
     
-    // Borda superior da tabela
+    // Bordas do cabeçalho - cinza clara
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.1);
-    doc.line(15, y - 5, 195, y - 5);
+    // Borda externa do cabeçalho
+    doc.rect(15, y - 5, 180, 8, 'S');
+    
+    // Bordas verticais internas do cabeçalho
+    if (criterioJulgamento === 'desconto') {
+      doc.line(30, y - 5, 30, y + 3);
+      doc.line(130, y - 5, 130, y + 3);
+      doc.line(155, y - 5, 155, y + 3);
+      doc.line(172, y - 5, 172, y + 3);
+    } else {
+      doc.line(colDescX, y - 5, colDescX, y + 3);
+      doc.line(colMarcaX, y - 5, colMarcaX, y + 3);
+      doc.line(colQtdX, y - 5, colQtdX, y + 3);
+      doc.line(colUnidX, y - 5, colUnidX, y + 3);
+      doc.line(colVlUnitX, y - 5, colVlUnitX, y + 3);
+      doc.line(colVlTotalX, y - 5, colVlTotalX, y + 3);
+    }
     
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
@@ -302,14 +360,14 @@ export async function gerarPropostaFornecedorPDF(
     
     // Posições diferentes baseado no critério
     if (criterioJulgamento === 'desconto') {
-      // Critério DESCONTO: ITEM | DESCRIÇÃO | QTD | UNID | DESCONTO
+      // Critério DESCONTO: ITEM | DESCRICAO | QTD | UNID | DESCONTO
       doc.text('ITEM', 22.5, y, { maxWidth: 15, align: 'center' });
-      doc.text('DESCRIÇÃO', 80, y, { maxWidth: 96, align: 'center' });
+      doc.text('DESCRICAO', 80, y, { maxWidth: 96, align: 'center' });
       doc.text('QTD', 142.5, y, { maxWidth: 16, align: 'center' });
       doc.text('UNID', 163.5, y, { maxWidth: 18, align: 'center' });
       doc.text('DESCONTO (%)', 183.5, y, { maxWidth: 23, align: 'center' });
     } else {
-      // Outros critérios: ITEM | DESCRIÇÃO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
+      // Outros critérios: ITEM | DESCRICAO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
       const centerItemX = colItemX + 7.5;
       const centerDescX = colDescX + 29;
       const centerMarcaX = colMarcaX + (larguraMarca / 2);
@@ -319,7 +377,7 @@ export async function gerarPropostaFornecedorPDF(
       const centerVlTotalX = colVlTotalX + (larguraVlTotal / 2);
       
       doc.text('ITEM', centerItemX, y, { maxWidth: 15, align: 'center' });
-      doc.text('DESCRIÇÃO', centerDescX, y, { maxWidth: 58, align: 'center' });
+      doc.text('DESCRICAO', centerDescX, y, { maxWidth: 58, align: 'center' });
       doc.text('MARCA', centerMarcaX, y, { maxWidth: larguraMarca, align: 'center' });
       doc.text('QTD', centerQtdX, y, { maxWidth: larguraQtd, align: 'center' });
       doc.text('UNID', centerUnidX, y, { maxWidth: larguraUnid, align: 'center' });
@@ -386,9 +444,12 @@ export async function gerarPropostaFornecedorPDF(
         return 0;
       }
       
+      // Sanitizar descrição para remover caracteres especiais problemáticos
+      const descricaoSanitizada = sanitizarTexto(itemCotacao.descricao || '');
+      
       // Quebrar descrição em múltiplas linhas - usar largura menor para evitar sobreposição
       const maxWidthDesc = criterioJulgamento === 'desconto' ? 92 : 52;
-      const linhasDescricao = doc.splitTextToSize(itemCotacao.descricao, maxWidthDesc);
+      const linhasDescricao = doc.splitTextToSize(descricaoSanitizada, maxWidthDesc);
       
       // Calcular altura baseada em TODAS as colunas (não só descrição)
       // LineHeight de 3.5 para texto de 8pt
@@ -396,8 +457,10 @@ export async function gerarPropostaFornecedorPDF(
       let maxLinhas = linhasDescricao.length;
       
       if (criterioJulgamento !== 'desconto') {
-        const marcaLinhas = doc.splitTextToSize(item.marca || '-', larguraMarca - 4);
-        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, larguraUnid - 4);
+        const marcaSanitizada = sanitizarTexto(item.marca || '-');
+        const unidadeSanitizada = sanitizarTexto(itemCotacao.unidade || '');
+        const marcaLinhas = doc.splitTextToSize(marcaSanitizada, larguraMarca - 4);
+        const unidLinhas = doc.splitTextToSize(unidadeSanitizada, larguraUnid - 4);
         const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), larguraQtd - 2);
         maxLinhas = Math.max(maxLinhas, marcaLinhas.length, unidLinhas.length, qtdLinhas.length);
       }
@@ -415,14 +478,31 @@ export async function gerarPropostaFornecedorPDF(
         doc.rect(15, y - 5, 180, 8, 'F');
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.1);
-        doc.line(15, y - 5, 195, y - 5);
+        // Borda externa do cabeçalho
+        doc.rect(15, y - 5, 180, 8, 'S');
+        
+        // Bordas verticais internas do cabeçalho
+        if (criterioJulgamento === 'desconto') {
+          doc.line(30, y - 5, 30, y + 3);
+          doc.line(130, y - 5, 130, y + 3);
+          doc.line(155, y - 5, 155, y + 3);
+          doc.line(172, y - 5, 172, y + 3);
+        } else {
+          doc.line(colDescX, y - 5, colDescX, y + 3);
+          doc.line(colMarcaX, y - 5, colMarcaX, y + 3);
+          doc.line(colQtdX, y - 5, colQtdX, y + 3);
+          doc.line(colUnidX, y - 5, colUnidX, y + 3);
+          doc.line(colVlUnitX, y - 5, colVlUnitX, y + 3);
+          doc.line(colVlTotalX, y - 5, colVlTotalX, y + 3);
+        }
+        
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
         
         if (criterioJulgamento === 'desconto') {
           doc.text('ITEM', 22.5, y, { maxWidth: 15, align: 'center' });
-          doc.text('DESCRIÇÃO', 80, y, { maxWidth: 96, align: 'center' });
+          doc.text('DESCRICAO', 80, y, { maxWidth: 96, align: 'center' });
           doc.text('QTD', 142.5, y, { maxWidth: 16, align: 'center' });
           doc.text('UNID', 163.5, y, { maxWidth: 18, align: 'center' });
           doc.text('DESCONTO (%)', 183.5, y, { maxWidth: 23, align: 'center' });
@@ -436,7 +516,7 @@ export async function gerarPropostaFornecedorPDF(
           const centerVlTotalX = colVlTotalX + (larguraVlTotal / 2);
           
           doc.text('ITEM', centerItemX, y, { maxWidth: 15, align: 'center' });
-          doc.text('DESCRIÇÃO', centerDescX, y, { maxWidth: 58, align: 'center' });
+          doc.text('DESCRICAO', centerDescX, y, { maxWidth: 58, align: 'center' });
           doc.text('MARCA', centerMarcaX, y, { maxWidth: larguraMarca, align: 'center' });
           doc.text('QTD', centerQtdX, y, { maxWidth: larguraQtd, align: 'center' });
           doc.text('UNID', centerUnidX, y, { maxWidth: larguraUnid, align: 'center' });
@@ -460,13 +540,21 @@ export async function gerarPropostaFornecedorPDF(
         doc.rect(15, y - 4, 180, alturaLinha, 'F');
       }
 
-      // Bordas
+      // Bordas cinza clara para toda a tabela
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.1);
-      doc.line(15, y + alturaLinha - 4, 195, y + alturaLinha - 4);
       
       const yTop = y - 4;
       const yBottom = y + alturaLinha - 4;
+      
+      // Borda superior (horizontal)
+      doc.line(15, yTop, 195, yTop);
+      // Borda inferior (horizontal)
+      doc.line(15, yBottom, 195, yBottom);
+      
+      // Bordas verticais (todas as colunas)
+      doc.line(15, yTop, 15, yBottom);   // Esquerda
+      doc.line(195, yTop, 195, yBottom); // Direita
       
       if (criterioJulgamento === 'desconto') {
         doc.line(30, yTop, 30, yBottom);
@@ -481,9 +569,6 @@ export async function gerarPropostaFornecedorPDF(
         doc.line(colVlUnitX, yTop, colVlUnitX, yBottom);
         doc.line(colVlTotalX, yTop, colVlTotalX, yBottom);
       }
-      
-      doc.line(15, yTop, 15, yBottom);
-      doc.line(195, yTop, 195, yBottom);
 
       const yCenter = yTop + (alturaLinha / 2) + 1.5;
       
@@ -495,7 +580,7 @@ export async function gerarPropostaFornecedorPDF(
           doc.text(linha, 32, yDescStart + (index * itemLineHeight), { maxWidth: 92 });
         });
         doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 142.5, yCenter, { align: 'center' });
-        doc.text(itemCotacao.unidade, 163.5, yCenter, { align: 'center' });
+        doc.text(sanitizarTexto(itemCotacao.unidade || ''), 163.5, yCenter, { align: 'center' });
         const descontoFormatted = (valorUnitario && valorUnitario > 0)
           ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
           : '-';
@@ -506,7 +591,8 @@ export async function gerarPropostaFornecedorPDF(
           doc.text(linha, colDescX + 2, yDescStart + (index * itemLineHeight), { maxWidth: 52 });
         });
         
-        const marcaLinhas = doc.splitTextToSize(item.marca || '-', larguraMarca - 4);
+        const marcaSanitizada = sanitizarTexto(item.marca || '-');
+        const marcaLinhas = doc.splitTextToSize(marcaSanitizada, larguraMarca - 4);
         const yMarcaStart = yTop + (alturaLinha - marcaLinhas.length * itemLineHeight) / 2 + 2;
         const centerMarcaX = colMarcaX + (larguraMarca / 2);
         marcaLinhas.forEach((linha: string, index: number) => {
@@ -520,7 +606,8 @@ export async function gerarPropostaFornecedorPDF(
           doc.text(linha, centerQtdX, yQtdStart + (index * itemLineHeight), { maxWidth: larguraQtd - 2, align: 'center' });
         });
         
-        const unidLinhas = doc.splitTextToSize(itemCotacao.unidade, larguraUnid - 4);
+        const unidadeSanitizada = sanitizarTexto(itemCotacao.unidade || '');
+        const unidLinhas = doc.splitTextToSize(unidadeSanitizada, larguraUnid - 4);
         const yUnidStart = yTop + (alturaLinha - unidLinhas.length * itemLineHeight) / 2 + 2;
         const centerUnidX = colUnidX + (larguraUnid / 2);
         unidLinhas.forEach((linha: string, index: number) => {
