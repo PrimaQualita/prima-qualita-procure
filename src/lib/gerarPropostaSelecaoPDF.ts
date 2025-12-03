@@ -31,6 +31,37 @@ const formatarMoeda = (valor: number): string => {
   }).format(valor);
 };
 
+// Função para sanitizar texto - remove/substitui caracteres especiais que jsPDF não renderiza bem
+const sanitizarTexto = (texto: string): string => {
+  if (!texto) return '';
+  
+  return texto
+    .replace(/²/g, '2')      // Superscript 2
+    .replace(/₂/g, '2')      // Subscript 2 (SpO₂)
+    .replace(/³/g, '3')      // Superscript 3
+    .replace(/₃/g, '3')      // Subscript 3
+    .replace(/¹/g, '1')      // Superscript 1
+    .replace(/₁/g, '1')      // Subscript 1
+    .replace(/⁰/g, '0').replace(/₀/g, '0')
+    .replace(/⁴/g, '4').replace(/₄/g, '4')
+    .replace(/⁵/g, '5').replace(/₅/g, '5')
+    .replace(/⁶/g, '6').replace(/₆/g, '6')
+    .replace(/⁷/g, '7').replace(/₇/g, '7')
+    .replace(/⁸/g, '8').replace(/₈/g, '8')
+    .replace(/⁹/g, '9').replace(/₉/g, '9')
+    .replace(/°/g, 'o')      // Degree symbol
+    .replace(/º/g, 'o')      // Ordinal masculine
+    .replace(/ª/g, 'a')      // Ordinal feminine
+    .replace(/µ/g, 'u')      // Micro
+    .replace(/μ/g, 'u')      // Greek mu
+    .replace(/–/g, '-')      // En dash
+    .replace(/—/g, '-')      // Em dash
+    .replace(/'/g, "'").replace(/'/g, "'")
+    .replace(/"/g, '"').replace(/"/g, '"')
+    .replace(/…/g, '...')    // Ellipsis
+    .replace(/•/g, '-');     // Bullet
+};
+
 // Função para renderizar texto justificado no jsPDF
 const renderizarTextoJustificado = (
   doc: jsPDF, 
@@ -342,7 +373,7 @@ export async function gerarPropostaSelecaoPDF(
 
       const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
       
-      const descLines = doc.splitTextToSize(item.descricao, 60);
+      const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), 60);
       const alturaLinha = Math.max(descLines.length * 4, 6);
       
       // Sombra azul claro alternada (zebra striping)
@@ -389,8 +420,8 @@ export async function gerarPropostaSelecaoPDF(
       
       // Quantidade, Unidade, Marca - centralizados horizontalmente
       doc.text(item.quantidade.toString(), colQtdCenter, yVerticalCenter, { align: 'center' });
-      doc.text(item.unidade, colUniCenter, yVerticalCenter, { align: 'center' });
-      doc.text(item.marca || '-', colMarcaCenter, yVerticalCenter, { align: 'center' });
+      doc.text(sanitizarTexto(item.unidade), colUniCenter, yVerticalCenter, { align: 'center' });
+      doc.text(sanitizarTexto(item.marca || '-'), colMarcaCenter, yVerticalCenter, { align: 'center' });
       
       // Valores conforme critério
       if (isDesconto) {
