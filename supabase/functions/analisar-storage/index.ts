@@ -550,6 +550,46 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Buscar mapeamento de paths de planilhas de habilitação (resultado final) para processo
+    const { data: planilhasHabilitacaoDB } = await supabase
+      .from('planilhas_habilitacao')
+      .select(`
+        url_arquivo, 
+        storage_path,
+        nome_arquivo,
+        cotacao_id,
+        cotacoes_precos!inner(
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno, objeto_resumido)
+        )
+      `);
+    const planilhasHabilitacaoMap = new Map<string, { 
+      nomeArquivo: string; 
+      processoId: string; 
+      processoNumero: string;
+      processoObjeto: string;
+    }>();
+    if (planilhasHabilitacaoDB) {
+      for (const plan of planilhasHabilitacaoDB) {
+        // Usar storage_path se disponível, senão extrair da url_arquivo
+        let path = plan.storage_path || plan.url_arquivo;
+        if (path.includes('processo-anexos/')) {
+          path = path.split('processo-anexos/')[1].split('?')[0];
+        }
+        const cotacao = (plan as any).cotacoes_precos;
+        const processo = cotacao?.processos_compras;
+        planilhasHabilitacaoMap.set(path, {
+          nomeArquivo: plan.nome_arquivo,
+          processoId: cotacao?.processo_compra_id || '',
+          processoNumero: processo?.numero_processo_interno || '',
+          processoObjeto: processo?.objeto_resumido || ''
+        });
+        // Também mapear o nome bonito
+        nomesBonitos.set(path, plan.nome_arquivo);
+      }
+    }
+    console.log(`📋 Planilhas de habilitação mapeadas: ${planilhasHabilitacaoMap.size}`);
+
     // Buscar mapeamento de paths de relatórios finais para processo
     const { data: relatoriosFinaisDB } = await supabase
       .from('relatorios_finais')
@@ -614,6 +654,7 @@ Deno.serve(async (req) => {
       relatorios_finais: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       autorizacoes_compra_direta: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       processos_finalizados: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      planilhas_finais: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       habilitacao: {
         arquivos: 0, 
         tamanho: 0, 
@@ -1635,6 +1676,42 @@ Deno.serve(async (req) => {
         } else {
           console.log(`❌ Autorização sem dados de processo no banco`);
         }
+      } else if (pathSemBucket.startsWith('planilhas-habilitacao/') || planilhasHabilitacaoMap.has(pathSemBucket)) {
+        // Planilhas Finais (Resultado Final / Planilhas de Habilitação) - agrupar por processo
+        estatisticasPorCategoria.planilhas_finais.arquivos++;
+        estatisticasPorCategoria.planilhas_finais.tamanho += metadata.size;
+        estatisticasPorCategoria.planilhas_finais.detalhes.push({ path, fileName, size: metadata.size });
+        
+        console.log(`🔍 Processando planilha final: ${path}`);
+        
+        // Buscar dados da planilha no mapa pré-carregado
+        const planilhaData = planilhasHabilitacaoMap.get(pathSemBucket);
+        
+        if (planilhaData && planilhaData.processoId) {
+          const processoId = planilhaData.processoId;
+          
+          if (!estatisticasPorCategoria.planilhas_finais.porProcesso!.has(processoId)) {
+            estatisticasPorCategoria.planilhas_finais.porProcesso!.set(processoId, {
+              processoId,
+              processoNumero: planilhaData.processoNumero,
+              processoObjeto: planilhaData.processoObjeto,
+              documentos: []
+            });
+          }
+          
+          // Nome do documento: "Planilha Final + número do processo"
+          const nomePlanilha = `Planilha Final ${planilhaData.processoNumero}`;
+          
+          estatisticasPorCategoria.planilhas_finais.porProcesso!.get(processoId)!.documentos.push({
+            path,
+            fileName: nomePlanilha,
+            size: metadata.size
+          });
+          
+          console.log(`✅ Planilha final adicionada ao processo ${planilhaData.processoNumero}`);
+        } else {
+          console.log(`❌ Planilha final sem dados de processo no banco`);
+        }
       } else {
         // Outros - verificar se já foi categorizado anteriormente
         if (!arquivosJaCategorizados.has(path)) {
@@ -2025,6 +2102,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.processos_finalizados.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.processos_finalizados.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.processos_finalizados.porProcesso!.values())
+        },
+        planilhas_finais: {
+          arquivos: estatisticasPorCategoria.planilhas_finais.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.planilhas_finais.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.planilhas_finais.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.planilhas_finais.porProcesso!.values())
         },
         habilitacao: {
           arquivos: estatisticasPorCategoria.habilitacao.arquivos,
