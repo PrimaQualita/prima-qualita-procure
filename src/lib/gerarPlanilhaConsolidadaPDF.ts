@@ -22,6 +22,7 @@ interface RespostaFornecedor {
     valor_unitario_ofertado: number;
     percentual_desconto?: number;
     marca?: string;
+    lote_numero?: number;
   }[];
   valor_total: number;
 }
@@ -323,7 +324,11 @@ export async function gerarPlanilhaConsolidadaPDF(
     const valoresItem: number[] = [];
 
     respostas.forEach((resposta) => {
-      const respostaItem = resposta.itens.find(i => i.numero_item === item.numero_item);
+      // Match por numero_item E lote_numero para evitar confusão entre itens de lotes diferentes
+      const respostaItem = resposta.itens.find(i => 
+        i.numero_item === item.numero_item && 
+        (item.lote_numero ? i.lote_numero === item.lote_numero : !i.lote_numero)
+      );
       if (respostaItem) {
         const percentualDesconto = respostaItem.percentual_desconto;
         const valorUnitario = respostaItem.valor_unitario_ofertado;
