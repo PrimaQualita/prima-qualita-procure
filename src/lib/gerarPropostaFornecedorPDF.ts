@@ -625,9 +625,12 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
-        const yDescStart = yTop + (alturaLinha - linhasDescricao.length * itemLineHeight) / 2 + 2;
-        linhasDescricao.forEach((linha: string, index: number) => {
-          doc.text(linha, 32, yDescStart + (index * itemLineHeight), { maxWidth: 92, align: 'justify' });
+        // Renderizar descrição justificada - passar texto inteiro de uma vez
+        const yDescStart = yTop + 2;
+        doc.text(descricaoSanitizada, 32, yDescStart, { 
+          maxWidth: 92, 
+          align: 'justify',
+          lineHeightFactor: 1.3
         });
         doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 142.5, yCenter, { align: 'center' });
         doc.text(sanitizarTexto(itemCotacao.unidade || ''), 163.5, yCenter, { align: 'center' });
@@ -636,9 +639,12 @@ export async function gerarPropostaFornecedorPDF(
           : '-';
         doc.text(descontoFormatted, 183.5, yCenter, { align: 'center' });
       } else {
-        const yDescStart = yTop + (alturaLinha - linhasDescricao.length * itemLineHeight) / 2 + 2;
-        linhasDescricao.forEach((linha: string, index: number) => {
-          doc.text(linha, colDescX + 2, yDescStart + (index * itemLineHeight), { maxWidth: 52, align: 'justify' });
+        // Renderizar descrição justificada - passar texto inteiro de uma vez
+        const yDescStart = yTop + 2;
+        doc.text(descricaoSanitizada, colDescX + 2, yDescStart, { 
+          maxWidth: 52, 
+          align: 'justify',
+          lineHeightFactor: 1.3
         });
         
         const marcaSanitizada = sanitizarTexto(item.marca || '-');
