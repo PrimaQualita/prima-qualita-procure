@@ -403,23 +403,27 @@ export async function gerarPlanilhaHabilitacaoPDF(
       if (ehPrecoPublico(resposta.fornecedor.cnpj)) return;
       
       let totalFornecedorLote = 0;
-      let todosItensRejeitados = true;
+      let loteRejeitado = false;
       
-      const itensDoLote = itens.filter(i => i.lote_numero === loteNum);
-      itensDoLote.forEach(item => {
-        if (resposta.itens_rejeitados.includes(item.numero_item)) return;
-        
-        // CRÍTICO: Match EXATO por numero_item E lote_numero
-        const itemResposta = resposta.itens.find(i => 
-          i.numero_item === item.numero_item && i.lote_numero === loteNum
-        );
-        if (itemResposta && itemResposta.valor_unitario_ofertado > 0) {
-          totalFornecedorLote += itemResposta.valor_unitario_ofertado * item.quantidade;
-          todosItensRejeitados = false;
-        }
-      });
+      // Quando critério é por_lote, itens_rejeitados contém números de LOTE
+      if (criterioJulgamento === 'por_lote' && resposta.itens_rejeitados.includes(loteNum)) {
+        loteRejeitado = true;
+      }
       
-      if (!todosItensRejeitados && totalFornecedorLote > 0) {
+      if (!loteRejeitado) {
+        const itensDoLote = itens.filter(i => i.lote_numero === loteNum);
+        itensDoLote.forEach(item => {
+          // CRÍTICO: Match EXATO por numero_item E lote_numero
+          const itemResposta = resposta.itens.find(i => 
+            i.numero_item === item.numero_item && i.lote_numero === loteNum
+          );
+          if (itemResposta && itemResposta.valor_unitario_ofertado > 0) {
+            totalFornecedorLote += itemResposta.valor_unitario_ofertado * item.quantidade;
+          }
+        });
+      }
+      
+      if (!loteRejeitado && totalFornecedorLote > 0) {
         totaisLote.push({ idx, total: totalFornecedorLote, razao_social: resposta.fornecedor.razao_social });
       }
     });
@@ -536,21 +540,26 @@ export async function gerarPlanilhaHabilitacaoPDF(
         if (ehPrecoPublico(resposta.fornecedor.cnpj)) return;
         
         let totalFornecedorLote = 0;
-        let todosItensRejeitados = true;
+        let loteRejeitado = false;
         
-        loteData.itens.forEach(item => {
-          if (resposta.itens_rejeitados.includes(item.numero_item)) return;
-          // CRÍTICO: Match EXATO por numero_item E lote_numero
-          const itemResposta = resposta.itens.find(i => 
-            i.numero_item === item.numero_item && i.lote_numero === loteNum
-          );
-          if (itemResposta && itemResposta.valor_unitario_ofertado > 0) {
-            totalFornecedorLote += itemResposta.valor_unitario_ofertado * item.quantidade;
-            todosItensRejeitados = false;
-          }
-        });
+        // Quando critério é por_lote, itens_rejeitados contém números de LOTE
+        if (criterioJulgamento === 'por_lote' && resposta.itens_rejeitados.includes(loteNum)) {
+          loteRejeitado = true;
+        }
         
-        if (!todosItensRejeitados && totalFornecedorLote > 0) {
+        if (!loteRejeitado) {
+          loteData.itens.forEach(item => {
+            // CRÍTICO: Match EXATO por numero_item E lote_numero
+            const itemResposta = resposta.itens.find(i => 
+              i.numero_item === item.numero_item && i.lote_numero === loteNum
+            );
+            if (itemResposta && itemResposta.valor_unitario_ofertado > 0) {
+              totalFornecedorLote += itemResposta.valor_unitario_ofertado * item.quantidade;
+            }
+          });
+        }
+        
+        if (!loteRejeitado && totalFornecedorLote > 0) {
           totaisLoteTemp.push({ idx, total: totalFornecedorLote, razao_social: resposta.fornecedor.razao_social });
         }
       });
@@ -787,9 +796,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
           if (resposta && resposta.rejeitado) {
             data.cell.styles.textColor = [255, 0, 0];
           } else if (resposta && loteNumero) {
-            const itensDoLote = itens.filter(i => i.lote_numero === loteNumero);
-            const todosRejeitados = itensDoLote.every(i => resposta.itens_rejeitados.includes(i.numero_item));
-            if (todosRejeitados) {
+            // Critério por lote: itens_rejeitados contém números de LOTE, não de item
+            const loteRejeitado = criterioJulgamento === 'por_lote' 
+              ? resposta.itens_rejeitados.includes(loteNumero)
+              : itens.filter(i => i.lote_numero === loteNumero).every(i => resposta.itens_rejeitados.includes(i.numero_item));
+            if (loteRejeitado) {
               data.cell.styles.textColor = [255, 0, 0];
             }
           }
@@ -826,8 +837,22 @@ export async function gerarPlanilhaHabilitacaoPDF(
         const fornecedorIdx = parseInt(data.column.dataKey.replace('fornecedor_', ''));
         const resposta = respostas[fornecedorIdx];
         const numeroItem = linhaAtual?.item;
+        const loteNumero = linhaAtual?._lote_numero;
         
-        if (resposta && (resposta.rejeitado || (typeof numeroItem === 'number' && resposta.itens_rejeitados.includes(numeroItem)))) {
+        // Verificar inabilitação
+        let estaInabilitado = false;
+        if (resposta?.rejeitado) {
+          // Fornecedor totalmente rejeitado
+          estaInabilitado = true;
+        } else if (resposta && typeof loteNumero === 'number' && criterioJulgamento === 'por_lote') {
+          // Critério por lote: itens_rejeitados contém números de LOTE
+          estaInabilitado = resposta.itens_rejeitados.includes(loteNumero);
+        } else if (resposta && typeof numeroItem === 'number') {
+          // Outros critérios: itens_rejeitados contém números de ITEM
+          estaInabilitado = resposta.itens_rejeitados.includes(numeroItem);
+        }
+        
+        if (estaInabilitado) {
           data.cell.styles.textColor = [255, 0, 0];
           data.cell.styles.fontStyle = 'bold';
         }
