@@ -495,8 +495,8 @@ const ProcessosCompras = () => {
                     {processosFiltrados.map((processo) => (
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
-                        <TableCell className="max-w-[300px] truncate">
-                          {truncateText(stripHtml(processo.objeto_resumido), 100)}
+                        <TableCell className="max-w-[400px] whitespace-normal">
+                          {stripHtml(processo.objeto_resumido)}
                         </TableCell>
                         <TableCell>{processo.ano_referencia}</TableCell>
                         <TableCell>
