@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +39,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, ExternalLink, AlertCircle, Edit, Trash2, RefreshCw, MoreHorizontal } from "lucide-react";
+import { FileText, ExternalLink, AlertCircle, Edit, Trash2, RefreshCw, MoreHorizontal, Upload
+} from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays, startOfDay, parseISO, format } from "date-fns";
 
@@ -82,6 +83,10 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
   const [dialogSolicitarAtualizacao, setDialogSolicitarAtualizacao] = useState(false);
   const [documentoSolicitarAtualizacao, setDocumentoSolicitarAtualizacao] = useState<Documento | null>(null);
   const [motivoAtualizacao, setMotivoAtualizacao] = useState("");
+  const [dialogAtualizarDocumento, setDialogAtualizarDocumento] = useState(false);
+  const [documentoParaAtualizar, setDocumentoParaAtualizar] = useState<Documento | null>(null);
+  const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadDocumentos();
@@ -266,6 +271,153 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
     }
   };
 
+  const handleAbrirDialogAtualizar = (doc: Documento) => {
+    setDocumentoParaAtualizar(doc);
+    setArquivoSelecionado(null);
+    setDialogAtualizarDocumento(true);
+  };
+
+  const handleAtualizarDocumento = async () => {
+    if (!documentoParaAtualizar || !arquivoSelecionado) {
+      toast.error("Selecione um arquivo");
+      return;
+    }
+
+    setProcessando(true);
+    try {
+      // Buscar dados do fornecedor para o nome da pasta
+      const { data: fornecedor } = await supabase
+        .from("fornecedores")
+        .select("cnpj, razao_social")
+        .eq("id", fornecedorId)
+        .single();
+
+      if (!fornecedor) {
+        throw new Error("Fornecedor não encontrado");
+      }
+
+      // Verificar se o documento antigo está vinculado a algum processo finalizado
+      const { data: cotacoesFinalizadas } = await supabase
+        .from("cotacoes_precos")
+        .select("id, processo_compra_id, processos_compras!inner(numero_processo_interno)")
+        .eq("processo_finalizado", true);
+
+      const { data: selecoesFinalizadas } = await supabase
+        .from("selecoes_fornecedores")
+        .select("id, processo_compra_id, processos_compras!inner(numero_processo_interno)")
+        .eq("sessao_finalizada", true);
+
+      // Verificar se o documento foi usado em algum processo
+      const processosVinculados: string[] = [];
+      
+      // Para cada cotação/seleção finalizada, verificar se o fornecedor participou
+      if (cotacoesFinalizadas) {
+        for (const cotacao of cotacoesFinalizadas) {
+          const { data: resposta } = await supabase
+            .from("cotacao_respostas_fornecedor")
+            .select("id")
+            .eq("cotacao_id", cotacao.id)
+            .eq("fornecedor_id", fornecedorId)
+            .maybeSingle();
+          
+          if (resposta) {
+            processosVinculados.push(cotacao.id);
+          }
+        }
+      }
+
+      if (selecoesFinalizadas) {
+        for (const selecao of selecoesFinalizadas) {
+          const { data: proposta } = await supabase
+            .from("selecao_propostas_fornecedor")
+            .select("id")
+            .eq("selecao_id", selecao.id)
+            .eq("fornecedor_id", fornecedorId)
+            .maybeSingle();
+          
+          if (proposta) {
+            processosVinculados.push(selecao.id);
+          }
+        }
+      }
+
+      // Se o documento antigo foi usado em processos, salvar em documentos_antigos
+      if (processosVinculados.length > 0) {
+        // Buscar dados completos do documento antigo
+        const { data: docAntigoData } = await supabase
+          .from("documentos_fornecedor")
+          .select("*")
+          .eq("id", documentoParaAtualizar.id)
+          .single();
+
+        if (docAntigoData) {
+          // Inserir na tabela de documentos antigos
+          await supabase
+            .from("documentos_antigos")
+            .insert({
+              fornecedor_id: fornecedorId,
+              tipo_documento: docAntigoData.tipo_documento,
+              nome_arquivo: docAntigoData.nome_arquivo,
+              url_arquivo: docAntigoData.url_arquivo,
+              data_emissao: docAntigoData.data_emissao,
+              data_validade: docAntigoData.data_validade,
+              data_upload_original: docAntigoData.data_upload,
+              processos_vinculados: processosVinculados
+            });
+        }
+      } else {
+        // Se não foi usado em nenhum processo, deletar o arquivo antigo do storage
+        const pathMatch = documentoParaAtualizar.url_arquivo.match(/processo-anexos\/(.+)$/);
+        if (pathMatch) {
+          const filePath = decodeURIComponent(pathMatch[1]);
+          await supabase.storage.from('processo-anexos').remove([filePath]);
+        }
+      }
+
+      // Upload do novo arquivo
+      const cnpjLimpo = fornecedor.cnpj.replace(/\D/g, '');
+      const timestamp = Date.now();
+      const nomeArquivo = `${documentoParaAtualizar.tipo_documento}_${timestamp}.pdf`;
+      const storagePath = `fornecedor_${cnpjLimpo}/${nomeArquivo}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('processo-anexos')
+        .upload(storagePath, arquivoSelecionado, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('processo-anexos')
+        .getPublicUrl(storagePath);
+
+      // Atualizar registro no banco
+      const { error: updateError } = await supabase
+        .from("documentos_fornecedor")
+        .update({
+          nome_arquivo: arquivoSelecionado.name,
+          url_arquivo: urlData.publicUrl,
+          data_upload: new Date().toISOString(),
+          atualizacao_solicitada: false,
+          motivo_solicitacao_atualizacao: null,
+          data_solicitacao_atualizacao: null
+        })
+        .eq("id", documentoParaAtualizar.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("Documento atualizado com sucesso!");
+      setDialogAtualizarDocumento(false);
+      setDocumentoParaAtualizar(null);
+      setArquivoSelecionado(null);
+      loadDocumentos();
+    } catch (error: any) {
+      console.error("Erro ao atualizar documento:", error);
+      toast.error("Erro ao atualizar documento");
+    } finally {
+      setProcessando(false);
+    }
+  };
+
   const getDocumentoMaisRecente = (tipo: string) => {
     return documentos.find(d => d.tipo_documento === tipo && d.em_vigor);
   };
@@ -389,6 +541,10 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
                                   Editar Validade
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem onClick={() => handleAbrirDialogAtualizar(doc)}>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Atualizar Documento
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleAbrirDialogSolicitarAtualizacao(doc)}>
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 Solicitar Atualização
@@ -532,6 +688,80 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog para atualizar documento */}
+      <Dialog open={dialogAtualizarDocumento} onOpenChange={setDialogAtualizarDocumento}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Atualizar Documento</DialogTitle>
+            <DialogDescription>
+              {documentoParaAtualizar && getTipoDocumentoLabel(documentoParaAtualizar.tipo_documento)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Novo Arquivo (PDF)</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.type !== 'application/pdf') {
+                      toast.error("Apenas arquivos PDF são permitidos");
+                      return;
+                    }
+                    setArquivoSelecionado(file);
+                  }
+                }}
+              />
+              <div 
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {arquivoSelecionado ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <span className="font-medium">{arquivoSelecionado.name}</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Clique para selecionar um arquivo PDF
+                    </p>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                O documento antigo será arquivado se estiver vinculado a processos finalizados
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDialogAtualizarDocumento(false);
+                setArquivoSelecionado(null);
+              }}
+              disabled={processando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAtualizarDocumento}
+              disabled={processando || !arquivoSelecionado}
+            >
+              {processando ? "Atualizando..." : "Atualizar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
