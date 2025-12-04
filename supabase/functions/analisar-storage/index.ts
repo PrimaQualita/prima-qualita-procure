@@ -2067,6 +2067,7 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Buscar documentos ATUAIS de cadastro
       const { data: docsCadastroHab } = await supabase
         .from('documentos_fornecedor')
         .select(`
@@ -2078,9 +2079,24 @@ Deno.serve(async (req) => {
         `)
         .in('fornecedor_id', todosFornecedoresHabIds);
 
-      console.log(`📋 Documentos de cadastro encontrados: ${docsCadastroHab?.length || 0}`);
+      // Buscar documentos ANTIGOS (arquivados quando fornecedor atualizou documento vinculado a processo)
+      const { data: docsAntigosHab } = await supabase
+        .from('documentos_antigos')
+        .select(`
+          id,
+          fornecedor_id,
+          tipo_documento,
+          nome_arquivo,
+          url_arquivo,
+          processos_vinculados
+        `)
+        .in('fornecedor_id', todosFornecedoresHabIds);
+
+      console.log(`📋 Documentos de cadastro (atuais): ${docsCadastroHab?.length || 0}`);
+      console.log(`📋 Documentos antigos (arquivados): ${docsAntigosHab?.length || 0}`);
 
       // Para cada processo, adicionar documentos de cadastro dos fornecedores
+      // CRÍTICO: Priorizar documentos antigos vinculados ao processo sobre documentos atuais
       for (const [processoId, fornecedorIds] of fornecedoresPorProcessoHab) {
         // Garantir estrutura do processo existe
         if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
@@ -2109,11 +2125,22 @@ Deno.serve(async (req) => {
             });
           }
 
-          // Adicionar documentos de cadastro deste fornecedor
-          const docsDoFornecedor = (docsCadastroHab || []).filter(d => d.fornecedor_id === fornecedorId);
-          console.log(`  📝 ${fornecedorNome}: ${docsDoFornecedor.length} docs de cadastro`);
+          // Pegar documentos antigos deste fornecedor vinculados a este processo específico
+          const docsAntigosDoFornecedor = (docsAntigosHab || []).filter(d => 
+            d.fornecedor_id === fornecedorId && 
+            d.processos_vinculados?.includes(processoId)
+          );
           
-          for (const doc of docsDoFornecedor) {
+          // Pegar documentos atuais deste fornecedor
+          const docsCadastroDoFornecedor = (docsCadastroHab || []).filter(d => d.fornecedor_id === fornecedorId);
+          
+          // Criar set de tipos de documento que já temos em versão antiga para este processo
+          const tiposComDocAntigo = new Set(docsAntigosDoFornecedor.map(d => d.tipo_documento));
+          
+          console.log(`  📝 ${fornecedorNome}: ${docsCadastroDoFornecedor.length} docs atuais, ${docsAntigosDoFornecedor.length} docs antigos para processo`);
+          
+          // 1. Primeiro adicionar documentos ANTIGOS (vinculados a este processo)
+          for (const doc of docsAntigosDoFornecedor) {
             // Extrair path do arquivo
             let path = doc.url_arquivo;
             if (path.includes('processo-anexos/')) {
@@ -2121,6 +2148,7 @@ Deno.serve(async (req) => {
             } else if (path.includes('/')) {
               path = path.split('/').pop()?.split('?')[0] || path;
             }
+            path = decodeURIComponent(path);
 
             // Verificar duplicidade
             const fornecedorDocs = habProc.fornecedores.get(fornecedorId)!;
@@ -2133,7 +2161,39 @@ Deno.serve(async (req) => {
                 size: 0
               });
               estatisticasPorCategoria.habilitacao.arquivos++;
-              console.log(`    ✅ Adicionado: ${doc.nome_arquivo}`);
+              console.log(`    ✅ Adicionado (ANTIGO): ${doc.nome_arquivo}`);
+            }
+          }
+          
+          // 2. Depois adicionar documentos ATUAIS (apenas tipos que NÃO têm versão antiga para este processo)
+          for (const doc of docsCadastroDoFornecedor) {
+            // Se já temos versão antiga deste tipo de documento para este processo, pular o atual
+            if (tiposComDocAntigo.has(doc.tipo_documento)) {
+              console.log(`    ⏭️ Usando versão antiga: ${doc.nome_arquivo}`);
+              continue;
+            }
+            
+            // Extrair path do arquivo
+            let path = doc.url_arquivo;
+            if (path.includes('processo-anexos/')) {
+              path = path.split('processo-anexos/')[1].split('?')[0];
+            } else if (path.includes('/')) {
+              path = path.split('/').pop()?.split('?')[0] || path;
+            }
+            path = decodeURIComponent(path);
+
+            // Verificar duplicidade
+            const fornecedorDocs = habProc.fornecedores.get(fornecedorId)!;
+            const jaExiste = fornecedorDocs.documentos.some(d => d.fileName === doc.nome_arquivo);
+            
+            if (!jaExiste) {
+              fornecedorDocs.documentos.push({
+                path: `processo-anexos/${path}`,
+                fileName: doc.nome_arquivo,
+                size: 0
+              });
+              estatisticasPorCategoria.habilitacao.arquivos++;
+              console.log(`    ✅ Adicionado (ATUAL): ${doc.nome_arquivo}`);
             } else {
               console.log(`    ⚠️ Duplicado: ${doc.nome_arquivo}`);
             }
