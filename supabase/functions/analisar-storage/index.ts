@@ -649,7 +649,10 @@ Deno.serve(async (req) => {
     }>();
     if (documentosAntigosDB) {
       for (const doc of documentosAntigosDB) {
-        const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
+        // CRÍTICO: Decodificar URL para corresponder ao path do storage
+        const rawPath = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
+        const path = decodeURIComponent(rawPath);
+        console.log(`📦 Documento antigo: URL=${doc.url_arquivo.substring(0, 80)}... | Path decodificado=${path}`);
         documentosAntigosMap.set(path, {
           id: doc.id,
           fornecedorId: doc.fornecedor_id,
