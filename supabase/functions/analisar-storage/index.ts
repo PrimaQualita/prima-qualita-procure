@@ -1864,13 +1864,18 @@ Deno.serve(async (req) => {
       // NÃO usar fallback por nome para evitar false negatives
       const fornecedorMatch = pathSemBucket.match(/^fornecedor_([a-f0-9-]+)\//);
       if (fornecedorMatch) {
-        // Verificar se este arquivo específico está em docsCadastroAtivosMap
+        // Verificar se este arquivo específico está em docsCadastroAtivosMap (documentos ativos)
         if (docsCadastroAtivosMap.has(pathSemBucket)) {
           console.log(`✅ Arquivo "${fileName}" está referenciado em documentos_fornecedor (ativo)`);
           continue;
         }
-        // Se não está em docsCadastroAtivosMap, é ÓRFÃO
-        console.log(`⚠️ ÓRFÃO: Arquivo "${fileName}" em pasta fornecedor mas NÃO está em documentos_fornecedor`);
+        // Verificar se está em documentosAntigosMap (certidões que foram atualizadas)
+        if (documentosAntigosMap.has(pathSemBucket)) {
+          console.log(`✅ Arquivo "${fileName}" está referenciado em documentos_antigos`);
+          continue;
+        }
+        // Se não está em nenhum dos dois, é ÓRFÃO
+        console.log(`⚠️ ÓRFÃO: Arquivo "${fileName}" em pasta fornecedor mas NÃO está em documentos_fornecedor nem documentos_antigos`);
         arquivosOrfaos.push({ path: arquivo, size: metadata.size });
         tamanhoOrfaos += metadata.size;
         continue;
