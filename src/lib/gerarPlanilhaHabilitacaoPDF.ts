@@ -144,6 +144,32 @@ const justificarTexto = (doc: any, texto: string, x: number, y: number, larguraM
   });
 };
 
+// Função para calcular fontSize ideal para caber em uma linha
+const calcularFontSizeParaCaber = (doc: any, texto: string, larguraCelula: number, fontSizeInicial: number, fontSizeMinimo: number = 6): number => {
+  if (!texto || texto.trim() === '' || texto === '-') return fontSizeInicial;
+  
+  // Remover quebras de linha para medir texto contínuo
+  const textoLimpo = texto.replace(/\n/g, ' ');
+  
+  let fontSize = fontSizeInicial;
+  doc.setFontSize(fontSize);
+  
+  // Considerar padding da célula (aproximadamente 4mm total)
+  const larguraDisponivel = larguraCelula - 4;
+  
+  while (fontSize > fontSizeMinimo) {
+    doc.setFontSize(fontSize);
+    const larguraTexto = doc.getTextWidth(textoLimpo);
+    
+    if (larguraTexto <= larguraDisponivel) {
+      break;
+    }
+    fontSize -= 0.5;
+  }
+  
+  return Math.max(fontSize, fontSizeMinimo);
+};
+
 export async function gerarPlanilhaHabilitacaoPDF(
   processo: { numero: string; objeto: string },
   cotacao: { titulo_cotacao: string },
@@ -692,6 +718,23 @@ export async function gerarPlanilhaHabilitacaoPDF(
           (data.column.dataKey === 'valor_vencedor' || data.column.dataKey === 'empresa_vencedora')) {
         data.cell.styles.textColor = [0, 100, 0];
         data.cell.styles.fontStyle = 'bold';
+      }
+      
+      // Ajuste automático de fonte para colunas de valores monetários
+      // Aplica para colunas de fornecedores e valor_vencedor (não para headers de lote, subtotais ou totais)
+      if (!linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral) {
+        const dataKey = data.column.dataKey as string;
+        const isColunasValor = (dataKey && dataKey.startsWith('fornecedor_')) || dataKey === 'valor_vencedor';
+        
+        if (isColunasValor) {
+          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
+          if (texto && texto !== '-') {
+            const larguraCelula = data.cell.width || 22;
+            const fontSizeAtual = data.cell.styles.fontSize || 7;
+            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, fontSizeAtual, 5.5);
+            data.cell.styles.fontSize = fontSizeIdeal;
+          }
+        }
       }
     },
     didDrawCell: (data) => {
