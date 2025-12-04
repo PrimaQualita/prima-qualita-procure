@@ -526,6 +526,24 @@ export function DialogPlanilhaConsolidada({
         .select("id, fornecedor_id, fornecedores!inner(id, razao_social, cnpj, email)")
         .eq("cotacao_id", cotacaoId);
       
+      // CRÍTICO: Buscar fornecedores inabilitados para excluí-los da identificação de vencedores
+      const { data: fornecedoresInabilitados } = await supabase
+        .from("fornecedores_rejeitados_cotacao")
+        .select("fornecedor_id, itens_afetados")
+        .eq("cotacao_id", cotacaoId)
+        .eq("revertido", false);
+      
+      // Mapear fornecedores inabilitados globalmente (sem itens específicos)
+      const fornecedoresInabilitadosGlobal = new Set<string>();
+      fornecedoresInabilitados?.forEach(f => {
+        const itensAfetados = f.itens_afetados as number[] | null;
+        if (!itensAfetados || itensAfetados.length === 0) {
+          fornecedoresInabilitadosGlobal.add(f.fornecedor_id);
+        }
+      });
+      
+      console.log(`📊 Fornecedores inabilitados globalmente: ${fornecedoresInabilitadosGlobal.size}`);
+      
       // Criar estrutura completa de fornecedores com seus itens e vencedores
       // IMPORTANTE: Identificação de vencedores deve respeitar o critério de julgamento
       // PREÇOS PÚBLICOS DEVEM SER CONSIDERADOS na cotação
@@ -541,10 +559,23 @@ export function DialogPlanilhaConsolidada({
           let itensComVencedor;
           
           // TODOS os fornecedores selecionados participam da identificação de vencedores
+          // EXCETO os que foram inabilitados globalmente
           const respostasFiltradas = respostas
-            .filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+            .filter(r => {
+              if (!empresasSelecionadas.has(r.fornecedor.razao_social)) return false;
+              
+              // Verificar se o fornecedor está inabilitado globalmente
+              const respostaFornecedor = respostasCompletas?.find(rc => 
+                (rc.fornecedores as any).cnpj === r.fornecedor.cnpj
+              );
+              if (respostaFornecedor && fornecedoresInabilitadosGlobal.has(respostaFornecedor.fornecedor_id)) {
+                return false;
+              }
+              
+              return true;
+            });
           
-          console.log(`📊 Calculando vencedores com TODOS fornecedores: ${respostasFiltradas.length}`);
+          console.log(`📊 Calculando vencedores com fornecedores válidos: ${respostasFiltradas.length}`);
           
           // Identificar vencedores baseado no critério de julgamento
           if (criterioJulgamento === "global") {
@@ -564,7 +595,7 @@ export function DialogPlanilhaConsolidada({
             // Critério POR LOTE: vencedor por lote (menor valor total do lote)
             const lotes = new Map<string, number>();
             
-            // Calcular total por lote para cada fornecedor
+            // Calcular total por lote para cada fornecedor (apenas válidos)
             respostasFiltradas.forEach(r => {
               r.itens.forEach(item => {
                 const loteId = item.lote_id || 'sem_lote';

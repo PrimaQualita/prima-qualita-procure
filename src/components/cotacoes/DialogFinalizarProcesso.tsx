@@ -538,6 +538,13 @@ export function DialogFinalizarProcesso({
     const fornecedoresVencedores = new Set<string>();
     const fornecedoresRejeitados = new Set<string>();
 
+    // CRÍTICO: Buscar rejeições ativas da tabela fornecedores_rejeitados_cotacao
+    const { data: rejeicoesAtivas } = await supabase
+      .from('fornecedores_rejeitados_cotacao')
+      .select('fornecedor_id, itens_afetados')
+      .eq('cotacao_id', cotacaoId)
+      .eq('revertido', false);
+    
     // Buscar rejeições revertidas
     const { data: rejeicoesRevertidas } = await supabase
       .from('fornecedores_rejeitados_cotacao')
@@ -547,15 +554,36 @@ export function DialogFinalizarProcesso({
 
     const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
 
-    // Identificar fornecedores rejeitados (excluindo os que foram revertidos)
+    // Mapear fornecedores rejeitados globalmente (sem itens específicos ou da tabela de rejeições)
+    const fornecedoresRejeitadosGlobal = new Set<string>();
+    rejeicoesAtivas?.forEach(r => {
+      const itensAfetados = r.itens_afetados as number[] | null;
+      if (!itensAfetados || itensAfetados.length === 0) {
+        // Rejeição global (todos os itens)
+        fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
+      }
+    });
+    
+    console.log(`  → Fornecedores rejeitados globalmente (tabela): ${fornecedoresRejeitadosGlobal.size}`);
+
+    // Identificar fornecedores rejeitados da flag + tabela (excluindo os que foram revertidos)
     respostas.forEach(r => {
       if (r.rejeitado && !fornecedoresRevertidos.has(r.fornecedor_id)) {
         fornecedoresRejeitados.add(r.fornecedor_id);
       }
     });
+    
+    // Combinar rejeições: da flag da resposta E da tabela de rejeições
+    fornecedoresRejeitadosGlobal.forEach(id => fornecedoresRejeitados.add(id));
 
-    // Filtrar respostas não rejeitadas OU rejeitadas mas revertidas
-    const respostasValidas = respostas.filter(r => !r.rejeitado || fornecedoresRevertidos.has(r.fornecedor_id));
+    // Filtrar respostas não rejeitadas (NÃO está na flag rejeitado E NÃO está na tabela de rejeições globais)
+    const respostasValidas = respostas.filter(r => {
+      // Se foi revertido, é válido
+      if (fornecedoresRevertidos.has(r.fornecedor_id)) return true;
+      // Se está rejeitado pela flag ou pela tabela, não é válido
+      if (r.rejeitado || fornecedoresRejeitadosGlobal.has(r.fornecedor_id)) return false;
+      return true;
+    });
     console.log(`  → Respostas válidas (não rejeitadas): ${respostasValidas.length}`);
 
     if (criterio === "global") {
@@ -613,7 +641,11 @@ export function DialogFinalizarProcesso({
         itens.forEach(item => {
           const resposta = respostas.find(r => r.id === item.cotacao_resposta_fornecedor_id);
           // Incluir se não foi rejeitado OU se foi rejeitado mas revertido
-          if (!resposta?.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id)) {
+          // CRÍTICO: Verificar tanto a flag rejeitado quanto a tabela de rejeições
+          const estaRejeitado = resposta?.rejeitado || fornecedoresRejeitadosGlobal.has(resposta?.fornecedor_id);
+          const foiRevertido = fornecedoresRevertidos.has(resposta?.fornecedor_id);
+          
+          if (!estaRejeitado || foiRevertido) {
             const loteId = item.itens_cotacao.lote_id;
             if (!loteId) return;
             if (!itensPorLote[loteId]) itensPorLote[loteId] = {};
@@ -639,7 +671,10 @@ export function DialogFinalizarProcesso({
             
             if (vencedor) {
               const resposta = respostas.find(r => r.id === vencedor.respostaId);
-              if (resposta && (!resposta.rejeitado || fornecedoresRevertidos.has(resposta.fornecedor_id))) {
+              const estaRejeitado = resposta?.rejeitado || fornecedoresRejeitadosGlobal.has(resposta?.fornecedor_id);
+              const foiRevertido = fornecedoresRevertidos.has(resposta?.fornecedor_id);
+              
+              if (resposta && (!estaRejeitado || foiRevertido)) {
                 console.log(`      ✅ Vencedor: ${resposta.fornecedores?.razao_social}`);
                 fornecedoresVencedores.add(resposta.fornecedor_id);
               }
