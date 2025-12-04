@@ -517,6 +517,7 @@ export async function gerarPlanilhaConsolidadaPDF(
     head: [colunas.map(c => c.header)],
     body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
     theme: 'grid',
+    rowPageBreak: 'avoid', // Evitar quebra de linha entre páginas
     styles: {
       lineColor: [200, 200, 200],
       lineWidth: 0.1
@@ -735,6 +736,11 @@ export async function gerarPlanilhaConsolidadaPDF(
           }
         }
         return;
+      }
+      
+      // Limpar texto da coluna de descrição para itens normais (será desenhado justificado no didDrawCell)
+      if (data.column.index === 1 && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && linhaAtual?.item !== 'VALOR TOTAL') {
+        data.cell.text = [''];
       }
       
       // Ajuste automático de fonte para colunas de valores monetários
