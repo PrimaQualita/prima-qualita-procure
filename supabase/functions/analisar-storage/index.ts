@@ -2020,8 +2020,30 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Fornecedores VENCEDORES a partir das planilhas consolidadas
-    // Buscar planilhas consolidadas para identificar vencedores (quem ganhou algum item)
+    // 2. Buscar CNPJs reprovados pelo compliance para excluí-los da habilitação
+    const { data: analisesComplianceHab } = await supabase
+      .from('analises_compliance')
+      .select('cotacao_id, empresas_reprovadas');
+    
+    // Mapear CNPJs reprovados por cotação
+    const cnpjsReprovadosPorCotacao = new Map<string, Set<string>>();
+    if (analisesComplianceHab) {
+      for (const analise of analisesComplianceHab) {
+        const reprovados = analise.empresas_reprovadas || [];
+        if (reprovados.length > 0) {
+          if (!cnpjsReprovadosPorCotacao.has(analise.cotacao_id)) {
+            cnpjsReprovadosPorCotacao.set(analise.cotacao_id, new Set());
+          }
+          for (const cnpj of reprovados) {
+            cnpjsReprovadosPorCotacao.get(analise.cotacao_id)!.add(cnpj);
+          }
+        }
+      }
+    }
+    
+    console.log(`📊 Cotações com reprovados no compliance: ${cnpjsReprovadosPorCotacao.size}`);
+    
+    // 3. Fornecedores VENCEDORES a partir das planilhas consolidadas (excluindo reprovados pelo compliance)
     const { data: planilhasConsolidadasHab } = await supabase
       .from('planilhas_consolidadas')
       .select('cotacao_id, fornecedores_incluidos');
@@ -2034,11 +2056,20 @@ Deno.serve(async (req) => {
         
         if (!processoId) continue;
         
+        // CNPJs reprovados pelo compliance para esta cotação
+        const cnpjsReprovados = cnpjsReprovadosPorCotacao.get(planilha.cotacao_id) || new Set();
+        
         // Extrair fornecedores vencedores da planilha
         const fornecedoresData = planilha.fornecedores_incluidos as any[] || [];
         for (const fornecedor of fornecedoresData) {
           // Excluir BANCO DE PREÇOS
           if (fornecedor.cnpj === '55555555555555') continue;
+          
+          // EXCLUIR fornecedores reprovados pelo compliance
+          if (cnpjsReprovados.has(fornecedor.cnpj)) {
+            console.log(`  ⛔ Excluindo ${fornecedor.razao_social || fornecedor.cnpj} - reprovado pelo compliance`);
+            continue;
+          }
           
           const fornecedorId = fornecedor.fornecedor_id;
           // Verificar se tem itens vencedores (quem aparece em "Ver Documentos")
