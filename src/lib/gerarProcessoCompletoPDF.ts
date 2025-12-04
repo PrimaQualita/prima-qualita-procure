@@ -415,35 +415,74 @@ export const gerarProcessoCompletoPDF = async (
     // Para critério por_lote, calcular vencedor real de cada lote considerando inabilitações
     let fornecedoresVencedores: string[] = [];
     
+    // Para critério por_lote, precisamos buscar TODOS os fornecedores que responderam, não apenas os da planilha
+    // A planilha pode não ter todos os fornecedores (como segundo colocados que podem ser promovidos)
+    let todosFornecedoresRespostas: any[] = [];
+    
     if (criterioJulgamento === 'menor_preco_lote' || criterioJulgamento === 'por_lote') {
-      console.log(`🔍 Critério por lote - identificando vencedores por lote...`);
+      console.log(`🔍 Critério por lote - buscando TODOS os fornecedores que responderam...`);
+      
+      // Buscar TODAS as respostas de fornecedores com seus itens
+      const { data: respostasCompletas, error: respostasErr } = await supabase
+        .from("cotacao_respostas_fornecedor")
+        .select(`
+          fornecedor_id,
+          fornecedores(razao_social, cnpj),
+          respostas_itens_fornecedor(numero_item, valor_unitario_ofertado, marca)
+        `)
+        .eq("cotacao_id", cotacaoId);
+      
+      if (respostasErr) {
+        console.error("Erro ao buscar respostas:", respostasErr);
+      }
+      
+      // Buscar itens da cotação com lote_id
+      const { data: itensCotacaoCompleto } = await supabase
+        .from("itens_cotacao")
+        .select("id, numero_item, lote_id, quantidade")
+        .eq("cotacao_id", cotacaoId);
+      
+      // Transformar respostas no formato esperado (similar à planilha consolidada)
+      todosFornecedoresRespostas = (respostasCompletas || [])
+        .filter((r: any) => r.fornecedores?.cnpj !== '55555555555555') // Excluir BANCO DE PREÇOS
+        .map((r: any) => ({
+          fornecedor_id: r.fornecedor_id,
+          razao_social: r.fornecedores?.razao_social || '',
+          cnpj: r.fornecedores?.cnpj || '',
+          itens: (r.respostas_itens_fornecedor || []).map((item: any) => {
+            const itemCotacao = itensCotacaoCompleto?.find(i => i.numero_item === item.numero_item);
+            return {
+              numero_item: item.numero_item,
+              valor_unitario: item.valor_unitario_ofertado,
+              marca: item.marca,
+              lote_id: itemCotacao?.lote_id
+            };
+          })
+        }));
+      
+      console.log(`📊 Total de fornecedores que responderam (exceto BANCO DE PREÇOS): ${todosFornecedoresRespostas.length}`);
+      todosFornecedoresRespostas.forEach(f => console.log(`  - ${f.razao_social} (${f.fornecedor_id})`));
       
       // Buscar lotes da cotação
       const { data: lotes } = await supabase
         .from("lotes_cotacao")
         .select("id, numero_lote")
-        .eq("cotacao_id", cotacaoId);
-      
-      // Buscar itens por lote
-      const { data: itensCotacao } = await supabase
-        .from("itens_cotacao")
-        .select("id, numero_item, lote_id, quantidade")
-        .eq("cotacao_id", cotacaoId);
+        .eq("cotacao_id", cotacaoId)
+        .order("numero_lote");
       
       if (lotes && lotes.length > 0) {
         for (const lote of lotes) {
-          const itensDoLote = itensCotacao?.filter(i => i.lote_id === lote.id) || [];
+          const itensDoLote = itensCotacaoCompleto?.filter(i => i.lote_id === lote.id) || [];
           const numerosItensLote = itensDoLote.map(i => i.numero_item);
           
           // Para cada fornecedor, calcular valor total do lote
           const valoresLote: { fornecedorId: string; valorTotal: number; inabilitado: boolean; razaoSocial: string }[] = [];
           
-          for (const fornecedor of fornecedoresData) {
+          for (const fornecedor of todosFornecedoresRespostas) {
             const fornecedorId = fornecedor.fornecedor_id;
             const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
             
             // Verificar se fornecedor está inabilitado neste lote
-            // Inabilitado se: está na lista de rejeitados E (sem itens específicos = inabilitação global OU todos itens do lote estão inabilitados)
             const inabilitacaoGlobal = fornecedoresInabilitadosIds.includes(fornecedorId) && itensInabilitados.length === 0;
             const todosItensLoteInabilitados = itensInabilitados.length > 0 && numerosItensLote.every(n => itensInabilitados.includes(n));
             const inabilitadoNoLote = inabilitacaoGlobal || todosItensLoteInabilitados;
@@ -474,10 +513,15 @@ export const gerarProcessoCompletoPDF = async (
           // Ordenar por valor (menor primeiro)
           valoresLote.sort((a, b) => a.valorTotal - b.valorTotal);
           
+          console.log(`  📋 Lote ${lote.numero_lote} - classificação:`);
+          valoresLote.forEach((v, idx) => {
+            console.log(`    ${idx + 1}º: ${v.razaoSocial} - R$ ${v.valorTotal.toFixed(2)} ${v.inabilitado ? '(INABILITADO)' : ''}`);
+          });
+          
           // Encontrar o primeiro fornecedor NÃO inabilitado (vencedor real do lote)
           const vencedorLote = valoresLote.find(v => !v.inabilitado);
           if (vencedorLote) {
-            console.log(`  📋 Lote ${lote.numero_lote}: vencedor real = ${vencedorLote.razaoSocial} (${vencedorLote.fornecedorId})`);
+            console.log(`    ✓ Vencedor: ${vencedorLote.razaoSocial}`);
             // Adicionar à lista de vencedores (sem duplicatas)
             if (!fornecedoresVencedores.includes(vencedorLote.fornecedorId)) {
               fornecedoresVencedores.push(vencedorLote.fornecedorId);
@@ -542,9 +586,15 @@ export const gerarProcessoCompletoPDF = async (
       // Calcular info de cada fornecedor que participou (vencedores + inabilitados)
       const fornecedoresUnicos = new Set<string>([...fornecedoresVencedores, ...fornecedoresInabilitadosIds]);
       
+      // USAR todosFornecedoresRespostas para critério por_lote (contém TODOS os fornecedores)
+      const dadosParaOrdenacao = todosFornecedoresRespostas.length > 0 ? todosFornecedoresRespostas : fornecedoresData;
+      
       for (const fornecedorId of fornecedoresUnicos) {
-        const dadosFornecedor = fornecedoresData.find((f: any) => f.fornecedor_id === fornecedorId);
-        if (!dadosFornecedor) continue;
+        const dadosFornecedor = dadosParaOrdenacao.find((f: any) => f.fornecedor_id === fornecedorId);
+        if (!dadosFornecedor) {
+          console.log(`  ⚠️ Fornecedor ${fornecedorId} não encontrado nos dados para ordenação`);
+          continue;
+        }
         
         // Encontrar o menor número de lote que este fornecedor participou
         let menorLote = 999;
