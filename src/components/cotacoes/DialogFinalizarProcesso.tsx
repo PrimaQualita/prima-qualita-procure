@@ -77,6 +77,7 @@ interface FornecedorData {
   fornecedor: Fornecedor;
   documentosExistentes: DocumentoExistente[];
   itensVencedores: any[];
+  itensParticipados?: any[]; // Itens que o fornecedor participou (para inabilitados)
   campos: CampoDocumento[];
   todosDocumentosAprovados: boolean;
   rejeitado: boolean;
@@ -441,10 +442,14 @@ export function DialogFinalizarProcesso({
         .eq('cotacao_id', cotacaoId)
         .eq('revertido', true);
 
-      // Buscar rejeições ativas com itens afetados
+      // Buscar rejeições ativas com itens afetados E dados do fornecedor
       const { data: rejeicoesAtivas } = await supabase
         .from('fornecedores_rejeitados_cotacao')
-        .select('fornecedor_id, itens_afetados')
+        .select(`
+          fornecedor_id, 
+          itens_afetados,
+          fornecedores!inner(id, razao_social, email, cnpj)
+        `)
         .eq('cotacao_id', cotacaoId)
         .eq('revertido', false);
 
@@ -457,9 +462,32 @@ export function DialogFinalizarProcesso({
         itensRejeitadosPorFornecedor.set(r.fornecedor_id, itensAfetados);
       });
 
-      // Carregar dados de cada fornecedor vencedor
+      // CRÍTICO: Para habilitação, incluir TAMBÉM fornecedores inabilitados (para mostrar docs e recursos)
+      // Mas apenas se não já estiverem na lista de vencedores
+      const fornecedoresInabilitados: Fornecedor[] = [];
+      rejeicoesAtivas?.forEach(r => {
+        const fornecedor = r.fornecedores as any;
+        // Verificar se não já é vencedor
+        if (fornecedor && !fornecedoresVencedores.some(v => v.id === fornecedor.id)) {
+          fornecedoresInabilitados.push({
+            id: fornecedor.id,
+            razao_social: fornecedor.razao_social,
+            email: fornecedor.email
+          });
+        }
+      });
+
+      console.log(`🚫 Fornecedores inabilitados identificados: ${fornecedoresInabilitados.length}`);
+      fornecedoresInabilitados.forEach(f => {
+        console.log(`  - ${f.razao_social}`);
+      });
+
+      // Combinar vencedores + inabilitados para exibição na habilitação
+      const todosFornecedoresHabilitacao = [...fornecedoresVencedores, ...fornecedoresInabilitados];
+
+      // Carregar dados de cada fornecedor (vencedores + inabilitados)
       const fornecedoresComDados = await Promise.all(
-        fornecedoresVencedores.map(async (forn) => {
+        todosFornecedoresHabilitacao.map(async (forn) => {
           const resposta = respostas.find(r => r.fornecedor_id === forn.id);
           const [docs, itensVenc, campos] = await Promise.all([
             loadDocumentosFornecedor(forn.id),
@@ -469,16 +497,32 @@ export function DialogFinalizarProcesso({
 
           // Se foi revertido, NÃO está mais rejeitado
           const foiRevertido = fornecedoresRevertidos.has(forn.id);
-          const estaRejeitado = resposta?.rejeitado && !foiRevertido;
+          // Verificar se está na tabela de rejeições ativas
+          const temRejeicaoAtiva = itensRejeitadosPorFornecedor.has(forn.id) || 
+            rejeicoesAtivas?.some(r => r.fornecedor_id === forn.id);
+          const estaRejeitado = (resposta?.rejeitado || temRejeicaoAtiva) && !foiRevertido;
           
           // Obter itens rejeitados (para provimento parcial)
           const itensRejeitados = itensRejeitadosPorFornecedor.get(forn.id) || [];
 
+          // Para fornecedores inabilitados, buscar os itens que eles participaram (não venceram)
+          // para saber em qual lote foram inabilitados
+          let itensParticipados: any[] = [];
+          if (itensVenc.length === 0 && estaRejeitado) {
+            // Buscar itens que este fornecedor cotou
+            itensParticipados = itens.filter(i => {
+              const respostaItem = respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id);
+              return respostaItem?.fornecedor_id === forn.id;
+            });
+          }
+
           console.log(`📋 Fornecedor ${forn.razao_social}:`, {
             rejeitadoDB: resposta?.rejeitado || false,
+            temRejeicaoAtiva,
             foiRevertido,
             estaRejeitado,
             itensVencedores: itensVenc.length,
+            itensParticipados: itensParticipados.length,
             numeros: itensVenc.map(i => i.itens_cotacao?.numero_item),
             primeiroItemCompleto: itensVenc[0] || null,
             itensRejeitados
@@ -491,6 +535,7 @@ export function DialogFinalizarProcesso({
             fornecedor: forn,
             documentosExistentes: docs,
             itensVencedores: itensVenc,
+            itensParticipados, // Itens que o fornecedor participou (para inabilitados)
             campos: campos,
             todosDocumentosAprovados: todosAprovados,
             rejeitado: estaRejeitado,
@@ -505,18 +550,27 @@ export function DialogFinalizarProcesso({
       const fornecedoresOrdenados = fornecedoresComDados.sort((a, b) => {
         if (criterioJulgamento === 'por_lote') {
           // Para critério por_lote: ordenar por número do lote, e dentro do lote: vencedor primeiro, depois inabilitados
-          const getLotesNumeros = (itensVenc: any[], itensRej: number[]) => {
+          const getLotesNumeros = (fornecedorData: any) => {
             const lotesIds = new Set<string>();
+            
             // Lotes dos itens vencedores
-            itensVenc.forEach(item => {
+            fornecedorData.itensVencedores?.forEach((item: any) => {
               const loteId = item.itens_cotacao?.lote_id;
               if (loteId) lotesIds.add(loteId);
             });
+            
+            // Também considerar lotes dos itens participados (para inabilitados)
+            fornecedorData.itensParticipados?.forEach((item: any) => {
+              const loteId = item.itens_cotacao?.lote_id;
+              if (loteId) lotesIds.add(loteId);
+            });
+            
             // Também considerar lotes dos itens rejeitados
-            itensRej.forEach(numItem => {
+            fornecedorData.itensRejeitados?.forEach((numItem: number) => {
               const itemCotacao = itensCotacao.find(ic => ic.numero_item === numItem);
               if (itemCotacao?.lote_id) lotesIds.add(itemCotacao.lote_id);
             });
+            
             return Array.from(lotesIds)
               .map(loteId => {
                 const lote = lotesCotacao.find(l => l.id === loteId);
@@ -525,8 +579,8 @@ export function DialogFinalizarProcesso({
               .filter(n => n > 0);
           };
           
-          const lotesA = getLotesNumeros(a.itensVencedores, a.itensRejeitados || []);
-          const lotesB = getLotesNumeros(b.itensVencedores, b.itensRejeitados || []);
+          const lotesA = getLotesNumeros(a);
+          const lotesB = getLotesNumeros(b);
           const menorLoteA = lotesA.length > 0 ? Math.min(...lotesA) : 999;
           const menorLoteB = lotesB.length > 0 ? Math.min(...lotesB) : 999;
           
