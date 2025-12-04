@@ -516,6 +516,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
     },
     columnStyles,
     didParseCell: (data) => {
+      // Ignorar cabeçalho da tabela - apenas processar body
+      if (data.section !== 'body') return;
+      
       const linhaAtual = dados[data.row.index];
       
       // Formatar linha de cabeçalho de lote (fundo azul médio, texto branco, mesclada)
