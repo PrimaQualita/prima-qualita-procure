@@ -116,7 +116,7 @@ export const gerarRespostaRecursoPDF = async (
   const adicionarLogoERodape = () => {
     // Logo no topo - expandido nas margens laterais de 1.5mm
     const logoWidth = pageWidth - (margemLateral * 2);
-    const logoHeight = 20; // Altura proporcional
+    const logoHeight = 30; // Altura aumentada para manter proporção correta
     doc.addImage(base64Logo, 'PNG', margemLateral, margemLateral, logoWidth, logoHeight);
     
     // Rodapé no final - expandido nas margens laterais de 1.5mm
@@ -127,8 +127,8 @@ export const gerarRespostaRecursoPDF = async (
   
   adicionarLogoERodape();
   
-  // Título
-  let y = 35;
+  // Título - posição ajustada para acomodar logo maior
+  let y = 45;
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 128, 128); // Cor verde/teal
@@ -202,7 +202,7 @@ export const gerarRespostaRecursoPDF = async (
       if (y > maxY) {
         doc.addPage();
         adicionarLogoERodape();
-        y = 35;
+        y = 45; // Posição ajustada para logo maior
       }
       
       const isLastLine = lineIndex === lines.length - 1;
@@ -241,7 +241,7 @@ export const gerarRespostaRecursoPDF = async (
   if (y > pageHeight - 50) {
     doc.addPage();
     adicionarLogoERodape();
-    y = 35;
+    y = 45; // Posição ajustada para logo maior
   }
   
   // Certificação Digital Simplificada
