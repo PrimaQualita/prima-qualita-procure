@@ -222,12 +222,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
   // Construir dados da tabela
   const dados: any[] = [];
   const isDesconto = criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto";
-  const isPorLote = criterioJulgamento === "por_lote";
 
-  // Agrupar itens por lote se critério for por_lote
+  // Agrupar itens por lote se existirem itens com lote_numero (mesma lógica da planilha consolidada)
   const itensComLote = itens.filter(item => item.lote_numero && item.lote_numero > 0);
   const itensSemLote = itens.filter(item => !item.lote_numero || item.lote_numero <= 0);
-  const temLotes = isPorLote && itensComLote.length > 0;
+  const temLotes = itensComLote.length > 0;
 
   // Map de lotes
   const lotesMap = new Map<number, { descricao: string, itens: typeof itens }>();
@@ -367,8 +366,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
       }
     });
 
-    // Adicionar dados do vencedor (para critério por item ou desconto)
-    if (!isPorLote) {
+    // Adicionar dados do vencedor (para critério por item ou desconto - quando não há lotes)
+    if (!temLotes) {
       const vencedor = encontrarVencedor(item.numero_item, loteNumero);
       if (vencedor.valor !== null) {
         if (isDesconto) {
