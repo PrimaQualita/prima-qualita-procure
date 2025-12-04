@@ -2096,19 +2096,33 @@ Deno.serve(async (req) => {
       // Buscar datas de finalização dos processos (cotação e seleção)
       const processosIds = Array.from(fornecedoresPorProcessoHab.keys());
       
-      // Datas de finalização de cotações
+      // Datas de finalização de cotações - INCLUIR ID DA COTAÇÃO para mapeamento
       const { data: cotacoesFinalizadas } = await supabase
         .from('cotacoes_precos')
-        .select('processo_compra_id, data_finalizacao')
-        .in('processo_compra_id', processosIds)
-        .not('data_finalizacao', 'is', null);
+        .select('id, processo_compra_id, data_finalizacao')
+        .in('processo_compra_id', processosIds);
       
-      // Datas de encerramento de seleções  
+      // Datas de encerramento de seleções - INCLUIR ID DA SELEÇÃO para mapeamento
       const { data: selecoesEncerradas } = await supabase
         .from('selecoes_fornecedores')
-        .select('processo_compra_id, data_encerramento_habilitacao')
-        .in('processo_compra_id', processosIds)
-        .not('data_encerramento_habilitacao', 'is', null);
+        .select('id, processo_compra_id, data_encerramento_habilitacao')
+        .in('processo_compra_id', processosIds);
+
+      // CRÍTICO: Mapear cotacao_id -> processo_compra_id (pois processos_vinculados usa cotacao_id)
+      const cotacaoIdParaProcessoId = new Map<string, string>();
+      const selecaoIdParaProcessoId = new Map<string, string>();
+      
+      if (cotacoesFinalizadas) {
+        for (const c of cotacoesFinalizadas) {
+          cotacaoIdParaProcessoId.set(c.id, c.processo_compra_id);
+        }
+      }
+      
+      if (selecoesEncerradas) {
+        for (const s of selecoesEncerradas) {
+          selecaoIdParaProcessoId.set(s.id, s.processo_compra_id);
+        }
+      }
 
       // Mapear data de fechamento por processo (usar a mais recente entre cotação e seleção)
       const dataFechamentoProcesso = new Map<string, Date>();
@@ -2140,6 +2154,8 @@ Deno.serve(async (req) => {
       console.log(`📋 Documentos de cadastro (atuais): ${docsCadastroHab?.length || 0}`);
       console.log(`📋 Documentos antigos (arquivados): ${docsAntigosHab?.length || 0}`);
       console.log(`📋 Processos com data de fechamento: ${dataFechamentoProcesso.size}`);
+      console.log(`📋 Mapeamento cotacao->processo: ${cotacaoIdParaProcessoId.size}`);
+      console.log(`📋 Mapeamento selecao->processo: ${selecaoIdParaProcessoId.size}`);
 
       // Para cada processo, adicionar documentos de cadastro dos fornecedores
       // CRÍTICO: Usar documento antigo APENAS se foi arquivado APÓS o fechamento do processo
@@ -2173,10 +2189,21 @@ Deno.serve(async (req) => {
           }
 
           // Pegar documentos antigos deste fornecedor vinculados a este processo
-          // CRÍTICO: Filtrar apenas se data_arquivamento > data_fechamento do processo
+          // CRÍTICO: processos_vinculados contém IDs de COTAÇÕES/SELEÇÕES, não processo_compra_id
+          // Precisamos mapear para verificar se alguma cotação/seleção vinculada pertence a este processo
           const docsAntigosDoFornecedor = (docsAntigosHab || []).filter(d => {
             if (d.fornecedor_id !== fornecedorId) return false;
-            if (!d.processos_vinculados?.includes(processoId)) return false;
+            
+            // Verificar se algum dos processos_vinculados (que são cotacao_id ou selecao_id) 
+            // pertence a este processo_compra_id
+            const vinculados = d.processos_vinculados || [];
+            const pertenceAoProcesso = vinculados.some((vinculadoId: string) => {
+              const processoVinculadoCotacao = cotacaoIdParaProcessoId.get(vinculadoId);
+              const processoVinculadoSelecao = selecaoIdParaProcessoId.get(vinculadoId);
+              return processoVinculadoCotacao === processoId || processoVinculadoSelecao === processoId;
+            });
+            
+            if (!pertenceAoProcesso) return false;
             
             // Se não há data de fechamento, não usar documento antigo (processo ainda aberto)
             if (!dataFechamento) {
