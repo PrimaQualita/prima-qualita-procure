@@ -625,9 +625,67 @@ Deno.serve(async (req) => {
     }
     console.log(`📋 Relatórios finais mapeados: ${relatoriosFinaisMap.size}`);
 
+    // Buscar mapeamento de documentos antigos (certidões atualizadas)
+    const { data: documentosAntigosDB } = await supabase
+      .from('documentos_antigos')
+      .select(`
+        id,
+        url_arquivo, 
+        nome_arquivo,
+        tipo_documento,
+        fornecedor_id,
+        data_validade,
+        data_arquivamento,
+        processos_vinculados
+      `);
+    const documentosAntigosMap = new Map<string, { 
+      id: string;
+      fornecedorId: string; 
+      nomeArquivo: string;
+      tipoDocumento: string;
+      dataValidade: string | null;
+      dataArquivamento: string;
+      processosVinculados: string[];
+    }>();
+    if (documentosAntigosDB) {
+      for (const doc of documentosAntigosDB) {
+        const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
+        documentosAntigosMap.set(path, {
+          id: doc.id,
+          fornecedorId: doc.fornecedor_id,
+          nomeArquivo: doc.nome_arquivo,
+          tipoDocumento: doc.tipo_documento,
+          dataValidade: doc.data_validade,
+          dataArquivamento: doc.data_arquivamento,
+          processosVinculados: doc.processos_vinculados || []
+        });
+        // Também adicionar o path do banco como referência válida
+        pathsDB.add(path);
+      }
+    }
+    console.log(`📋 Documentos antigos mapeados: ${documentosAntigosMap.size}`);
+
     // Calcular estatísticas por categoria
     const estatisticasPorCategoria = {
       documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porFornecedor: new Map<string, any>() },
+      documentos_antigos: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porFornecedor: new Map<string, { 
+          fornecedorId: string; 
+          fornecedorNome: string; 
+          documentos: Array<{ 
+            path: string; 
+            fileName: string; 
+            size: number; 
+            tipoDocumento: string;
+            dataValidade: string | null;
+            dataArquivamento: string;
+            processosVinculados: string[];
+          }> 
+        }>() 
+      },
       propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
       anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
       planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
@@ -890,6 +948,56 @@ Deno.serve(async (req) => {
       }
       
       // === CATEGORIZAÇÃO EXCLUSIVA - cada arquivo vai para UMA categoria apenas ===
+      
+      // 0. Verificar se é documento ANTIGO (certidão atualizada pelo fornecedor)
+      const docAntigo = documentosAntigosMap.get(pathSemBucket);
+      if (docAntigo) {
+        estatisticasPorCategoria.documentos_antigos.arquivos++;
+        estatisticasPorCategoria.documentos_antigos.tamanho += metadata.size;
+        estatisticasPorCategoria.documentos_antigos.detalhes.push({ path, fileName, size: metadata.size });
+        arquivosJaCategorizados.add(path);
+        console.log(`📦 Documento ANTIGO: ${fileName}`);
+        
+        const fornecedorId = docAntigo.fornecedorId;
+        const fornecedorNome = fornecedoresMap.get(fornecedorId) || `Fornecedor ${fornecedorId.substring(0, 8)}`;
+        
+        if (!estatisticasPorCategoria.documentos_antigos.porFornecedor!.has(fornecedorId)) {
+          estatisticasPorCategoria.documentos_antigos.porFornecedor!.set(fornecedorId, {
+            fornecedorId,
+            fornecedorNome,
+            documentos: []
+          });
+        }
+        
+        // Obter nome bonito do tipo de documento
+        const TIPOS_DOCUMENTO: Record<string, string> = {
+          'contrato_social': 'Contrato Social',
+          'cartao_cnpj': 'Cartão CNPJ',
+          'inscricao_estadual_municipal': 'Inscrição Estadual/Municipal',
+          'cnd_federal': 'CND Federal',
+          'cnd_tributos_estaduais': 'CND Tributos Estaduais',
+          'cnd_divida_ativa_estadual': 'CND Dívida Ativa Estadual',
+          'cnd_tributos_municipais': 'CND Tributos Municipais',
+          'cnd_divida_ativa_municipal': 'CND Dívida Ativa Municipal',
+          'crf_fgts': 'CRF FGTS',
+          'cndt': 'CNDT',
+          'certificado_gestor': 'Certificado de Fornecedor'
+        };
+        const nomeBonitoTipo = TIPOS_DOCUMENTO[docAntigo.tipoDocumento] || docAntigo.tipoDocumento;
+        
+        estatisticasPorCategoria.documentos_antigos.porFornecedor!.get(fornecedorId)!.documentos.push({
+          path,
+          fileName: nomeBonitoTipo,
+          size: metadata.size,
+          tipoDocumento: docAntigo.tipoDocumento,
+          dataValidade: docAntigo.dataValidade,
+          dataArquivamento: docAntigo.dataArquivamento,
+          processosVinculados: docAntigo.processosVinculados
+        });
+        
+        console.log(`Arquivo categorizado como ANTIGO: ${fileName} (${path})`);
+        continue; // Não verificar outras categorias
+      }
       
       // 1. Verificar se é documento de cadastro ATIVO (em_vigor=true em documentos_fornecedor)
       const docCadastroAtivo = docsCadastroAtivosMap.get(pathSemBucket);
@@ -2039,6 +2147,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.documentos_fornecedores.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.documentos_fornecedores.detalhes,
           porFornecedor: Array.from(estatisticasPorCategoria.documentos_fornecedores.porFornecedor!.values())
+        },
+        documentos_antigos: {
+          arquivos: estatisticasPorCategoria.documentos_antigos.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.documentos_antigos.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.documentos_antigos.detalhes,
+          porFornecedor: Array.from(estatisticasPorCategoria.documentos_antigos.porFornecedor!.values())
         },
         documentos_fornecedores_original: {
           arquivos: estatisticasPorCategoria.documentos_fornecedores.arquivos,
