@@ -1,8 +1,8 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, FileText, Calendar, Archive, FolderOpen } from "lucide-react";
-import { format } from "date-fns";
+import { Eye, FileText, Archive, FolderOpen, ChevronLeft } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface DocumentoAntigo {
@@ -30,6 +30,7 @@ interface DialogDocumentosAntigosProps {
 }
 
 export function DialogDocumentosAntigos({ open, onOpenChange, dados }: DialogDocumentosAntigosProps) {
+  const [fornecedorSelecionado, setFornecedorSelecionado] = useState<FornecedorGrupo | null>(null);
   const fornecedores = dados?.porFornecedor || [];
 
   const formatarTipoDocumento = (tipo: string) => {
@@ -50,17 +51,35 @@ export function DialogDocumentosAntigos({ open, onOpenChange, dados }: DialogDoc
   };
 
   const formatarData = (data: string | null) => {
-    if (!data) return '-';
+    if (!data) return null;
     try {
-      return format(new Date(data), 'dd/MM/yyyy', { locale: ptBR });
+      // Usar parseISO para interpretar a data corretamente sem problemas de timezone
+      const dataObj = parseISO(data);
+      return format(dataObj, 'dd/MM/yyyy', { locale: ptBR });
     } catch {
       return data;
     }
   };
 
+  const getNomeDocumentoComValidade = (doc: DocumentoAntigo) => {
+    const nomeBonito = formatarTipoDocumento(doc.tipoDocumento);
+    const validade = formatarData(doc.dataValidade);
+    if (validade) {
+      return `${nomeBonito} - Val. ${validade}`;
+    }
+    return nomeBonito;
+  };
+
+  const handleClose = (open: boolean) => {
+    if (!open) {
+      setFornecedorSelecionado(null);
+    }
+    onOpenChange(open);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Archive className="h-5 w-5" />
@@ -68,48 +87,70 @@ export function DialogDocumentosAntigos({ open, onOpenChange, dados }: DialogDoc
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 mt-4">
-          {fornecedores.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              Nenhum documento antigo encontrado
-            </p>
-          ) : (
-            fornecedores.map((fornecedor) => (
-              <div key={fornecedor.fornecedorId} className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/50 px-4 py-3 border-b">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{fornecedor.fornecedorNome}</span>
+        <div className="space-y-4 mt-4">
+          {!fornecedorSelecionado ? (
+            // Lista de fornecedores
+            <>
+              {fornecedores.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  Nenhum documento antigo encontrado
+                </p>
+              ) : (
+                fornecedores.map((fornecedor) => (
+                  <div 
+                    key={fornecedor.fornecedorId} 
+                    className="border rounded-lg p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FolderOpen className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{fornecedor.fornecedorNome}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {fornecedor.documentos.length} documento(s)
+                        </p>
+                      </div>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setFornecedorSelecionado(fornecedor)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Visualizar
+                    </Button>
+                  </div>
+                ))
+              )}
+            </>
+          ) : (
+            // Lista de documentos do fornecedor selecionado
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFornecedorSelecionado(null)}
+                className="mb-2"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Voltar
+              </Button>
+
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{fornecedorSelecionado.fornecedorNome}</span>
                   </div>
                 </div>
 
                 <div className="divide-y">
-                  {fornecedor.documentos.map((doc, idx) => (
+                  {fornecedorSelecionado.documentos.map((doc, idx) => (
                     <div key={idx} className="p-4 flex items-center justify-between gap-4">
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{formatarTipoDocumento(doc.tipoDocumento)}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate max-w-md">
-                          {doc.fileName}
-                        </p>
-                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Validade: {formatarData(doc.dataValidade)}
-                          </span>
-                          <span>•</span>
-                          <span>Arquivado: {formatarData(doc.dataArquivamento)}</span>
-                          {doc.processosVinculados?.length > 0 && (
-                            <>
-                              <span>•</span>
-                              <span>{doc.processosVinculados.length} processo(s) vinculado(s)</span>
-                            </>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-3 flex-1">
+                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="font-medium">
+                          {getNomeDocumentoComValidade(doc)}
+                        </span>
                       </div>
                       <Button
                         size="sm"
@@ -123,7 +164,7 @@ export function DialogDocumentosAntigos({ open, onOpenChange, dados }: DialogDoc
                   ))}
                 </div>
               </div>
-            ))
+            </>
           )}
         </div>
       </DialogContent>
