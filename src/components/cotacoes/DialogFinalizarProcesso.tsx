@@ -2879,26 +2879,58 @@ export function DialogFinalizarProcesso({
                               )}
                             </span>
                           )}
-                          {fornData.itensRejeitados && fornData.itensRejeitados.length > 0 && (
-                            <div className="mt-1">
-                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
-                                {criterioJulgamento === 'por_lote' ? (
-                                  <>
-                                    ⚠️ Lotes desabilitados (provimento parcial): {
-                                      // Converter itens para lotes
-                                      [...new Set(fornData.itensRejeitados.map(itemNum => {
-                                        const item = itensCotacao.find(i => i.numero_item === itemNum);
-                                        const lote = lotesCotacao.find(l => l.id === item?.lote_id);
-                                        return lote?.numero_lote;
-                                      }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)).join(", ")
-                                    }
-                                  </>
-                                ) : (
-                                  <>⚠️ Itens desabilitados (provimento parcial): {fornData.itensRejeitados.join(", ")}</>
-                                )}
-                              </Badge>
-                            </div>
-                          )}
+                          {fornData.itensRejeitados && fornData.itensRejeitados.length > 0 && (() => {
+                            // Para por_lote, converter itens para lotes e EXCLUIR lotes vencedores
+                            if (criterioJulgamento === 'por_lote') {
+                              // Lotes vencedores do fornecedor
+                              const lotesVencedores = new Set(fornData.itensVencedores.map(iv => {
+                                const item = itensCotacao.find(i => i.numero_item === (iv.itens_cotacao?.numero_item || iv.numero_item));
+                                const lote = lotesCotacao.find(l => l.id === item?.lote_id);
+                                return lote?.numero_lote;
+                              }).filter(Boolean));
+                              
+                              // Converter itens rejeitados para lotes
+                              const lotesRejeitados = [...new Set(fornData.itensRejeitados.map(itemNum => {
+                                const item = itensCotacao.find(i => i.numero_item === itemNum);
+                                const lote = lotesCotacao.find(l => l.id === item?.lote_id);
+                                return lote?.numero_lote;
+                              }).filter(Boolean))];
+                              
+                              // Excluir lotes vencedores - só mostrar lotes onde REALMENTE está desabilitado
+                              const lotesEfetivamenteRejeitados = lotesRejeitados
+                                .filter(l => !lotesVencedores.has(l))
+                                .sort((a, b) => Number(a) - Number(b));
+                              
+                              if (lotesEfetivamenteRejeitados.length === 0) return null;
+                              
+                              return (
+                                <div className="mt-1">
+                                  <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                                    ⚠️ Lotes desabilitados (provimento parcial): {lotesEfetivamenteRejeitados.join(", ")}
+                                  </Badge>
+                                </div>
+                              );
+                            } else {
+                              // Para outros critérios, excluir itens vencedores
+                              const itensVencedores = new Set(fornData.itensVencedores.map(iv => 
+                                iv.itens_cotacao?.numero_item || iv.numero_item
+                              ).filter(Boolean));
+                              
+                              const itensEfetivamenteRejeitados = fornData.itensRejeitados
+                                .filter(i => !itensVencedores.has(i))
+                                .sort((a, b) => Number(a) - Number(b));
+                              
+                              if (itensEfetivamenteRejeitados.length === 0) return null;
+                              
+                              return (
+                                <div className="mt-1">
+                                  <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                                    ⚠️ Itens desabilitados (provimento parcial): {itensEfetivamenteRejeitados.join(", ")}
+                                  </Badge>
+                                </div>
+                              );
+                            }
+                          })()}
                           {fornData.rejeitado && fornData.motivoRejeicao && (
                             <div className="mt-2 p-2 bg-destructive/10 rounded text-sm">
                               <strong>Motivo da rejeição:</strong> {fornData.motivoRejeicao}
