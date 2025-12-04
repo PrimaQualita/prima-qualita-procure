@@ -2789,7 +2789,10 @@ export function DialogFinalizarProcesso({
     }
   };
 
-  const todosDocumentosAprovados = fornecedoresData.every(f => f.todosDocumentosAprovados);
+  // CRÍTICO: Ignorar fornecedores rejeitados na verificação - eles não precisam ter documentos aprovados
+  const todosDocumentosAprovados = fornecedoresData
+    .filter(f => !f.rejeitado && f.itensVencedores.length > 0) // Apenas fornecedores ativos com itens vencedores
+    .every(f => f.todosDocumentosAprovados);
 
   console.log(`🖥️ RENDERIZANDO Dialog - fornecedoresData.length: ${fornecedoresData.length}, loading: ${loading}`);
   console.log(`🖥️ VERSION 2.0 - SEM FILTRO POR PLANILHA`);
