@@ -401,7 +401,7 @@ export function DialogFinalizarProcesso({
               cotacao_resposta_fornecedor_id,
               item_cotacao_id,
               valor_unitario_ofertado,
-              itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade)
+              itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade, lotes_cotacao(numero_lote))
             `)
             .eq("cotacao_resposta_fornecedor_id", resposta.id)
             .range(offset, offset + 999);
@@ -500,15 +500,41 @@ export function DialogFinalizarProcesso({
           // Verificar se está na tabela de rejeições ativas
           const temRejeicaoAtiva = itensRejeitadosPorFornecedor.has(forn.id) || 
             rejeicoesAtivas?.some(r => r.fornecedor_id === forn.id);
-          const estaRejeitado = (resposta?.rejeitado || temRejeicaoAtiva) && !foiRevertido;
           
           // Obter itens rejeitados (para provimento parcial)
           const itensRejeitados = itensRejeitadosPorFornecedor.get(forn.id) || [];
+          
+          // CRÍTICO: Para critério por_lote, itensRejeitados são NÚMEROS DE LOTES
+          // Fornecedor só está TOTALMENTE rejeitado se:
+          // 1. Tem rejeição ativa E não foi revertido E
+          // 2. A rejeição é TOTAL (itensRejeitados vazio) OU todos os itens/lotes que ganhou estão rejeitados
+          let estaRejeitado = false;
+          if (temRejeicaoAtiva && !foiRevertido) {
+            if (itensRejeitados.length === 0) {
+              // Rejeição total - sem itens específicos
+              estaRejeitado = true;
+            } else if (criterio === 'por_lote') {
+              // Para critério por_lote: verificar se TODOS os lotes vencidos estão rejeitados
+              // Os itensRejeitados contêm números de LOTES, não de itens
+              const lotesVencidos = new Set(itensVenc.map(item => {
+                const ic = item.itens_cotacao as any;
+                return ic?.lotes_cotacao?.numero_lote || 0;
+              }));
+              const lotesRejeitados = new Set(itensRejeitados);
+              // Só está totalmente rejeitado se todos os lotes vencidos foram rejeitados
+              estaRejeitado = Array.from(lotesVencidos).every(lote => lotesRejeitados.has(lote));
+            } else {
+              // Para outros critérios: verificar se todos os itens vencidos estão rejeitados
+              const itensVencidos = new Set(itensVenc.map(item => item.itens_cotacao?.numero_item || 0));
+              const itensRejeitadosSet = new Set(itensRejeitados);
+              estaRejeitado = Array.from(itensVencidos).every(item => itensRejeitadosSet.has(item));
+            }
+          }
 
           // Para fornecedores inabilitados, buscar os itens que eles participaram (não venceram)
           // para saber em qual lote foram inabilitados
           let itensParticipados: any[] = [];
-          if (itensVenc.length === 0 && estaRejeitado) {
+          if (itensVenc.length === 0 && (temRejeicaoAtiva && !foiRevertido)) {
             // Buscar itens que este fornecedor cotou
             itensParticipados = itens.filter(i => {
               const respostaItem = respostas.find(r => r.id === i.cotacao_resposta_fornecedor_id);
@@ -2203,12 +2229,22 @@ export function DialogFinalizarProcesso({
         }));
 
       // Adicionar inabilitações (parciais ou globais)
+      // CRÍTICO: Para critério por_lote, itens_afetados são números de LOTES, não de itens
       const fornecedoresInabilitados = (inabilitacoes || []).map(inab => {
         const itensAfetados = inab.itens_afetados || [];
         const ehParcial = itensAfetados.length > 0;
-        const textoItens = ehParcial 
-          ? `Inabilitada nos itens: ${itensAfetados.join(", ")}. Motivo: ${inab.motivo_rejeicao}`
-          : inab.motivo_rejeicao;
+        
+        // CRÍTICO: Usar "Lote(s)" para critério por_lote, "Item(ns)" para outros critérios
+        let textoItens: string;
+        if (ehParcial) {
+          if (criterioJulgamento === 'por_lote') {
+            textoItens = `Inabilitada no(s) Lote(s): ${itensAfetados.join(", ")}. Motivo: ${inab.motivo_rejeicao}`;
+          } else {
+            textoItens = `Inabilitada no(s) Item(ns): ${itensAfetados.join(", ")}. Motivo: ${inab.motivo_rejeicao}`;
+          }
+        } else {
+          textoItens = inab.motivo_rejeicao;
+        }
         
         return {
           razaoSocial: inab.fornecedores.razao_social,
