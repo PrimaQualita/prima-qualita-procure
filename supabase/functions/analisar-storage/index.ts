@@ -2330,17 +2330,24 @@ Deno.serve(async (req) => {
           // Pegar documentos antigos deste fornecedor vinculados a este processo
           // CRÍTICO: processos_vinculados contém IDs de COTAÇÕES/SELEÇÕES, não processo_compra_id
           // Precisamos mapear para verificar se alguma cotação/seleção vinculada pertence a este processo
+          console.log(`    🔎 Verificando docs antigos para ${fornecedorNome} no processo ${processoId.substring(0,8)}, dataFechamento=${dataFechamento?.toISOString() || 'null'}`);
+          
           const docsAntigosDoFornecedor = (docsAntigosHab || []).filter(d => {
             if (d.fornecedor_id !== fornecedorId) return false;
             
             // Verificar se algum dos processos_vinculados (que são cotacao_id ou selecao_id) 
             // pertence a este processo_compra_id
             const vinculados = d.processos_vinculados || [];
+            console.log(`      📋 Doc ${d.nome_arquivo}: vinculados=${JSON.stringify(vinculados)}`);
+            
             const pertenceAoProcesso = vinculados.some((vinculadoId: string) => {
               const processoVinculadoCotacao = cotacaoIdParaProcessoId.get(vinculadoId);
               const processoVinculadoSelecao = selecaoIdParaProcessoId.get(vinculadoId);
+              console.log(`        Vinculado ${vinculadoId.substring(0,8)}: cotacao->processo=${processoVinculadoCotacao?.substring(0,8) || 'null'}, selecao->processo=${processoVinculadoSelecao?.substring(0,8) || 'null'}, processoAtual=${processoId.substring(0,8)}`);
               return processoVinculadoCotacao === processoId || processoVinculadoSelecao === processoId;
             });
+            
+            console.log(`      🔗 pertenceAoProcesso=${pertenceAoProcesso}`);
             
             if (!pertenceAoProcesso) return false;
             
