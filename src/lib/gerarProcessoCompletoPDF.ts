@@ -786,93 +786,86 @@ export const gerarProcessoCompletoPDF = async (
           fornecedor: fornecedorId
         });
       }
-    }
-    
-    // 11b. BUSCAR RECURSOS DE INABILITAÇÃO EM ORDEM CRONOLÓGICA (recurso + resposta)
-    console.log("\n📝 === BUSCANDO RECURSOS DE INABILITAÇÃO ===");
-    
-    // Buscar recursos com dados do fornecedor e da rejeição
-    const { data: recursosInabilitacao, error: recursosError } = await supabase
-      .from("recursos_fornecedor")
-      .select(`
-        *,
-        fornecedores(razao_social),
-        fornecedores_rejeitados_cotacao!inner(
-          cotacao_id
-        )
-      `)
-      .order("data_envio", { ascending: true });
-    
-    if (recursosError) {
-      console.error("Erro ao buscar recursos:", recursosError);
-    }
-    
-    // Filtrar apenas recursos desta cotação
-    const recursosFiltrados = recursosInabilitacao?.filter(r => {
-      const rejeicao = r.fornecedores_rejeitados_cotacao as any;
-      return rejeicao?.cotacao_id === cotacaoId;
-    }) || [];
-    
-    console.log(`📝 Recursos de inabilitação encontrados: ${recursosFiltrados.length}`);
-    
-    // Buscar respostas dos recursos (tabela separada respostas_recursos)
-    const recursosIds = recursosFiltrados.map(r => r.id);
-    let respostasRecursos: any[] = [];
-    
-    if (recursosIds.length > 0) {
-      const { data: respostas, error: respostasError } = await supabase
-        .from("respostas_recursos")
-        .select("*")
-        .in("recurso_id", recursosIds);
       
-      if (respostasError) {
-        console.error("Erro ao buscar respostas de recursos:", respostasError);
-      } else {
-        respostasRecursos = respostas || [];
-      }
-    }
-    
-    console.log(`📝 Respostas de recursos encontradas: ${respostasRecursos.length}`);
-    
-    // Data base para recursos (após documentos dos fornecedores)
-    const dataBaseRecursos = new Date(new Date(dataBaseFornecedores).getTime() + (todosFornecedoresProcesso.length * 100) + 500).toISOString();
-    
-    // Adicionar recursos em ordem cronológica: recurso seguido de sua resposta
-    for (let i = 0; i < recursosFiltrados.length; i++) {
-      const recurso = recursosFiltrados[i];
-      const razaoSocial = (recurso.fornecedores as any)?.razao_social || 'Fornecedor';
+      // 11b. BUSCAR RECURSOS DESTE FORNECEDOR ESPECÍFICO (recurso + resposta após seus documentos)
+      const { data: recursosFornecedor, error: recursosFornError } = await supabase
+        .from("recursos_fornecedor")
+        .select(`
+          *,
+          fornecedores(razao_social),
+          fornecedores_rejeitados_cotacao!inner(
+            cotacao_id
+          )
+        `)
+        .eq("fornecedor_id", fornecedorId)
+        .order("data_envio", { ascending: true });
       
-      // Data do recurso (mantém ordem cronológica)
-      const dataRecurso = new Date(new Date(dataBaseRecursos).getTime() + (i * 200)).toISOString();
-      
-      // Adicionar o recurso
-      if (recurso.url_arquivo) {
-        documentosOrdenados.push({
-          tipo: "Recurso de Inabilitação",
-          data: dataRecurso,
-          nome: `Recurso - ${razaoSocial}`,
-          url: recurso.url_arquivo,
-          bucket: "processo-anexos",
-          fornecedor: recurso.fornecedor_id
-        });
-        console.log(`  📝 Recurso: ${razaoSocial} - ${recurso.data_envio}`);
+      if (recursosFornError) {
+        console.error(`  ❌ Erro ao buscar recursos do fornecedor:`, recursosFornError);
       }
       
-      // Buscar resposta deste recurso específico
-      const resposta = respostasRecursos.find(r => r.recurso_id === recurso.id);
+      // Filtrar apenas recursos desta cotação
+      const recursosFiltradosForn = recursosFornecedor?.filter(r => {
+        const rejeicao = r.fornecedores_rejeitados_cotacao as any;
+        return rejeicao?.cotacao_id === cotacaoId;
+      }) || [];
       
-      // Adicionar a resposta do recurso (imediatamente após o recurso)
-      if (resposta?.url_documento) {
-        const dataResposta = new Date(new Date(dataRecurso).getTime() + 1).toISOString();
-        documentosOrdenados.push({
-          tipo: "Resposta de Recurso",
-          data: dataResposta,
-          nome: `Resposta Recurso - ${razaoSocial}`,
-          url: resposta.url_documento,
-          bucket: "processo-anexos",
-          fornecedor: recurso.fornecedor_id
-        });
-        console.log(`  📝 Resposta Recurso: ${razaoSocial} - ${resposta.data_resposta}`);
+      if (recursosFiltradosForn.length > 0) {
+        console.log(`  📝 Recursos do fornecedor: ${recursosFiltradosForn.length}`);
+        
+        // Buscar respostas dos recursos deste fornecedor
+        const recursosIds = recursosFiltradosForn.map(r => r.id);
+        let respostasRecursos: any[] = [];
+        
+        if (recursosIds.length > 0) {
+          const { data: respostas, error: respostasError } = await supabase
+            .from("respostas_recursos")
+            .select("*")
+            .in("recurso_id", recursosIds);
+          
+          if (!respostasError && respostas) {
+            respostasRecursos = respostas;
+          }
+        }
+        
+        // Adicionar recursos em ordem cronológica: recurso seguido de sua resposta
+        for (let i = 0; i < recursosFiltradosForn.length; i++) {
+          const recurso = recursosFiltradosForn[i];
+          const razaoSocial = (recurso.fornecedores as any)?.razao_social || fornecedorNome;
+          
+          // Data do recurso (logo após documentos do fornecedor)
+          const dataRecurso = new Date(new Date(dataFornecedor).getTime() + 50 + (i * 2)).toISOString();
+          
+          // Adicionar o recurso
+          if (recurso.url_arquivo) {
+            documentosOrdenados.push({
+              tipo: "Recurso de Inabilitação",
+              data: dataRecurso,
+              nome: `Recurso - ${razaoSocial}`,
+              url: recurso.url_arquivo,
+              bucket: "processo-anexos",
+              fornecedor: fornecedorId
+            });
+            console.log(`  📝 Recurso: ${razaoSocial}`);
+          }
+          
+          // Buscar resposta deste recurso específico
+          const resposta = respostasRecursos.find(r => r.recurso_id === recurso.id);
+          
+          // Adicionar a resposta do recurso (imediatamente após o recurso)
+          if (resposta?.url_documento) {
+            const dataResposta = new Date(new Date(dataRecurso).getTime() + 1).toISOString();
+            documentosOrdenados.push({
+              tipo: "Resposta de Recurso",
+              data: dataResposta,
+              nome: `Resposta Recurso - ${razaoSocial}`,
+              url: resposta.url_documento,
+              bucket: "processo-anexos",
+              fornecedor: fornecedorId
+            });
+            console.log(`  📝 Resposta Recurso: ${razaoSocial}`);
+          }
+        }
       }
     }
 
@@ -893,8 +886,8 @@ export const gerarProcessoCompletoPDF = async (
 
     console.log(`📊 Planilhas de habilitação encontradas: ${planilhasHabilitacao?.length || 0}`);
     
-    // Data base para planilhas de habilitação (após recursos)
-    const dataPlanilhasHab = new Date(new Date(dataBaseRecursos).getTime() + (recursosFiltrados.length * 200) + 500).toISOString();
+    // Data base para planilhas de habilitação (após todos os documentos de fornecedores e recursos)
+    const dataPlanilhasHab = new Date(new Date(dataBaseFornecedores).getTime() + (todosFornecedoresProcesso.length * 200) + 1000).toISOString();
     
     if (planilhasHabilitacao && planilhasHabilitacao.length > 0) {
       planilhasHabilitacao.forEach((planilha, idx) => {
