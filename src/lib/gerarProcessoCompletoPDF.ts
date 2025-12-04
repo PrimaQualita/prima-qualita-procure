@@ -411,17 +411,12 @@ export const gerarProcessoCompletoPDF = async (
 
     // Extrair IDs únicos de fornecedores vencedores da planilha
     const fornecedoresData = planilhaMaisRecente?.fornecedores_incluidos || [];
-    let fornecedoresVencedores = Array.from(
-      new Set(
-        fornecedoresData
-          .filter((f: any) => f.itens?.some((item: any) => item.eh_vencedor))
-          .map((f: any) => f.fornecedor_id)
-      )
-    ) as string[];
     
-    // Se critério é por_lote, verificar se algum vencedor foi inabilitado e incluir segundo colocado
+    // Para critério por_lote, calcular vencedor real de cada lote considerando inabilitações
+    let fornecedoresVencedores: string[] = [];
+    
     if (criterioJulgamento === 'menor_preco_lote') {
-      console.log(`🔍 Critério por lote - verificando segundos colocados...`);
+      console.log(`🔍 Critério por lote - identificando vencedores por lote...`);
       
       // Buscar lotes da cotação
       const { data: lotes } = await supabase
@@ -429,13 +424,13 @@ export const gerarProcessoCompletoPDF = async (
         .select("id, numero_lote")
         .eq("cotacao_id", cotacaoId);
       
+      // Buscar itens por lote
+      const { data: itensCotacao } = await supabase
+        .from("itens_cotacao")
+        .select("id, numero_item, lote_id, quantidade")
+        .eq("cotacao_id", cotacaoId);
+      
       if (lotes && lotes.length > 0) {
-        // Buscar itens por lote
-        const { data: itensCotacao } = await supabase
-          .from("itens_cotacao")
-          .select("id, numero_item, lote_id, quantidade")
-          .eq("cotacao_id", cotacaoId);
-        
         for (const lote of lotes) {
           const itensDoLote = itensCotacao?.filter(i => i.lote_id === lote.id) || [];
           const numerosItensLote = itensDoLote.map(i => i.numero_item);
@@ -447,21 +442,26 @@ export const gerarProcessoCompletoPDF = async (
             const fornecedorId = fornecedor.fornecedor_id;
             const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
             
-            // Verificar se fornecedor está inabilitado neste lote (todos os itens do lote inabilitados)
-            const todosItensLoteInabilitados = numerosItensLote.every(n => itensInabilitados.includes(n));
-            const inabilitadoNoLote = fornecedoresInabilitadosIds.includes(fornecedorId) && 
-              (itensInabilitados.length === 0 || todosItensLoteInabilitados);
+            // Verificar se fornecedor está inabilitado neste lote
+            // Inabilitado se: está na lista de rejeitados E (sem itens específicos = inabilitação global OU todos itens do lote estão inabilitados)
+            const inabilitacaoGlobal = fornecedoresInabilitadosIds.includes(fornecedorId) && itensInabilitados.length === 0;
+            const todosItensLoteInabilitados = itensInabilitados.length > 0 && numerosItensLote.every(n => itensInabilitados.includes(n));
+            const inabilitadoNoLote = inabilitacaoGlobal || todosItensLoteInabilitados;
             
             // Calcular valor total do lote
             let valorTotalLote = 0;
+            let temTodosItens = true;
             for (const itemLote of itensDoLote) {
-              const itemFornecedor = fornecedor.itens?.find((i: any) => i.numero_item === itemLote.numero_item);
+              const itemFornecedor = fornecedor.itens?.find((i: any) => i.numero_item === itemLote.numero_item && i.lote_id === lote.id);
               if (itemFornecedor?.valor_unitario) {
                 valorTotalLote += itemFornecedor.valor_unitario * itemLote.quantidade;
+              } else {
+                temTodosItens = false;
               }
             }
             
-            if (valorTotalLote > 0) {
+            // Só incluir se fornecedor cotou todos os itens do lote
+            if (valorTotalLote > 0 && temTodosItens) {
               valoresLote.push({ fornecedorId, valorTotal: valorTotalLote, inabilitado: inabilitadoNoLote });
             }
           }
@@ -469,24 +469,37 @@ export const gerarProcessoCompletoPDF = async (
           // Ordenar por valor (menor primeiro)
           valoresLote.sort((a, b) => a.valorTotal - b.valorTotal);
           
-          // Verificar se o vencedor está inabilitado
-          const vencedorOriginal = valoresLote[0];
-          if (vencedorOriginal?.inabilitado && valoresLote.length > 1) {
-            // Encontrar o próximo não inabilitado
-            const segundoColocado = valoresLote.find(v => !v.inabilitado);
-            if (segundoColocado && !fornecedoresVencedores.includes(segundoColocado.fornecedorId)) {
-              console.log(`  📋 Lote ${lote.numero_lote}: vencedor inabilitado, adicionando segundo colocado`);
-              fornecedoresVencedores.push(segundoColocado.fornecedorId);
-            }
+          // Encontrar o primeiro fornecedor NÃO inabilitado (vencedor real do lote)
+          const vencedorLote = valoresLote.find(v => !v.inabilitado);
+          if (vencedorLote && !fornecedoresVencedores.includes(vencedorLote.fornecedorId)) {
+            console.log(`  📋 Lote ${lote.numero_lote}: vencedor = ${vencedorLote.fornecedorId}`);
+            fornecedoresVencedores.push(vencedorLote.fornecedorId);
           }
         }
       }
+    } else {
+      // Para outros critérios, usar lógica original baseada em eh_vencedor
+      fornecedoresVencedores = Array.from(
+        new Set(
+          fornecedoresData
+            .filter((f: any) => f.itens?.some((item: any) => item.eh_vencedor))
+            .map((f: any) => f.fornecedor_id)
+        )
+      ) as string[];
+      
+      // Filtrar fornecedores vencedores que foram inabilitados globalmente
+      fornecedoresVencedores = fornecedoresVencedores.filter(id => {
+        const itensInabilitados = itensInabilitadosPorFornecedor.get(id) || [];
+        // Se está inabilitado globalmente (sem itens específicos), remover da lista de vencedores
+        return !(fornecedoresInabilitadosIds.includes(id) && itensInabilitados.length === 0);
+      });
     }
     
     fornecedoresVencedores = [...new Set(fornecedoresVencedores)].sort();
-    console.log(`👥 Fornecedores vencedores únicos (incluindo segundos colocados): ${fornecedoresVencedores.length}`);
+    console.log(`👥 Fornecedores vencedores únicos: ${fornecedoresVencedores.length}`);
     
-    // Combinar fornecedores vencedores E inabilitados (sem duplicatas)
+    // Lista de todos fornecedores para documentos = apenas vencedores + inabilitados
+    // Usar Set para garantir que cada fornecedor aparece apenas UMA vez
     const todosFornecedoresProcesso = Array.from(
       new Set([...fornecedoresVencedores, ...fornecedoresInabilitadosIds])
     ).sort();
@@ -535,7 +548,15 @@ export const gerarProcessoCompletoPDF = async (
       }
 
       // Remover duplicatas mantendo apenas a versão mais recente de cada tipo
+      // Tipos de documentos que NÃO devem ser incluídos na habilitação
+      const documentosExcluidos = ["relatorio_kpmg_compliance", "relatorio_kpmg"];
+      
       let docsUnicos = docsSnapshot?.reduce((acc, doc) => {
+        // Excluir documentos que não devem ser mesclados
+        if (documentosExcluidos.includes(doc.tipo_documento)) {
+          console.log(`  🚫 Excluindo documento: ${doc.tipo_documento}`);
+          return acc;
+        }
         if (!acc.find((d: any) => d.tipo_documento === doc.tipo_documento)) {
           acc.push(doc);
         }
@@ -557,8 +578,13 @@ export const gerarProcessoCompletoPDF = async (
         if (cadastroError) {
           console.error(`  ❌ Erro ao buscar documentos de cadastro:`, cadastroError);
         } else if (docsCadastro && docsCadastro.length > 0) {
-          // Remover duplicatas mantendo versão mais recente
+          // Remover duplicatas mantendo versão mais recente e excluir documentos não permitidos
           docsUnicos = docsCadastro.reduce((acc, doc) => {
+            // Excluir documentos que não devem ser mesclados
+            if (documentosExcluidos.includes(doc.tipo_documento)) {
+              console.log(`  🚫 Excluindo documento: ${doc.tipo_documento}`);
+              return acc;
+            }
             if (!acc.find((d: any) => d.tipo_documento === doc.tipo_documento)) {
               acc.push({
                 ...doc,
@@ -571,14 +597,12 @@ export const gerarProcessoCompletoPDF = async (
         }
       }
 
-      const docsOrdenados = docsUnicos.sort((a, b) => {
+      // Filtrar apenas documentos que estão na ordem permitida (exclui qualquer tipo não listado)
+      const docsFiltrados = docsUnicos.filter(doc => ordemDocumentos.includes(doc.tipo_documento));
+      
+      const docsOrdenados = docsFiltrados.sort((a, b) => {
         const indexA = ordemDocumentos.indexOf(a.tipo_documento);
         const indexB = ordemDocumentos.indexOf(b.tipo_documento);
-        
-        if (indexA === -1 && indexB === -1) return 0;
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-        
         return indexA - indexB;
       });
       
