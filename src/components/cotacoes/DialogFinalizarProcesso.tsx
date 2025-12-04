@@ -4027,70 +4027,156 @@ export function DialogFinalizarProcesso({
                 </div>
               </div>
 
-              {/* Seleção de itens para provimento parcial */}
+              {/* Seleção de itens/lotes para provimento parcial */}
               {tipoProvimento === 'parcial' && decisaoRecurso === 'provimento' && (
                 <div className="space-y-2 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200">
                   <Label className="font-medium text-yellow-800 dark:text-yellow-200">
-                    Selecione os itens a serem reabilitados:
+                    {criterioJulgamento === 'por_lote' 
+                      ? 'Selecione os lotes a serem reabilitados:'
+                      : 'Selecione os itens a serem reabilitados:'}
                   </Label>
                   <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                    Itens marcados serão reabilitados. Itens não marcados permanecerão inabilitados.
+                    {criterioJulgamento === 'por_lote'
+                      ? 'Lotes marcados serão reabilitados. Lotes não marcados permanecerão inabilitados.'
+                      : 'Itens marcados serão reabilitados. Itens não marcados permanecerão inabilitados.'}
                   </p>
                   {(() => {
-                    // Mostrar TODOS os itens para permitir flexibilidade na edição
-                    const todosNumeros = itensCotacao.map(i => i.numero_item);
-                    const todosSelecionados = todosNumeros.length > 0 && todosNumeros.every(n => itensParaReabilitar.includes(n));
-                    
-                    return (
-                      <div className="border rounded-md bg-white dark:bg-gray-900">
-                        {/* Marcar todos */}
-                        <div className="flex items-center gap-2 p-2 border-b bg-muted/50">
-                          <input
-                            type="checkbox"
-                            id="marcar-todos-reabilitar"
-                            checked={todosSelecionados}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setItensParaReabilitar(todosNumeros);
-                              } else {
-                                setItensParaReabilitar([]);
-                              }
-                            }}
-                            className="rounded"
-                          />
-                          <label htmlFor="marcar-todos-reabilitar" className="text-sm font-medium cursor-pointer">
-                            Marcar todos ({todosNumeros.length} itens)
-                          </label>
+                    // Para por_lote, mostrar lotes; caso contrário, mostrar apenas os itens que foram inabilitados
+                    if (criterioJulgamento === 'por_lote') {
+                      // Mostrar lotes que foram inabilitados (baseado nos itens_afetados da rejeição)
+                      const itensInabilitados = rejeicaoDoRecurso?.itens_afetados || [];
+                      // Encontrar lotes que contêm itens inabilitados
+                      const lotesInabilitados = lotesCotacao.filter(lote => {
+                        const itensDesseLote = itensCotacao.filter(i => i.lote_id === lote.id);
+                        return itensDesseLote.some(item => itensInabilitados.includes(item.numero_item));
+                      });
+                      
+                      // Se não há lotes específicos inabilitados, mostrar todos os lotes
+                      const lotesParaExibir = lotesInabilitados.length > 0 ? lotesInabilitados : lotesCotacao;
+                      const todosLotesIds = lotesParaExibir.map(l => l.id);
+                      const todosSelecionados = todosLotesIds.length > 0 && todosLotesIds.every(id => lotesParaRejeitar.includes(id));
+                      
+                      return (
+                        <div className="border rounded-md bg-white dark:bg-gray-900">
+                          {/* Marcar todos */}
+                          <div className="flex items-center gap-2 p-2 border-b bg-muted/50">
+                            <input
+                              type="checkbox"
+                              id="marcar-todos-lotes-reabilitar"
+                              checked={todosSelecionados}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setLotesParaRejeitar(todosLotesIds);
+                                  // Também atualizar itens para reabilitar com todos os itens dos lotes selecionados
+                                  const todosItens = lotesParaExibir.flatMap(lote => 
+                                    itensCotacao.filter(i => i.lote_id === lote.id).map(i => i.numero_item)
+                                  );
+                                  setItensParaReabilitar(todosItens);
+                                } else {
+                                  setLotesParaRejeitar([]);
+                                  setItensParaReabilitar([]);
+                                }
+                              }}
+                              className="rounded"
+                            />
+                            <label htmlFor="marcar-todos-lotes-reabilitar" className="text-sm font-medium cursor-pointer">
+                              Marcar todos ({lotesParaExibir.length} lotes)
+                            </label>
+                          </div>
+                          
+                          {/* Lista de lotes */}
+                          <div className="max-h-48 overflow-y-auto p-2 space-y-1">
+                            {lotesParaExibir.map((lote) => (
+                              <div key={lote.id} className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id={`reabilitar-lote-${lote.id}`}
+                                  checked={lotesParaRejeitar.includes(lote.id)}
+                                  onChange={(e) => {
+                                    const itensDoLote = itensCotacao.filter(i => i.lote_id === lote.id).map(i => i.numero_item);
+                                    if (e.target.checked) {
+                                      setLotesParaRejeitar(prev => [...prev, lote.id]);
+                                      setItensParaReabilitar(prev => [...new Set([...prev, ...itensDoLote])]);
+                                    } else {
+                                      setLotesParaRejeitar(prev => prev.filter(id => id !== lote.id));
+                                      setItensParaReabilitar(prev => prev.filter(i => !itensDoLote.includes(i)));
+                                    }
+                                  }}
+                                  className="rounded"
+                                />
+                                <label htmlFor={`reabilitar-lote-${lote.id}`} className="text-sm">
+                                  Lote {lote.numero_lote}: {lote.descricao_lote.substring(0, 50)}...
+                                </label>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        
-                        {/* Lista de itens */}
-                        <div className="max-h-48 overflow-y-auto p-2 space-y-1">
-                          {itensCotacao.map((item) => (
-                            <div key={item.numero_item} className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                id={`reabilitar-${item.numero_item}`}
-                                checked={itensParaReabilitar.includes(item.numero_item)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setItensParaReabilitar(prev => [...prev, item.numero_item]);
-                                  } else {
-                                    setItensParaReabilitar(prev => prev.filter(i => i !== item.numero_item));
-                                  }
-                                }}
-                                className="rounded"
-                              />
-                              <label htmlFor={`reabilitar-${item.numero_item}`} className="text-sm">
-                                Item {item.numero_item}: {item.descricao.substring(0, 50)}...
-                              </label>
-                            </div>
-                          ))}
+                      );
+                    } else {
+                      // Para outros critérios, mostrar apenas itens que foram inabilitados
+                      const itensInabilitados = rejeicaoDoRecurso?.itens_afetados || [];
+                      // Se a rejeição tem itens específicos, mostrar apenas esses; senão mostrar todos
+                      const itensParaExibir = itensInabilitados.length > 0 
+                        ? itensCotacao.filter(i => itensInabilitados.includes(i.numero_item))
+                        : itensCotacao;
+                      const todosNumeros = itensParaExibir.map(i => i.numero_item);
+                      const todosSelecionados = todosNumeros.length > 0 && todosNumeros.every(n => itensParaReabilitar.includes(n));
+                      
+                      return (
+                        <div className="border rounded-md bg-white dark:bg-gray-900">
+                          {/* Marcar todos */}
+                          <div className="flex items-center gap-2 p-2 border-b bg-muted/50">
+                            <input
+                              type="checkbox"
+                              id="marcar-todos-reabilitar"
+                              checked={todosSelecionados}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setItensParaReabilitar(todosNumeros);
+                                } else {
+                                  setItensParaReabilitar([]);
+                                }
+                              }}
+                              className="rounded"
+                            />
+                            <label htmlFor="marcar-todos-reabilitar" className="text-sm font-medium cursor-pointer">
+                              Marcar todos ({todosNumeros.length} itens)
+                            </label>
+                          </div>
+                          
+                          {/* Lista de itens */}
+                          <div className="max-h-48 overflow-y-auto p-2 space-y-1">
+                            {itensParaExibir.map((item) => (
+                              <div key={item.numero_item} className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id={`reabilitar-${item.numero_item}`}
+                                  checked={itensParaReabilitar.includes(item.numero_item)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setItensParaReabilitar(prev => [...prev, item.numero_item]);
+                                    } else {
+                                      setItensParaReabilitar(prev => prev.filter(i => i !== item.numero_item));
+                                    }
+                                  }}
+                                  className="rounded"
+                                />
+                                <label htmlFor={`reabilitar-${item.numero_item}`} className="text-sm">
+                                  Item {item.numero_item}: {item.descricao.substring(0, 50)}...
+                                </label>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    );
+                      );
+                    }
                   })()}
                   {itensParaReabilitar.length === 0 && (
-                    <p className="text-xs text-red-500">Selecione ao menos um item para reabilitar</p>
+                    <p className="text-xs text-red-500">
+                      {criterioJulgamento === 'por_lote' 
+                        ? 'Selecione ao menos um lote para reabilitar'
+                        : 'Selecione ao menos um item para reabilitar'}
+                    </p>
                   )}
                 </div>
               )}
