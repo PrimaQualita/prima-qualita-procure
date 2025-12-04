@@ -720,8 +720,8 @@ export async function gerarPlanilhaConsolidadaPDF(
       doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
       doc.rect(cell.x + 0.5, cell.y + 0.5, cell.width - 1, cell.height - 1, 'F');
       
-      // Configurar fonte
-      doc.setFontSize(8);
+      // Configurar fonte (usar o menorFontSize calculado)
+      doc.setFontSize(menorFontSize);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
       
