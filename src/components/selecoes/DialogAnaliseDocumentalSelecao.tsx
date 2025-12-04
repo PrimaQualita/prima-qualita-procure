@@ -956,14 +956,6 @@ export function DialogAnaliseDocumentalSelecao({
 
   const loadDocumentosFornecedor = async (fornecedorId: string): Promise<DocumentoExistente[]> => {
     try {
-      const { data, error } = await supabase
-        .from("documentos_fornecedor")
-        .select("*")
-        .eq("fornecedor_id", fornecedorId)
-        .order("data_upload", { ascending: false });
-
-      if (error) throw error;
-      
       // Ordem específica dos documentos
       const ordemDocumentos: Record<string, number> = {
         'contrato_social': 1,
@@ -978,14 +970,93 @@ export function DialogAnaliseDocumentalSelecao({
         'cndt': 10,
         'certificado_gestor': 11,
       };
+
+      // BUSCAR DATA DE ENCERRAMENTO DA HABILITAÇÃO DA SELEÇÃO
+      const { data: selecaoData } = await supabase
+        .from("selecoes_fornecedores")
+        .select("data_encerramento_habilitacao, cotacao_relacionada_id")
+        .eq("id", selecaoId)
+        .single();
+      
+      const dataEncerramento = selecaoData?.data_encerramento_habilitacao 
+        ? new Date(selecaoData.data_encerramento_habilitacao) 
+        : null;
+      
+      const cotacaoRelacionada = selecaoData?.cotacao_relacionada_id;
+      
+      console.log(`📅 Data encerramento habilitação: ${dataEncerramento?.toISOString() || 'não encerrada'}`);
+
+      // BUSCAR DOCUMENTOS ANTIGOS DO FORNECEDOR VINCULADOS A ESTA SELEÇÃO/COTAÇÃO
+      let docsAntigosParaUsar: Map<string, any> = new Map();
+      
+      if (dataEncerramento) {
+        const { data: docsAntigos } = await supabase
+          .from("documentos_antigos")
+          .select("*")
+          .eq("fornecedor_id", fornecedorId);
+        
+        if (docsAntigos && docsAntigos.length > 0) {
+          console.log(`📦 Documentos antigos encontrados: ${docsAntigos.length}`);
+          
+          for (const docAntigo of docsAntigos) {
+            // Verificar se está vinculado a esta seleção ou cotação relacionada
+            const vinculados = docAntigo.processos_vinculados || [];
+            const vinculadoAoProcesso = vinculados.includes(selecaoId) || 
+              (cotacaoRelacionada && vinculados.includes(cotacaoRelacionada));
+            
+            if (!vinculadoAoProcesso) {
+              continue;
+            }
+            
+            // Usar documento antigo APENAS se foi arquivado APÓS o encerramento da habilitação
+            const dataArquivamento = docAntigo.data_arquivamento 
+              ? new Date(docAntigo.data_arquivamento) 
+              : null;
+            
+            if (dataArquivamento && dataArquivamento > dataEncerramento) {
+              console.log(`  ✅ Usando doc antigo: ${docAntigo.tipo_documento} (arquivado após encerramento)`);
+              docsAntigosParaUsar.set(docAntigo.tipo_documento, docAntigo);
+            }
+          }
+        }
+      }
+
+      // Buscar documentos atuais
+      const { data, error } = await supabase
+        .from("documentos_fornecedor")
+        .select("*")
+        .eq("fornecedor_id", fornecedorId)
+        .order("data_upload", { ascending: false });
+
+      if (error) throw error;
+      
+      console.log(`✅ Documentos atuais carregados: ${data?.length || 0}`);
+      console.log(`📦 Documentos antigos a usar: ${docsAntigosParaUsar.size}`);
       
       // Filtrar apenas o documento mais recente de cada tipo e excluir Relatorio KPMG
+      // MAS PRIORIZAR documentos antigos quando aplicável
       const documentosPorTipo = new Map<string, DocumentoExistente>();
+      
+      // Primeiro, adicionar todos os documentos antigos que devem ser usados
+      docsAntigosParaUsar.forEach((docAntigo, tipo) => {
+        documentosPorTipo.set(tipo, {
+          id: docAntigo.id,
+          tipo_documento: tipo,
+          nome_arquivo: docAntigo.nome_arquivo,
+          url_arquivo: docAntigo.url_arquivo,
+          data_emissao: docAntigo.data_emissao,
+          data_validade: docAntigo.data_validade,
+          em_vigor: true
+        } as DocumentoExistente);
+      });
+      
+      // Depois, adicionar documentos atuais apenas para tipos que não têm antigo
       (data || []).forEach((doc: DocumentoExistente) => {
         // Excluir Relatorio KPMG
         if (doc.tipo_documento === 'relatorio_kpmg') {
           return;
         }
+        // Só adicionar se não tiver documento antigo para este tipo
         if (!documentosPorTipo.has(doc.tipo_documento)) {
           documentosPorTipo.set(doc.tipo_documento, doc);
         }
