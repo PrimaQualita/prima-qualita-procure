@@ -77,6 +77,30 @@ export async function identificarVencedoresPorCriterio(
     return [];
   }
 
+  // CRÍTICO: Buscar empresas reprovadas pelo compliance
+  const { data: analisesCompliance } = await supabase
+    .from('analises_compliance')
+    .select('empresas_reprovadas')
+    .eq('cotacao_id', cotacaoId);
+  
+  const cnpjsReprovadosCompliance = new Set<string>();
+  for (const analise of analisesCompliance || []) {
+    const reprovadas = analise.empresas_reprovadas as string[] || [];
+    for (const cnpj of reprovadas) {
+      if (cnpj) cnpjsReprovadosCompliance.add(cnpj);
+    }
+  }
+  console.log(`  → CNPJs reprovados compliance: ${cnpjsReprovadosCompliance.size}`);
+
+  // Buscar lotes para mapear numero_lote -> lote_id (necessário para por_lote)
+  const { data: lotesCotacao } = await supabase
+    .from('lotes_cotacao')
+    .select('id, numero_lote')
+    .eq('cotacao_id', cotacaoId);
+  
+  const loteIdPorNumero = new Map<number, string>();
+  lotesCotacao?.forEach(l => loteIdPorNumero.set(l.numero_lote, l.id));
+
   // Buscar rejeições ativas E revertidas
   const { data: rejeicoesAtivas } = await supabase
     .from('fornecedores_rejeitados_cotacao')
@@ -92,26 +116,38 @@ export async function identificarVencedoresPorCriterio(
 
   // Mapear fornecedores rejeitados globalmente (sem itens específicos ou todos os itens)
   const fornecedoresRejeitadosGlobal = new Set<string>();
-  // Mapear itens rejeitados por fornecedor
+  // CRÍTICO: Para por_lote, itens_afetados são NÚMEROS DE LOTES, não números de itens
+  // Mapear lotes rejeitados por fornecedor (quando critério é por_lote)
+  const lotesRejeitadosPorFornecedor = new Map<string, Set<number>>();
+  // Mapear itens rejeitados por fornecedor (para outros critérios)
   const itensRejeitadosPorFornecedor = new Map<string, Set<number>>();
   
   rejeicoesAtivas?.forEach(r => {
     const itensAfetados = r.itens_afetados as number[] | null;
     if (!itensAfetados || itensAfetados.length === 0) {
-      // Rejeição global (todos os itens)
+      // Rejeição global (todos os itens/lotes)
       fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
     } else {
-      // Rejeição por itens específicos
-      if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
-        itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+      // CRÍTICO: Quando critério é por_lote, itens_afetados são NÚMEROS DE LOTES
+      if (criterio === "por_lote" || criterio === "lote") {
+        if (!lotesRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+          lotesRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+        }
+        itensAfetados.forEach(loteNum => lotesRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(loteNum));
+      } else {
+        // Para outros critérios, são números de itens
+        if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+          itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+        }
+        itensAfetados.forEach(item => itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item));
       }
-      itensAfetados.forEach(item => itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item));
     }
   });
   
   const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
 
   console.log(`  → Fornecedores rejeitados globalmente: ${fornecedoresRejeitadosGlobal.size}`);
+  console.log(`  → Fornecedores com rejeição por lote: ${lotesRejeitadosPorFornecedor.size}`);
   console.log(`  → Fornecedores com rejeição por item: ${itensRejeitadosPorFornecedor.size}`);
   console.log(`  → Fornecedores com rejeição revertida: ${fornecedoresRevertidos.size}`);
 
@@ -122,17 +158,24 @@ export async function identificarVencedoresPorCriterio(
     return cnpj.split('').every(d => d === primeiroDigito);
   };
 
-  // Separar fornecedores válidos (não rejeitados globalmente, não preço público)
-  // Fornecedores com rejeição por item são considerados válidos mas serão filtrados por item
+  // Separar fornecedores válidos (não rejeitados globalmente, não preço público, não reprovado compliance)
+  // Fornecedores com rejeição por item/lote são considerados válidos mas serão filtrados por item/lote
   const fornecedoresValidos = fornecedoresPlanilha.filter(f => {
+    // CRÍTICO: Excluir reprovados pelo compliance
+    if (cnpjsReprovadosCompliance.has(f.cnpj)) {
+      console.log(`  🚫 Excluindo ${f.razao_social} - reprovado compliance`);
+      return false;
+    }
+
     const resposta = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
     const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(f.fornecedor_id);
     const rejeitadoGlobalNoBanco = fornecedoresRejeitadosGlobal.has(f.fornecedor_id);
     
-    // Se tem rejeição apenas por itens específicos, ainda é válido para outros itens
-    const temRejeicaoParcial = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
+    // Se tem rejeição apenas por itens/lotes específicos, ainda é válido para outros itens/lotes
+    const temRejeicaoParcialItem = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
+    const temRejeicaoParcialLote = lotesRejeitadosPorFornecedor.has(f.fornecedor_id);
     
-    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || temRejeicaoParcial && !ehPrecoPublico(f.cnpj);
+    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.cnpj);
   });
 
   console.log(`  → Fornecedores válidos para cálculo: ${fornecedoresValidos.length}`);
@@ -222,8 +265,14 @@ export async function identificarVencedoresPorCriterio(
         if (resposta.rejeitado) return;
         if (fornecedoresRejeitadosGlobal.has(resposta.fornecedor_id)) return;
         
-        // Verificar se é preço público (CNPJ sequencial)
+        // CRÍTICO: Verificar se reprovado pelo compliance
         const cnpj = resposta.fornecedores?.cnpj || '';
+        if (cnpjsReprovadosCompliance.has(cnpj)) {
+          console.log(`    → ${resposta.fornecedores?.razao_social} excluído (reprovado compliance)`);
+          return;
+        }
+        
+        // Verificar se é preço público (CNPJ sequencial)
         if (cnpj) {
           const primeiroDigito = cnpj.charAt(0);
           const ehPrecoPublico = cnpj.split('').every(d => d === primeiroDigito);
@@ -238,17 +287,15 @@ export async function identificarVencedoresPorCriterio(
 
         if (itensDoFornecedorNoLote.length === 0) return;
 
-        // CRÍTICO: Verificar se fornecedor está rejeitado neste lote (qualquer item do lote rejeitado)
-        const itensRejeitadosDoFornecedor = itensRejeitadosPorFornecedor.get(resposta.fornecedor_id);
-        if (itensRejeitadosDoFornecedor) {
-          // Verificar se QUALQUER item do lote está na lista de rejeitados
-          const algumItemDoLoteRejeitado = itensDoFornecedorNoLote.some(item => 
-            itensRejeitadosDoFornecedor.has(item.itens_cotacao.numero_item)
-          );
-          if (algumItemDoLoteRejeitado) {
-            console.log(`    → ${resposta.fornecedores?.razao_social} rejeitado no lote (itens rejeitados no lote)`);
-            return; // Pula este fornecedor para este lote
-          }
+        // CRÍTICO: Para por_lote, verificar se o LOTE (número) está rejeitado
+        // Buscar o número do lote a partir do lote_id
+        const loteInfo = lotesCotacao?.find(l => l.id === loteId);
+        const numeroLote = loteInfo?.numero_lote;
+        
+        const lotesRejeitadosDoFornecedor = lotesRejeitadosPorFornecedor.get(resposta.fornecedor_id);
+        if (lotesRejeitadosDoFornecedor && numeroLote && lotesRejeitadosDoFornecedor.has(numeroLote)) {
+          console.log(`    → ${resposta.fornecedores?.razao_social} rejeitado no lote ${numeroLote}`);
+          return; // Pula este fornecedor para este lote
         }
 
         // Calcular valor total do lote para este fornecedor
@@ -338,6 +385,26 @@ export async function carregarItensVencedoresPorFornecedor(
 
   const fornecedoresPlanilha = planilha.fornecedores_incluidos as unknown as FornecedorPlanilha[];
 
+  // CRÍTICO: Buscar empresas reprovadas pelo compliance
+  const { data: analisesCompliance } = await supabase
+    .from('analises_compliance')
+    .select('empresas_reprovadas')
+    .eq('cotacao_id', cotacaoId);
+  
+  const cnpjsReprovadosCompliance = new Set<string>();
+  for (const analise of analisesCompliance || []) {
+    const reprovadas = analise.empresas_reprovadas as string[] || [];
+    for (const cnpj of reprovadas) {
+      if (cnpj) cnpjsReprovadosCompliance.add(cnpj);
+    }
+  }
+
+  // Buscar lotes para mapear numero_lote -> lote_id (necessário para por_lote)
+  const { data: lotesCotacao } = await supabase
+    .from('lotes_cotacao')
+    .select('id, numero_lote')
+    .eq('cotacao_id', cotacaoId);
+
   // Buscar rejeições ativas E revertidas
   const { data: rejeicoesAtivas } = await supabase
     .from('fornecedores_rejeitados_cotacao')
@@ -353,20 +420,30 @@ export async function carregarItensVencedoresPorFornecedor(
 
   // Mapear fornecedores rejeitados globalmente (sem itens específicos)
   const fornecedoresRejeitadosGlobal = new Set<string>();
-  // Mapear itens rejeitados por fornecedor
+  // Para por_lote: mapear LOTES rejeitados por fornecedor
+  const lotesRejeitadosPorFornecedor = new Map<string, Set<number>>();
+  // Para outros critérios: mapear itens rejeitados por fornecedor
   const itensRejeitadosPorFornecedor = new Map<string, Set<number>>();
   
   rejeicoesAtivas?.forEach(r => {
     const itensAfetados = r.itens_afetados as number[] | null;
     if (!itensAfetados || itensAfetados.length === 0) {
-      // Rejeição global (todos os itens)
+      // Rejeição global (todos os itens/lotes)
       fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
     } else {
-      // Rejeição por itens específicos
-      if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
-        itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+      // CRÍTICO: Quando critério é por_lote, itens_afetados são NÚMEROS DE LOTES
+      if (criterio === "por_lote" || criterio === "lote") {
+        if (!lotesRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+          lotesRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+        }
+        itensAfetados.forEach(loteNum => lotesRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(loteNum));
+      } else {
+        // Para outros critérios, são números de itens
+        if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+          itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+        }
+        itensAfetados.forEach(item => itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item));
       }
-      itensAfetados.forEach(item => itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item));
     }
   });
 
@@ -379,16 +456,22 @@ export async function carregarItensVencedoresPorFornecedor(
     return cnpj.split('').every(d => d === primeiroDigito);
   };
 
-  // Fornecedores válidos (não rejeitados globalmente, mas podem ter rejeição por item)
+  // Fornecedores válidos (não rejeitados globalmente, não reprovado compliance)
   const fornecedoresValidos = fornecedoresPlanilha.filter(f => {
+    // CRÍTICO: Excluir reprovados pelo compliance
+    if (cnpjsReprovadosCompliance.has(f.cnpj)) {
+      return false;
+    }
+
     const resposta = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
     const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(f.fornecedor_id);
     const rejeitadoGlobalNoBanco = fornecedoresRejeitadosGlobal.has(f.fornecedor_id);
     
-    // Se tem rejeição apenas por itens específicos, ainda é válido para outros itens
-    const temRejeicaoParcial = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
+    // Se tem rejeição apenas por itens/lotes específicos, ainda é válido para outros
+    const temRejeicaoParcialItem = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
+    const temRejeicaoParcialLote = lotesRejeitadosPorFornecedor.has(f.fornecedor_id);
     
-    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || temRejeicaoParcial && !ehPrecoPublico(f.cnpj);
+    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.cnpj);
   });
 
   const fornecedorAtual = fornecedoresPlanilha.find(f => f.fornecedor_id === fornecedorId);
@@ -506,17 +589,19 @@ export async function carregarItensVencedoresPorFornecedor(
 
         if (itensDoFornecedorNoLote.length === 0) return;
 
-        // CRÍTICO: Verificar se fornecedor está rejeitado neste lote (qualquer item do lote rejeitado)
-        const itensRejeitadosDoFornecedor = itensRejeitadosPorFornecedor.get(respostaF.fornecedor_id);
-        if (itensRejeitadosDoFornecedor) {
-          // Verificar se QUALQUER item do lote está na lista de rejeitados
-          const algumItemDoLoteRejeitado = itensDoFornecedorNoLote.some(item => 
-            itensRejeitadosDoFornecedor.has(item.itens_cotacao.numero_item)
-          );
-          if (algumItemDoLoteRejeitado) {
-            console.log(`    → ${respostaF.fornecedores?.razao_social} rejeitado no lote (itens rejeitados no lote)`);
-            return; // Pula este fornecedor para este lote
-          }
+        // CRÍTICO: Para por_lote, verificar se o LOTE (número) está rejeitado
+        const loteInfo = lotesCotacao?.find(l => l.id === loteId);
+        const numeroLote = loteInfo?.numero_lote;
+        
+        const lotesRejeitadosDoFornecedor = lotesRejeitadosPorFornecedor.get(respostaF.fornecedor_id);
+        if (lotesRejeitadosDoFornecedor && numeroLote && lotesRejeitadosDoFornecedor.has(numeroLote)) {
+          console.log(`    → ${respostaF.fornecedores?.razao_social} rejeitado no lote ${numeroLote}`);
+          return; // Pula este fornecedor para este lote
+        }
+        
+        // CRÍTICO: Verificar se reprovado pelo compliance
+        if (cnpjsReprovadosCompliance.has(cnpj)) {
+          return;
         }
 
         // Calcular valor total do lote para este fornecedor
