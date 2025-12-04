@@ -589,6 +589,54 @@ export async function gerarPlanilhaHabilitacaoPDF(
     columnStyles[`fornecedor_${idx}`] = { halign: 'center', overflow: 'linebreak' };
   });
 
+  // Armazenar textos de descrição para desenho customizado com justificação
+  const descricoesPorLinha: Map<number, string> = new Map();
+
+  // PRÉ-CALCULAR o menor fontSize necessário para todas as células de valores
+  let menorFontSize = 7;
+  const fontSizeMinimo = 5.5;
+  
+  dados.forEach((linha, rowIndex) => {
+    if (linha.isLoteHeader || linha.isSubtotal || linha.isTotalGeral) return;
+    
+    // Verificar colunas de fornecedores e valor_vencedor
+    respostas.forEach((_, idx) => {
+      const texto = linha[`fornecedor_${idx}`] || '';
+      if (texto && texto !== '-') {
+        const textoLimpo = String(texto).replace(/\n/g, ' ');
+        let fontSize = 7;
+        doc.setFontSize(fontSize);
+        const larguraDisponivel = 22 - 4;
+        
+        while (fontSize > fontSizeMinimo) {
+          doc.setFontSize(fontSize);
+          const larguraTexto = doc.getTextWidth(textoLimpo);
+          if (larguraTexto <= larguraDisponivel) break;
+          fontSize -= 0.5;
+        }
+        fontSize = Math.max(fontSize, fontSizeMinimo);
+        if (fontSize < menorFontSize) menorFontSize = fontSize;
+      }
+    });
+    
+    // Verificar valor_vencedor
+    const textoVencedor = linha.valor_vencedor || '';
+    if (textoVencedor && textoVencedor !== '-') {
+      const textoLimpo = String(textoVencedor).replace(/\n/g, ' ');
+      let fontSize = 7;
+      doc.setFontSize(fontSize);
+      const larguraDisponivel = 22 - 4;
+      
+      while (fontSize > fontSizeMinimo) {
+        doc.setFontSize(fontSize);
+        const larguraTexto = doc.getTextWidth(textoLimpo);
+        if (larguraTexto <= larguraDisponivel) break;
+        fontSize -= 0.5;
+      }
+      fontSize = Math.max(fontSize, fontSizeMinimo);
+      if (fontSize < menorFontSize) menorFontSize = fontSize;
+    }
+  });
 
   // Gerar tabela
   autoTable(doc, {
@@ -597,9 +645,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
     startY: yPosition,
     margin: { left: margemEsquerda, right: margemDireita, top: 35 },
     theme: 'grid',
-    rowPageBreak: 'avoid', // Evitar quebra de linha entre páginas
+    rowPageBreak: 'avoid',
     styles: {
-      fontSize: 7,
+      fontSize: menorFontSize,
       cellPadding: 2,
       overflow: 'linebreak',
       halign: 'center',
@@ -622,19 +670,17 @@ export async function gerarPlanilhaHabilitacaoPDF(
     },
     columnStyles,
     didParseCell: (data) => {
-      // Ignorar cabeçalho da tabela - apenas processar body
       if (data.section !== 'body') return;
       
       const linhaAtual = dados[data.row.index];
       
-      // Formatar linha de cabeçalho de lote (fundo azul médio, texto branco, mesclada)
+      // Formatar linha de cabeçalho de lote
       if (linhaAtual && linhaAtual.isLoteHeader) {
         data.cell.styles.fillColor = [70, 130, 180];
         data.cell.styles.textColor = [255, 255, 255];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 9;
         
-        // Mesclar todas as colunas para o cabeçalho do lote
         if (data.column.index === 0) {
           data.cell.colSpan = colunas.length;
           data.cell.styles.halign = 'center';
@@ -644,13 +690,12 @@ export async function gerarPlanilhaHabilitacaoPDF(
         return;
       }
       
-      // Formatar linha de subtotal do lote (fundo cinza claro, negrito)
+      // Formatar linha de subtotal do lote
       if (linhaAtual && linhaAtual.isSubtotal) {
         data.cell.styles.fillColor = [230, 230, 230];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 8;
         
-        // Mesclar as 4 primeiras colunas na linha de subtotal
         if (data.column.index === 0) {
           data.cell.colSpan = 4;
           data.cell.styles.halign = 'left';
@@ -659,12 +704,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
           data.cell.text = [''];
         }
         
-        // Destacar colunas de vencedor em verde no subtotal
         if (data.column.dataKey === 'valor_vencedor' || data.column.dataKey === 'empresa_vencedora') {
           data.cell.styles.textColor = [0, 100, 0];
         }
         
-        // Marcar fornecedores inabilitados em vermelho no subtotal também
         if (data.column.dataKey && typeof data.column.dataKey === 'string' && data.column.dataKey.startsWith('fornecedor_')) {
           const fornecedorIdx = parseInt(data.column.dataKey.replace('fornecedor_', ''));
           const resposta = respostas[fornecedorIdx];
@@ -673,24 +716,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
           if (resposta && resposta.rejeitado) {
             data.cell.styles.textColor = [255, 0, 0];
           } else if (resposta && loteNumero) {
-            // Verificar se todos os itens do lote estão rejeitados para este fornecedor
             const itensDoLote = itens.filter(i => i.lote_numero === loteNumero);
             const todosRejeitados = itensDoLote.every(i => resposta.itens_rejeitados.includes(i.numero_item));
             if (todosRejeitados) {
               data.cell.styles.textColor = [255, 0, 0];
             }
-          }
-        }
-        
-        // Ajustar fonte nas colunas de valores do subtotal
-        const dataKey = data.column.dataKey as string;
-        const isColunasValor = (dataKey && dataKey.startsWith('fornecedor_')) || dataKey === 'valor_vencedor';
-        if (isColunasValor) {
-          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
-          if (texto && texto !== '-') {
-            const larguraCelula = data.cell.width || 22;
-            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, 8, 5.5);
-            data.cell.styles.fontSize = fontSizeIdeal;
           }
         }
         
@@ -703,7 +733,6 @@ export async function gerarPlanilhaHabilitacaoPDF(
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 8;
         
-        // Mesclar as 4 primeiras colunas na linha de total
         if (data.column.index === 0) {
           data.cell.colSpan = 4;
           data.cell.styles.halign = 'left';
@@ -711,74 +740,50 @@ export async function gerarPlanilhaHabilitacaoPDF(
           data.cell.text = [''];
         }
         
-        // Ajustar fonte nas colunas de valores do total geral
-        const dataKey = data.column.dataKey as string;
-        const isColunasValor = (dataKey && dataKey.startsWith('fornecedor_')) || dataKey === 'valor_vencedor';
-        if (isColunasValor) {
-          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
-          if (texto && texto !== '-') {
-            const larguraCelula = data.cell.width || 22;
-            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, 8, 5.5);
-            data.cell.styles.fontSize = fontSizeIdeal;
-          }
-        }
-        
         return;
       }
       
-      // Marcar empresas/itens inabilitados em vermelho (apenas linhas de item normais)
+      // Armazenar texto da descrição para justificação (coluna índice 1)
+      if (data.column.dataKey === 'descricao' && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral) {
+        const textoOriginal = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : String(data.cell.text || '');
+        if (textoOriginal && textoOriginal.trim()) {
+          descricoesPorLinha.set(data.row.index, textoOriginal);
+        }
+      }
+      
+      // Marcar empresas/itens inabilitados em vermelho
       if (data.section === 'body' && data.column.dataKey && typeof data.column.dataKey === 'string' && data.column.dataKey.startsWith('fornecedor_')) {
         const fornecedorIdx = parseInt(data.column.dataKey.replace('fornecedor_', ''));
         const resposta = respostas[fornecedorIdx];
         const numeroItem = linhaAtual?.item;
         
-        // Verificar se fornecedor está totalmente inabilitado ou item específico
         if (resposta && (resposta.rejeitado || (typeof numeroItem === 'number' && resposta.itens_rejeitados.includes(numeroItem)))) {
           data.cell.styles.textColor = [255, 0, 0];
           data.cell.styles.fontStyle = 'bold';
         }
       }
       
-      // Destacar colunas de vencedor em verde (apenas linhas de item normais, não headers/subtotais)
+      // Destacar colunas de vencedor em verde
       if (!linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral && 
           data.section === 'body' && data.column.dataKey && 
           (data.column.dataKey === 'valor_vencedor' || data.column.dataKey === 'empresa_vencedora')) {
         data.cell.styles.textColor = [0, 100, 0];
         data.cell.styles.fontStyle = 'bold';
       }
-      
-      // Ajuste automático de fonte para colunas de valores monetários
-      // Aplica para colunas de fornecedores e valor_vencedor (não para headers de lote, subtotais ou totais)
-      if (!linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral) {
-        const dataKey = data.column.dataKey as string;
-        const isColunasValor = (dataKey && dataKey.startsWith('fornecedor_')) || dataKey === 'valor_vencedor';
-        
-        if (isColunasValor) {
-          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
-          if (texto && texto !== '-') {
-            const larguraCelula = data.cell.width || 22;
-            const fontSizeAtual = data.cell.styles.fontSize || 7;
-            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, fontSizeAtual, 5.5);
-            data.cell.styles.fontSize = fontSizeIdeal;
-          }
-        }
-      }
     },
     didDrawCell: (data) => {
-      // Cabeçalho de fornecedor inabilitado também em vermelho
+      // Cabeçalho de fornecedor inabilitado em vermelho
       if (data.section === 'head' && data.column.dataKey && typeof data.column.dataKey === 'string' && data.column.dataKey.startsWith('fornecedor_')) {
         const fornecedorIdx = parseInt(data.column.dataKey.replace('fornecedor_', ''));
         const resposta = respostas[fornecedorIdx];
         
         if (resposta && resposta.rejeitado) {
-          // Redesenhar o cabeçalho em vermelho
           doc.setFillColor(180, 0, 0);
           doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(6);
           doc.setFont("helvetica", "bold");
           
-          // Quebrar texto em múltiplas linhas
           const textoCompleto = data.cell.text.join(' ');
           const linhas = doc.splitTextToSize(textoCompleto, data.cell.width - 2);
           const alturaLinha = 3;
@@ -789,9 +794,93 @@ export async function gerarPlanilhaHabilitacaoPDF(
           });
         }
       }
+      
+      // Desenhar texto justificado na coluna de descrição
+      if (data.section === 'body' && data.column.dataKey === 'descricao') {
+        const linhaAtual = dados[data.row.index];
+        if (linhaAtual?.isLoteHeader || linhaAtual?.isSubtotal || linhaAtual?.isTotalGeral) return;
+        
+        const textoOriginal = descricoesPorLinha.get(data.row.index);
+        if (!textoOriginal) return;
+        
+        const cell = data.cell;
+        const padding = 2;
+        const larguraDisponivel = cell.width - (padding * 2);
+        
+        // Obter cor de fundo atual da célula
+        const fillColor = cell.styles.fillColor;
+        let bgColor: [number, number, number] = [255, 255, 255];
+        if (Array.isArray(fillColor) && fillColor.length >= 3) {
+          bgColor = [fillColor[0] as number, fillColor[1] as number, fillColor[2] as number];
+        }
+        
+        // Cobrir o texto original
+        doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+        doc.rect(cell.x + 0.3, cell.y + 0.3, cell.width - 0.6, cell.height - 0.6, 'F');
+        
+        // Configurar fonte
+        doc.setFontSize(menorFontSize);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        
+        // Quebrar texto em linhas
+        const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
+        const alturaLinha = 3;
+        
+        // Calcular posição Y inicial
+        const alturaTextoTotal = linhasTexto.length * alturaLinha;
+        const espacoVertical = cell.height - (padding * 2);
+        let yInicio: number;
+        
+        if (alturaTextoTotal < espacoVertical) {
+          yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha * 0.7;
+        } else {
+          yInicio = cell.y + padding + alturaLinha * 0.7;
+        }
+        
+        // Desenhar cada linha
+        for (let i = 0; i < linhasTexto.length; i++) {
+          const linha = linhasTexto[i];
+          const yLinha = yInicio + (i * alturaLinha);
+          
+          if (yLinha > cell.y + cell.height - 1) break;
+          
+          const palavras = linha.trim().split(/\s+/);
+          const x = cell.x + padding;
+          
+          // Última linha: alinhar à esquerda
+          if (i === linhasTexto.length - 1) {
+            doc.text(linha, x, yLinha);
+            continue;
+          }
+          
+          if (palavras.length <= 1) {
+            doc.text(linha, x, yLinha);
+            continue;
+          }
+          
+          // Calcular largura total das palavras
+          let larguraTotal = 0;
+          for (const palavra of palavras) {
+            larguraTotal += doc.getTextWidth(palavra);
+          }
+          
+          // Calcular espaço entre palavras para justificar
+          const espacoRestante = larguraDisponivel - larguraTotal;
+          const espacoPorGap = espacoRestante / (palavras.length - 1);
+          
+          // Desenhar palavras com espaçamento justificado
+          let xAtual = x;
+          for (let j = 0; j < palavras.length; j++) {
+            doc.text(palavras[j], xAtual, yLinha);
+            if (j < palavras.length - 1) {
+              xAtual += doc.getTextWidth(palavras[j]) + espacoPorGap;
+            }
+          }
+        }
+      }
     },
     didDrawPage: (data) => {
-      // Adicionar cabeçalho em novas páginas
       if (data.pageNumber > 1) {
         adicionarCabecalho();
       }
