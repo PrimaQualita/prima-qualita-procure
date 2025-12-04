@@ -332,6 +332,13 @@ export async function gerarPlanilhaHabilitacaoPDF(
   const totaisPorLote: Map<number, { fornecedores: number[], vencedor: number }> = new Map();
   let totalVencedor = 0;
 
+  // Função para identificar CNPJ de preço público (sequencial)
+  const ehPrecoPublico = (cnpj: string) => {
+    if (!cnpj) return false;
+    const primeiroDigito = cnpj.charAt(0);
+    return cnpj.split('').every(d => d === primeiroDigito);
+  };
+
   // Função para encontrar vencedor de um item
   // CRÍTICO: Match deve considerar TANTO numero_item QUANTO lote_numero para evitar confusão entre lotes
   const encontrarVencedor = (numeroItem: number, loteNumero?: number): { valor: number | null; empresa: string } => {
@@ -339,8 +346,12 @@ export async function gerarPlanilhaHabilitacaoPDF(
     let empresaVencedora = "-";
 
     respostas.forEach((resposta) => {
-      // Ignorar fornecedores totalmente rejeitados ou rejeitados neste item
+      // Ignorar fornecedores totalmente rejeitados, rejeitados neste item, ou preços públicos
       if (resposta.rejeitado || resposta.itens_rejeitados.includes(numeroItem)) {
+        return;
+      }
+      // CRÍTICO: Excluir preços públicos da identificação de vencedores
+      if (ehPrecoPublico(resposta.fornecedor.cnpj)) {
         return;
       }
 
@@ -387,8 +398,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
     const totaisLote: { idx: number; total: number; razao_social: string }[] = [];
     
     respostas.forEach((resposta, idx) => {
-      // Ignorar fornecedores totalmente rejeitados
+      // Ignorar fornecedores totalmente rejeitados OU preços públicos
       if (resposta.rejeitado) return;
+      if (ehPrecoPublico(resposta.fornecedor.cnpj)) return;
       
       let totalFornecedorLote = 0;
       let todosItensRejeitados = true;
@@ -519,7 +531,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
       // Calcular vencedor do lote ANTES de processar os itens
       const totaisLoteTemp: { idx: number; total: number; razao_social: string }[] = [];
       respostas.forEach((resposta, idx) => {
+        // CRÍTICO: Excluir fornecedores rejeitados E preços públicos
         if (resposta.rejeitado) return;
+        if (ehPrecoPublico(resposta.fornecedor.cnpj)) return;
+        
         let totalFornecedorLote = 0;
         let todosItensRejeitados = true;
         
