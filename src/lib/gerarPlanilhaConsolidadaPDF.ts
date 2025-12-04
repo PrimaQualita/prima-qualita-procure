@@ -511,6 +511,9 @@ export async function gerarPlanilhaConsolidadaPDF(
     linhas.push(linhaTotalGeral);
   }
 
+  // Armazenar textos de descrição para desenho customizado
+  const descricoesPorLinha: Map<number, string> = new Map();
+  
   // Gerar tabela
   autoTable(doc, {
     startY: y,
@@ -658,6 +661,16 @@ export async function gerarPlanilhaConsolidadaPDF(
         return;
       }
       
+      // Para coluna de descrição (índice 1) em linhas normais, armazenar texto para desenho customizado
+      if (data.column.index === 1 && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal) {
+        const textoOriginal = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : String(data.cell.text || '');
+        if (textoOriginal && textoOriginal.trim()) {
+          descricoesPorLinha.set(data.row.index, textoOriginal);
+          // Limpar o texto para desenhar manualmente com justificação
+          data.cell.text = [''];
+        }
+      }
+      
       // Ajuste automático de fonte para colunas de valores monetários
       // Aplica para colunas de fornecedores (índice >= 4) e estimativa
       if (data.column.index >= 4 && !linhaAtual?.isLoteHeader) {
@@ -668,6 +681,68 @@ export async function gerarPlanilhaConsolidadaPDF(
           const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, fontSizeAtual, 6);
           data.cell.styles.fontSize = fontSizeIdeal;
         }
+      }
+    },
+    didDrawCell: function(data) {
+      // Apenas para corpo da tabela
+      if (data.section !== 'body') return;
+      
+      const linhaAtual = linhas[data.row.index];
+      
+      // Pular linhas especiais
+      if (linhaAtual?.isLoteHeader || linhaAtual?.isSubtotal) return;
+      if (criterioJulgamento !== 'desconto' && data.row.index === linhas.length - 1) return;
+      
+      // Desenhar texto justificado apenas na coluna de descrição (índice 1)
+      if (data.column.index === 1) {
+        const textoOriginal = descricoesPorLinha.get(data.row.index);
+        if (!textoOriginal) return;
+        
+        const cell = data.cell;
+        const padding = 3;
+        const x = cell.x + padding;
+        const larguraDisponivel = cell.width - (padding * 2);
+        const alturaLinha = 4;
+        
+        // Configurar fonte
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        
+        // Quebrar texto em linhas
+        const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
+        
+        // Calcular posição Y inicial (centralizado verticalmente)
+        const alturaTextoTotal = linhasTexto.length * alturaLinha;
+        let yInicio = cell.y + padding + alturaLinha;
+        
+        // Desenhar cada linha dentro dos limites da célula
+        linhasTexto.forEach((linha: string, index: number) => {
+          const yLinha = yInicio + (index * alturaLinha);
+          
+          // Verificar se a linha está dentro dos limites da célula
+          if (yLinha > cell.y + cell.height - padding) return;
+          
+          const palavras = linha.trim().split(/\s+/);
+          
+          // Se é a última linha ou só tem uma palavra, alinhar à esquerda
+          if (index === linhasTexto.length - 1 || palavras.length <= 1) {
+            doc.text(linha, x, yLinha);
+          } else {
+            // Justificar a linha
+            const textoSemEspacos = palavras.join('');
+            const larguraTexto = doc.getTextWidth(textoSemEspacos);
+            const espacoDisponivel = larguraDisponivel - larguraTexto;
+            const numEspacos = palavras.length - 1;
+            const espacoPorPalavra = numEspacos > 0 ? espacoDisponivel / numEspacos : 0;
+            
+            let xAtual = x;
+            palavras.forEach((palavra, i) => {
+              doc.text(palavra, xAtual, yLinha);
+              xAtual += doc.getTextWidth(palavra) + espacoPorPalavra;
+            });
+          }
+        });
       }
     }
   });
