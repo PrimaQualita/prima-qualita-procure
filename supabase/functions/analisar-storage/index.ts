@@ -2021,7 +2021,7 @@ Deno.serve(async (req) => {
     }
 
     // 2. Fornecedores VENCEDORES a partir das planilhas consolidadas
-    // Buscar planilhas consolidadas para identificar vencedores
+    // Buscar planilhas consolidadas para identificar vencedores (quem ganhou algum item)
     const { data: planilhasConsolidadasHab } = await supabase
       .from('planilhas_consolidadas')
       .select('cotacao_id, fornecedores_incluidos');
@@ -2041,7 +2041,7 @@ Deno.serve(async (req) => {
           if (fornecedor.cnpj === '55555555555555') continue;
           
           const fornecedorId = fornecedor.fornecedor_id;
-          // Verificar se tem itens vencedores
+          // Verificar se tem itens vencedores (quem aparece em "Ver Documentos")
           const temItensVencedores = fornecedor.itens?.some((item: any) => item.eh_vencedor);
           
           if (fornecedorId && temItensVencedores) {
@@ -2050,31 +2050,6 @@ Deno.serve(async (req) => {
             }
             fornecedoresPorProcessoHab.get(processoId)!.add(fornecedorId);
           }
-        }
-      }
-    }
-    
-    // 3. Fornecedores INABILITADOS/REJEITADOS (que ganharam mas foram inabilitados)
-    const { data: fornecedoresRejeitadosHab } = await supabase
-      .from('fornecedores_rejeitados_cotacao')
-      .select(`
-        fornecedor_id,
-        cotacao_id,
-        cotacoes_precos!inner(processo_compra_id)
-      `)
-      .eq('revertido', false);
-    
-    if (fornecedoresRejeitadosHab) {
-      for (const rejeitado of fornecedoresRejeitadosHab) {
-        const cotacao = (rejeitado as any).cotacoes_precos;
-        const processoId = cotacao?.processo_compra_id;
-        const fornecedorId = rejeitado.fornecedor_id;
-        
-        if (processoId && fornecedorId) {
-          if (!fornecedoresPorProcessoHab.has(processoId)) {
-            fornecedoresPorProcessoHab.set(processoId, new Set());
-          }
-          fornecedoresPorProcessoHab.get(processoId)!.add(fornecedorId);
         }
       }
     }
