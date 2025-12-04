@@ -1858,11 +1858,8 @@ export function DialogFinalizarProcesso({
       const respostasFormatadas: any[] = [];
       
       for (const resposta of respostasData || []) {
-        // CRÍTICO: Excluir fornecedores de preços públicos (apenas referência)
-        if (ehPrecoPublico(resposta.fornecedores.cnpj)) {
-          console.log(`🚫 Excluindo fornecedor de preço público: ${resposta.fornecedores.razao_social}`);
-          continue;
-        }
+        // NOTA: Preços públicos (Banco de Preços) devem aparecer na planilha como referência,
+        // mas são excluídos da lógica de vencedor em gerarPlanilhaHabilitacaoPDF.ts
 
         // CRÍTICO: Excluir fornecedores reprovados pelo compliance (comparar por CNPJ, não ID!)
         if (cnpjsReprovadosCompliance.has(resposta.fornecedores.cnpj)) {
