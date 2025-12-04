@@ -238,6 +238,19 @@ export async function identificarVencedoresPorCriterio(
 
         if (itensDoFornecedorNoLote.length === 0) return;
 
+        // CRÍTICO: Verificar se fornecedor está rejeitado neste lote (qualquer item do lote rejeitado)
+        const itensRejeitadosDoFornecedor = itensRejeitadosPorFornecedor.get(resposta.fornecedor_id);
+        if (itensRejeitadosDoFornecedor) {
+          // Verificar se QUALQUER item do lote está na lista de rejeitados
+          const algumItemDoLoteRejeitado = itensDoFornecedorNoLote.some(item => 
+            itensRejeitadosDoFornecedor.has(item.itens_cotacao.numero_item)
+          );
+          if (algumItemDoLoteRejeitado) {
+            console.log(`    → ${resposta.fornecedores?.razao_social} rejeitado no lote (itens rejeitados no lote)`);
+            return; // Pula este fornecedor para este lote
+          }
+        }
+
         // Calcular valor total do lote para este fornecedor
         const totalLote = itensDoFornecedorNoLote.reduce((sum, item) => {
           const quantidade = item.itens_cotacao.quantidade || 1;
@@ -492,6 +505,19 @@ export async function carregarItensVencedoresPorFornecedor(
         );
 
         if (itensDoFornecedorNoLote.length === 0) return;
+
+        // CRÍTICO: Verificar se fornecedor está rejeitado neste lote (qualquer item do lote rejeitado)
+        const itensRejeitadosDoFornecedor = itensRejeitadosPorFornecedor.get(respostaF.fornecedor_id);
+        if (itensRejeitadosDoFornecedor) {
+          // Verificar se QUALQUER item do lote está na lista de rejeitados
+          const algumItemDoLoteRejeitado = itensDoFornecedorNoLote.some(item => 
+            itensRejeitadosDoFornecedor.has(item.itens_cotacao.numero_item)
+          );
+          if (algumItemDoLoteRejeitado) {
+            console.log(`    → ${respostaF.fornecedores?.razao_social} rejeitado no lote (itens rejeitados no lote)`);
+            return; // Pula este fornecedor para este lote
+          }
+        }
 
         // Calcular valor total do lote para este fornecedor
         const totalLote = itensDoFornecedorNoLote.reduce((sum, item) => {
