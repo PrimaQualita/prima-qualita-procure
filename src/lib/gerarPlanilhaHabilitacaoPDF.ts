@@ -597,7 +597,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
   const fontSizeMinimo = 5.5;
   
   dados.forEach((linha, rowIndex) => {
-    if (linha.isLoteHeader || linha.isSubtotal || linha.isTotalGeral) return;
+    // Pular apenas headers de lote (não têm valores)
+    if (linha.isLoteHeader) return;
     
     // Verificar colunas de fornecedores e valor_vencedor
     respostas.forEach((_, idx) => {
@@ -619,7 +620,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
       }
     });
     
-    // Verificar valor_vencedor
+    // Verificar valor_vencedor (inclui subtotais e total geral)
     const textoVencedor = linha.valor_vencedor || '';
     if (textoVencedor && textoVencedor !== '-') {
       const textoLimpo = String(textoVencedor).replace(/\n/g, ' ');
