@@ -453,9 +453,9 @@ export const gerarProcessoCompletoPDF = async (
             const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
             
             // Verificar se fornecedor está inabilitado neste lote
+            // IMPORTANTE: Para critério por_lote, itens_afetados contém NÚMEROS DE LOTE, não de itens
             const inabilitacaoGlobal = fornecedoresInabilitadosIds.includes(fornecedorId) && itensInabilitados.length === 0;
-            const todosItensLoteInabilitados = itensInabilitados.length > 0 && numerosItensLote.every(n => itensInabilitados.includes(n));
-            const inabilitadoNoLote = inabilitacaoGlobal || todosItensLoteInabilitados;
+            const inabilitadoNoLote = inabilitacaoGlobal || itensInabilitados.includes(lote.numero_lote);
             
             // Calcular valor total do lote
             let valorTotalLote = 0;
