@@ -2882,7 +2882,20 @@ export function DialogFinalizarProcesso({
                           {fornData.itensRejeitados && fornData.itensRejeitados.length > 0 && (
                             <div className="mt-1">
                               <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
-                                ⚠️ Itens desabilitados (provimento parcial): {fornData.itensRejeitados.join(", ")}
+                                {criterioJulgamento === 'por_lote' ? (
+                                  <>
+                                    ⚠️ Lotes desabilitados (provimento parcial): {
+                                      // Converter itens para lotes
+                                      [...new Set(fornData.itensRejeitados.map(itemNum => {
+                                        const item = itensCotacao.find(i => i.numero_item === itemNum);
+                                        const lote = lotesCotacao.find(l => l.id === item?.lote_id);
+                                        return lote?.numero_lote;
+                                      }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)).join(", ")
+                                    }
+                                  </>
+                                ) : (
+                                  <>⚠️ Itens desabilitados (provimento parcial): {fornData.itensRejeitados.join(", ")}</>
+                                )}
                               </Badge>
                             </div>
                           )}
