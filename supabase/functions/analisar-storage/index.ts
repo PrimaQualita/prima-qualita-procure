@@ -2020,15 +2020,55 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Fornecedores que responderam cotações de preços (compra direta)
-    // Isso garante que todos os fornecedores participantes apareçam na habilitação
-    if (respostasCotacaoParaHab) {
-      for (const resposta of respostasCotacaoParaHab) {
-        const cotacao = (resposta as any).cotacoes_precos;
-        const processoId = cotacao?.processo_compra_id;
+    // 2. Fornecedores VENCEDORES a partir das planilhas consolidadas
+    // Buscar planilhas consolidadas para identificar vencedores
+    const { data: planilhasConsolidadasHab } = await supabase
+      .from('planilhas_consolidadas')
+      .select('cotacao_id, fornecedores_incluidos');
+    
+    if (planilhasConsolidadasHab) {
+      for (const planilha of planilhasConsolidadasHab) {
+        // Buscar processo da cotação
+        const cotacaoData = cotacoesMap.get(planilha.cotacao_id);
+        const processoId = cotacaoData?.processoId;
         
-        // Excluir fornecedor "BANCO DE PREÇOS" (preços públicos de referência)
-        const fornecedorId = resposta.fornecedor_id;
+        if (!processoId) continue;
+        
+        // Extrair fornecedores vencedores da planilha
+        const fornecedoresData = planilha.fornecedores_incluidos as any[] || [];
+        for (const fornecedor of fornecedoresData) {
+          // Excluir BANCO DE PREÇOS
+          if (fornecedor.cnpj === '55555555555555') continue;
+          
+          const fornecedorId = fornecedor.fornecedor_id;
+          // Verificar se tem itens vencedores
+          const temItensVencedores = fornecedor.itens?.some((item: any) => item.eh_vencedor);
+          
+          if (fornecedorId && temItensVencedores) {
+            if (!fornecedoresPorProcessoHab.has(processoId)) {
+              fornecedoresPorProcessoHab.set(processoId, new Set());
+            }
+            fornecedoresPorProcessoHab.get(processoId)!.add(fornecedorId);
+          }
+        }
+      }
+    }
+    
+    // 3. Fornecedores INABILITADOS/REJEITADOS (que ganharam mas foram inabilitados)
+    const { data: fornecedoresRejeitadosHab } = await supabase
+      .from('fornecedores_rejeitados_cotacao')
+      .select(`
+        fornecedor_id,
+        cotacao_id,
+        cotacoes_precos!inner(processo_compra_id)
+      `)
+      .eq('revertido', false);
+    
+    if (fornecedoresRejeitadosHab) {
+      for (const rejeitado of fornecedoresRejeitadosHab) {
+        const cotacao = (rejeitado as any).cotacoes_precos;
+        const processoId = cotacao?.processo_compra_id;
+        const fornecedorId = rejeitado.fornecedor_id;
         
         if (processoId && fornecedorId) {
           if (!fornecedoresPorProcessoHab.has(processoId)) {
