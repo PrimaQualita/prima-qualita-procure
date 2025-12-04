@@ -646,6 +646,7 @@ Deno.serve(async (req) => {
       dataValidade: string | null;
       dataArquivamento: string;
       processosVinculados: string[];
+      urlArquivo: string;
     }>();
     if (documentosAntigosDB) {
       for (const doc of documentosAntigosDB) {
@@ -662,7 +663,8 @@ Deno.serve(async (req) => {
           tipoDocumento: doc.tipo_documento,
           dataValidade: doc.data_validade,
           dataArquivamento: doc.data_arquivamento,
-          processosVinculados: doc.processos_vinculados || []
+          processosVinculados: doc.processos_vinculados || [],
+          urlArquivo: doc.url_arquivo
         });
         // CRÍTICO: Adicionar tanto a pathsDB quanto pathsDBOriginal para contagem correta
         pathsDB.add(pathCompleto);
@@ -689,6 +691,7 @@ Deno.serve(async (req) => {
             dataValidade: string | null;
             dataArquivamento: string;
             processosVinculados: string[];
+            urlArquivo: string;
           }> 
         }>() 
       },
@@ -998,7 +1001,8 @@ Deno.serve(async (req) => {
           tipoDocumento: docAntigo.tipoDocumento,
           dataValidade: docAntigo.dataValidade,
           dataArquivamento: docAntigo.dataArquivamento,
-          processosVinculados: docAntigo.processosVinculados
+          processosVinculados: docAntigo.processosVinculados,
+          urlArquivo: docAntigo.urlArquivo
         });
         
         console.log(`Arquivo categorizado como ANTIGO: ${fileName} (${path})`);

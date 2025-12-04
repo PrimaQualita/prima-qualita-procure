@@ -6,9 +6,9 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface DocumentoAntigo {
-  id: string;
+  id?: string;
   tipoDocumento: string;
-  nomeArquivo: string;
+  fileName: string;
   urlArquivo: string;
   dataValidade: string | null;
   dataArquivamento: string;
@@ -17,8 +17,7 @@ interface DocumentoAntigo {
 
 interface FornecedorGrupo {
   fornecedorId: string;
-  razaoSocial: string;
-  cnpj: string;
+  fornecedorNome: string;
   documentos: DocumentoAntigo[];
 }
 
@@ -81,22 +80,21 @@ export function DialogDocumentosAntigos({ open, onOpenChange, dados }: DialogDoc
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{fornecedor.razaoSocial}</span>
+                      <span className="font-medium">{fornecedor.fornecedorNome}</span>
                     </div>
-                    <Badge variant="outline">{fornecedor.cnpj}</Badge>
                   </div>
                 </div>
 
                 <div className="divide-y">
-                  {fornecedor.documentos.map((doc) => (
-                    <div key={doc.id} className="p-4 flex items-center justify-between gap-4">
+                  {fornecedor.documentos.map((doc, idx) => (
+                    <div key={idx} className="p-4 flex items-center justify-between gap-4">
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-muted-foreground" />
                           <span className="font-medium">{formatarTipoDocumento(doc.tipoDocumento)}</span>
                         </div>
                         <p className="text-sm text-muted-foreground truncate max-w-md">
-                          {doc.nomeArquivo}
+                          {doc.fileName}
                         </p>
                         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
