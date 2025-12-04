@@ -662,12 +662,11 @@ export async function gerarPlanilhaConsolidadaPDF(
       }
       
       // Para coluna de descrição (índice 1) em linhas normais, armazenar texto para desenho customizado
+      // NÃO limpar o texto - deixar autoTable calcular altura correta
       if (data.column.index === 1 && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal) {
         const textoOriginal = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : String(data.cell.text || '');
         if (textoOriginal && textoOriginal.trim()) {
           descricoesPorLinha.set(data.row.index, textoOriginal);
-          // Limpar o texto para desenhar manualmente com justificação
-          data.cell.text = [''];
         }
       }
       
@@ -682,6 +681,21 @@ export async function gerarPlanilhaConsolidadaPDF(
           data.cell.styles.fontSize = fontSizeIdeal;
         }
       }
+    },
+    willDrawCell: function(data) {
+      // Apenas para corpo da tabela - coluna de descrição
+      if (data.section !== 'body') return;
+      if (data.column.index !== 1) return;
+      
+      const linhaAtual = linhas[data.row.index];
+      if (linhaAtual?.isLoteHeader || linhaAtual?.isSubtotal) return;
+      if (criterioJulgamento !== 'desconto' && data.row.index === linhas.length - 1) return;
+      
+      // Verificar se temos texto para justificar
+      if (!descricoesPorLinha.has(data.row.index)) return;
+      
+      // Impedir o desenho padrão do texto - vamos desenhar manualmente no didDrawCell
+      data.cell.text = [''];
     },
     didDrawCell: function(data) {
       // Apenas para corpo da tabela
@@ -702,7 +716,7 @@ export async function gerarPlanilhaConsolidadaPDF(
         const padding = 3;
         const x = cell.x + padding;
         const larguraDisponivel = cell.width - (padding * 2);
-        const alturaLinha = 4;
+        const alturaLinha = 3.5; // Linha mais compacta
         
         // Configurar fonte
         doc.setFontSize(8);
@@ -712,16 +726,22 @@ export async function gerarPlanilhaConsolidadaPDF(
         // Quebrar texto em linhas
         const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
         
-        // Calcular posição Y inicial (centralizado verticalmente)
+        // Calcular posição Y inicial
         const alturaTextoTotal = linhasTexto.length * alturaLinha;
+        const espacoVertical = cell.height - (padding * 2);
         let yInicio = cell.y + padding + alturaLinha;
+        
+        // Centralizar verticalmente se possível
+        if (alturaTextoTotal < espacoVertical) {
+          yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha;
+        }
         
         // Desenhar cada linha dentro dos limites da célula
         linhasTexto.forEach((linha: string, index: number) => {
           const yLinha = yInicio + (index * alturaLinha);
           
           // Verificar se a linha está dentro dos limites da célula
-          if (yLinha > cell.y + cell.height - padding) return;
+          if (yLinha > cell.y + cell.height - 1) return;
           
           const palavras = linha.trim().split(/\s+/);
           
@@ -729,18 +749,27 @@ export async function gerarPlanilhaConsolidadaPDF(
           if (index === linhasTexto.length - 1 || palavras.length <= 1) {
             doc.text(linha, x, yLinha);
           } else {
-            // Justificar a linha
+            // Justificar a linha - limitar espaçamento máximo para não esticar demais
             const textoSemEspacos = palavras.join('');
             const larguraTexto = doc.getTextWidth(textoSemEspacos);
             const espacoDisponivel = larguraDisponivel - larguraTexto;
             const numEspacos = palavras.length - 1;
-            const espacoPorPalavra = numEspacos > 0 ? espacoDisponivel / numEspacos : 0;
+            let espacoPorPalavra = numEspacos > 0 ? espacoDisponivel / numEspacos : 0;
             
-            let xAtual = x;
-            palavras.forEach((palavra, i) => {
-              doc.text(palavra, xAtual, yLinha);
-              xAtual += doc.getTextWidth(palavra) + espacoPorPalavra;
-            });
+            // Limitar espaçamento máximo a 3x o espaço normal para não esticar demais
+            const espacoNormal = doc.getTextWidth(' ');
+            const espacoMaximo = espacoNormal * 3;
+            
+            if (espacoPorPalavra > espacoMaximo) {
+              // Se o espaço seria muito grande, usar alinhamento à esquerda
+              doc.text(linha, x, yLinha);
+            } else {
+              let xAtual = x;
+              palavras.forEach((palavra, i) => {
+                doc.text(palavra, xAtual, yLinha);
+                xAtual += doc.getTextWidth(palavra) + espacoPorPalavra;
+              });
+            }
           }
         });
       }
