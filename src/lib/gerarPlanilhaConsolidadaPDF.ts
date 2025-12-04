@@ -514,6 +514,51 @@ export async function gerarPlanilhaConsolidadaPDF(
   // Armazenar textos de descrição para desenho customizado
   const descricoesPorLinha: Map<number, string> = new Map();
   
+  // PRÉ-CALCULAR o menor fontSize necessário para todas as células de valores
+  let menorFontSize = 8; // Valor inicial
+  const fontSizeMinimo = 6;
+  
+  // Iterar sobre todas as linhas e colunas de valores para encontrar o menor fontSize necessário
+  linhas.forEach((linha, rowIndex) => {
+    // Pular linhas especiais
+    if (linha.isLoteHeader || linha.isSubtotal) return;
+    if (criterioJulgamento !== 'desconto' && rowIndex === linhas.length - 1) return;
+    
+    // Verificar colunas de fornecedores e estimativa (índice >= 4)
+    for (let colIndex = 4; colIndex < colunas.length; colIndex++) {
+      const dataKey = colunas[colIndex].dataKey;
+      const texto = linha[dataKey] || '';
+      
+      if (texto && texto !== '-') {
+        // Calcular fontSize ideal para este texto
+        const textoLimpo = String(texto).replace(/\n/g, ' ');
+        let fontSize = 8;
+        doc.setFontSize(fontSize);
+        
+        const larguraDisponivel = larguraPorColuna - 4; // padding
+        
+        while (fontSize > fontSizeMinimo) {
+          doc.setFontSize(fontSize);
+          const larguraTexto = doc.getTextWidth(textoLimpo);
+          
+          if (larguraTexto <= larguraDisponivel) {
+            break;
+          }
+          fontSize -= 0.5;
+        }
+        
+        fontSize = Math.max(fontSize, fontSizeMinimo);
+        
+        // Atualizar menor fontSize encontrado
+        if (fontSize < menorFontSize) {
+          menorFontSize = fontSize;
+        }
+      }
+    }
+  });
+  
+  console.log('📏 FontSize uniforme calculado:', menorFontSize);
+  
   // Gerar tabela
   autoTable(doc, {
     startY: y,
@@ -538,7 +583,7 @@ export async function gerarPlanilhaConsolidadaPDF(
       minCellHeight: 15
     },
     bodyStyles: {
-      fontSize: 8,
+      fontSize: menorFontSize, // Usar o fontSize uniforme calculado
       textColor: [0, 0, 0],
       lineWidth: 0.1,
       lineColor: [200, 200, 200],
@@ -666,17 +711,6 @@ export async function gerarPlanilhaConsolidadaPDF(
         const textoOriginal = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : String(data.cell.text || '');
         if (textoOriginal && textoOriginal.trim()) {
           descricoesPorLinha.set(data.row.index, textoOriginal);
-        }
-      }
-      
-      // Ajuste automático de fonte para colunas de valores monetários
-      if (data.column.index >= 4 && !linhaAtual?.isLoteHeader) {
-        const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
-        if (texto && texto !== '-') {
-          const larguraCelula = data.cell.width || larguraPorColuna;
-          const fontSizeAtual = data.cell.styles.fontSize || 8;
-          const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, fontSizeAtual, 6);
-          data.cell.styles.fontSize = fontSizeIdeal;
         }
       }
     },
