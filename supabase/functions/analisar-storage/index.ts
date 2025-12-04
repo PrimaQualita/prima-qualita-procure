@@ -2328,9 +2328,10 @@ Deno.serve(async (req) => {
           }
 
           // Pegar documentos antigos deste fornecedor vinculados a este processo
-          // CRÍTICO: processos_vinculados contém IDs de COTAÇÕES/SELEÇÕES, não processo_compra_id
-          // Precisamos mapear para verificar se alguma cotação/seleção vinculada pertence a este processo
-          console.log(`    🔎 Verificando docs antigos para ${fornecedorNome} no processo ${processoId.substring(0,8)}, dataFechamento=${dataFechamento?.toISOString() || 'null'}`);
+          // CRÍTICO: Se documento antigo está VINCULADO ao processo em processos_vinculados,
+          // significa que aquele documento era o ativo quando o processo foi finalizado.
+          // Portanto, DEVE usar documento antigo se está vinculado, INDEPENDENTE de datas.
+          console.log(`    🔎 Verificando docs antigos para ${fornecedorNome} no processo ${processoId.substring(0,8)}`);
           
           const docsAntigosDoFornecedor = (docsAntigosHab || []).filter(d => {
             if (d.fornecedor_id !== fornecedorId) return false;
@@ -2338,32 +2339,19 @@ Deno.serve(async (req) => {
             // Verificar se algum dos processos_vinculados (que são cotacao_id ou selecao_id) 
             // pertence a este processo_compra_id
             const vinculados = d.processos_vinculados || [];
-            console.log(`      📋 Doc ${d.nome_arquivo}: vinculados=${JSON.stringify(vinculados)}`);
             
             const pertenceAoProcesso = vinculados.some((vinculadoId: string) => {
               const processoVinculadoCotacao = cotacaoIdParaProcessoId.get(vinculadoId);
               const processoVinculadoSelecao = selecaoIdParaProcessoId.get(vinculadoId);
-              console.log(`        Vinculado ${vinculadoId.substring(0,8)}: cotacao->processo=${processoVinculadoCotacao?.substring(0,8) || 'null'}, selecao->processo=${processoVinculadoSelecao?.substring(0,8) || 'null'}, processoAtual=${processoId.substring(0,8)}`);
               return processoVinculadoCotacao === processoId || processoVinculadoSelecao === processoId;
             });
             
-            console.log(`      🔗 pertenceAoProcesso=${pertenceAoProcesso}`);
-            
-            if (!pertenceAoProcesso) return false;
-            
-            // Se não há data de fechamento, não usar documento antigo (processo ainda aberto)
-            if (!dataFechamento) {
-              console.log(`    ⏭️ Processo sem data fechamento, usando atual: ${d.nome_arquivo}`);
-              return false;
+            // Se está vinculado ao processo, usar documento antigo (era o ativo quando processo foi finalizado)
+            if (pertenceAoProcesso) {
+              console.log(`    ✅ Doc antigo vinculado ao processo: ${d.nome_arquivo}`);
             }
             
-            // Usar documento antigo APENAS se foi arquivado APÓS o fechamento do processo
-            const dataArquivamento = d.data_arquivamento ? new Date(d.data_arquivamento) : null;
-            if (!dataArquivamento) return false;
-            
-            const usarAntigo = dataArquivamento > dataFechamento;
-            console.log(`    📅 Doc ${d.nome_arquivo}: arquivado=${dataArquivamento.toISOString()}, fechamento=${dataFechamento.toISOString()}, usar antigo=${usarAntigo}`);
-            return usarAntigo;
+            return pertenceAoProcesso;
           });
           
           // Pegar documentos atuais deste fornecedor
