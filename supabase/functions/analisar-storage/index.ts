@@ -2020,67 +2020,49 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Buscar CNPJs reprovados pelo compliance para excluí-los da habilitação
-    const { data: analisesComplianceHab } = await supabase
-      .from('analises_compliance')
-      .select('cotacao_id, empresas_reprovadas');
+    // 2. Fornecedores VENCEDORES da ÚLTIMA planilha consolidada de cada cotação
+    // IMPORTANTE: Usar apenas a planilha mais recente, que já exclui reprovados pelo compliance
+    const { data: planilhasConsolidadasHab } = await supabase
+      .from('planilhas_consolidadas')
+      .select('cotacao_id, fornecedores_incluidos, data_geracao')
+      .order('data_geracao', { ascending: false });
     
-    // Mapear CNPJs reprovados por cotação
-    const cnpjsReprovadosPorCotacao = new Map<string, Set<string>>();
-    if (analisesComplianceHab) {
-      for (const analise of analisesComplianceHab) {
-        const reprovados = analise.empresas_reprovadas || [];
-        if (reprovados.length > 0) {
-          if (!cnpjsReprovadosPorCotacao.has(analise.cotacao_id)) {
-            cnpjsReprovadosPorCotacao.set(analise.cotacao_id, new Set());
-          }
-          for (const cnpj of reprovados) {
-            cnpjsReprovadosPorCotacao.get(analise.cotacao_id)!.add(cnpj);
-          }
+    // Mapear apenas a última planilha por cotação
+    const ultimaPlanilhaPorCotacao = new Map<string, any>();
+    if (planilhasConsolidadasHab) {
+      for (const planilha of planilhasConsolidadasHab) {
+        // Se já temos planilha para esta cotação, ignorar (pois está ordenado desc)
+        if (!ultimaPlanilhaPorCotacao.has(planilha.cotacao_id)) {
+          ultimaPlanilhaPorCotacao.set(planilha.cotacao_id, planilha);
         }
       }
     }
     
-    console.log(`📊 Cotações com reprovados no compliance: ${cnpjsReprovadosPorCotacao.size}`);
+    console.log(`📊 Planilhas consolidadas (últimas): ${ultimaPlanilhaPorCotacao.size}`);
     
-    // 3. Fornecedores VENCEDORES a partir das planilhas consolidadas (excluindo reprovados pelo compliance)
-    const { data: planilhasConsolidadasHab } = await supabase
-      .from('planilhas_consolidadas')
-      .select('cotacao_id, fornecedores_incluidos');
-    
-    if (planilhasConsolidadasHab) {
-      for (const planilha of planilhasConsolidadasHab) {
-        // Buscar processo da cotação
-        const cotacaoData = cotacoesMap.get(planilha.cotacao_id);
-        const processoId = cotacaoData?.processoId;
+    // Processar apenas a última planilha de cada cotação
+    for (const [cotacaoId, planilha] of ultimaPlanilhaPorCotacao) {
+      // Buscar processo da cotação
+      const cotacaoData = cotacoesMap.get(cotacaoId);
+      const processoId = cotacaoData?.processoId;
+      
+      if (!processoId) continue;
+      
+      // Extrair fornecedores vencedores da planilha
+      const fornecedoresData = planilha.fornecedores_incluidos as any[] || [];
+      for (const fornecedor of fornecedoresData) {
+        // Excluir BANCO DE PREÇOS
+        if (fornecedor.cnpj === '55555555555555') continue;
         
-        if (!processoId) continue;
+        const fornecedorId = fornecedor.fornecedor_id;
+        // Verificar se tem itens vencedores (quem aparece em "Ver Documentos")
+        const temItensVencedores = fornecedor.itens?.some((item: any) => item.eh_vencedor);
         
-        // CNPJs reprovados pelo compliance para esta cotação
-        const cnpjsReprovados = cnpjsReprovadosPorCotacao.get(planilha.cotacao_id) || new Set();
-        
-        // Extrair fornecedores vencedores da planilha
-        const fornecedoresData = planilha.fornecedores_incluidos as any[] || [];
-        for (const fornecedor of fornecedoresData) {
-          // Excluir BANCO DE PREÇOS
-          if (fornecedor.cnpj === '55555555555555') continue;
-          
-          // EXCLUIR fornecedores reprovados pelo compliance
-          if (cnpjsReprovados.has(fornecedor.cnpj)) {
-            console.log(`  ⛔ Excluindo ${fornecedor.razao_social || fornecedor.cnpj} - reprovado pelo compliance`);
-            continue;
+        if (fornecedorId && temItensVencedores) {
+          if (!fornecedoresPorProcessoHab.has(processoId)) {
+            fornecedoresPorProcessoHab.set(processoId, new Set());
           }
-          
-          const fornecedorId = fornecedor.fornecedor_id;
-          // Verificar se tem itens vencedores (quem aparece em "Ver Documentos")
-          const temItensVencedores = fornecedor.itens?.some((item: any) => item.eh_vencedor);
-          
-          if (fornecedorId && temItensVencedores) {
-            if (!fornecedoresPorProcessoHab.has(processoId)) {
-              fornecedoresPorProcessoHab.set(processoId, new Set());
-            }
-            fornecedoresPorProcessoHab.get(processoId)!.add(fornecedorId);
-          }
+          fornecedoresPorProcessoHab.get(processoId)!.add(fornecedorId);
         }
       }
     }
