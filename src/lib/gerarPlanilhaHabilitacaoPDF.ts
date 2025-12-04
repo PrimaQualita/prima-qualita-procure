@@ -856,7 +856,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
         
         // Quebrar texto em linhas
         const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
-        const alturaLinha = 3;
+        // Altura da linha proporcional ao fontSize (aproximadamente 1.2x o fontSize em mm)
+        const alturaLinha = menorFontSize * 0.42;
         
         // Calcular posição Y inicial
         const alturaTextoTotal = linhasTexto.length * alturaLinha;
