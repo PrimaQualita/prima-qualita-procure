@@ -86,6 +86,7 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
   const [dialogAtualizarDocumento, setDialogAtualizarDocumento] = useState(false);
   const [documentoParaAtualizar, setDocumentoParaAtualizar] = useState<Documento | null>(null);
   const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null);
+  const [dataValidadeDocumento, setDataValidadeDocumento] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -274,12 +275,83 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
   const handleAbrirDialogAtualizar = (doc: Documento) => {
     setDocumentoParaAtualizar(doc);
     setArquivoSelecionado(null);
+    setDataValidadeDocumento("");
     setDialogAtualizarDocumento(true);
+  };
+
+  const handleExtrairDataPDF = async (arquivo: File, tipoDocumento: string) => {
+    try {
+      // Converter arquivo para base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          const base64Data = base64.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(arquivo);
+      });
+
+      const pdfBase64 = await base64Promise;
+
+      // Chamar edge function para extrair data
+      const { data, error } = await supabase.functions.invoke('extrair-data-pdf', {
+        body: {
+          pdfBase64,
+          tipoDocumento
+        }
+      });
+
+      if (error) {
+        console.error("Erro ao extrair data:", error);
+        return { dataValidade: null, isScanned: false };
+      }
+
+      return { dataValidade: data.dataValidade, isScanned: data.isScanned || false };
+    } catch (error) {
+      console.error("Erro ao processar PDF:", error);
+      return null;
+    }
+  };
+
+  const handleArquivoSelecionadoAtualizar = async (arquivo: File | null) => {
+    setArquivoSelecionado(arquivo);
+    
+    if (!arquivo || !documentoParaAtualizar) {
+      setDataValidadeDocumento("");
+      return;
+    }
+
+    const docConfig = DOCUMENTOS_VALIDADE.find(d => d.tipo === documentoParaAtualizar.tipo_documento);
+    
+    // Se o documento tem validade, tentar extrair automaticamente
+    if (docConfig?.temValidade) {
+      toast.info("Extraindo data de validade do PDF...");
+      const resultado = await handleExtrairDataPDF(arquivo, documentoParaAtualizar.tipo_documento);
+      
+      if (resultado?.dataValidade) {
+        setDataValidadeDocumento(resultado.dataValidade);
+        toast.success("Data de validade extraída automaticamente!");
+      } else if (resultado?.isScanned) {
+        toast.warning("PDF digitalizado detectado. Por favor, informe a data de validade manualmente.");
+        setDataValidadeDocumento("");
+      } else {
+        toast.warning("Não foi possível extrair a data automaticamente. Por favor, informe manualmente.");
+        setDataValidadeDocumento("");
+      }
+    }
   };
 
   const handleAtualizarDocumento = async () => {
     if (!documentoParaAtualizar || !arquivoSelecionado) {
       toast.error("Selecione um arquivo");
+      return;
+    }
+
+    const docConfig = DOCUMENTOS_VALIDADE.find(d => d.tipo === documentoParaAtualizar.tipo_documento);
+    if (docConfig?.temValidade && !dataValidadeDocumento) {
+      toast.error("Informe a data de validade do documento");
       return;
     }
 
@@ -390,6 +462,11 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
         .from('processo-anexos')
         .getPublicUrl(storagePath);
 
+      // Converter data para formato ISO sem problemas de timezone
+      const dataValidadeISO = dataValidadeDocumento 
+        ? `${dataValidadeDocumento}T00:00:00.000Z`
+        : null;
+
       // Atualizar registro no banco
       const { error: updateError } = await supabase
         .from("documentos_fornecedor")
@@ -397,6 +474,7 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
           nome_arquivo: arquivoSelecionado.name,
           url_arquivo: urlData.publicUrl,
           data_upload: new Date().toISOString(),
+          data_validade: dataValidadeISO,
           atualizacao_solicitada: false,
           motivo_solicitacao_atualizacao: null,
           data_solicitacao_atualizacao: null
@@ -409,6 +487,7 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
       setDialogAtualizarDocumento(false);
       setDocumentoParaAtualizar(null);
       setArquivoSelecionado(null);
+      setDataValidadeDocumento("");
       loadDocumentos();
     } catch (error: any) {
       console.error("Erro ao atualizar documento:", error);
@@ -701,7 +780,7 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Novo Arquivo (PDF)</Label>
+              <Label>Arquivo PDF *</Label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -714,7 +793,7 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
                       toast.error("Apenas arquivos PDF são permitidos");
                       return;
                     }
-                    setArquivoSelecionado(file);
+                    handleArquivoSelecionadoAtualizar(file);
                   }
                 }}
               />
@@ -740,6 +819,18 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
                 O documento antigo será arquivado se estiver vinculado a processos finalizados
               </p>
             </div>
+
+            {documentoParaAtualizar && DOCUMENTOS_VALIDADE.find(d => d.tipo === documentoParaAtualizar.tipo_documento)?.temValidade && (
+              <div className="space-y-2">
+                <Label htmlFor="data_validade">Data de Validade *</Label>
+                <Input
+                  id="data_validade"
+                  type="date"
+                  value={dataValidadeDocumento}
+                  onChange={(e) => setDataValidadeDocumento(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -748,6 +839,7 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
               onClick={() => {
                 setDialogAtualizarDocumento(false);
                 setArquivoSelecionado(null);
+                setDataValidadeDocumento("");
               }}
               disabled={processando}
             >
