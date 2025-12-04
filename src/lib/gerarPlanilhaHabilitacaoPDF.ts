@@ -654,6 +654,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
     startY: yPosition,
     margin: { left: margemEsquerda, right: margemDireita, top: 35 },
     theme: 'grid',
+    rowPageBreak: 'avoid', // Evitar quebra de linha entre páginas
     styles: {
       fontSize: 7,
       cellPadding: 2,
@@ -801,6 +802,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
           (data.column.dataKey === 'valor_vencedor' || data.column.dataKey === 'empresa_vencedora')) {
         data.cell.styles.textColor = [0, 100, 0];
         data.cell.styles.fontStyle = 'bold';
+      }
+      
+      // Limpar texto da coluna de descrição para itens normais (será desenhado justificado no didDrawCell)
+      if (data.column.dataKey === 'descricao' && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral) {
+        data.cell.text = [''];
       }
       
       // Ajuste automático de fonte para colunas de valores monetários
