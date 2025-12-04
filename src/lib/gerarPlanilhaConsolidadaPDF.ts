@@ -737,33 +737,35 @@ export async function gerarPlanilhaConsolidadaPDF(
         const palavras = linha.trim().split(/\s+/);
         const x = cell.x + padding;
         
-        // Última linha ou poucas palavras: alinhar à esquerda
-        if (i === linhasTexto.length - 1 || palavras.length <= 2) {
+        // Última linha: alinhar à esquerda (padrão de justificação)
+        if (i === linhasTexto.length - 1) {
           doc.text(linha, x, yLinha);
           continue;
         }
         
-        // Calcular espaçamento para justificar
+        // Se só tem uma palavra, não há o que justificar
+        if (palavras.length <= 1) {
+          doc.text(linha, x, yLinha);
+          continue;
+        }
+        
+        // Calcular largura total das palavras
         let larguraTotal = 0;
         for (const palavra of palavras) {
           larguraTotal += doc.getTextWidth(palavra);
         }
         
+        // Calcular espaço entre palavras para justificar
         const espacoRestante = larguraDisponivel - larguraTotal;
         const espacoPorGap = espacoRestante / (palavras.length - 1);
-        const espacoNormal = doc.getTextWidth(' ');
         
-        // Se espaço muito grande, alinhar à esquerda
-        if (espacoPorGap > espacoNormal * 2.5) {
-          doc.text(linha, x, yLinha);
-          continue;
-        }
-        
-        // Desenhar palavras justificadas
+        // Desenhar palavras com espaçamento justificado
         let xAtual = x;
         for (let j = 0; j < palavras.length; j++) {
           doc.text(palavras[j], xAtual, yLinha);
-          xAtual += doc.getTextWidth(palavras[j]) + espacoPorGap;
+          if (j < palavras.length - 1) {
+            xAtual += doc.getTextWidth(palavras[j]) + espacoPorGap;
+          }
         }
       }
     }
