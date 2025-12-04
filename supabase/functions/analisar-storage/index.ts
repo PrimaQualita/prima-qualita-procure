@@ -2079,7 +2079,7 @@ Deno.serve(async (req) => {
         `)
         .in('fornecedor_id', todosFornecedoresHabIds);
 
-      // Buscar documentos ANTIGOS (arquivados quando fornecedor atualizou documento vinculado a processo)
+      // Buscar documentos ANTIGOS com data de arquivamento para comparação
       const { data: docsAntigosHab } = await supabase
         .from('documentos_antigos')
         .select(`
@@ -2088,15 +2088,61 @@ Deno.serve(async (req) => {
           tipo_documento,
           nome_arquivo,
           url_arquivo,
-          processos_vinculados
+          processos_vinculados,
+          data_arquivamento
         `)
         .in('fornecedor_id', todosFornecedoresHabIds);
 
+      // Buscar datas de finalização dos processos (cotação e seleção)
+      const processosIds = Array.from(fornecedoresPorProcessoHab.keys());
+      
+      // Datas de finalização de cotações
+      const { data: cotacoesFinalizadas } = await supabase
+        .from('cotacoes_precos')
+        .select('processo_compra_id, data_finalizacao')
+        .in('processo_compra_id', processosIds)
+        .not('data_finalizacao', 'is', null);
+      
+      // Datas de encerramento de seleções  
+      const { data: selecoesEncerradas } = await supabase
+        .from('selecoes_fornecedores')
+        .select('processo_compra_id, data_encerramento_habilitacao')
+        .in('processo_compra_id', processosIds)
+        .not('data_encerramento_habilitacao', 'is', null);
+
+      // Mapear data de fechamento por processo (usar a mais recente entre cotação e seleção)
+      const dataFechamentoProcesso = new Map<string, Date>();
+      
+      if (cotacoesFinalizadas) {
+        for (const c of cotacoesFinalizadas) {
+          if (c.data_finalizacao) {
+            const dataAtual = dataFechamentoProcesso.get(c.processo_compra_id);
+            const novaData = new Date(c.data_finalizacao);
+            if (!dataAtual || novaData > dataAtual) {
+              dataFechamentoProcesso.set(c.processo_compra_id, novaData);
+            }
+          }
+        }
+      }
+      
+      if (selecoesEncerradas) {
+        for (const s of selecoesEncerradas) {
+          if (s.data_encerramento_habilitacao) {
+            const dataAtual = dataFechamentoProcesso.get(s.processo_compra_id);
+            const novaData = new Date(s.data_encerramento_habilitacao);
+            if (!dataAtual || novaData > dataAtual) {
+              dataFechamentoProcesso.set(s.processo_compra_id, novaData);
+            }
+          }
+        }
+      }
+
       console.log(`📋 Documentos de cadastro (atuais): ${docsCadastroHab?.length || 0}`);
       console.log(`📋 Documentos antigos (arquivados): ${docsAntigosHab?.length || 0}`);
+      console.log(`📋 Processos com data de fechamento: ${dataFechamentoProcesso.size}`);
 
       // Para cada processo, adicionar documentos de cadastro dos fornecedores
-      // CRÍTICO: Priorizar documentos antigos vinculados ao processo sobre documentos atuais
+      // CRÍTICO: Usar documento antigo APENAS se foi arquivado APÓS o fechamento do processo
       for (const [processoId, fornecedorIds] of fornecedoresPorProcessoHab) {
         // Garantir estrutura do processo existe
         if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
@@ -2111,6 +2157,7 @@ Deno.serve(async (req) => {
         }
 
         const habProc = estatisticasPorCategoria.habilitacao.porProcessoHierarquico.get(processoId)!;
+        const dataFechamento = dataFechamentoProcesso.get(processoId);
 
         // Para cada fornecedor do processo
         for (const fornecedorId of fornecedorIds) {
@@ -2125,21 +2172,36 @@ Deno.serve(async (req) => {
             });
           }
 
-          // Pegar documentos antigos deste fornecedor vinculados a este processo específico
-          const docsAntigosDoFornecedor = (docsAntigosHab || []).filter(d => 
-            d.fornecedor_id === fornecedorId && 
-            d.processos_vinculados?.includes(processoId)
-          );
+          // Pegar documentos antigos deste fornecedor vinculados a este processo
+          // CRÍTICO: Filtrar apenas se data_arquivamento > data_fechamento do processo
+          const docsAntigosDoFornecedor = (docsAntigosHab || []).filter(d => {
+            if (d.fornecedor_id !== fornecedorId) return false;
+            if (!d.processos_vinculados?.includes(processoId)) return false;
+            
+            // Se não há data de fechamento, não usar documento antigo (processo ainda aberto)
+            if (!dataFechamento) {
+              console.log(`    ⏭️ Processo sem data fechamento, usando atual: ${d.nome_arquivo}`);
+              return false;
+            }
+            
+            // Usar documento antigo APENAS se foi arquivado APÓS o fechamento do processo
+            const dataArquivamento = d.data_arquivamento ? new Date(d.data_arquivamento) : null;
+            if (!dataArquivamento) return false;
+            
+            const usarAntigo = dataArquivamento > dataFechamento;
+            console.log(`    📅 Doc ${d.nome_arquivo}: arquivado=${dataArquivamento.toISOString()}, fechamento=${dataFechamento.toISOString()}, usar antigo=${usarAntigo}`);
+            return usarAntigo;
+          });
           
           // Pegar documentos atuais deste fornecedor
           const docsCadastroDoFornecedor = (docsCadastroHab || []).filter(d => d.fornecedor_id === fornecedorId);
           
-          // Criar set de tipos de documento que já temos em versão antiga para este processo
+          // Criar set de tipos de documento que têm versão antiga válida para este processo
           const tiposComDocAntigo = new Set(docsAntigosDoFornecedor.map(d => d.tipo_documento));
           
-          console.log(`  📝 ${fornecedorNome}: ${docsCadastroDoFornecedor.length} docs atuais, ${docsAntigosDoFornecedor.length} docs antigos para processo`);
+          console.log(`  📝 ${fornecedorNome}: ${docsCadastroDoFornecedor.length} docs atuais, ${docsAntigosDoFornecedor.length} docs antigos válidos para processo`);
           
-          // 1. Primeiro adicionar documentos ANTIGOS (vinculados a este processo)
+          // 1. Primeiro adicionar documentos ANTIGOS (arquivados APÓS fechamento do processo)
           for (const doc of docsAntigosDoFornecedor) {
             // Extrair path do arquivo
             let path = doc.url_arquivo;
@@ -2165,11 +2227,11 @@ Deno.serve(async (req) => {
             }
           }
           
-          // 2. Depois adicionar documentos ATUAIS (apenas tipos que NÃO têm versão antiga para este processo)
+          // 2. Depois adicionar documentos ATUAIS (apenas tipos que NÃO têm versão antiga válida)
           for (const doc of docsCadastroDoFornecedor) {
-            // Se já temos versão antiga deste tipo de documento para este processo, pular o atual
+            // Se já temos versão antiga válida deste tipo de documento, pular o atual
             if (tiposComDocAntigo.has(doc.tipo_documento)) {
-              console.log(`    ⏭️ Usando versão antiga: ${doc.nome_arquivo}`);
+              console.log(`    ⏭️ Usando versão antiga válida: ${doc.nome_arquivo}`);
               continue;
             }
             
