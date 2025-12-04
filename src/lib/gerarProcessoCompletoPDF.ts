@@ -415,7 +415,7 @@ export const gerarProcessoCompletoPDF = async (
     // Para critério por_lote, calcular vencedor real de cada lote considerando inabilitações
     let fornecedoresVencedores: string[] = [];
     
-    if (criterioJulgamento === 'menor_preco_lote') {
+    if (criterioJulgamento === 'menor_preco_lote' || criterioJulgamento === 'por_lote') {
       console.log(`🔍 Critério por lote - identificando vencedores por lote...`);
       
       // Buscar lotes da cotação
@@ -436,7 +436,7 @@ export const gerarProcessoCompletoPDF = async (
           const numerosItensLote = itensDoLote.map(i => i.numero_item);
           
           // Para cada fornecedor, calcular valor total do lote
-          const valoresLote: { fornecedorId: string; valorTotal: number; inabilitado: boolean }[] = [];
+          const valoresLote: { fornecedorId: string; valorTotal: number; inabilitado: boolean; razaoSocial: string }[] = [];
           
           for (const fornecedor of fornecedoresData) {
             const fornecedorId = fornecedor.fornecedor_id;
@@ -462,7 +462,12 @@ export const gerarProcessoCompletoPDF = async (
             
             // Só incluir se fornecedor cotou todos os itens do lote
             if (valorTotalLote > 0 && temTodosItens) {
-              valoresLote.push({ fornecedorId, valorTotal: valorTotalLote, inabilitado: inabilitadoNoLote });
+              valoresLote.push({ 
+                fornecedorId, 
+                valorTotal: valorTotalLote, 
+                inabilitado: inabilitadoNoLote,
+                razaoSocial: fornecedor.razao_social || ''
+              });
             }
           }
           
@@ -471,9 +476,12 @@ export const gerarProcessoCompletoPDF = async (
           
           // Encontrar o primeiro fornecedor NÃO inabilitado (vencedor real do lote)
           const vencedorLote = valoresLote.find(v => !v.inabilitado);
-          if (vencedorLote && !fornecedoresVencedores.includes(vencedorLote.fornecedorId)) {
-            console.log(`  📋 Lote ${lote.numero_lote}: vencedor = ${vencedorLote.fornecedorId}`);
-            fornecedoresVencedores.push(vencedorLote.fornecedorId);
+          if (vencedorLote) {
+            console.log(`  📋 Lote ${lote.numero_lote}: vencedor real = ${vencedorLote.razaoSocial} (${vencedorLote.fornecedorId})`);
+            // Adicionar à lista de vencedores (sem duplicatas)
+            if (!fornecedoresVencedores.includes(vencedorLote.fornecedorId)) {
+              fornecedoresVencedores.push(vencedorLote.fornecedorId);
+            }
           }
         }
       }
@@ -495,15 +503,27 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
     
-    fornecedoresVencedores = [...new Set(fornecedoresVencedores)].sort();
-    console.log(`👥 Fornecedores vencedores únicos: ${fornecedoresVencedores.length}`);
+    // Garantir que não há duplicatas na lista de vencedores
+    fornecedoresVencedores = [...new Set(fornecedoresVencedores)];
+    console.log(`👥 Fornecedores vencedores únicos: ${fornecedoresVencedores.length}`, fornecedoresVencedores);
     
     // Lista de todos fornecedores para documentos = apenas vencedores + inabilitados
     // Usar Set para garantir que cada fornecedor aparece apenas UMA vez
-    const todosFornecedoresProcesso = Array.from(
-      new Set([...fornecedoresVencedores, ...fornecedoresInabilitadosIds])
-    ).sort();
-    console.log(`👥 Total de fornecedores para documentos: ${todosFornecedoresProcesso.length}`);
+    // IMPORTANTE: Não ordenar para manter a ordem: vencedores primeiro, depois inabilitados
+    const todosFornecedoresProcessoSet = new Set<string>();
+    
+    // Adicionar vencedores primeiro (na ordem que foram encontrados)
+    for (const vencedorId of fornecedoresVencedores) {
+      todosFornecedoresProcessoSet.add(vencedorId);
+    }
+    
+    // Adicionar inabilitados (que não são vencedores)
+    for (const inabilitadoId of fornecedoresInabilitadosIds) {
+      todosFornecedoresProcessoSet.add(inabilitadoId);
+    }
+    
+    const todosFornecedoresProcesso = Array.from(todosFornecedoresProcessoSet);
+    console.log(`👥 Total de fornecedores para documentos: ${todosFornecedoresProcesso.length}`, todosFornecedoresProcesso);
 
     // Data base para documentos de fornecedores (após última data cronológica)
     let dataBaseFornecedores = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
