@@ -520,9 +520,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   
   // Iterar sobre todas as linhas e colunas de valores para encontrar o menor fontSize necessário
   linhas.forEach((linha, rowIndex) => {
-    // Pular linhas especiais
-    if (linha.isLoteHeader || linha.isSubtotal) return;
-    if (criterioJulgamento !== 'desconto' && rowIndex === linhas.length - 1) return;
+    // Pular apenas headers de lote (não têm valores monetários)
+    if (linha.isLoteHeader) return;
     
     // Verificar colunas de fornecedores e estimativa (índice >= 4)
     for (let colIndex = 4; colIndex < colunas.length; colIndex++) {
@@ -574,7 +573,7 @@ export async function gerarPlanilhaConsolidadaPDF(
       fillColor: [120, 190, 225], // Azul claro do logo (paleta Prima Qualitá)
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 8,
+      fontSize: menorFontSize, // Usar fontSize uniforme calculado
       halign: 'center',
       valign: 'middle',
       lineWidth: 0.1,
@@ -640,7 +639,6 @@ export async function gerarPlanilhaConsolidadaPDF(
         data.cell.styles.fillColor = [70, 130, 180]; // Azul médio
         data.cell.styles.textColor = [255, 255, 255];
         data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 9;
         
         // Mesclar todas as colunas para o cabeçalho do lote - texto vem da coluna 0
         if (data.column.index === 0) {
@@ -657,7 +655,6 @@ export async function gerarPlanilhaConsolidadaPDF(
       if (linhaAtual && linhaAtual.isSubtotal) {
         data.cell.styles.fillColor = [230, 230, 230];
         data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 8;
         
         // Mesclar as 4 primeiras colunas na linha de subtotal - texto vem da coluna 0
         if (data.column.index === 0) {
@@ -667,14 +664,6 @@ export async function gerarPlanilhaConsolidadaPDF(
         } else if (data.column.index >= 1 && data.column.index <= 3) {
           // Limpar texto das colunas 1-3 (já mescladas)
           data.cell.text = [''];
-        } else if (data.column.index >= 4) {
-          // Ajustar fonte nas colunas de valores do subtotal
-          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
-          if (texto && texto !== '-') {
-            const larguraCelula = data.cell.width || larguraPorColuna;
-            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, 8, 6);
-            data.cell.styles.fontSize = fontSizeIdeal;
-          }
         }
         return;
       }
@@ -684,7 +673,6 @@ export async function gerarPlanilhaConsolidadaPDF(
         data.cell.styles.fillColor = [180, 180, 180]; // Cinza mais escuro que subtotal
         data.cell.styles.textColor = [0, 0, 0];
         data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 9;
         
         // Mesclar as 4 primeiras colunas na linha de total - texto vem da coluna 0
         if (data.column.index === 0) {
@@ -694,14 +682,6 @@ export async function gerarPlanilhaConsolidadaPDF(
         } else if (data.column.index >= 1 && data.column.index <= 3) {
           // Limpar texto das colunas 1-3 (já mescladas)
           data.cell.text = [''];
-        } else if (data.column.index >= 4) {
-          // Ajustar fonte nas colunas de valores do total geral
-          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
-          if (texto && texto !== '-') {
-            const larguraCelula = data.cell.width || larguraPorColuna;
-            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, 9, 6);
-            data.cell.styles.fontSize = fontSizeIdeal;
-          }
         }
         return;
       }
