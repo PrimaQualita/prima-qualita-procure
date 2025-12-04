@@ -1806,7 +1806,7 @@ export function DialogFinalizarProcesso({
             valor_unitario_ofertado,
             percentual_desconto,
             marca,
-            itens_cotacao!inner(numero_item)
+            itens_cotacao!inner(numero_item, lote_id, lotes_cotacao(numero_lote))
           `)
           .eq("cotacao_resposta_fornecedor_id", resposta.id);
 
@@ -1822,7 +1822,8 @@ export function DialogFinalizarProcesso({
             numero_item: ir.itens_cotacao.numero_item,
             valor_unitario_ofertado: ir.valor_unitario_ofertado,
             percentual_desconto: ir.percentual_desconto,
-            marca: ir.marca
+            marca: ir.marca,
+            lote_numero: ir.itens_cotacao.lotes_cotacao?.numero_lote
           })),
           valor_total: (itensResposta || []).reduce((sum, ir) => sum + (ir.valor_unitario_ofertado || 0), 0),
           rejeitado: !!rejeicao && (!rejeicao.itens_afetados || rejeicao.itens_afetados.length === 0),

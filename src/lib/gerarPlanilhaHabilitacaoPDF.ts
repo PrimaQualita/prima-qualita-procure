@@ -21,6 +21,7 @@ interface FornecedorResposta {
     valor_unitario_ofertado: number;
     percentual_desconto?: number;
     marca?: string;
+    lote_numero?: number;
   }[];
   valor_total: number;
   rejeitado: boolean;
@@ -54,6 +55,34 @@ const formatarPercentual = (valor: number): string => {
 
 const formatarCNPJ = (cnpj: string): string => {
   return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+};
+
+// Função para converter número para romano
+const converterNumeroRomano = (num: number): string => {
+  const romanos = [
+    { valor: 1000, numeral: 'M' },
+    { valor: 900, numeral: 'CM' },
+    { valor: 500, numeral: 'D' },
+    { valor: 400, numeral: 'CD' },
+    { valor: 100, numeral: 'C' },
+    { valor: 90, numeral: 'XC' },
+    { valor: 50, numeral: 'L' },
+    { valor: 40, numeral: 'XL' },
+    { valor: 10, numeral: 'X' },
+    { valor: 9, numeral: 'IX' },
+    { valor: 5, numeral: 'V' },
+    { valor: 4, numeral: 'IV' },
+    { valor: 1, numeral: 'I' }
+  ];
+  let resultado = '';
+  let numero = num;
+  for (const { valor, numeral } of romanos) {
+    while (numero >= valor) {
+      resultado += numeral;
+      numero -= valor;
+    }
+  }
+  return resultado;
 };
 
 const decodeHtmlEntities = (text: string): string => {
@@ -193,9 +222,31 @@ export async function gerarPlanilhaHabilitacaoPDF(
   // Construir dados da tabela
   const dados: any[] = [];
   const isDesconto = criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto";
+  const isPorLote = criterioJulgamento === "por_lote";
+
+  // Agrupar itens por lote se critério for por_lote
+  const itensComLote = itens.filter(item => item.lote_numero && item.lote_numero > 0);
+  const itensSemLote = itens.filter(item => !item.lote_numero || item.lote_numero <= 0);
+  const temLotes = isPorLote && itensComLote.length > 0;
+
+  // Map de lotes
+  const lotesMap = new Map<number, { descricao: string, itens: typeof itens }>();
+  if (temLotes) {
+    itensComLote.forEach(item => {
+      if (!lotesMap.has(item.lote_numero!)) {
+        lotesMap.set(item.lote_numero!, { descricao: item.lote_descricao || `Lote ${item.lote_numero}`, itens: [] });
+      }
+      lotesMap.get(item.lote_numero!)!.itens.push(item);
+    });
+  }
+
+  // Totais por fornecedor e vencedor - agora por lote também
+  const totaisPorFornecedor: number[] = new Array(respostas.length).fill(0);
+  const totaisPorLote: Map<number, { fornecedores: number[], vencedor: number }> = new Map();
+  let totalVencedor = 0;
 
   // Função para encontrar vencedor de um item
-  const encontrarVencedor = (numeroItem: number): { valor: number | null; empresa: string } => {
+  const encontrarVencedor = (numeroItem: number, loteNumero?: number): { valor: number | null; empresa: string } => {
     let melhorValor: number | null = null;
     let empresaVencedora = "-";
 
@@ -205,7 +256,12 @@ export async function gerarPlanilhaHabilitacaoPDF(
         return;
       }
 
-      const itemResposta = resposta.itens.find(i => i.numero_item === numeroItem);
+      // Match por numero_item E lote_numero para evitar confusão entre itens de lotes diferentes
+      const itemResposta = resposta.itens.find(i => 
+        i.numero_item === numeroItem && 
+        (loteNumero ? i.lote_numero === loteNumero : !i.lote_numero)
+      );
+      
       if (itemResposta) {
         const valor = isDesconto 
           ? (itemResposta.percentual_desconto || itemResposta.valor_unitario_ofertado)
@@ -234,20 +290,61 @@ export async function gerarPlanilhaHabilitacaoPDF(
     return { valor: melhorValor, empresa: empresaVencedora };
   };
 
-  // Totais por fornecedor e vencedor
-  const totaisPorFornecedor: number[] = new Array(respostas.length).fill(0);
-  let totalVencedor = 0;
+  // Função para encontrar vencedor de um lote inteiro
+  const encontrarVencedorLote = (loteNum: number): { valor: number; empresa: string; empresaIdx: number } => {
+    const totaisLote: { idx: number; total: number; razao_social: string }[] = [];
+    
+    respostas.forEach((resposta, idx) => {
+      // Ignorar fornecedores totalmente rejeitados
+      if (resposta.rejeitado) return;
+      
+      let totalFornecedorLote = 0;
+      let todosItensRejeitados = true;
+      
+      const itensDoLote = itens.filter(i => i.lote_numero === loteNum);
+      itensDoLote.forEach(item => {
+        if (resposta.itens_rejeitados.includes(item.numero_item)) return;
+        
+        const itemResposta = resposta.itens.find(i => 
+          i.numero_item === item.numero_item && i.lote_numero === loteNum
+        );
+        if (itemResposta) {
+          totalFornecedorLote += itemResposta.valor_unitario_ofertado * item.quantidade;
+          todosItensRejeitados = false;
+        }
+      });
+      
+      if (!todosItensRejeitados && totalFornecedorLote > 0) {
+        totaisLote.push({ idx, total: totalFornecedorLote, razao_social: resposta.fornecedor.razao_social });
+      }
+    });
+    
+    if (totaisLote.length === 0) {
+      return { valor: 0, empresa: "-", empresaIdx: -1 };
+    }
+    
+    // Menor total vence
+    totaisLote.sort((a, b) => a.total - b.total);
+    return { valor: totaisLote[0].total, empresa: totaisLote[0].razao_social, empresaIdx: totaisLote[0].idx };
+  };
 
-  itens.forEach((item) => {
+  // Função para processar um item e retornar a linha
+  const processarItem = (item: ItemCotacao, loteNumero?: number) => {
     const linha: any = {
       item: item.numero_item,
       descricao: decodeHtmlEntities(item.descricao),
       quantidade: item.quantidade,
-      unidade: item.unidade
+      unidade: item.unidade,
+      _lote_numero: loteNumero
     };
 
     respostas.forEach((resposta, idx) => {
-      const itemResposta = resposta.itens.find(i => i.numero_item === item.numero_item);
+      // Match por numero_item E lote_numero
+      const itemResposta = resposta.itens.find(i => 
+        i.numero_item === item.numero_item && 
+        (loteNumero ? i.lote_numero === loteNumero : !i.lote_numero)
+      );
+      
       if (itemResposta) {
         if (isDesconto) {
           linha[`fornecedor_${idx}`] = formatarPercentual(itemResposta.percentual_desconto || itemResposta.valor_unitario_ofertado);
@@ -256,31 +353,108 @@ export async function gerarPlanilhaHabilitacaoPDF(
           const valorTotal = valorUnitario * item.quantidade;
           linha[`fornecedor_${idx}`] = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotal)})`;
           totaisPorFornecedor[idx] += valorTotal;
+          
+          // Acumular para subtotal do lote
+          if (loteNumero) {
+            if (!totaisPorLote.has(loteNumero)) {
+              totaisPorLote.set(loteNumero, { fornecedores: new Array(respostas.length).fill(0), vencedor: 0 });
+            }
+            totaisPorLote.get(loteNumero)!.fornecedores[idx] += valorTotal;
+          }
         }
       } else {
         linha[`fornecedor_${idx}`] = "-";
       }
     });
 
-    // Adicionar dados do vencedor
-    const vencedor = encontrarVencedor(item.numero_item);
-    if (vencedor.valor !== null) {
-      if (isDesconto) {
-        linha.valor_vencedor = formatarPercentual(vencedor.valor);
-        linha.empresa_vencedora = vencedor.empresa;
+    // Adicionar dados do vencedor (para critério por item ou desconto)
+    if (!isPorLote) {
+      const vencedor = encontrarVencedor(item.numero_item, loteNumero);
+      if (vencedor.valor !== null) {
+        if (isDesconto) {
+          linha.valor_vencedor = formatarPercentual(vencedor.valor);
+          linha.empresa_vencedora = vencedor.empresa;
+        } else {
+          const valorTotalVencedor = vencedor.valor * item.quantidade;
+          linha.valor_vencedor = `${formatarMoeda(vencedor.valor)}\n(Total: ${formatarMoeda(valorTotalVencedor)})`;
+          linha.empresa_vencedora = vencedor.empresa;
+          totalVencedor += valorTotalVencedor;
+        }
       } else {
-        const valorTotalVencedor = vencedor.valor * item.quantidade;
-        linha.valor_vencedor = `${formatarMoeda(vencedor.valor)}\n(Total: ${formatarMoeda(valorTotalVencedor)})`;
-        linha.empresa_vencedora = vencedor.empresa;
-        totalVencedor += valorTotalVencedor;
+        linha.valor_vencedor = "-";
+        linha.empresa_vencedora = "-";
       }
     } else {
+      // Para critério por lote, deixa vazio - vencedor aparece no subtotal
       linha.valor_vencedor = "-";
       linha.empresa_vencedora = "-";
     }
 
-    dados.push(linha);
-  });
+    return linha;
+  };
+
+  // Se tem lotes e critério é por_lote, processar por lote com cabeçalhos e subtotais
+  if (temLotes) {
+    const lotesOrdenados = Array.from(lotesMap.entries()).sort((a, b) => a[0] - b[0]);
+    
+    lotesOrdenados.forEach(([loteNum, loteData]) => {
+      // Adicionar linha de cabeçalho do lote
+      const textoLote = `LOTE ${converterNumeroRomano(loteNum)} - ${loteData.descricao}`;
+      const linhaHeaderLote: any = {
+        item: textoLote,
+        descricao: '',
+        quantidade: '',
+        unidade: '',
+        isLoteHeader: true
+      };
+      respostas.forEach((_, idx) => { linhaHeaderLote[`fornecedor_${idx}`] = ''; });
+      linhaHeaderLote.valor_vencedor = '';
+      linhaHeaderLote.empresa_vencedora = '';
+      dados.push(linhaHeaderLote);
+      
+      // Processar itens do lote
+      loteData.itens.sort((a, b) => a.numero_item - b.numero_item).forEach(item => {
+        dados.push(processarItem(item, loteNum));
+      });
+      
+      // Adicionar linha de subtotal do lote (apenas se NÃO for critério de desconto)
+      if (!isDesconto) {
+        const textoSubtotal = `SUBTOTAL LOTE ${converterNumeroRomano(loteNum)}`;
+        const linhaSubtotal: any = {
+          item: textoSubtotal,
+          descricao: '',
+          quantidade: '',
+          unidade: '',
+          isSubtotal: true,
+          _lote_numero: loteNum
+        };
+        
+        const loteSubtotais = totaisPorLote.get(loteNum);
+        respostas.forEach((_, idx) => {
+          const valorLote = loteSubtotais?.fornecedores[idx] || 0;
+          linhaSubtotal[`fornecedor_${idx}`] = formatarMoeda(valorLote);
+        });
+        
+        // Encontrar vencedor do lote
+        const vencedorLote = encontrarVencedorLote(loteNum);
+        linhaSubtotal.valor_vencedor = formatarMoeda(vencedorLote.valor);
+        linhaSubtotal.empresa_vencedora = vencedorLote.empresa;
+        totalVencedor += vencedorLote.valor;
+        
+        // Guardar vencedor do lote para marcação
+        if (loteSubtotais) {
+          loteSubtotais.vencedor = vencedorLote.valor;
+        }
+        
+        dados.push(linhaSubtotal);
+      }
+    });
+  } else {
+    // Processar itens normalmente sem agrupamento
+    itens.forEach((item) => {
+      dados.push(processarItem(item, item.lote_numero));
+    });
+  }
 
   // Adicionar linha de VALOR TOTAL apenas se NÃO for critério de desconto
   if (!isDesconto) {
@@ -288,7 +462,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
       item: 'VALOR TOTAL',
       descricao: '',
       quantidade: '',
-      unidade: ''
+      unidade: '',
+      isTotalGeral: true
     };
 
     respostas.forEach((_, idx) => {
@@ -342,10 +517,68 @@ export async function gerarPlanilhaHabilitacaoPDF(
     },
     columnStyles,
     didParseCell: (data) => {
-      const isLinhaTotal = !isDesconto && data.row.index === dados.length - 1;
+      const linhaAtual = dados[data.row.index];
       
-      // Destacar linha de totais
-      if (isLinhaTotal) {
+      // Formatar linha de cabeçalho de lote (fundo azul médio, texto branco, mesclada)
+      if (linhaAtual && linhaAtual.isLoteHeader) {
+        data.cell.styles.fillColor = [70, 130, 180];
+        data.cell.styles.textColor = [255, 255, 255];
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 9;
+        
+        // Mesclar todas as colunas para o cabeçalho do lote
+        if (data.column.index === 0) {
+          data.cell.colSpan = colunas.length;
+          data.cell.styles.halign = 'center';
+        } else {
+          data.cell.text = [''];
+        }
+        return;
+      }
+      
+      // Formatar linha de subtotal do lote (fundo cinza claro, negrito)
+      if (linhaAtual && linhaAtual.isSubtotal) {
+        data.cell.styles.fillColor = [230, 230, 230];
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 8;
+        
+        // Mesclar as 4 primeiras colunas na linha de subtotal
+        if (data.column.index === 0) {
+          data.cell.colSpan = 4;
+          data.cell.styles.halign = 'left';
+          data.cell.styles.cellPadding = { top: 3, right: 2, bottom: 3, left: 5 };
+        } else if (data.column.index >= 1 && data.column.index <= 3) {
+          data.cell.text = [''];
+        }
+        
+        // Destacar colunas de vencedor em verde no subtotal
+        if (data.column.dataKey === 'valor_vencedor' || data.column.dataKey === 'empresa_vencedora') {
+          data.cell.styles.textColor = [0, 100, 0];
+        }
+        
+        // Marcar fornecedores inabilitados em vermelho no subtotal também
+        if (data.column.dataKey && typeof data.column.dataKey === 'string' && data.column.dataKey.startsWith('fornecedor_')) {
+          const fornecedorIdx = parseInt(data.column.dataKey.replace('fornecedor_', ''));
+          const resposta = respostas[fornecedorIdx];
+          const loteNumero = linhaAtual._lote_numero;
+          
+          if (resposta && resposta.rejeitado) {
+            data.cell.styles.textColor = [255, 0, 0];
+          } else if (resposta && loteNumero) {
+            // Verificar se todos os itens do lote estão rejeitados para este fornecedor
+            const itensDoLote = itens.filter(i => i.lote_numero === loteNumero);
+            const todosRejeitados = itensDoLote.every(i => resposta.itens_rejeitados.includes(i.numero_item));
+            if (todosRejeitados) {
+              data.cell.styles.textColor = [255, 0, 0];
+            }
+          }
+        }
+        
+        return;
+      }
+      
+      // Destacar linha de total geral
+      if (linhaAtual && linhaAtual.isTotalGeral) {
         data.cell.styles.fillColor = [226, 232, 240];
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 8;
@@ -357,23 +590,25 @@ export async function gerarPlanilhaHabilitacaoPDF(
         } else if (data.column.index >= 1 && data.column.index <= 3) {
           data.cell.text = [''];
         }
+        return;
       }
       
-      // Marcar empresas/itens inabilitados em vermelho (exceto linha de total)
-      if (!isLinhaTotal && data.section === 'body' && data.column.dataKey && typeof data.column.dataKey === 'string' && data.column.dataKey.startsWith('fornecedor_')) {
+      // Marcar empresas/itens inabilitados em vermelho (apenas linhas de item normais)
+      if (data.section === 'body' && data.column.dataKey && typeof data.column.dataKey === 'string' && data.column.dataKey.startsWith('fornecedor_')) {
         const fornecedorIdx = parseInt(data.column.dataKey.replace('fornecedor_', ''));
         const resposta = respostas[fornecedorIdx];
-        const numeroItem = dados[data.row.index]?.item;
+        const numeroItem = linhaAtual?.item;
         
         // Verificar se fornecedor está totalmente inabilitado ou item específico
-        if (resposta && (resposta.rejeitado || resposta.itens_rejeitados.includes(numeroItem))) {
+        if (resposta && (resposta.rejeitado || (typeof numeroItem === 'number' && resposta.itens_rejeitados.includes(numeroItem)))) {
           data.cell.styles.textColor = [255, 0, 0];
           data.cell.styles.fontStyle = 'bold';
         }
       }
       
-      // Destacar colunas de vencedor em verde (exceto linha de total)
-      if (!isLinhaTotal && data.section === 'body' && data.column.dataKey && 
+      // Destacar colunas de vencedor em verde (apenas linhas de item normais, não headers/subtotais)
+      if (!linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral && 
+          data.section === 'body' && data.column.dataKey && 
           (data.column.dataKey === 'valor_vencedor' || data.column.dataKey === 'empresa_vencedora')) {
         data.cell.styles.textColor = [0, 100, 0];
         data.cell.styles.fontStyle = 'bold';
