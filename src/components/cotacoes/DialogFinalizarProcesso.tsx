@@ -2178,11 +2178,13 @@ export function DialogFinalizarProcesso({
           const itensVencedoresDetalhados: Array<{ numero: number; descricao: string; valor: number; marca?: string; valorUnitario?: number }> = [];
           
           itensVencedores.forEach((item) => {
-            // CRÍTICO: Buscar pelo ID único do item, não pelo numero_item
-            // Em critério por_lote, diferentes lotes podem ter itens com mesmo numero_item
+            // Para critério por_lote: buscar pelo ID único (diferentes lotes podem ter mesmo numero_item)
+            // Para outros critérios: buscar pelo numero_item (lógica original)
             const itemResposta = itensRespostas?.find(
               ir => ir.cotacao_resposta_fornecedor_id === fData.respostaId && 
-                    ir.id === item.id
+                    (criterioJulgamento === 'por_lote' 
+                      ? ir.id === item.id 
+                      : ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item)
             );
             
             if (itemResposta) {
@@ -2353,11 +2355,13 @@ export function DialogFinalizarProcesso({
         const itensVencedoresComValor: Array<{ numero: number; valor: number; marca?: string; valorUnitario?: number }> = [];
         
         itensVencedores.forEach(item => {
-          // CRÍTICO: Buscar pelo ID único do item, não pelo numero_item
-          // Em critério por_lote, diferentes lotes podem ter itens com mesmo numero_item
+          // Para critério por_lote: buscar pelo ID único (diferentes lotes podem ter mesmo numero_item)
+          // Para outros critérios: buscar pelo numero_item (lógica original)
           const itemResposta = itensRespostas?.find(
             ir => ir.cotacao_resposta_fornecedor_id === resposta?.id && 
-                  ir.id === item.id
+                  (criterioJulgamento === 'por_lote' 
+                    ? ir.id === item.id 
+                    : ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item)
           );
           if (itemResposta) {
             const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
