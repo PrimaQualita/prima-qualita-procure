@@ -2178,10 +2178,11 @@ export function DialogFinalizarProcesso({
           const itensVencedoresDetalhados: Array<{ numero: number; descricao: string; valor: number; marca?: string; valorUnitario?: number }> = [];
           
           itensVencedores.forEach((item) => {
-            // Buscar com o respostaId de fData diretamente
+            // CRÍTICO: Buscar pelo ID único do item, não pelo numero_item
+            // Em critério por_lote, diferentes lotes podem ter itens com mesmo numero_item
             const itemResposta = itensRespostas?.find(
               ir => ir.cotacao_resposta_fornecedor_id === fData.respostaId && 
-                    ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item
+                    ir.id === item.id
             );
             
             if (itemResposta) {
@@ -2352,9 +2353,11 @@ export function DialogFinalizarProcesso({
         const itensVencedoresComValor: Array<{ numero: number; valor: number; marca?: string; valorUnitario?: number }> = [];
         
         itensVencedores.forEach(item => {
+          // CRÍTICO: Buscar pelo ID único do item, não pelo numero_item
+          // Em critério por_lote, diferentes lotes podem ter itens com mesmo numero_item
           const itemResposta = itensRespostas?.find(
             ir => ir.cotacao_resposta_fornecedor_id === resposta?.id && 
-                  ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item
+                  ir.id === item.id
           );
           if (itemResposta) {
             const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
