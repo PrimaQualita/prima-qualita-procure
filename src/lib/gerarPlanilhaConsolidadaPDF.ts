@@ -572,6 +572,81 @@ export async function gerarPlanilhaConsolidadaPDF(
       
       return styles;
     })(),
+    didDrawCell: function(data) {
+      // Aplicar justificação de texto na coluna de descrição (índice 1)
+      if (data.section === 'body' && data.column.index === 1) {
+        const linhaAtual = linhas[data.row.index];
+        // Ignorar linhas de lote, subtotal e total geral
+        if (linhaAtual?.isLoteHeader || linhaAtual?.isSubtotal || linhaAtual?.item === 'VALOR TOTAL') {
+          return;
+        }
+        
+        const texto = linhaAtual?.descricao || '';
+        if (!texto) return;
+        
+        // Limpar célula original
+        doc.setFillColor(data.cell.styles.fillColor[0], data.cell.styles.fillColor[1], data.cell.styles.fillColor[2]);
+        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+        
+        // Configurar fonte
+        doc.setFontSize(data.cell.styles.fontSize || 8);
+        doc.setTextColor(0, 0, 0);
+        
+        const padding = 3;
+        const larguraUtil = data.cell.width - (padding * 2);
+        const alturaLinha = (data.cell.styles.fontSize || 8) * 0.4;
+        
+        // Quebrar texto em linhas
+        const palavras = texto.split(' ');
+        const linhasTexto: string[] = [];
+        let linhaTemp = '';
+        
+        palavras.forEach((palavra: string) => {
+          const teste = linhaTemp ? linhaTemp + ' ' + palavra : palavra;
+          const larguraTeste = doc.getTextWidth(teste);
+          
+          if (larguraTeste <= larguraUtil) {
+            linhaTemp = teste;
+          } else {
+            if (linhaTemp) linhasTexto.push(linhaTemp);
+            linhaTemp = palavra;
+          }
+        });
+        if (linhaTemp) linhasTexto.push(linhaTemp);
+        
+        // Calcular posição Y inicial centralizada
+        const alturaTotal = linhasTexto.length * alturaLinha;
+        let yTexto = data.cell.y + (data.cell.height - alturaTotal) / 2 + alturaLinha * 0.7;
+        
+        // Desenhar cada linha com justificação
+        linhasTexto.forEach((linha, idx) => {
+          const isUltimaLinha = idx === linhasTexto.length - 1;
+          const larguraLinha = doc.getTextWidth(linha);
+          
+          if (!isUltimaLinha && larguraLinha < larguraUtil * 0.85) {
+            // Linha curta - alinhar à esquerda
+            doc.text(linha, data.cell.x + padding, yTexto);
+          } else if (isUltimaLinha) {
+            // Última linha - alinhar à esquerda
+            doc.text(linha, data.cell.x + padding, yTexto);
+          } else {
+            // Justificar linha
+            const palavrasLinha = linha.split(' ');
+            if (palavrasLinha.length === 1) {
+              doc.text(linha, data.cell.x + padding, yTexto);
+            } else {
+              const espacoExtra = (larguraUtil - larguraLinha) / (palavrasLinha.length - 1);
+              let xAtual = data.cell.x + padding;
+              palavrasLinha.forEach((p, i) => {
+                doc.text(p, xAtual, yTexto);
+                xAtual += doc.getTextWidth(p) + doc.getTextWidth(' ') + espacoExtra;
+              });
+            }
+          }
+          yTexto += alturaLinha;
+        });
+      }
+    },
     margin: { left: margemEsquerda, right: margemDireita },
     tableWidth: 'auto',
     didParseCell: function(data) {
