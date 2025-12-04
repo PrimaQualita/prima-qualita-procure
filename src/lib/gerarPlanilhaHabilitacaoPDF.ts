@@ -589,63 +589,6 @@ export async function gerarPlanilhaHabilitacaoPDF(
     columnStyles[`fornecedor_${idx}`] = { halign: 'center', overflow: 'linebreak' };
   });
 
-  // Função para desenhar texto justificado
-  const desenharTextoJustificado = (doc: jsPDF, texto: string, cell: any, fontSize: number) => {
-    if (!texto) return;
-    
-    const padding = 2;
-    const larguraUtil = cell.width - (padding * 2);
-    const alturaLinha = fontSize * 0.4;
-    
-    // Quebrar texto em linhas
-    const palavras = texto.split(' ');
-    const linhasTexto: string[] = [];
-    let linhaTemp = '';
-    
-    doc.setFontSize(fontSize);
-    
-    palavras.forEach((palavra: string) => {
-      const teste = linhaTemp ? linhaTemp + ' ' + palavra : palavra;
-      const larguraTeste = doc.getTextWidth(teste);
-      
-      if (larguraTeste <= larguraUtil) {
-        linhaTemp = teste;
-      } else {
-        if (linhaTemp) linhasTexto.push(linhaTemp);
-        linhaTemp = palavra;
-      }
-    });
-    if (linhaTemp) linhasTexto.push(linhaTemp);
-    
-    // Calcular posição Y inicial centralizada
-    const alturaTotal = linhasTexto.length * alturaLinha;
-    let yTexto = cell.y + (cell.height - alturaTotal) / 2 + alturaLinha * 0.7;
-    
-    // Desenhar cada linha com justificação
-    linhasTexto.forEach((linha, idx) => {
-      const isUltimaLinha = idx === linhasTexto.length - 1;
-      const larguraLinha = doc.getTextWidth(linha);
-      
-      if (!isUltimaLinha && larguraLinha < larguraUtil * 0.85) {
-        doc.text(linha, cell.x + padding, yTexto);
-      } else if (isUltimaLinha) {
-        doc.text(linha, cell.x + padding, yTexto);
-      } else {
-        const palavrasLinha = linha.split(' ');
-        if (palavrasLinha.length === 1) {
-          doc.text(linha, cell.x + padding, yTexto);
-        } else {
-          const espacoExtra = (larguraUtil - larguraLinha) / (palavrasLinha.length - 1);
-          let xAtual = cell.x + padding;
-          palavrasLinha.forEach((p) => {
-            doc.text(p, xAtual, yTexto);
-            xAtual += doc.getTextWidth(p) + doc.getTextWidth(' ') + espacoExtra;
-          });
-        }
-      }
-      yTexto += alturaLinha;
-    });
-  };
 
   // Gerar tabela
   autoTable(doc, {
@@ -804,11 +747,6 @@ export async function gerarPlanilhaHabilitacaoPDF(
         data.cell.styles.fontStyle = 'bold';
       }
       
-      // Limpar texto da coluna de descrição para itens normais (será desenhado justificado no didDrawCell)
-      if (data.column.dataKey === 'descricao' && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral) {
-        data.cell.text = [''];
-      }
-      
       // Ajuste automático de fonte para colunas de valores monetários
       // Aplica para colunas de fornecedores e valor_vencedor (não para headers de lote, subtotais ou totais)
       if (!linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral) {
@@ -827,29 +765,6 @@ export async function gerarPlanilhaHabilitacaoPDF(
       }
     },
     didDrawCell: (data) => {
-      // Aplicar justificação de texto na coluna de descrição
-      if (data.section === 'body' && data.column.dataKey === 'descricao') {
-        const linhaAtual = dados[data.row.index];
-        // Ignorar linhas de lote, subtotal e total geral
-        if (linhaAtual?.isLoteHeader || linhaAtual?.isSubtotal || linhaAtual?.isTotalGeral) {
-          return;
-        }
-        
-        const texto = linhaAtual?.descricao || '';
-        if (!texto) return;
-        
-        // Limpar célula original
-        const fillColor = data.cell.styles.fillColor as number[] || [255, 255, 255];
-        doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
-        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-        
-        // Configurar fonte
-        doc.setFontSize(data.cell.styles.fontSize || 7);
-        doc.setTextColor(0, 0, 0);
-        
-        desenharTextoJustificado(doc, texto, data.cell, data.cell.styles.fontSize || 7);
-      }
-      
       // Cabeçalho de fornecedor inabilitado também em vermelho
       if (data.section === 'head' && data.column.dataKey && typeof data.column.dataKey === 'string' && data.column.dataKey.startsWith('fornecedor_')) {
         const fornecedorIdx = parseInt(data.column.dataKey.replace('fornecedor_', ''));
