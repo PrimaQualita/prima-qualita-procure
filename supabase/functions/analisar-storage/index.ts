@@ -1840,11 +1840,11 @@ Deno.serve(async (req) => {
 
     // ============================================
     // INCLUIR DOCUMENTOS DE CADASTRO DOS FORNECEDORES NA HABILITAÇÃO
-    // (buscar a partir dos documentos de finalização existentes)
+    // (buscar a partir dos documentos de finalização E das respostas de cotação)
     // ============================================
-    console.log('📄 Buscando fornecedores com documentos de finalização para habilitação...');
+    console.log('📄 Buscando fornecedores para habilitação...');
 
-    // Buscar todos os fornecedores que têm documentos de finalização com seus processos
+    // 1. Buscar fornecedores que têm documentos de finalização com seus processos
     const { data: docsFinalizacaoParaHab } = await supabase
       .from('documentos_finalizacao_fornecedor')
       .select(`
@@ -1859,8 +1859,24 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Docs finalização encontrados: ${docsFinalizacaoParaHab?.length || 0}`);
 
+    // 2. Buscar fornecedores que responderam cotações de preços (compra direta)
+    // Isso inclui TODOS os fornecedores que participaram do processo via cotação
+    const { data: respostasCotacaoParaHab } = await supabase
+      .from('cotacao_respostas_fornecedor')
+      .select(`
+        fornecedor_id,
+        cotacao_id,
+        cotacoes_precos!inner(
+          processo_compra_id
+        )
+      `);
+
+    console.log(`📊 Respostas de cotação encontradas: ${respostasCotacaoParaHab?.length || 0}`);
+
     // Coletar fornecedores únicos por processo
     const fornecedoresPorProcessoHab = new Map<string, Set<string>>();
+    
+    // 1. Fornecedores com documentos de finalização
     if (docsFinalizacaoParaHab) {
       for (const doc of docsFinalizacaoParaHab) {
         const campos = (doc as any).campos_documentos_finalizacao;
@@ -1877,6 +1893,25 @@ Deno.serve(async (req) => {
             fornecedoresPorProcessoHab.set(processoId, new Set());
           }
           fornecedoresPorProcessoHab.get(processoId)!.add(doc.fornecedor_id);
+        }
+      }
+    }
+
+    // 2. Fornecedores que responderam cotações de preços (compra direta)
+    // Isso garante que todos os fornecedores participantes apareçam na habilitação
+    if (respostasCotacaoParaHab) {
+      for (const resposta of respostasCotacaoParaHab) {
+        const cotacao = (resposta as any).cotacoes_precos;
+        const processoId = cotacao?.processo_compra_id;
+        
+        // Excluir fornecedor "BANCO DE PREÇOS" (preços públicos de referência)
+        const fornecedorId = resposta.fornecedor_id;
+        
+        if (processoId && fornecedorId) {
+          if (!fornecedoresPorProcessoHab.has(processoId)) {
+            fornecedoresPorProcessoHab.set(processoId, new Set());
+          }
+          fornecedoresPorProcessoHab.get(processoId)!.add(fornecedorId);
         }
       }
     }
