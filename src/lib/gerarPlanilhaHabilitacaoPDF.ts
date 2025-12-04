@@ -525,7 +525,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
         
         loteData.itens.forEach(item => {
           if (resposta.itens_rejeitados.includes(item.numero_item)) return;
-          const itemResposta = resposta.itens.find(i => i.numero_item === item.numero_item);
+          // CRÍTICO: Match EXATO por numero_item E lote_numero
+          const itemResposta = resposta.itens.find(i => 
+            i.numero_item === item.numero_item && i.lote_numero === loteNum
+          );
           if (itemResposta && itemResposta.valor_unitario_ofertado > 0) {
             totalFornecedorLote += itemResposta.valor_unitario_ofertado * item.quantidade;
             todosItensRejeitados = false;
