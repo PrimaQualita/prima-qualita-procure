@@ -453,9 +453,9 @@ export const gerarProcessoCompletoPDF = async (
             const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
             
             // Verificar se fornecedor está inabilitado neste lote
-            // IMPORTANTE: Para critério por_lote, itens_afetados contém NÚMEROS DE LOTE, não de itens
             const inabilitacaoGlobal = fornecedoresInabilitadosIds.includes(fornecedorId) && itensInabilitados.length === 0;
-            const inabilitadoNoLote = inabilitacaoGlobal || itensInabilitados.includes(lote.numero_lote);
+            const todosItensLoteInabilitados = itensInabilitados.length > 0 && numerosItensLote.every(n => itensInabilitados.includes(n));
+            const inabilitadoNoLote = inabilitacaoGlobal || todosItensLoteInabilitados;
             
             // Calcular valor total do lote
             let valorTotalLote = 0;
@@ -498,8 +498,61 @@ export const gerarProcessoCompletoPDF = async (
           }
         }
       }
+    } else if (criterioJulgamento === 'menor_preco_item' || criterioJulgamento === 'por_item') {
+      // LÓGICA ESPECÍFICA PARA CRITÉRIO POR_ITEM
+      // Identifica vencedores dinamicamente considerando inabilitações por item
+      console.log(`🔍 Critério por item - identificando vencedores considerando inabilitações...`);
+      
+      // Buscar itens da cotação
+      const { data: itensCotacaoItem } = await supabase
+        .from("itens_cotacao")
+        .select("id, numero_item, quantidade")
+        .eq("cotacao_id", cotacaoId);
+      
+      const fornecedoresVencedoresSet = new Set<string>();
+      
+      // Para cada item, identificar o vencedor real (considerando inabilitações)
+      for (const itemCotacao of (itensCotacaoItem || [])) {
+        // Coletar todos os fornecedores que cotaram este item
+        const valoresItem: { fornecedorId: string; valorUnitario: number; inabilitado: boolean; razaoSocial: string }[] = [];
+        
+        for (const fornecedor of fornecedoresData) {
+          // Excluir BANCO DE PREÇOS
+          if (fornecedor.cnpj === '55555555555555') continue;
+          
+          const fornecedorId = fornecedor.fornecedor_id;
+          const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
+          
+          // Verificar se fornecedor está inabilitado neste item
+          const inabilitacaoGlobal = fornecedoresInabilitadosIds.includes(fornecedorId) && itensInabilitados.length === 0;
+          const inabilitadoNoItem = inabilitacaoGlobal || itensInabilitados.includes(itemCotacao.numero_item);
+          
+          // Buscar valor do fornecedor para este item
+          const itemFornecedor = fornecedor.itens?.find((i: any) => i.numero_item === itemCotacao.numero_item);
+          if (itemFornecedor?.valor_unitario && itemFornecedor.valor_unitario > 0) {
+            valoresItem.push({
+              fornecedorId,
+              valorUnitario: itemFornecedor.valor_unitario,
+              inabilitado: inabilitadoNoItem,
+              razaoSocial: fornecedor.razao_social || ''
+            });
+          }
+        }
+        
+        // Ordenar por valor (menor primeiro)
+        valoresItem.sort((a, b) => a.valorUnitario - b.valorUnitario);
+        
+        // Encontrar o primeiro fornecedor NÃO inabilitado (vencedor real do item)
+        const vencedorItem = valoresItem.find(v => !v.inabilitado);
+        if (vencedorItem) {
+          fornecedoresVencedoresSet.add(vencedorItem.fornecedorId);
+        }
+      }
+      
+      fornecedoresVencedores = Array.from(fornecedoresVencedoresSet);
+      console.log(`👥 Vencedores por item identificados: ${fornecedoresVencedores.length}`);
     } else {
-      // Para outros critérios, usar lógica original baseada em eh_vencedor
+      // Para outros critérios (global, desconto), usar lógica original baseada em eh_vencedor
       fornecedoresVencedores = Array.from(
         new Set(
           fornecedoresData
