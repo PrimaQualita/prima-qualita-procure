@@ -472,9 +472,10 @@ export async function carregarItensVencedoresPorFornecedor(
 
       // CRÍTICO: Iterar sobre TODAS as respostas do banco, não fornecedoresValidos da planilha
       respostas.forEach(respostaF => {
-        // Verificar se está rejeitado
-        if (respostaF.rejeitado) return;
-        if (fornecedoresRejeitadosGlobal.has(respostaF.fornecedor_id)) return;
+        // Verificar se está rejeitado (flag rejeitado E NÃO foi revertido)
+        const foiRevertido = fornecedoresRevertidos.has(respostaF.fornecedor_id);
+        if (respostaF.rejeitado && !foiRevertido) return;
+        if (fornecedoresRejeitadosGlobal.has(respostaF.fornecedor_id) && !foiRevertido) return;
         
         // Verificar se é preço público (CNPJ sequencial)
         const cnpj = respostaF.fornecedores?.cnpj || '';
