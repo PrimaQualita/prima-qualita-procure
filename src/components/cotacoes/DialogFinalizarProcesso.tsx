@@ -501,11 +501,35 @@ export function DialogFinalizarProcesso({
         })
       );
 
-      // Ordenar fornecedores pelo menor número de item que ganharam
+      // Ordenar fornecedores: por lote (se critério for por_lote) ou por item (outros critérios)
       const fornecedoresOrdenados = fornecedoresComDados.sort((a, b) => {
-        const menorItemA = Math.min(...a.itensVencedores.map(item => item.itens_cotacao.numero_item));
-        const menorItemB = Math.min(...b.itensVencedores.map(item => item.itens_cotacao.numero_item));
-        return menorItemA - menorItemB;
+        if (criterioJulgamento === 'por_lote') {
+          // Ordenar pelo menor número de LOTE que o fornecedor ganhou
+          const getLotesNumeros = (itensVenc: any[]) => {
+            const lotesIds = new Set<string>();
+            itensVenc.forEach(item => {
+              const loteId = item.itens_cotacao?.lote_id;
+              if (loteId) lotesIds.add(loteId);
+            });
+            return Array.from(lotesIds)
+              .map(loteId => {
+                const lote = lotesCotacao.find(l => l.id === loteId);
+                return lote?.numero_lote || 999;
+              })
+              .filter(n => n > 0);
+          };
+          
+          const lotesA = getLotesNumeros(a.itensVencedores);
+          const lotesB = getLotesNumeros(b.itensVencedores);
+          const menorLoteA = lotesA.length > 0 ? Math.min(...lotesA) : 999;
+          const menorLoteB = lotesB.length > 0 ? Math.min(...lotesB) : 999;
+          return menorLoteA - menorLoteB;
+        } else {
+          // Ordenar pelo menor número de ITEM
+          const menorItemA = Math.min(...a.itensVencedores.map(item => item.itens_cotacao.numero_item));
+          const menorItemB = Math.min(...b.itensVencedores.map(item => item.itens_cotacao.numero_item));
+          return menorItemA - menorItemB;
+        }
       });
 
       console.log("✅ Carregamento de fornecedores concluído");
