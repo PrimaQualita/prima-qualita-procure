@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Database, HardDrive, AlertTriangle, CheckCircle2, Eye } from "lucide-react";
+import { Loader2, Trash2, Database, HardDrive, AlertTriangle, CheckCircle2, Eye, Archive } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DialogGrupoDetalhes } from "@/components/storage/DialogGrupoDetalhes";
@@ -10,6 +10,7 @@ import { DialogArquivosOrfaos } from "@/components/storage/DialogArquivosOrfaos"
 import { DialogDocumentosSimples } from "@/components/storage/DialogDocumentosSimples";
 import { DialogHabilitacao } from "@/components/storage/DialogHabilitacao";
 import { DialogRecursos } from "@/components/storage/DialogRecursos";
+import { DialogDocumentosAntigos } from "@/components/storage/DialogDocumentosAntigos";
 
 export default function GestaoStorage() {
   const [analisando, setAnalisando] = useState(false);
@@ -20,6 +21,7 @@ export default function GestaoStorage() {
   const [dialogOrfaosAberto, setDialogOrfaosAberto] = useState(false);
   const [dialogHabilitacaoAberto, setDialogHabilitacaoAberto] = useState(false);
   const [dialogRecursosAberto, setDialogRecursosAberto] = useState(false);
+  const [dialogDocumentosAntigosAberto, setDialogDocumentosAntigosAberto] = useState(false);
 
   const executarAnalise = async () => {
     setAnalisando(true);
@@ -733,6 +735,33 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
+              <Card className="border-stone-200 bg-stone-50/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-1">
+                        <Archive className="h-4 w-4 text-stone-600" />
+                        <p className="text-xs font-medium text-stone-900">Documentos Antigos</p>
+                      </div>
+                      <p className="text-2xl font-bold text-stone-700">{resultado.estatisticasPorCategoria?.documentos_antigos?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-stone-600">
+                        {resultado.estatisticasPorCategoria?.documentos_antigos?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-stone-700/70">Certidões substituídas</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.documentos_antigos?.porFornecedor?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDialogDocumentosAntigosAberto(true)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="lg:col-span-3 border-orange-200 bg-orange-50/30">
                 <CardContent className="pt-6 space-y-4">
                   <div className="flex items-center justify-between">
@@ -856,6 +885,12 @@ export default function GestaoStorage() {
         open={dialogRecursosAberto}
         onOpenChange={setDialogRecursosAberto}
         processos={resultado?.estatisticasPorCategoria?.recursos?.porProcessoHierarquico || []}
+      />
+
+      <DialogDocumentosAntigos
+        open={dialogDocumentosAntigosAberto}
+        onOpenChange={setDialogDocumentosAntigosAberto}
+        dados={resultado?.estatisticasPorCategoria?.documentos_antigos || null}
       />
     </div>
   );
