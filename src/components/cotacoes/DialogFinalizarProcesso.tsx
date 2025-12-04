@@ -1831,18 +1831,21 @@ export function DialogFinalizarProcesso({
         .eq("cotacao_id", cotacaoId)
         .eq("revertido", false);
 
-      // Buscar empresas reprovadas pelo compliance
-      const { data: analiseCompliance } = await supabase
+      // Buscar empresas reprovadas pelo compliance - TODAS as análises (não apenas a última)
+      const { data: analisesCompliance } = await supabase
         .from("analises_compliance")
         .select("empresas_reprovadas")
-        .eq("cotacao_id", cotacaoId)
-        .order("data_analise", { ascending: false })
-        .limit(1)
-        .single();
+        .eq("cotacao_id", cotacaoId);
       
-      const empresasReprovadasCompliance = new Set<string>(
-        (analiseCompliance?.empresas_reprovadas as string[]) || []
-      );
+      // Agregar CNPJs reprovados de TODAS as análises
+      const cnpjsReprovadosCompliance = new Set<string>();
+      for (const analise of analisesCompliance || []) {
+        const reprovadas = analise.empresas_reprovadas as string[] || [];
+        for (const cnpj of reprovadas) {
+          if (cnpj) cnpjsReprovadosCompliance.add(cnpj);
+        }
+      }
+      console.log('📋 CNPJs reprovados pelo compliance:', Array.from(cnpjsReprovadosCompliance));
 
       // Função para identificar CNPJ de preço público (sequencial)
       const ehPrecoPublico = (cnpj: string) => {
@@ -1861,9 +1864,9 @@ export function DialogFinalizarProcesso({
           continue;
         }
 
-        // CRÍTICO: Excluir fornecedores reprovados pelo compliance
-        if (empresasReprovadasCompliance.has(resposta.fornecedor_id)) {
-          console.log(`🚫 Excluindo fornecedor reprovado compliance: ${resposta.fornecedores.razao_social}`);
+        // CRÍTICO: Excluir fornecedores reprovados pelo compliance (comparar por CNPJ, não ID!)
+        if (cnpjsReprovadosCompliance.has(resposta.fornecedores.cnpj)) {
+          console.log(`🚫 Excluindo fornecedor reprovado compliance: ${resposta.fornecedores.razao_social} (CNPJ: ${resposta.fornecedores.cnpj})`);
           continue;
         }
 
