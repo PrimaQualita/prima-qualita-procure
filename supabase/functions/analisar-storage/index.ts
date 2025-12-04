@@ -2040,6 +2040,26 @@ Deno.serve(async (req) => {
     
     console.log(`📊 Planilhas consolidadas (últimas): ${ultimaPlanilhaPorCotacao.size}`);
     
+    // 3. Buscar inabilitados para identificar quem herdou itens
+    const { data: inabilitadosCotacaoHab } = await supabase
+      .from('fornecedores_rejeitados_cotacao')
+      .select('cotacao_id, fornecedor_id, itens_afetados, revertido')
+      .eq('revertido', false);
+    
+    // Mapear inabilitados por cotação
+    const inabilitadosPorCotacao = new Map<string, { fornecedorId: string; itensAfetados: number[] }[]>();
+    if (inabilitadosCotacaoHab) {
+      for (const inab of inabilitadosCotacaoHab) {
+        if (!inabilitadosPorCotacao.has(inab.cotacao_id)) {
+          inabilitadosPorCotacao.set(inab.cotacao_id, []);
+        }
+        inabilitadosPorCotacao.get(inab.cotacao_id)!.push({
+          fornecedorId: inab.fornecedor_id,
+          itensAfetados: inab.itens_afetados || []
+        });
+      }
+    }
+    
     // Processar apenas a última planilha de cada cotação
     for (const [cotacaoId, planilha] of ultimaPlanilhaPorCotacao) {
       // Buscar processo da cotação
@@ -2048,21 +2068,79 @@ Deno.serve(async (req) => {
       
       if (!processoId) continue;
       
-      // Extrair fornecedores vencedores da planilha
       const fornecedoresData = planilha.fornecedores_incluidos as any[] || [];
+      const inabilitadosDaCotacao = inabilitadosPorCotacao.get(cotacaoId) || [];
+      
+      // Criar set de fornecedores inabilitados
+      const fornecedoresInabilitadosSet = new Set(inabilitadosDaCotacao.map(i => i.fornecedorId));
+      
+      // Coletar itens onde houve inabilitação (para encontrar quem herdou)
+      const itensComInabilitacao = new Set<number>();
+      for (const inab of inabilitadosDaCotacao) {
+        if (inab.itensAfetados.length === 0) {
+          // Inabilitação global - todos itens daquele fornecedor
+          const fornecedorData = fornecedoresData.find((f: any) => f.fornecedor_id === inab.fornecedorId);
+          if (fornecedorData?.itens) {
+            for (const item of fornecedorData.itens) {
+              if (item.eh_vencedor) itensComInabilitacao.add(item.numero_item);
+            }
+          }
+        } else {
+          // Inabilitação por item
+          for (const itemNum of inab.itensAfetados) {
+            itensComInabilitacao.add(itemNum);
+          }
+        }
+      }
+      
       for (const fornecedor of fornecedoresData) {
         // Excluir BANCO DE PREÇOS
         if (fornecedor.cnpj === '55555555555555') continue;
         
         const fornecedorId = fornecedor.fornecedor_id;
-        // Verificar se tem itens vencedores (quem aparece em "Ver Documentos")
+        if (!fornecedorId) continue;
+        
+        // Verificar se tem itens vencedores (vencedores originais)
         const temItensVencedores = fornecedor.itens?.some((item: any) => item.eh_vencedor);
         
-        if (fornecedorId && temItensVencedores) {
+        // Verificar se é segundo colocado que herdou item de inabilitado
+        let herdouItem = false;
+        if (itensComInabilitacao.size > 0 && !temItensVencedores) {
+          // Para cada item com inabilitação, verificar se este fornecedor é o segundo colocado
+          for (const itemNum of itensComInabilitacao) {
+            // Buscar todos os fornecedores que cotaram este item (exceto BANCO DE PREÇOS e inabilitados)
+            const cotacoesDoItem: { fornecedorId: string; valor: number }[] = [];
+            for (const f of fornecedoresData) {
+              if (f.cnpj === '55555555555555') continue;
+              const itemData = f.itens?.find((i: any) => i.numero_item === itemNum);
+              if (itemData && itemData.valor_unitario_ofertado !== null) {
+                cotacoesDoItem.push({
+                  fornecedorId: f.fornecedor_id,
+                  valor: itemData.valor_unitario_ofertado
+                });
+              }
+            }
+            
+            // Ordenar por valor (menor preço vence)
+            cotacoesDoItem.sort((a, b) => a.valor - b.valor);
+            
+            // Encontrar posição do fornecedor atual (excluindo inabilitados)
+            const cotacoesFiltradas = cotacoesDoItem.filter(c => !fornecedoresInabilitadosSet.has(c.fornecedorId));
+            if (cotacoesFiltradas.length > 0 && cotacoesFiltradas[0].fornecedorId === fornecedorId) {
+              herdouItem = true;
+              break;
+            }
+          }
+        }
+        
+        if (temItensVencedores || herdouItem) {
           if (!fornecedoresPorProcessoHab.has(processoId)) {
             fornecedoresPorProcessoHab.set(processoId, new Set());
           }
           fornecedoresPorProcessoHab.get(processoId)!.add(fornecedorId);
+          if (herdouItem) {
+            console.log(`  🔄 ${fornecedor.razao_social || fornecedorId.substring(0,8)} herdou item de inabilitado`);
+          }
         }
       }
     }
