@@ -653,7 +653,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
       halign: 'center',
       valign: 'middle',
       lineColor: [200, 200, 200],
-      lineWidth: 0.1
+      lineWidth: 0.1,
+      minCellHeight: 12
     },
     headStyles: {
       fillColor: [41, 128, 185],
@@ -838,12 +839,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
           yInicio = cell.y + padding + alturaLinha * 0.7;
         }
         
-        // Desenhar cada linha
+        // Desenhar cada linha (sem limite de altura - célula já foi dimensionada pelo autoTable)
         for (let i = 0; i < linhasTexto.length; i++) {
           const linha = linhasTexto[i];
           const yLinha = yInicio + (i * alturaLinha);
-          
-          if (yLinha > cell.y + cell.height - 1) break;
           
           const palavras = linha.trim().split(/\s+/);
           const x = cell.x + padding;
