@@ -2030,100 +2030,305 @@ Deno.serve(async (req) => {
     // 2. Buscar processos que são de SELEÇÃO DE FORNECEDORES
     const { data: processosComSelecao } = await supabase
       .from('processos_compras')
-      .select('id, requer_selecao')
+      .select('id, requer_selecao, criterio_julgamento')
       .eq('requer_selecao', true);
     
     const processosSelecaoSet = new Set<string>();
+    const criteriosPorProcesso = new Map<string, string>();
     if (processosComSelecao) {
       for (const proc of processosComSelecao) {
         processosSelecaoSet.add(proc.id);
+        criteriosPorProcesso.set(proc.id, proc.criterio_julgamento || 'global');
       }
     }
     console.log(`📊 Processos com seleção de fornecedores: ${processosSelecaoSet.size}`);
 
-    // 3. Para SELEÇÃO DE FORNECEDORES: buscar TODOS os fornecedores que têm lances
-    // (mesma lógica da página Análise Documental)
+    // ============================================================
+    // 3. SELEÇÃO DE FORNECEDORES: Calcular vencedores via lances
+    // (mesma lógica de DialogAnaliseDocumentalSelecao)
+    // ============================================================
     const { data: selecoesData } = await supabase
       .from('selecoes_fornecedores')
-      .select('id, processo_compra_id')
+      .select('id, processo_compra_id, criterios_julgamento')
       .in('processo_compra_id', Array.from(processosSelecaoSet));
     
-    const selecoesPorProcesso = new Map<string, string>();
+    const selecoesPorProcesso = new Map<string, { selecaoId: string; criterio: string }>();
     if (selecoesData) {
       for (const sel of selecoesData) {
-        selecoesPorProcesso.set(sel.processo_compra_id, sel.id);
+        selecoesPorProcesso.set(sel.processo_compra_id, {
+          selecaoId: sel.id,
+          criterio: sel.criterios_julgamento || 'menor_preco'
+        });
       }
     }
 
-    // Buscar TODOS os lances - qualquer fornecedor que lançou PARTICIPA
-    const selecaoIds = Array.from(selecoesPorProcesso.values());
+    // Buscar todos os lances para seleções
+    const selecaoIds = Array.from(selecoesPorProcesso.values()).map(s => s.selecaoId);
     if (selecaoIds.length > 0) {
       const { data: lancesData } = await supabase
         .from('lances_fornecedores')
-        .select('selecao_id, fornecedor_id')
+        .select('selecao_id, fornecedor_id, numero_item, valor_lance, tipo_lance, data_hora_lance')
+        .in('selecao_id', selecaoIds)
+        .order('data_hora_lance', { ascending: false });
+
+      // Buscar inabilitados de seleção
+      const { data: inabilitadosSelecao } = await supabase
+        .from('fornecedores_inabilitados_selecao')
+        .select('selecao_id, fornecedor_id, itens_afetados, revertido')
+        .eq('revertido', false)
         .in('selecao_id', selecaoIds);
 
-      // Adicionar TODOS os fornecedores que têm lances
-      if (lancesData) {
-        for (const lance of lancesData) {
-          // Encontrar o processo deste selecao_id
-          for (const [processoId, selecaoId] of selecoesPorProcesso) {
-            if (selecaoId === lance.selecao_id) {
-              if (!fornecedoresPorProcessoHab.has(processoId)) {
-                fornecedoresPorProcessoHab.set(processoId, new Set());
+      // Para cada seleção, calcular vencedores dinamicamente
+      for (const [processoId, selecaoInfo] of selecoesPorProcesso) {
+        const { selecaoId, criterio } = selecaoInfo;
+        const lancesSelecao = lancesData?.filter(l => l.selecao_id === selecaoId) || [];
+        const inabilitados = inabilitadosSelecao?.filter(i => i.selecao_id === selecaoId) || [];
+        
+        // Mapear inabilitações
+        const fornecedoresInabilitadosGlobal = new Set<string>();
+        const fornecedoresInabilitadosPorItem = new Map<number, Set<string>>();
+        
+        for (const inab of inabilitados) {
+          const itensAfetados = inab.itens_afetados as number[] || [];
+          if (itensAfetados.length === 0) {
+            fornecedoresInabilitadosGlobal.add(inab.fornecedor_id);
+          } else {
+            for (const itemNum of itensAfetados) {
+              if (!fornecedoresInabilitadosPorItem.has(itemNum)) {
+                fornecedoresInabilitadosPorItem.set(itemNum, new Set());
               }
-              fornecedoresPorProcessoHab.get(processoId)!.add(lance.fornecedor_id);
+              fornecedoresInabilitadosPorItem.get(itemNum)!.add(inab.fornecedor_id);
             }
           }
         }
+
+        // Agrupar lances por item
+        const lancePorItem = new Map<number, any[]>();
+        for (const lance of lancesSelecao) {
+          const item = lance.numero_item;
+          if (!item) continue;
+          if (!lancePorItem.has(item)) {
+            lancePorItem.set(item, []);
+          }
+          lancePorItem.get(item)!.push(lance);
+        }
+
+        // Inicializar set de fornecedores deste processo
+        if (!fornecedoresPorProcessoHab.has(processoId)) {
+          fornecedoresPorProcessoHab.set(processoId, new Set());
+        }
+        const fornecedoresDoProcesso = fornecedoresPorProcessoHab.get(processoId)!;
+
+        // Para cada item, identificar vencedor (mesma lógica da Análise Documental)
+        const isDesconto = criterio === 'desconto' || criterio === 'maior_desconto';
+        
+        for (const [numeroItem, lances] of lancePorItem) {
+          // Ordenar lances por valor
+          const lancesOrdenados = [...lances].sort((a, b) => {
+            if (isDesconto) return b.valor_lance - a.valor_lance;
+            return a.valor_lance - b.valor_lance;
+          });
+
+          // Priorizar lances de negociação
+          const temNegociacao = lancesOrdenados.some(l => l.tipo_lance === 'negociacao');
+          let lancesFinais = lancesOrdenados;
+          if (temNegociacao) {
+            lancesFinais = lancesOrdenados.filter(l => l.tipo_lance === 'negociacao');
+          }
+
+          // Inabilitados deste item
+          const inabilitadosDoItem = fornecedoresInabilitadosPorItem.get(numeroItem) || new Set();
+
+          // Encontrar o vencedor (primeiro não-inabilitado)
+          for (const lance of lancesFinais) {
+            const estaInabilitadoGlobal = fornecedoresInabilitadosGlobal.has(lance.fornecedor_id);
+            const estaInabilitadoItem = inabilitadosDoItem.has(lance.fornecedor_id);
+            
+            // Sempre adicionar (mesmo inabilitados aparecem na análise documental)
+            fornecedoresDoProcesso.add(lance.fornecedor_id);
+            
+            if (!estaInabilitadoGlobal && !estaInabilitadoItem) {
+              break; // Encontrou o vencedor
+            }
+          }
+        }
+        
+        console.log(`  📊 Seleção ${selecaoId.substring(0,8)}: ${fornecedoresDoProcesso.size} fornecedores`);
       }
-      console.log(`📊 Fornecedores de SELEÇÃO adicionados via lances`);
     }
 
-    // 4. Para COMPRA DIRETA: buscar TODOS os fornecedores que responderam a cotação
-    // (mesma lógica da página Verificar Documentos)
+    // ============================================================
+    // 4. COMPRA DIRETA: Calcular vencedores via planilha consolidada
+    // (mesma lógica de DialogFinalizarProcesso/identificarVencedoresPorCriterio)
+    // ============================================================
     const { data: cotacoesCompraDireta } = await supabase
       .from('cotacoes_precos')
-      .select('id, processo_compra_id')
+      .select('id, processo_compra_id, criterio_julgamento')
       .not('processo_compra_id', 'in', `(${Array.from(processosSelecaoSet).join(',') || '00000000-0000-0000-0000-000000000000'})`);
 
     if (cotacoesCompraDireta && cotacoesCompraDireta.length > 0) {
+      // Buscar últimas planilhas consolidadas por cotação
       const cotacaoIdsDireta = cotacoesCompraDireta.map(c => c.id);
       
-      // Buscar TODAS as respostas de fornecedores - qualquer um que respondeu PARTICIPA
-      const { data: respostasCotacao } = await supabase
-        .from('cotacao_respostas_fornecedor')
-        .select('cotacao_id, fornecedor_id')
-        .in('cotacao_id', cotacaoIdsDireta);
+      const { data: planilhasConsolidadas } = await supabase
+        .from('planilhas_consolidadas')
+        .select('cotacao_id, fornecedores_incluidos, data_geracao')
+        .in('cotacao_id', cotacaoIdsDireta)
+        .order('data_geracao', { ascending: false });
 
-      if (respostasCotacao) {
-        // Criar mapa cotação -> processo
-        const cotacaoParaProcesso = new Map<string, string>();
-        for (const c of cotacoesCompraDireta) {
-          cotacaoParaProcesso.set(c.id, c.processo_compra_id);
-        }
-
-        for (const resposta of respostasCotacao) {
-          const processoId = cotacaoParaProcesso.get(resposta.cotacao_id);
-          if (processoId) {
-            // Excluir BANCO DE PREÇOS
-            // Primeiro buscar CNPJ do fornecedor para verificar
-            const { data: fornecedorCheck } = await supabase
-              .from('fornecedores')
-              .select('cnpj')
-              .eq('id', resposta.fornecedor_id)
-              .single();
-            
-            if (fornecedorCheck?.cnpj !== '55555555555555') {
-              if (!fornecedoresPorProcessoHab.has(processoId)) {
-                fornecedoresPorProcessoHab.set(processoId, new Set());
-              }
-              fornecedoresPorProcessoHab.get(processoId)!.add(resposta.fornecedor_id);
-            }
+      // Mapear última planilha por cotação
+      const ultimaPlanilhaPorCotacao = new Map<string, any>();
+      if (planilhasConsolidadas) {
+        for (const p of planilhasConsolidadas) {
+          if (!ultimaPlanilhaPorCotacao.has(p.cotacao_id)) {
+            ultimaPlanilhaPorCotacao.set(p.cotacao_id, p);
           }
         }
       }
-      console.log(`📊 Fornecedores de COMPRA DIRETA adicionados via respostas de cotação`);
+
+      // Buscar rejeições ativas
+      const { data: rejeicoesAtivas } = await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .select('cotacao_id, fornecedor_id, itens_afetados')
+        .eq('revertido', false)
+        .in('cotacao_id', cotacaoIdsDireta);
+
+      // Mapear rejeições por cotação
+      const rejeicoesPorCotacao = new Map<string, any[]>();
+      if (rejeicoesAtivas) {
+        for (const r of rejeicoesAtivas) {
+          if (!rejeicoesPorCotacao.has(r.cotacao_id)) {
+            rejeicoesPorCotacao.set(r.cotacao_id, []);
+          }
+          rejeicoesPorCotacao.get(r.cotacao_id)!.push(r);
+        }
+      }
+
+      // Buscar empresas reprovadas pelo compliance (por cotação)
+      const { data: analisesCompliance } = await supabase
+        .from('analises_compliance')
+        .select('cotacao_id, empresas_reprovadas')
+        .in('cotacao_id', cotacaoIdsDireta);
+
+      const reprovadosCompliancePorCotacao = new Map<string, Set<string>>();
+      if (analisesCompliance) {
+        for (const a of analisesCompliance) {
+          if (!reprovadosCompliancePorCotacao.has(a.cotacao_id)) {
+            reprovadosCompliancePorCotacao.set(a.cotacao_id, new Set());
+          }
+          const reprovadas = (a.empresas_reprovadas as string[]) || [];
+          for (const cnpj of reprovadas) {
+            if (cnpj) reprovadosCompliancePorCotacao.get(a.cotacao_id)!.add(cnpj);
+          }
+        }
+      }
+
+      // Criar mapa cotação -> processo/criterio
+      const cotacaoInfo = new Map<string, { processoId: string; criterio: string }>();
+      for (const c of cotacoesCompraDireta) {
+        cotacaoInfo.set(c.id, { 
+          processoId: c.processo_compra_id, 
+          criterio: c.criterio_julgamento || 'global' 
+        });
+      }
+
+      // Processar cada cotação
+      for (const [cotacaoId, planilha] of ultimaPlanilhaPorCotacao) {
+        const info = cotacaoInfo.get(cotacaoId);
+        if (!info) continue;
+
+        const { processoId, criterio } = info;
+        const fornecedoresData = planilha.fornecedores_incluidos as any[] || [];
+        const rejeicoes = rejeicoesPorCotacao.get(cotacaoId) || [];
+        const reprovadosCompliance = reprovadosCompliancePorCotacao.get(cotacaoId) || new Set();
+
+        // Mapear rejeições
+        const fornecedoresRejeitadosGlobal = new Set<string>();
+        const itensRejeitadosPorFornecedor = new Map<string, Set<number>>();
+        
+        for (const r of rejeicoes) {
+          const itensAfetados = r.itens_afetados as number[] || [];
+          if (itensAfetados.length === 0) {
+            fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
+          } else {
+            if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+              itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+            }
+            for (const item of itensAfetados) {
+              itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item);
+            }
+          }
+        }
+
+        // Helper: é preço público?
+        const ehPrecoPublico = (cnpj: string) => {
+          if (!cnpj) return false;
+          const primeiroDigito = cnpj.charAt(0);
+          return cnpj.split('').every(d => d === primeiroDigito);
+        };
+
+        // Filtrar fornecedores válidos (não excluir rejeitados parciais)
+        const fornecedoresValidos = fornecedoresData.filter(f => {
+          if (ehPrecoPublico(f.cnpj)) return false;
+          if (reprovadosCompliance.has(f.cnpj)) return false;
+          if (fornecedoresRejeitadosGlobal.has(f.fornecedor_id)) return false;
+          return true;
+        });
+
+        // Inicializar set
+        if (!fornecedoresPorProcessoHab.has(processoId)) {
+          fornecedoresPorProcessoHab.set(processoId, new Set());
+        }
+        const fornecedoresDoProcesso = fornecedoresPorProcessoHab.get(processoId)!;
+
+        // Identificar todos os itens
+        const todosItens = new Set<number>();
+        for (const f of fornecedoresValidos) {
+          for (const item of (f.itens || [])) {
+            if (item.numero_item) todosItens.add(item.numero_item);
+          }
+        }
+
+        const isDesconto = criterio === 'desconto' || criterio === 'maior_percentual_desconto';
+
+        // Para cada item, calcular vencedor
+        for (const numeroItem of todosItens) {
+          const cotacoesDoItem: { fornecedorId: string; valor: number }[] = [];
+
+          for (const f of fornecedoresValidos) {
+            // Verificar se rejeitado neste item específico
+            const itensRejeitados = itensRejeitadosPorFornecedor.get(f.fornecedor_id);
+            if (itensRejeitados?.has(numeroItem)) continue;
+
+            const itemData = f.itens?.find((i: any) => i.numero_item === numeroItem);
+            if (itemData && itemData.valor_unitario_ofertado != null) {
+              cotacoesDoItem.push({
+                fornecedorId: f.fornecedor_id,
+                valor: isDesconto ? (itemData.percentual_desconto || 0) : itemData.valor_unitario_ofertado
+              });
+            }
+          }
+
+          // Ordenar
+          if (isDesconto) {
+            cotacoesDoItem.sort((a, b) => b.valor - a.valor);
+          } else {
+            cotacoesDoItem.sort((a, b) => a.valor - b.valor);
+          }
+
+          // Adicionar vencedor
+          if (cotacoesDoItem.length > 0) {
+            fornecedoresDoProcesso.add(cotacoesDoItem[0].fornecedorId);
+          }
+        }
+
+        // Também adicionar fornecedores rejeitados (eles aparecem na verificação de documentos)
+        for (const r of rejeicoes) {
+          fornecedoresDoProcesso.add(r.fornecedor_id);
+        }
+
+        console.log(`  📊 Cotação ${cotacaoId.substring(0,8)}: ${fornecedoresDoProcesso.size} fornecedores`);
+      }
     }
 
     console.log(`📊 Processos com fornecedores para hab: ${fornecedoresPorProcessoHab.size}`);
