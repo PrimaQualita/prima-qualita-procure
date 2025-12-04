@@ -261,7 +261,16 @@ export async function gerarPlanilhaConsolidadaPDF(
   const larguraObjeto = doc.getTextWidth(textoObjeto);
   const larguraPrimeiraLinha = larguraUtil - larguraObjeto - 2; // Espaço mínimo de 2mm
   const linhasPrimeiraLinha = doc.splitTextToSize(objetoDecodificado, larguraPrimeiraLinha);
-  justificarTexto(doc, linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto + 2, y, larguraPrimeiraLinha);
+  
+  // Verificar se há texto restante para saber se é a única linha
+  const textoRestanteCheck = objetoDecodificado.substring(linhasPrimeiraLinha[0].length).trim();
+  if (textoRestanteCheck) {
+    // Se há mais linhas, justifica a primeira
+    justificarTexto(doc, linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto + 2, y, larguraPrimeiraLinha);
+  } else {
+    // Se é a única linha, alinha à esquerda (sem justificar)
+    doc.text(linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto + 2, y);
+  }
   
   // Demais linhas do objeto com largura total
   y += 5;
