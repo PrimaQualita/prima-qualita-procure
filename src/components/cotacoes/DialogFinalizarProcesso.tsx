@@ -504,12 +504,18 @@ export function DialogFinalizarProcesso({
       // Ordenar fornecedores conforme critério de julgamento
       const fornecedoresOrdenados = fornecedoresComDados.sort((a, b) => {
         if (criterioJulgamento === 'por_lote') {
-          // Ordenar pelo menor número de LOTE que o fornecedor ganhou
-          const getLotesNumeros = (itensVenc: any[]) => {
+          // Para critério por_lote: ordenar por número do lote, e dentro do lote: vencedor primeiro, depois inabilitados
+          const getLotesNumeros = (itensVenc: any[], itensRej: number[]) => {
             const lotesIds = new Set<string>();
+            // Lotes dos itens vencedores
             itensVenc.forEach(item => {
               const loteId = item.itens_cotacao?.lote_id;
               if (loteId) lotesIds.add(loteId);
+            });
+            // Também considerar lotes dos itens rejeitados
+            itensRej.forEach(numItem => {
+              const itemCotacao = itensCotacao.find(ic => ic.numero_item === numItem);
+              if (itemCotacao?.lote_id) lotesIds.add(itemCotacao.lote_id);
             });
             return Array.from(lotesIds)
               .map(loteId => {
@@ -519,11 +525,23 @@ export function DialogFinalizarProcesso({
               .filter(n => n > 0);
           };
           
-          const lotesA = getLotesNumeros(a.itensVencedores);
-          const lotesB = getLotesNumeros(b.itensVencedores);
+          const lotesA = getLotesNumeros(a.itensVencedores, a.itensRejeitados || []);
+          const lotesB = getLotesNumeros(b.itensVencedores, b.itensRejeitados || []);
           const menorLoteA = lotesA.length > 0 ? Math.min(...lotesA) : 999;
           const menorLoteB = lotesB.length > 0 ? Math.min(...lotesB) : 999;
-          return menorLoteA - menorLoteB;
+          
+          // Primeiro critério: número do lote
+          if (menorLoteA !== menorLoteB) {
+            return menorLoteA - menorLoteB;
+          }
+          
+          // Segundo critério dentro do mesmo lote: vencedor primeiro (não rejeitado), depois inabilitados
+          // Fornecedor não rejeitado vem antes do rejeitado
+          if (a.rejeitado !== b.rejeitado) {
+            return a.rejeitado ? 1 : -1; // Não rejeitado vem primeiro
+          }
+          
+          return 0;
         } else if (criterioJulgamento === 'global') {
           // Ordenar pelo menor valor total (global) - fornecedor com menor valor primeiro
           const calcularValorTotal = (itensVenc: any[]) => {
