@@ -927,6 +927,51 @@ export function DialogFinalizarProcesso({
         "certificado_gestor"
       ];
 
+      // BUSCAR DATA DE FINALIZAÇÃO DO PROCESSO
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select("data_finalizacao")
+        .eq("id", cotacaoId)
+        .single();
+      
+      const dataFinalizacao = cotacaoData?.data_finalizacao 
+        ? new Date(cotacaoData.data_finalizacao) 
+        : null;
+      
+      console.log(`📅 Data de finalização do processo: ${dataFinalizacao?.toISOString() || 'não finalizado'}`);
+
+      // BUSCAR DOCUMENTOS ANTIGOS DO FORNECEDOR VINCULADOS A ESTA COTAÇÃO
+      let docsAntigosParaUsar: Map<string, any> = new Map();
+      
+      if (dataFinalizacao) {
+        const { data: docsAntigos } = await supabase
+          .from("documentos_antigos")
+          .select("*")
+          .eq("fornecedor_id", fornecedorIdParaDocumentos);
+        
+        if (docsAntigos && docsAntigos.length > 0) {
+          console.log(`📦 Documentos antigos encontrados: ${docsAntigos.length}`);
+          
+          for (const docAntigo of docsAntigos) {
+            // Verificar se está vinculado a esta cotação
+            const vinculados = docAntigo.processos_vinculados || [];
+            if (!vinculados.includes(cotacaoId)) {
+              continue;
+            }
+            
+            // Usar documento antigo APENAS se foi arquivado APÓS a finalização do processo
+            const dataArquivamento = docAntigo.data_arquivamento 
+              ? new Date(docAntigo.data_arquivamento) 
+              : null;
+            
+            if (dataArquivamento && dataArquivamento > dataFinalizacao) {
+              console.log(`  ✅ Usando doc antigo: ${docAntigo.tipo_documento} (arquivado após finalização)`);
+              docsAntigosParaUsar.set(docAntigo.tipo_documento, docAntigo);
+            }
+          }
+        }
+      }
+
       // CRÍTICO: Buscar APENAS documentos válidos/mais recentes
       const { data, error } = await supabase
         .from("documentos_fornecedor")
@@ -942,13 +987,8 @@ export function DialogFinalizarProcesso({
         throw error;
       }
 
-      console.log(`✅ Documentos carregados: ${data?.length || 0} do fornecedor ${fornecedorIdParaDocumentos}`);
-      console.log("Documentos encontrados:", data);
-
-      if (!data || data.length === 0) {
-        console.warn(`⚠️ Nenhum documento encontrado para fornecedor ${fornecedorIdParaDocumentos}`);
-        return [];
-      }
+      console.log(`✅ Documentos atuais carregados: ${data?.length || 0}`);
+      console.log(`📦 Documentos antigos a usar: ${docsAntigosParaUsar.size}`);
 
       // Mapeamento de nomes para exibição
       const nomesMapeados: Record<string, string> = {
@@ -967,8 +1007,22 @@ export function DialogFinalizarProcesso({
 
       const documentosOrdenados = tiposDocumentos
         .map(tipo => {
-          // Para cada tipo, encontrar o documento MAIS RECENTE em vigor
-          // Como já ordenamos por data_upload desc, o primeiro é o mais recente
+          // PRIORIZAR documento antigo se existir para este tipo
+          const docAntigo = docsAntigosParaUsar.get(tipo);
+          if (docAntigo) {
+            console.log(`  📜 Usando documento ANTIGO para ${tipo}`);
+            return {
+              id: docAntigo.id,
+              tipo_documento: nomesMapeados[tipo] || tipo,
+              nome_arquivo: docAntigo.nome_arquivo,
+              url_arquivo: docAntigo.url_arquivo,
+              data_emissao: docAntigo.data_emissao,
+              data_validade: docAntigo.data_validade,
+              em_vigor: true
+            };
+          }
+          
+          // Senão, usar documento atual
           const doc = data?.find(d => d.tipo_documento === tipo);
           if (doc) {
             return {
@@ -980,7 +1034,7 @@ export function DialogFinalizarProcesso({
         })
         .filter((doc): doc is any => doc !== undefined);
 
-      console.log(`📋 Documentos ordenados (apenas mais recentes): ${documentosOrdenados.length}`);
+      console.log(`📋 Documentos ordenados: ${documentosOrdenados.length}`);
 
       return documentosOrdenados as DocumentoExistente[];
     } catch (error) {
