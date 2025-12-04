@@ -147,6 +147,32 @@ const justificarTexto = (doc: any, texto: string, x: number, y: number, larguraM
   });
 };
 
+// Função para calcular fontSize ideal para caber em uma linha
+const calcularFontSizeParaCaber = (doc: any, texto: string, larguraCelula: number, fontSizeInicial: number, fontSizeMinimo: number = 6): number => {
+  if (!texto || texto.trim() === '' || texto === '-') return fontSizeInicial;
+  
+  // Remover quebras de linha para medir texto contínuo
+  const textoLimpo = texto.replace(/\n/g, ' ');
+  
+  let fontSize = fontSizeInicial;
+  doc.setFontSize(fontSize);
+  
+  // Considerar padding da célula (aproximadamente 4mm total)
+  const larguraDisponivel = larguraCelula - 4;
+  
+  while (fontSize > fontSizeMinimo) {
+    doc.setFontSize(fontSize);
+    const larguraTexto = doc.getTextWidth(textoLimpo);
+    
+    if (larguraTexto <= larguraDisponivel) {
+      break;
+    }
+    fontSize -= 0.5;
+  }
+  
+  return Math.max(fontSize, fontSizeMinimo);
+};
+
 export async function gerarPlanilhaConsolidadaPDF(
   processo: { numero: string; objeto: string },
   cotacao: { titulo_cotacao: string },
@@ -611,6 +637,18 @@ export async function gerarPlanilhaConsolidadaPDF(
         } else if (data.column.index >= 1 && data.column.index <= 3) {
           // Limpar texto das colunas 1-3 (já mescladas)
           data.cell.text = [''];
+        }
+      }
+      
+      // Ajuste automático de fonte para colunas de valores monetários
+      // Aplica para colunas de fornecedores (índice >= 4) e estimativa
+      if (data.column.index >= 4 && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal) {
+        const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
+        if (texto && texto !== '-') {
+          const larguraCelula = data.cell.width || larguraPorColuna;
+          const fontSizeAtual = data.cell.styles.fontSize || 8;
+          const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, fontSizeAtual, 6);
+          data.cell.styles.fontSize = fontSizeIdeal;
         }
       }
     }
