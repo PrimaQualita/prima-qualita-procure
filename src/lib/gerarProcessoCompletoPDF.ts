@@ -530,8 +530,9 @@ export const gerarProcessoCompletoPDF = async (
       interface FornecedorInfo {
         id: string;
         menorLote: number;
-        valorTotal: number;
+        valorTotalLoteMenor: number;
         razaoSocial: string;
+        isInabilitado: boolean;
       }
       
       const fornecedoresInfo: FornecedorInfo[] = [];
@@ -540,7 +541,8 @@ export const gerarProcessoCompletoPDF = async (
       const { data: lotesParaOrdem } = await supabase
         .from("lotes_cotacao")
         .select("id, numero_lote")
-        .eq("cotacao_id", cotacaoId);
+        .eq("cotacao_id", cotacaoId)
+        .order("numero_lote");
       
       const { data: itensParaOrdem } = await supabase
         .from("itens_cotacao")
@@ -551,53 +553,64 @@ export const gerarProcessoCompletoPDF = async (
       const loteIdParaNumero = new Map<string, number>();
       lotesParaOrdem?.forEach(l => loteIdParaNumero.set(l.id, l.numero_lote));
       
-      // Calcular info de cada fornecedor que participou (vencedores + inabilitados)
-      const fornecedoresUnicos = new Set<string>([...fornecedoresVencedores, ...fornecedoresInabilitadosIds]);
-      
-      // Usar dados da planilha consolidada (fornecedoresData)
-      
-      for (const fornecedorId of fornecedoresUnicos) {
-        const dadosFornecedor = fornecedoresData.find((f: any) => f.fornecedor_id === fornecedorId);
-        if (!dadosFornecedor) {
-          console.log(`  ⚠️ Fornecedor ${fornecedorId} não encontrado nos dados para ordenação`);
-          continue;
-        }
+      // CORREÇÃO: Usar TODOS os fornecedores da planilha consolidada (exceto BANCO DE PREÇOS)
+      // Isso garante que segundo colocados sejam incluídos quando primeiro é inabilitado
+      for (const fornecedor of fornecedoresData) {
+        // Excluir BANCO DE PREÇOS
+        if (fornecedor.cnpj === '55555555555555') continue;
         
-        // Encontrar o menor número de lote que este fornecedor participou
-        let menorLote = 999;
-        let valorTotalFornecedor = 0;
+        const fornecedorId = fornecedor.fornecedor_id;
+        const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
+        const isInabilitadoGlobal = fornecedoresInabilitadosIds.includes(fornecedorId) && itensInabilitados.length === 0;
         
-        for (const item of (dadosFornecedor.itens || [])) {
+        // Calcular valor por lote para ordenação
+        const valoresPorLote = new Map<number, number>();
+        
+        for (const item of (fornecedor.itens || [])) {
           if (item.valor_unitario && item.lote_id) {
             const numeroLote = loteIdParaNumero.get(item.lote_id);
-            if (numeroLote !== undefined && numeroLote < menorLote) {
-              menorLote = numeroLote;
-            }
-            const itemCotacao = itensParaOrdem?.find(i => i.numero_item === item.numero_item);
-            if (itemCotacao) {
-              valorTotalFornecedor += item.valor_unitario * itemCotacao.quantidade;
+            if (numeroLote !== undefined) {
+              const itemCotacao = itensParaOrdem?.find((i: any) => i.numero_item === item.numero_item && i.lote_id === item.lote_id);
+              if (itemCotacao) {
+                const valorAtual = valoresPorLote.get(numeroLote) || 0;
+                valoresPorLote.set(numeroLote, valorAtual + (item.valor_unitario * itemCotacao.quantidade));
+              }
             }
           }
         }
         
-        fornecedoresInfo.push({
-          id: fornecedorId,
-          menorLote,
-          valorTotal: valorTotalFornecedor,
-          razaoSocial: dadosFornecedor.razao_social || ''
-        });
+        // Encontrar o menor lote que participou
+        let menorLote = 999;
+        let valorTotalLoteMenor = 0;
+        for (const [lote, valor] of valoresPorLote) {
+          if (lote < menorLote) {
+            menorLote = lote;
+            valorTotalLoteMenor = valor;
+          }
+        }
+        
+        if (menorLote < 999) {
+          fornecedoresInfo.push({
+            id: fornecedorId,
+            menorLote,
+            valorTotalLoteMenor,
+            razaoSocial: fornecedor.razao_social || '',
+            isInabilitado: isInabilitadoGlobal
+          });
+          console.log(`  📋 ${fornecedor.razao_social}: Lote ${menorLote}, R$ ${valorTotalLoteMenor.toFixed(2)} ${isInabilitadoGlobal ? '(INABILITADO)' : ''}`);
+        }
       }
       
-      // Ordenar: primeiro por menor lote, depois por valor total (menor = primeiro colocado)
+      // Ordenar: primeiro por menor lote, depois por valor do lote (menor = primeiro colocado)
       fornecedoresInfo.sort((a, b) => {
         if (a.menorLote !== b.menorLote) {
           return a.menorLote - b.menorLote;
         }
-        return a.valorTotal - b.valorTotal;
+        return a.valorTotalLoteMenor - b.valorTotalLoteMenor;
       });
       
       todosFornecedoresProcesso = fornecedoresInfo.map(f => f.id);
-      console.log(`📊 Ordem final por lote e classificação:`, fornecedoresInfo.map(f => `${f.razaoSocial} (Lote ${f.menorLote}, R$ ${f.valorTotal.toFixed(2)})`));
+      console.log(`📊 Ordem final:`, fornecedoresInfo.map(f => `${f.razaoSocial} (Lote ${f.menorLote}, R$ ${f.valorTotalLoteMenor.toFixed(2)})`));
     } else {
       // Para outros critérios, manter lógica original: vencedores primeiro, depois inabilitados
       const todosFornecedoresProcessoSet = new Set<string>();
