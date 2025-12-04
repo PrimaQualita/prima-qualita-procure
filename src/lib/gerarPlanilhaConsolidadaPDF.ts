@@ -759,7 +759,8 @@ export async function gerarPlanilhaConsolidadaPDF(
       
       // Quebrar texto em linhas
       const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
-      const alturaLinha = 3.5;
+      // Altura da linha proporcional ao fontSize (aproximadamente 1.2x o fontSize em mm)
+      const alturaLinha = menorFontSize * 0.42;
       
       // Calcular posição Y inicial (centralizado verticalmente)
       const alturaTextoTotal = linhasTexto.length * alturaLinha;
@@ -772,13 +773,10 @@ export async function gerarPlanilhaConsolidadaPDF(
         yInicio = cell.y + padding + alturaLinha * 0.7;
       }
       
-      // Desenhar cada linha
+      // Desenhar cada linha (sem limite - célula já foi dimensionada pelo autoTable)
       for (let i = 0; i < linhasTexto.length; i++) {
         const linha = linhasTexto[i];
         const yLinha = yInicio + (i * alturaLinha);
-        
-        // Verificar limite inferior
-        if (yLinha > cell.y + cell.height - 2) break;
         
         const palavras = linha.trim().split(/\s+/);
         const x = cell.x + padding;
