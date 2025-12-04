@@ -2030,289 +2030,100 @@ Deno.serve(async (req) => {
     // 2. Buscar processos que são de SELEÇÃO DE FORNECEDORES
     const { data: processosComSelecao } = await supabase
       .from('processos_compras')
-      .select('id, requer_selecao, criterio_julgamento')
+      .select('id, requer_selecao')
       .eq('requer_selecao', true);
     
     const processosSelecaoSet = new Set<string>();
-    const criteriosPorProcesso = new Map<string, string>();
     if (processosComSelecao) {
       for (const proc of processosComSelecao) {
         processosSelecaoSet.add(proc.id);
-        criteriosPorProcesso.set(proc.id, proc.criterio_julgamento || 'global');
       }
     }
     console.log(`📊 Processos com seleção de fornecedores: ${processosSelecaoSet.size}`);
 
-    // 3. Para processos de SELEÇÃO: buscar vencedores através de lances
+    // 3. Para SELEÇÃO DE FORNECEDORES: buscar TODOS os fornecedores que têm lances
+    // (mesma lógica da página Análise Documental)
     const { data: selecoesData } = await supabase
       .from('selecoes_fornecedores')
-      .select('id, processo_compra_id, criterios_julgamento')
+      .select('id, processo_compra_id')
       .in('processo_compra_id', Array.from(processosSelecaoSet));
     
-    const selecoesPorProcesso = new Map<string, { selecaoId: string; criterio: string }>();
+    const selecoesPorProcesso = new Map<string, string>();
     if (selecoesData) {
       for (const sel of selecoesData) {
-        selecoesPorProcesso.set(sel.processo_compra_id, {
-          selecaoId: sel.id,
-          criterio: sel.criterios_julgamento || 'menor_preco'
-        });
+        selecoesPorProcesso.set(sel.processo_compra_id, sel.id);
       }
     }
 
-    // Buscar todos os lances para seleções
-    const selecaoIds = Array.from(selecoesPorProcesso.values()).map(s => s.selecaoId);
-    const { data: lancesData } = await supabase
-      .from('lances_fornecedores')
-      .select('selecao_id, fornecedor_id, numero_item, valor_lance, data_hora_lance')
-      .in('selecao_id', selecaoIds)
-      .order('data_hora_lance', { ascending: false });
+    // Buscar TODOS os lances - qualquer fornecedor que lançou PARTICIPA
+    const selecaoIds = Array.from(selecoesPorProcesso.values());
+    if (selecaoIds.length > 0) {
+      const { data: lancesData } = await supabase
+        .from('lances_fornecedores')
+        .select('selecao_id, fornecedor_id')
+        .in('selecao_id', selecaoIds);
 
-    // Buscar inabilitados de seleção
-    const { data: inabilitadosSelecao } = await supabase
-      .from('fornecedores_inabilitados_selecao')
-      .select('selecao_id, fornecedor_id, itens_afetados, revertido')
-      .eq('revertido', false)
-      .in('selecao_id', selecaoIds);
-
-    // Mapear inabilitados por seleção
-    const inabilitadosPorSelecao = new Map<string, { fornecedorId: string; itensAfetados: number[] }[]>();
-    if (inabilitadosSelecao) {
-      for (const inab of inabilitadosSelecao) {
-        if (!inabilitadosPorSelecao.has(inab.selecao_id)) {
-          inabilitadosPorSelecao.set(inab.selecao_id, []);
-        }
-        inabilitadosPorSelecao.get(inab.selecao_id)!.push({
-          fornecedorId: inab.fornecedor_id,
-          itensAfetados: inab.itens_afetados || []
-        });
-      }
-    }
-
-    // Processar vencedores de SELEÇÃO DE FORNECEDORES
-    for (const [processoId, selecaoInfo] of selecoesPorProcesso) {
-      const { selecaoId, criterio } = selecaoInfo;
-      const lancesSelecao = lancesData?.filter(l => l.selecao_id === selecaoId) || [];
-      const inabilitados = inabilitadosPorSelecao.get(selecaoId) || [];
-      
-      // Set de fornecedores inabilitados globalmente
-      const fornecedoresInabilitadosGlobal = new Set<string>();
-      // Map de fornecedores inabilitados por item específico
-      const fornecedoresInabilitadosPorItem = new Map<number, Set<string>>();
-      
-      for (const inab of inabilitados) {
-        if (inab.itensAfetados.length === 0) {
-          fornecedoresInabilitadosGlobal.add(inab.fornecedorId);
-        } else {
-          for (const itemNum of inab.itensAfetados) {
-            if (!fornecedoresInabilitadosPorItem.has(itemNum)) {
-              fornecedoresInabilitadosPorItem.set(itemNum, new Set());
+      // Adicionar TODOS os fornecedores que têm lances
+      if (lancesData) {
+        for (const lance of lancesData) {
+          // Encontrar o processo deste selecao_id
+          for (const [processoId, selecaoId] of selecoesPorProcesso) {
+            if (selecaoId === lance.selecao_id) {
+              if (!fornecedoresPorProcessoHab.has(processoId)) {
+                fornecedoresPorProcessoHab.set(processoId, new Set());
+              }
+              fornecedoresPorProcessoHab.get(processoId)!.add(lance.fornecedor_id);
             }
-            fornecedoresInabilitadosPorItem.get(itemNum)!.add(inab.fornecedorId);
           }
         }
       }
-
-      // Agrupar lances por item (pegar o último lance de cada fornecedor por item)
-      const ultimoLancePorFornecedorItem = new Map<string, { fornecedorId: string; valor: number }>();
-      for (const lance of lancesSelecao) {
-        const key = `${lance.fornecedor_id}-${lance.numero_item}`;
-        if (!ultimoLancePorFornecedorItem.has(key)) {
-          ultimoLancePorFornecedorItem.set(key, {
-            fornecedorId: lance.fornecedor_id,
-            valor: lance.valor_lance
-          });
-        }
-      }
-
-      // Identificar itens únicos
-      const itensUnicos = new Set<number>();
-      for (const lance of lancesSelecao) {
-        if (lance.numero_item) itensUnicos.add(lance.numero_item);
-      }
-
-      // Inicializar mapa para este processo
-      if (!fornecedoresPorProcessoHab.has(processoId)) {
-        fornecedoresPorProcessoHab.set(processoId, new Set());
-      }
-      const fornecedoresDoProcesso = fornecedoresPorProcessoHab.get(processoId)!;
-
-      // Para cada item, encontrar vencedor e todos os inabilitados na cadeia
-      for (const itemNum of itensUnicos) {
-        const lancesDoItem: { fornecedorId: string; valor: number }[] = [];
-        
-        for (const [key, dados] of ultimoLancePorFornecedorItem) {
-          if (key.endsWith(`-${itemNum}`)) {
-            lancesDoItem.push(dados);
-          }
-        }
-
-        // Ordenar por valor (criterio desconto = maior vence, senão menor vence)
-        if (criterio === 'desconto' || criterio === 'maior_desconto') {
-          lancesDoItem.sort((a, b) => b.valor - a.valor);
-        } else {
-          lancesDoItem.sort((a, b) => a.valor - b.valor);
-        }
-
-        // Inabilitados deste item específico
-        const inabilitadosDoItem = fornecedoresInabilitadosPorItem.get(itemNum) || new Set();
-        
-        // Percorrer a lista ordenada até encontrar um fornecedor NÃO inabilitado
-        // Todos os inabilitados anteriores na lista devem ser incluídos
-        for (const lance of lancesDoItem) {
-          const estaInabilitadoGlobal = fornecedoresInabilitadosGlobal.has(lance.fornecedorId);
-          const estaInabilitadoItem = inabilitadosDoItem.has(lance.fornecedorId);
-          
-          if (estaInabilitadoGlobal || estaInabilitadoItem) {
-            // Este fornecedor foi inabilitado, adicionar à lista (documentação)
-            fornecedoresDoProcesso.add(lance.fornecedorId);
-            console.log(`    Item ${itemNum}: ${lance.fornecedorId.substring(0,8)} inabilitado, próximo na fila...`);
-          } else {
-            // Encontrou o vencedor efetivo (pode ser 1º, 2º, 3º... colocado)
-            fornecedoresDoProcesso.add(lance.fornecedorId);
-            break; // Encontrou o vencedor, para de procurar
-          }
-        }
-      }
-      
-      console.log(`  📊 Seleção ${selecaoId.substring(0,8)}: ${itensUnicos.size} itens, ${fornecedoresDoProcesso.size} fornecedores identificados`);
+      console.log(`📊 Fornecedores de SELEÇÃO adicionados via lances`);
     }
 
-    // 4. Para processos de COMPRA DIRETA: usar planilha consolidada
-    const { data: planilhasConsolidadasHab } = await supabase
-      .from('planilhas_consolidadas')
-      .select('cotacao_id, fornecedores_incluidos, data_geracao')
-      .order('data_geracao', { ascending: false });
-    
-    // Mapear apenas a última planilha por cotação (excluindo cotações de processos com seleção)
-    const ultimaPlanilhaPorCotacao = new Map<string, any>();
-    if (planilhasConsolidadasHab) {
-      for (const planilha of planilhasConsolidadasHab) {
-        // Verificar se a cotação pertence a um processo de seleção
-        const cotacaoData = cotacoesMap.get(planilha.cotacao_id);
-        const processoId = cotacaoData?.processoId;
-        
-        // Se processo é de seleção, ignorar (já processado acima)
-        if (processoId && processosSelecaoSet.has(processoId)) continue;
-        
-        if (!ultimaPlanilhaPorCotacao.has(planilha.cotacao_id)) {
-          ultimaPlanilhaPorCotacao.set(planilha.cotacao_id, planilha);
+    // 4. Para COMPRA DIRETA: buscar TODOS os fornecedores que responderam a cotação
+    // (mesma lógica da página Verificar Documentos)
+    const { data: cotacoesCompraDireta } = await supabase
+      .from('cotacoes_precos')
+      .select('id, processo_compra_id')
+      .not('processo_compra_id', 'in', `(${Array.from(processosSelecaoSet).join(',') || '00000000-0000-0000-0000-000000000000'})`);
+
+    if (cotacoesCompraDireta && cotacoesCompraDireta.length > 0) {
+      const cotacaoIdsDireta = cotacoesCompraDireta.map(c => c.id);
+      
+      // Buscar TODAS as respostas de fornecedores - qualquer um que respondeu PARTICIPA
+      const { data: respostasCotacao } = await supabase
+        .from('cotacao_respostas_fornecedor')
+        .select('cotacao_id, fornecedor_id')
+        .in('cotacao_id', cotacaoIdsDireta);
+
+      if (respostasCotacao) {
+        // Criar mapa cotação -> processo
+        const cotacaoParaProcesso = new Map<string, string>();
+        for (const c of cotacoesCompraDireta) {
+          cotacaoParaProcesso.set(c.id, c.processo_compra_id);
         }
-      }
-    }
-    
-    console.log(`📊 Planilhas consolidadas (compra direta): ${ultimaPlanilhaPorCotacao.size}`);
-    
-    // 5. Buscar inabilitados de COMPRA DIRETA
-    const { data: inabilitadosCotacaoHab } = await supabase
-      .from('fornecedores_rejeitados_cotacao')
-      .select('cotacao_id, fornecedor_id, itens_afetados, revertido')
-      .eq('revertido', false);
-    
-    // Mapear inabilitados por cotação
-    const inabilitadosPorCotacao = new Map<string, { fornecedorId: string; itensAfetados: number[] }[]>();
-    if (inabilitadosCotacaoHab) {
-      for (const inab of inabilitadosCotacaoHab) {
-        if (!inabilitadosPorCotacao.has(inab.cotacao_id)) {
-          inabilitadosPorCotacao.set(inab.cotacao_id, []);
-        }
-        inabilitadosPorCotacao.get(inab.cotacao_id)!.push({
-          fornecedorId: inab.fornecedor_id,
-          itensAfetados: inab.itens_afetados || []
-        });
-      }
-    }
-    
-    // Processar planilhas de COMPRA DIRETA
-    for (const [cotacaoId, planilha] of ultimaPlanilhaPorCotacao) {
-      const cotacaoData = cotacoesMap.get(cotacaoId);
-      const processoId = cotacaoData?.processoId;
-      const criterioJulgamento = cotacaoData?.criterioJulgamento || 'global';
-      
-      if (!processoId) continue;
-      
-      const fornecedoresData = planilha.fornecedores_incluidos as any[] || [];
-      const inabilitadosDaCotacao = inabilitadosPorCotacao.get(cotacaoId) || [];
-      
-      // Mapear inabilitados: global e por item
-      const fornecedoresInabilitadosGlobal = new Set<string>();
-      const fornecedoresInabilitadosPorItem = new Map<number, Set<string>>();
-      
-      for (const inab of inabilitadosDaCotacao) {
-        if (inab.itensAfetados.length === 0) {
-          fornecedoresInabilitadosGlobal.add(inab.fornecedorId);
-        } else {
-          for (const itemNum of inab.itensAfetados) {
-            if (!fornecedoresInabilitadosPorItem.has(itemNum)) {
-              fornecedoresInabilitadosPorItem.set(itemNum, new Set());
+
+        for (const resposta of respostasCotacao) {
+          const processoId = cotacaoParaProcesso.get(resposta.cotacao_id);
+          if (processoId) {
+            // Excluir BANCO DE PREÇOS
+            // Primeiro buscar CNPJ do fornecedor para verificar
+            const { data: fornecedorCheck } = await supabase
+              .from('fornecedores')
+              .select('cnpj')
+              .eq('id', resposta.fornecedor_id)
+              .single();
+            
+            if (fornecedorCheck?.cnpj !== '55555555555555') {
+              if (!fornecedoresPorProcessoHab.has(processoId)) {
+                fornecedoresPorProcessoHab.set(processoId, new Set());
+              }
+              fornecedoresPorProcessoHab.get(processoId)!.add(resposta.fornecedor_id);
             }
-            fornecedoresInabilitadosPorItem.get(itemNum)!.add(inab.fornecedorId);
           }
         }
       }
-
-      // Inicializar mapa para este processo
-      if (!fornecedoresPorProcessoHab.has(processoId)) {
-        fornecedoresPorProcessoHab.set(processoId, new Set());
-      }
-      const fornecedoresDoProcesso = fornecedoresPorProcessoHab.get(processoId)!;
-
-      // Identificar todos os itens únicos
-      const todosItens = new Set<number>();
-      for (const fornecedor of fornecedoresData) {
-        if (fornecedor.cnpj === '55555555555555') continue;
-        for (const item of (fornecedor.itens || [])) {
-          if (item.numero_item) todosItens.add(item.numero_item);
-        }
-      }
-
-      // Para cada item, encontrar vencedor e todos os inabilitados na cadeia
-      for (const itemNum of todosItens) {
-        // Coletar cotações do item (exceto BANCO DE PREÇOS)
-        const cotacoesDoItem: { fornecedorId: string; valor: number; ehVencedor: boolean }[] = [];
-        
-        for (const fornecedor of fornecedoresData) {
-          if (fornecedor.cnpj === '55555555555555') continue;
-          const itemData = fornecedor.itens?.find((i: any) => i.numero_item === itemNum);
-          if (itemData && itemData.valor_unitario_ofertado !== null) {
-            cotacoesDoItem.push({
-              fornecedorId: fornecedor.fornecedor_id,
-              valor: itemData.valor_unitario_ofertado,
-              ehVencedor: itemData.eh_vencedor === true
-            });
-          }
-        }
-
-        // Ordenar por valor (menor preço vence para compra direta)
-        if (criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_desconto') {
-          cotacoesDoItem.sort((a, b) => b.valor - a.valor);
-        } else {
-          cotacoesDoItem.sort((a, b) => a.valor - b.valor);
-        }
-
-        // Inabilitados deste item específico
-        const inabilitadosDoItem = fornecedoresInabilitadosPorItem.get(itemNum) || new Set();
-
-        // Percorrer a lista ordenada até encontrar um fornecedor NÃO inabilitado
-        // Todos os inabilitados anteriores devem ser incluídos
-        for (const cotacao of cotacoesDoItem) {
-          const estaInabilitadoGlobal = fornecedoresInabilitadosGlobal.has(cotacao.fornecedorId);
-          const estaInabilitadoItem = inabilitadosDoItem.has(cotacao.fornecedorId);
-          
-          if (estaInabilitadoGlobal || estaInabilitadoItem) {
-            // Fornecedor inabilitado - verificar se era vencedor original (deve incluir)
-            if (cotacao.ehVencedor) {
-              fornecedoresDoProcesso.add(cotacao.fornecedorId);
-              console.log(`    Item ${itemNum}: ${cotacao.fornecedorId.substring(0,8)} inabilitado (era vencedor), próximo na fila...`);
-            }
-          } else {
-            // Encontrou o vencedor efetivo
-            fornecedoresDoProcesso.add(cotacao.fornecedorId);
-            break; // Encontrou o vencedor, para de procurar
-          }
-        }
-      }
-      
-      console.log(`  📊 Cotação ${cotacaoId.substring(0,8)}: ${todosItens.size} itens, ${fornecedoresDoProcesso.size} fornecedores identificados`);
+      console.log(`📊 Fornecedores de COMPRA DIRETA adicionados via respostas de cotação`);
     }
 
     console.log(`📊 Processos com fornecedores para hab: ${fornecedoresPorProcessoHab.size}`);
