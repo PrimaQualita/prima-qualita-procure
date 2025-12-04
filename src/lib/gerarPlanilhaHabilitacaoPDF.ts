@@ -333,6 +333,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
   let totalVencedor = 0;
 
   // Função para encontrar vencedor de um item
+  // CRÍTICO: Match deve considerar TANTO numero_item QUANTO lote_numero para evitar confusão entre lotes
   const encontrarVencedor = (numeroItem: number, loteNumero?: number): { valor: number | null; empresa: string } => {
     let melhorValor: number | null = null;
     let empresaVencedora = "-";
@@ -343,8 +344,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
         return;
       }
 
-      // Match por numero_item - busca simplificada
-      const itemResposta = resposta.itens.find(i => i.numero_item === numeroItem);
+      // Match por numero_item E lote_numero (se existir) para evitar misturar valores entre lotes
+      const itemResposta = resposta.itens.find(i => 
+        i.numero_item === numeroItem && 
+        (!loteNumero || !i.lote_numero || i.lote_numero === loteNumero)
+      );
       
       if (itemResposta) {
         const valor = isDesconto 
@@ -389,8 +393,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
       itensDoLote.forEach(item => {
         if (resposta.itens_rejeitados.includes(item.numero_item)) return;
         
-        // Buscar pelo numero_item - pode ou não ter lote_numero na resposta
-        const itemResposta = resposta.itens.find(i => i.numero_item === item.numero_item);
+        // CRÍTICO: Match por numero_item E lote_numero para evitar confusão entre lotes
+        const itemResposta = resposta.itens.find(i => 
+          i.numero_item === item.numero_item && 
+          (!i.lote_numero || i.lote_numero === loteNum)
+        );
         if (itemResposta && itemResposta.valor_unitario_ofertado > 0) {
           totalFornecedorLote += itemResposta.valor_unitario_ofertado * item.quantidade;
           todosItensRejeitados = false;
@@ -422,8 +429,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
     };
 
     respostas.forEach((resposta, idx) => {
-      // Match por numero_item - busca simplificada
-      const itemResposta = resposta.itens.find(i => i.numero_item === item.numero_item);
+      // CRÍTICO: Match por numero_item E lote_numero para evitar confusão entre lotes
+      const itemResposta = resposta.itens.find(i => 
+        i.numero_item === item.numero_item && 
+        (!loteNumero || !i.lote_numero || i.lote_numero === loteNumero)
+      );
       
       if (itemResposta) {
         if (isDesconto) {
@@ -468,7 +478,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
     } else if (vencedorLoteIdx !== undefined && vencedorLoteIdx >= 0) {
       // Para critério por lote: puxar valor do fornecedor vencedor do lote
       const respostaVencedor = respostas[vencedorLoteIdx];
-      const itemRespostaVencedor = respostaVencedor?.itens.find(i => i.numero_item === item.numero_item);
+      // CRÍTICO: Match por numero_item E lote_numero para evitar confusão entre lotes
+      const itemRespostaVencedor = respostaVencedor?.itens.find(i => 
+        i.numero_item === item.numero_item && 
+        (!loteNumero || !i.lote_numero || i.lote_numero === loteNumero)
+      );
       
       if (itemRespostaVencedor && !isDesconto) {
         const valorUnitario = itemRespostaVencedor.valor_unitario_ofertado;
