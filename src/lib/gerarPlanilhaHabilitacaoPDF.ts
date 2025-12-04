@@ -680,6 +680,18 @@ export async function gerarPlanilhaHabilitacaoPDF(
           }
         }
         
+        // Ajustar fonte nas colunas de valores do subtotal
+        const dataKey = data.column.dataKey as string;
+        const isColunasValor = (dataKey && dataKey.startsWith('fornecedor_')) || dataKey === 'valor_vencedor';
+        if (isColunasValor) {
+          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
+          if (texto && texto !== '-') {
+            const larguraCelula = data.cell.width || 22;
+            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, 8, 5.5);
+            data.cell.styles.fontSize = fontSizeIdeal;
+          }
+        }
+        
         return;
       }
       
@@ -696,6 +708,19 @@ export async function gerarPlanilhaHabilitacaoPDF(
         } else if (data.column.index >= 1 && data.column.index <= 3) {
           data.cell.text = [''];
         }
+        
+        // Ajustar fonte nas colunas de valores do total geral
+        const dataKey = data.column.dataKey as string;
+        const isColunasValor = (dataKey && dataKey.startsWith('fornecedor_')) || dataKey === 'valor_vencedor';
+        if (isColunasValor) {
+          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
+          if (texto && texto !== '-') {
+            const larguraCelula = data.cell.width || 22;
+            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, 8, 5.5);
+            data.cell.styles.fontSize = fontSizeIdeal;
+          }
+        }
+        
         return;
       }
       

@@ -618,6 +618,14 @@ export async function gerarPlanilhaConsolidadaPDF(
         } else if (data.column.index >= 1 && data.column.index <= 3) {
           // Limpar texto das colunas 1-3 (já mescladas)
           data.cell.text = [''];
+        } else if (data.column.index >= 4) {
+          // Ajustar fonte nas colunas de valores do subtotal
+          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
+          if (texto && texto !== '-') {
+            const larguraCelula = data.cell.width || larguraPorColuna;
+            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, 8, 6);
+            data.cell.styles.fontSize = fontSizeIdeal;
+          }
         }
         return;
       }
@@ -637,12 +645,21 @@ export async function gerarPlanilhaConsolidadaPDF(
         } else if (data.column.index >= 1 && data.column.index <= 3) {
           // Limpar texto das colunas 1-3 (já mescladas)
           data.cell.text = [''];
+        } else if (data.column.index >= 4) {
+          // Ajustar fonte nas colunas de valores do total geral
+          const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
+          if (texto && texto !== '-') {
+            const larguraCelula = data.cell.width || larguraPorColuna;
+            const fontSizeIdeal = calcularFontSizeParaCaber(doc, texto, larguraCelula, 9, 6);
+            data.cell.styles.fontSize = fontSizeIdeal;
+          }
         }
+        return;
       }
       
       // Ajuste automático de fonte para colunas de valores monetários
       // Aplica para colunas de fornecedores (índice >= 4) e estimativa
-      if (data.column.index >= 4 && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal) {
+      if (data.column.index >= 4 && !linhaAtual?.isLoteHeader) {
         const texto = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : data.cell.text;
         if (texto && texto !== '-') {
           const larguraCelula = data.cell.width || larguraPorColuna;
