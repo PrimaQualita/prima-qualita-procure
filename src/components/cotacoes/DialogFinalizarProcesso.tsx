@@ -1831,10 +1831,42 @@ export function DialogFinalizarProcesso({
         .eq("cotacao_id", cotacaoId)
         .eq("revertido", false);
 
-      // Montar estrutura de respostas com itens
+      // Buscar empresas reprovadas pelo compliance
+      const { data: analiseCompliance } = await supabase
+        .from("analises_compliance")
+        .select("empresas_reprovadas")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_analise", { ascending: false })
+        .limit(1)
+        .single();
+      
+      const empresasReprovadasCompliance = new Set<string>(
+        (analiseCompliance?.empresas_reprovadas as string[]) || []
+      );
+
+      // Função para identificar CNPJ de preço público (sequencial)
+      const ehPrecoPublico = (cnpj: string) => {
+        if (!cnpj) return false;
+        const primeiroDigito = cnpj.charAt(0);
+        return cnpj.split('').every(d => d === primeiroDigito);
+      };
+
+      // Montar estrutura de respostas com itens - EXCLUINDO preços públicos e reprovados compliance
       const respostasFormatadas: any[] = [];
       
       for (const resposta of respostasData || []) {
+        // CRÍTICO: Excluir fornecedores de preços públicos (apenas referência)
+        if (ehPrecoPublico(resposta.fornecedores.cnpj)) {
+          console.log(`🚫 Excluindo fornecedor de preço público: ${resposta.fornecedores.razao_social}`);
+          continue;
+        }
+
+        // CRÍTICO: Excluir fornecedores reprovados pelo compliance
+        if (empresasReprovadasCompliance.has(resposta.fornecedor_id)) {
+          console.log(`🚫 Excluindo fornecedor reprovado compliance: ${resposta.fornecedores.razao_social}`);
+          continue;
+        }
+
         const { data: itensResposta } = await supabase
           .from("respostas_itens_fornecedor")
           .select(`
