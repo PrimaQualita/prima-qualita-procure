@@ -584,8 +584,13 @@ export async function gerarPlanilhaConsolidadaPDF(
         const texto = linhaAtual?.descricao || '';
         if (!texto) return;
         
-        // Limpar célula original
-        doc.setFillColor(data.cell.styles.fillColor[0], data.cell.styles.fillColor[1], data.cell.styles.fillColor[2]);
+        // Limpar célula original com cor de fundo
+        const fillColor = data.cell.styles.fillColor;
+        if (fillColor && Array.isArray(fillColor) && fillColor.length >= 3) {
+          doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+        } else {
+          doc.setFillColor(255, 255, 255);
+        }
         doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
         
         // Configurar fonte
@@ -637,7 +642,7 @@ export async function gerarPlanilhaConsolidadaPDF(
             } else {
               const espacoExtra = (larguraUtil - larguraLinha) / (palavrasLinha.length - 1);
               let xAtual = data.cell.x + padding;
-              palavrasLinha.forEach((p, i) => {
+              palavrasLinha.forEach((p) => {
                 doc.text(p, xAtual, yTexto);
                 xAtual += doc.getTextWidth(p) + doc.getTextWidth(' ') + espacoExtra;
               });
