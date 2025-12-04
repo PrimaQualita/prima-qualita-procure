@@ -5,6 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function extractPath(url: string | null, bucket: string = 'processo-anexos'): string | null {
+  if (!url) return null;
+  const marker = `${bucket}/`;
+  if (url.includes(marker)) {
+    return url.split(marker)[1]?.split('?')[0] || null;
+  }
+  // Se não tem o marker, pode ser só o path
+  return url.split('?')[0];
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -26,7 +36,8 @@ Deno.serve(async (req) => {
 
     console.log(`🗑️ Iniciando deleção de arquivos do processo: ${processoId}`);
 
-    const arquivosParaDeletar: string[] = [];
+    const arquivosProcessoAnexos: string[] = [];
+    const arquivosDocuments: string[] = [];
 
     // 1. Buscar anexos do processo
     const { data: anexosProcesso } = await supabase
@@ -36,10 +47,8 @@ Deno.serve(async (req) => {
     
     if (anexosProcesso) {
       anexosProcesso.forEach(a => {
-        if (a.url_arquivo) {
-          const path = a.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-          if (path) arquivosParaDeletar.push(path);
-        }
+        const path = extractPath(a.url_arquivo, 'processo-anexos');
+        if (path) arquivosProcessoAnexos.push(path);
       });
     }
 
@@ -60,19 +69,13 @@ Deno.serve(async (req) => {
 
       if (respostasFornecedor) {
         respostasFornecedor.forEach(r => {
-          // PDFs de propostas
-          if (r.url_pdf_proposta) {
-            // url_pdf_proposta pode ser só o path ou URL completa
-            const path = r.url_pdf_proposta.includes('processo-anexos/') 
-              ? r.url_pdf_proposta.split('processo-anexos/')[1]?.split('?')[0]
-              : r.url_pdf_proposta;
-            if (path) arquivosParaDeletar.push(path);
-          }
-          // Comprovantes
+          const path = extractPath(r.url_pdf_proposta, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
+          
           if (r.comprovantes_urls && Array.isArray(r.comprovantes_urls)) {
             r.comprovantes_urls.forEach((url: string) => {
-              const path = url.split('processo-anexos/')[1]?.split('?')[0];
-              if (path) arquivosParaDeletar.push(path);
+              const p = extractPath(url, 'processo-anexos');
+              if (p) arquivosProcessoAnexos.push(p);
             });
           }
         });
@@ -94,10 +97,8 @@ Deno.serve(async (req) => {
 
         if (anexosCotacao) {
           anexosCotacao.forEach(a => {
-            if (a.url_arquivo) {
-              const path = a.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-              if (path) arquivosParaDeletar.push(path);
-            }
+            const path = extractPath(a.url_arquivo, 'processo-anexos');
+            if (path) arquivosProcessoAnexos.push(path);
           });
         }
       }
@@ -110,14 +111,25 @@ Deno.serve(async (req) => {
 
       if (planilhas) {
         planilhas.forEach(p => {
-          if (p.url_arquivo) {
-            const path = p.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(p.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
-      // 2.4 Análises de compliance
+      // 2.4 Planilhas de habilitação
+      const { data: planilhasHab } = await supabase
+        .from('planilhas_habilitacao')
+        .select('url_arquivo')
+        .in('cotacao_id', cotacaoIds);
+
+      if (planilhasHab) {
+        planilhasHab.forEach(p => {
+          const path = extractPath(p.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
+        });
+      }
+
+      // 2.5 Análises de compliance
       const { data: analises } = await supabase
         .from('analises_compliance')
         .select('url_documento')
@@ -125,14 +137,12 @@ Deno.serve(async (req) => {
 
       if (analises) {
         analises.forEach(a => {
-          if (a.url_documento) {
-            const path = a.url_documento.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(a.url_documento, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
-      // 2.5 Autorizações do processo
+      // 2.6 Autorizações do processo
       const { data: autorizacoes } = await supabase
         .from('autorizacoes_processo')
         .select('url_arquivo')
@@ -140,14 +150,12 @@ Deno.serve(async (req) => {
 
       if (autorizacoes) {
         autorizacoes.forEach(a => {
-          if (a.url_arquivo) {
-            const path = a.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(a.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
-      // 2.6 Relatórios finais
+      // 2.7 Relatórios finais
       const { data: relatorios } = await supabase
         .from('relatorios_finais')
         .select('url_arquivo')
@@ -155,14 +163,12 @@ Deno.serve(async (req) => {
 
       if (relatorios) {
         relatorios.forEach(r => {
-          if (r.url_arquivo) {
-            const path = r.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(r.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
-      // 2.7 Encaminhamentos
+      // 2.8 Encaminhamentos
       const { data: encaminhamentos } = await supabase
         .from('encaminhamentos_processo')
         .select('url')
@@ -170,14 +176,12 @@ Deno.serve(async (req) => {
 
       if (encaminhamentos) {
         encaminhamentos.forEach(e => {
-          if (e.url) {
-            const path = e.url.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(e.url, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
-      // 2.8 E-mails anexados
+      // 2.9 E-mails anexados
       const { data: emails } = await supabase
         .from('emails_cotacao_anexados')
         .select('url_arquivo')
@@ -185,14 +189,12 @@ Deno.serve(async (req) => {
 
       if (emails) {
         emails.forEach(e => {
-          if (e.url_arquivo) {
-            const path = e.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(e.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
-      // 2.9 Campos documentos finalizacao
+      // 2.10 Campos documentos finalizacao
       const { data: camposIds } = await supabase
         .from('campos_documentos_finalizacao')
         .select('id')
@@ -208,15 +210,13 @@ Deno.serve(async (req) => {
 
         if (docsFinalizacao) {
           docsFinalizacao.forEach(d => {
-            if (d.url_arquivo) {
-              const path = d.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-              if (path) arquivosParaDeletar.push(path);
-            }
+            const path = extractPath(d.url_arquivo, 'processo-anexos');
+            if (path) arquivosProcessoAnexos.push(path);
           });
         }
       }
 
-      // 2.10 Recursos de fornecedores rejeitados
+      // 2.11 Recursos de fornecedores rejeitados
       const { data: rejeitados } = await supabase
         .from('fornecedores_rejeitados_cotacao')
         .select('id')
@@ -232,10 +232,8 @@ Deno.serve(async (req) => {
 
         if (recursos) {
           recursos.forEach(r => {
-            if (r.url_arquivo) {
-              const path = r.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-              if (path) arquivosParaDeletar.push(path);
-            }
+            const path = extractPath(r.url_arquivo, 'processo-anexos');
+            if (path) arquivosProcessoAnexos.push(path);
           });
         }
 
@@ -246,15 +244,13 @@ Deno.serve(async (req) => {
 
         if (respostas) {
           respostas.forEach(r => {
-            if (r.url_documento) {
-              const path = r.url_documento.split('processo-anexos/')[1]?.split('?')[0];
-              if (path) arquivosParaDeletar.push(path);
-            }
+            const path = extractPath(r.url_documento, 'processo-anexos');
+            if (path) arquivosProcessoAnexos.push(path);
           });
         }
       }
 
-      // 2.11 Documentos processo finalizado (snapshots)
+      // 2.12 Documentos processo finalizado (snapshots)
       const { data: docsFinalizados } = await supabase
         .from('documentos_processo_finalizado')
         .select('url_arquivo')
@@ -262,9 +258,13 @@ Deno.serve(async (req) => {
 
       if (docsFinalizados) {
         docsFinalizados.forEach(d => {
-          if (d.url_arquivo) {
-            const path = d.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
+          // Pode estar em processo-anexos ou documents
+          if (d.url_arquivo?.includes('documents/')) {
+            const path = extractPath(d.url_arquivo, 'documents');
+            if (path) arquivosDocuments.push(path);
+          } else {
+            const path = extractPath(d.url_arquivo, 'processo-anexos');
+            if (path) arquivosProcessoAnexos.push(path);
           }
         });
       }
@@ -287,10 +287,8 @@ Deno.serve(async (req) => {
 
       if (propostas) {
         propostas.forEach(p => {
-          if (p.url_pdf_proposta) {
-            const path = p.url_pdf_proposta.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(p.url_pdf_proposta, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
@@ -302,10 +300,8 @@ Deno.serve(async (req) => {
 
       if (anexosSelecao) {
         anexosSelecao.forEach(a => {
-          if (a.url_arquivo) {
-            const path = a.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(a.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
@@ -317,10 +313,8 @@ Deno.serve(async (req) => {
 
       if (planilhasLances) {
         planilhasLances.forEach(p => {
-          if (p.url_arquivo) {
-            const path = p.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(p.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
@@ -332,14 +326,10 @@ Deno.serve(async (req) => {
 
       if (atas) {
         atas.forEach(a => {
-          if (a.url_arquivo) {
-            const path = a.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
-          if (a.url_arquivo_original) {
-            const path = a.url_arquivo_original.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path1 = extractPath(a.url_arquivo, 'processo-anexos');
+          if (path1) arquivosProcessoAnexos.push(path1);
+          const path2 = extractPath(a.url_arquivo_original, 'processo-anexos');
+          if (path2) arquivosProcessoAnexos.push(path2);
         });
       }
 
@@ -351,10 +341,8 @@ Deno.serve(async (req) => {
 
       if (homologacoes) {
         homologacoes.forEach(h => {
-          if (h.url_arquivo) {
-            const path = h.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path = extractPath(h.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
         });
       }
 
@@ -366,14 +354,10 @@ Deno.serve(async (req) => {
 
       if (recursosInabilitacao) {
         recursosInabilitacao.forEach(r => {
-          if (r.url_pdf_recurso) {
-            const path = r.url_pdf_recurso.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
-          if (r.url_pdf_resposta) {
-            const path = r.url_pdf_resposta.split('processo-anexos/')[1]?.split('?')[0];
-            if (path) arquivosParaDeletar.push(path);
-          }
+          const path1 = extractPath(r.url_pdf_recurso, 'processo-anexos');
+          if (path1) arquivosProcessoAnexos.push(path1);
+          const path2 = extractPath(r.url_pdf_resposta, 'processo-anexos');
+          if (path2) arquivosProcessoAnexos.push(path2);
         });
       }
 
@@ -393,36 +377,52 @@ Deno.serve(async (req) => {
 
         if (docsFinalizacaoSelecao) {
           docsFinalizacaoSelecao.forEach(d => {
-            if (d.url_arquivo) {
-              const path = d.url_arquivo.split('processo-anexos/')[1]?.split('?')[0];
-              if (path) arquivosParaDeletar.push(path);
-            }
+            const path = extractPath(d.url_arquivo, 'processo-anexos');
+            if (path) arquivosProcessoAnexos.push(path);
           });
         }
       }
     }
 
     // Remover duplicatas
-    const arquivosUnicos = [...new Set(arquivosParaDeletar)];
+    const arquivosUnicosProcesso = [...new Set(arquivosProcessoAnexos)];
+    const arquivosUnicosDocuments = [...new Set(arquivosDocuments)];
 
-    console.log(`📦 Total de arquivos encontrados: ${arquivosUnicos.length}`);
+    console.log(`📦 Total de arquivos processo-anexos: ${arquivosUnicosProcesso.length}`);
+    console.log(`📦 Total de arquivos documents: ${arquivosUnicosDocuments.length}`);
 
-    // Deletar arquivos do storage em lotes de 100
     let deletados = 0;
     const batchSize = 100;
 
-    for (let i = 0; i < arquivosUnicos.length; i += batchSize) {
-      const batch = arquivosUnicos.slice(i, i + batchSize);
+    // Deletar arquivos do bucket processo-anexos
+    for (let i = 0; i < arquivosUnicosProcesso.length; i += batchSize) {
+      const batch = arquivosUnicosProcesso.slice(i, i + batchSize);
       
       const { error: storageError } = await supabase.storage
         .from('processo-anexos')
         .remove(batch);
 
       if (storageError) {
-        console.error(`❌ Erro ao deletar lote ${i / batchSize + 1}:`, storageError);
+        console.error(`❌ Erro ao deletar lote processo-anexos ${i / batchSize + 1}:`, storageError);
       } else {
         deletados += batch.length;
-        console.log(`✅ Lote ${i / batchSize + 1} deletado: ${batch.length} arquivos`);
+        console.log(`✅ Lote processo-anexos ${i / batchSize + 1} deletado: ${batch.length} arquivos`);
+      }
+    }
+
+    // Deletar arquivos do bucket documents
+    for (let i = 0; i < arquivosUnicosDocuments.length; i += batchSize) {
+      const batch = arquivosUnicosDocuments.slice(i, i + batchSize);
+      
+      const { error: storageError } = await supabase.storage
+        .from('documents')
+        .remove(batch);
+
+      if (storageError) {
+        console.error(`❌ Erro ao deletar lote documents ${i / batchSize + 1}:`, storageError);
+      } else {
+        deletados += batch.length;
+        console.log(`✅ Lote documents ${i / batchSize + 1} deletado: ${batch.length} arquivos`);
       }
     }
 
@@ -432,7 +432,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         arquivosDeletados: deletados,
-        arquivosEncontrados: arquivosUnicos.length
+        arquivosEncontrados: arquivosUnicosProcesso.length + arquivosUnicosDocuments.length
       }),
       {
         status: 200,
