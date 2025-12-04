@@ -91,6 +91,37 @@ const decodeHtmlEntities = (text: string): string => {
   return textarea.value;
 };
 
+// Função para sanitizar texto - remove/substitui caracteres especiais que jsPDF não renderiza bem
+const sanitizarTexto = (texto: string): string => {
+  if (!texto) return '';
+  
+  return texto
+    .replace(/²/g, '2')      // Superscript 2
+    .replace(/₂/g, '2')      // Subscript 2 (SpO₂)
+    .replace(/³/g, '3')      // Superscript 3
+    .replace(/₃/g, '3')      // Subscript 3
+    .replace(/¹/g, '1')      // Superscript 1
+    .replace(/₁/g, '1')      // Subscript 1
+    .replace(/⁰/g, '0').replace(/₀/g, '0')
+    .replace(/⁴/g, '4').replace(/₄/g, '4')
+    .replace(/⁵/g, '5').replace(/₅/g, '5')
+    .replace(/⁶/g, '6').replace(/₆/g, '6')
+    .replace(/⁷/g, '7').replace(/₇/g, '7')
+    .replace(/⁸/g, '8').replace(/₈/g, '8')
+    .replace(/⁹/g, '9').replace(/₉/g, '9')
+    .replace(/°/g, 'o')      // Degree symbol
+    .replace(/º/g, 'o')      // Ordinal masculine
+    .replace(/ª/g, 'a')      // Ordinal feminine
+    .replace(/µ/g, 'u')      // Micro
+    .replace(/μ/g, 'u')      // Greek mu
+    .replace(/–/g, '-')      // En dash
+    .replace(/—/g, '-')      // Em dash
+    .replace(/'/g, "'").replace(/'/g, "'")
+    .replace(/"/g, '"').replace(/"/g, '"')
+    .replace(/…/g, '...')    // Ellipsis
+    .replace(/•/g, '-');     // Bullet
+};
+
 // Função para justificar texto manualmente no jsPDF
 const justificarTexto = (doc: any, texto: string, x: number, y: number, larguraMaxima: number) => {
   const palavras = texto.trim().split(/\s+/);
@@ -324,12 +355,12 @@ export async function gerarPlanilhaHabilitacaoPDF(
   };
 
   // Função para processar um item e retornar a linha
-  const processarItem = (item: ItemCotacao, loteNumero?: number) => {
+  const processarItem = (item: ItemCotacao, loteNumero?: number, vencedorLoteIdx?: number) => {
     const linha: any = {
       item: item.numero_item,
-      descricao: decodeHtmlEntities(item.descricao),
+      descricao: sanitizarTexto(decodeHtmlEntities(item.descricao)),
       quantidade: item.quantidade,
-      unidade: item.unidade,
+      unidade: sanitizarTexto(item.unidade),
       _lote_numero: loteNumero
     };
 
@@ -359,8 +390,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
       }
     });
 
-    // Adicionar dados do vencedor (para critério por item ou desconto - quando não há lotes)
+    // Adicionar dados do vencedor
     if (!temLotes) {
+      // Para critério por item ou desconto - quando não há lotes
       const vencedor = encontrarVencedor(item.numero_item, loteNumero);
       if (vencedor.valor !== null) {
         if (isDesconto) {
@@ -376,8 +408,24 @@ export async function gerarPlanilhaHabilitacaoPDF(
         linha.valor_vencedor = "-";
         linha.empresa_vencedora = "-";
       }
+    } else if (vencedorLoteIdx !== undefined && vencedorLoteIdx >= 0) {
+      // Para critério por lote: puxar valor do fornecedor vencedor do lote
+      const respostaVencedor = respostas[vencedorLoteIdx];
+      const itemRespostaVencedor = respostaVencedor?.itens.find(i => i.numero_item === item.numero_item);
+      
+      if (itemRespostaVencedor && !isDesconto) {
+        const valorUnitario = itemRespostaVencedor.valor_unitario_ofertado;
+        const valorTotalItem = valorUnitario * item.quantidade;
+        linha.valor_vencedor = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotalItem)})`;
+        linha.empresa_vencedora = respostaVencedor.fornecedor.razao_social;
+      } else if (itemRespostaVencedor && isDesconto) {
+        linha.valor_vencedor = formatarPercentual(itemRespostaVencedor.percentual_desconto || itemRespostaVencedor.valor_unitario_ofertado);
+        linha.empresa_vencedora = respostaVencedor.fornecedor.razao_social;
+      } else {
+        linha.valor_vencedor = "-";
+        linha.empresa_vencedora = "-";
+      }
     } else {
-      // Para critério por lote, deixa vazio - vencedor aparece no subtotal
       linha.valor_vencedor = "-";
       linha.empresa_vencedora = "-";
     }
@@ -390,8 +438,36 @@ export async function gerarPlanilhaHabilitacaoPDF(
     const lotesOrdenados = Array.from(lotesMap.entries()).sort((a, b) => a[0] - b[0]);
     
     lotesOrdenados.forEach(([loteNum, loteData]) => {
+      // Calcular vencedor do lote ANTES de processar os itens
+      const totaisLoteTemp: { idx: number; total: number; razao_social: string }[] = [];
+      respostas.forEach((resposta, idx) => {
+        if (resposta.rejeitado) return;
+        let totalFornecedorLote = 0;
+        let todosItensRejeitados = true;
+        
+        loteData.itens.forEach(item => {
+          if (resposta.itens_rejeitados.includes(item.numero_item)) return;
+          const itemResposta = resposta.itens.find(i => i.numero_item === item.numero_item);
+          if (itemResposta && itemResposta.valor_unitario_ofertado > 0) {
+            totalFornecedorLote += itemResposta.valor_unitario_ofertado * item.quantidade;
+            todosItensRejeitados = false;
+          }
+        });
+        
+        if (!todosItensRejeitados && totalFornecedorLote > 0) {
+          totaisLoteTemp.push({ idx, total: totalFornecedorLote, razao_social: resposta.fornecedor.razao_social });
+        }
+      });
+      
+      // Identificar índice do vencedor do lote (menor total vence)
+      let vencedorLoteIdx = -1;
+      if (totaisLoteTemp.length > 0) {
+        totaisLoteTemp.sort((a, b) => a.total - b.total);
+        vencedorLoteIdx = totaisLoteTemp[0].idx;
+      }
+      
       // Adicionar linha de cabeçalho do lote
-      const textoLote = `LOTE ${converterNumeroRomano(loteNum)} - ${loteData.descricao}`;
+      const textoLote = `LOTE ${converterNumeroRomano(loteNum)} - ${sanitizarTexto(loteData.descricao)}`;
       const linhaHeaderLote: any = {
         item: textoLote,
         descricao: '',
@@ -404,9 +480,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
       linhaHeaderLote.empresa_vencedora = '';
       dados.push(linhaHeaderLote);
       
-      // Processar itens do lote
+      // Processar itens do lote passando o índice do vencedor
       loteData.itens.sort((a, b) => a.numero_item - b.numero_item).forEach(item => {
-        dados.push(processarItem(item, loteNum));
+        dados.push(processarItem(item, loteNum, vencedorLoteIdx));
       });
       
       // Adicionar linha de subtotal do lote (apenas se NÃO for critério de desconto)
@@ -427,15 +503,19 @@ export async function gerarPlanilhaHabilitacaoPDF(
           linhaSubtotal[`fornecedor_${idx}`] = formatarMoeda(valorLote);
         });
         
-        // Encontrar vencedor do lote
-        const vencedorLote = encontrarVencedorLote(loteNum);
-        linhaSubtotal.valor_vencedor = formatarMoeda(vencedorLote.valor);
-        linhaSubtotal.empresa_vencedora = vencedorLote.empresa;
-        totalVencedor += vencedorLote.valor;
+        // Usar vencedor já calculado
+        if (totaisLoteTemp.length > 0) {
+          linhaSubtotal.valor_vencedor = formatarMoeda(totaisLoteTemp[0].total);
+          linhaSubtotal.empresa_vencedora = totaisLoteTemp[0].razao_social;
+          totalVencedor += totaisLoteTemp[0].total;
+        } else {
+          linhaSubtotal.valor_vencedor = "-";
+          linhaSubtotal.empresa_vencedora = "-";
+        }
         
         // Guardar vencedor do lote para marcação
-        if (loteSubtotais) {
-          loteSubtotais.vencedor = vencedorLote.valor;
+        if (loteSubtotais && totaisLoteTemp.length > 0) {
+          loteSubtotais.vencedor = totaisLoteTemp[0].total;
         }
         
         dados.push(linhaSubtotal);
