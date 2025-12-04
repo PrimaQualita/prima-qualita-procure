@@ -1,6 +1,28 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import logoCompleto from '@/assets/prima-qualita-logo-completo.png';
 
+// Função para carregar imagem como base64
+const loadImageAsBase64 = (src: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Não foi possível criar contexto do canvas'));
+      }
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+};
 interface ItemCotacao {
   numero_item: number;
   descricao: string;
@@ -178,6 +200,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
   dadosProtocolo: DadosProtocolo,
   criterioJulgamento?: string
 ): Promise<{ blob: Blob; storagePath: string }> {
+  // Carregar logo
+  const logoBase64 = await loadImageAsBase64(logoCompleto);
+  
   const doc = new jsPDF({ 
     orientation: "landscape", 
     unit: "mm", 
@@ -194,14 +219,20 @@ export async function gerarPlanilhaHabilitacaoPDF(
     doc.setFillColor(120, 190, 225);
     doc.rect(0, 0, pageWidth, 30, 'F');
     
+    // Adicionar logo à esquerda (proporção original ~2.5:1)
+    const logoHeight = 22;
+    const logoWidth = logoHeight * 2.5;
+    doc.addImage(logoBase64, 'PNG', 5, 4, logoWidth, logoHeight);
+    
+    // Título centralizado (ajustado para não sobrepor logo)
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('RESULTADO FINAL', pageWidth / 2, 12, { align: 'center' });
+    doc.text('RESULTADO FINAL', pageWidth / 2 + 20, 12, { align: 'center' });
     
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.text(`PROCESSO ${processo.numero}`, pageWidth / 2, 18, { align: 'center' });
+    doc.text(`PROCESSO ${processo.numero}`, pageWidth / 2 + 20, 18, { align: 'center' });
   };
 
   // Primeira página - adicionar cabeçalho
