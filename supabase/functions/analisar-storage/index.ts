@@ -1838,12 +1838,20 @@ Deno.serve(async (req) => {
           console.log(`❌ Planilha final sem dados de processo no banco`);
         }
       } else {
-        // Outros - verificar se já foi categorizado anteriormente
+        // Outros - SOMENTE se arquivo tem referência no banco
+        // Se não tiver referência, deixar para lógica de órfãos
         if (!arquivosJaCategorizados.has(path)) {
-          estatisticasPorCategoria.outros.arquivos++;
-          estatisticasPorCategoria.outros.tamanho += metadata.size;
-          estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
-          arquivosJaCategorizados.add(path);
+          // Verificar se tem referência no banco antes de categorizar como "outros"
+          const temReferencia = pathsDB.has(path) || nomeArquivoDB.has(fileName);
+          
+          if (temReferencia) {
+            estatisticasPorCategoria.outros.arquivos++;
+            estatisticasPorCategoria.outros.tamanho += metadata.size;
+            estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
+            arquivosJaCategorizados.add(path);
+          } else {
+            console.log(`⚠️ Arquivo "${fileName}" não tem referência no banco - será verificado como órfão`);
+          }
         } else {
           console.log(`📁 Arquivo ignorado em "outros" (já categorizado): ${fileName}`);
         }
