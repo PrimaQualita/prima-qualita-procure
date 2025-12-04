@@ -255,11 +255,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
         return;
       }
 
-      // Match por numero_item E lote_numero para evitar confusão entre itens de lotes diferentes
-      const itemResposta = resposta.itens.find(i => 
-        i.numero_item === numeroItem && 
-        (loteNumero ? i.lote_numero === loteNumero : !i.lote_numero)
-      );
+      // Match por numero_item - busca simplificada
+      const itemResposta = resposta.itens.find(i => i.numero_item === numeroItem);
       
       if (itemResposta) {
         const valor = isDesconto 
@@ -304,10 +301,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
       itensDoLote.forEach(item => {
         if (resposta.itens_rejeitados.includes(item.numero_item)) return;
         
-        const itemResposta = resposta.itens.find(i => 
-          i.numero_item === item.numero_item && i.lote_numero === loteNum
-        );
-        if (itemResposta) {
+        // Buscar pelo numero_item - pode ou não ter lote_numero na resposta
+        const itemResposta = resposta.itens.find(i => i.numero_item === item.numero_item);
+        if (itemResposta && itemResposta.valor_unitario_ofertado > 0) {
           totalFornecedorLote += itemResposta.valor_unitario_ofertado * item.quantidade;
           todosItensRejeitados = false;
         }
@@ -338,11 +334,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
     };
 
     respostas.forEach((resposta, idx) => {
-      // Match por numero_item E lote_numero
-      const itemResposta = resposta.itens.find(i => 
-        i.numero_item === item.numero_item && 
-        (loteNumero ? i.lote_numero === loteNumero : !i.lote_numero)
-      );
+      // Match por numero_item - busca simplificada
+      const itemResposta = resposta.itens.find(i => i.numero_item === item.numero_item);
       
       if (itemResposta) {
         if (isDesconto) {
@@ -496,12 +489,15 @@ export async function gerarPlanilhaHabilitacaoPDF(
     body: dados,
     startY: yPosition,
     margin: { left: margemEsquerda, right: margemDireita, top: 35 },
+    theme: 'grid',
     styles: {
       fontSize: 7,
       cellPadding: 2,
       overflow: 'linebreak',
       halign: 'center',
-      valign: 'middle'
+      valign: 'middle',
+      lineColor: [200, 200, 200],
+      lineWidth: 0.1
     },
     headStyles: {
       fillColor: [41, 128, 185],
@@ -512,7 +508,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
       overflow: 'linebreak',
       cellPadding: 2,
       minCellHeight: 18,
-      fontSize: 6
+      fontSize: 6,
+      lineColor: [200, 200, 200],
+      lineWidth: 0.1
     },
     columnStyles,
     didParseCell: (data) => {
