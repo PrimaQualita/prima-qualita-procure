@@ -1000,21 +1000,14 @@ export function DialogAnaliseDocumentalSelecao({
           
           for (const docAntigo of docsAntigos) {
             // Verificar se está vinculado a esta seleção ou cotação relacionada
+            // CRÍTICO: Se está vinculado, usar documento antigo INDEPENDENTE de datas
+            // O vínculo indica que aquele documento era o ativo quando o processo foi finalizado
             const vinculados = docAntigo.processos_vinculados || [];
             const vinculadoAoProcesso = vinculados.includes(selecaoId) || 
               (cotacaoRelacionada && vinculados.includes(cotacaoRelacionada));
             
-            if (!vinculadoAoProcesso) {
-              continue;
-            }
-            
-            // Usar documento antigo APENAS se foi arquivado APÓS o encerramento da habilitação
-            const dataArquivamento = docAntigo.data_arquivamento 
-              ? new Date(docAntigo.data_arquivamento) 
-              : null;
-            
-            if (dataArquivamento && dataArquivamento > dataEncerramento) {
-              console.log(`  ✅ Usando doc antigo: ${docAntigo.tipo_documento} (arquivado após encerramento)`);
+            if (vinculadoAoProcesso) {
+              console.log(`  ✅ Usando doc antigo: ${docAntigo.tipo_documento} (vinculado ao processo)`);
               docsAntigosParaUsar.set(docAntigo.tipo_documento, docAntigo);
             }
           }

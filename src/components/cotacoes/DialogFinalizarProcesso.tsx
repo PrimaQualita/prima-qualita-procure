@@ -954,18 +954,11 @@ export function DialogFinalizarProcesso({
           
           for (const docAntigo of docsAntigos) {
             // Verificar se está vinculado a esta cotação
+            // CRÍTICO: Se está vinculado, usar documento antigo INDEPENDENTE de datas
+            // O vínculo indica que aquele documento era o ativo quando o processo foi finalizado
             const vinculados = docAntigo.processos_vinculados || [];
-            if (!vinculados.includes(cotacaoId)) {
-              continue;
-            }
-            
-            // Usar documento antigo APENAS se foi arquivado APÓS a finalização do processo
-            const dataArquivamento = docAntigo.data_arquivamento 
-              ? new Date(docAntigo.data_arquivamento) 
-              : null;
-            
-            if (dataArquivamento && dataArquivamento > dataFinalizacao) {
-              console.log(`  ✅ Usando doc antigo: ${docAntigo.tipo_documento} (arquivado após finalização)`);
+            if (vinculados.includes(cotacaoId)) {
+              console.log(`  ✅ Usando doc antigo: ${docAntigo.tipo_documento} (vinculado ao processo)`);
               docsAntigosParaUsar.set(docAntigo.tipo_documento, docAntigo);
             }
           }
