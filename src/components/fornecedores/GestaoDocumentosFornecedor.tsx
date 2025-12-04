@@ -211,10 +211,10 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
 
     setProcessando(true);
     try {
-      // 1. Buscar documento antigo em vigor (com todos os campos para snapshot)
+      // 1. Buscar documento antigo em vigor (com todos os campos para documentos_antigos)
       const { data: docAntigoData } = await supabase
         .from("documentos_fornecedor")
-        .select("id, url_arquivo, nome_arquivo, data_emissao, data_validade, em_vigor")
+        .select("id, url_arquivo, nome_arquivo, data_emissao, data_validade, em_vigor, data_upload")
         .eq("fornecedor_id", fornecedorId)
         .eq("tipo_documento", tipoDocumentoAtualizar)
         .eq("em_vigor", true)
@@ -232,8 +232,8 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         .from("processo-anexos")
         .getPublicUrl(fileName);
 
-      // 3. Verificar se fornecedor está vinculado a algum processo finalizado (habilitação)
-      // Se está, criar SNAPSHOT do documento ANTES de atualizar (preservar versão que estava vigente)
+      // 3. Verificar se documento antigo deve ser movido para "documentos_antigos"
+      // Isso ocorre APENAS quando o fornecedor está vinculado a algum processo finalizado
       if (docAntigoData?.url_arquivo) {
         const pathMatch = docAntigoData.url_arquivo.match(/processo-anexos\/(.+)$/);
         const nomeArquivoAntigo = docAntigoData.url_arquivo.split('/').pop() || '';
@@ -241,7 +241,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         // Verificar se fornecedor é vencedor em alguma cotação finalizada (compra direta)
         const { data: cotacoesFinalizadas } = await supabase
           .from("cotacoes_precos")
-          .select("id, titulo_cotacao")
+          .select("id, processo_compra_id")
           .eq("fornecedor_vencedor_id", fornecedorId)
           .eq("processo_finalizado", true);
         
@@ -250,70 +250,92 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
           .from("selecao_propostas_fornecedor")
           .select(`
             selecao_id,
-            selecoes_fornecedores!inner(id, sessao_finalizada)
+            selecoes_fornecedores!inner(id, processo_compra_id, sessao_finalizada)
           `)
           .eq("fornecedor_id", fornecedorId)
           .eq("desclassificado", false)
           .eq("selecoes_fornecedores.sessao_finalizada", true);
         
-        const estaVinculadoProcesso = 
-          (cotacoesFinalizadas && cotacoesFinalizadas.length > 0) ||
-          (selecoesFinalizadas && selecoesFinalizadas.length > 0);
+        // Coletar todos os processos onde o documento foi usado
+        const processosVinculados: string[] = [];
         
-        if (estaVinculadoProcesso) {
-          // Fornecedor está vinculado a processo finalizado - CRIAR SNAPSHOT antes de atualizar
-          console.log(`📸 Criando snapshot do documento "${nomeArquivoAntigo}" - fornecedor vinculado a processo finalizado`);
-          
-          // Calcular hash do arquivo antigo para deduplicação
-          const response = await fetch(docAntigoData.url_arquivo);
-          const blob = await response.blob();
-          const arrayBuffer = await blob.arrayBuffer();
-          const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          const hashArquivo = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
-          
-          // Criar snapshot para cada cotação finalizada onde é vencedor
-          if (cotacoesFinalizadas) {
-            for (const cotacao of cotacoesFinalizadas) {
-              // Verificar se já existe snapshot deste documento nesta cotação
-              const { data: snapshotExistente } = await supabase
-                .from("documentos_processo_finalizado")
-                .select("id")
-                .eq("cotacao_id", cotacao.id)
-                .eq("fornecedor_id", fornecedorId)
-                .eq("tipo_documento", tipoDocumentoAtualizar)
-                .limit(1);
-              
-              if (!snapshotExistente || snapshotExistente.length === 0) {
-                // Criar snapshot do documento antigo
-                const { error: snapshotError } = await supabase
-                  .from("documentos_processo_finalizado")
-                  .insert({
-                    cotacao_id: cotacao.id,
-                    fornecedor_id: fornecedorId,
-                    tipo_documento: tipoDocumentoAtualizar,
-                    nome_arquivo: docAntigoData.nome_arquivo,
-                    url_arquivo: docAntigoData.url_arquivo,
-                    data_emissao: docAntigoData.data_emissao,
-                    data_validade: docAntigoData.data_validade,
-                    em_vigor: docAntigoData.em_vigor,
-                    data_snapshot: new Date().toISOString(),
-                    hash_arquivo: hashArquivo,
-                  });
-                
-                if (snapshotError) {
-                  console.error(`❌ Erro ao criar snapshot para cotação ${cotacao.id}:`, snapshotError);
-                } else {
-                  console.log(`✅ Snapshot criado para cotação ${cotacao.titulo_cotacao}`);
-                }
-              } else {
-                console.log(`ℹ️ Snapshot já existe para cotação ${cotacao.titulo_cotacao}`);
-              }
+        if (cotacoesFinalizadas && cotacoesFinalizadas.length > 0) {
+          for (const cotacao of cotacoesFinalizadas) {
+            if (cotacao.processo_compra_id && !processosVinculados.includes(cotacao.processo_compra_id)) {
+              processosVinculados.push(cotacao.processo_compra_id);
             }
           }
+        }
+        
+        if (selecoesFinalizadas && selecoesFinalizadas.length > 0) {
+          for (const selecao of selecoesFinalizadas) {
+            const processoId = (selecao as any).selecoes_fornecedores?.processo_compra_id;
+            if (processoId && !processosVinculados.includes(processoId)) {
+              processosVinculados.push(processoId);
+            }
+          }
+        }
+        
+        if (processosVinculados.length > 0) {
+          // Fornecedor está vinculado a processo finalizado - MOVER para documentos_antigos
+          console.log(`📦 Movendo documento "${nomeArquivoAntigo}" para documentos_antigos - vinculado a ${processosVinculados.length} processo(s)`);
           
-          // Arquivo antigo NÃO é deletado - permanece para os snapshots
-          console.log(`📁 Arquivo antigo mantido no storage (snapshot criado)`);
+          // Calcular hash do arquivo para deduplicação
+          try {
+            const response = await fetch(docAntigoData.url_arquivo);
+            const blob = await response.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashArquivo = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+            
+            // Verificar se já existe este documento em documentos_antigos (pelo hash)
+            const { data: docAntigoExistente } = await supabase
+              .from("documentos_antigos")
+              .select("id, processos_vinculados")
+              .eq("hash_arquivo", hashArquivo)
+              .eq("fornecedor_id", fornecedorId)
+              .limit(1);
+            
+            if (docAntigoExistente && docAntigoExistente.length > 0) {
+              // Documento já existe - apenas atualizar processos vinculados
+              const processosAtuais = docAntigoExistente[0].processos_vinculados || [];
+              const novosProcessos = [...new Set([...processosAtuais, ...processosVinculados])];
+              
+              await supabase
+                .from("documentos_antigos")
+                .update({ processos_vinculados: novosProcessos })
+                .eq("id", docAntigoExistente[0].id);
+              
+              console.log(`✅ Processos vinculados atualizados em documento antigo existente`);
+            } else {
+              // Inserir novo registro em documentos_antigos
+              const { error: insertAntigoError } = await supabase
+                .from("documentos_antigos")
+                .insert({
+                  fornecedor_id: fornecedorId,
+                  tipo_documento: tipoDocumentoAtualizar,
+                  nome_arquivo: docAntigoData.nome_arquivo,
+                  url_arquivo: docAntigoData.url_arquivo,
+                  data_emissao: docAntigoData.data_emissao,
+                  data_validade: docAntigoData.data_validade,
+                  data_upload_original: docAntigoData.data_upload || new Date().toISOString(),
+                  hash_arquivo: hashArquivo,
+                  processos_vinculados: processosVinculados
+                });
+              
+              if (insertAntigoError) {
+                console.error(`❌ Erro ao mover documento para antigos:`, insertAntigoError);
+              } else {
+                console.log(`✅ Documento movido para documentos_antigos com ${processosVinculados.length} processo(s) vinculado(s)`);
+              }
+            }
+          } catch (hashError) {
+            console.error(`⚠️ Erro ao calcular hash do documento:`, hashError);
+          }
+          
+          // Arquivo antigo NÃO é deletado - permanece referenciado em documentos_antigos
+          console.log(`📁 Arquivo antigo mantido no storage (referenciado em documentos_antigos)`);
         } else {
           // Fornecedor NÃO está vinculado a processo - pode deletar do storage
           if (pathMatch) {

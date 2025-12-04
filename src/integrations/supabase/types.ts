@@ -865,6 +865,59 @@ export type Database = {
           },
         ]
       }
+      documentos_antigos: {
+        Row: {
+          created_at: string | null
+          data_arquivamento: string
+          data_emissao: string | null
+          data_upload_original: string | null
+          data_validade: string | null
+          fornecedor_id: string
+          hash_arquivo: string | null
+          id: string
+          nome_arquivo: string
+          processos_vinculados: string[] | null
+          tipo_documento: string
+          url_arquivo: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_arquivamento?: string
+          data_emissao?: string | null
+          data_upload_original?: string | null
+          data_validade?: string | null
+          fornecedor_id: string
+          hash_arquivo?: string | null
+          id?: string
+          nome_arquivo: string
+          processos_vinculados?: string[] | null
+          tipo_documento: string
+          url_arquivo: string
+        }
+        Update: {
+          created_at?: string | null
+          data_arquivamento?: string
+          data_emissao?: string | null
+          data_upload_original?: string | null
+          data_validade?: string | null
+          fornecedor_id?: string
+          hash_arquivo?: string | null
+          id?: string
+          nome_arquivo?: string
+          processos_vinculados?: string[] | null
+          tipo_documento?: string
+          url_arquivo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_antigos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentos_finalizacao_fornecedor: {
         Row: {
           campo_documento_id: string
