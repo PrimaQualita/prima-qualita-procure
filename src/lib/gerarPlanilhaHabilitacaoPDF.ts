@@ -696,7 +696,6 @@ export async function gerarPlanilhaHabilitacaoPDF(
       if (linhaAtual && linhaAtual.isSubtotal) {
         data.cell.styles.fillColor = [230, 230, 230];
         data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 8;
         
         if (data.column.index === 0) {
           data.cell.colSpan = 4;
@@ -733,7 +732,6 @@ export async function gerarPlanilhaHabilitacaoPDF(
       if (linhaAtual && linhaAtual.isTotalGeral) {
         data.cell.styles.fillColor = [226, 232, 240];
         data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 8;
         
         if (data.column.index === 0) {
           data.cell.colSpan = 4;
