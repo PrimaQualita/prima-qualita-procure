@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
 
         const { data: recursos } = await supabase
           .from('recursos_fornecedor')
-          .select('url_arquivo')
+          .select('id, url_arquivo')
           .in('rejeicao_id', rejeitadoIds);
 
         if (recursos) {
@@ -235,18 +235,23 @@ Deno.serve(async (req) => {
             const path = extractPath(r.url_arquivo, 'processo-anexos');
             if (path) arquivosProcessoAnexos.push(path);
           });
-        }
 
-        const { data: respostas } = await supabase
-          .from('respostas_recursos')
-          .select('url_documento')
-          .in('recurso_id', rejeitadoIds);
+          // Buscar respostas dos recursos usando os IDs corretos dos recursos
+          const recursoIds = recursos.map(r => r.id);
+          
+          if (recursoIds.length > 0) {
+            const { data: respostas } = await supabase
+              .from('respostas_recursos')
+              .select('url_documento')
+              .in('recurso_id', recursoIds);
 
-        if (respostas) {
-          respostas.forEach(r => {
-            const path = extractPath(r.url_documento, 'processo-anexos');
-            if (path) arquivosProcessoAnexos.push(path);
-          });
+            if (respostas) {
+              respostas.forEach(r => {
+                const path = extractPath(r.url_documento, 'processo-anexos');
+                if (path) arquivosProcessoAnexos.push(path);
+              });
+            }
+          }
         }
       }
 
