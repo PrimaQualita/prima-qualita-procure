@@ -450,6 +450,7 @@ export function DialogAnaliseDocumentalSelecao({
       
       if (itensInabilitadosParaSegundo.length > 0) {
         // Buscar todos os lances desses itens para encontrar o segundo colocado
+        // CRÍTICO: Para desconto, ordenar DESCENDENTE (maior primeiro); para preço, ASCENDENTE (menor primeiro)
         const { data: todosLances } = await supabase
           .from("lances_fornecedores")
           .select(`
@@ -465,11 +466,16 @@ export function DialogAnaliseDocumentalSelecao({
           `)
           .eq("selecao_id", selecaoId)
           .in("numero_item", itensInabilitadosParaSegundo)
-          .order("valor_lance", { ascending: true });
+          .order("valor_lance", { ascending: !isDesconto });
 
         // Para cada item inabilitado, encontrar o segundo colocado (primeiro válido)
         for (const itemNum of itensInabilitadosParaSegundo) {
-          const lancesDoItem = (todosLances || []).filter((l: any) => l.numero_item === itemNum);
+          // Ordenar lances do item conforme critério: desconto = descendente, preço = ascendente
+          const lancesDoItem = (todosLances || [])
+            .filter((l: any) => l.numero_item === itemNum)
+            .sort((a: any, b: any) => isDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance);
+          
+          console.log(`🔍 [ANÁLISE DOC] Item ${itemNum}: ${lancesDoItem.length} lances para segundo colocado (critério: ${isDesconto ? 'desconto' : 'preço'})`);
           
           // Encontrar primeiro fornecedor que não está inabilitado neste item
           for (const lance of lancesDoItem) {
@@ -477,6 +483,7 @@ export function DialogAnaliseDocumentalSelecao({
             const estaInabilitadoNoItem = inabFornecedor && inabFornecedor.itens_afetados.includes(itemNum);
             
             if (!estaInabilitadoNoItem) {
+              console.log(`✅ [ANÁLISE DOC] Segundo colocado encontrado para item ${itemNum}: ${lance.fornecedores?.razao_social} (valor: ${lance.valor_lance})`);
               segundosColocadosMap.set(itemNum, {
                 fornecedor_id: lance.fornecedor_id,
                 valor_lance: lance.valor_lance,
