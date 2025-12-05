@@ -269,7 +269,17 @@ export async function gerarPropostaFornecedorPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    const tituloDocumento = fornecedor.cnpj === '00000000000000' ? 'PROPOSTA DE PREÇOS PÚBLICOS' : 'PROPOSTA DE PREÇOS';
+    
+    // Função para identificar preço público - pelo email (novo) ou CNPJ sequencial (antigo)
+    const ehPrecoPublico = (cnpj: string, email?: string) => {
+      if (email && email.includes('precos.publicos')) return true;
+      if (!cnpj) return false;
+      const primeiroDigito = cnpj.charAt(0);
+      return cnpj.split('').every(d => d === primeiroDigito);
+    };
+    
+    const isPrecosPublicos = ehPrecoPublico(fornecedor.cnpj, (fornecedor as any).email);
+    const tituloDocumento = isPrecosPublicos ? 'PROPOSTA DE PREÇOS PÚBLICOS' : 'PROPOSTA DE PREÇOS';
     doc.text(tituloDocumento, 105, 25, { align: 'center' });
     
     doc.setFontSize(11);
@@ -279,7 +289,6 @@ export async function gerarPropostaFornecedorPDF(
     y = 60;
 
     // Bloco de informações do fornecedor com fundo
-    const isPrecosPublicos = fornecedor.cnpj === '00000000000000';
     const alturaBloco = isPrecosPublicos ? 26 : 44;
     
     doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
@@ -293,7 +302,7 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     
-    // Se for preços públicos (CNPJ 00000000000000), mostrar apenas a fonte
+    // Se for preços públicos, mostrar apenas a fonte (sem CNPJ/email)
     if (isPrecosPublicos) {
       doc.text(`Fonte: ${fornecedor.razao_social}`, 20, y + 16);
     } else {
@@ -849,10 +858,19 @@ export async function gerarPropostaFornecedorPDF(
     const fontSize = 10;
     const lineHeight = 15;
 
+    // Função para identificar preço público (mesma lógica do início)
+    const ehPrecoPublicoCert = (cnpj: string, email?: string) => {
+      if (email && email.includes('precos.publicos')) return true;
+      if (!cnpj) return false;
+      const primeiroDigito = cnpj.charAt(0);
+      return cnpj.split('').every(d => d === primeiroDigito);
+    };
+
     // Responsável pela geração
-    // Se for preços públicos (CNPJ 00000000000000), SEMPRE usar o usuário que preencheu
+    // Se for preços públicos, SEMPRE usar o usuário que preencheu
     // Se for fornecedor normal, usar a razão social do fornecedor
-    const responsavel = fornecedor.cnpj === '00000000000000'
+    const isPrecosPublicosCert = ehPrecoPublicoCert(fornecedor.cnpj, (fornecedor as any).email);
+    const responsavel = isPrecosPublicosCert
       ? (usuarioNome || 'Não informado')
       : fornecedor.razao_social;
     
