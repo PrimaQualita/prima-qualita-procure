@@ -151,8 +151,12 @@ export async function identificarVencedoresPorCriterio(
   console.log(`  → Fornecedores com rejeição por item: ${itensRejeitadosPorFornecedor.size}`);
   console.log(`  → Fornecedores com rejeição revertida: ${fornecedoresRevertidos.size}`);
 
-  // CRÍTICO: Identificar CNPJs de preços públicos (sequenciais)
-  const ehPrecoPublico = (cnpj: string) => {
+  // CRÍTICO: Identificar preços públicos - pelo email (novo) ou CNPJ sequencial (antigo)
+  const ehPrecoPublico = (cnpj: string, email?: string) => {
+    // Novo método: verificar pelo email (timestamp-based)
+    if (email && email.includes('precos.publicos')) return true;
+    
+    // Método antigo: CNPJ sequencial (para compatibilidade)
     if (!cnpj) return false;
     const primeiroDigito = cnpj.charAt(0);
     return cnpj.split('').every(d => d === primeiroDigito);
@@ -175,7 +179,7 @@ export async function identificarVencedoresPorCriterio(
     const temRejeicaoParcialItem = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
     const temRejeicaoParcialLote = lotesRejeitadosPorFornecedor.has(f.fornecedor_id);
     
-    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.cnpj);
+    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.cnpj, f.email);
   });
 
   console.log(`  → Fornecedores válidos para cálculo: ${fornecedoresValidos.length}`);
@@ -272,12 +276,9 @@ export async function identificarVencedoresPorCriterio(
           return;
         }
         
-        // Verificar se é preço público (CNPJ sequencial)
-        if (cnpj) {
-          const primeiroDigito = cnpj.charAt(0);
-          const ehPrecoPublico = cnpj.split('').every(d => d === primeiroDigito);
-          if (ehPrecoPublico) return;
-        }
+        // Verificar se é preço público
+        const email = resposta.fornecedores?.email || '';
+        if (ehPrecoPublico(cnpj, email)) return;
 
         // Buscar todos os itens do fornecedor que pertencem a este lote
         const itensDoFornecedorNoLote = itens.filter(item => 
@@ -449,8 +450,12 @@ export async function carregarItensVencedoresPorFornecedor(
 
   const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
 
-  // CRÍTICO: Identificar CNPJs de preços públicos
-  const ehPrecoPublico = (cnpj: string) => {
+  // CRÍTICO: Identificar preços públicos - pelo email (novo) ou CNPJ sequencial (antigo)
+  const ehPrecoPublico = (cnpj: string, email?: string) => {
+    // Novo método: verificar pelo email (timestamp-based)
+    if (email && email.includes('precos.publicos')) return true;
+    
+    // Método antigo: CNPJ sequencial (para compatibilidade)
     if (!cnpj) return false;
     const primeiroDigito = cnpj.charAt(0);
     return cnpj.split('').every(d => d === primeiroDigito);
@@ -471,7 +476,7 @@ export async function carregarItensVencedoresPorFornecedor(
     const temRejeicaoParcialItem = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
     const temRejeicaoParcialLote = lotesRejeitadosPorFornecedor.has(f.fornecedor_id);
     
-    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.cnpj);
+    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.cnpj, f.email);
   });
 
   const fornecedorAtual = fornecedoresPlanilha.find(f => f.fornecedor_id === fornecedorId);
@@ -573,13 +578,10 @@ export async function carregarItensVencedoresPorFornecedor(
         if (respostaF.rejeitado && !foiRevertido) return;
         if (fornecedoresRejeitadosGlobal.has(respostaF.fornecedor_id) && !foiRevertido) return;
         
-        // Verificar se é preço público (CNPJ sequencial)
+        // Verificar se é preço público
         const cnpj = respostaF.fornecedores?.cnpj || '';
-        if (cnpj) {
-          const primeiroDigito = cnpj.charAt(0);
-          const ehPrecoPublico = cnpj.split('').every(d => d === primeiroDigito);
-          if (ehPrecoPublico) return;
-        }
+        const email = respostaF.fornecedores?.email || '';
+        if (ehPrecoPublico(cnpj, email)) return;
 
         // Buscar todos os itens do fornecedor que pertencem a este lote
         const itensDoFornecedorNoLote = todosItens.filter(item => 

@@ -37,6 +37,7 @@ interface FornecedorResposta {
     id: string;
     razao_social: string;
     cnpj: string;
+    email?: string;
   };
   itens: {
     numero_item: number;
@@ -332,8 +333,12 @@ export async function gerarPlanilhaHabilitacaoPDF(
   const totaisPorLote: Map<number, { fornecedores: number[], vencedor: number }> = new Map();
   let totalVencedor = 0;
 
-  // Função para identificar CNPJ de preço público (sequencial)
-  const ehPrecoPublico = (cnpj: string) => {
+  // Função para identificar preço público - pelo email (novo) ou CNPJ sequencial (antigo)
+  const ehPrecoPublico = (cnpj: string, email?: string) => {
+    // Novo método: verificar pelo email (timestamp-based)
+    if (email && email.includes('precos.publicos')) return true;
+    
+    // Método antigo: CNPJ sequencial (para compatibilidade)
     if (!cnpj) return false;
     const primeiroDigito = cnpj.charAt(0);
     return cnpj.split('').every(d => d === primeiroDigito);
@@ -351,7 +356,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
         return;
       }
       // CRÍTICO: Excluir preços públicos da identificação de vencedores
-      if (ehPrecoPublico(resposta.fornecedor.cnpj)) {
+      if (ehPrecoPublico(resposta.fornecedor.cnpj, resposta.fornecedor.email)) {
         return;
       }
 
@@ -400,7 +405,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
     respostas.forEach((resposta, idx) => {
       // Ignorar fornecedores totalmente rejeitados OU preços públicos
       if (resposta.rejeitado) return;
-      if (ehPrecoPublico(resposta.fornecedor.cnpj)) return;
+      if (ehPrecoPublico(resposta.fornecedor.cnpj, resposta.fornecedor.email)) return;
       
       let totalFornecedorLote = 0;
       let loteRejeitado = false;
@@ -537,7 +542,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
       respostas.forEach((resposta, idx) => {
         // CRÍTICO: Excluir fornecedores rejeitados E preços públicos
         if (resposta.rejeitado) return;
-        if (ehPrecoPublico(resposta.fornecedor.cnpj)) return;
+        if (ehPrecoPublico(resposta.fornecedor.cnpj, resposta.fornecedor.email)) return;
         
         let totalFornecedorLote = 0;
         let loteRejeitado = false;
