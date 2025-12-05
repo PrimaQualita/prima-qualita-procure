@@ -822,11 +822,11 @@ const IncluirPrecosPublicos = () => {
                       <TableHead className="text-center">Descrição</TableHead>
                       <TableHead className="w-20 text-center">Qtd</TableHead>
                       <TableHead className="w-24 text-center">Unid. Medida</TableHead>
+                      <TableHead className="w-32 text-center">Marca</TableHead>
                       {processoCompra?.criterio_julgamento === "desconto" ? (
                         <TableHead className="w-48 text-center">Percentual de Desconto (%) *</TableHead>
                       ) : (
                         <>
-                          <TableHead className="w-32 text-center">Marca</TableHead>
                           <TableHead className="w-36 text-center">Valor Unit. (R$) *</TableHead>
                           <TableHead className="w-36 text-center">Valor Total</TableHead>
                         </>
@@ -970,6 +970,19 @@ const IncluirPrecosPublicos = () => {
                             <TableCell className="text-center">{item.quantidade}</TableCell>
                             <TableCell className="text-center">{item.unidade}</TableCell>
                             
+                            <TableCell>
+                              <Input
+                                type="text"
+                                value={resposta?.marca || ""}
+                                onChange={(e) => {
+                                  setRespostas({
+                                    ...respostas,
+                                    [item.id]: { ...resposta, marca: e.target.value },
+                                  });
+                                }}
+                                placeholder="Marca"
+                              />
+                            </TableCell>
                             {criterio === "desconto" ? (
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -991,19 +1004,6 @@ const IncluirPrecosPublicos = () => {
                               </TableCell>
                             ) : (
                               <>
-                                <TableCell>
-                                  <Input
-                                    type="text"
-                                    value={resposta?.marca || ""}
-                                    onChange={(e) => {
-                                      setRespostas({
-                                        ...respostas,
-                                        [item.id]: { ...resposta, marca: e.target.value },
-                                      });
-                                    }}
-                                    placeholder="Marca"
-                                  />
-                                </TableCell>
                                 <TableCell>
                                   <Input
                                     type="text"
