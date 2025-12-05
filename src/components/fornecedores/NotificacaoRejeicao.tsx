@@ -334,22 +334,35 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
                   <Button 
                     variant="ghost" 
                     onClick={async () => {
-                      setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: true }));
+                      console.log('🔄 Tentando registrar declínio de recurso para rejeição:', rejeicao.id);
+                      
                       // Atualizar status no banco para 'declinou_recurso'
-                      try {
-                        await supabase
-                          .from('fornecedores_rejeitados_cotacao')
-                          .update({ status_recurso: 'declinou_recurso' })
-                          .eq('id', rejeicao.id);
-                        toast.success('Opção registrada. Você optou por não recorrer.');
-                        await loadRejeicoes();
-                        if (onRecursoEnviado) {
-                          onRecursoEnviado();
-                        }
-                      } catch (error) {
-                        console.error('Erro ao registrar decisão:', error);
-                        toast.error('Erro ao registrar decisão');
-                        setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: false }));
+                      const { data, error } = await supabase
+                        .from('fornecedores_rejeitados_cotacao')
+                        .update({ status_recurso: 'declinou_recurso' })
+                        .eq('id', rejeicao.id)
+                        .select();
+                      
+                      console.log('📋 Resultado da atualização:', { data, error });
+                      
+                      if (error) {
+                        console.error('❌ Erro ao registrar decisão:', error);
+                        toast.error(`Erro ao registrar decisão: ${error.message}`);
+                        return;
+                      }
+                      
+                      if (!data || data.length === 0) {
+                        console.error('❌ Nenhum registro atualizado - possível problema de RLS');
+                        toast.error('Erro: não foi possível atualizar o registro');
+                        return;
+                      }
+                      
+                      console.log('✅ Registro atualizado com sucesso:', data);
+                      setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: true }));
+                      toast.success('Opção registrada. Você optou por não recorrer.');
+                      await loadRejeicoes();
+                      if (onRecursoEnviado) {
+                        onRecursoEnviado();
                       }
                     }}
                   >
