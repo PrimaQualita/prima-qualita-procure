@@ -2105,8 +2105,8 @@ Deno.serve(async (req) => {
     }
 
     // ============================================================
-    // 4. COMPRA DIRETA: SIMPLES - pegar TODOS os fornecedores
-    // da planilha consolidada (exceto preços públicos) + rejeitados
+    // 4. COMPRA DIRETA: Usar mesma lógica da planilha de habilitação
+    // Pegar de cotacao_respostas_fornecedor (exceto preços públicos e reprovados compliance) + rejeitados
     // ============================================================
     const { data: cotacoesCompraDireta } = await supabase
       .from('cotacoes_precos')
@@ -2116,24 +2116,35 @@ Deno.serve(async (req) => {
     if (cotacoesCompraDireta && cotacoesCompraDireta.length > 0) {
       const cotacaoIdsDireta = cotacoesCompraDireta.map(c => c.id);
       
-      // Buscar últimas planilhas consolidadas por cotação
-      const { data: planilhasConsolidadas } = await supabase
-        .from('planilhas_consolidadas')
-        .select('cotacao_id, fornecedores_incluidos, data_geracao')
-        .in('cotacao_id', cotacaoIdsDireta)
-        .order('data_geracao', { ascending: false });
+      // Buscar TODAS as respostas de fornecedores (como na planilha de habilitação)
+      const { data: respostasCotacaoHab } = await supabase
+        .from('cotacao_respostas_fornecedor')
+        .select(`
+          cotacao_id,
+          fornecedor_id,
+          fornecedores!inner(id, cnpj, email)
+        `)
+        .in('cotacao_id', cotacaoIdsDireta);
 
-      // Mapear última planilha por cotação
-      const ultimaPlanilhaPorCotacao = new Map<string, any>();
-      if (planilhasConsolidadas) {
-        for (const p of planilhasConsolidadas) {
-          if (!ultimaPlanilhaPorCotacao.has(p.cotacao_id)) {
-            ultimaPlanilhaPorCotacao.set(p.cotacao_id, p);
-          }
+      // Buscar empresas reprovadas pelo compliance (TODAS as análises)
+      const { data: analisesComplianceHab } = await supabase
+        .from('analises_compliance')
+        .select('cotacao_id, empresas_reprovadas')
+        .in('cotacao_id', cotacaoIdsDireta);
+
+      // Agregar CNPJs reprovados por cotação
+      const cnpjsReprovadosPorCotacao = new Map<string, Set<string>>();
+      for (const analise of analisesComplianceHab || []) {
+        if (!cnpjsReprovadosPorCotacao.has(analise.cotacao_id)) {
+          cnpjsReprovadosPorCotacao.set(analise.cotacao_id, new Set());
+        }
+        const reprovadas = analise.empresas_reprovadas as string[] || [];
+        for (const cnpj of reprovadas) {
+          if (cnpj) cnpjsReprovadosPorCotacao.get(analise.cotacao_id)!.add(cnpj);
         }
       }
 
-      // Buscar rejeições
+      // Buscar rejeições/inabilitações
       const { data: rejeicoesAtivas } = await supabase
         .from('fornecedores_rejeitados_cotacao')
         .select('cotacao_id, fornecedor_id')
@@ -2145,15 +2156,16 @@ Deno.serve(async (req) => {
         cotacaoParaProcesso.set(c.id, c.processo_compra_id);
       }
 
-      // Helper: é preço público?
-      const ehPrecoPublico = (cnpj: string) => {
+      // Helper: é preço público? (usa email como critério principal)
+      const ehPrecoPublico = (cnpj: string, email?: string) => {
+        if (email && email.includes('precos.publicos')) return true;
         if (!cnpj) return false;
         const primeiroDigito = cnpj.charAt(0);
         return cnpj.split('').every(d => d === primeiroDigito);
       };
 
-      // Processar cada cotação
-      for (const [cotacaoId, planilha] of ultimaPlanilhaPorCotacao) {
+      // Processar respostas por cotação
+      for (const cotacaoId of cotacaoIdsDireta) {
         const processoId = cotacaoParaProcesso.get(cotacaoId);
         if (!processoId) continue;
 
@@ -2162,23 +2174,36 @@ Deno.serve(async (req) => {
         }
         const fornecedoresDoProcesso = fornecedoresPorProcessoHab.get(processoId)!;
 
-        // Adicionar TODOS os fornecedores da planilha consolidada (exceto preços públicos)
-        const fornecedoresData = planilha.fornecedores_incluidos as any[] || [];
+        const cnpjsReprovados = cnpjsReprovadosPorCotacao.get(cotacaoId) || new Set();
+
+        // Adicionar fornecedores que responderam (exceto preços públicos e reprovados compliance)
+        const respostasDaCotacao = respostasCotacaoHab?.filter(r => r.cotacao_id === cotacaoId) || [];
         let countAdicionados = 0;
-        for (const f of fornecedoresData) {
-          if (!ehPrecoPublico(f.cnpj)) {
-            fornecedoresDoProcesso.add(f.fornecedor_id);
-            countAdicionados++;
+        for (const resp of respostasDaCotacao) {
+          const fornecedor = resp.fornecedores as any;
+          
+          // Excluir preços públicos
+          if (ehPrecoPublico(fornecedor.cnpj, fornecedor.email)) {
+            continue;
           }
+          
+          // Excluir reprovados pelo compliance
+          if (cnpjsReprovados.has(fornecedor.cnpj)) {
+            console.log(`  🚫 Excluindo reprovado compliance: ${fornecedor.cnpj}`);
+            continue;
+          }
+          
+          fornecedoresDoProcesso.add(resp.fornecedor_id);
+          countAdicionados++;
         }
 
-        // Adicionar rejeitados também
+        // Adicionar rejeitados/inabilitados também (documentos deles devem aparecer)
         const rejeicoes = rejeicoesAtivas?.filter(r => r.cotacao_id === cotacaoId) || [];
         for (const r of rejeicoes) {
           fornecedoresDoProcesso.add(r.fornecedor_id);
         }
 
-        console.log(`  📊 Cotação ${cotacaoId.substring(0,8)}: ${fornecedoresDoProcesso.size} fornecedores (${countAdicionados} da planilha + ${rejeicoes.length} rejeitados)`);
+        console.log(`  📊 Cotação ${cotacaoId.substring(0,8)}: ${fornecedoresDoProcesso.size} fornecedores (${countAdicionados} respostas + ${rejeicoes.length} rejeitados)`);
       }
     }
 
