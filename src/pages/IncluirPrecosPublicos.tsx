@@ -395,13 +395,17 @@ const IncluirPrecosPublicos = () => {
           // Limpa e formata o valor (aceita tanto vírgula quanto ponto)
           const valorLimpo = valorStr.replace(/[^\d,.-]/g, '').replace('.', ',');
           
+          // Se critério for desconto, preencher percentual_desconto ao invés de valor_unitario
+          const isDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
+          
           novasRespostas[item.id] = {
             item_id: item.id,
-            valor_unitario: valorLimpo,
+            valor_unitario: isDesconto ? "" : valorLimpo,
             marca: marca,
+            percentual_desconto: isDesconto ? valorLimpo : "",
           };
           
-          console.log(`✅ Item ${numItem} (lote: ${loteAtualId}) importado - Valor: "${valorLimpo}", Marca: "${marca}"`);
+          console.log(`✅ Item ${numItem} (lote: ${loteAtualId}) importado - ${isDesconto ? 'Desconto' : 'Valor'}: "${valorLimpo}", Marca: "${marca}"`);
           itensImportados++;
         } else {
           console.log(`❌ Item ${numItem} não encontrado ${isPorLote ? `no lote ${loteAtualId}` : 'na lista de itens'}`);
