@@ -345,10 +345,25 @@ export async function gerarPlanilhaHabilitacaoPDF(
     let empresaVencedora = "-";
 
     respostas.forEach((resposta) => {
-      // Ignorar fornecedores totalmente rejeitados, rejeitados neste item, ou preços públicos
-      if (resposta.rejeitado || resposta.itens_rejeitados.includes(numeroItem)) {
+      // Ignorar fornecedores totalmente rejeitados ou preços públicos
+      if (resposta.rejeitado) {
         return;
       }
+      
+      // CRÍTICO: Para critério por_lote, itens_rejeitados contém NÚMEROS DE LOTES
+      // Para outros critérios, contém números de itens
+      if (criterioJulgamento === 'por_lote') {
+        // Verificar se o LOTE está rejeitado
+        if (loteNumero && resposta.itens_rejeitados.includes(loteNumero)) {
+          return;
+        }
+      } else {
+        // Verificar se o ITEM está rejeitado
+        if (resposta.itens_rejeitados.includes(numeroItem)) {
+          return;
+        }
+      }
+      
       // CRÍTICO: Excluir preços públicos da identificação de vencedores
       if (ehPrecoPublico(resposta.fornecedor.email)) {
         return;
