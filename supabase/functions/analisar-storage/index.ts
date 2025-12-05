@@ -16,65 +16,99 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     console.log('🔍 Iniciando análise completa do storage...');
+    const startTime = Date.now();
 
     // Estrutura para armazenar arquivos com metadados
     const arquivosStorage = new Map<string, { size: number; createdAt: string; bucket: string }>();
     
+    // Função otimizada para listar arquivos - coleta pastas primeiro, depois processa em paralelo
     async function listarRecursivo(bucket: string, prefix: string = ''): Promise<void> {
-      console.log(`📂 Listando pasta: "${prefix}" no bucket "${bucket}"`);
-      
       const { data: items, error } = await supabase.storage
         .from(bucket)
-        .list(prefix, {
-          limit: 1000,
-          sortBy: { column: 'name', order: 'asc' }
-        });
+        .list(prefix, { limit: 1000, sortBy: { column: 'name', order: 'asc' } });
       
-      if (error) {
-        console.error(`❌ Erro ao listar ${prefix}:`, error);
-        return;
-      }
+      if (error || !items || items.length === 0) return;
       
-      if (!items || items.length === 0) {
-        console.log(`⚠️ Nenhum item em ${prefix}`);
-        return;
-      }
-      
-      console.log(`  ➜ Encontrou ${items.length} itens em "${prefix}"`);
+      const pastas: string[] = [];
       
       for (const item of items) {
         const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
         
-        // Se for pasta (id é null), lista recursivamente
         if (item.id === null) {
-          await listarRecursivo(bucket, fullPath);
+          pastas.push(fullPath);
         } else {
-          // É arquivo
           const fileSize = (item.metadata as any)?.size || 0;
-          const key = `${bucket}/${fullPath}`;
-          arquivosStorage.set(key, {
+          arquivosStorage.set(`${bucket}/${fullPath}`, {
             size: fileSize,
             createdAt: item.created_at || new Date().toISOString(),
             bucket: bucket
           });
-          console.log(`    📄 Arquivo: ${fullPath} (${(fileSize / 1024).toFixed(2)} KB)`);
         }
+      }
+      
+      // Processar subpastas em paralelo (batches de 5 para não sobrecarregar)
+      for (let i = 0; i < pastas.length; i += 5) {
+        const batch = pastas.slice(i, i + 5);
+        await Promise.all(batch.map(pasta => listarRecursivo(bucket, pasta)));
       }
     }
     
-    // Listar ambos os buckets
-    await listarRecursivo('processo-anexos', '');
-    await listarRecursivo('documents', '');
+    // Listar ambos os buckets em paralelo
+    await Promise.all([
+      listarRecursivo('processo-anexos', ''),
+      listarRecursivo('documents', '')
+    ]);
     
     const totalArquivos = arquivosStorage.size;
     const tamanhoTotal = Array.from(arquivosStorage.values()).reduce((acc, file) => acc + file.size, 0);
-    console.log(`✅ Total de arquivos: ${totalArquivos} | Tamanho total: ${(tamanhoTotal / (1024 * 1024)).toFixed(2)} MB`);
+    console.log(`✅ Storage: ${totalArquivos} arquivos | ${(tamanhoTotal / (1024 * 1024)).toFixed(2)} MB | ${Date.now() - startTime}ms`);
 
-    // Buscar nomes "bonitos" dos documentos do banco de dados
+    // Buscar nomes "bonitos" dos documentos do banco de dados - QUERIES EM PARALELO
     const nomesBonitos = new Map<string, string>();
     
-    // Atas de seleção
-    const { data: atas } = await supabase.from('atas_selecao').select('url_arquivo, nome_arquivo');
+    const [
+      { data: atas },
+      { data: homologacoes },
+      { data: planilhas },
+      { data: planilhasLances },
+      { data: autorizacoes },
+      { data: encaminhamentos },
+      { data: analisesCompliance },
+      { data: anexosProcessoNomes },
+      { data: anexosSelecao },
+      { data: docsFornecedor },
+      { data: docsHabilitacao },
+      { data: docsProcessoFinalizado },
+      { data: emailsCotacao },
+      { data: propostasCotacao },
+      { data: referencias, error: refError },
+      { data: anexosProcessoTipos },
+      { data: fornecedores },
+      { data: avaliacoes }
+    ] = await Promise.all([
+      supabase.from('atas_selecao').select('url_arquivo, nome_arquivo'),
+      supabase.from('homologacoes_selecao').select('url_arquivo, nome_arquivo'),
+      supabase.from('planilhas_consolidadas').select('url_arquivo, nome_arquivo'),
+      supabase.from('planilhas_lances_selecao').select('url_arquivo, nome_arquivo'),
+      supabase.from('autorizacoes_processo').select(`url_arquivo, nome_arquivo, tipo_autorizacao, cotacao_id, cotacoes_precos!inner(processo_compra_id, processos_compras!inner(numero_processo_interno, objeto_resumido))`),
+      supabase.from('encaminhamentos_processo').select('url, storage_path, nome_arquivo, processo_numero'),
+      supabase.from('analises_compliance').select('url_documento, nome_arquivo'),
+      supabase.from('anexos_processo_compra').select('url_arquivo, nome_arquivo, tipo_anexo'),
+      supabase.from('anexos_selecao').select('url_arquivo, nome_arquivo'),
+      supabase.from('documentos_fornecedor').select('url_arquivo, nome_arquivo, em_vigor, fornecedor_id, tipo_documento'),
+      supabase.from('documentos_finalizacao_fornecedor').select('url_arquivo, nome_arquivo'),
+      supabase.from('documentos_processo_finalizado').select('url_arquivo, nome_arquivo, tipo_documento'),
+      supabase.from('emails_cotacao_anexados').select('url_arquivo, nome_arquivo'),
+      supabase.from('anexos_cotacao_fornecedor').select(`url_arquivo, tipo_anexo, cotacao_respostas_fornecedor!inner(fornecedores!inner(razao_social, user_id))`),
+      supabase.rpc('get_all_file_references'),
+      supabase.from('anexos_processo_compra').select('url_arquivo, tipo_anexo'),
+      supabase.from('fornecedores').select('id, razao_social'),
+      supabase.from('avaliacoes_cadastro_fornecedor').select('id, fornecedor_id')
+    ]);
+    
+    console.log(`✅ Queries DB: ${Date.now() - startTime}ms`);
+    
+    // Processar atas
     if (atas) {
       for (const ata of atas) {
         const path = ata.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || ata.url_arquivo;
@@ -82,8 +116,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Homologações
-    const { data: homologacoes } = await supabase.from('homologacoes_selecao').select('url_arquivo, nome_arquivo');
+    // Processar homologações
     if (homologacoes) {
       for (const homol of homologacoes) {
         const path = homol.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || homol.url_arquivo;
@@ -91,8 +124,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Planilhas consolidadas
-    const { data: planilhas } = await supabase.from('planilhas_consolidadas').select('url_arquivo, nome_arquivo');
+    // Processar planilhas consolidadas
     if (planilhas) {
       for (const plan of planilhas) {
         const path = plan.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || plan.url_arquivo;
@@ -100,8 +132,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Planilhas de lances
-    const { data: planilhasLances } = await supabase.from('planilhas_lances_selecao').select('url_arquivo, nome_arquivo');
+    // Processar planilhas de lances
     if (planilhasLances) {
       for (const pl of planilhasLances) {
         const path = pl.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || pl.url_arquivo;
@@ -109,19 +140,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Autorizações - com dados do processo para categorização
-    const { data: autorizacoes } = await supabase
-      .from('autorizacoes_processo')
-      .select(`
-        url_arquivo, 
-        nome_arquivo,
-        tipo_autorizacao,
-        cotacao_id,
-        cotacoes_precos!inner(
-          processo_compra_id,
-          processos_compras!inner(numero_processo_interno, objeto_resumido)
-        )
-      `);
+    // Processar autorizações
     const autorizacoesMap = new Map<string, { 
       nomeArquivo: string; 
       tipoAutorizacao: string;
@@ -144,10 +163,8 @@ Deno.serve(async (req) => {
         nomesBonitos.set(path, aut.nome_arquivo);
       }
     }
-    console.log(`📋 Autorizações mapeadas: ${autorizacoesMap.size}`);
 
-    // Encaminhamentos
-    const { data: encaminhamentos } = await supabase.from('encaminhamentos_processo').select('url, storage_path, nome_arquivo, processo_numero');
+    // Processar encaminhamentos
     if (encaminhamentos) {
       for (const enc of encaminhamentos) {
         const nomeBonito = enc.nome_arquivo || `Encaminhamento_${enc.storage_path.split('/').pop()}`;
@@ -155,24 +172,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Análises de Compliance
-    const { data: analisesCompliance } = await supabase.from('analises_compliance').select('url_documento, nome_arquivo');
+    // Processar análises de Compliance
     if (analisesCompliance) {
       for (const analise of analisesCompliance) {
-        // Extrair path do documents bucket
         let path = analise.url_documento;
         if (path.includes('/documents/')) {
           path = path.split('/documents/')[1].split('?')[0];
         } else if (path.includes('documents/')) {
           path = path.split('documents/')[1].split('?')[0];
         }
-        // Armazenar sem o prefixo do bucket para corresponder com pathSemBucket
         nomesBonitos.set(path, analise.nome_arquivo || 'Análise Compliance.pdf');
       }
     }
 
-    // Anexos de processo
-    const { data: anexosProcessoNomes } = await supabase.from('anexos_processo_compra').select('url_arquivo, nome_arquivo');
+    // Processar anexos de processo
     if (anexosProcessoNomes) {
       for (const anx of anexosProcessoNomes) {
         const path = anx.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || anx.url_arquivo;
@@ -180,8 +193,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Anexos de seleção
-    const { data: anexosSelecao } = await supabase.from('anexos_selecao').select('url_arquivo, nome_arquivo');
+    // Processar anexos de seleção
     if (anexosSelecao) {
       for (const anx of anexosSelecao) {
         const path = anx.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || anx.url_arquivo;
@@ -189,9 +201,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Documentos de fornecedor (todos para nomes bonitos)
-    const { data: docsFornecedor } = await supabase.from('documentos_fornecedor').select('url_arquivo, nome_arquivo, em_vigor, fornecedor_id, tipo_documento');
-    // Mapa de documentos de cadastro ATIVOS (em_vigor = true) - usado para categorização
+    // Processar documentos de fornecedor
     const docsCadastroAtivosMap = new Map<string, { 
       fornecedorId: string; 
       nomeArquivo: string; 
@@ -201,8 +211,6 @@ Deno.serve(async (req) => {
       for (const doc of docsFornecedor) {
         const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
         nomesBonitos.set(path, doc.nome_arquivo);
-        
-        // Adicionar ao mapa de cadastro ativo apenas se em_vigor = true
         if (doc.em_vigor === true) {
           docsCadastroAtivosMap.set(path, {
             fornecedorId: doc.fornecedor_id,
@@ -212,10 +220,8 @@ Deno.serve(async (req) => {
         }
       }
     }
-    console.log(`📋 Documentos de cadastro ATIVOS mapeados: ${docsCadastroAtivosMap.size}`);
 
-    // Documentos de habilitação (finalizacao)
-    const { data: docsHabilitacao } = await supabase.from('documentos_finalizacao_fornecedor').select('url_arquivo, nome_arquivo');
+    // Processar documentos de habilitação
     if (docsHabilitacao) {
       for (const doc of docsHabilitacao) {
         const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
@@ -223,8 +229,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Documentos de processo finalizado (snapshot de documentos de cadastro)
-    const { data: docsProcessoFinalizado } = await supabase.from('documentos_processo_finalizado').select('url_arquivo, nome_arquivo, tipo_documento');
+    // Processar documentos de processo finalizado
     if (docsProcessoFinalizado) {
       for (const doc of docsProcessoFinalizado) {
         const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
@@ -232,8 +237,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // E-mails de cotação
-    const { data: emailsCotacao } = await supabase.from('emails_cotacao_anexados').select('url_arquivo, nome_arquivo');
+    // Processar e-mails de cotação
     if (emailsCotacao) {
       for (const email of emailsCotacao) {
         const path = email.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || email.url_arquivo;
@@ -241,67 +245,36 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Propostas de cotação (fornecedor e preços públicos)
-    const { data: propostasCotacao } = await supabase
-      .from('anexos_cotacao_fornecedor')
-      .select(`
-        url_arquivo,
-        tipo_anexo,
-        cotacao_respostas_fornecedor!inner(
-          fornecedores!inner(razao_social, user_id)
-        )
-      `);
+    // Processar propostas de cotação
     if (propostasCotacao) {
       for (const prop of propostasCotacao) {
-        // Extrair path: se tem processo-anexos/, pega depois; senão pega após última barra ou usa direto
         let path = prop.url_arquivo;
         if (path.includes('processo-anexos/')) {
           path = path.split('processo-anexos/')[1].split('?')[0];
         } else if (path.includes('/')) {
-          // Pegar apenas o nome do arquivo após última barra
           path = path.split('/').pop()?.split('?')[0] || path;
         } else {
-          // Já é apenas o nome do arquivo
           path = path.split('?')[0];
         }
-        
         const fornecedor = (prop as any).cotacao_respostas_fornecedor?.fornecedores;
         const razaoSocial = fornecedor?.razao_social || 'Desconhecida';
-        
-        // Se user_id for NULL, é preço público (usar razão social como nome da fonte)
-        // Se user_id existir, é fornecedor cadastrado (usar "Proposta [Razão Social]")
-        const nomeArquivo = `Proposta ${razaoSocial}.pdf`;
-        nomesBonitos.set(path, nomeArquivo);
+        nomesBonitos.set(path, `Proposta ${razaoSocial}.pdf`);
       }
     }
 
-    console.log(`📋 Nomes bonitos mapeados: ${nomesBonitos.size}`);
-
-    // Buscar URLs do banco
-    const { data: referencias, error: refError } = await supabase.rpc('get_all_file_references');
-    
+    // Verificar erro de referências
     if (refError) {
       throw new Error(`Erro ao buscar referências: ${refError.message}`);
     }
 
-    // Buscar anexos de processos com seus tipos (reutilizar dados já carregados)
+    // Processar anexos de processos com tipos
     const anexosTipoMap = new Map<string, string>();
-    const { data: anexosProcessoTipos, error: anexosError } = await supabase
-      .from('anexos_processo_compra')
-      .select('url_arquivo, tipo_anexo');
-    
-    if (anexosError) {
-      console.error('Erro ao buscar anexos processo:', anexosError);
-    }
-    
     if (anexosProcessoTipos) {
       for (const anexo of anexosProcessoTipos) {
-        // Normalizar a URL para extrair apenas o path relativo
         let normalizedPath = '';
         if (anexo.url_arquivo.includes('processo-anexos/')) {
           normalizedPath = anexo.url_arquivo.split('processo-anexos/')[1].split('?')[0];
         } else if (anexo.url_arquivo.includes('/documents/')) {
-          // Extrair path após /documents/ para arquivos no bucket documents
           normalizedPath = anexo.url_arquivo.split('/documents/')[1].split('?')[0];
         } else {
           normalizedPath = anexo.url_arquivo.split('?')[0];
@@ -343,45 +316,37 @@ Deno.serve(async (req) => {
       }
       
       if (normalizedPath) {
-        pathsDBOriginal.add(normalizedPath); // Apenas para contagem real
+        pathsDBOriginal.add(normalizedPath);
         pathsDB.add(normalizedPath);
         urlsOriginais.set(normalizedPath, url);
         
-        // Também adicionar versão decodificada para comparação com storage (não inflaciona contagem)
+        // Também adicionar versão decodificada para comparação com storage
         try {
           const decodedPath = decodeURIComponent(normalizedPath);
           if (decodedPath !== normalizedPath) {
-            pathsDB.add(decodedPath); // Apenas para comparação, não contagem
+            pathsDB.add(decodedPath);
             urlsOriginais.set(decodedPath, url);
           }
-        } catch (e) {
-          // Ignorar erros de decodificação
-        }
-        
-        console.log(`  🔗 DB: "${normalizedPath}" <- "${url}"`);
+        } catch (e) {}
         
         // Se o path tem subpastas, também adicionar o nome do arquivo sozinho
         const parts = normalizedPath.split('/');
         if (parts.length > 2) {
           const fileName = parts[parts.length - 1];
           nomeArquivoDB.add(fileName);
-          // Também adicionar versão decodificada do nome
           try {
             const decodedFileName = decodeURIComponent(fileName);
             if (decodedFileName !== fileName) {
               nomeArquivoDB.add(decodedFileName);
             }
-          } catch (e) {
-            // Ignorar
-          }
+          } catch (e) {}
         }
       }
     }
 
     console.log(`📊 Referências no banco: ${pathsDBOriginal.size}`);
 
-    // Buscar dados de fornecedores para agrupar documentos
-    const { data: fornecedores } = await supabase.from('fornecedores').select('id, razao_social');
+    // Processar fornecedores para agrupar documentos
     const fornecedoresMap = new Map<string, string>();
     if (fornecedores) {
       for (const forn of fornecedores) {
@@ -389,8 +354,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Buscar dados de avaliações para mapear avaliacao_id -> fornecedor_id
-    const { data: avaliacoes } = await supabase.from('avaliacoes_cadastro_fornecedor').select('id, fornecedor_id');
+    // Processar avaliações para mapear avaliacao_id -> fornecedor_id
     const avaliacoesMap = new Map<string, string>();
     if (avaliacoes) {
       for (const aval of avaliacoes) {
