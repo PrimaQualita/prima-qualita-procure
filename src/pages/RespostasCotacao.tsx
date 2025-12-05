@@ -46,6 +46,7 @@ interface RespostaFornecedor {
     razao_social: string;
     cnpj: string;
     endereco_comercial: string;
+    email?: string;
   };
   anexos?: Array<{
     id: string;
@@ -54,6 +55,20 @@ interface RespostaFornecedor {
     tipo_anexo: string;
   }>;
 }
+
+// Função para identificar preço público
+const ehPrecoPublico = (cnpj: string, email?: string): boolean => {
+  if (email && email.includes('precos.publicos')) return true;
+  if (!cnpj) return false;
+  const primeiroDigito = cnpj.charAt(0);
+  if (cnpj.split('').every(d => d === primeiroDigito)) return true;
+  if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
+  if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
+    const num = parseInt(cnpj, 10);
+    if (num > 10000000000000) return true;
+  }
+  return false;
+};
 
 export default function RespostasCotacao() {
   const [searchParams] = useSearchParams();
@@ -803,7 +818,7 @@ export default function RespostasCotacao() {
         .from("cotacao_respostas_fornecedor")
         .select(`
           *,
-          fornecedores(razao_social, cnpj, endereco_comercial),
+          fornecedores(razao_social, cnpj, endereco_comercial, email),
           anexos_cotacao_fornecedor(id, nome_arquivo, url_arquivo, tipo_anexo)
         `)
         .eq("cotacao_id", cotacaoId)
@@ -820,7 +835,7 @@ export default function RespostasCotacao() {
       if (fornecedorIds.length > 0) {
         const { data: fornecedoresOrfaos } = await supabase
           .from("fornecedores")
-          .select("id, razao_social, cnpj, endereco_comercial")
+          .select("id, razao_social, cnpj, endereco_comercial, email")
           .in("id", fornecedorIds);
 
         fornecedoresOrfaosData = (fornecedoresOrfaos || []).reduce((acc: any, f: any) => {
@@ -843,6 +858,7 @@ export default function RespostasCotacao() {
             razao_social: fornecedorData?.razao_social || "N/A",
             cnpj: fornecedorData?.cnpj || "N/A",
             endereco_comercial: fornecedorData?.endereco_comercial || "",
+            email: fornecedorData?.email || "",
           },
           anexos: r.anexos_cotacao_fornecedor || [],
         };
@@ -956,7 +972,11 @@ export default function RespostasCotacao() {
                           <Badge className="ml-2 bg-green-600">Menor Preço</Badge>
                         )}
                       </TableCell>
-                      <TableCell>{formatarCNPJ(resposta.fornecedor.cnpj)}</TableCell>
+                      <TableCell>
+                        {ehPrecoPublico(resposta.fornecedor.cnpj, resposta.fornecedor.email) 
+                          ? "-" 
+                          : formatarCNPJ(resposta.fornecedor.cnpj)}
+                      </TableCell>
                       <TableCell className="text-right font-semibold">
                         R$ {resposta.valor_total_anual_ofertado.toLocaleString("pt-BR", {
                           minimumFractionDigits: 2,
