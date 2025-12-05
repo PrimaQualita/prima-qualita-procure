@@ -467,6 +467,28 @@ const IncluirPrecosPublicos = () => {
       let todosPreenchidos = true;
       let mensagemErro = "";
       
+      // VALIDAÇÃO: Se preencheu marca OU valor em um item, AMBOS devem estar preenchidos
+      for (const item of itens) {
+        const resposta = respostas[item.id];
+        const temMarca = resposta?.marca && resposta.marca.trim() !== '';
+        const temValor = criterio === "desconto" 
+          ? (resposta?.percentual_desconto && parseFloat(resposta.percentual_desconto.replace(/,/g, ".")) > 0)
+          : (resposta?.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0);
+        
+        if (temMarca && !temValor) {
+          const campoFaltando = criterio === "desconto" ? "percentual de desconto" : "valor unitário";
+          toast.error(`Item ${item.numero_item}: Você preencheu a marca, mas não informou o ${campoFaltando}. Complete o item ou deixe ambos os campos vazios.`);
+          setEnviando(false);
+          return;
+        }
+        
+        if (temValor && !temMarca) {
+          toast.error(`Item ${item.numero_item}: Você preencheu o ${criterio === "desconto" ? "percentual de desconto" : "valor unitário"}, mas não informou a marca. Complete o item ou deixe ambos os campos vazios.`);
+          setEnviando(false);
+          return;
+        }
+      }
+      
       if (criterio === "item" || criterio === "desconto") {
         // Para "item" e "desconto": apenas verificar se PELO MENOS um item foi preenchido
         const algumPreenchido = itens.some((item) => {
