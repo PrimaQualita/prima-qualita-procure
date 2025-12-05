@@ -378,6 +378,7 @@ export default function PortalFornecedor() {
       
       // Buscar rejeições em cotações onde o fornecedor ainda pode recorrer
       // (não revertidas e SEM recurso já enviado - apenas 'sem_recurso' ou null)
+      // Exclui também 'declinou_recurso' pois fornecedor optou por não recorrer
       const { data: rejeicoes, error } = await supabase
         .from("fornecedores_rejeitados_cotacao")
         .select(`
