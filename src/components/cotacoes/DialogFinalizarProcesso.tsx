@@ -3253,13 +3253,15 @@ export function DialogFinalizarProcesso({
                                     <Badge variant={
                                       campo.status_solicitacao === "aprovado" ? "default" :
                                       campo.status_solicitacao === "em_analise" ? "secondary" :
+                                      campo.status_solicitacao === "enviado" ? "secondary" :
                                       campo.status_solicitacao === "rejeitado" ? "destructive" :
                                       "outline"
                                     }>
                                       {campo.status_solicitacao === "aprovado" ? "✓ Aprovado" :
                                        campo.status_solicitacao === "em_analise" ? "⏳ Em análise" :
+                                       campo.status_solicitacao === "enviado" ? "📤 Enviado (aguardando análise)" :
                                        campo.status_solicitacao === "rejeitado" ? "✗ Rejeitado" :
-                                       "⚠️ Pendente"}
+                                       "⚠️ Pendente (aguardando envio)"}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mb-2">{campo.descricao}</p>
