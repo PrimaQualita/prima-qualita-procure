@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DashboardLayout } from "./components/DashboardLayout";
-import { UrlFixer } from "./components/UrlFixer";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import TrocaSenha from "./pages/TrocaSenha";
@@ -46,13 +45,35 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <UrlFixer>
+// Correção de URL com %3F ANTES do React processar
+const fixEncodedUrl = () => {
+  const pathname = window.location.pathname;
+  if (pathname.includes('%3F') || pathname.includes('%3f')) {
+    const decoded = decodeURIComponent(pathname);
+    const [basePath, query] = decoded.split('?');
+    if (query) {
+      window.location.replace(`${basePath}?${query}`);
+      return true;
+    }
+  }
+  return false;
+};
+
+// Se URL está mal formada, redireciona e não renderiza nada
+const urlNeedsFixing = fixEncodedUrl();
+
+const App = () => {
+  // Se está redirecionando, não renderiza nada
+  if (urlNeedsFixing) {
+    return null;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
@@ -99,10 +120,10 @@ const App = () => (
             
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </UrlFixer>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
