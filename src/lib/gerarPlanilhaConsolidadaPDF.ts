@@ -387,8 +387,85 @@ export async function gerarPlanilhaConsolidadaPDF(
   // Totais por lote para subtotais
   const totaisPorLote: Map<number, { fornecedores: { [cnpj: string]: number }, estimativa: number }> = new Map();
   
+  // PRÉ-CALCULAR subtotais por lote por fornecedor ANTES de processar itens
+  // Isso é necessário para calcular estimativa baseada no lote inteiro quando critério for "por_lote"
+  const subtotaisPorLoteFornecedor: Map<number, Map<string, { subtotal: number, itens: Map<number, number> }>> = new Map();
+  
+  if (temLotes && criterioJulgamento === 'por_lote') {
+    itensComLote.forEach(item => {
+      if (!subtotaisPorLoteFornecedor.has(item.lote_numero!)) {
+        subtotaisPorLoteFornecedor.set(item.lote_numero!, new Map());
+      }
+      const loteMap = subtotaisPorLoteFornecedor.get(item.lote_numero!)!;
+      
+      respostas.forEach(resposta => {
+        const respostaItem = resposta.itens.find(i => 
+          i.numero_item === item.numero_item && 
+          (item.lote_numero ? i.lote_numero === item.lote_numero : !i.lote_numero)
+        );
+        
+        if (!loteMap.has(resposta.fornecedor.cnpj)) {
+          loteMap.set(resposta.fornecedor.cnpj, { subtotal: 0, itens: new Map() });
+        }
+        
+        const fornecedorData = loteMap.get(resposta.fornecedor.cnpj)!;
+        if (respostaItem) {
+          const valorUnitario = typeof respostaItem.valor_unitario_ofertado === 'number' ? respostaItem.valor_unitario_ofertado : 0;
+          const valorTotal = valorUnitario * item.quantidade;
+          fornecedorData.subtotal += valorTotal;
+          fornecedorData.itens.set(item.numero_item, valorUnitario);
+        }
+      });
+    });
+    
+    console.log('📊 Subtotais por lote/fornecedor pré-calculados:', 
+      Array.from(subtotaisPorLoteFornecedor.entries()).map(([lote, fornecedores]) => ({
+        lote,
+        fornecedores: Array.from(fornecedores.entries()).map(([cnpj, data]) => ({
+          cnpj,
+          subtotal: data.subtotal,
+          qtdItens: data.itens.size
+        }))
+      }))
+    );
+  }
+  
+  // Função para obter fornecedor(es) vencedor(es) do lote baseado no critério de cálculo
+  const obterFornecedoresEstimativaLote = (loteNum: number, criterioCalculo: 'menor' | 'media' | 'mediana') => {
+    const loteData = subtotaisPorLoteFornecedor.get(loteNum);
+    if (!loteData) return [];
+    
+    // Filtrar fornecedores que cotaram o lote (subtotal > 0)
+    const fornecedoresComCotacao = Array.from(loteData.entries())
+      .filter(([_, data]) => data.subtotal > 0)
+      .map(([cnpj, data]) => ({ cnpj, subtotal: data.subtotal, itens: data.itens }));
+    
+    if (fornecedoresComCotacao.length === 0) return [];
+    
+    if (criterioCalculo === 'menor') {
+      // Menor subtotal do lote - retorna apenas 1 fornecedor
+      const menorSubtotal = Math.min(...fornecedoresComCotacao.map(f => f.subtotal));
+      return fornecedoresComCotacao.filter(f => f.subtotal === menorSubtotal);
+    } else if (criterioCalculo === 'mediana') {
+      // Mediana dos subtotais do lote - retorna fornecedor(es) que compõem a mediana
+      const sorted = [...fornecedoresComCotacao].sort((a, b) => a.subtotal - b.subtotal);
+      const middle = Math.floor(sorted.length / 2);
+      
+      if (sorted.length % 2 === 0) {
+        // Número par: mediana é média dos dois do meio, retorna ambos
+        return [sorted[middle - 1], sorted[middle]];
+      } else {
+        // Número ímpar: mediana é o do meio
+        return [sorted[middle]];
+      }
+    } else {
+      // Média: retorna todos para calcular média dos valores
+      return fornecedoresComCotacao;
+    }
+  };
+  
   // Função para processar um item e retornar a linha
-  const processarItem = (item: ItemCotacao) => {
+  const processarItem = (item: ItemCotacao, fornecedoresEstimativaLote?: { cnpj: string, subtotal: number, itens: Map<number, number> }[]) => {
     console.log(`🔄 Processando item ${item.numero_item}...`);
     const linha: any = {
       item: item.numero_item.toString(),
@@ -443,27 +520,52 @@ export async function gerarPlanilhaConsolidadaPDF(
       const criterioItem = calculosPorItem[item.numero_item] || 'menor';
       let valorEstimativa: number;
       
-      if (criterioItem === 'menor') {
-        if (criterioJulgamento === 'desconto') {
-          valorEstimativa = Math.max(...valoresItem);
-        } else {
-          valorEstimativa = Math.min(...valoresItem);
-        }
-      } else if (criterioItem === 'media') {
-        const valoresCotados = valoresItem.filter(v => v > 0);
-        valorEstimativa = valoresCotados.length > 0 
-          ? valoresCotados.reduce((a, b) => a + b, 0) / valoresCotados.length 
-          : 0;
-      } else {
-        const valoresCotados = valoresItem.filter(v => v > 0);
-        if (valoresCotados.length > 0) {
-          const sorted = [...valoresCotados].sort((a, b) => a - b);
-          const middle = Math.floor(sorted.length / 2);
-          valorEstimativa = sorted.length % 2 === 0 
-            ? (sorted[middle - 1] + sorted[middle]) / 2 
-            : sorted[middle];
+      // Se critério é por_lote E temos fornecedores pré-calculados, usar valores desses fornecedores
+      if (criterioJulgamento === 'por_lote' && fornecedoresEstimativaLote && fornecedoresEstimativaLote.length > 0) {
+        // Pegar os valores dos itens dos fornecedores que compõem a estimativa do lote
+        const valoresDosFornecedoresEstimativa = fornecedoresEstimativaLote
+          .map(f => f.itens.get(item.numero_item) || 0)
+          .filter(v => v > 0);
+        
+        if (valoresDosFornecedoresEstimativa.length > 0) {
+          if (criterioItem === 'menor') {
+            // Para "menor", usar o valor do fornecedor com menor subtotal do lote
+            valorEstimativa = valoresDosFornecedoresEstimativa[0];
+          } else if (criterioItem === 'mediana') {
+            // Para "mediana", se temos 2 fornecedores (par), fazer média dos valores
+            // Se temos 1 fornecedor (ímpar), usar o valor dele
+            valorEstimativa = valoresDosFornecedoresEstimativa.reduce((a, b) => a + b, 0) / valoresDosFornecedoresEstimativa.length;
+          } else {
+            // Para "média", fazer média de todos os fornecedores que cotaram o lote
+            valorEstimativa = valoresDosFornecedoresEstimativa.reduce((a, b) => a + b, 0) / valoresDosFornecedoresEstimativa.length;
+          }
         } else {
           valorEstimativa = 0;
+        }
+      } else {
+        // Lógica original para outros critérios (por_item, global, desconto)
+        if (criterioItem === 'menor') {
+          if (criterioJulgamento === 'desconto') {
+            valorEstimativa = Math.max(...valoresItem);
+          } else {
+            valorEstimativa = Math.min(...valoresItem);
+          }
+        } else if (criterioItem === 'media') {
+          const valoresCotados = valoresItem.filter(v => v > 0);
+          valorEstimativa = valoresCotados.length > 0 
+            ? valoresCotados.reduce((a, b) => a + b, 0) / valoresCotados.length 
+            : 0;
+        } else {
+          const valoresCotados = valoresItem.filter(v => v > 0);
+          if (valoresCotados.length > 0) {
+            const sorted = [...valoresCotados].sort((a, b) => a - b);
+            const middle = Math.floor(sorted.length / 2);
+            valorEstimativa = sorted.length % 2 === 0 
+              ? (sorted[middle - 1] + sorted[middle]) / 2 
+              : sorted[middle];
+          } else {
+            valorEstimativa = 0;
+          }
         }
       }
       
@@ -508,9 +610,22 @@ export async function gerarPlanilhaConsolidadaPDF(
       linhaHeaderLote.estimativa = '';
       linhas.push(linhaHeaderLote);
       
+      // Se critério é por_lote, obter fornecedores para estimativa do lote ANTES de processar itens
+      let fornecedoresEstimativaLote: { cnpj: string, subtotal: number, itens: Map<number, number> }[] | undefined;
+      if (criterioJulgamento === 'por_lote') {
+        // Usar o critério de cálculo definido para este lote (ou o primeiro item do lote)
+        const primeiroItem = loteData.itens[0];
+        const criterioCalculo = calculosPorItem[primeiroItem?.numero_item] || 'menor';
+        fornecedoresEstimativaLote = obterFornecedoresEstimativaLote(loteNum, criterioCalculo as 'menor' | 'media' | 'mediana');
+        
+        console.log(`📊 Lote ${loteNum}: critério=${criterioCalculo}, fornecedores para estimativa:`, 
+          fornecedoresEstimativaLote?.map(f => ({ cnpj: f.cnpj, subtotal: f.subtotal }))
+        );
+      }
+      
       // Processar itens do lote
       loteData.itens.sort((a, b) => a.numero_item - b.numero_item).forEach(item => {
-        linhas.push(processarItem(item));
+        linhas.push(processarItem(item, fornecedoresEstimativaLote));
       });
       
       // Adicionar linha de subtotal do lote (apenas se NÃO for critério de desconto)
