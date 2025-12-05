@@ -35,11 +35,13 @@ Deno.serve(async (req) => {
         { tabela: 'anexos_processo_compra', coluna: 'url_arquivo' },
         { tabela: 'analises_compliance', coluna: 'url_documento' },
         { tabela: 'planilhas_consolidadas', coluna: 'url_arquivo' },
+        { tabela: 'planilhas_habilitacao', coluna: 'url_arquivo' },
         { tabela: 'autorizacoes_processo', coluna: 'url_arquivo' },
         { tabela: 'relatorios_finais', coluna: 'url_arquivo' },
         { tabela: 'encaminhamentos_processo', coluna: 'url' },
         { tabela: 'emails_cotacao_anexados', coluna: 'url_arquivo' },
         { tabela: 'anexos_cotacao_fornecedor', coluna: 'url_arquivo' },
+        { tabela: 'cotacao_respostas_fornecedor', coluna: 'url_pdf_proposta' }, // ADICIONADO
         { tabela: 'recursos_fornecedor', coluna: 'url_arquivo' },
         { tabela: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
         { tabela: 'anexos_selecao', coluna: 'url_arquivo' },
@@ -51,6 +53,7 @@ Deno.serve(async (req) => {
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
         { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
         { tabela: 'respostas_recursos', coluna: 'url_documento' },
+        { tabela: 'documentos_antigos', coluna: 'url_arquivo' }, // ADICIONADO
         // REMOVIDOS: documentos_fornecedor e documentos_processo_finalizado
         // Estes NUNCA devem ser deletados automaticamente pela limpeza de órfãos
       ];
