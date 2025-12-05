@@ -527,20 +527,25 @@ export async function gerarPlanilhaConsolidadaPDF(
           .map(f => f.itens.get(item.numero_item) || 0)
           .filter(v => v > 0);
         
-        if (valoresDosFornecedoresEstimativa.length > 0) {
-          if (criterioItem === 'menor') {
-            // Para "menor", usar o valor do fornecedor com menor subtotal do lote
+        if (criterioItem === 'menor') {
+          // Para "menor", usar o valor do fornecedor com menor subtotal do lote
+          if (valoresDosFornecedoresEstimativa.length > 0) {
             valorEstimativa = valoresDosFornecedoresEstimativa[0];
-          } else if (criterioItem === 'mediana') {
-            // Para "mediana", se temos 2 fornecedores (par), fazer média dos valores
-            // Se temos 1 fornecedor (ímpar), usar o valor dele
+          } else {
+            valorEstimativa = 0;
+          }
+        } else if (criterioItem === 'mediana') {
+          // Para "mediana", se temos 2 fornecedores (par), fazer média dos valores deles
+          // Se temos 1 fornecedor (ímpar), usar o valor dele
+          if (valoresDosFornecedoresEstimativa.length > 0) {
             valorEstimativa = valoresDosFornecedoresEstimativa.reduce((a, b) => a + b, 0) / valoresDosFornecedoresEstimativa.length;
           } else {
-            // Para "média", fazer média de todos os fornecedores que cotaram o lote
-            valorEstimativa = valoresDosFornecedoresEstimativa.reduce((a, b) => a + b, 0) / valoresDosFornecedoresEstimativa.length;
+            valorEstimativa = 0;
           }
         } else {
-          valorEstimativa = 0;
+          // Para "média", usar TODOS os valores de TODOS os fornecedores que cotaram o item
+          // (não apenas os do lote), pois média item a item = média do subtotal
+          valorEstimativa = valoresItem.reduce((a, b) => a + b, 0) / valoresItem.length;
         }
       } else {
         // Lógica original para outros critérios (por_item, global, desconto)
