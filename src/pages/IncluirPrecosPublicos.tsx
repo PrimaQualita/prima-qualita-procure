@@ -662,28 +662,37 @@ const IncluirPrecosPublicos = () => {
       if (errorResposta) throw errorResposta;
 
       // Inserir itens da resposta ANTES de gerar o PDF
-      const itensResposta = itens.map((item) => {
-        const resposta = respostas[item.id];
-        
-        // Se critério for desconto, salvar percentual_desconto e 0 em valor_unitario
-        if (processoCompra?.criterio_julgamento === "desconto") {
+      // IMPORTANTE: Filtrar apenas itens que foram preenchidos (valor ou desconto > 0)
+      const itensResposta = itens
+        .filter((item) => {
+          const resposta = respostas[item.id];
+          if (processoCompra?.criterio_julgamento === "desconto" || processoCompra?.criterio_julgamento === "maior_percentual_desconto") {
+            return resposta && resposta.percentual_desconto && parseFloat(resposta.percentual_desconto.replace(/,/g, ".")) > 0;
+          }
+          return resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
+        })
+        .map((item) => {
+          const resposta = respostas[item.id];
+          
+          // Se critério for desconto, salvar percentual_desconto e 0 em valor_unitario
+          if (processoCompra?.criterio_julgamento === "desconto" || processoCompra?.criterio_julgamento === "maior_percentual_desconto") {
+            return {
+              cotacao_resposta_fornecedor_id: respostaCotacao.id,
+              item_cotacao_id: item.id,
+              valor_unitario_ofertado: 0, // Valor padrão quando é desconto
+              percentual_desconto: parseFloat(resposta.percentual_desconto.replace(/,/g, ".")),
+              marca: resposta.marca || null,
+            };
+          }
+          
+          // Senão, salvar valor_unitario normalmente
           return {
             cotacao_resposta_fornecedor_id: respostaCotacao.id,
             item_cotacao_id: item.id,
-            valor_unitario_ofertado: 0, // Valor padrão quando é desconto
-            percentual_desconto: parseFloat(resposta.percentual_desconto.replace(/,/g, ".")),
+            valor_unitario_ofertado: parseFloat(resposta.valor_unitario.replace(/,/g, ".")),
             marca: resposta.marca || null,
           };
-        }
-        
-        // Senão, salvar valor_unitario normalmente
-        return {
-          cotacao_resposta_fornecedor_id: respostaCotacao.id,
-          item_cotacao_id: item.id,
-          valor_unitario_ofertado: parseFloat(resposta.valor_unitario.replace(/,/g, ".")),
-          marca: resposta.marca || null,
-        };
-      });
+        });
 
       const { error: errorItens } = await supabase
         .from("respostas_itens_fornecedor")
