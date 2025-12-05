@@ -394,9 +394,9 @@ export async function gerarPropostaFornecedorPDF(
     // Bordas verticais internas do cabeçalho
     if (criterioJulgamento === 'desconto') {
       doc.line(30, y - 5, 30, y + 3);
-      doc.line(130, y - 5, 130, y + 3);
-      doc.line(155, y - 5, 155, y + 3);
-      doc.line(172, y - 5, 172, y + 3);
+      doc.line(122, y - 5, 122, y + 3);
+      doc.line(145, y - 5, 145, y + 3);
+      doc.line(162, y - 5, 162, y + 3);
     } else {
       doc.line(colDescX, y - 5, colDescX, y + 3);
       doc.line(colMarcaX, y - 5, colMarcaX, y + 3);
@@ -414,10 +414,10 @@ export async function gerarPropostaFornecedorPDF(
     if (criterioJulgamento === 'desconto') {
       // Critério DESCONTO: ITEM | DESCRICAO | QTD | UNID | DESCONTO
       doc.text('ITEM', 22.5, y, { maxWidth: 15, align: 'center' });
-      doc.text('DESCRICAO', 80, y, { maxWidth: 96, align: 'center' });
-      doc.text('QTD', 142.5, y, { maxWidth: 16, align: 'center' });
-      doc.text('UNID', 163.5, y, { maxWidth: 18, align: 'center' });
-      doc.text('DESCONTO (%)', 183.5, y, { maxWidth: 23, align: 'center' });
+      doc.text('DESCRICAO', 76, y, { maxWidth: 86, align: 'center' });
+      doc.text('QTD', 133.5, y, { maxWidth: 20, align: 'center' });
+      doc.text('UNID', 153.5, y, { maxWidth: 18, align: 'center' });
+      doc.text('DESCONTO (%)', 178.5, y, { maxWidth: 32, align: 'center' });
     } else {
       // Outros critérios: ITEM | DESCRICAO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
       const centerItemX = colItemX + 7.5;
@@ -504,7 +504,7 @@ export async function gerarPropostaFornecedorPDF(
       const descricaoSanitizada = sanitizarTexto(itemCotacao.descricao || '');
       
       // Quebrar descrição em múltiplas linhas - usar largura menor para evitar sobreposição
-      const maxWidthDesc = criterioJulgamento === 'desconto' ? 92 : 52;
+      const maxWidthDesc = criterioJulgamento === 'desconto' ? 86 : 52;
       const linhasDescricao = doc.splitTextToSize(descricaoSanitizada, maxWidthDesc);
       
       // Calcular altura baseada em TODAS as colunas (não só descrição)
@@ -540,9 +540,9 @@ export async function gerarPropostaFornecedorPDF(
         // Bordas verticais internas do cabeçalho
         if (criterioJulgamento === 'desconto') {
           doc.line(30, y - 5, 30, y + 3);
-          doc.line(130, y - 5, 130, y + 3);
-          doc.line(155, y - 5, 155, y + 3);
-          doc.line(172, y - 5, 172, y + 3);
+          doc.line(122, y - 5, 122, y + 3);
+          doc.line(145, y - 5, 145, y + 3);
+          doc.line(162, y - 5, 162, y + 3);
         } else {
           doc.line(colDescX, y - 5, colDescX, y + 3);
           doc.line(colMarcaX, y - 5, colMarcaX, y + 3);
@@ -558,10 +558,10 @@ export async function gerarPropostaFornecedorPDF(
         
         if (criterioJulgamento === 'desconto') {
           doc.text('ITEM', 22.5, y, { maxWidth: 15, align: 'center' });
-          doc.text('DESCRICAO', 80, y, { maxWidth: 96, align: 'center' });
-          doc.text('QTD', 142.5, y, { maxWidth: 16, align: 'center' });
-          doc.text('UNID', 163.5, y, { maxWidth: 18, align: 'center' });
-          doc.text('DESCONTO (%)', 183.5, y, { maxWidth: 23, align: 'center' });
+          doc.text('DESCRICAO', 76, y, { maxWidth: 86, align: 'center' });
+          doc.text('QTD', 133.5, y, { maxWidth: 20, align: 'center' });
+          doc.text('UNID', 153.5, y, { maxWidth: 18, align: 'center' });
+          doc.text('DESCONTO (%)', 178.5, y, { maxWidth: 32, align: 'center' });
         } else {
           const centerItemX = colItemX + 7.5;
           const centerDescX = colDescX + 29;
@@ -614,9 +614,9 @@ export async function gerarPropostaFornecedorPDF(
       
       if (criterioJulgamento === 'desconto') {
         doc.line(30, yTop, 30, yBottom);
-        doc.line(130, yTop, 130, yBottom);
-        doc.line(155, yTop, 155, yBottom);
-        doc.line(172, yTop, 172, yBottom);
+        doc.line(122, yTop, 122, yBottom);
+        doc.line(145, yTop, 145, yBottom);
+        doc.line(162, yTop, 162, yBottom);
       } else {
         doc.line(colDescX, yTop, colDescX, yBottom);
         doc.line(colMarcaX, yTop, colMarcaX, yBottom);
@@ -635,16 +635,16 @@ export async function gerarPropostaFornecedorPDF(
         const textHeight = linhasDescricao.length * itemLineHeight * 1.3; // 1.3 é o lineHeightFactor
         const yDescStart = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
         doc.text(descricaoSanitizada, 32, yDescStart, { 
-          maxWidth: 92, 
+          maxWidth: 86, 
           align: 'justify',
           lineHeightFactor: 1.3
         });
-        doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 142.5, yCenter, { align: 'center' });
-        doc.text(sanitizarTexto(itemCotacao.unidade || ''), 163.5, yCenter, { align: 'center' });
+        doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 133.5, yCenter, { align: 'center' });
+        doc.text(sanitizarTexto(itemCotacao.unidade || ''), 153.5, yCenter, { align: 'center' });
         const descontoFormatted = (valorUnitario && valorUnitario > 0)
           ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
           : '-';
-        doc.text(descontoFormatted, 183.5, yCenter, { align: 'center' });
+        doc.text(descontoFormatted, 178.5, yCenter, { align: 'center' });
       } else {
         // Calcular altura do texto para centralizar verticalmente
         const textHeight = linhasDescricao.length * itemLineHeight * 1.3; // 1.3 é o lineHeightFactor
