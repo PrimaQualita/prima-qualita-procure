@@ -2740,9 +2740,10 @@ export function DialogFinalizarProcesso({
 
     // Validar itens selecionados para critérios granulares
     const permiteParcial = criterioJulgamento !== 'global';
+    // CRÍTICO: Para critério por_lote, itens_afetados deve conter NÚMEROS DE LOTES, não números de itens
     const itensAfetados = permiteParcial 
       ? (criterioJulgamento === 'por_lote' || criterioJulgamento === 'lote'
-          ? itensCotacao.filter(i => lotesParaRejeitar.includes(i.lote_id)).map(i => i.numero_item)
+          ? lotesCotacao.filter(l => lotesParaRejeitar.includes(l.id)).map(l => l.numero_lote)
           : itensParaRejeitar)
       : [];
 
@@ -2766,7 +2767,12 @@ export function DialogFinalizarProcesso({
       if (rejeicaoError) throw rejeicaoError;
 
       // Marcar fornecedor como rejeitado (apenas se rejeição for total)
-      if (!permiteParcial || itensAfetados.length === 0 || itensAfetados.length === itensCotacao.length) {
+      // CRÍTICO: Para por_lote, verificar se todos os LOTES foram rejeitados, não todos os itens
+      const ehRejeicaoTotal = criterioJulgamento === 'por_lote' || criterioJulgamento === 'lote'
+        ? !permiteParcial || itensAfetados.length === 0 || itensAfetados.length === lotesCotacao.length
+        : !permiteParcial || itensAfetados.length === 0 || itensAfetados.length === itensCotacao.length;
+      
+      if (ehRejeicaoTotal) {
         const { error } = await supabase
           .from("cotacao_respostas_fornecedor")
           .update({
@@ -2779,9 +2785,14 @@ export function DialogFinalizarProcesso({
         if (error) throw error;
       }
 
-      const mensagemSucesso = itensAfetados.length > 0 && itensAfetados.length < itensCotacao.length
-        ? `Fornecedor ${fornData.fornecedor.razao_social} rejeitado nos itens: ${itensAfetados.join(', ')}`
-        : `Fornecedor ${fornData.fornecedor.razao_social} rejeitado`;
+      // CRÍTICO: Mensagem diferenciada para lotes vs itens
+      const mensagemSucesso = (criterioJulgamento === 'por_lote' || criterioJulgamento === 'lote')
+        ? (itensAfetados.length > 0 && itensAfetados.length < lotesCotacao.length
+            ? `Fornecedor ${fornData.fornecedor.razao_social} rejeitado nos lotes: ${itensAfetados.join(', ')}`
+            : `Fornecedor ${fornData.fornecedor.razao_social} rejeitado`)
+        : (itensAfetados.length > 0 && itensAfetados.length < itensCotacao.length
+            ? `Fornecedor ${fornData.fornecedor.razao_social} rejeitado nos itens: ${itensAfetados.join(', ')}`
+            : `Fornecedor ${fornData.fornecedor.razao_social} rejeitado`);
       
       toast.success(mensagemSucesso);
       setDialogRejeicaoOpen(false);
