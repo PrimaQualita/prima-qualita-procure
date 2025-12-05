@@ -2923,7 +2923,7 @@ export function DialogFinalizarProcesso({
                             </Badge>
                           )}
                         </div>
-                        <CardDescription>
+                        <div className="text-sm text-muted-foreground">
                           {fornData.itensVencedores && fornData.itensVencedores.length > 0 && (
                             <span className="text-sm font-medium">
                               {criterioJulgamento === 'por_lote' ? (
@@ -3022,7 +3022,7 @@ export function DialogFinalizarProcesso({
                               <strong>Motivo da rejeição:</strong> {fornData.motivoRejeicao}
                             </div>
                           )}
-                        </CardDescription>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {!fornData.rejeitado && (
