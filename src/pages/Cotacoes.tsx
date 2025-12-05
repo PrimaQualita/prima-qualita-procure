@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { stripHtml } from "@/lib/htmlUtils";
@@ -26,6 +26,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import DOMPurify from "dompurify";
 import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/gerarAutorizacaoPDF";
+
+// Cache global para evitar recarregamentos desnecessários
+let cachedContratos: Contrato[] | null = null;
+let cachedUserData: { isResponsavelLegal: boolean; nome: string; cpf: string } | null = null;
+let contratosLoaded = false;
+let userDataLoaded = false;
 
 interface Contrato {
   id: string;
@@ -75,11 +81,14 @@ interface ItemCotacao {
 const Cotacoes = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [loading, setLoading] = useState(true);
+  const initRef = useRef(false);
+  
+  // Começa como false se já temos cache
+  const [loading, setLoading] = useState(!contratosLoaded);
   const [loadingProcessos, setLoadingProcessos] = useState(false);
   const [loadingCotacoes, setLoadingCotacoes] = useState(false);
   const [loadingItens, setLoadingItens] = useState(false);
-  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [contratos, setContratos] = useState<Contrato[]>(cachedContratos || []);
   const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
@@ -115,9 +124,9 @@ const Cotacoes = () => {
   const [autorizacaoSelecaoAnexada, setAutorizacaoSelecaoAnexada] = useState<File | null>(null);
   const [emailsFornecedoresAnexados, setEmailsFornecedoresAnexados] = useState<File[]>([]);
   const [uploadingAutorizacao, setUploadingAutorizacao] = useState(false);
-  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
-  const [usuarioNome, setUsuarioNome] = useState('');
-  const [usuarioCpf, setUsuarioCpf] = useState('');
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(cachedUserData?.isResponsavelLegal || false);
+  const [usuarioNome, setUsuarioNome] = useState(cachedUserData?.nome || '');
+  const [usuarioCpf, setUsuarioCpf] = useState(cachedUserData?.cpf || '');
   const [autorizacaoSelecaoUrl, setAutorizacaoSelecaoUrl] = useState('');
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState('');
   const [autorizacaoSelecaoId, setAutorizacaoSelecaoId] = useState('');
@@ -130,94 +139,93 @@ const Cotacoes = () => {
   });
 
   useEffect(() => {
+    // Evita execução dupla
+    if (initRef.current) return;
+    initRef.current = true;
+
     const init = async () => {
-      await checkAuth();
-      await loadContratos();
+      // Usar cache se disponível, caso contrário carregar
+      if (!userDataLoaded) {
+        await checkAuth();
+      }
+      
+      if (!contratosLoaded) {
+        await loadContratos();
+      }
+      
       setLoading(false);
       
       // Verificar se há parâmetro para abrir o dialog de finalização
       const openFinalizarId = searchParams.get('openFinalizar');
       if (openFinalizarId) {
-        // Carregar a cotação e abrir o dialog
         await loadCotacaoByIdAndOpenDialog(openFinalizarId);
-        // Remover o parâmetro da URL
-        setSearchParams({});
+        setSearchParams({}, { replace: true });
+        return;
       }
 
       // Verificar se há parâmetro para abrir o dialog de autorização de seleção
       const openFinalizarSelecaoId = searchParams.get('openFinalizarSelecao');
       if (openFinalizarSelecaoId) {
-        // Carregar a cotação e abrir o dialog de finalização
         await loadCotacaoByIdAndOpenDialog(openFinalizarSelecaoId);
-        // Remover o parâmetro da URL
-        setSearchParams({});
+        setSearchParams({}, { replace: true });
+        return;
       }
       
-      // Verificar se há parâmetros para restaurar o estado da navegação
+      // Verificar se há parâmetros para restaurar o estado da navegação (voltando de outra página)
       const contratoId = searchParams.get('contrato');
       const processoId = searchParams.get('processo');
       const cotacaoId = searchParams.get('cotacao');
       
       if (contratoId && processoId && cotacaoId) {
-        // Buscar e restaurar o contrato
-        const { data: contratoData } = await supabase
-          .from("contratos_gestao")
-          .select("*")
-          .eq("id", contratoId)
-          .single();
+        // Limpar parâmetros imediatamente para evitar loop
+        setSearchParams({}, { replace: true });
         
-        if (contratoData) {
+        // Buscar dados em paralelo para performance
+        const [contratoResult, processoResult, cotacaoResult] = await Promise.all([
+          supabase.from("contratos_gestao").select("*").eq("id", contratoId).single(),
+          supabase.from("processos_compras").select("*").eq("id", processoId).single(),
+          supabase.from("cotacoes_precos").select("*").eq("id", cotacaoId).single()
+        ]);
+        
+        if (contratoResult.data) {
+          const contratoData = contratoResult.data;
           setContratoSelecionado({
             id: contratoData.id,
             nome_contrato: contratoData.nome_contrato,
             ente_federativo: contratoData.ente_federativo,
             status: contratoData.status
           });
-          
-          // Buscar e restaurar o processo
-          const { data: processoData } = await supabase
-            .from("processos_compras")
-            .select("*")
-            .eq("id", processoId)
-            .single();
-          
-          if (processoData) {
-            setProcessoSelecionado({
-              id: processoData.id,
-              numero_processo_interno: processoData.numero_processo_interno,
-              objeto_resumido: processoData.objeto_resumido,
-              valor_estimado_anual: processoData.valor_estimado_anual,
-              requer_cotacao: processoData.requer_cotacao,
-              requer_selecao: processoData.requer_selecao,
-              tipo: processoData.tipo,
-              criterio_julgamento: processoData.criterio_julgamento
-            });
-            
-            // Buscar e restaurar a cotação
-            const { data: cotacaoData } = await supabase
-              .from("cotacoes_precos")
-              .select("*")
-              .eq("id", cotacaoId)
-              .single();
-            
-            if (cotacaoData) {
-              setCotacaoSelecionada({
-                id: cotacaoData.id,
-                processo_compra_id: cotacaoData.processo_compra_id,
-                titulo_cotacao: cotacaoData.titulo_cotacao,
-                descricao_cotacao: cotacaoData.descricao_cotacao,
-                data_limite_resposta: cotacaoData.data_limite_resposta,
-                status_cotacao: cotacaoData.status_cotacao,
-                criterio_julgamento: cotacaoData.criterio_julgamento as "global" | "por_item" | "por_lote"
-              });
-            }
-          }
         }
         
-        // Remover os parâmetros da URL
-        setSearchParams({});
+        if (processoResult.data) {
+          const processoData = processoResult.data;
+          setProcessoSelecionado({
+            id: processoData.id,
+            numero_processo_interno: processoData.numero_processo_interno,
+            objeto_resumido: processoData.objeto_resumido,
+            valor_estimado_anual: processoData.valor_estimado_anual,
+            requer_cotacao: processoData.requer_cotacao,
+            requer_selecao: processoData.requer_selecao,
+            tipo: processoData.tipo,
+            criterio_julgamento: processoData.criterio_julgamento
+          });
+        }
+        
+        if (cotacaoResult.data) {
+          const cotacaoData = cotacaoResult.data;
+          setCotacaoSelecionada({
+            id: cotacaoData.id,
+            processo_compra_id: cotacaoData.processo_compra_id,
+            titulo_cotacao: cotacaoData.titulo_cotacao,
+            descricao_cotacao: cotacaoData.descricao_cotacao,
+            data_limite_resposta: cotacaoData.data_limite_resposta,
+            status_cotacao: cotacaoData.status_cotacao,
+            criterio_julgamento: cotacaoData.criterio_julgamento as "global" | "por_item" | "por_lote" | "desconto"
+          });
+        }
       }
     };
+    
     init();
   }, []);
 
@@ -300,6 +308,14 @@ const Cotacoes = () => {
   };
 
   const checkAuth = async () => {
+    // Usar cache se disponível
+    if (userDataLoaded && cachedUserData) {
+      setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
+      setUsuarioNome(cachedUserData.nome);
+      setUsuarioCpf(cachedUserData.cpf);
+      return;
+    }
+    
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       navigate("/auth");
@@ -313,12 +329,28 @@ const Cotacoes = () => {
       .eq("id", session.user.id)
       .single();
     
-    setIsResponsavelLegal(profile?.responsavel_legal || false);
-    setUsuarioNome(profile?.nome_completo || '');
-    setUsuarioCpf(profile?.cpf || '');
+    const userData = {
+      isResponsavelLegal: profile?.responsavel_legal || false,
+      nome: profile?.nome_completo || '',
+      cpf: profile?.cpf || ''
+    };
+    
+    // Salvar no cache
+    cachedUserData = userData;
+    userDataLoaded = true;
+    
+    setIsResponsavelLegal(userData.isResponsavelLegal);
+    setUsuarioNome(userData.nome);
+    setUsuarioCpf(userData.cpf);
   };
 
   const loadContratos = async () => {
+    // Usar cache se disponível
+    if (contratosLoaded && cachedContratos) {
+      setContratos(cachedContratos);
+      return;
+    }
+    
     const { data, error } = await supabase
       .from("contratos_gestao")
       .select("*")
@@ -328,7 +360,10 @@ const Cotacoes = () => {
       toast.error("Erro ao carregar contratos");
       console.error(error);
     } else {
-      setContratos(data || []);
+      // Salvar no cache
+      cachedContratos = data || [];
+      contratosLoaded = true;
+      setContratos(cachedContratos);
     }
   };
 
