@@ -325,13 +325,25 @@ export async function gerarPlanilhaConsolidadaPDF(
   const numColunasDinamicas = respostas.length + 1; // +1 para estimativa
   const larguraPorColuna = larguraDisponivel / numColunasDinamicas;
 
+  // Função para identificar preço público - pelo email (novo) ou CNPJ sequencial (antigo)
+  const ehPrecoPublico = (cnpj: string, email?: string) => {
+    if (email && email.includes('precos.publicos')) return true;
+    if (!cnpj) return false;
+    const primeiroDigito = cnpj.charAt(0);
+    return cnpj.split('').every(d => d === primeiroDigito);
+  };
+
   // Adicionar colunas de fornecedores
   respostas.forEach((resposta) => {
     const razaoSocial = resposta.fornecedor.razao_social.toUpperCase();
     const cnpjFormatado = formatarCNPJ(resposta.fornecedor.cnpj);
     const email = resposta.fornecedor.email || '';
     
-    const headerText = `${razaoSocial}\nCNPJ: ${cnpjFormatado}\n${email}`;
+    // Se for preço público, mostrar apenas a razão social (fonte) sem CNPJ/email
+    const isPrecosPublicos = ehPrecoPublico(resposta.fornecedor.cnpj, email);
+    const headerText = isPrecosPublicos 
+      ? `${razaoSocial}\n(Preço Público)` 
+      : `${razaoSocial}\nCNPJ: ${cnpjFormatado}\n${email}`;
     
     colunas.push({
       header: headerText,
