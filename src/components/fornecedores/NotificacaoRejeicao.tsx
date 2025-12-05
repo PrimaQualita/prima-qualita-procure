@@ -331,7 +331,28 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
                   >
                     Sim, desejo recorrer
                   </Button>
-                  <Button variant="ghost" onClick={() => {}}>
+                  <Button 
+                    variant="ghost" 
+                    onClick={async () => {
+                      setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: true }));
+                      // Atualizar status no banco para 'declinou_recurso'
+                      try {
+                        await supabase
+                          .from('fornecedores_rejeitados_cotacao')
+                          .update({ status_recurso: 'declinou_recurso' })
+                          .eq('id', rejeicao.id);
+                        toast.success('Opção registrada. Você optou por não recorrer.');
+                        await loadRejeicoes();
+                        if (onRecursoEnviado) {
+                          onRecursoEnviado();
+                        }
+                      } catch (error) {
+                        console.error('Erro ao registrar decisão:', error);
+                        toast.error('Erro ao registrar decisão');
+                        setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: false }));
+                      }
+                    }}
+                  >
                     Não
                   </Button>
                 </div>
