@@ -151,15 +151,18 @@ export async function identificarVencedoresPorCriterio(
   console.log(`  → Fornecedores com rejeição por item: ${itensRejeitadosPorFornecedor.size}`);
   console.log(`  → Fornecedores com rejeição revertida: ${fornecedoresRevertidos.size}`);
 
-  // CRÍTICO: Identificar preços públicos - pelo email (novo) ou CNPJ sequencial (antigo)
+  // CRÍTICO: Identificar preços públicos - pelo email (novo) ou padrões de CNPJ artificial
   const ehPrecoPublico = (cnpj: string, email?: string) => {
-    // Novo método: verificar pelo email (timestamp-based)
     if (email && email.includes('precos.publicos')) return true;
-    
-    // Método antigo: CNPJ sequencial (para compatibilidade)
     if (!cnpj) return false;
     const primeiroDigito = cnpj.charAt(0);
-    return cnpj.split('').every(d => d === primeiroDigito);
+    if (cnpj.split('').every(d => d === primeiroDigito)) return true;
+    if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
+    if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
+      const num = parseInt(cnpj, 10);
+      if (num > 10000000000000) return true;
+    }
+    return false;
   };
 
   // Separar fornecedores válidos (não rejeitados globalmente, não preço público, não reprovado compliance)
@@ -450,15 +453,18 @@ export async function carregarItensVencedoresPorFornecedor(
 
   const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
 
-  // CRÍTICO: Identificar preços públicos - pelo email (novo) ou CNPJ sequencial (antigo)
+  // CRÍTICO: Identificar preços públicos - pelo email (novo) ou padrões de CNPJ artificial
   const ehPrecoPublico = (cnpj: string, email?: string) => {
-    // Novo método: verificar pelo email (timestamp-based)
     if (email && email.includes('precos.publicos')) return true;
-    
-    // Método antigo: CNPJ sequencial (para compatibilidade)
     if (!cnpj) return false;
     const primeiroDigito = cnpj.charAt(0);
-    return cnpj.split('').every(d => d === primeiroDigito);
+    if (cnpj.split('').every(d => d === primeiroDigito)) return true;
+    if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
+    if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
+      const num = parseInt(cnpj, 10);
+      if (num > 10000000000000) return true;
+    }
+    return false;
   };
 
   // Fornecedores válidos (não rejeitados globalmente, não reprovado compliance)
