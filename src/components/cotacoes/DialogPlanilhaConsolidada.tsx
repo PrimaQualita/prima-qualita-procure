@@ -418,23 +418,33 @@ export function DialogPlanilhaConsolidada({
       // Gerar PDF usando jsPDF + autoTable (alta resolução)
       // Montar mapeamento de critérios por item
       console.log('📋 calculosPorItem ORIGINAL:', calculosPorItem);
-      console.log('📋 Todas as chaves:', Object.keys(calculosPorItem));
+      console.log('📋 calculosPorLote ORIGINAL:', calculosPorLote);
+      console.log('📋 Todas as chaves calculosPorItem:', Object.keys(calculosPorItem));
+      console.log('📋 Todas as chaves calculosPorLote:', Object.keys(calculosPorLote));
       console.log('📋 todosItens:', todosItens.map(i => ({ id: i.id, numero_item: i.numero_item, lote_id: i.lote_id })));
       
       const criteriosPorItemNumero: Record<number, 'menor' | 'media' | 'mediana'> = {};
       
-      // Converter o mapeamento usando a mesma lógica que cria as chaves
+      // Se critério é por_lote, usar calculosPorLote; senão usar calculosPorItem
       todosItens.forEach((item: any) => {
-        const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
-        const criterio = calculosPorItem[chave];
+        let criterio: 'menor' | 'media' | 'mediana' | undefined;
         
-        console.log(`   Item ${item.numero_item}: chave="${chave}", critério encontrado="${criterio}"`);
+        if (criterioJulgamento === 'por_lote' && item.lote_id) {
+          // Para critério por_lote, buscar pelo lote_id em calculosPorLote
+          criterio = calculosPorLote[item.lote_id];
+          console.log(`   Item ${item.numero_item} (Lote ${item.numero_lote}): lote_id="${item.lote_id}", critério do lote="${criterio}"`);
+        } else {
+          // Para outros critérios, buscar pela chave composta em calculosPorItem
+          const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
+          criterio = calculosPorItem[chave];
+          console.log(`   Item ${item.numero_item}: chave="${chave}", critério encontrado="${criterio}"`);
+        }
         
         if (criterio) {
           criteriosPorItemNumero[item.numero_item] = criterio;
           console.log(`   ✅ Mapeado: Item ${item.numero_item} = ${criterio}`);
         } else {
-          console.log(`   ⚠️ Nenhum critério encontrado para chave: ${chave}, usando 'menor' como padrão`);
+          console.log(`   ⚠️ Nenhum critério encontrado, usando 'menor' como padrão`);
           criteriosPorItemNumero[item.numero_item] = 'menor';
         }
       });
