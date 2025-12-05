@@ -31,6 +31,9 @@ Deno.serve(async (req) => {
       // CRÍTICO: NÃO incluir documentos_fornecedor nem documentos_processo_finalizado
       // pois são documentos de cadastro que só devem ser deletados quando atualizados pelo fornecedor
       // e snapshots de processo que nunca devem ser deletados automaticamente
+      // CRÍTICO: Esta lista contém APENAS tabelas que são EXCLUSIVAMENTE para referências de arquivo.
+      // NUNCA incluir tabelas de dados de negócio como cotacao_respostas_fornecedor ou selecao_propostas_fornecedor
+      // pois deletar dessas tabelas apaga os dados da proposta inteira, não apenas o arquivo!
       const queries = [
         { tabela: 'anexos_processo_compra', coluna: 'url_arquivo' },
         { tabela: 'analises_compliance', coluna: 'url_documento' },
@@ -41,7 +44,6 @@ Deno.serve(async (req) => {
         { tabela: 'encaminhamentos_processo', coluna: 'url' },
         { tabela: 'emails_cotacao_anexados', coluna: 'url_arquivo' },
         { tabela: 'anexos_cotacao_fornecedor', coluna: 'url_arquivo' },
-        { tabela: 'cotacao_respostas_fornecedor', coluna: 'url_pdf_proposta' }, // ADICIONADO
         { tabela: 'recursos_fornecedor', coluna: 'url_arquivo' },
         { tabela: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
         { tabela: 'anexos_selecao', coluna: 'url_arquivo' },
@@ -51,11 +53,13 @@ Deno.serve(async (req) => {
         { tabela: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
-        { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta' },
         { tabela: 'respostas_recursos', coluna: 'url_documento' },
-        { tabela: 'documentos_antigos', coluna: 'url_arquivo' }, // ADICIONADO
-        // REMOVIDOS: documentos_fornecedor e documentos_processo_finalizado
-        // Estes NUNCA devem ser deletados automaticamente pela limpeza de órfãos
+        // REMOVIDOS (TABELAS DE DADOS DE NEGÓCIO - NUNCA DELETAR):
+        // - cotacao_respostas_fornecedor (propostas de cotação)
+        // - selecao_propostas_fornecedor (propostas de seleção)
+        // - documentos_fornecedor (cadastro de fornecedor)
+        // - documentos_processo_finalizado (snapshots)
+        // - documentos_antigos (histórico de certidões)
       ];
 
       for (let i = 0; i < limite; i++) {
