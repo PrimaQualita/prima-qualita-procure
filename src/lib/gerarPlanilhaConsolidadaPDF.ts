@@ -523,29 +523,34 @@ export async function gerarPlanilhaConsolidadaPDF(
       // Se critério é por_lote E temos fornecedores pré-calculados, usar valores desses fornecedores
       if (criterioJulgamento === 'por_lote' && fornecedoresEstimativaLote && fornecedoresEstimativaLote.length > 0) {
         // Pegar os valores dos itens dos fornecedores que compõem a estimativa do lote
+        // IMPORTANTE: Incluir valores 0 para manter consistência de denominador para média
         const valoresDosFornecedoresEstimativa = fornecedoresEstimativaLote
-          .map(f => f.itens.get(item.numero_item) || 0)
-          .filter(v => v > 0);
+          .map(f => f.itens.get(item.numero_item) || 0);
+        
+        // Para MENOR, precisamos apenas dos valores > 0 do fornecedor vencedor
+        const valoresPositivos = valoresDosFornecedoresEstimativa.filter(v => v > 0);
         
         if (criterioItem === 'menor') {
           // Para "menor", usar o valor do fornecedor com menor subtotal do lote
-          if (valoresDosFornecedoresEstimativa.length > 0) {
-            valorEstimativa = valoresDosFornecedoresEstimativa[0];
-          } else {
-            valorEstimativa = 0;
-          }
+          // fornecedoresEstimativaLote[0] é o fornecedor com menor subtotal
+          valorEstimativa = valoresPositivos.length > 0 ? valoresPositivos[0] : 0;
         } else if (criterioItem === 'mediana') {
-          // Para "mediana", se temos 2 fornecedores (par), fazer média dos valores deles
-          // Se temos 1 fornecedor (ímpar), usar o valor dele
-          if (valoresDosFornecedoresEstimativa.length > 0) {
-            valorEstimativa = valoresDosFornecedoresEstimativa.reduce((a, b) => a + b, 0) / valoresDosFornecedoresEstimativa.length;
+          // MEDIANA: Exclui maior e menor subtotal, faz média dos fornecedores do MEIO
+          // fornecedoresEstimativaLote já contém os fornecedores do meio (excluindo maior e menor)
+          // Fazer média dos valores dos itens desses fornecedores
+          if (valoresPositivos.length > 0) {
+            valorEstimativa = valoresPositivos.reduce((a, b) => a + b, 0) / valoresPositivos.length;
           } else {
             valorEstimativa = 0;
           }
         } else {
-          // Para "média", usar TODOS os valores de TODOS os fornecedores que cotaram o item
-          // (não apenas os do lote), pois média item a item = média do subtotal
-          valorEstimativa = valoresItem.reduce((a, b) => a + b, 0) / valoresItem.length;
+          // MÉDIA: Usar todos os fornecedores que cotaram o lote
+          // Dividir pelo número total de fornecedores do lote para manter consistência
+          // (média item a item deve bater com média dos subtotais)
+          const somaValores = valoresDosFornecedoresEstimativa.reduce((a, b) => a + b, 0);
+          valorEstimativa = fornecedoresEstimativaLote.length > 0 
+            ? somaValores / fornecedoresEstimativaLote.length 
+            : 0;
         }
       } else {
         // Lógica original para outros critérios (por_item, global, desconto)
