@@ -7,6 +7,12 @@ const corsHeaders = {
 
 function extractPath(url: string | null, bucket: string = 'processo-anexos'): string | null {
   if (!url) return null;
+  
+  // Se a URL já é um caminho relativo (não contém http), retorna direto
+  if (!url.startsWith('http')) {
+    return url.split('?')[0];
+  }
+  
   const marker = `${bucket}/`;
   if (url.includes(marker)) {
     return url.split(marker)[1]?.split('?')[0] || null;
@@ -38,6 +44,16 @@ Deno.serve(async (req) => {
 
     const arquivosProcessoAnexos: string[] = [];
     const arquivosDocuments: string[] = [];
+
+    // 0. Buscar número do processo para deletar arquivos na pasta processos/
+    const { data: processoData } = await supabase
+      .from('processos_compras')
+      .select('numero_processo_interno')
+      .eq('id', processoId)
+      .single();
+
+    const numeroProcesso = processoData?.numero_processo_interno;
+    console.log(`📋 Número do processo: ${numeroProcesso}`);
 
     // 1. Buscar anexos do processo
     const { data: anexosProcesso } = await supabase
@@ -136,8 +152,11 @@ Deno.serve(async (req) => {
         .in('cotacao_id', cotacaoIds);
 
       if (analises) {
+        console.log(`📊 Análises de compliance encontradas: ${analises.length}`);
         analises.forEach(a => {
+          console.log(`   URL análise: ${a.url_documento}`);
           const path = extractPath(a.url_documento, 'processo-anexos');
+          console.log(`   Path extraído: ${path}`);
           if (path) arquivosProcessoAnexos.push(path);
         });
       }
@@ -389,12 +408,53 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 4. Buscar arquivos do processo completo na pasta processos/ do bucket documents
+    if (numeroProcesso) {
+      console.log(`🔍 Buscando arquivos do processo completo na pasta processos/...`);
+      
+      // Normalizar número do processo para buscar arquivos (substitui / por -)
+      const numeroProcessoNormalizado = numeroProcesso.replace(/\//g, '-');
+      
+      // Listar arquivos na pasta processos/ que correspondem ao processo
+      const { data: arquivosProcessos, error: listError } = await supabase.storage
+        .from('documents')
+        .list('processos', {
+          limit: 1000,
+          search: numeroProcessoNormalizado
+        });
+
+      if (listError) {
+        console.error(`❌ Erro ao listar arquivos em processos/:`, listError);
+      } else if (arquivosProcessos && arquivosProcessos.length > 0) {
+        console.log(`📁 Arquivos encontrados em processos/: ${arquivosProcessos.length}`);
+        arquivosProcessos.forEach(arquivo => {
+          // Verificar se o arquivo corresponde ao processo específico
+          if (arquivo.name.includes(numeroProcessoNormalizado)) {
+            console.log(`   ✓ Arquivo do processo: ${arquivo.name}`);
+            arquivosDocuments.push(`processos/${arquivo.name}`);
+          }
+        });
+      } else {
+        console.log(`📁 Nenhum arquivo encontrado em processos/ para ${numeroProcessoNormalizado}`);
+      }
+    }
+
     // Remover duplicatas
     const arquivosUnicosProcesso = [...new Set(arquivosProcessoAnexos)];
     const arquivosUnicosDocuments = [...new Set(arquivosDocuments)];
 
     console.log(`📦 Total de arquivos processo-anexos: ${arquivosUnicosProcesso.length}`);
     console.log(`📦 Total de arquivos documents: ${arquivosUnicosDocuments.length}`);
+
+    // Log detalhado dos arquivos a serem deletados
+    if (arquivosUnicosProcesso.length > 0) {
+      console.log(`📋 Arquivos processo-anexos a deletar:`);
+      arquivosUnicosProcesso.forEach(a => console.log(`   - ${a}`));
+    }
+    if (arquivosUnicosDocuments.length > 0) {
+      console.log(`📋 Arquivos documents a deletar:`);
+      arquivosUnicosDocuments.forEach(a => console.log(`   - ${a}`));
+    }
 
     let deletados = 0;
     const batchSize = 100;
