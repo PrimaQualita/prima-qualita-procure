@@ -4730,9 +4730,9 @@ export function DialogFinalizarProcesso({
                     }
                     console.log('📋 Dados da rejeição:', rejeicaoData);
 
-                    // PASSO 1: Atualizar resposta do fornecedor para NÃO rejeitado (COM SELECT)
+                    // PASSO 1: Atualizar resposta do fornecedor para NÃO rejeitado (SEM .single() pois pode não existir)
                     console.log('🔄 ATUALIZANDO cotacao_respostas_fornecedor...');
-                    const { data: respostaAtualizada, error: respostaError } = await supabase
+                    const { data: respostasAtualizadas, error: respostaError } = await supabase
                       .from('cotacao_respostas_fornecedor')
                       .update({
                         rejeitado: false,
@@ -4741,15 +4741,19 @@ export function DialogFinalizarProcesso({
                       })
                       .eq('fornecedor_id', rejeicaoData.fornecedor_id)
                       .eq('cotacao_id', rejeicaoData.cotacao_id)
-                      .select('id, fornecedor_id, rejeitado')
-                      .single();
+                      .select('id, fornecedor_id, rejeitado');
 
                     if (respostaError) {
                       console.error('❌ ERRO CRÍTICO ao atualizar resposta:', respostaError);
                       throw respostaError;
                     }
-                    console.log('✅ RESPOSTA ATUALIZADA:', respostaAtualizada);
-                    console.log('✅ Campo rejeitado agora é:', respostaAtualizada?.rejeitado);
+                    
+                    if (respostasAtualizadas && respostasAtualizadas.length > 0) {
+                      console.log('✅ RESPOSTA ATUALIZADA:', respostasAtualizadas[0]);
+                      console.log('✅ Campo rejeitado agora é:', respostasAtualizadas[0]?.rejeitado);
+                    } else {
+                      console.log('⚠️ Nenhuma resposta de cotação encontrada para atualizar (pode ser rejeição apenas por documentação)');
+                    }
 
                     // PASSO 2: Marcar rejeição como revertida
                     console.log('🔄 Marcando rejeição como revertida...');
