@@ -481,14 +481,28 @@ Deno.serve(async (req) => {
     }>();
     if (docsHabilitacaoData) {
       for (const doc of docsHabilitacaoData) {
-        const path = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
+        const rawPath = doc.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || doc.url_arquivo;
         const campos = (doc as any).campos_documentos_finalizacao;
-        docsHabilitacaoMap.set(path, {
+        const docData = {
           fornecedorId: doc.fornecedor_id,
           nomeArquivo: doc.nome_arquivo,
           selecaoId: campos?.selecao_id || null,
           cotacaoId: campos?.cotacao_id || null
-        });
+        };
+        
+        // Adicionar path original
+        docsHabilitacaoMap.set(rawPath, docData);
+        
+        // CRÍTICO: Também adicionar versão decodificada para comparação com storage
+        try {
+          const decodedPath = decodeURIComponent(rawPath);
+          if (decodedPath !== rawPath) {
+            docsHabilitacaoMap.set(decodedPath, docData);
+            console.log(`📁 Habilitação: "${rawPath}" -> decoded: "${decodedPath}"`);
+          }
+        } catch (e) {
+          // Ignorar erro de decodificação
+        }
       }
     }
     console.log(`📋 Documentos de habilitação mapeados: ${docsHabilitacaoMap.size}`);
