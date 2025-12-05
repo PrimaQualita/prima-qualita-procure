@@ -1,5 +1,5 @@
 // @ts-nocheck - Propriedades do usuário podem não existir no schema atual
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -26,33 +26,52 @@ const getPageTitle = (pathname: string) => {
   return routes[pathname] || "Sistema de Compras";
 };
 
+// Cache do perfil para evitar flash de loading entre páginas
+let cachedProfile: any = null;
+let cachedIsGestor: boolean = false;
+let cachedIsCompliance: boolean = false;
+let cachedIsResponsavelLegal: boolean = false;
+let initialLoadDone: boolean = false;
+
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [isGestor, setIsGestor] = useState(false);
-  const [isCompliance, setIsCompliance] = useState(false);
-  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(cachedProfile);
+  const [isGestor, setIsGestor] = useState(cachedIsGestor);
+  const [isCompliance, setIsCompliance] = useState(cachedIsCompliance);
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(cachedIsResponsavelLegal);
+  const [loading, setLoading] = useState(!initialLoadDone);
+  const profileLoadedRef = useRef(false);
 
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (event === 'SIGNED_OUT') {
+        // Limpa cache no logout
+        cachedProfile = null;
+        cachedIsGestor = false;
+        cachedIsCompliance = false;
+        cachedIsResponsavelLegal = false;
+        initialLoadDone = false;
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (!session?.user) {
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (user) {
+    if (user && !profileLoadedRef.current) {
       loadUserProfile();
     } else if (user === null && !loading) {
       navigate("/auth");
@@ -60,7 +79,8 @@ export function DashboardLayout() {
   }, [user, loading]);
 
   const loadUserProfile = async () => {
-    if (!user) return;
+    if (!user || profileLoadedRef.current) return;
+    profileLoadedRef.current = true;
 
     try {
       const { data: fornecedorData } = await supabase
@@ -91,9 +111,14 @@ export function DashboardLayout() {
         return;
       }
 
+      // Atualiza cache
+      cachedProfile = profileData;
+      cachedIsCompliance = profileData?.compliance || false;
+      cachedIsResponsavelLegal = profileData?.responsavel_legal || false;
+      
       setProfile(profileData);
-      setIsCompliance(profileData?.compliance || false);
-      setIsResponsavelLegal(profileData?.responsavel_legal || false);
+      setIsCompliance(cachedIsCompliance);
+      setIsResponsavelLegal(cachedIsResponsavelLegal);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
@@ -108,7 +133,10 @@ export function DashboardLayout() {
         .maybeSingle();
 
       if (roleError && roleError.code !== "PGRST116") throw roleError;
-      setIsGestor(!!roleData);
+      
+      cachedIsGestor = !!roleData;
+      setIsGestor(cachedIsGestor);
+      initialLoadDone = true;
     } catch (error: any) {
       toast({
         title: "Erro ao carregar perfil",
@@ -139,7 +167,8 @@ export function DashboardLayout() {
     }
   };
 
-  if (loading) {
+  // Mostra loading apenas na primeira vez, usa cache depois
+  if (loading && !cachedProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Carregando...</p>
