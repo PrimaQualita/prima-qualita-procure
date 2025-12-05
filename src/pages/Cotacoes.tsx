@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { stripHtml } from "@/lib/htmlUtils";
@@ -81,7 +81,6 @@ interface ItemCotacao {
 const Cotacoes = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initRef = useRef(false);
   
   // Começa como false se já temos cache
   const [loading, setLoading] = useState(!contratosLoaded);
@@ -139,17 +138,19 @@ const Cotacoes = () => {
   });
 
   useEffect(() => {
-    // Evita execução dupla
-    if (initRef.current) return;
-    initRef.current = true;
-
     const init = async () => {
-      // Usar cache se disponível, caso contrário carregar
-      if (!userDataLoaded) {
+      // Usar cache se disponível
+      if (userDataLoaded && cachedUserData) {
+        setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
+        setUsuarioNome(cachedUserData.nome);
+        setUsuarioCpf(cachedUserData.cpf);
+      } else {
         await checkAuth();
       }
       
-      if (!contratosLoaded) {
+      if (contratosLoaded && cachedContratos && cachedContratos.length > 0) {
+        setContratos(cachedContratos);
+      } else {
         await loadContratos();
       }
       
