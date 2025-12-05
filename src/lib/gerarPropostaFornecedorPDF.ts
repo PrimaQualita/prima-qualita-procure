@@ -270,26 +270,12 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
     
-    // Função para identificar preço público - pelo email (novo) ou padrões de CNPJ artificial
-    const ehPrecoPublico = (cnpj: string, email?: string) => {
-      if (email && email.includes('precos.publicos')) return true;
-      if (!cnpj) return false;
-      // Verificar padrões de CNPJ artificial:
-      // 1. Todos os dígitos iguais (111...1, 222...2, etc)
-      const primeiroDigito = cnpj.charAt(0);
-      if (cnpj.split('').every(d => d === primeiroDigito)) return true;
-      // 2. Padrão "10" repetido (1010101010...)
-      if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
-      // 3. CNPJs baseados em timestamp (números sequenciais recentes)
-      if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
-        const num = parseInt(cnpj, 10);
-        // Timestamps recentes (após 2020) convertidos
-        if (num > 10000000000000) return true;
-      }
-      return false;
+    // Função para identificar preço público - APENAS por email
+    const ehPrecoPublico = (email?: string) => {
+      return !!(email && email.includes('precos.publicos'));
     };
     
-    const isPrecosPublicos = ehPrecoPublico(fornecedor.cnpj, (fornecedor as any).email);
+    const isPrecosPublicos = ehPrecoPublico((fornecedor as any).email);
     const tituloDocumento = isPrecosPublicos ? 'PROPOSTA DE PREÇOS PÚBLICOS' : 'PROPOSTA DE PREÇOS';
     doc.text(tituloDocumento, 105, 25, { align: 'center' });
     
@@ -869,25 +855,15 @@ export async function gerarPropostaFornecedorPDF(
     const fontSize = 10;
     const lineHeight = 15;
 
-    // Função para identificar preço público (mesma lógica do início)
-    const ehPrecoPublicoCert = (cnpj: string, email?: string) => {
-      if (email && email.includes('precos.publicos')) return true;
-      if (!cnpj) return false;
-      // Verificar padrões de CNPJ artificial:
-      const primeiroDigito = cnpj.charAt(0);
-      if (cnpj.split('').every(d => d === primeiroDigito)) return true;
-      if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
-      if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
-        const num = parseInt(cnpj, 10);
-        if (num > 10000000000000) return true;
-      }
-      return false;
+    // Função para identificar preço público - APENAS por email
+    const ehPrecoPublicoCert = (email?: string) => {
+      return !!(email && email.includes('precos.publicos'));
     };
 
     // Responsável pela geração
     // Se for preços públicos, SEMPRE usar o usuário que preencheu
     // Se for fornecedor normal, usar a razão social do fornecedor
-    const isPrecosPublicosCert = ehPrecoPublicoCert(fornecedor.cnpj, (fornecedor as any).email);
+    const isPrecosPublicosCert = ehPrecoPublicoCert((fornecedor as any).email);
     const responsavel = isPrecosPublicosCert
       ? (usuarioNome || 'Não informado')
       : fornecedor.razao_social;
