@@ -151,18 +151,9 @@ export async function identificarVencedoresPorCriterio(
   console.log(`  → Fornecedores com rejeição por item: ${itensRejeitadosPorFornecedor.size}`);
   console.log(`  → Fornecedores com rejeição revertida: ${fornecedoresRevertidos.size}`);
 
-  // CRÍTICO: Identificar preços públicos - pelo email (novo) ou padrões de CNPJ artificial
-  const ehPrecoPublico = (cnpj: string, email?: string) => {
-    if (email && email.includes('precos.publicos')) return true;
-    if (!cnpj) return false;
-    const primeiroDigito = cnpj.charAt(0);
-    if (cnpj.split('').every(d => d === primeiroDigito)) return true;
-    if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
-    if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
-      const num = parseInt(cnpj, 10);
-      if (num > 10000000000000) return true;
-    }
-    return false;
+  // CRÍTICO: Identificar preços públicos - APENAS por email
+  const ehPrecoPublico = (email?: string) => {
+    return !!(email && email.includes('precos.publicos'));
   };
 
   // Separar fornecedores válidos (não rejeitados globalmente, não preço público, não reprovado compliance)
@@ -182,7 +173,7 @@ export async function identificarVencedoresPorCriterio(
     const temRejeicaoParcialItem = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
     const temRejeicaoParcialLote = lotesRejeitadosPorFornecedor.has(f.fornecedor_id);
     
-    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.cnpj, f.email);
+    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.email);
   });
 
   console.log(`  → Fornecedores válidos para cálculo: ${fornecedoresValidos.length}`);
@@ -281,7 +272,7 @@ export async function identificarVencedoresPorCriterio(
         
         // Verificar se é preço público
         const email = resposta.fornecedores?.email || '';
-        if (ehPrecoPublico(cnpj, email)) return;
+        if (ehPrecoPublico(email)) return;
 
         // Buscar todos os itens do fornecedor que pertencem a este lote
         const itensDoFornecedorNoLote = itens.filter(item => 
@@ -453,18 +444,9 @@ export async function carregarItensVencedoresPorFornecedor(
 
   const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
 
-  // CRÍTICO: Identificar preços públicos - pelo email (novo) ou padrões de CNPJ artificial
-  const ehPrecoPublico = (cnpj: string, email?: string) => {
-    if (email && email.includes('precos.publicos')) return true;
-    if (!cnpj) return false;
-    const primeiroDigito = cnpj.charAt(0);
-    if (cnpj.split('').every(d => d === primeiroDigito)) return true;
-    if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
-    if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
-      const num = parseInt(cnpj, 10);
-      if (num > 10000000000000) return true;
-    }
-    return false;
+  // CRÍTICO: Identificar preços públicos - APENAS por email
+  const ehPrecoPublico = (email?: string) => {
+    return !!(email && email.includes('precos.publicos'));
   };
 
   // Fornecedores válidos (não rejeitados globalmente, não reprovado compliance)
@@ -482,7 +464,7 @@ export async function carregarItensVencedoresPorFornecedor(
     const temRejeicaoParcialItem = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
     const temRejeicaoParcialLote = lotesRejeitadosPorFornecedor.has(f.fornecedor_id);
     
-    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.cnpj, f.email);
+    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.email);
   });
 
   const fornecedorAtual = fornecedoresPlanilha.find(f => f.fornecedor_id === fornecedorId);
@@ -587,7 +569,7 @@ export async function carregarItensVencedoresPorFornecedor(
         // Verificar se é preço público
         const cnpj = respostaF.fornecedores?.cnpj || '';
         const email = respostaF.fornecedores?.email || '';
-        if (ehPrecoPublico(cnpj, email)) return;
+        if (ehPrecoPublico(email)) return;
 
         // Buscar todos os itens do fornecedor que pertencem a este lote
         const itensDoFornecedorNoLote = todosItens.filter(item => 

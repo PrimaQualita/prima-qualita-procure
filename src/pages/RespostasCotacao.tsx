@@ -56,18 +56,9 @@ interface RespostaFornecedor {
   }>;
 }
 
-// Função para identificar preço público
-const ehPrecoPublico = (cnpj: string, email?: string): boolean => {
-  if (email && email.includes('precos.publicos')) return true;
-  if (!cnpj) return false;
-  const primeiroDigito = cnpj.charAt(0);
-  if (cnpj.split('').every(d => d === primeiroDigito)) return true;
-  if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
-  if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
-    const num = parseInt(cnpj, 10);
-    if (num > 10000000000000) return true;
-  }
-  return false;
+// Função para identificar preço público - APENAS por email
+const ehPrecoPublico = (email?: string): boolean => {
+  return !!(email && email.includes('precos.publicos'));
 };
 
 export default function RespostasCotacao() {
@@ -973,7 +964,7 @@ export default function RespostasCotacao() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {ehPrecoPublico(resposta.fornecedor.cnpj, resposta.fornecedor.email) 
+                        {ehPrecoPublico(resposta.fornecedor.email) 
                           ? "-" 
                           : formatarCNPJ(resposta.fornecedor.cnpj)}
                       </TableCell>
