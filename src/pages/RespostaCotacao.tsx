@@ -729,6 +729,28 @@ const RespostaCotacao = () => {
       // Validar se valores foram preenchidos de acordo com critério
       const criterio = processoCompra?.criterio_julgamento;
       
+      // VALIDAÇÃO: Se preencheu marca OU valor em um item, AMBOS devem estar preenchidos
+      for (const item of itensCotacao) {
+        const resposta = respostas[item.id];
+        const temMarca = resposta?.marca_ofertada && resposta.marca_ofertada.trim() !== '';
+        const temValor = criterio === "desconto" 
+          ? (resposta?.percentual_desconto && resposta.percentual_desconto > 0)
+          : (resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0);
+        
+        if (temMarca && !temValor) {
+          const campoFaltando = criterio === "desconto" ? "percentual de desconto" : "valor unitário";
+          toast.error(`Item ${item.numero_item}: Você preencheu a marca, mas não informou o ${campoFaltando}. Complete o item ou deixe ambos os campos vazios.`);
+          setSubmitting(false);
+          return;
+        }
+        
+        if (temValor && !temMarca) {
+          toast.error(`Item ${item.numero_item}: Você preencheu o ${criterio === "desconto" ? "percentual de desconto" : "valor unitário"}, mas não informou a marca. Complete o item ou deixe ambos os campos vazios.`);
+          setSubmitting(false);
+          return;
+        }
+      }
+      
       if (criterio === "por_item" || criterio === "desconto") {
         // Para "por_item" e "desconto": apenas verificar se PELO MENOS um item foi preenchido
         const algumPreenchido = itensCotacao.some(item => {
