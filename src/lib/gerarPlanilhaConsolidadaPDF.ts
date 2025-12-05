@@ -201,7 +201,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   itens: ItemCotacao[],
   respostas: RespostaFornecedor[],
   dadosProtocolo: DadosProtocolo,
-  calculosPorItem: Record<number, 'menor' | 'media' | 'mediana'> = {},
+  calculosPorItem: Record<string, 'menor' | 'media' | 'mediana'> = {},
   criterioJulgamento?: string
 ): Promise<{ blob: Blob; estimativas: Record<number, number> }> {
   const estimativasCalculadas: Record<number, number> = {};
@@ -517,7 +517,9 @@ export async function gerarPlanilhaConsolidadaPDF(
 
     // Calcular estimativa
     if (valoresItem.length > 0) {
-      const criterioItem = calculosPorItem[item.numero_item] || 'menor';
+      // CHAVE COMPOSTA: lote_numero_item_numero para diferenciar itens entre lotes
+      const chaveItem = `${item.lote_numero || 0}_${item.numero_item}`;
+      const criterioItem = calculosPorItem[chaveItem] || 'menor';
       let valorEstimativa: number;
       
       // Se critério é por_lote E temos fornecedores pré-calculados, usar valores desses fornecedores
@@ -623,12 +625,13 @@ export async function gerarPlanilhaConsolidadaPDF(
       // Se critério é por_lote, obter fornecedores para estimativa do lote ANTES de processar itens
       let fornecedoresEstimativaLote: { cnpj: string, subtotal: number, itens: Map<number, number> }[] | undefined;
       if (criterioJulgamento === 'por_lote') {
-        // Usar o critério de cálculo definido para este lote (ou o primeiro item do lote)
+        // Usar o critério de cálculo definido para este lote (CHAVE COMPOSTA: lote_numero_item_numero)
         const primeiroItem = loteData.itens[0];
-        const criterioCalculo = calculosPorItem[primeiroItem?.numero_item] || 'menor';
+        const chaveItem = `${primeiroItem?.lote_numero || loteNum}_${primeiroItem?.numero_item}`;
+        const criterioCalculo = calculosPorItem[chaveItem] || 'menor';
         fornecedoresEstimativaLote = obterFornecedoresEstimativaLote(loteNum, criterioCalculo as 'menor' | 'media' | 'mediana');
         
-        console.log(`📊 Lote ${loteNum}: critério=${criterioCalculo}, fornecedores para estimativa:`, 
+        console.log(`📊 Lote ${loteNum}: chave=${chaveItem}, critério=${criterioCalculo}, fornecedores para estimativa:`, 
           fornecedoresEstimativaLote?.map(f => ({ cnpj: f.cnpj, subtotal: f.subtotal }))
         );
       }
