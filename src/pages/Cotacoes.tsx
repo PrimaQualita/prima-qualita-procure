@@ -1660,7 +1660,7 @@ const Cotacoes = () => {
                     </div>
                     
                     {/* Campo para anexar cópia dos e-mails enviados aos fornecedores */}
-                    <div className="mb-4 p-4 bg-background border rounded-lg">
+                    <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-lg">
                       <Label htmlFor="emails-fornecedores-upload" className="text-base font-semibold mb-2 block">
                         Cópia dos E-mails Enviados aos Fornecedores
                       </Label>
