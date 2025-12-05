@@ -520,9 +520,9 @@ const IncluirPrecosPublicos = () => {
         if (!todosPreenchidos) {
           mensagemErro = "Por favor, preencha todos os valores unitários";
         }
-      } else if (criterio === "lote") {
-        // Para "lote": validar que se algum item de um lote foi preenchido,
-        // TODOS os itens daquele lote devem estar preenchidos
+      } else if (criterio === "lote" || criterio === "por_lote") {
+        // Para "lote" e "por_lote": validar que se algum item de um lote foi preenchido,
+        // TODOS os itens daquele lote devem estar preenchidos (valor E marca)
         const itemsPorLote = new Map<string, any[]>();
         itens.forEach(item => {
           const loteId = item.lote_id || 'sem_lote';
@@ -534,18 +534,49 @@ const IncluirPrecosPublicos = () => {
         
         let algumLotePreenchido = false;
         for (const [loteId, itensDoLote] of itemsPorLote.entries()) {
-          const itensPreenchidos = itensDoLote.filter(item => {
+          const itensComValor = itensDoLote.filter(item => {
             const resposta = respostas[item.id];
             return resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
           });
           
+          const itensComMarca = itensDoLote.filter(item => {
+            const resposta = respostas[item.id];
+            return resposta && resposta.marca && resposta.marca.trim() !== '';
+          });
+          
+          // Se algum item tem valor ou marca preenchido, o lote está sendo cotado
+          const itensPreenchidos = itensDoLote.filter(item => {
+            const resposta = respostas[item.id];
+            const temValor = resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
+            const temMarca = resposta && resposta.marca && resposta.marca.trim() !== '';
+            return temValor || temMarca;
+          });
+          
           if (itensPreenchidos.length > 0) {
             algumLotePreenchido = true;
+            const lote = lotes?.find((l: any) => l.id === loteId);
+            const loteNome = lote ? `Lote ${lote.numero_lote}` : 'um dos lotes';
             
-            if (itensPreenchidos.length !== itensDoLote.length) {
-              const lote = lotes?.find((l: any) => l.id === loteId);
-              const loteNome = lote ? `Lote ${lote.numero_lote}` : 'um dos lotes';
-              mensagemErro = `Se você cotar algum item do ${loteNome}, deve cotar TODOS os itens desse lote.`;
+            // Verificar se TODOS os itens do lote têm valor preenchido
+            if (itensComValor.length !== itensDoLote.length) {
+              const itensNaoPreenchidos = itensDoLote.filter(item => {
+                const resposta = respostas[item.id];
+                return !resposta || !resposta.valor_unitario || parseFloat(resposta.valor_unitario.replace(/,/g, ".")) <= 0;
+              });
+              const numerosItens = itensNaoPreenchidos.map(i => i.numero_item).join(', ');
+              mensagemErro = `Critério por Lote: Se você cotar qualquer item do ${loteNome}, deve preencher o valor unitário de TODOS os itens desse lote. Itens sem valor: ${numerosItens}`;
+              todosPreenchidos = false;
+              break;
+            }
+            
+            // Verificar se TODOS os itens do lote têm marca preenchida
+            if (itensComMarca.length !== itensDoLote.length) {
+              const itensSemMarca = itensDoLote.filter(item => {
+                const resposta = respostas[item.id];
+                return !resposta || !resposta.marca || resposta.marca.trim() === '';
+              });
+              const numerosItens = itensSemMarca.map(i => i.numero_item).join(', ');
+              mensagemErro = `Critério por Lote: Se você cotar qualquer item do ${loteNome}, deve preencher a marca de TODOS os itens desse lote. Itens sem marca: ${numerosItens}`;
               todosPreenchidos = false;
               break;
             }
@@ -553,7 +584,7 @@ const IncluirPrecosPublicos = () => {
         }
         
         if (todosPreenchidos && !algumLotePreenchido) {
-          mensagemErro = "Por favor, preencha pelo menos um lote completo";
+          mensagemErro = "Por favor, preencha pelo menos um lote completo (valor unitário E marca de todos os itens do lote)";
           todosPreenchidos = false;
         }
       }
