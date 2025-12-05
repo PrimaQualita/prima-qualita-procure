@@ -226,6 +226,14 @@ export async function identificarVencedoresPorCriterio(
       let fornecedorVencedor: FornecedorPlanilha | null = null;
 
       fornecedoresValidos.forEach(f => {
+        // CRÍTICO: Verificar se fornecedor está rejeitado neste item específico
+        const itensRejeitados = itensRejeitadosPorFornecedor.get(f.fornecedor_id);
+        if (itensRejeitados?.has(numeroItem)) {
+          console.log(`    → ${f.razao_social} rejeitado no item ${numeroItem} - pulando`);
+          return;
+        }
+        if (fornecedoresRejeitadosGlobal.has(f.fornecedor_id)) return;
+        
         const item = f.itens.find(i => i.numero_item === numeroItem);
         const desconto = item?.percentual_desconto || 0;
 
