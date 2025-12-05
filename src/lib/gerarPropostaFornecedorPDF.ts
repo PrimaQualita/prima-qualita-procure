@@ -270,12 +270,23 @@ export async function gerarPropostaFornecedorPDF(
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
     
-    // Função para identificar preço público - pelo email (novo) ou CNPJ sequencial (antigo)
+    // Função para identificar preço público - pelo email (novo) ou padrões de CNPJ artificial
     const ehPrecoPublico = (cnpj: string, email?: string) => {
       if (email && email.includes('precos.publicos')) return true;
       if (!cnpj) return false;
+      // Verificar padrões de CNPJ artificial:
+      // 1. Todos os dígitos iguais (111...1, 222...2, etc)
       const primeiroDigito = cnpj.charAt(0);
-      return cnpj.split('').every(d => d === primeiroDigito);
+      if (cnpj.split('').every(d => d === primeiroDigito)) return true;
+      // 2. Padrão "10" repetido (1010101010...)
+      if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
+      // 3. CNPJs baseados em timestamp (números sequenciais recentes)
+      if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
+        const num = parseInt(cnpj, 10);
+        // Timestamps recentes (após 2020) convertidos
+        if (num > 10000000000000) return true;
+      }
+      return false;
     };
     
     const isPrecosPublicos = ehPrecoPublico(fornecedor.cnpj, (fornecedor as any).email);
@@ -862,8 +873,15 @@ export async function gerarPropostaFornecedorPDF(
     const ehPrecoPublicoCert = (cnpj: string, email?: string) => {
       if (email && email.includes('precos.publicos')) return true;
       if (!cnpj) return false;
+      // Verificar padrões de CNPJ artificial:
       const primeiroDigito = cnpj.charAt(0);
-      return cnpj.split('').every(d => d === primeiroDigito);
+      if (cnpj.split('').every(d => d === primeiroDigito)) return true;
+      if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
+      if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
+        const num = parseInt(cnpj, 10);
+        if (num > 10000000000000) return true;
+      }
+      return false;
     };
 
     // Responsável pela geração

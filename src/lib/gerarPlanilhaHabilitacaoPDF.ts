@@ -333,15 +333,19 @@ export async function gerarPlanilhaHabilitacaoPDF(
   const totaisPorLote: Map<number, { fornecedores: number[], vencedor: number }> = new Map();
   let totalVencedor = 0;
 
-  // Função para identificar preço público - pelo email (novo) ou CNPJ sequencial (antigo)
+  // Função para identificar preço público - pelo email (novo) ou padrões de CNPJ artificial
   const ehPrecoPublico = (cnpj: string, email?: string) => {
-    // Novo método: verificar pelo email (timestamp-based)
     if (email && email.includes('precos.publicos')) return true;
-    
-    // Método antigo: CNPJ sequencial (para compatibilidade)
     if (!cnpj) return false;
+    // Verificar padrões de CNPJ artificial:
     const primeiroDigito = cnpj.charAt(0);
-    return cnpj.split('').every(d => d === primeiroDigito);
+    if (cnpj.split('').every(d => d === primeiroDigito)) return true;
+    if (/^(10)+$/.test(cnpj) || /^(01)+$/.test(cnpj)) return true;
+    if (cnpj.length === 14 && !cnpj.includes('.') && !cnpj.includes('/')) {
+      const num = parseInt(cnpj, 10);
+      if (num > 10000000000000) return true;
+    }
+    return false;
   };
 
   // Função para encontrar vencedor de um item
