@@ -254,7 +254,14 @@ export async function gerarPlanilhaHabilitacaoPDF(
   const larguraObjeto = doc.getTextWidth(textoObjeto);
   const larguraPrimeiraLinha = larguraUtil - larguraObjeto - 2;
   const linhasPrimeiraLinha = doc.splitTextToSize(objetoDecodificado, larguraPrimeiraLinha);
-  justificarTexto(doc, linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto + 2, yPosition, larguraPrimeiraLinha);
+  
+  // CRÍTICO: Se só tem uma linha E não há texto restante, não justificar (evita esticamento)
+  const temMaisLinhas = objetoDecodificado.substring(linhasPrimeiraLinha[0].length).trim().length > 0;
+  if (temMaisLinhas) {
+    justificarTexto(doc, linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto + 2, yPosition, larguraPrimeiraLinha);
+  } else {
+    doc.text(linhasPrimeiraLinha[0], margemEsquerda + larguraObjeto + 2, yPosition);
+  }
   
   yPosition += 5;
   const textoRestante = objetoDecodificado.substring(linhasPrimeiraLinha[0].length).trim();
@@ -677,9 +684,19 @@ export async function gerarPlanilhaHabilitacaoPDF(
     empresa_vencedora: { cellWidth: 35, halign: 'center', fontStyle: 'bold', overflow: 'linebreak' }
   };
 
-  // Adicionar estilos para colunas de fornecedores
+  // Adicionar estilos para colunas de fornecedores com largura UNIFORME
+  // Calcular largura disponível após colunas fixas (item:12 + descricao:45 + qtd:12 + unid:12 + vencedor:22 + empresa:35 = 138mm)
+  const larguraColunasFixas = 12 + 45 + 12 + 12 + 22 + 35; // 138mm
+  const larguraRestante = larguraUtil - larguraColunasFixas;
+  const numFornecedores = respostas.length;
+  const larguraPorFornecedor = numFornecedores > 0 ? Math.floor(larguraRestante / numFornecedores) : 25;
+  
   respostas.forEach((_, idx) => {
-    columnStyles[`fornecedor_${idx}`] = { halign: 'center', overflow: 'linebreak' };
+    columnStyles[`fornecedor_${idx}`] = { 
+      cellWidth: larguraPorFornecedor, 
+      halign: 'center', 
+      overflow: 'linebreak' 
+    };
   });
 
   // Armazenar textos de descrição para desenho customizado com justificação
@@ -1051,13 +1068,33 @@ export async function gerarPlanilhaHabilitacaoPDF(
   }
 
   // Certificação Digital com quadro estilizado
-  let certY = (doc as any).lastAutoTable?.finalY || 150;
+  // CRÍTICO: Calcular posição correta APÓS a seção de empresas inabilitadas
+  let certY: number;
+  
   if (empresasInabilitadas.length > 0) {
-    certY = doc.internal.pageSize.getHeight() - 55;
+    // Se há empresas inabilitadas, calcular baseado no conteúdo que foi escrito
+    // A posição final após o loop de empresas inabilitadas
+    // Precisamos recalcular quanto espaço foi usado
+    let espacoUsado = (doc as any).lastAutoTable?.finalY + 10 || 150;
+    espacoUsado += 6; // Título "EMPRESAS INABILITADAS"
+    
+    empresasInabilitadas.forEach((empresa) => {
+      espacoUsado += 5; // Nome da empresa
+      espacoUsado += 5; // CNPJ
+      espacoUsado += 5; // Status
+      if (empresa.motivo_rejeicao) {
+        const motivoLinhas = doc.splitTextToSize(`  Motivo: ${empresa.motivo_rejeicao}`, larguraUtil - 10);
+        espacoUsado += motivoLinhas.length * 4 + 2;
+      }
+      espacoUsado += 3;
+    });
+    
+    certY = espacoUsado + 10;
   } else {
-    certY += 15;
+    certY = ((doc as any).lastAutoTable?.finalY || 150) + 15;
   }
   
+  // Verificar se precisa de nova página
   if (certY > pageHeight - 50) {
     doc.addPage();
     adicionarCabecalho();
