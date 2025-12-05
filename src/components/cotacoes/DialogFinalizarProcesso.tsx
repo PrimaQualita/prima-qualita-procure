@@ -1457,22 +1457,24 @@ export function DialogFinalizarProcesso({
       const camposPendentes = fornecedorData.campos.filter(c => c.status_solicitacao === "pendente");
 
       if (camposPendentes.length === 0) {
-        toast.error("Nenhum documento pendente para enviar");
+        toast.error("Nenhum documento pendente para notificar");
         return;
       }
 
+      // NÃO muda o status - apenas atualiza a data de solicitação/notificação
+      // O status permanece "pendente" até o fornecedor fazer upload do documento
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
-        .update({ status_solicitacao: "enviado" })
+        .update({ data_solicitacao: new Date().toISOString() })
         .in("id", camposPendentes.map(c => c.id!));
 
       if (error) throw error;
 
-      toast.success("Solicitação enviada ao fornecedor");
+      toast.success("Fornecedor notificado sobre documentos pendentes");
       await loadAllFornecedores();
     } catch (error) {
-      console.error("Erro ao enviar solicitação:", error);
-      toast.error("Erro ao enviar solicitação");
+      console.error("Erro ao notificar fornecedor:", error);
+      toast.error("Erro ao notificar fornecedor");
     }
   };
 
@@ -1678,26 +1680,28 @@ export function DialogFinalizarProcesso({
         return;
       }
 
-      // Atualizar status dos documentos pendentes para "enviado"
+      // Verificar se há documentos pendentes para notificar
       const documentosPendentes = fornecedorData.campos.filter(c => c.status_solicitacao === "pendente");
       
       if (documentosPendentes.length === 0) {
-        toast.info("Todos os documentos já foram enviados");
+        toast.info("Nenhum documento pendente para notificar");
         return;
       }
 
+      // NÃO muda o status - apenas registra a data de solicitação/notificação
+      // O status permanece "pendente" até o fornecedor fazer upload do documento
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
-        .update({ status_solicitacao: "enviado" })
+        .update({ data_solicitacao: new Date().toISOString() })
         .in("id", documentosPendentes.map(d => d.id!));
 
       if (error) throw error;
 
-      toast.success(`Documentos enviados para ${fornecedorData.fornecedor.razao_social}`);
+      toast.success(`Fornecedor ${fornecedorData.fornecedor.razao_social} notificado sobre os documentos pendentes`);
       await loadAllFornecedores();
     } catch (error) {
-      console.error("Erro ao enviar documentos:", error);
-      toast.error("Erro ao enviar documentos para fornecedor");
+      console.error("Erro ao notificar fornecedor:", error);
+      toast.error("Erro ao notificar fornecedor sobre documentos");
     }
   };
 
