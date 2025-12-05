@@ -39,7 +39,8 @@ export const gerarAutorizacaoCompraDireta = async (
   objetoProcesso: string,
   usuarioNome: string,
   usuarioCpf: string,
-  fornecedoresVencedores?: FornecedorVencedor[]
+  fornecedoresVencedores?: FornecedorVencedor[],
+  criterioJulgamento?: string
 ): Promise<AutorizacaoResult> => {
   console.log('[PDF] Iniciando geração - Compra Direta');
   console.log('[PDF] Fornecedores vencedores recebidos:', fornecedoresVencedores);
@@ -186,12 +187,15 @@ export const gerarAutorizacaoCompraDireta = async (
   yPos += linhas1.length * 6 + 2; // Reduzido para aproximar da tabela
   
   // Tabela de fornecedores vencedores com itens detalhados
+  const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
+  
   console.log('[PDF] Verificando fornecedores vencedores para tabela:', fornecedoresVencedores);
+  console.log('[PDF] Critério de julgamento:', criterioJulgamento, '| isDesconto:', isDesconto);
   if (fornecedoresVencedores && fornecedoresVencedores.length > 0) {
     console.log('[PDF] Gerando tabela com', fornecedoresVencedores.length, 'fornecedores');
     doc.setFontSize(8);
     
-    // Cabeçalho da tabela (apenas Empresa, CNPJ e Valor Total)
+    // Cabeçalho da tabela (Empresa, CNPJ e Valor Total ou Desconto %)
     doc.setFillColor(0, 51, 102);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
@@ -202,7 +206,7 @@ export const gerarAutorizacaoCompraDireta = async (
     doc.setFont('helvetica', 'bold');
     doc.text('Empresa', 60, yPos + 5, { align: 'center' });
     doc.text('CNPJ', 125, yPos + 5, { align: 'center' });
-    doc.text('Valor Total', 170, yPos + 5, { align: 'center' });
+    doc.text(isDesconto ? 'Desconto (%)' : 'Valor Total', 170, yPos + 5, { align: 'center' });
     yPos += 8;
     
     // Conteúdo da tabela
@@ -249,24 +253,32 @@ export const gerarAutorizacaoCompraDireta = async (
         doc.text(linha, 125, yPos + offsetVerticalCNPJ + (index * 4), { align: 'center', maxWidth: 48 });
       });
       
-      // Valor total do fornecedor
-      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+      // Valor total ou Desconto % do fornecedor
+      if (isDesconto) {
+        doc.text(`${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+      } else {
+        doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+      }
       
       yPos += alturaLinha;
       totalGeral += fornecedor.valorTotal;
     }
     
-    // Linha de Total Geral
-    doc.setFillColor(240, 240, 240);
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 130, 8, 'FD');
-    doc.rect(150, yPos, 40, 8, 'FD');
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('TOTAL GERAL', 22, yPos + 5);
-    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + 5, { align: 'right' });
-    yPos += 16;
+    // Linha de Total Geral (apenas para critérios de preço, não para desconto)
+    if (!isDesconto) {
+      doc.setFillColor(240, 240, 240);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.rect(20, yPos, 130, 8, 'FD');
+      doc.rect(150, yPos, 40, 8, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('TOTAL GERAL', 22, yPos + 5);
+      doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + 5, { align: 'right' });
+      yPos += 16;
+    } else {
+      yPos += 8;
+    }
     
     console.log('[PDF] Tabela gerada com sucesso. Total geral:', totalGeral);
   } else {
