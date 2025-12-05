@@ -1,5 +1,5 @@
 // @ts-nocheck - Propriedades do usuário podem não existir no schema atual
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -26,43 +26,62 @@ const getPageTitle = (pathname: string) => {
   return routes[pathname] || "Sistema de Compras";
 };
 
-// Cache do perfil para evitar flash de loading entre páginas
+// Cache GLOBAL do perfil para evitar flash de loading entre páginas
+let cachedUser: User | null = null;
 let cachedProfile: any = null;
 let cachedIsGestor: boolean = false;
 let cachedIsCompliance: boolean = false;
 let cachedIsResponsavelLegal: boolean = false;
-let initialLoadDone: boolean = false;
+let profileLoaded: boolean = false;
 
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const [user, setUser] = useState<User | null>(null);
+  
+  // Usa cache imediatamente se disponível
+  const [user, setUser] = useState<User | null>(cachedUser);
   const [profile, setProfile] = useState<any>(cachedProfile);
   const [isGestor, setIsGestor] = useState(cachedIsGestor);
   const [isCompliance, setIsCompliance] = useState(cachedIsCompliance);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(cachedIsResponsavelLegal);
-  const [loading, setLoading] = useState(!initialLoadDone);
-  const profileLoadedRef = useRef(false);
+  const [loading, setLoading] = useState(!profileLoaded);
 
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
+      const newUser = session?.user ?? null;
+      setUser(newUser);
+      cachedUser = newUser;
+      
       if (event === 'SIGNED_OUT') {
         // Limpa cache no logout
+        cachedUser = null;
         cachedProfile = null;
         cachedIsGestor = false;
         cachedIsCompliance = false;
         cachedIsResponsavelLegal = false;
-        initialLoadDone = false;
+        profileLoaded = false;
+        setProfile(null);
+        setIsGestor(false);
+        setIsCompliance(false);
+        setIsResponsavelLegal(false);
       }
     });
 
+    // Se já tem cache, não precisa buscar sessão de novo
+    if (profileLoaded && cachedUser) {
+      setLoading(false);
+      return () => subscription.unsubscribe();
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
+      const sessionUser = session?.user ?? null;
+      setUser(sessionUser);
+      cachedUser = sessionUser;
+      
+      if (!sessionUser) {
         setLoading(false);
       }
     });
@@ -71,7 +90,13 @@ export function DashboardLayout() {
   }, []);
 
   useEffect(() => {
-    if (user && !profileLoadedRef.current) {
+    // Se já carregou perfil, não carrega de novo
+    if (profileLoaded) {
+      setLoading(false);
+      return;
+    }
+    
+    if (user) {
       loadUserProfile();
     } else if (user === null && !loading) {
       navigate("/auth");
@@ -79,8 +104,8 @@ export function DashboardLayout() {
   }, [user, loading]);
 
   const loadUserProfile = async () => {
-    if (!user || profileLoadedRef.current) return;
-    profileLoadedRef.current = true;
+    // Proteção dupla: se já carregou, não faz nada
+    if (!user || profileLoaded) return;
 
     try {
       const { data: fornecedorData } = await supabase
@@ -111,7 +136,7 @@ export function DashboardLayout() {
         return;
       }
 
-      // Atualiza cache
+      // Atualiza cache global
       cachedProfile = profileData;
       cachedIsCompliance = profileData?.compliance || false;
       cachedIsResponsavelLegal = profileData?.responsavel_legal || false;
@@ -136,7 +161,9 @@ export function DashboardLayout() {
       
       cachedIsGestor = !!roleData;
       setIsGestor(cachedIsGestor);
-      initialLoadDone = true;
+      
+      // Marca como carregado GLOBALMENTE
+      profileLoaded = true;
     } catch (error: any) {
       toast({
         title: "Erro ao carregar perfil",
@@ -167,8 +194,33 @@ export function DashboardLayout() {
     }
   };
 
-  // Mostra loading apenas na primeira vez, usa cache depois
-  if (loading && !cachedProfile) {
+  // Se tem cache, renderiza imediatamente sem loading
+  if (profileLoaded && cachedProfile) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <AppSidebar 
+            isGestor={isGestor || cachedIsGestor} 
+            profile={profile || cachedProfile} 
+            isCompliance={isCompliance || cachedIsCompliance}
+            isResponsavelLegal={isResponsavelLegal || cachedIsResponsavelLegal}
+          />
+          <div className="flex-1 flex flex-col">
+            <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
+              <SidebarTrigger />
+              <h1 className="text-2xl font-bold text-foreground">{getPageTitle(location.pathname)}</h1>
+            </header>
+            <main className="flex-1">
+              <Outlet />
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  // Mostra loading apenas na primeira vez
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Carregando...</p>
