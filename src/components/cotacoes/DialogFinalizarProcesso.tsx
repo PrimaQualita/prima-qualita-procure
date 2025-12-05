@@ -2324,6 +2324,8 @@ export function DialogFinalizarProcesso({
       // CRÍTICO: Buscar TODOS os itens em chunks para evitar limite de 1000
       console.log(`📤 [Relatório Final] Buscando itens para ${todasRespostas?.length || 0} respostas`);
       
+      const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
+      
       const todosItensRespostas = [];
       for (const resposta of todasRespostas || []) {
         let offset = 0;
@@ -2336,6 +2338,7 @@ export function DialogFinalizarProcesso({
               id,
               cotacao_resposta_fornecedor_id,
               valor_unitario_ofertado,
+              percentual_desconto,
               marca,
               itens_cotacao!inner(numero_item, quantidade, descricao)
             `)
@@ -2381,18 +2384,32 @@ export function DialogFinalizarProcesso({
             );
             
             if (itemResposta) {
-              const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
-              const quantidade = Number(itemResposta.itens_cotacao.quantidade);
-              const valorItem = valorUnitario * quantidade;
-              
-              valorTotal += valorItem;
-              itensVencedoresDetalhados.push({
-                numero: item.itens_cotacao.numero_item,
-                descricao: itemResposta.itens_cotacao.descricao,
-                valor: valorItem,
-                marca: itemResposta.marca || '-',
-                valorUnitario: valorUnitario
-              });
+              // Para critério de desconto, usar o percentual_desconto
+              // Para outros critérios, usar valor monetário
+              if (isDesconto) {
+                const desconto = Number(itemResposta.percentual_desconto || 0);
+                valorTotal += desconto;
+                itensVencedoresDetalhados.push({
+                  numero: item.itens_cotacao.numero_item,
+                  descricao: itemResposta.itens_cotacao.descricao,
+                  valor: desconto,
+                  marca: itemResposta.marca || '-',
+                  valorUnitario: desconto
+                });
+              } else {
+                const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
+                const quantidade = Number(itemResposta.itens_cotacao.quantidade);
+                const valorItem = valorUnitario * quantidade;
+                
+                valorTotal += valorItem;
+                itensVencedoresDetalhados.push({
+                  numero: item.itens_cotacao.numero_item,
+                  descricao: itemResposta.itens_cotacao.descricao,
+                  valor: valorItem,
+                  marca: itemResposta.marca || '-',
+                  valorUnitario: valorUnitario
+                });
+              }
             }
           });
 
@@ -2412,7 +2429,8 @@ export function DialogFinalizarProcesso({
         usuarioNome: usuario?.nome_completo || "",
         usuarioCpf: usuario?.cpf || "",
         fornecedoresVencedores,
-        fornecedoresRejeitados
+        fornecedoresRejeitados,
+        criterioJulgamento
       });
 
       // Salvar referência no banco
@@ -2511,6 +2529,7 @@ export function DialogFinalizarProcesso({
               id,
               cotacao_resposta_fornecedor_id,
               valor_unitario_ofertado,
+              percentual_desconto,
               marca,
               itens_cotacao!inner(numero_item, quantidade)
             `)
@@ -2536,6 +2555,8 @@ export function DialogFinalizarProcesso({
       
       console.log(`✅ [Autorização] TOTAL GERAL: ${itensRespostas.length} itens de ${respostas?.length || 0} fornecedores`);
 
+      const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
+
       // Filtrar apenas fornecedores não rejeitados
       const fornecedoresNaoRejeitados = fornecedoresData.filter(f => !f.rejeitado);
       
@@ -2557,16 +2578,29 @@ export function DialogFinalizarProcesso({
                     : ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item)
           );
           if (itemResposta) {
-            const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
-            const quantidade = Number(itemResposta.itens_cotacao.quantidade);
-            const valorItem = valorUnitario * quantidade;
-            valorTotal += valorItem;
-            itensVencedoresComValor.push({
-              numero: item.itens_cotacao.numero_item,
-              valor: valorItem,
-              marca: itemResposta.marca || '-',
-              valorUnitario: valorUnitario
-            });
+            // Para critério de desconto, usar o percentual_desconto
+            // Para outros critérios, usar valor monetário
+            if (isDesconto) {
+              const desconto = Number(itemResposta.percentual_desconto || 0);
+              valorTotal += desconto;
+              itensVencedoresComValor.push({
+                numero: item.itens_cotacao.numero_item,
+                valor: desconto,
+                marca: itemResposta.marca || '-',
+                valorUnitario: desconto
+              });
+            } else {
+              const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
+              const quantidade = Number(itemResposta.itens_cotacao.quantidade);
+              const valorItem = valorUnitario * quantidade;
+              valorTotal += valorItem;
+              itensVencedoresComValor.push({
+                numero: item.itens_cotacao.numero_item,
+                valor: valorItem,
+                marca: itemResposta.marca || '-',
+                valorUnitario: valorUnitario
+              });
+            }
           }
         });
 
@@ -2597,7 +2631,8 @@ export function DialogFinalizarProcesso({
           processo.objeto_resumido,
           usuario?.nome_completo || "",
           usuario?.cpf || "",
-          fornecedoresVencedores
+          fornecedoresVencedores,
+          criterioJulgamento
         );
       }
 

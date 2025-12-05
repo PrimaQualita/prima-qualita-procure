@@ -31,6 +31,7 @@ interface DadosRelatorioFinal {
   usuarioCpf: string;
   fornecedoresVencedores: FornecedorVencedor[];
   fornecedoresRejeitados?: FornecedorRejeitado[];
+  criterioJulgamento?: string;
 }
 
 // Função para extrair texto simples de HTML
@@ -192,10 +193,12 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   yPos += linhas2.length * 3.5 + 5;
   
   // Tabela de fornecedores vencedores com itens agrupados
+  const isDesconto = dados.criterioJulgamento === 'desconto' || dados.criterioJulgamento === 'maior_percentual_desconto';
+  
   if (dados.fornecedoresVencedores && dados.fornecedoresVencedores.length > 0) {
     doc.setFontSize(8);
     
-    // Cabeçalho da tabela (apenas Empresa, CNPJ e Valor Total)
+    // Cabeçalho da tabela (Empresa, CNPJ e Valor Total ou Desconto %)
     doc.setFillColor(0, 51, 102);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
@@ -206,7 +209,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
     doc.setFont('helvetica', 'bold');
     doc.text('Empresa', 60, yPos + 5, { align: 'center' });
     doc.text('CNPJ', 125, yPos + 5, { align: 'center' });
-    doc.text('Valor Total', 170, yPos + 5, { align: 'center' });
+    doc.text(isDesconto ? 'Desconto (%)' : 'Valor Total', 170, yPos + 5, { align: 'center' });
     yPos += 8;
     
     // Conteúdo da tabela
@@ -252,24 +255,32 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
         doc.text(linha, 125, yPos + offsetVerticalCNPJ + (index * 4), { align: 'center', maxWidth: 48 });
       });
       
-      // Valor total do fornecedor
-      doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+      // Valor total ou Desconto % do fornecedor
+      if (isDesconto) {
+        doc.text(`${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+      } else {
+        doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+      }
       
       yPos += alturaLinha;
       totalGeral += fornecedor.valorTotal;
     });
     
-    // Linha de Total Geral
-    doc.setFillColor(240, 240, 240);
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 130, 8, 'FD');
-    doc.rect(150, yPos, 40, 8, 'FD');
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('TOTAL GERAL', 22, yPos + 5);
-    doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + 5, { align: 'right' });
-    yPos += 16;
+    // Linha de Total Geral (apenas para critérios de preço, não para desconto)
+    if (!isDesconto) {
+      doc.setFillColor(240, 240, 240);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.rect(20, yPos, 130, 8, 'FD');
+      doc.rect(150, yPos, 40, 8, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('TOTAL GERAL', 22, yPos + 5);
+      doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + 5, { align: 'right' });
+      yPos += 16;
+    } else {
+      yPos += 8;
+    }
   }
   
   // Parágrafo 3
