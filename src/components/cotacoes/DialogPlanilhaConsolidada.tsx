@@ -423,33 +423,40 @@ export function DialogPlanilhaConsolidada({
       console.log('📋 Todas as chaves calculosPorLote:', Object.keys(calculosPorLote));
       console.log('📋 todosItens:', todosItens.map(i => ({ id: i.id, numero_item: i.numero_item, lote_id: i.lote_id })));
       
-      const criteriosPorItemNumero: Record<number, 'menor' | 'media' | 'mediana'> = {};
+      // IMPORTANTE: Usar chave composta lote_numero_item_numero para diferenciar itens entre lotes
+      // Porque numero_item se repete em cada lote (1, 2, 3... em cada lote)
+      const criteriosPorChaveComposta: Record<string, 'menor' | 'media' | 'mediana'> = {};
       
       // Se critério é por_lote, usar calculosPorLote; senão usar calculosPorItem
       todosItens.forEach((item: any) => {
         let criterio: 'menor' | 'media' | 'mediana' | undefined;
         
+        // Chave composta que identifica unicamente o item: lote_numero + numero_item
+        const chaveComposta = item.numero_lote 
+          ? `${item.numero_lote}_${item.numero_item}` 
+          : `0_${item.numero_item}`;
+        
         if (criterioJulgamento === 'por_lote' && item.lote_id) {
           // Para critério por_lote, buscar pelo lote_id em calculosPorLote
           criterio = calculosPorLote[item.lote_id];
-          console.log(`   Item ${item.numero_item} (Lote ${item.numero_lote}): lote_id="${item.lote_id}", critério do lote="${criterio}"`);
+          console.log(`   Item ${item.numero_item} (Lote ${item.numero_lote}): lote_id="${item.lote_id}", critério do lote="${criterio}", chave="${chaveComposta}"`);
         } else {
           // Para outros critérios, buscar pela chave composta em calculosPorItem
-          const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
-          criterio = calculosPorItem[chave];
-          console.log(`   Item ${item.numero_item}: chave="${chave}", critério encontrado="${criterio}"`);
+          const chaveItem = `${item.lote_id || 'sem-lote'}_${item.id}`;
+          criterio = calculosPorItem[chaveItem];
+          console.log(`   Item ${item.numero_item}: chaveItem="${chaveItem}", critério encontrado="${criterio}", chave="${chaveComposta}"`);
         }
         
         if (criterio) {
-          criteriosPorItemNumero[item.numero_item] = criterio;
-          console.log(`   ✅ Mapeado: Item ${item.numero_item} = ${criterio}`);
+          criteriosPorChaveComposta[chaveComposta] = criterio;
+          console.log(`   ✅ Mapeado: chave=${chaveComposta} = ${criterio}`);
         } else {
-          console.log(`   ⚠️ Nenhum critério encontrado, usando 'menor' como padrão`);
-          criteriosPorItemNumero[item.numero_item] = 'menor';
+          console.log(`   ⚠️ Nenhum critério encontrado para chave=${chaveComposta}, usando 'menor' como padrão`);
+          criteriosPorChaveComposta[chaveComposta] = 'menor';
         }
       });
       
-      console.log('📊 Critérios finais por item (número):', criteriosPorItemNumero);
+      console.log('📊 Critérios finais por chave composta (lote_item):', criteriosPorChaveComposta);
       
       const resultado = await gerarPlanilhaConsolidadaPDF(
         processo,
@@ -457,7 +464,7 @@ export function DialogPlanilhaConsolidada({
         itensFormatados,
         respostasFormatadas,
         dadosProtocolo,
-        criteriosPorItemNumero,
+        criteriosPorChaveComposta,
         criterioJulgamento
       );
       
