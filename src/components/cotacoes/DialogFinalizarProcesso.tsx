@@ -462,13 +462,23 @@ export function DialogFinalizarProcesso({
         itensRejeitadosPorFornecedor.set(r.fornecedor_id, itensAfetados);
       });
 
+      // Função para identificar preço público
+      const ehPrecoPublicoLocal = (cnpj: string, email?: string) => {
+        if (email && email.includes('precos.publicos')) return true;
+        if (!cnpj) return false;
+        const primeiroDigito = cnpj.charAt(0);
+        return cnpj.split('').every(d => d === primeiroDigito);
+      };
+
       // CRÍTICO: Para habilitação, incluir TAMBÉM fornecedores inabilitados (para mostrar docs e recursos)
-      // Mas apenas se não já estiverem na lista de vencedores
+      // Mas apenas se não já estiverem na lista de vencedores E não forem preços públicos
       const fornecedoresInabilitados: Fornecedor[] = [];
       rejeicoesAtivas?.forEach(r => {
         const fornecedor = r.fornecedores as any;
-        // Verificar se não já é vencedor
-        if (fornecedor && !fornecedoresVencedores.some(v => v.id === fornecedor.id)) {
+        // Verificar se não já é vencedor E não é preço público
+        if (fornecedor && 
+            !fornecedoresVencedores.some(v => v.id === fornecedor.id) &&
+            !ehPrecoPublicoLocal(fornecedor.cnpj, fornecedor.email)) {
           fornecedoresInabilitados.push({
             id: fornecedor.id,
             razao_social: fornecedor.razao_social,
@@ -2012,7 +2022,7 @@ export function DialogFinalizarProcesso({
           fornecedor_id,
           rejeitado,
           motivo_rejeicao,
-          fornecedores!inner(id, razao_social, cnpj)
+          fornecedores!inner(id, razao_social, cnpj, email)
         `)
         .eq("cotacao_id", cotacaoId);
 
@@ -2039,8 +2049,12 @@ export function DialogFinalizarProcesso({
       }
       console.log('📋 CNPJs reprovados pelo compliance:', Array.from(cnpjsReprovadosCompliance));
 
-      // Função para identificar CNPJ de preço público (sequencial)
-      const ehPrecoPublico = (cnpj: string) => {
+      // Função para identificar preço público - pelo email (novo) ou CNPJ sequencial (antigo)
+      const ehPrecoPublico = (cnpj: string, email?: string) => {
+        // Novo método: verificar pelo email (timestamp-based)
+        if (email && email.includes('precos.publicos')) return true;
+        
+        // Método antigo: CNPJ sequencial (para compatibilidade)
         if (!cnpj) return false;
         const primeiroDigito = cnpj.charAt(0);
         return cnpj.split('').every(d => d === primeiroDigito);
@@ -2075,7 +2089,8 @@ export function DialogFinalizarProcesso({
           fornecedor: {
             id: resposta.fornecedores.id,
             razao_social: resposta.fornecedores.razao_social,
-            cnpj: resposta.fornecedores.cnpj
+            cnpj: resposta.fornecedores.cnpj,
+            email: resposta.fornecedores.email
           },
           itens: (itensResposta || []).map(ir => ({
             numero_item: ir.itens_cotacao.numero_item,
