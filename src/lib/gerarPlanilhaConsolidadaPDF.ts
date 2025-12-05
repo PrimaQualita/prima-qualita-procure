@@ -495,7 +495,10 @@ export async function gerarPlanilhaConsolidadaPDF(
         if (criterioJulgamento === 'desconto') {
           linha[`fornecedor_${resposta.fornecedor.cnpj}`] = valorParaCalculo > 0 ? formatarPercentual(valorParaCalculo) : '-';
         } else {
-          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = `${formatarMoeda(valorParaCalculo)}\n(Total: ${formatarMoeda(valorTotal)})`;
+          // Exibir "-" quando não cotado (valor 0 ou não informado)
+          linha[`fornecedor_${resposta.fornecedor.cnpj}`] = valorParaCalculo > 0 
+            ? `${formatarMoeda(valorParaCalculo)}\n(Total: ${formatarMoeda(valorTotal)})`
+            : '-';
         }
         
         totaisPorFornecedor[resposta.fornecedor.cnpj] += valorTotal;
