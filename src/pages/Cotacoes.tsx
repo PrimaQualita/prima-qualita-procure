@@ -847,14 +847,60 @@ const Cotacoes = () => {
     if (!cotacaoSelecionada) return;
 
     try {
+      const arquivosParaDeletar: string[] = [];
+      
       // Primeiro, deletar todas as respostas de fornecedores da cotação
       const { data: respostasData } = await supabase
         .from("cotacao_respostas_fornecedor")
-        .select("id")
+        .select("id, comprovantes_urls")
         .eq("cotacao_id", cotacaoSelecionada.id);
 
       if (respostasData && respostasData.length > 0) {
         const respostaIds = respostasData.map(r => r.id);
+        
+        // Coletar comprovantes_urls
+        respostasData.forEach(r => {
+          if (r.comprovantes_urls && Array.isArray(r.comprovantes_urls)) {
+            r.comprovantes_urls.forEach((url: string) => {
+              const cleanPath = url.split('?')[0].replace(/^processo-anexos\//, '');
+              arquivosParaDeletar.push(cleanPath);
+            });
+          }
+        });
+        
+        // Buscar anexos de cotação fornecedor (PDF propostas, etc.)
+        const { data: anexosData } = await supabase
+          .from("anexos_cotacao_fornecedor")
+          .select("url_arquivo")
+          .in("cotacao_resposta_fornecedor_id", respostaIds);
+        
+        if (anexosData) {
+          anexosData.forEach(anexo => {
+            if (anexo.url_arquivo) {
+              const cleanPath = anexo.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
+              arquivosParaDeletar.push(cleanPath);
+            }
+          });
+        }
+        
+        // Deletar arquivos do storage PRIMEIRO
+        if (arquivosParaDeletar.length > 0) {
+          console.log(`🗑️ Deletando ${arquivosParaDeletar.length} arquivos do storage...`);
+          const { error: storageError } = await supabase.storage
+            .from('processo-anexos')
+            .remove(arquivosParaDeletar);
+          
+          if (storageError) {
+            console.error("Erro ao deletar arquivos do storage:", storageError);
+            // Não bloqueia - continua para deletar registros
+          }
+        }
+        
+        // Deletar registros de anexos
+        await supabase
+          .from("anexos_cotacao_fornecedor")
+          .delete()
+          .in("cotacao_resposta_fornecedor_id", respostaIds);
         
         // Deletar respostas de itens
         const { error: respostasItensError } = await supabase
