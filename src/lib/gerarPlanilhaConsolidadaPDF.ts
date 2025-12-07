@@ -136,6 +136,10 @@ const sanitizarTexto = (texto: string): string => {
     .replace(/μ/g, 'u')      // Greek mu
     .replace(/–/g, '-')      // En dash
     .replace(/—/g, '-')      // Em dash
+    .replace(/‑/g, '-')      // Non-breaking hyphen (U+2011)
+    .replace(/‐/g, '-')      // Hyphen (U+2010)
+    .replace(/−/g, '-')      // Minus sign (U+2212)
+    .replace(/­/g, '')       // Soft hyphen (invisible, remove)
     .replace(/'/g, "'").replace(/'/g, "'")
     .replace(/"/g, '"').replace(/"/g, '"')
     .replace(/…/g, '...')    // Ellipsis
