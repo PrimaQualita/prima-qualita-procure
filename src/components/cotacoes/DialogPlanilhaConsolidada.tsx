@@ -880,7 +880,7 @@ export function DialogPlanilhaConsolidada({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Gerar Planilha Consolidada para Seleção</DialogTitle>
           <DialogDescription>
@@ -888,7 +888,7 @@ export function DialogPlanilhaConsolidada({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 pr-4">
+        <div className="flex-1 overflow-y-auto pr-2">
           <div className="space-y-4 py-4">
             {/* Campo "Tipo de Visualização" removido - usa automaticamente o critério de julgamento */}
 
@@ -1070,7 +1070,7 @@ export function DialogPlanilhaConsolidada({
               </p>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="flex-shrink-0 pt-4 border-t gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
