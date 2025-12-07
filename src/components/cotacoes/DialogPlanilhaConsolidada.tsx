@@ -1029,9 +1029,9 @@ export function DialogPlanilhaConsolidada({
               <p className="text-xs text-muted-foreground mb-3">
                 Marque as empresas que devem aparecer na planilha consolidada. Empresas reprovadas estão desmarcadas por padrão.
               </p>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              <div className="space-y-2">
                 {respostas.map((resposta, idx) => (
-                  <div key={idx} className="flex items-center gap-3 p-2 border rounded">
+                  <div key={idx} className="flex items-center gap-3 p-2 border rounded bg-background">
                     <input
                       type="checkbox"
                       id={`empresa-${idx}`}
