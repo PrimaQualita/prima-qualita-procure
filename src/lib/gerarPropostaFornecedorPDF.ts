@@ -634,9 +634,10 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
-        // Posicionar texto começando com padding superior fixo
-        // Garantir que texto NUNCA comece antes de yTop + padding
-        const yDescStart = yTop + 3 + itemLineHeight * 0.5;
+        // Centralizar verticalmente MAS garantir que nunca ultrapasse borda superior
+        const textHeight = linhasDescricao.length * itemLineHeight * 1.1;
+        const yDescCentralizado = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
+        const yDescStart = Math.max(yTop + 3, yDescCentralizado); // Nunca menor que yTop + 3
         doc.text(descricaoSanitizada, 32, yDescStart, { 
           maxWidth: larguraDescricao, 
           align: 'justify',
@@ -649,9 +650,10 @@ export async function gerarPropostaFornecedorPDF(
           : '-';
         doc.text(descontoFormatted, 178.5, yCenter, { align: 'center' });
       } else {
-        // Posicionar texto começando com padding superior fixo
-        // Garantir que texto NUNCA comece antes de yTop + padding
-        const yDescStart = yTop + 3 + itemLineHeight * 0.5;
+        // Centralizar verticalmente MAS garantir que nunca ultrapasse borda superior
+        const textHeight = linhasDescricao.length * itemLineHeight * 1.1;
+        const yDescCentralizado = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
+        const yDescStart = Math.max(yTop + 3, yDescCentralizado); // Nunca menor que yTop + 3
         doc.text(descricaoSanitizada, colDescX + 2, yDescStart, { 
           maxWidth: larguraDescricao, 
           align: 'justify',
