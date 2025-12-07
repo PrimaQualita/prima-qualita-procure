@@ -238,83 +238,10 @@ export function DialogAnexosProcesso({
 
       if (error) throw error;
 
-      // Se deletou o processo completo, deletar documentos relacionados e voltar status
+      // Se deletou o processo completo, apenas voltar status - NÃO deletar documentos individuais
+      // (planilha de habilitação, relatório final e autorização devem ser mantidos)
       if (anexo.tipo_anexo === "PROCESSO_COMPLETO" && processoId) {
-        console.log("🗑️ Deletando documentos relacionados ao processo completo...");
-        
-        // Buscar cotação do processo
-        const { data: cotacaoData } = await supabase
-          .from("cotacoes_precos")
-          .select("id")
-          .eq("processo_compra_id", processoId)
-          .single();
-
-        if (cotacaoData) {
-          const cotacaoId = cotacaoData.id;
-          
-          // Deletar planilha de habilitação
-          const { data: planilhasHab } = await supabase
-            .from("planilhas_habilitacao")
-            .select("url_arquivo")
-            .eq("cotacao_id", cotacaoId);
-          
-          if (planilhasHab && planilhasHab.length > 0) {
-            for (const planilha of planilhasHab) {
-              if (planilha.url_arquivo) {
-                const path = planilha.url_arquivo.includes('/processo-anexos/')
-                  ? planilha.url_arquivo.split('/processo-anexos/')[1]?.split('?')[0]
-                  : planilha.url_arquivo;
-                if (path) {
-                  await supabase.storage.from("processo-anexos").remove([path]);
-                }
-              }
-            }
-            await supabase.from("planilhas_habilitacao").delete().eq("cotacao_id", cotacaoId);
-            console.log("✅ Planilha de habilitação deletada");
-          }
-          
-          // Deletar relatório final
-          const { data: relatorios } = await supabase
-            .from("relatorios_finais")
-            .select("url_arquivo")
-            .eq("cotacao_id", cotacaoId);
-          
-          if (relatorios && relatorios.length > 0) {
-            for (const relatorio of relatorios) {
-              if (relatorio.url_arquivo) {
-                const path = relatorio.url_arquivo.includes('/processo-anexos/')
-                  ? relatorio.url_arquivo.split('/processo-anexos/')[1]?.split('?')[0]
-                  : relatorio.url_arquivo;
-                if (path) {
-                  await supabase.storage.from("processo-anexos").remove([path]);
-                }
-              }
-            }
-            await supabase.from("relatorios_finais").delete().eq("cotacao_id", cotacaoId);
-            console.log("✅ Relatório final deletado");
-          }
-          
-          // Deletar autorização
-          const { data: autorizacoes } = await supabase
-            .from("autorizacoes_processo")
-            .select("url_arquivo")
-            .eq("cotacao_id", cotacaoId);
-          
-          if (autorizacoes && autorizacoes.length > 0) {
-            for (const autorizacao of autorizacoes) {
-              if (autorizacao.url_arquivo) {
-                const path = autorizacao.url_arquivo.includes('/processo-anexos/')
-                  ? autorizacao.url_arquivo.split('/processo-anexos/')[1]?.split('?')[0]
-                  : autorizacao.url_arquivo;
-                if (path) {
-                  await supabase.storage.from("processo-anexos").remove([path]);
-                }
-              }
-            }
-            await supabase.from("autorizacoes_processo").delete().eq("cotacao_id", cotacaoId);
-            console.log("✅ Autorização deletada");
-          }
-        }
+        console.log("🗑️ Processo completo deletado, voltando status do processo...");
         
         // Voltar status para em_cotacao e zerar valor total
         const { error: statusError } = await supabase
@@ -326,7 +253,7 @@ export function DialogAnexosProcesso({
           console.error("Erro ao atualizar status do processo:", statusError);
         }
         
-        console.log("✅ Processo completo e documentos relacionados deletados");
+        console.log("✅ Processo completo deletado, status revertido");
       }
 
       toast({ title: "Anexo excluído com sucesso!" });
