@@ -2991,7 +2991,9 @@ export function DialogFinalizarProcesso({
                         <div className="text-sm text-muted-foreground">
                           {fornData.itensVencedores && fornData.itensVencedores.length > 0 && (
                             <span className="text-sm font-medium">
-                              {criterioJulgamento === 'por_lote' ? (
+                              {criterioJulgamento === 'global' ? (
+                                <>Vencedor</>
+                              ) : criterioJulgamento === 'por_lote' ? (
                                 <>
                                   Lotes vencedores: {(() => {
                                     // Agrupar itens por lote e identificar quais lotes foram ganhos
