@@ -522,10 +522,11 @@ export async function gerarPropostaFornecedorPDF(
         maxLinhas = Math.max(maxLinhas, marcaLinhas.length, unidLinhas.length, qtdLinhas.length);
       }
       
-      // Altura mínima de 7, com padding adequado para texto não sobrepor bordas
-      // Padding superior e inferior de 3 cada = 6 total
-      const paddingVertical = 6;
-      const alturaLinha = Math.max(10, maxLinhas * itemLineHeight + paddingVertical);
+      // Altura mínima de 10, usando lineHeightFactor de 1.1 que é usado na renderização
+      const lineHeightFactor = 1.1;
+      const textHeightReal = maxLinhas * itemLineHeight * lineHeightFactor;
+      const paddingVertical = 6; // 3 em cima, 3 embaixo
+      const alturaLinha = Math.max(10, textHeightReal + paddingVertical);
       
       // Verificar se precisa de nova página
       if (y + alturaLinha > 270) {
@@ -634,14 +635,14 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
-        // Centralizar verticalmente MAS garantir que nunca ultrapasse borda superior
-        const textHeight = linhasDescricao.length * itemLineHeight * 1.1;
-        const yDescCentralizado = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
-        const yDescStart = Math.max(yTop + 3, yDescCentralizado); // Nunca menor que yTop + 3
+        // Centralizar verticalmente - usar mesmo lineHeightFactor da renderização
+        const textHeight = linhasDescricao.length * itemLineHeight * lineHeightFactor;
+        const espacoSobrando = alturaLinha - textHeight;
+        const yDescStart = yTop + (espacoSobrando / 2) + itemLineHeight * 0.8;
         doc.text(descricaoSanitizada, 32, yDescStart, { 
           maxWidth: larguraDescricao, 
           align: 'justify',
-          lineHeightFactor: 1.1
+          lineHeightFactor: lineHeightFactor
         });
         doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 133.5, yCenter, { align: 'center' });
         doc.text(sanitizarTexto(itemCotacao.unidade || ''), 153.5, yCenter, { align: 'center' });
@@ -650,14 +651,14 @@ export async function gerarPropostaFornecedorPDF(
           : '-';
         doc.text(descontoFormatted, 178.5, yCenter, { align: 'center' });
       } else {
-        // Centralizar verticalmente MAS garantir que nunca ultrapasse borda superior
-        const textHeight = linhasDescricao.length * itemLineHeight * 1.1;
-        const yDescCentralizado = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
-        const yDescStart = Math.max(yTop + 3, yDescCentralizado); // Nunca menor que yTop + 3
+        // Centralizar verticalmente - usar mesmo lineHeightFactor da renderização
+        const textHeight = linhasDescricao.length * itemLineHeight * lineHeightFactor;
+        const espacoSobrando = alturaLinha - textHeight;
+        const yDescStart = yTop + (espacoSobrando / 2) + itemLineHeight * 0.8;
         doc.text(descricaoSanitizada, colDescX + 2, yDescStart, { 
           maxWidth: larguraDescricao, 
           align: 'justify',
-          lineHeightFactor: 1.1
+          lineHeightFactor: lineHeightFactor
         });
         
         const marcaSanitizada = sanitizarTexto(item.marca || '-');
