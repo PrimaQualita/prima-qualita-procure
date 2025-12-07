@@ -278,16 +278,23 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
       .update({ criterio_julgamento: criterio })
       .eq("id", cotacaoId);
 
-    // Inserir itens
-    const itensParaInserir = dados.map(item => ({
-      cotacao_id: cotacaoId,
-      numero_item: item.Item,
-      descricao: item.Descrição,
-      quantidade: item.Quantidade,
-      unidade: item.Unidade,
-      valor_unitario_estimado: 0,
-      lote_id: null,
-    }));
+    // Inserir itens - garantir que numero_item seja um número válido
+    const itensParaInserir = dados.map((item, index) => {
+      // Tentar obter numero_item do campo Item, senão usar índice + 1
+      const numeroItem = item.Item !== undefined && item.Item !== null 
+        ? (typeof item.Item === 'number' ? item.Item : parseInt(String(item.Item)))
+        : index + 1;
+      
+      return {
+        cotacao_id: cotacaoId,
+        numero_item: isNaN(numeroItem) ? index + 1 : numeroItem,
+        descricao: item.Descrição || '',
+        quantidade: item.Quantidade || 0,
+        unidade: item.Unidade || 'UND',
+        valor_unitario_estimado: 0,
+        lote_id: null,
+      };
+    });
 
     const { error } = await supabase
       .from("itens_cotacao")
