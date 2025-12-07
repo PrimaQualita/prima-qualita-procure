@@ -428,7 +428,7 @@ export function DialogPlanilhaConsolidada({
       // Porque numero_item se repete em cada lote (1, 2, 3... em cada lote)
       const criteriosPorChaveComposta: Record<string, 'menor' | 'media' | 'mediana'> = {};
       
-      // Se critério é por_lote, usar calculosPorLote; senão usar calculosPorItem
+      // Se critério é por_lote, usar calculosPorLote; se global, usar calculoGlobal; senão usar calculosPorItem
       todosItens.forEach((item: any) => {
         let criterio: 'menor' | 'media' | 'mediana' | undefined;
         
@@ -437,7 +437,11 @@ export function DialogPlanilhaConsolidada({
           ? `${item.numero_lote}_${item.numero_item}` 
           : `0_${item.numero_item}`;
         
-        if (criterioJulgamento === 'por_lote' && item.lote_id) {
+        if (criterioJulgamento === 'global') {
+          // Para critério global, usar o calculoGlobal selecionado para TODOS os itens
+          criterio = calculoGlobal;
+          console.log(`   Item ${item.numero_item}: critério GLOBAL="${criterio}", chave="${chaveComposta}"`);
+        } else if (criterioJulgamento === 'por_lote' && item.lote_id) {
           // Para critério por_lote, buscar pelo lote_id em calculosPorLote
           criterio = calculosPorLote[item.lote_id];
           console.log(`   Item ${item.numero_item} (Lote ${item.numero_lote}): lote_id="${item.lote_id}", critério do lote="${criterio}", chave="${chaveComposta}"`);
