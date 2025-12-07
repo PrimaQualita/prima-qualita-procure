@@ -503,9 +503,10 @@ export async function gerarPropostaFornecedorPDF(
       // Sanitizar descrição para remover caracteres especiais problemáticos
       const descricaoSanitizada = sanitizarTexto(itemCotacao.descricao || '');
       
-      // Quebrar descrição em múltiplas linhas - usar largura menor para evitar sobreposição
-      const maxWidthDesc = criterioJulgamento === 'desconto' ? 86 : 52;
-      const linhasDescricao = doc.splitTextToSize(descricaoSanitizada, maxWidthDesc);
+      // Quebrar descrição em múltiplas linhas - usar largura REAL da coluna menos padding
+      // Coluna DESCRIÇÃO: de colDescX até colMarcaX, com padding de 2 de cada lado = largura útil - 4
+      const larguraDescricao = criterioJulgamento === 'desconto' ? 84 : 54; // Reduzir para evitar overflow
+      const linhasDescricao = doc.splitTextToSize(descricaoSanitizada, larguraDescricao);
       
       // Calcular altura baseada em TODAS as colunas (não só descrição)
       // LineHeight de 3.5 para texto de 8pt
@@ -635,7 +636,7 @@ export async function gerarPropostaFornecedorPDF(
         const textHeight = linhasDescricao.length * itemLineHeight * 1.3; // 1.3 é o lineHeightFactor
         const yDescStart = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
         doc.text(descricaoSanitizada, 32, yDescStart, { 
-          maxWidth: 86, 
+          maxWidth: larguraDescricao, 
           align: 'justify',
           lineHeightFactor: 1.3
         });
@@ -650,7 +651,7 @@ export async function gerarPropostaFornecedorPDF(
         const textHeight = linhasDescricao.length * itemLineHeight * 1.3; // 1.3 é o lineHeightFactor
         const yDescStart = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
         doc.text(descricaoSanitizada, colDescX + 2, yDescStart, { 
-          maxWidth: 52, 
+          maxWidth: larguraDescricao, 
           align: 'justify',
           lineHeightFactor: 1.3
         });
