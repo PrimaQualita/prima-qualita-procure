@@ -148,6 +148,7 @@ const Cotacoes = () => {
         await checkAuth();
       }
       
+      // Usar cache APENAS se existe E tem dados
       if (contratosLoaded && cachedContratos && cachedContratos.length > 0) {
         setContratos(cachedContratos);
       } else {
@@ -346,8 +347,8 @@ const Cotacoes = () => {
   };
 
   const loadContratos = async () => {
-    // Usar cache se disponível
-    if (contratosLoaded && cachedContratos) {
+    // Usar cache APENAS se os dados existem E têm conteúdo
+    if (contratosLoaded && cachedContratos && cachedContratos.length > 0) {
       setContratos(cachedContratos);
       return;
     }
@@ -361,10 +362,12 @@ const Cotacoes = () => {
       toast.error("Erro ao carregar contratos");
       console.error(error);
     } else {
-      // Salvar no cache
-      cachedContratos = data || [];
-      contratosLoaded = true;
-      setContratos(cachedContratos);
+      // Salvar no cache APENAS se retornou dados
+      if (data && data.length > 0) {
+        cachedContratos = data;
+        contratosLoaded = true;
+      }
+      setContratos(data || []);
     }
   };
 
