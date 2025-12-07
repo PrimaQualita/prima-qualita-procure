@@ -345,6 +345,38 @@ export async function gerarPlanilhaHabilitacaoPDF(
     return !!(email && email.includes('precos.publicos'));
   };
 
+  // Função para encontrar vencedor GLOBAL (menor valor total)
+  const encontrarVencedorGlobal = (): { empresa: string; empresaIdx: number } => {
+    const totaisGlobais: { idx: number; total: number; razao_social: string }[] = [];
+    
+    respostas.forEach((resposta, idx) => {
+      // Ignorar fornecedores totalmente rejeitados ou preços públicos
+      if (resposta.rejeitado) return;
+      if (ehPrecoPublico(resposta.fornecedor.email)) return;
+      
+      // Calcular total global do fornecedor
+      let totalFornecedor = 0;
+      resposta.itens.forEach(itemResp => {
+        const itemOriginal = itens.find(i => i.numero_item === itemResp.numero_item);
+        if (itemOriginal && itemResp.valor_unitario_ofertado > 0) {
+          totalFornecedor += itemResp.valor_unitario_ofertado * itemOriginal.quantidade;
+        }
+      });
+      
+      if (totalFornecedor > 0) {
+        totaisGlobais.push({ idx, total: totalFornecedor, razao_social: resposta.fornecedor.razao_social });
+      }
+    });
+    
+    if (totaisGlobais.length === 0) {
+      return { empresa: "-", empresaIdx: -1 };
+    }
+    
+    // Menor total vence
+    totaisGlobais.sort((a, b) => a.total - b.total);
+    return { empresa: totaisGlobais[0].razao_social, empresaIdx: totaisGlobais[0].idx };
+  };
+
   // Função para encontrar vencedor de um item
   // CRÍTICO: Match deve considerar TANTO numero_item QUANTO lote_numero para evitar confusão entre lotes
   const encontrarVencedor = (numeroItem: number, loteNumero?: number): { valor: number | null; empresa: string } => {
@@ -459,7 +491,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
   };
 
   // Função para processar um item e retornar a linha
-  const processarItem = (item: ItemCotacao, loteNumero?: number, vencedorLoteIdx?: number) => {
+  // vencedorGlobalIdx é passado quando critério é "global" para identificar o vencedor único
+  const processarItem = (item: ItemCotacao, loteNumero?: number, vencedorLoteIdx?: number, vencedorGlobalIdx?: number) => {
     const linha: any = {
       item: item.numero_item,
       descricao: sanitizarTexto(decodeHtmlEntities(item.descricao)),
@@ -500,7 +533,22 @@ export async function gerarPlanilhaHabilitacaoPDF(
     });
 
     // Adicionar dados do vencedor
-    if (!temLotes) {
+    // CRITÉRIO GLOBAL: vencedor é único para todos itens (quem tem menor valor total)
+    if (criterioJulgamento === 'global' && vencedorGlobalIdx !== undefined && vencedorGlobalIdx >= 0) {
+      const respostaVencedor = respostas[vencedorGlobalIdx];
+      const itemRespostaVencedor = respostaVencedor?.itens.find(i => i.numero_item === item.numero_item);
+      
+      if (itemRespostaVencedor) {
+        const valorUnitario = itemRespostaVencedor.valor_unitario_ofertado;
+        const valorTotalItem = valorUnitario * item.quantidade;
+        linha.valor_vencedor = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotalItem)})`;
+        linha.empresa_vencedora = respostaVencedor.fornecedor.razao_social;
+        totalVencedor += valorTotalItem;
+      } else {
+        linha.valor_vencedor = "-";
+        linha.empresa_vencedora = respostaVencedor?.fornecedor.razao_social || "-";
+      }
+    } else if (!temLotes) {
       // Para critério por item ou desconto - quando não há lotes
       const vencedor = encontrarVencedor(item.numero_item, loteNumero);
       if (vencedor.valor !== null) {
@@ -649,8 +697,15 @@ export async function gerarPlanilhaHabilitacaoPDF(
     });
   } else {
     // Processar itens normalmente sem agrupamento
+    // CRITÉRIO GLOBAL: calcular vencedor único (menor valor total) ANTES de processar itens
+    let vencedorGlobalIdx: number | undefined = undefined;
+    if (criterioJulgamento === 'global') {
+      const vencedorGlobal = encontrarVencedorGlobal();
+      vencedorGlobalIdx = vencedorGlobal.empresaIdx >= 0 ? vencedorGlobal.empresaIdx : undefined;
+    }
+    
     itens.forEach((item) => {
-      dados.push(processarItem(item, item.lote_numero));
+      dados.push(processarItem(item, item.lote_numero, undefined, vencedorGlobalIdx));
     });
   }
 
