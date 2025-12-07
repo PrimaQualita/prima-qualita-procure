@@ -54,12 +54,9 @@ Deno.serve(async (req) => {
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
         { tabela: 'respostas_recursos', coluna: 'url_documento' },
-        // REMOVIDOS (TABELAS DE DADOS DE NEGÓCIO - NUNCA DELETAR):
-        // - cotacao_respostas_fornecedor (propostas de cotação)
-        // - selecao_propostas_fornecedor (propostas de seleção)
-        // - documentos_fornecedor (cadastro de fornecedor)
-        // - documentos_processo_finalizado (snapshots)
-        // - documentos_antigos (histórico de certidões)
+        // Propostas de cotação - limpar apenas campos de URL, não deleta o registro inteiro
+        { tabela: 'cotacao_respostas_fornecedor', coluna: 'url_pdf_proposta', apenasLimparUrl: true },
+        { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta', apenasLimparUrl: true },
       ];
 
       for (let i = 0; i < limite; i++) {
@@ -72,24 +69,45 @@ Deno.serve(async (req) => {
         const fileName = path.split('/').pop() || '';
         console.log(`  📁 Nome do arquivo: ${fileName}`);
 
-        for (const { tabela, coluna } of queries) {
+        for (const query of queries) {
+          const { tabela, coluna, apenasLimparUrl } = query as any;
           try {
-            // Usar ILIKE para buscar URLs que CONTENHAM o nome do arquivo
-            // Isso funciona tanto para paths relativos quanto URLs completas
-            const { error: deleteError, count } = await supabase
-              .from(tabela)
-              .delete({ count: 'exact' })
-              .ilike(coluna, `%${fileName}`);
+            if (apenasLimparUrl) {
+              // Para tabelas de dados de negócio, apenas limpar o campo URL (não deletar registro)
+              const { error: updateError, count } = await supabase
+                .from(tabela)
+                .update({ [coluna]: null })
+                .ilike(coluna, `%${fileName}`)
+                .select('id');
 
-            if (deleteError) {
-              console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
-              continue;
-            }
+              if (updateError) {
+                console.log(`  ⚠️ Erro ao limpar URL de ${tabela}.${coluna}: ${updateError.message}`);
+                continue;
+              }
 
-            if (count && count > 0) {
-              encontrouAlgum = true;
-              deletados += count;
-              console.log(`  ✅ Deletou ${count} referência(s) de ${tabela}.${coluna}`);
+              // count vem do select, precisa contar manualmente
+              if (count !== null && count > 0) {
+                encontrouAlgum = true;
+                deletados += 1; // Conta como referência limpa
+                console.log(`  ✅ Limpou URL em ${tabela}.${coluna} (registro mantido)`);
+              }
+            } else {
+              // Para tabelas de referência pura, deletar o registro inteiro
+              const { error: deleteError, count } = await supabase
+                .from(tabela)
+                .delete({ count: 'exact' })
+                .ilike(coluna, `%${fileName}`);
+
+              if (deleteError) {
+                console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
+                continue;
+              }
+
+              if (count && count > 0) {
+                encontrouAlgum = true;
+                deletados += count;
+                console.log(`  ✅ Deletou ${count} referência(s) de ${tabela}.${coluna}`);
+              }
             }
           } catch (err) {
             console.log(`  ❌ Exceção em ${tabela}.${coluna}: ${err}`);
