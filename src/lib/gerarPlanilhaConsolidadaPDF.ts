@@ -430,6 +430,50 @@ export async function gerarPlanilhaConsolidadaPDF(
     );
   }
   
+  // PRÉ-CALCULAR dados para critério GLOBAL
+  // Isso é necessário para calcular estimativa baseada no fornecedor com menor preço global
+  let fornecedoresEstimativaGlobal: { cnpj: string, valorTotal: number, itens: Map<number, number> }[] = [];
+  
+  if (criterioJulgamento === 'global') {
+    // Calcular valor total global de cada fornecedor e mapear valores por item
+    const totaisGlobaisPorFornecedor: Map<string, { valorTotal: number, itens: Map<number, number> }> = new Map();
+    
+    respostas.forEach(resposta => {
+      let valorTotalFornecedor = 0;
+      const itensMap = new Map<number, number>();
+      
+      itens.forEach(item => {
+        const respostaItem = resposta.itens.find(i => 
+          i.numero_item === item.numero_item && 
+          (item.lote_numero ? i.lote_numero === item.lote_numero : !i.lote_numero)
+        );
+        
+        if (respostaItem) {
+          const valorUnitario = typeof respostaItem.valor_unitario_ofertado === 'number' ? respostaItem.valor_unitario_ofertado : 0;
+          if (valorUnitario > 0) {
+            valorTotalFornecedor += valorUnitario * item.quantidade;
+            itensMap.set(item.numero_item, valorUnitario);
+          }
+        }
+      });
+      
+      if (valorTotalFornecedor > 0) {
+        totaisGlobaisPorFornecedor.set(resposta.fornecedor.cnpj, { 
+          valorTotal: valorTotalFornecedor, 
+          itens: itensMap 
+        });
+      }
+    });
+    
+    // Converter para array para ordenação
+    fornecedoresEstimativaGlobal = Array.from(totaisGlobaisPorFornecedor.entries())
+      .map(([cnpj, data]) => ({ cnpj, valorTotal: data.valorTotal, itens: data.itens }));
+    
+    console.log('📊 Totais globais por fornecedor pré-calculados:', 
+      fornecedoresEstimativaGlobal.map(f => ({ cnpj: f.cnpj, valorTotal: f.valorTotal, qtdItens: f.itens.size }))
+    );
+  }
+  
   // Função para obter fornecedor(es) vencedor(es) do lote baseado no critério de cálculo
   const obterFornecedoresEstimativaLote = (loteNum: number, criterioCalculo: 'menor' | 'media' | 'mediana') => {
     const loteData = subtotaisPorLoteFornecedor.get(loteNum);
@@ -557,8 +601,53 @@ export async function gerarPlanilhaConsolidadaPDF(
             ? somaValores / fornecedoresEstimativaLote.length 
             : 0;
         }
+      } else if (criterioJulgamento === 'global' && fornecedoresEstimativaGlobal.length > 0) {
+        // LÓGICA ESPECÍFICA PARA CRITÉRIO GLOBAL
+        if (criterioItem === 'menor') {
+          // MENOR GLOBAL: Encontrar o fornecedor com menor valor TOTAL e usar seus valores
+          const fornecedorMenorTotal = [...fornecedoresEstimativaGlobal].sort((a, b) => a.valorTotal - b.valorTotal)[0];
+          valorEstimativa = fornecedorMenorTotal?.itens.get(item.numero_item) || 0;
+          console.log(`📊 GLOBAL MENOR - Item ${item.numero_item}: Fornecedor vencedor ${fornecedorMenorTotal?.cnpj} (total ${fornecedorMenorTotal?.valorTotal}), valor item = ${valorEstimativa}`);
+        } else if (criterioItem === 'media') {
+          // MÉDIA GLOBAL: Fazer média de todos os valores dos fornecedores para este item
+          const valoresCotados = valoresItem.filter(v => v > 0);
+          valorEstimativa = valoresCotados.length > 0 
+            ? valoresCotados.reduce((a, b) => a + b, 0) / valoresCotados.length 
+            : 0;
+          console.log(`📊 GLOBAL MÉDIA - Item ${item.numero_item}: valores=${valoresCotados.join(',')}, média=${valorEstimativa}`);
+        } else {
+          // MEDIANA GLOBAL: Calcular mediana dos valores TOTAIS e fazer média dos valores dos fornecedores na mediana
+          const sorted = [...fornecedoresEstimativaGlobal].sort((a, b) => a.valorTotal - b.valorTotal);
+          let fornecedoresMediana: typeof fornecedoresEstimativaGlobal = [];
+          
+          if (sorted.length === 1) {
+            fornecedoresMediana = [sorted[0]];
+          } else if (sorted.length === 2) {
+            // Com 2 fornecedores, mediana é a média dos dois
+            fornecedoresMediana = sorted;
+          } else if (sorted.length % 2 === 0) {
+            // Número par: mediana é média dos dois do meio
+            const middle = sorted.length / 2;
+            fornecedoresMediana = [sorted[middle - 1], sorted[middle]];
+          } else {
+            // Número ímpar: mediana é o do meio
+            const middle = Math.floor(sorted.length / 2);
+            fornecedoresMediana = [sorted[middle]];
+          }
+          
+          // Fazer média dos valores dos itens dos fornecedores que ficaram na mediana
+          const valoresMediana = fornecedoresMediana
+            .map(f => f.itens.get(item.numero_item) || 0)
+            .filter(v => v > 0);
+          
+          valorEstimativa = valoresMediana.length > 0 
+            ? valoresMediana.reduce((a, b) => a + b, 0) / valoresMediana.length 
+            : 0;
+          
+          console.log(`📊 GLOBAL MEDIANA - Item ${item.numero_item}: fornecedores mediana=${fornecedoresMediana.map(f => f.cnpj).join(',')}, valores=${valoresMediana.join(',')}, média=${valorEstimativa}`);
+        }
       } else {
-        // Lógica original para outros critérios (por_item, global, desconto)
+        // Lógica original para outros critérios (por_item, desconto)
         if (criterioItem === 'menor') {
           if (criterioJulgamento === 'desconto') {
             valorEstimativa = Math.max(...valoresItem);
