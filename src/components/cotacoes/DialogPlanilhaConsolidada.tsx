@@ -876,15 +876,15 @@ export function DialogPlanilhaConsolidada({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Gerar Planilha Consolidada para Seleção</DialogTitle>
           <DialogDescription>
             Configure os parâmetros de cálculo para cada item ou lote
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh] pr-4">
+        <ScrollArea className="flex-1 min-h-0 pr-4">
           <div className="space-y-4 py-4">
             {/* Campo "Tipo de Visualização" removido - usa automaticamente o critério de julgamento */}
 
