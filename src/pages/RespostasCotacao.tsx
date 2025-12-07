@@ -692,7 +692,7 @@ export default function RespostasCotacao() {
       // 1. Buscar TODOS os anexos (PDF proposta + comprovantes) e comprovantes_urls
       const { data: respostaData, error: fetchError } = await supabase
         .from('cotacao_respostas_fornecedor')
-        .select('comprovantes_urls, anexos_cotacao_fornecedor(id, url_arquivo)')
+        .select('comprovantes_urls, url_pdf_proposta, anexos_cotacao_fornecedor(id, url_arquivo)')
         .eq('id', respostaParaExcluir)
         .single();
 
@@ -700,20 +700,34 @@ export default function RespostasCotacao() {
 
       const arquivosParaDeletar: string[] = [];
 
-      // Adicionar anexos (PDF proposta)
+      // Adicionar anexos (PDF proposta via tabela anexos)
       if (respostaData?.anexos_cotacao_fornecedor) {
         respostaData.anexos_cotacao_fornecedor.forEach((anexo: any) => {
-          arquivosParaDeletar.push(anexo.url_arquivo);
+          if (anexo.url_arquivo) {
+            // Limpar o path removendo prefixo do bucket e query params
+            const cleanPath = anexo.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
+            arquivosParaDeletar.push(cleanPath);
+          }
         });
+      }
+      
+      // Adicionar url_pdf_proposta se existir (campo direto na resposta)
+      if (respostaData?.url_pdf_proposta) {
+        const cleanPath = respostaData.url_pdf_proposta.split('?')[0].replace(/^processo-anexos\//, '');
+        arquivosParaDeletar.push(cleanPath);
       }
 
       // Adicionar comprovantes
       if (respostaData?.comprovantes_urls && Array.isArray(respostaData.comprovantes_urls)) {
-        arquivosParaDeletar.push(...respostaData.comprovantes_urls);
+        respostaData.comprovantes_urls.forEach((url: string) => {
+          const cleanPath = url.split('?')[0].replace(/^processo-anexos\//, '');
+          arquivosParaDeletar.push(cleanPath);
+        });
       }
 
       // 2. Deletar TODOS os arquivos do storage PRIMEIRO
       if (arquivosParaDeletar.length > 0) {
+        console.log(`🗑️ Deletando ${arquivosParaDeletar.length} arquivos do storage:`, arquivosParaDeletar);
         const { error: storageError } = await supabase.storage
           .from('processo-anexos')
           .remove(arquivosParaDeletar);
