@@ -72,9 +72,9 @@ Deno.serve(async (req) => {
         for (const query of queries) {
           const { tabela, coluna, apenasLimparUrl } = query as any;
           try {
-            if (apenasLimparUrl) {
+          if (apenasLimparUrl) {
               // Para tabelas de dados de negócio, apenas limpar o campo URL (não deletar registro)
-              const { error: updateError, count } = await supabase
+              const { data: updatedRows, error: updateError } = await supabase
                 .from(tabela)
                 .update({ [coluna]: null })
                 .ilike(coluna, `%${fileName}`)
@@ -85,11 +85,11 @@ Deno.serve(async (req) => {
                 continue;
               }
 
-              // count vem do select, precisa contar manualmente
-              if (count !== null && count > 0) {
+              const updatedCount = updatedRows?.length || 0;
+              if (updatedCount > 0) {
                 encontrouAlgum = true;
-                deletados += 1; // Conta como referência limpa
-                console.log(`  ✅ Limpou URL em ${tabela}.${coluna} (registro mantido)`);
+                deletados += updatedCount;
+                console.log(`  ✅ Limpou ${updatedCount} URL(s) em ${tabela}.${coluna} (registro mantido)`);
               }
             } else {
               // Para tabelas de referência pura, deletar o registro inteiro
