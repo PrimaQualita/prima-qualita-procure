@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -1067,7 +1068,7 @@ export function DialogPlanilhaConsolidada({
           </div>
         </ScrollArea>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <DialogFooter className="flex-shrink-0 pt-4 border-t gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
@@ -1075,7 +1076,7 @@ export function DialogPlanilhaConsolidada({
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Gerar Planilha
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
