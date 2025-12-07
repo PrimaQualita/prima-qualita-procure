@@ -523,7 +523,9 @@ export async function gerarPropostaFornecedorPDF(
       }
       
       // Altura mínima de 7, com padding adequado para texto não sobrepor bordas
-      const alturaLinha = Math.max(7, maxLinhas * itemLineHeight + 4);
+      // Padding superior e inferior de 3 cada = 6 total
+      const paddingVertical = 6;
+      const alturaLinha = Math.max(10, maxLinhas * itemLineHeight + paddingVertical);
       
       // Verificar se precisa de nova página
       if (y + alturaLinha > 270) {
@@ -632,13 +634,15 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
-        // Calcular altura do texto para centralizar verticalmente
-        const textHeight = linhasDescricao.length * itemLineHeight * 1.3; // 1.3 é o lineHeightFactor
-        const yDescStart = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
-        doc.text(descricaoSanitizada, 32, yDescStart, { 
-          maxWidth: larguraDescricao, 
-          align: 'justify',
-          lineHeightFactor: 1.3
+        // Posicionar texto começando com padding superior fixo de 3
+        // O texto NUNCA pode começar antes de yTop + 3 (padding superior)
+        const yDescStart = yTop + 3 + itemLineHeight * 0.7;
+        // Renderizar linha por linha para controle preciso
+        linhasDescricao.forEach((linha: string, index: number) => {
+          doc.text(linha, 32, yDescStart + (index * itemLineHeight * 1.1), { 
+            maxWidth: larguraDescricao, 
+            align: 'justify'
+          });
         });
         doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 133.5, yCenter, { align: 'center' });
         doc.text(sanitizarTexto(itemCotacao.unidade || ''), 153.5, yCenter, { align: 'center' });
@@ -647,13 +651,15 @@ export async function gerarPropostaFornecedorPDF(
           : '-';
         doc.text(descontoFormatted, 178.5, yCenter, { align: 'center' });
       } else {
-        // Calcular altura do texto para centralizar verticalmente
-        const textHeight = linhasDescricao.length * itemLineHeight * 1.3; // 1.3 é o lineHeightFactor
-        const yDescStart = yTop + (alturaLinha - textHeight) / 2 + itemLineHeight;
-        doc.text(descricaoSanitizada, colDescX + 2, yDescStart, { 
-          maxWidth: larguraDescricao, 
-          align: 'justify',
-          lineHeightFactor: 1.3
+        // Posicionar texto começando com padding superior fixo de 3
+        // O texto NUNCA pode começar antes de yTop + 3 (padding superior)
+        const yDescStart = yTop + 3 + itemLineHeight * 0.7;
+        // Renderizar linha por linha para controle preciso
+        linhasDescricao.forEach((linha: string, index: number) => {
+          doc.text(linha, colDescX + 2, yDescStart + (index * itemLineHeight * 1.1), { 
+            maxWidth: larguraDescricao, 
+            align: 'justify'
+          });
         });
         
         const marcaSanitizada = sanitizarTexto(item.marca || '-');
