@@ -634,15 +634,13 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
-        // Posicionar texto começando com padding superior fixo de 3
-        // O texto NUNCA pode começar antes de yTop + 3 (padding superior)
-        const yDescStart = yTop + 3 + itemLineHeight * 0.7;
-        // Renderizar linha por linha para controle preciso
-        linhasDescricao.forEach((linha: string, index: number) => {
-          doc.text(linha, 32, yDescStart + (index * itemLineHeight * 1.1), { 
-            maxWidth: larguraDescricao, 
-            align: 'justify'
-          });
+        // Posicionar texto começando com padding superior fixo
+        // Garantir que texto NUNCA comece antes de yTop + padding
+        const yDescStart = yTop + 3 + itemLineHeight * 0.5;
+        doc.text(descricaoSanitizada, 32, yDescStart, { 
+          maxWidth: larguraDescricao, 
+          align: 'justify',
+          lineHeightFactor: 1.1
         });
         doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 133.5, yCenter, { align: 'center' });
         doc.text(sanitizarTexto(itemCotacao.unidade || ''), 153.5, yCenter, { align: 'center' });
@@ -651,15 +649,13 @@ export async function gerarPropostaFornecedorPDF(
           : '-';
         doc.text(descontoFormatted, 178.5, yCenter, { align: 'center' });
       } else {
-        // Posicionar texto começando com padding superior fixo de 3
-        // O texto NUNCA pode começar antes de yTop + 3 (padding superior)
-        const yDescStart = yTop + 3 + itemLineHeight * 0.7;
-        // Renderizar linha por linha para controle preciso
-        linhasDescricao.forEach((linha: string, index: number) => {
-          doc.text(linha, colDescX + 2, yDescStart + (index * itemLineHeight * 1.1), { 
-            maxWidth: larguraDescricao, 
-            align: 'justify'
-          });
+        // Posicionar texto começando com padding superior fixo
+        // Garantir que texto NUNCA comece antes de yTop + padding
+        const yDescStart = yTop + 3 + itemLineHeight * 0.5;
+        doc.text(descricaoSanitizada, colDescX + 2, yDescStart, { 
+          maxWidth: larguraDescricao, 
+          align: 'justify',
+          lineHeightFactor: 1.1
         });
         
         const marcaSanitizada = sanitizarTexto(item.marca || '-');
