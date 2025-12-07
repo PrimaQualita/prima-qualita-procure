@@ -635,10 +635,13 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
       
       if (criterioJulgamento === 'desconto') {
-        // Centralizar verticalmente - usar mesmo lineHeightFactor da renderização
+        // Centralizar verticalmente na célula
+        // textHeight = altura total que o texto vai ocupar
+        // A primeira linha de texto em jsPDF é posicionada pela baseline, então adicionamos offset
         const textHeight = linhasDescricao.length * itemLineHeight * lineHeightFactor;
         const espacoSobrando = alturaLinha - textHeight;
-        const yDescStart = yTop + (espacoSobrando / 2) + itemLineHeight * 0.8;
+        // Dividir espaço sobrando igualmente acima e abaixo, offset de 2.5 para baseline da primeira linha
+        const yDescStart = yTop + (espacoSobrando / 2) + 2.5;
         doc.text(descricaoSanitizada, 32, yDescStart, { 
           maxWidth: larguraDescricao, 
           align: 'justify',
@@ -651,10 +654,13 @@ export async function gerarPropostaFornecedorPDF(
           : '-';
         doc.text(descontoFormatted, 178.5, yCenter, { align: 'center' });
       } else {
-        // Centralizar verticalmente - usar mesmo lineHeightFactor da renderização
+        // Centralizar verticalmente na célula
+        // textHeight = altura total que o texto vai ocupar
+        // A primeira linha de texto em jsPDF é posicionada pela baseline, então adicionamos offset
         const textHeight = linhasDescricao.length * itemLineHeight * lineHeightFactor;
         const espacoSobrando = alturaLinha - textHeight;
-        const yDescStart = yTop + (espacoSobrando / 2) + itemLineHeight * 0.8;
+        // Dividir espaço sobrando igualmente acima e abaixo, offset de 2.5 para baseline da primeira linha
+        const yDescStart = yTop + (espacoSobrando / 2) + 2.5;
         doc.text(descricaoSanitizada, colDescX + 2, yDescStart, { 
           maxWidth: larguraDescricao, 
           align: 'justify',
