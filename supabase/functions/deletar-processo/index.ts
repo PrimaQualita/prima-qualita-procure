@@ -491,7 +491,38 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`🎉 Deleção concluída: ${deletados} arquivos deletados`);
+    console.log(`🎉 Deleção de arquivos concluída: ${deletados} arquivos deletados`);
+
+    // 5. Deletar registros do banco de dados (após deletar arquivos do storage)
+    if (cotacoes && cotacoes.length > 0) {
+      const cotacaoIds = cotacoes.map(c => c.id);
+      
+      // 5.1 Deletar emails anexados
+      const { error: emailsError } = await supabase
+        .from('emails_cotacao_anexados')
+        .delete()
+        .in('cotacao_id', cotacaoIds);
+      
+      if (emailsError) {
+        console.error('❌ Erro ao deletar emails_cotacao_anexados:', emailsError);
+      } else {
+        console.log('✅ Registros de emails anexados deletados');
+      }
+
+      // 5.2 Deletar análises de compliance
+      const { error: analisesError } = await supabase
+        .from('analises_compliance')
+        .delete()
+        .in('cotacao_id', cotacaoIds);
+      
+      if (analisesError) {
+        console.error('❌ Erro ao deletar analises_compliance:', analisesError);
+      } else {
+        console.log('✅ Registros de análises de compliance deletados');
+      }
+    }
+
+    console.log(`🎉 Deleção completa finalizada`);
 
     return new Response(
       JSON.stringify({
