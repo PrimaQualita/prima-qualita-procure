@@ -732,7 +732,12 @@ export async function gerarPlanilhaHabilitacaoPDF(
   // Construir estilos de coluna dinamicamente
   const columnStyles: any = {
     item: { cellWidth: 12, halign: 'center' },
-    descricao: { cellWidth: 45, halign: 'left', overflow: 'linebreak' },
+    descricao: { 
+      cellWidth: 45, 
+      halign: 'left', 
+      overflow: 'linebreak',
+      cellPadding: { top: 2, right: 2, bottom: 2, left: 2 }
+    },
     quantidade: { cellWidth: 12, halign: 'center' },
     unidade: { cellWidth: 12, halign: 'center' },
     valor_vencedor: { cellWidth: 22, halign: 'center', fontStyle: 'bold', overflow: 'linebreak' },
@@ -907,11 +912,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
         return;
       }
       
-      // Configurar coluna de descrição para justificação
+      // Configurar coluna de descrição
       if (data.column.dataKey === 'descricao' && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral) {
-        // Manter texto alinhado justificado - autoTable vai desenhar nativamente
-        data.cell.styles.halign = 'justify';
+        data.cell.styles.halign = 'left';
         data.cell.styles.textColor = [0, 0, 0];
+        data.cell.styles.overflow = 'linebreak';
       }
       
       // Marcar empresas/itens inabilitados em vermelho
