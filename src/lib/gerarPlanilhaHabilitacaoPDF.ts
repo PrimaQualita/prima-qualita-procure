@@ -1116,9 +1116,14 @@ export async function gerarPlanilhaHabilitacaoPDF(
         doc.addPage();
         adicionarCabecalho();
         currentY = 40;
+        
+        // CRÍTICO: Resetar estilos após adicionar cabeçalho
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
       }
 
       doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0); // Garantir texto preto
       doc.text(`• ${empresa.fornecedor.razao_social}`, margemEsquerda, currentY);
       doc.setFont("helvetica", "normal");
       currentY += 5;
