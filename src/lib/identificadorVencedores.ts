@@ -165,15 +165,34 @@ export async function identificarVencedoresPorCriterio(
       return false;
     }
 
+    // Excluir preços públicos
+    if (ehPrecoPublico(f.email)) {
+      console.log(`  🚫 Excluindo ${f.razao_social} - preço público`);
+      return false;
+    }
+
     const resposta = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
     const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(f.fornecedor_id);
     const rejeitadoGlobalNoBanco = fornecedoresRejeitadosGlobal.has(f.fornecedor_id);
     
     // Se tem rejeição apenas por itens/lotes específicos, ainda é válido para outros itens/lotes
+    // Estes fornecedores serão filtrados item por item posteriormente
     const temRejeicaoParcialItem = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
     const temRejeicaoParcialLote = lotesRejeitadosPorFornecedor.has(f.fornecedor_id);
     
-    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.email);
+    // CRÍTICO: Se fornecedor tem rejeição global (todos itens/lotes), excluir
+    // Se tem rejeição parcial (apenas alguns itens/lotes), manter para recálculo granular
+    if (rejeitadoGlobalNoBanco) {
+      console.log(`  🚫 Excluindo ${f.razao_social} - rejeitado globalmente`);
+      return false;
+    }
+    
+    if (estaRejeitado && !temRejeicaoParcialItem && !temRejeicaoParcialLote) {
+      console.log(`  🚫 Excluindo ${f.razao_social} - rejeitado sem itens específicos`);
+      return false;
+    }
+    
+    return true;
   });
 
   console.log(`  → Fornecedores válidos para cálculo: ${fornecedoresValidos.length}`);
@@ -464,6 +483,11 @@ export async function carregarItensVencedoresPorFornecedor(
       return false;
     }
 
+    // Excluir preços públicos
+    if (ehPrecoPublico(f.email)) {
+      return false;
+    }
+
     const resposta = respostas.find(r => r.fornecedor_id === f.fornecedor_id);
     const estaRejeitado = resposta?.rejeitado && !fornecedoresRevertidos.has(f.fornecedor_id);
     const rejeitadoGlobalNoBanco = fornecedoresRejeitadosGlobal.has(f.fornecedor_id);
@@ -472,7 +496,17 @@ export async function carregarItensVencedoresPorFornecedor(
     const temRejeicaoParcialItem = itensRejeitadosPorFornecedor.has(f.fornecedor_id);
     const temRejeicaoParcialLote = lotesRejeitadosPorFornecedor.has(f.fornecedor_id);
     
-    return (!estaRejeitado && !rejeitadoGlobalNoBanco) || (temRejeicaoParcialItem || temRejeicaoParcialLote) && !ehPrecoPublico(f.email);
+    // CRÍTICO: Se fornecedor tem rejeição global (todos itens/lotes), excluir
+    // Se tem rejeição parcial (apenas alguns itens/lotes), manter para recálculo granular
+    if (rejeitadoGlobalNoBanco) {
+      return false;
+    }
+    
+    if (estaRejeitado && !temRejeicaoParcialItem && !temRejeicaoParcialLote) {
+      return false;
+    }
+    
+    return true;
   });
 
   const fornecedorAtual = fornecedoresPlanilha.find(f => f.fornecedor_id === fornecedorId);
