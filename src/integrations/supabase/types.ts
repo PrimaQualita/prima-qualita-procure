@@ -3000,6 +3000,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      verificar_recurso_fornecedor: {
+        Args: { p_protocolo: string }
+        Returns: {
+          data_envio: string
+          existe: boolean
+          fornecedor_razao_social: string
+          nome_arquivo: string
+          tipo_documento: string
+          url_arquivo: string
+        }[]
+      }
     }
     Enums: {
       app_role: "gestor" | "colaborador" | "compliance"
