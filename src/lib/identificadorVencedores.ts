@@ -569,11 +569,21 @@ export async function carregarItensVencedoresPorFornecedor(
     return [];
   }
 
-  // Verificar se o fornecedor atual está válido
+  // Buscar a resposta do fornecedor (NÃO verificar rejeitado aqui - será feito item por item)
   const resposta = respostas.find(r => r.fornecedor_id === fornecedorId);
   if (!resposta) {
-    console.log(`  ❌ Resposta não encontrada`);
+    console.log(`  ❌ Resposta não encontrada para fornecedor ${fornecedorId}`);
     return [];
+  }
+  
+  console.log(`  → Resposta encontrada: ${resposta.id}, rejeitado: ${resposta.rejeitado}`);
+  console.log(`  → Total de itens recebidos (todosItens): ${todosItens.length}`);
+  
+  // Verificar quais itens pertencem a este fornecedor
+  const itensDoFornecedor = todosItens.filter(item => item.cotacao_resposta_fornecedor_id === resposta.id);
+  console.log(`  → Itens que pertencem a este fornecedor: ${itensDoFornecedor.length}`);
+  if (itensDoFornecedor.length <= 10) {
+    console.log(`  → Números dos itens: ${itensDoFornecedor.map(i => i.itens_cotacao.numero_item).join(', ')}`);
   }
 
   // ============================================================
@@ -756,6 +766,28 @@ export async function carregarItensVencedoresPorFornecedor(
   }
 
   // Buscar os objetos ItemResposta correspondentes
+  // DIAGNÓSTICO: Ver quais itens existem para este fornecedor
+  console.log(`  🔎 Buscando itens do fornecedor no todosItens:`);
+  console.log(`    - resposta.id para matching: ${resposta.id}`);
+  console.log(`    - numerosItensVencedores: ${Array.from(numerosItensVencedores).join(', ')}`);
+  
+  // Verificar todos os itens deste fornecedor
+  const itensDesteForneced = todosItens.filter(item => item.cotacao_resposta_fornecedor_id === resposta.id);
+  console.log(`    - Itens encontrados com resposta.id matching: ${itensDesteForneced.length}`);
+  if (itensDesteForneced.length <= 5) {
+    itensDesteForneced.forEach(i => {
+      console.log(`      Item ${i.itens_cotacao.numero_item}: id=${i.id}, respId=${i.cotacao_resposta_fornecedor_id}`);
+    });
+  }
+  
+  // Se não encontrou itens do fornecedor, o problema é no matching de resposta.id
+  if (itensDesteForneced.length === 0 && todosItens.length > 0) {
+    console.log(`    ⚠️ PROBLEMA: Nenhum item encontrado para resposta.id=${resposta.id}`);
+    console.log(`    → Exemplos de cotacao_resposta_fornecedor_id nos itens:`);
+    const idsUnicos = [...new Set(todosItens.slice(0, 10).map(i => i.cotacao_resposta_fornecedor_id))];
+    idsUnicos.forEach(id => console.log(`      - ${id}`));
+  }
+  
   const itensVencidos = todosItens.filter(item => {
     const pertenceAoFornecedor = item.cotacao_resposta_fornecedor_id === resposta.id;
     const ehVencedor = numerosItensVencedores.has(item.itens_cotacao.numero_item);
