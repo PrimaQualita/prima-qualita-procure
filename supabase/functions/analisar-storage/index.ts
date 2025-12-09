@@ -2151,9 +2151,10 @@ Deno.serve(async (req) => {
         
         const criterioJulgamento = cotacaoParaCriterio.get(cotacaoId) || 'por_item';
         const isPorLote = criterioJulgamento === 'por_lote';
+        const isGlobal = criterioJulgamento === 'global';
         const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
         
-        console.log(`  📊 Critério de julgamento: ${criterioJulgamento} (isPorLote: ${isPorLote})`);
+        console.log(`  📊 Critério de julgamento: ${criterioJulgamento} (isPorLote: ${isPorLote}, isGlobal: ${isGlobal})`);
         
         if (planilha && planilha.fornecedores_incluidos) {
           const fornecedores = planilha.fornecedores_incluidos as any[];
@@ -2278,9 +2279,61 @@ Deno.serve(async (req) => {
             }
           }
           // ========================================
-          // OUTROS CRITÉRIOS: Identificar segundo colocado por ITEM
+          // CRITÉRIO GLOBAL: Identificar segundo colocado pelo VALOR TOTAL de todos os itens
           // ========================================
-          else if (!isPorLote && itensComVencedorRejeitado.size > 0) {
+          else if (isGlobal && itensComVencedorRejeitado.size > 0) {
+            // Em critério global, o vencedor é ÚNICO (menor total), então o segundo colocado também é pelo total
+            const fornecedoresGlobal: Array<{ 
+              fornecedorId: string; 
+              razaoSocial: string; 
+              valorTotal: number;
+            }> = [];
+            
+            for (const f of fornecedores) {
+              if (f.email && f.email.includes('precos.publicos')) continue;
+              
+              // Verificar se fornecedor está GLOBALMENTE rejeitado (qualquer item)
+              if (fornecedoresRejeitadosIds.has(f.fornecedor_id)) {
+                console.log(`  ⏭️ ${f.razao_social} rejeitado globalmente, pulando`);
+                continue;
+              }
+              
+              // Calcular valor total de todos os itens
+              const itens = f.itens as any[] || [];
+              let valorTotal = 0;
+              for (const item of itens) {
+                const valorUnit = item.valor_unitario || item.percentual_desconto || 0;
+                const qtd = item.quantidade || 1;
+                valorTotal += valorUnit * qtd;
+              }
+              
+              if (valorTotal > 0) {
+                fornecedoresGlobal.push({
+                  fornecedorId: f.fornecedor_id,
+                  razaoSocial: f.razao_social,
+                  valorTotal
+                });
+              }
+            }
+            
+            // Ordenar pelo valor total (menor primeiro para global)
+            fornecedoresGlobal.sort((a, b) => a.valorTotal - b.valorTotal);
+            
+            console.log(`  🔍 GLOBAL - Candidatos ordenados: ${fornecedoresGlobal.map(f => `${f.razaoSocial}(${f.valorTotal})`).join(', ')}`);
+            
+            // O primeiro da lista ordenada é o segundo colocado global
+            if (fornecedoresGlobal.length > 0) {
+              const segundoColocado = fornecedoresGlobal[0];
+              if (!fornecedoresDoProcesso.has(segundoColocado.fornecedorId)) {
+                fornecedoresDoProcesso.add(segundoColocado.fornecedorId);
+                console.log(`  🥈 Segundo colocado GLOBAL adicionado: ${segundoColocado.razaoSocial} (${segundoColocado.fornecedorId.substring(0,8)}) - total ${segundoColocado.valorTotal}`);
+              }
+            }
+          }
+          // ========================================
+          // CRITÉRIO POR_ITEM: Identificar segundo colocado por ITEM
+          // ========================================
+          else if (!isPorLote && !isGlobal && itensComVencedorRejeitado.size > 0) {
             for (const itemNum of itensComVencedorRejeitado) {
               // Coletar todos os fornecedores que cotaram este item
               const fornecedoresDoItem: Array<{ fornecedorId: string; razaoSocial: string; valor: number }> = [];
