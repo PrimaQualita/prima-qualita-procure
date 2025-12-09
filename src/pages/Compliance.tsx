@@ -641,7 +641,9 @@ export default function Compliance() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {processos[contratoSelecionado.id].map((processo) => (
+                    {[...processos[contratoSelecionado.id]]
+                      .sort((a, b) => a.numero_processo_interno.localeCompare(b.numero_processo_interno, undefined, { numeric: true }))
+                      .map((processo) => (
                       <TableRow key={`${processo.id}-${processo.cotacao_id}`}>
                         <TableCell className="font-medium">
                           {processo.numero_processo_interno}
