@@ -465,26 +465,42 @@ export async function gerarPropostaFornecedorPDF(
         halign: 'center',
         fontSize: 9
       },
+      styles: {
+        overflow: 'linebreak',
+        lineWidth: 0.3,
+        lineColor: [corSecundaria[0], corSecundaria[1], corSecundaria[2]]
+      },
       bodyStyles: {
         fontSize: 8,
         textColor: [corTexto[0], corTexto[1], corTexto[2]],
-        cellPadding: { top: 4, right: 2, bottom: 5, left: 2 },
-        minCellHeight: 10
+        cellPadding: { top: 3, right: 2, bottom: 4, left: 2 },
+        minCellHeight: 8
       },
       alternateRowStyles: {
         fillColor: [corFundo[0], corFundo[1], corFundo[2]]
       },
       columnStyles: ehDesconto ? columnStylesDesconto : columnStylesPreco,
-      margin: { left: 15, right: 15, top: 25, bottom: 20 },
+      margin: { left: 15, right: 15, top: 25, bottom: 25 },
       tableWidth: 180,
-      // EVITAR quebra de linha entre páginas - linha inteira vai para próxima página
-      rowPageBreak: 'avoid',
+      // Permitir quebra de linha entre páginas
+      rowPageBreak: 'auto',
       // Repetir cabeçalho em cada página
       showHead: 'everyPage',
       didParseCell: (data) => {
         // Forçar wrap de texto em descrições longas
         if (data.column.index === 1 && data.section === 'body') {
           data.cell.styles.cellWidth = ehDesconto ? 92 : 58;
+          data.cell.styles.overflow = 'linebreak';
+        }
+      },
+      // Desenhar borda manualmente após cada célula para garantir fechamento
+      didDrawCell: (data) => {
+        if (data.section === 'body') {
+          const { x, y, width, height } = data.cell;
+          doc.setDrawColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
+          doc.setLineWidth(0.3);
+          // Desenhar borda inferior da célula
+          doc.line(x, y + height, x + width, y + height);
         }
       }
     });
