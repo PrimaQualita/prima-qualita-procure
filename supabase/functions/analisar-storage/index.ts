@@ -2088,16 +2088,19 @@ Deno.serve(async (req) => {
     // ============================================================
     const { data: cotacoesCompraDireta } = await supabase
       .from('cotacoes_precos')
-      .select('id, processo_compra_id')
+      .select('id, processo_compra_id, processos_compras!inner(criterio_julgamento)')
       .not('processo_compra_id', 'in', `(${Array.from(processosSelecaoSet).join(',') || '00000000-0000-0000-0000-000000000000'})`);
 
     if (cotacoesCompraDireta && cotacoesCompraDireta.length > 0) {
       const cotacaoIdsDireta = cotacoesCompraDireta.map(c => c.id);
       
-      // Criar mapa cotação -> processo
+      // Criar mapa cotação -> processo e cotação -> criterio
       const cotacaoParaProcesso = new Map<string, string>();
+      const cotacaoParaCriterio = new Map<string, string>();
       for (const c of cotacoesCompraDireta) {
         cotacaoParaProcesso.set(c.id, c.processo_compra_id);
+        const criterio = (c.processos_compras as any)?.criterio_julgamento || 'por_item';
+        cotacaoParaCriterio.set(c.id, criterio);
       }
 
       // Buscar planilhas consolidadas mais recentes para cada cotação
@@ -2225,15 +2228,17 @@ Deno.serve(async (req) => {
               }
             }
             
-            // Ordenar: para desconto (maior primeiro), para preço (menor primeiro)
-            const isDesconto = fornecedoresDoItem.some(f => f.valor < 1); // Descontos são tipicamente < 1
+            // Ordenar usando o CRITÉRIO REAL do processo (não deduzir pelo valor!)
+            const criterioJulgamento = cotacaoParaCriterio.get(cotacaoId) || 'por_item';
+            const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
+            
             if (isDesconto) {
               fornecedoresDoItem.sort((a, b) => b.valor - a.valor); // Maior desconto primeiro
             } else {
               fornecedoresDoItem.sort((a, b) => a.valor - b.valor); // Menor preço primeiro
             }
             
-            console.log(`  🔍 Item ${itemNum} - Candidatos: ${fornecedoresDoItem.map(f => `${f.razaoSocial}(${f.valor})`).join(', ')}`);
+            console.log(`  🔍 Item ${itemNum} (criterio: ${criterioJulgamento}) - Candidatos ordenados: ${fornecedoresDoItem.map(f => `${f.razaoSocial}(${f.valor})`).join(', ')}`);
             
             // O primeiro da lista ordenada é o segundo colocado (já que vencedor foi rejeitado)
             if (fornecedoresDoItem.length > 0) {
