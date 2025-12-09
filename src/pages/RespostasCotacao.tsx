@@ -700,28 +700,32 @@ export default function RespostasCotacao() {
 
       const arquivosParaDeletar: string[] = [];
 
+      // Função auxiliar para limpar paths - remove query params, prefixo do bucket E URLs completas
+      const cleanStoragePath = (url: string): string => {
+        return url
+          .split('?')[0]
+          .replace(/^processo-anexos\//, '')
+          .replace(/^.*\/processo-anexos\//, ''); // Remover URL completa se houver
+      };
+
       // Adicionar anexos (PDF proposta via tabela anexos)
       if (respostaData?.anexos_cotacao_fornecedor) {
         respostaData.anexos_cotacao_fornecedor.forEach((anexo: any) => {
           if (anexo.url_arquivo) {
-            // Limpar o path removendo prefixo do bucket e query params
-            const cleanPath = anexo.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
-            arquivosParaDeletar.push(cleanPath);
+            arquivosParaDeletar.push(cleanStoragePath(anexo.url_arquivo));
           }
         });
       }
       
       // Adicionar url_pdf_proposta se existir (campo direto na resposta)
       if (respostaData?.url_pdf_proposta) {
-        const cleanPath = respostaData.url_pdf_proposta.split('?')[0].replace(/^processo-anexos\//, '');
-        arquivosParaDeletar.push(cleanPath);
+        arquivosParaDeletar.push(cleanStoragePath(respostaData.url_pdf_proposta));
       }
 
       // Adicionar comprovantes
       if (respostaData?.comprovantes_urls && Array.isArray(respostaData.comprovantes_urls)) {
         respostaData.comprovantes_urls.forEach((url: string) => {
-          const cleanPath = url.split('?')[0].replace(/^processo-anexos\//, '');
-          arquivosParaDeletar.push(cleanPath);
+          arquivosParaDeletar.push(cleanStoragePath(url));
         });
       }
 
