@@ -914,10 +914,13 @@ export async function gerarPlanilhaHabilitacaoPDF(
       }
       
       // Armazenar texto da descrição para justificação (coluna índice 1)
+      // CRÍTICO: Limpar o texto nativo para evitar que autoTable desenhe e nós desenhamos novamente
       if (data.column.dataKey === 'descricao' && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal && !linhaAtual?.isTotalGeral) {
         const textoOriginal = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : String(data.cell.text || '');
         if (textoOriginal && textoOriginal.trim()) {
           descricoesPorLinha.set(data.row.index, textoOriginal);
+          // Limpar texto para que autoTable não desenhe - nós vamos desenhar no didDrawCell
+          data.cell.text = [''];
         }
       }
       
