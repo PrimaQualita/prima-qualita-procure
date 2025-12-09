@@ -2149,11 +2149,18 @@ Deno.serve(async (req) => {
           (rejeicoesAtivas?.filter(r => r.cotacao_id === cotacaoId) || []).map(r => r.fornecedor_id)
         );
         
+        const criterioJulgamento = cotacaoParaCriterio.get(cotacaoId) || 'por_item';
+        const isPorLote = criterioJulgamento === 'por_lote';
+        const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
+        
+        console.log(`  📊 Critério de julgamento: ${criterioJulgamento} (isPorLote: ${isPorLote})`);
+        
         if (planilha && planilha.fornecedores_incluidos) {
           const fornecedores = planilha.fornecedores_incluidos as any[];
           
-          // Primeiro: identificar itens onde o vencedor original foi rejeitado
-          // Para estes itens, precisamos incluir o segundo colocado
+          // Para critério por_lote: identificar LOTES com vencedor rejeitado
+          // Para outros critérios: identificar ITENS com vencedor rejeitado
+          const lotesComVencedorRejeitado = new Set<string>();
           const itensComVencedorRejeitado = new Set<number>();
           
           for (const forn of fornecedores) {
@@ -2162,12 +2169,20 @@ Deno.serve(async (req) => {
             const itens = forn.itens as any[] || [];
             for (const item of itens) {
               if (item.eh_vencedor === true && fornecedoresRejeitadosIds.has(forn.fornecedor_id)) {
-                itensComVencedorRejeitado.add(item.numero_item);
+                if (isPorLote && item.lote_id) {
+                  lotesComVencedorRejeitado.add(item.lote_id);
+                } else {
+                  itensComVencedorRejeitado.add(item.numero_item);
+                }
               }
             }
           }
           
-          console.log(`  📋 Itens com vencedor rejeitado: ${Array.from(itensComVencedorRejeitado).join(', ') || 'nenhum'}`);
+          if (isPorLote) {
+            console.log(`  📋 LOTES com vencedor rejeitado: ${Array.from(lotesComVencedorRejeitado).map(l => l.substring(0,8)).join(', ') || 'nenhum'}`);
+          } else {
+            console.log(`  📋 Itens com vencedor rejeitado: ${Array.from(itensComVencedorRejeitado).join(', ') || 'nenhum'}`);
+          }
           
           for (const forn of fornecedores) {
             // Verificar se é preço público pelo email
@@ -2188,8 +2203,6 @@ Deno.serve(async (req) => {
             
           }
           
-          // CORRIGIDO: Identificar o REAL segundo colocado para cada item com vencedor rejeitado
-          // A rejeição é POR ITEM, não global! Fornecedor rejeitado no item X pode ser válido no item Y
           // Criar mapa de fornecedor -> itens rejeitados
           const fornecedorItensRejeitados = new Map<string, Set<number>>();
           for (const r of (rejeicoesAtivas?.filter(rej => rej.cotacao_id === cotacaoId) || [])) {
@@ -2202,50 +2215,113 @@ Deno.serve(async (req) => {
             }
           }
           
-          for (const itemNum of itensComVencedorRejeitado) {
-            // Coletar todos os fornecedores que cotaram este item
-            // Excluir: preços públicos e fornecedores rejeitados NESTE ITEM ESPECÍFICO
-            const fornecedoresDoItem: Array<{ fornecedorId: string; razaoSocial: string; valor: number }> = [];
-            
-            for (const f of fornecedores) {
-              if (f.email && f.email.includes('precos.publicos')) continue;
+          // ========================================
+          // CRITÉRIO POR_LOTE: Identificar segundo colocado por LOTE INTEIRO
+          // ========================================
+          if (isPorLote && lotesComVencedorRejeitado.size > 0) {
+            for (const loteId of lotesComVencedorRejeitado) {
+              // Coletar todos os fornecedores que cotaram este lote COMPLETO
+              // Calcular o subtotal do lote para cada fornecedor
+              const fornecedoresDoLote: Array<{ 
+                fornecedorId: string; 
+                razaoSocial: string; 
+                subtotalLote: number;
+              }> = [];
               
-              // Verificar se fornecedor está rejeitado NESTE ITEM ESPECÍFICO
-              const itensRejeitadosDoForn = fornecedorItensRejeitados.get(f.fornecedor_id);
-              if (itensRejeitadosDoForn && itensRejeitadosDoForn.has(itemNum)) {
-                console.log(`  ⏭️ ${f.razao_social} rejeitado no item ${itemNum}, pulando`);
-                continue;
-              }
-              
-              const item = (f.itens as any[] || []).find((i: any) => i.numero_item === itemNum);
-              if (item) {
-                const valor = item.valor_unitario || item.percentual_desconto || 0;
-                fornecedoresDoItem.push({
+              for (const f of fornecedores) {
+                if (f.email && f.email.includes('precos.publicos')) continue;
+                
+                // Pegar todos os itens deste lote para este fornecedor
+                const itensDoLote = (f.itens as any[] || []).filter((i: any) => i.lote_id === loteId);
+                if (itensDoLote.length === 0) continue;
+                
+                // Verificar se fornecedor está rejeitado em algum item deste lote
+                const itensRejeitadosDoForn = fornecedorItensRejeitados.get(f.fornecedor_id);
+                const rejeitadoNoLote = itensDoLote.some((i: any) => itensRejeitadosDoForn?.has(i.numero_item));
+                if (rejeitadoNoLote) {
+                  console.log(`  ⏭️ ${f.razao_social} rejeitado no lote ${loteId.substring(0,8)}, pulando`);
+                  continue;
+                }
+                
+                // Calcular subtotal do lote (soma de valor_unitario * quantidade se houver, ou apenas valor_unitario)
+                let subtotal = 0;
+                for (const item of itensDoLote) {
+                  const valor = item.valor_unitario || item.percentual_desconto || 0;
+                  const qtd = item.quantidade || 1;
+                  subtotal += valor * qtd;
+                }
+                
+                fornecedoresDoLote.push({
                   fornecedorId: f.fornecedor_id,
                   razaoSocial: f.razao_social,
-                  valor
+                  subtotalLote: subtotal
                 });
               }
+              
+              // Ordenar por subtotal do lote
+              if (isDesconto) {
+                fornecedoresDoLote.sort((a, b) => b.subtotalLote - a.subtotalLote); // Maior desconto primeiro
+              } else {
+                fornecedoresDoLote.sort((a, b) => a.subtotalLote - b.subtotalLote); // Menor preço primeiro
+              }
+              
+              console.log(`  🔍 Lote ${loteId.substring(0,8)} (criterio: ${criterioJulgamento}) - Candidatos ordenados: ${fornecedoresDoLote.map(f => `${f.razaoSocial}(${f.subtotalLote})`).join(', ')}`);
+              
+              // O primeiro da lista ordenada é o segundo colocado do lote
+              if (fornecedoresDoLote.length > 0) {
+                const segundoColocado = fornecedoresDoLote[0];
+                if (!fornecedoresDoProcesso.has(segundoColocado.fornecedorId)) {
+                  fornecedoresDoProcesso.add(segundoColocado.fornecedorId);
+                  console.log(`  🥈 Segundo colocado do LOTE adicionado: ${segundoColocado.razaoSocial} (${segundoColocado.fornecedorId.substring(0,8)}) - lote ${loteId.substring(0,8)} com subtotal ${segundoColocado.subtotalLote}`);
+                }
+              }
             }
-            
-            // Ordenar usando o CRITÉRIO REAL do processo (não deduzir pelo valor!)
-            const criterioJulgamento = cotacaoParaCriterio.get(cotacaoId) || 'por_item';
-            const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
-            
-            if (isDesconto) {
-              fornecedoresDoItem.sort((a, b) => b.valor - a.valor); // Maior desconto primeiro
-            } else {
-              fornecedoresDoItem.sort((a, b) => a.valor - b.valor); // Menor preço primeiro
-            }
-            
-            console.log(`  🔍 Item ${itemNum} (criterio: ${criterioJulgamento}) - Candidatos ordenados: ${fornecedoresDoItem.map(f => `${f.razaoSocial}(${f.valor})`).join(', ')}`);
-            
-            // O primeiro da lista ordenada é o segundo colocado (já que vencedor foi rejeitado)
-            if (fornecedoresDoItem.length > 0) {
-              const segundoColocado = fornecedoresDoItem[0];
-              if (!fornecedoresDoProcesso.has(segundoColocado.fornecedorId)) {
-                fornecedoresDoProcesso.add(segundoColocado.fornecedorId);
-                console.log(`  🥈 Segundo colocado REAL adicionado: ${segundoColocado.razaoSocial} (${segundoColocado.fornecedorId.substring(0,8)}) - item ${itemNum} com valor ${segundoColocado.valor}`);
+          }
+          // ========================================
+          // OUTROS CRITÉRIOS: Identificar segundo colocado por ITEM
+          // ========================================
+          else if (!isPorLote && itensComVencedorRejeitado.size > 0) {
+            for (const itemNum of itensComVencedorRejeitado) {
+              // Coletar todos os fornecedores que cotaram este item
+              const fornecedoresDoItem: Array<{ fornecedorId: string; razaoSocial: string; valor: number }> = [];
+              
+              for (const f of fornecedores) {
+                if (f.email && f.email.includes('precos.publicos')) continue;
+                
+                // Verificar se fornecedor está rejeitado NESTE ITEM ESPECÍFICO
+                const itensRejeitadosDoForn = fornecedorItensRejeitados.get(f.fornecedor_id);
+                if (itensRejeitadosDoForn && itensRejeitadosDoForn.has(itemNum)) {
+                  console.log(`  ⏭️ ${f.razao_social} rejeitado no item ${itemNum}, pulando`);
+                  continue;
+                }
+                
+                const item = (f.itens as any[] || []).find((i: any) => i.numero_item === itemNum);
+                if (item) {
+                  const valor = item.valor_unitario || item.percentual_desconto || 0;
+                  fornecedoresDoItem.push({
+                    fornecedorId: f.fornecedor_id,
+                    razaoSocial: f.razao_social,
+                    valor
+                  });
+                }
+              }
+              
+              // Ordenar usando o CRITÉRIO REAL do processo
+              if (isDesconto) {
+                fornecedoresDoItem.sort((a, b) => b.valor - a.valor); // Maior desconto primeiro
+              } else {
+                fornecedoresDoItem.sort((a, b) => a.valor - b.valor); // Menor preço primeiro
+              }
+              
+              console.log(`  🔍 Item ${itemNum} (criterio: ${criterioJulgamento}) - Candidatos ordenados: ${fornecedoresDoItem.map(f => `${f.razaoSocial}(${f.valor})`).join(', ')}`);
+              
+              // O primeiro da lista ordenada é o segundo colocado
+              if (fornecedoresDoItem.length > 0) {
+                const segundoColocado = fornecedoresDoItem[0];
+                if (!fornecedoresDoProcesso.has(segundoColocado.fornecedorId)) {
+                  fornecedoresDoProcesso.add(segundoColocado.fornecedorId);
+                  console.log(`  🥈 Segundo colocado REAL adicionado: ${segundoColocado.razaoSocial} (${segundoColocado.fornecedorId.substring(0,8)}) - item ${itemNum} com valor ${segundoColocado.valor}`);
+                }
               }
             }
           }
