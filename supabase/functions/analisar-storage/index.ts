@@ -2183,18 +2183,44 @@ Deno.serve(async (req) => {
               console.log(`  ✅ Vencedor adicionado: ${forn.razao_social} (${forn.fornecedor_id.substring(0,8)})`);
             }
             
-            // NOVO: Verificar se é segundo colocado em item onde vencedor foi rejeitado
-            // Para isso, precisa ter cotado o item E não ser preço público E não estar rejeitado
-            // Se fornecedor está na planilha consolidada, significa que cotou (foi incluído)
-            if (!fornecedoresRejeitadosIds.has(forn.fornecedor_id) && forn.fornecedor_id) {
-              for (const itemNum of itensComVencedorRejeitado) {
-                // Verificar se o item existe para este fornecedor - se existe, cotou
-                const cotouItem = itens.some((item: any) => item.numero_item === itemNum);
-                
-                if (cotouItem && !fornecedoresDoProcesso.has(forn.fornecedor_id)) {
-                  fornecedoresDoProcesso.add(forn.fornecedor_id);
-                  console.log(`  🥈 Segundo colocado adicionado: ${forn.razao_social} (${forn.fornecedor_id.substring(0,8)}) - cotou item ${itemNum}`);
-                }
+          }
+          
+          // CORRIGIDO: Identificar o REAL segundo colocado para cada item com vencedor rejeitado
+          // Precisa ordenar por valor/desconto para encontrar quem realmente é o próximo na fila
+          for (const itemNum of itensComVencedorRejeitado) {
+            // Coletar todos os fornecedores que cotaram este item (exceto preços públicos e o vencedor rejeitado)
+            const fornecedoresDoItem: Array<{ fornecedorId: string; razaoSocial: string; valor: number }> = [];
+            
+            for (const f of fornecedores) {
+              if (f.email && f.email.includes('precos.publicos')) continue;
+              if (fornecedoresRejeitadosIds.has(f.fornecedor_id)) continue; // Excluir rejeitados
+              
+              const item = (f.itens as any[] || []).find((i: any) => i.numero_item === itemNum);
+              if (item) {
+                const valor = item.valor_unitario || item.percentual_desconto || 0;
+                fornecedoresDoItem.push({
+                  fornecedorId: f.fornecedor_id,
+                  razaoSocial: f.razao_social,
+                  valor
+                });
+              }
+            }
+            
+            // Ordenar: para desconto (maior primeiro), para preço (menor primeiro)
+            // Verificar critério pelo nome do processo ou usar valor padrão
+            const isDesconto = fornecedoresDoItem.some(f => f.valor < 1); // Descontos são tipicamente < 1
+            if (isDesconto) {
+              fornecedoresDoItem.sort((a, b) => b.valor - a.valor); // Maior desconto primeiro
+            } else {
+              fornecedoresDoItem.sort((a, b) => a.valor - b.valor); // Menor preço primeiro
+            }
+            
+            // O primeiro da lista ordenada é o segundo colocado (já que vencedor foi rejeitado)
+            if (fornecedoresDoItem.length > 0) {
+              const segundoColocado = fornecedoresDoItem[0];
+              if (!fornecedoresDoProcesso.has(segundoColocado.fornecedorId)) {
+                fornecedoresDoProcesso.add(segundoColocado.fornecedorId);
+                console.log(`  🥈 Segundo colocado REAL adicionado: ${segundoColocado.razaoSocial} (${segundoColocado.fornecedorId.substring(0,8)}) - item ${itemNum}`);
               }
             }
           }
