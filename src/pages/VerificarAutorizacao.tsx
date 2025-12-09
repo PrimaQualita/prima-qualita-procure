@@ -384,36 +384,26 @@ export default function VerificarAutorizacao() {
         return;
       }
 
-      // 7. Recursos de Fornecedor (Cotação/Rejeição)
-      console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_fornecedor...');
-      const { data: allRecursosFornecedor, error: recursoFornecedorError } = await supabase
-        .from('recursos_fornecedor')
-        .select('*');
-      
-      const recursoFornecedorData = allRecursosFornecedor?.find((doc: any) => 
-        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
-      );
+      // 7. Recursos de Fornecedor (Cotação/Rejeição) - Using secure RPC function
+      console.log('🔎 [VERIFICAÇÃO] Buscando recurso via RPC segura...');
+      const { data: recursoVerificado, error: recursoFornecedorError } = await supabase
+        .rpc('verificar_recurso_fornecedor', { p_protocolo: protocolo });
 
-      console.log('📋 [VERIFICAÇÃO] Resultado recursos_fornecedor:', { 
-        encontrado: !!recursoFornecedorData, 
+      console.log('📋 [VERIFICAÇÃO] Resultado verificar_recurso_fornecedor:', { 
+        encontrado: recursoVerificado && recursoVerificado.length > 0, 
         erro: recursoFornecedorError?.message 
       });
 
-      if (recursoFornecedorData) {
+      if (recursoVerificado && recursoVerificado.length > 0) {
+        const recursoData = recursoVerificado[0];
         console.log('✅ [VERIFICAÇÃO] Recurso de Cotação encontrado!');
-        
-        const { data: fornecedor } = await supabase
-          .from('fornecedores')
-          .select('razao_social, cnpj')
-          .eq('id', recursoFornecedorData.fornecedor_id)
-          .single();
 
         setAutorizacao({
-          ...recursoFornecedorData,
-          protocolo: recursoFornecedorData.protocolo,
-          data_geracao: recursoFornecedorData.data_envio,
-          usuario: { nome_completo: fornecedor?.razao_social },
-          url_arquivo: recursoFornecedorData.url_arquivo
+          protocolo: protocolo,
+          data_geracao: recursoData.data_envio,
+          usuario: { nome_completo: recursoData.fornecedor_razao_social },
+          url_arquivo: recursoData.url_arquivo,
+          nome_arquivo: recursoData.nome_arquivo
         });
         setTipoDocumento('recurso');
 
