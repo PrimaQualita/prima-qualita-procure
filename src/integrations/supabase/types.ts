@@ -2393,6 +2393,13 @@ export type Database = {
             referencedRelation: "perguntas_due_diligence"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "respostas_due_diligence_fornecedor_pergunta_id_fkey"
+            columns: ["pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_due_diligence_publicas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       respostas_itens_fornecedor: {
@@ -2918,7 +2925,30 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      perguntas_due_diligence_publicas: {
+        Row: {
+          ativo: boolean | null
+          id: string | null
+          ordem: number | null
+          texto_pergunta: string | null
+          tipo_resposta: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          id?: string | null
+          ordem?: number | null
+          texto_pergunta?: string | null
+          tipo_resposta?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          id?: string | null
+          ordem?: number | null
+          texto_pergunta?: string | null
+          tipo_resposta?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       atualizar_item_proposta_selecao: {
@@ -2951,6 +2981,16 @@ export type Database = {
         Args: never
         Returns: {
           url: string
+        }[]
+      }
+      get_perguntas_due_diligence_publicas: {
+        Args: never
+        Returns: {
+          ativo: boolean
+          id: string
+          ordem: number
+          texto_pergunta: string
+          tipo_resposta: string
         }[]
       }
       has_role: {
