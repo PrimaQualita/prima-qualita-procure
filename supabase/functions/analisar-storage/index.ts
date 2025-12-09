@@ -2115,11 +2115,19 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Buscar rejeições/inabilitações
-      const { data: rejeicoesAtivas } = await supabase
+      // Buscar rejeições/inabilitações - CRÍTICO: filtrar revertido = false
+      const { data: rejeicoesAtivas, error: rejError } = await supabase
         .from('fornecedores_rejeitados_cotacao')
         .select('cotacao_id, fornecedor_id')
-        .in('cotacao_id', cotacaoIdsDireta);
+        .in('cotacao_id', cotacaoIdsDireta)
+        .eq('revertido', false);
+
+      console.log(`📋 Busca de rejeições - cotacaoIdsDireta: ${cotacaoIdsDireta.length}, rejeicoesAtivas: ${rejeicoesAtivas?.length || 0}, erro: ${rejError?.message || 'nenhum'}`);
+      if (rejeicoesAtivas) {
+        for (const r of rejeicoesAtivas) {
+          console.log(`   📋 Rejeição encontrada: cotacao=${r.cotacao_id.substring(0,8)}, fornecedor=${r.fornecedor_id.substring(0,8)}`);
+        }
+      }
 
       // Processar por cotação: APENAS vencedores + rejeitados
       for (const cotacaoId of cotacaoIdsDireta) {
@@ -2149,19 +2157,20 @@ Deno.serve(async (req) => {
             if (temItemVencedor && forn.fornecedor_id) {
               fornecedoresDoProcesso.add(forn.fornecedor_id);
               countVencedores++;
-              console.log(`  ✅ Vencedor adicionado: ${forn.razao_social}`);
+              console.log(`  ✅ Vencedor adicionado: ${forn.razao_social} (${forn.fornecedor_id.substring(0,8)})`);
             }
           }
         }
 
-        // Adicionar REJEITADOS/INABILITADOS (documentos deles devem aparecer)
+        // Adicionar TODOS os REJEITADOS/INABILITADOS (documentos deles devem aparecer)
         const rejeicoes = rejeicoesAtivas?.filter(r => r.cotacao_id === cotacaoId) || [];
+        console.log(`  📋 Cotação ${cotacaoId.substring(0,8)}: ${rejeicoes.length} rejeições encontradas`);
         for (const r of rejeicoes) {
           fornecedoresDoProcesso.add(r.fornecedor_id);
           console.log(`  ⚠️ Rejeitado adicionado: ${r.fornecedor_id.substring(0,8)}`);
         }
 
-        console.log(`  📊 Cotação ${cotacaoId.substring(0,8)}: ${fornecedoresDoProcesso.size} fornecedores (${countVencedores} vencedores + ${rejeicoes.length} rejeitados)`);
+        console.log(`  📊 Cotação ${cotacaoId.substring(0,8)}: TOTAL ${fornecedoresDoProcesso.size} fornecedores (${countVencedores} vencedores + ${rejeicoes.length} rejeitados)`);
       }
     }
 
