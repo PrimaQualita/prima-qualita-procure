@@ -895,7 +895,7 @@ export async function gerarPlanilhaConsolidadaPDF(
       
       return styles;
     })(),
-    margin: { left: margemEsquerda, right: margemDireita },
+    margin: { left: margemEsquerda, right: margemDireita, top: 20, bottom: 30 },
     tableWidth: 'auto',
     didParseCell: function(data) {
       // IGNORAR cabeçalho da tabela (head) - só formatar o corpo (body)
@@ -968,11 +968,11 @@ export async function gerarPlanilhaConsolidadaPDF(
           descricoesPorLinha.set(data.row.index, textoOriginal);
           // Adicionar padding extra para compensar bug de cálculo de altura
           const textLines = data.cell.text.length;
-          const extraPadding = Math.ceil(textLines * 0.3);
+          const extraPadding = Math.ceil(textLines * 0.6);
           data.cell.styles.cellPadding = { 
             top: 2, 
             right: 3, 
-            bottom: 2 + extraPadding, 
+            bottom: 3 + extraPadding, 
             left: 3 
           };
         }
