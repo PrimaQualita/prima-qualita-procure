@@ -875,7 +875,7 @@ export async function gerarPlanilhaConsolidadaPDF(
           halign: 'left', 
           cellWidth: 40,
           overflow: 'linebreak',
-          cellPadding: { top: 3, right: 3, bottom: 3, left: 3 }
+          cellPadding: { top: 2, right: 2, bottom: 2, left: 2 }
         },
         2: { 
           halign: 'center', 
@@ -958,10 +958,11 @@ export async function gerarPlanilhaConsolidadaPDF(
         return;
       }
       
-      // Configurar coluna de descrição para justificação - deixar autoTable desenhar nativamente
+      // Configurar coluna de descrição
       if (data.column.index === 1 && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal) {
-        data.cell.styles.halign = 'justify';
+        data.cell.styles.halign = 'left';
         data.cell.styles.textColor = [0, 0, 0];
+        data.cell.styles.overflow = 'linebreak';
       }
     },
     didDrawCell: function(data) {
