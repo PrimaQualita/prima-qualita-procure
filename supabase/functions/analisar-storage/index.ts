@@ -2185,13 +2185,11 @@ Deno.serve(async (req) => {
             
             // NOVO: Verificar se é segundo colocado em item onde vencedor foi rejeitado
             // Para isso, precisa ter cotado o item E não ser preço público E não estar rejeitado
+            // Se fornecedor está na planilha consolidada, significa que cotou (foi incluído)
             if (!fornecedoresRejeitadosIds.has(forn.fornecedor_id) && forn.fornecedor_id) {
               for (const itemNum of itensComVencedorRejeitado) {
-                const cotouItem = itens.some((item: any) => 
-                  item.numero_item === itemNum && 
-                  item.valor_unitario_ofertado != null && 
-                  item.valor_unitario_ofertado > 0
-                );
+                // Verificar se o item existe para este fornecedor - se existe, cotou
+                const cotouItem = itens.some((item: any) => item.numero_item === itemNum);
                 
                 if (cotouItem && !fornecedoresDoProcesso.has(forn.fornecedor_id)) {
                   fornecedoresDoProcesso.add(forn.fornecedor_id);
