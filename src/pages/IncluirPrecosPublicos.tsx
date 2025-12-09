@@ -505,6 +505,10 @@ const IncluirPrecosPublicos = () => {
       let mensagemErro = "";
       
       // VALIDAÇÃO: Se preencheu marca OU valor em um item, AMBOS devem estar preenchidos
+      // EXCETO para serviço ou mão de obra exclusiva, onde marca não é necessária
+      const tipoProcesso = processoCompra?.tipo;
+      const exigeMarca = tipoProcesso === "material";
+      
       for (const item of itens) {
         const resposta = respostas[item.id];
         const temMarca = resposta?.marca && resposta.marca.trim() !== '';
@@ -512,17 +516,20 @@ const IncluirPrecosPublicos = () => {
           ? (resposta?.percentual_desconto && parseFloat(resposta.percentual_desconto.replace(/,/g, ".")) > 0)
           : (resposta?.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0);
         
-        if (temMarca && !temValor) {
-          const campoFaltando = criterio === "desconto" ? "percentual de desconto" : "valor unitário";
-          toast.error(`Item ${item.numero_item}: Você preencheu a marca, mas não informou o ${campoFaltando}. Complete o item ou deixe ambos os campos vazios.`);
-          setEnviando(false);
-          return;
-        }
-        
-        if (temValor && !temMarca) {
-          toast.error(`Item ${item.numero_item}: Você preencheu o ${criterio === "desconto" ? "percentual de desconto" : "valor unitário"}, mas não informou a marca. Complete o item ou deixe ambos os campos vazios.`);
-          setEnviando(false);
-          return;
+        // Só validar marca se o tipo do processo for "material"
+        if (exigeMarca) {
+          if (temMarca && !temValor) {
+            const campoFaltando = criterio === "desconto" ? "percentual de desconto" : "valor unitário";
+            toast.error(`Item ${item.numero_item}: Você preencheu a marca, mas não informou o ${campoFaltando}. Complete o item ou deixe ambos os campos vazios.`);
+            setEnviando(false);
+            return;
+          }
+          
+          if (temValor && !temMarca) {
+            toast.error(`Item ${item.numero_item}: Você preencheu o ${criterio === "desconto" ? "percentual de desconto" : "valor unitário"}, mas não informou a marca. Complete o item ou deixe ambos os campos vazios.`);
+            setEnviando(false);
+            return;
+          }
         }
       }
       
