@@ -809,9 +809,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
     columns: colunas,
     body: dados,
     startY: yPosition,
-    margin: { left: margemEsquerda, right: margemDireita, top: 35 },
+    margin: { left: margemEsquerda, right: margemDireita, top: 35, bottom: 30 },
     theme: 'grid',
-    rowPageBreak: 'avoid',
+    rowPageBreak: 'auto',
     styles: {
       fontSize: menorFontSize,
       cellPadding: 2,
@@ -976,7 +976,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
         }
       }
       
-      // Desenhar texto justificado na coluna de descrição
+      // Desenhar texto justificado na coluna de descrição com clipping para evitar overflow
       if (data.section === 'body' && data.column.dataKey === 'descricao') {
         const linhaAtual = dados[data.row.index];
         if (linhaAtual?.isLoteHeader || linhaAtual?.isSubtotal || linhaAtual?.isTotalGeral) return;
@@ -1020,10 +1020,19 @@ export async function gerarPlanilhaHabilitacaoPDF(
           yInicio = cell.y + padding + alturaLinha * 0.7;
         }
         
-        // Desenhar cada linha (sem limite de altura - célula já foi dimensionada pelo autoTable)
+        // CLIPPING: Limites da célula para evitar texto fora das bordas
+        const cellTop = cell.y + 0.5;
+        const cellBottom = cell.y + cell.height - 0.5;
+        
+        // Desenhar cada linha COM CLIPPING para evitar overflow em quebra de página
         for (let i = 0; i < linhasTexto.length; i++) {
           const linha = linhasTexto[i];
           const yLinha = yInicio + (i * alturaLinha);
+          
+          // CRÍTICO: Skip linhas fora dos limites visíveis da célula
+          if (yLinha < cellTop || yLinha > cellBottom - 1) {
+            continue;
+          }
           
           const palavras = linha.trim().split(/\s+/);
           const x = cell.x + padding;
