@@ -2328,7 +2328,7 @@ const SistemaLancesFornecedor = () => {
                     <TableHead className="w-[35%] text-center">Descrição</TableHead>
                     <TableHead className="w-[90px] text-center">Qtd</TableHead>
                     <TableHead className="w-[70px] text-center">Unid</TableHead>
-                    <TableHead className="w-[140px] text-center">Marca</TableHead>
+                    {selecao?.processos_compras?.tipo === "material" && <TableHead className="w-[140px] text-center">Marca</TableHead>}
                     <TableHead className="w-[90px] text-right pr-4">
                       {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "% Desconto" : "Valor Unitário"}
                     </TableHead>
@@ -2344,14 +2344,16 @@ const SistemaLancesFornecedor = () => {
                       <TableCell className="w-[35%] text-left">{item.descricao}</TableCell>
                       <TableCell className="w-[90px] text-center">{item.quantidade}</TableCell>
                       <TableCell className="w-[70px] text-center">{item.unidade}</TableCell>
-                      <TableCell className="w-[140px]">
-                        <Input
-                          value={item.marca || ""}
-                          onChange={(e) => handleUpdateItem(item.id, "marca", e.target.value)}
-                          disabled={!editavel}
-                          className="w-full"
-                        />
-                      </TableCell>
+                      {selecao?.processos_compras?.tipo === "material" && (
+                        <TableCell className="w-[140px]">
+                          <Input
+                            value={item.marca || ""}
+                            onChange={(e) => handleUpdateItem(item.id, "marca", e.target.value)}
+                            disabled={!editavel}
+                            className="w-full"
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="w-[90px] text-right pr-4">
                         {selecao?.processos_compras?.criterio_julgamento === "desconto" ? (
                           <div className="flex items-center justify-end gap-1">

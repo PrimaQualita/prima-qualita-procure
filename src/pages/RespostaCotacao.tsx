@@ -1273,7 +1273,7 @@ const RespostaCotacao = () => {
                   <TableHead>Descrição</TableHead>
                   <TableHead className="text-center">Qtd</TableHead>
                   <TableHead className="text-center">Unid.</TableHead>
-                  <TableHead className="text-center">Marca *</TableHead>
+                  {processoCompra?.tipo === "material" && <TableHead className="text-center">Marca *</TableHead>}
                   {processoCompra?.criterio_julgamento === "desconto" ? (
                     <TableHead className="text-center">Percentual de Desconto Ofertado (%) *</TableHead>
                   ) : (
@@ -1309,22 +1309,24 @@ const RespostaCotacao = () => {
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell className="text-center">{item.quantidade}</TableCell>
                               <TableCell className="text-center">{item.unidade}</TableCell>
-                              <TableCell>
-                                <Input
-                                  type="text"
-                                  placeholder="Informe a marca"
-                                  value={respostas[item.id]?.marca_ofertada || ""}
-                                  onChange={(e) =>
-                                    setRespostas({
-                                      ...respostas,
-                                      [item.id]: {
-                                        ...respostas[item.id],
-                                        marca_ofertada: e.target.value,
-                                      },
-                                    })
-                                  }
-                                />
-                              </TableCell>
+                              {processoCompra?.tipo === "material" && (
+                                <TableCell>
+                                  <Input
+                                    type="text"
+                                    placeholder="Informe a marca"
+                                    value={respostas[item.id]?.marca_ofertada || ""}
+                                    onChange={(e) =>
+                                      setRespostas({
+                                        ...respostas,
+                                        [item.id]: {
+                                          ...respostas[item.id],
+                                          marca_ofertada: e.target.value,
+                                        },
+                                      })
+                                    }
+                                  />
+                                </TableCell>
+                              )}
                               <TableCell>
                                 <Input
                                   type="text"
@@ -1397,22 +1399,24 @@ const RespostaCotacao = () => {
                         {processoCompra?.criterio_julgamento === "desconto" ? (
                           // Modo Percentual de Desconto
                           <>
-                            <TableCell>
-                              <Input
-                                type="text"
-                                placeholder="Informe a marca"
-                                value={respostas[item.id]?.marca_ofertada || ""}
-                                onChange={(e) =>
-                                  setRespostas({
-                                    ...respostas,
-                                    [item.id]: {
-                                      ...respostas[item.id],
-                                      marca_ofertada: e.target.value,
-                                    },
-                                  })
-                                }
-                              />
-                            </TableCell>
+                            {processoCompra?.tipo === "material" && (
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  placeholder="Informe a marca"
+                                  value={respostas[item.id]?.marca_ofertada || ""}
+                                  onChange={(e) =>
+                                    setRespostas({
+                                      ...respostas,
+                                      [item.id]: {
+                                        ...respostas[item.id],
+                                        marca_ofertada: e.target.value,
+                                      },
+                                    })
+                                  }
+                                />
+                              </TableCell>
+                            )}
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold">%</span>
@@ -1450,22 +1454,24 @@ const RespostaCotacao = () => {
                         ) : (
                           // Modo Valor Unitário
                           <>
-                            <TableCell>
-                              <Input
-                                type="text"
-                                placeholder="Informe a marca"
-                                value={respostas[item.id]?.marca_ofertada || ""}
-                                onChange={(e) =>
-                                  setRespostas({
-                                    ...respostas,
-                                    [item.id]: {
-                                      ...respostas[item.id],
-                                      marca_ofertada: e.target.value,
-                                    },
-                                  })
-                                }
-                              />
-                            </TableCell>
+                            {processoCompra?.tipo === "material" && (
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  placeholder="Informe a marca"
+                                  value={respostas[item.id]?.marca_ofertada || ""}
+                                  onChange={(e) =>
+                                    setRespostas({
+                                      ...respostas,
+                                      [item.id]: {
+                                        ...respostas[item.id],
+                                        marca_ofertada: e.target.value,
+                                      },
+                                    })
+                                  }
+                                />
+                              </TableCell>
+                            )}
                             <TableCell>
                               <Input
                                 type="text"
