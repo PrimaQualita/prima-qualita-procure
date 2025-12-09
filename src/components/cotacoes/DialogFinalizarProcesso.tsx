@@ -425,6 +425,21 @@ export function DialogFinalizarProcesso({
 
       const itens = todosItensArray;
       console.log(`📦 TOTAL de itens carregados: ${itens.length}`);
+      
+      // DIAGNÓSTICO CRÍTICO: Verificar se itens foram carregados
+      if (itens.length === 0) {
+        console.error(`⚠️ PROBLEMA CRÍTICO: Nenhum item foi carregado!`);
+        console.log(`  → respostas.length: ${respostas?.length}`);
+        if (respostas && respostas.length > 0) {
+          console.log(`  → IDs das respostas:`);
+          respostas.forEach(r => console.log(`    - ${r.fornecedores.razao_social}: ${r.id}`));
+        }
+      } else {
+        console.log(`  → Exemplos de itens carregados:`);
+        itens.slice(0, 3).forEach(i => {
+          console.log(`    - Item ${i.itens_cotacao?.numero_item}: resposta_id=${i.cotacao_resposta_fornecedor_id}`);
+        });
+      }
 
       const criterio = cotacao?.criterio_julgamento || "global";
       
