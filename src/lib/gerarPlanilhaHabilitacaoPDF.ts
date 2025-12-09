@@ -1070,9 +1070,17 @@ export async function gerarPlanilhaHabilitacaoPDF(
   // Seção de empresas inabilitadas com motivos
   const empresasInabilitadas = respostas.filter(r => r.rejeitado || r.itens_rejeitados.length > 0);
   
+  console.log("📋 HABILITAÇÃO - Total respostas:", respostas.length);
+  console.log("📋 HABILITAÇÃO - Empresas inabilitadas encontradas:", empresasInabilitadas.length);
+  empresasInabilitadas.forEach((e, i) => {
+    console.log(`📋 HABILITAÇÃO - Empresa ${i + 1}:`, e.fornecedor.razao_social, "rejeitado:", e.rejeitado, "itens_rejeitados:", e.itens_rejeitados);
+  });
+  
   // CRÍTICO: Obter posição Y final da tabela
   const finalY = (doc as any).lastAutoTable?.finalY || 150;
   let currentY = finalY + 10;
+  
+  console.log("📋 HABILITAÇÃO - finalY:", finalY, "currentY inicial:", currentY, "pageHeight:", pageHeight);
   
   if (empresasInabilitadas.length > 0) {
     // Verificar se cabe pelo menos o título na página atual
@@ -1080,6 +1088,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
       doc.addPage();
       adicionarCabecalho();
       currentY = 40;
+      console.log("📋 HABILITAÇÃO - Nova página para título");
     }
 
     doc.setFontSize(11);
@@ -1092,7 +1101,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
 
-    empresasInabilitadas.forEach((empresa) => {
+    empresasInabilitadas.forEach((empresa, index) => {
+      console.log(`📋 HABILITAÇÃO - Renderizando empresa ${index + 1}/${empresasInabilitadas.length}: ${empresa.fornecedor.razao_social}`);
+      console.log(`📋 HABILITAÇÃO - currentY antes: ${currentY}, pageHeight: ${pageHeight}`);
       // Calcular espaço necessário para esta empresa específica
       let espacoEmpresa = 20; // Razão + CNPJ + Status + margem
       if (empresa.motivo_rejeicao) {
