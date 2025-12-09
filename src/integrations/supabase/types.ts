@@ -3000,6 +3000,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_internal_user: { Args: { _user_id: string }; Returns: boolean }
       verificar_recurso_fornecedor: {
         Args: { p_protocolo: string }
         Returns: {
