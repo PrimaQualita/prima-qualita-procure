@@ -112,6 +112,7 @@ export function DialogFornecedor({
 
   const loadPerguntas = async () => {
     try {
+      // Internal users can access the full table; this component is only used by authenticated internal users
       const { data, error } = await supabase
         .from("perguntas_due_diligence")
         .select("id, texto_pergunta")
