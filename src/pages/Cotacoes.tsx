@@ -849,26 +849,40 @@ const Cotacoes = () => {
     try {
       const arquivosParaDeletar: string[] = [];
       
+      // Função auxiliar para limpar paths de storage
+      const cleanStoragePath = (url: string): string => {
+        return url
+          .split('?')[0]
+          .replace(/^processo-anexos\//, '')
+          .replace(/^.*\/processo-anexos\//, ''); // Remover URL completa se houver
+      };
+
       // Primeiro, deletar todas as respostas de fornecedores da cotação
       const { data: respostasData } = await supabase
         .from("cotacao_respostas_fornecedor")
-        .select("id, comprovantes_urls")
+        .select("id, comprovantes_urls, url_pdf_proposta")
         .eq("cotacao_id", cotacaoSelecionada.id);
 
       if (respostasData && respostasData.length > 0) {
         const respostaIds = respostasData.map(r => r.id);
         
+        // Coletar url_pdf_proposta (campo direto na resposta)
+        respostasData.forEach(r => {
+          if (r.url_pdf_proposta) {
+            arquivosParaDeletar.push(cleanStoragePath(r.url_pdf_proposta));
+          }
+        });
+        
         // Coletar comprovantes_urls
         respostasData.forEach(r => {
           if (r.comprovantes_urls && Array.isArray(r.comprovantes_urls)) {
             r.comprovantes_urls.forEach((url: string) => {
-              const cleanPath = url.split('?')[0].replace(/^processo-anexos\//, '');
-              arquivosParaDeletar.push(cleanPath);
+              arquivosParaDeletar.push(cleanStoragePath(url));
             });
           }
         });
         
-        // Buscar anexos de cotação fornecedor (PDF propostas, etc.)
+        // Buscar anexos de cotação fornecedor (comprovantes, etc.)
         const { data: anexosData } = await supabase
           .from("anexos_cotacao_fornecedor")
           .select("url_arquivo")
@@ -877,8 +891,7 @@ const Cotacoes = () => {
         if (anexosData) {
           anexosData.forEach(anexo => {
             if (anexo.url_arquivo) {
-              const cleanPath = anexo.url_arquivo.split('?')[0].replace(/^processo-anexos\//, '');
-              arquivosParaDeletar.push(cleanPath);
+              arquivosParaDeletar.push(cleanStoragePath(anexo.url_arquivo));
             }
           });
         }
