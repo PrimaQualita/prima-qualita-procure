@@ -367,10 +367,21 @@ export default function PropostasSelecao() {
       
       // Deletar PDF do storage se existir
       if (propostaParaExcluirCompleta.url_pdf_proposta) {
-        console.log("🗑️ Deletando PDF do storage...");
-        await supabase.storage
+        // CRÍTICO: Limpar path antes de deletar - remover query params e prefixo do bucket
+        const cleanPath = propostaParaExcluirCompleta.url_pdf_proposta
+          .split('?')[0]
+          .replace(/^processo-anexos\//, '')
+          .replace(/^.*\/processo-anexos\//, ''); // Remover URL completa se houver
+        
+        console.log("🗑️ Deletando PDF do storage, path limpo:", cleanPath);
+        const { error: storageError } = await supabase.storage
           .from('processo-anexos')
-          .remove([propostaParaExcluirCompleta.url_pdf_proposta]);
+          .remove([cleanPath]);
+        
+        if (storageError) {
+          console.error("⚠️ Erro ao deletar PDF do storage:", storageError);
+          // Continua mesmo com erro para não deixar registro órfão no banco
+        }
       }
 
       // Deletar itens da proposta primeiro
