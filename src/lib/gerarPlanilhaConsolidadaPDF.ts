@@ -863,7 +863,7 @@ export async function gerarPlanilhaConsolidadaPDF(
       lineColor: [200, 200, 200],
       cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
       halign: 'center',
-      valign: 'top',
+      valign: 'middle',
       minCellHeight: 10,
       overflow: 'linebreak',
       cellWidth: 'wrap'
