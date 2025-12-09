@@ -57,6 +57,18 @@ serve(async (req) => {
   }
 
   try {
+    // Verificar autenticação
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Autenticação necessária" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        }
+      );
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -67,6 +79,37 @@ serve(async (req) => {
         },
       }
     );
+
+    // Verificar se o usuário autenticado tem role 'gestor'
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user: callerUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
+    if (authError || !callerUser) {
+      return new Response(
+        JSON.stringify({ error: "Token inválido" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        }
+      );
+    }
+
+    // Verificar se o usuário tem role 'gestor'
+    const { data: callerRoles, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', callerUser.id)
+      .single();
+
+    if (roleError || callerRoles?.role !== 'gestor') {
+      return new Response(
+        JSON.stringify({ error: "Apenas gestores podem criar usuários" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403,
+        }
+      );
+    }
 
     const { email, password, nomeCompleto, cpf, dataNascimento, role, responsavelLegal, compliance, cargo } = createUserSchema.parse(await req.json());
 

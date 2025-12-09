@@ -15,5 +15,11 @@ verify_jwt = true
 [functions.deletar-usuario-admin]
 verify_jwt = true
 
+[functions.criar-usuario-admin]
+verify_jwt = true
+
+[functions.resetar-senha-usuario]
+verify_jwt = true
+
 [functions.enviar-email-recuperacao]
 verify_jwt = false
