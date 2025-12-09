@@ -401,6 +401,7 @@ export function DialogFinalizarProcesso({
               cotacao_resposta_fornecedor_id,
               item_cotacao_id,
               valor_unitario_ofertado,
+              percentual_desconto,
               itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade, lotes_cotacao(numero_lote))
             `)
             .eq("cotacao_resposta_fornecedor_id", resposta.id)
@@ -2572,41 +2573,50 @@ export function DialogFinalizarProcesso({
         let valorTotal = 0;
         const itensVencedoresComValor: Array<{ numero: number; valor: number; marca?: string; valorUnitario?: number }> = [];
         
-        itensVencedores.forEach(item => {
-          // Para critério por_lote: buscar pelo ID único (diferentes lotes podem ter mesmo numero_item)
-          // Para outros critérios: buscar pelo numero_item (lógica original)
-          const itemResposta = itensRespostas?.find(
-            ir => ir.cotacao_resposta_fornecedor_id === resposta?.id && 
-                  (criterioJulgamento === 'por_lote' 
-                    ? ir.id === item.id 
-                    : ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item)
-          );
-          if (itemResposta) {
-            // Para critério de desconto, usar o percentual_desconto
-            // Para outros critérios, usar valor monetário
-            if (isDesconto) {
-              const desconto = Number(itemResposta.percentual_desconto || 0);
-              valorTotal += desconto;
-              itensVencedoresComValor.push({
-                numero: item.itens_cotacao.numero_item,
-                valor: desconto,
-                marca: itemResposta.marca || '-',
-                valorUnitario: desconto
-              });
-            } else {
-              const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
-              const quantidade = Number(itemResposta.itens_cotacao.quantidade);
-              const valorItem = valorUnitario * quantidade;
-              valorTotal += valorItem;
-              itensVencedoresComValor.push({
-                numero: item.itens_cotacao.numero_item,
-                valor: valorItem,
-                marca: itemResposta.marca || '-',
-                valorUnitario: valorUnitario
-              });
+      itensVencedores.forEach(item => {
+        // Para critério por_lote: buscar pelo ID único (diferentes lotes podem ter mesmo numero_item)
+        // Para outros critérios: buscar pelo numero_item (lógica original)
+        const itemResposta = itensRespostas?.find(
+          ir => ir.cotacao_resposta_fornecedor_id === resposta?.id && 
+                (criterioJulgamento === 'por_lote' 
+                  ? ir.id === item.id 
+                  : ir.itens_cotacao.numero_item === item.itens_cotacao.numero_item)
+        );
+        
+        if (itemResposta) {
+          // Para critério de desconto, usar o percentual_desconto
+          // Para outros critérios, usar valor monetário
+          if (isDesconto) {
+            // CRÍTICO: percentual_desconto pode estar no item original ou no itemResposta
+            // Primeiro verificar no itemResposta, depois no item original
+            let desconto = Number(itemResposta.percentual_desconto || 0);
+            
+            // Se não encontrou no itemResposta, tentar no item original (que vem de carregarItensVencedoresPorFornecedor)
+            if (desconto === 0 && (item as any).percentual_desconto) {
+              desconto = Number((item as any).percentual_desconto || 0);
             }
+            
+            valorTotal += desconto;
+            itensVencedoresComValor.push({
+              numero: item.itens_cotacao.numero_item,
+              valor: desconto,
+              marca: itemResposta.marca || '-',
+              valorUnitario: desconto
+            });
+          } else {
+            const valorUnitario = Number(itemResposta.valor_unitario_ofertado);
+            const quantidade = Number(itemResposta.itens_cotacao.quantidade);
+            const valorItem = valorUnitario * quantidade;
+            valorTotal += valorItem;
+            itensVencedoresComValor.push({
+              numero: item.itens_cotacao.numero_item,
+              valor: valorItem,
+              marca: itemResposta.marca || '-',
+              valorUnitario: valorUnitario
+            });
           }
-        });
+        }
+      });
 
         return {
           razaoSocial: fData.fornecedor.razao_social,
