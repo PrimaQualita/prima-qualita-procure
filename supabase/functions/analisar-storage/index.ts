@@ -2118,7 +2118,7 @@ Deno.serve(async (req) => {
       // Buscar rejeições/inabilitações - CRÍTICO: filtrar revertido = false
       const { data: rejeicoesAtivas, error: rejError } = await supabase
         .from('fornecedores_rejeitados_cotacao')
-        .select('cotacao_id, fornecedor_id')
+        .select('cotacao_id, fornecedor_id, itens_afetados')
         .in('cotacao_id', cotacaoIdsDireta)
         .eq('revertido', false);
 
@@ -2186,14 +2186,33 @@ Deno.serve(async (req) => {
           }
           
           // CORRIGIDO: Identificar o REAL segundo colocado para cada item com vencedor rejeitado
-          // Precisa ordenar por valor/desconto para encontrar quem realmente é o próximo na fila
+          // A rejeição é POR ITEM, não global! Fornecedor rejeitado no item X pode ser válido no item Y
+          // Criar mapa de fornecedor -> itens rejeitados
+          const fornecedorItensRejeitados = new Map<string, Set<number>>();
+          for (const r of (rejeicoesAtivas?.filter(rej => rej.cotacao_id === cotacaoId) || [])) {
+            if (!fornecedorItensRejeitados.has(r.fornecedor_id)) {
+              fornecedorItensRejeitados.set(r.fornecedor_id, new Set());
+            }
+            const itensAfetados = r.itens_afetados || [];
+            for (const itemNum of itensAfetados) {
+              fornecedorItensRejeitados.get(r.fornecedor_id)!.add(itemNum);
+            }
+          }
+          
           for (const itemNum of itensComVencedorRejeitado) {
-            // Coletar todos os fornecedores que cotaram este item (exceto preços públicos e o vencedor rejeitado)
+            // Coletar todos os fornecedores que cotaram este item
+            // Excluir: preços públicos e fornecedores rejeitados NESTE ITEM ESPECÍFICO
             const fornecedoresDoItem: Array<{ fornecedorId: string; razaoSocial: string; valor: number }> = [];
             
             for (const f of fornecedores) {
               if (f.email && f.email.includes('precos.publicos')) continue;
-              if (fornecedoresRejeitadosIds.has(f.fornecedor_id)) continue; // Excluir rejeitados
+              
+              // Verificar se fornecedor está rejeitado NESTE ITEM ESPECÍFICO
+              const itensRejeitadosDoForn = fornecedorItensRejeitados.get(f.fornecedor_id);
+              if (itensRejeitadosDoForn && itensRejeitadosDoForn.has(itemNum)) {
+                console.log(`  ⏭️ ${f.razao_social} rejeitado no item ${itemNum}, pulando`);
+                continue;
+              }
               
               const item = (f.itens as any[] || []).find((i: any) => i.numero_item === itemNum);
               if (item) {
@@ -2207,7 +2226,6 @@ Deno.serve(async (req) => {
             }
             
             // Ordenar: para desconto (maior primeiro), para preço (menor primeiro)
-            // Verificar critério pelo nome do processo ou usar valor padrão
             const isDesconto = fornecedoresDoItem.some(f => f.valor < 1); // Descontos são tipicamente < 1
             if (isDesconto) {
               fornecedoresDoItem.sort((a, b) => b.valor - a.valor); // Maior desconto primeiro
@@ -2215,12 +2233,14 @@ Deno.serve(async (req) => {
               fornecedoresDoItem.sort((a, b) => a.valor - b.valor); // Menor preço primeiro
             }
             
+            console.log(`  🔍 Item ${itemNum} - Candidatos: ${fornecedoresDoItem.map(f => `${f.razaoSocial}(${f.valor})`).join(', ')}`);
+            
             // O primeiro da lista ordenada é o segundo colocado (já que vencedor foi rejeitado)
             if (fornecedoresDoItem.length > 0) {
               const segundoColocado = fornecedoresDoItem[0];
               if (!fornecedoresDoProcesso.has(segundoColocado.fornecedorId)) {
                 fornecedoresDoProcesso.add(segundoColocado.fornecedorId);
-                console.log(`  🥈 Segundo colocado REAL adicionado: ${segundoColocado.razaoSocial} (${segundoColocado.fornecedorId.substring(0,8)}) - item ${itemNum}`);
+                console.log(`  🥈 Segundo colocado REAL adicionado: ${segundoColocado.razaoSocial} (${segundoColocado.fornecedorId.substring(0,8)}) - item ${itemNum} com valor ${segundoColocado.valor}`);
               }
             }
           }
