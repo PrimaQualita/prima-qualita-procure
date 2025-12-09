@@ -64,12 +64,22 @@ export function DialogHabilitacao({ open, onOpenChange, processos }: DialogHabil
   };
 
   const processosFiltrados = useMemo(() => {
-    if (!searchProcessos.trim()) return processos;
-    const termo = searchProcessos.toLowerCase();
-    return processos.filter((proc) => {
-      const numero = proc.processoNumero.toLowerCase();
-      const objeto = stripHtml(proc.processoObjeto).toLowerCase();
-      return numero.includes(termo) || objeto.includes(termo);
+    let resultado = processos;
+    
+    if (searchProcessos.trim()) {
+      const termo = searchProcessos.toLowerCase();
+      resultado = processos.filter((proc) => {
+        const numero = proc.processoNumero.toLowerCase();
+        const objeto = stripHtml(proc.processoObjeto).toLowerCase();
+        return numero.includes(termo) || objeto.includes(termo);
+      });
+    }
+    
+    // Ordenar por número do processo (001/2025, 002/2025, etc.)
+    return resultado.sort((a, b) => {
+      const numA = a.processoNumero.split('/')[0];
+      const numB = b.processoNumero.split('/')[0];
+      return numA.localeCompare(numB, undefined, { numeric: true });
     });
   }, [processos, searchProcessos]);
 
