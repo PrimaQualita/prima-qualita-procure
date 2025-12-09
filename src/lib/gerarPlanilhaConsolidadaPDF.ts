@@ -785,12 +785,6 @@ export async function gerarPlanilhaConsolidadaPDF(
     linhas.push(linhaTotalGeral);
   }
 
-  // Armazenar textos de descrição para desenho customizado
-  const descricoesPorLinha: Map<number, string> = new Map();
-  
-  // Rastrear linhas já desenhadas para células quebradas entre páginas
-  const linhasDesenhadasPorRow: Map<string, number> = new Map();
-  
   // PRÉ-CALCULAR o menor fontSize necessário para todas as células de valores
   let menorFontSize = 8; // Valor inicial
   const fontSizeMinimo = 6;
@@ -964,140 +958,14 @@ export async function gerarPlanilhaConsolidadaPDF(
         return;
       }
       
-      // Para coluna de descrição (índice 1) em linhas normais, armazenar texto para desenho customizado
-      // CRÍTICO: Limpar o texto nativo para evitar que autoTable desenhe e nós desenhamos novamente
+      // Configurar coluna de descrição para justificação - deixar autoTable desenhar nativamente
       if (data.column.index === 1 && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal) {
-        const textoOriginal = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : String(data.cell.text || '');
-        if (textoOriginal && textoOriginal.trim()) {
-          descricoesPorLinha.set(data.row.index, textoOriginal);
-          // Limpar texto para que autoTable não desenhe - nós vamos desenhar no didDrawCell
-          data.cell.text = [''];
-          // Adicionar padding extra para compensar altura do texto que será desenhado
-          const linhasEstimadas = Math.ceil(textoOriginal.length / 50);
-          const extraPadding = Math.ceil(linhasEstimadas * 0.6);
-          data.cell.styles.cellPadding = { 
-            top: 2, 
-            right: 3, 
-            bottom: 3 + extraPadding, 
-            left: 3 
-          };
-        }
+        data.cell.styles.halign = 'justify';
+        data.cell.styles.textColor = [0, 0, 0];
       }
     },
     didDrawCell: function(data) {
-      if (data.section !== 'body') return;
-      if (data.column.index !== 1) return;
-      
-      const linhaAtual = linhas[data.row.index];
-      if (linhaAtual?.isLoteHeader || linhaAtual?.isSubtotal) return;
-      if (criterioJulgamento !== 'desconto' && data.row.index === linhas.length - 1) return;
-      
-      const textoOriginal = descricoesPorLinha.get(data.row.index);
-      if (!textoOriginal) return;
-      
-      const cell = data.cell;
-      const padding = 3;
-      const larguraDisponivel = cell.width - (padding * 2);
-      
-      // Obter cor de fundo atual da célula
-      const fillColor = cell.styles.fillColor;
-      let bgColor: [number, number, number] = [255, 255, 255];
-      if (Array.isArray(fillColor) && fillColor.length >= 3) {
-        bgColor = [fillColor[0] as number, fillColor[1] as number, fillColor[2] as number];
-      }
-      
-      // Cobrir o texto original com retângulo do fundo
-      doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
-      doc.rect(cell.x + 0.5, cell.y + 0.5, cell.width - 1, cell.height - 1, 'F');
-      
-      // CRÍTICO: Definir fonte e cor ANTES de splitTextToSize para garantir consistência
-      doc.setFontSize(menorFontSize);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(0, 0, 0);
-      
-      // Quebrar texto em linhas - APÓS definir fonte para garantir cálculo correto
-      const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
-      const alturaLinha = menorFontSize * 0.42;
-      
-      // Calcular quantas linhas cabem na célula atual
-      const espacoVertical = cell.height - (padding * 2);
-      const linhasQueCabem = Math.floor(espacoVertical / alturaLinha);
-      
-      // Determinar o índice inicial das linhas a desenhar
-      const rowKey = `${data.row.index}_desc`;
-      const linhasJaDesenhadas = linhasDesenhadasPorRow.get(rowKey) || 0;
-      const indiceLinhInicio = linhasJaDesenhadas;
-      
-      // Calcular posição Y inicial (sempre do topo da célula visível)
-      let yInicio = cell.y + padding + alturaLinha * 0.7;
-      
-      // Se todas as linhas cabem e é a primeira parte, centralizar verticalmente
-      const linhasRestantes = linhasTexto.length - indiceLinhInicio;
-      if (linhasRestantes <= linhasQueCabem && indiceLinhInicio === 0) {
-        const alturaTextoTotal = linhasTexto.length * alturaLinha;
-        if (alturaTextoTotal < espacoVertical) {
-          yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha * 0.7;
-        }
-      }
-      
-      // Limites da célula para clipping
-      const cellBottom = cell.y + cell.height - 0.3;
-      
-      // Contador de linhas desenhadas nesta célula
-      let linhasDesenhadasNestaCelula = 0;
-      
-      // Desenhar linhas a partir do índice correto
-      for (let i = indiceLinhInicio; i < linhasTexto.length; i++) {
-        const linha = linhasTexto[i];
-        const yLinha = yInicio + (linhasDesenhadasNestaCelula * alturaLinha);
-        
-        // Verificar se a linha cabe na célula atual
-        if (yLinha > cellBottom - alturaLinha * 0.3) {
-          break;
-        }
-        
-        linhasDesenhadasNestaCelula++;
-        
-        // Garantir cor preta para cada linha
-        doc.setTextColor(0, 0, 0);
-        
-        const palavras = linha.trim().split(/\s+/);
-        const x = cell.x + padding;
-        
-        // Última linha do texto completo OU linha com poucas palavras: alinhar à esquerda
-        if (i === linhasTexto.length - 1 || palavras.length <= 1) {
-          doc.text(linha, x, yLinha);
-          continue;
-        }
-        
-        // Calcular largura total das palavras
-        let larguraTotal = 0;
-        for (const palavra of palavras) {
-          larguraTotal += doc.getTextWidth(palavra);
-        }
-        
-        // Calcular espaço entre palavras para justificar
-        const espacoRestante = larguraDisponivel - larguraTotal;
-        const espacoPorGap = espacoRestante / (palavras.length - 1);
-        
-        // Espaçamento razoável (não muito grande): justificar
-        // Caso contrário, alinhar à esquerda
-        const espacoNormal = doc.getTextWidth(' ');
-        if (espacoPorGap <= espacoNormal * 3 && espacoPorGap >= 0) {
-          let xAtual = x;
-          for (let j = 0; j < palavras.length; j++) {
-            doc.text(palavras[j], xAtual, yLinha);
-            if (j < palavras.length - 1) {
-              xAtual += doc.getTextWidth(palavras[j]) + espacoPorGap;
-            }
-          }
-        } else {
-          doc.text(linha, x, yLinha);
-        }
-      }
-      
-      // Atualizar contador de linhas desenhadas para esta row
-      linhasDesenhadasPorRow.set(rowKey, linhasJaDesenhadas + linhasDesenhadasNestaCelula);
+      // Apenas para cabeçalhos - autoTable desenha o resto nativamente
     }
   });
 
