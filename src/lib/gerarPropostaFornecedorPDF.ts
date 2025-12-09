@@ -474,7 +474,7 @@ export async function gerarPropostaFornecedorPDF(
       bodyStyles: {
         fontSize: 7.5,
         textColor: [corTexto[0], corTexto[1], corTexto[2]],
-        minCellHeight: 6
+        valign: 'top'
       },
       alternateRowStyles: {
         fillColor: [corFundo[0], corFundo[1], corFundo[2]]
@@ -487,6 +487,15 @@ export async function gerarPropostaFornecedorPDF(
       didParseCell: (data) => {
         if (data.column.index === 1 && data.section === 'body') {
           data.cell.styles.cellWidth = ehDesconto ? 92 : 58;
+          // Adicionar padding extra na altura para compensar o bug de cálculo
+          const textLines = data.cell.text.length;
+          const extraPadding = Math.ceil(textLines * 0.5);
+          data.cell.styles.cellPadding = { 
+            top: 2, 
+            right: 2, 
+            bottom: 2 + extraPadding, 
+            left: 2 
+          };
         }
       }
     });
