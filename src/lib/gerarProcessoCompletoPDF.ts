@@ -571,10 +571,11 @@ export const gerarProcessoCompletoPDF = async (
         if (fornecedor.cnpj === '55555555555555') continue;
         
         const fornecedorId = fornecedor.fornecedor_id;
-        const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
         
-        // Verificar se fornecedor está inabilitado globalmente
-        const inabilitadoGlobal = fornecedoresInabilitadosIds.includes(fornecedorId) && itensInabilitados.length === 0;
+        // CORREÇÃO: Para critério GLOBAL, QUALQUER inabilitação exclui o fornecedor
+        // Não importa se é inabilitação global (itens vazio) ou por itens específicos
+        // porque no critério global a proposta inteira é julgada
+        const inabilitado = fornecedoresInabilitadosIds.includes(fornecedorId);
         
         // Calcular valor total do fornecedor
         let valorTotal = 0;
@@ -591,7 +592,7 @@ export const gerarProcessoCompletoPDF = async (
           totaisGlobais.push({
             fornecedorId,
             valorTotal,
-            inabilitado: inabilitadoGlobal,
+            inabilitado: inabilitado,
             razaoSocial: fornecedor.razao_social || ''
           });
         }
@@ -753,8 +754,8 @@ export const gerarProcessoCompletoPDF = async (
         if (fornecedor.cnpj === '55555555555555') continue;
         
         const fornecedorId = fornecedor.fornecedor_id;
-        const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
-        const isInabilitadoGlobal = fornecedoresInabilitadosIds.includes(fornecedorId) && itensInabilitados.length === 0;
+        // CORREÇÃO: Para critério GLOBAL, QUALQUER inabilitação exclui o fornecedor
+        const isInabilitado = fornecedoresInabilitadosIds.includes(fornecedorId);
         
         // Calcular valor total do fornecedor
         let valorTotal = 0;
@@ -767,14 +768,14 @@ export const gerarProcessoCompletoPDF = async (
           }
         }
         
-        // Só incluir se é vencedor ou inabilitado (não incluir segundo colocado NÃO inabilitado)
+        // Incluir se é vencedor ou inabilitado (para trilha de auditoria)
         const isVencedor = fornecedoresVencedores.includes(fornecedorId);
-        if (valorTotal > 0 && (isVencedor || isInabilitadoGlobal)) {
+        if (valorTotal > 0 && (isVencedor || isInabilitado)) {
           fornecedoresGlobalInfo.push({
             id: fornecedorId,
             valorTotal,
             razaoSocial: fornecedor.razao_social || '',
-            isInabilitado: isInabilitadoGlobal
+            isInabilitado: isInabilitado
           });
         }
       }
