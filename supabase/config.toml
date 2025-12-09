@@ -13,7 +13,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.deletar-usuario-admin]
-verify_jwt = false
+verify_jwt = true
 
 [functions.enviar-email-recuperacao]
 verify_jwt = false
