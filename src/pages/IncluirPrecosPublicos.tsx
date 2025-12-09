@@ -112,9 +112,10 @@ const IncluirPrecosPublicos = () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Preços Públicos');
       const criterio = processoCompra?.criterio_julgamento;
+      const mostrarMarca = processoCompra?.tipo === "material";
 
-      // Definir colunas com 7 colunas (incluindo Valor Total)
-      worksheet.columns = [
+      // Definir colunas dinamicamente baseado no tipo do processo
+      const colunas = mostrarMarca ? [
         { header: 'Item', key: 'item', width: 10 },
         { header: 'Descrição', key: 'descricao', width: 50 },
         { header: 'Quantidade', key: 'quantidade', width: 12 },
@@ -122,7 +123,21 @@ const IncluirPrecosPublicos = () => {
         { header: 'Marca', key: 'marca', width: 30 },
         { header: 'Valor Unitário', key: 'valor', width: 15 },
         { header: 'Valor Total', key: 'valor_total', width: 15 }
+      ] : [
+        { header: 'Item', key: 'item', width: 10 },
+        { header: 'Descrição', key: 'descricao', width: 50 },
+        { header: 'Quantidade', key: 'quantidade', width: 12 },
+        { header: 'Unidade de Medida', key: 'unidade', width: 18 },
+        { header: 'Valor Unitário', key: 'valor', width: 15 },
+        { header: 'Valor Total', key: 'valor_total', width: 15 }
       ];
+      
+      worksheet.columns = colunas;
+      
+      // Índices das colunas de valor e valor total variam conforme presença da coluna Marca
+      const colValor = mostrarMarca ? 6 : 5;
+      const colValorTotal = mostrarMarca ? 7 : 6;
+      const colQuantidade = 3;
 
       // Se critério for por_lote, agrupar itens por lote
       if (criterio === "lote" || criterio === "por_lote") {
@@ -143,15 +158,16 @@ const IncluirPrecosPublicos = () => {
           
           if (itensDoLote.length > 0) {
             // Adicionar linha de título do lote
-            const loteRow = worksheet.addRow({
+            const loteRowData: any = {
               item: `LOTE ${lote.numero_lote}`,
               descricao: lote.descricao_lote,
               quantidade: '',
               unidade: '',
-              marca: '',
               valor: '',
               valor_total: ''
-            });
+            };
+            if (mostrarMarca) loteRowData.marca = '';
+            const loteRow = worksheet.addRow(loteRowData);
             
             // Estilizar linha do lote (negrito, fundo cinza)
             loteRow.eachCell((cell) => {
@@ -168,36 +184,41 @@ const IncluirPrecosPublicos = () => {
             
             // Adicionar itens do lote
             itensDoLote.forEach(item => {
-              const row = worksheet.addRow({
+              const rowData: any = {
                 item: item.numero_item,
                 descricao: item.descricao,
                 quantidade: item.quantidade,
                 unidade: item.unidade,
-                marca: '',
                 valor: '',
                 valor_total: ''
-              });
+              };
+              if (mostrarMarca) rowData.marca = '';
+              const row = worksheet.addRow(rowData);
               
               // Fórmula para calcular Valor Total (Quantidade * Valor Unitário)
               const rowNumber = row.number;
-              row.getCell(7).value = { formula: `C${rowNumber}*F${rowNumber}` };
+              const colLetraValor = mostrarMarca ? 'F' : 'E';
+              const colLetraTotal = mostrarMarca ? 'G' : 'F';
+              row.getCell(colValorTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
             });
             
             const ultimaLinhaItens = worksheet.rowCount;
             
             // Adicionar linha de subtotal do lote
-            const subtotalRow = worksheet.addRow({
+            const subtotalRowData: any = {
               item: '',
               descricao: '',
               quantidade: '',
               unidade: '',
-              marca: '',
               valor: `SUBTOTAL LOTE ${lote.numero_lote}:`,
               valor_total: ''
-            });
+            };
+            if (mostrarMarca) subtotalRowData.marca = '';
+            const subtotalRow = worksheet.addRow(subtotalRowData);
             
             // Fórmula para somar valores totais do lote
-            subtotalRow.getCell(7).value = { formula: `SUM(G${primeiraLinhaItens}:G${ultimaLinhaItens})` };
+            const colLetraTotal = mostrarMarca ? 'G' : 'F';
+            subtotalRow.getCell(colValorTotal).value = { formula: `SUM(${colLetraTotal}${primeiraLinhaItens}:${colLetraTotal}${ultimaLinhaItens})` };
             
             // Estilizar linha de subtotal
             subtotalRow.eachCell((cell) => {
@@ -213,28 +234,30 @@ const IncluirPrecosPublicos = () => {
         });
         
         // Adicionar linha de total geral
-        const totalGeralRow = worksheet.addRow({
+        const totalGeralRowData: any = {
           item: '',
           descricao: '',
           quantidade: '',
           unidade: '',
-          marca: '',
           valor: 'VALOR TOTAL GERAL:',
           valor_total: ''
-        });
+        };
+        if (mostrarMarca) totalGeralRowData.marca = '';
+        const totalGeralRow = worksheet.addRow(totalGeralRowData);
         
         // Soma de todos os subtotais
         const linhasSubtotal: number[] = [];
         worksheet.eachRow((row, rowNumber) => {
-          const cell = row.getCell(6);
+          const cell = row.getCell(colValor);
           if (cell.value && String(cell.value).includes('SUBTOTAL LOTE')) {
             linhasSubtotal.push(rowNumber);
           }
         });
         
+        const colLetraTotal = mostrarMarca ? 'G' : 'F';
         if (linhasSubtotal.length > 0) {
-          const formula = linhasSubtotal.map(r => `G${r}`).join('+');
-          totalGeralRow.getCell(7).value = { formula };
+          const formula = linhasSubtotal.map(r => `${colLetraTotal}${r}`).join('+');
+          totalGeralRow.getCell(colValorTotal).value = { formula };
         }
         
         // Estilizar linha de total geral
@@ -250,19 +273,21 @@ const IncluirPrecosPublicos = () => {
       } else {
         // Adicionar dados dos itens sem agrupamento
         itens.forEach(item => {
-          const row = worksheet.addRow({
+          const rowData: any = {
             item: item.numero_item,
             descricao: item.descricao,
             quantidade: item.quantidade,
             unidade: item.unidade,
-            marca: '',
             valor: '',
             valor_total: ''
-          });
+          };
+          if (mostrarMarca) rowData.marca = '';
+          const row = worksheet.addRow(rowData);
           
           // Fórmula para calcular Valor Total
           const rowNumber = row.number;
-          row.getCell(7).value = { formula: `C${rowNumber}*F${rowNumber}` };
+          const colLetraValor = mostrarMarca ? 'F' : 'E';
+          row.getCell(colValorTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
         });
       }
 
@@ -273,8 +298,9 @@ const IncluirPrecosPublicos = () => {
         });
       });
 
-      // Proteger colunas que não devem ser editadas (1-Item, 2-Descrição, 3-Quantidade, 4-Unidade, 7-Valor Total)
-      [1, 2, 3, 4, 7].forEach(colNum => {
+      // Proteger colunas que não devem ser editadas (1-Item, 2-Descrição, 3-Quantidade, 4-Unidade, colValorTotal)
+      const colunasProtegidas = [1, 2, 3, 4, colValorTotal];
+      colunasProtegidas.forEach(colNum => {
         worksheet.getColumn(colNum).eachCell((cell) => {
           cell.protection = { locked: true };
         });
@@ -305,7 +331,7 @@ const IncluirPrecosPublicos = () => {
       link.click();
       window.URL.revokeObjectURL(url);
 
-      toast.success("Template baixado! Apenas 'Marca' e 'Valor Unitário' são editáveis.");
+      toast.success(mostrarMarca ? "Template baixado! Apenas 'Marca' e 'Valor Unitário' são editáveis." : "Template baixado! Apenas 'Valor Unitário' é editável.");
     } catch (error) {
       console.error("Erro ao gerar template:", error);
       toast.error("Erro ao gerar template");
@@ -329,6 +355,13 @@ const IncluirPrecosPublicos = () => {
       
       const criterio = processoCompra?.criterio_julgamento;
       const isPorLote = criterio === "lote" || criterio === "por_lote";
+      const mostrarMarca = processoCompra?.tipo === "material";
+      
+      // Índices das colunas variam conforme presença da coluna Marca
+      // Com marca: Item(0), Desc(1), Qtd(2), Unid(3), Marca(4), Valor(5)
+      // Sem marca: Item(0), Desc(1), Qtd(2), Unid(3), Valor(4)
+      const colMarcaIdx = mostrarMarca ? 4 : -1;
+      const colValorIdx = mostrarMarca ? 5 : 4;
       
       // Variável para rastrear o lote atual durante a importação
       let loteAtualId: string | null = null;
@@ -339,8 +372,8 @@ const IncluirPrecosPublicos = () => {
         if (!row || row.length === 0) continue;
         
         const itemCol = row[0];
-        const marcaCol = row[4];
-        const valorCol = row[5];
+        const marcaCol = mostrarMarca ? row[colMarcaIdx] : '';
+        const valorCol = row[colValorIdx];
         
         // Detectar linha de título de lote e atualizar lote atual
         if (typeof itemCol === 'string' && itemCol.toUpperCase().startsWith('LOTE')) {
