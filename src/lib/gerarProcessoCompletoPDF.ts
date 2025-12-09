@@ -842,8 +842,60 @@ export const gerarProcessoCompletoPDF = async (
       }
       
       todosFornecedoresProcesso = Array.from(fornecedoresParaIncluirSet);
+    } else if (criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto') {
+      // LÓGICA PARA CRITÉRIO DE DESCONTO
+      // Para cada item, incluir todos os colocados até o vencedor (MAIOR desconto = 1º lugar)
+      console.log(`🔄 Identificando fornecedores a incluir para critério desconto...`);
+      
+      const { data: itensCotacaoDesconto } = await supabase
+        .from("itens_cotacao")
+        .select("id, numero_item, quantidade")
+        .eq("cotacao_id", cotacaoId);
+      
+      const fornecedoresParaIncluirSet = new Set<string>();
+      
+      for (const itemCotacao of (itensCotacaoDesconto || [])) {
+        // Coletar todos os fornecedores que cotaram este item
+        const valoresItem: { fornecedorId: string; desconto: number; inabilitado: boolean; razaoSocial: string }[] = [];
+        
+        for (const fornecedor of fornecedoresData) {
+          if (fornecedor.cnpj === '55555555555555') continue;
+          
+          const fornecedorId = fornecedor.fornecedor_id;
+          const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
+          const inabilitacaoGlobal = fornecedoresInabilitadosIds.includes(fornecedorId) && itensInabilitados.length === 0;
+          const inabilitadoNoItem = inabilitacaoGlobal || itensInabilitados.includes(itemCotacao.numero_item);
+          
+          const itemFornecedor = fornecedor.itens?.find((i: any) => i.numero_item === itemCotacao.numero_item);
+          if (itemFornecedor?.valor_unitario && itemFornecedor.valor_unitario > 0) {
+            valoresItem.push({
+              fornecedorId,
+              desconto: itemFornecedor.valor_unitario, // No critério desconto, valor_unitario é o % de desconto
+              inabilitado: inabilitadoNoItem,
+              razaoSocial: fornecedor.razao_social || ''
+            });
+          }
+        }
+        
+        // DESCONTO: Ordenar por valor DESCENDENTE (maior desconto = 1º lugar)
+        valoresItem.sort((a, b) => b.desconto - a.desconto);
+        
+        console.log(`  Item ${itemCotacao.numero_item} classificação:`, valoresItem.map((v, idx) => `${idx+1}º ${v.razaoSocial} ${v.desconto}% ${v.inabilitado ? '(INAB)' : ''}`).join(', '));
+        
+        // Incluir todos até o primeiro não inabilitado (vencedor do item)
+        for (const v of valoresItem) {
+          fornecedoresParaIncluirSet.add(v.fornecedorId);
+          if (!v.inabilitado) {
+            console.log(`    ✓ Vencedor item ${itemCotacao.numero_item}: ${v.razaoSocial}`);
+            break;
+          }
+        }
+      }
+      
+      todosFornecedoresProcesso = Array.from(fornecedoresParaIncluirSet);
+      console.log(`📊 Fornecedores para incluir (desconto):`, todosFornecedoresProcesso.length);
     } else {
-      // Para outros critérios (desconto), incluir todos até o vencedor de cada item
+      // Fallback para critérios não reconhecidos
       const todosFornecedoresProcessoSet = new Set<string>();
       
       for (const vencedorId of fornecedoresVencedores) {
