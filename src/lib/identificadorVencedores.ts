@@ -122,6 +122,15 @@ export async function identificarVencedoresPorCriterio(
   // Mapear itens rejeitados por fornecedor (para outros critérios)
   const itensRejeitadosPorFornecedor = new Map<string, Set<number>>();
   
+  // Primeiro, identificar todos os itens/lotes disponíveis
+  const todosNumerosItens = new Set<number>();
+  const todosNumerosLotes = new Set<number>();
+  
+  fornecedoresPlanilha.forEach(f => {
+    f.itens.forEach(item => todosNumerosItens.add(item.numero_item));
+  });
+  lotesCotacao?.forEach(l => todosNumerosLotes.add(l.numero_lote));
+  
   rejeicoesAtivas?.forEach(r => {
     const itensAfetados = r.itens_afetados as number[] | null;
     if (!itensAfetados || itensAfetados.length === 0) {
@@ -130,16 +139,34 @@ export async function identificarVencedoresPorCriterio(
     } else {
       // CRÍTICO: Quando critério é por_lote, itens_afetados são NÚMEROS DE LOTES
       if (criterio === "por_lote" || criterio === "lote") {
-        if (!lotesRejeitadosPorFornecedor.has(r.fornecedor_id)) {
-          lotesRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+        // Verificar se rejeitou TODOS os lotes - se sim, é rejeição global
+        const rejeitouTodosLotes = todosNumerosLotes.size > 0 && 
+          itensAfetados.length >= todosNumerosLotes.size &&
+          [...todosNumerosLotes].every(lote => itensAfetados.includes(lote));
+        
+        if (rejeitouTodosLotes) {
+          fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
+        } else {
+          if (!lotesRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+            lotesRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+          }
+          itensAfetados.forEach(loteNum => lotesRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(loteNum));
         }
-        itensAfetados.forEach(loteNum => lotesRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(loteNum));
       } else {
         // Para outros critérios, são números de itens
-        if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
-          itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+        // Verificar se rejeitou TODOS os itens - se sim, é rejeição global
+        const rejeitouTodosItens = todosNumerosItens.size > 0 && 
+          itensAfetados.length >= todosNumerosItens.size &&
+          [...todosNumerosItens].every(item => itensAfetados.includes(item));
+        
+        if (rejeitouTodosItens) {
+          fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
+        } else {
+          if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+            itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+          }
+          itensAfetados.forEach(item => itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item));
         }
-        itensAfetados.forEach(item => itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item));
       }
     }
   });
@@ -447,6 +474,15 @@ export async function carregarItensVencedoresPorFornecedor(
   // Para outros critérios: mapear itens rejeitados por fornecedor
   const itensRejeitadosPorFornecedor = new Map<string, Set<number>>();
   
+  // Primeiro, identificar todos os itens/lotes disponíveis
+  const todosNumerosItens = new Set<number>();
+  const todosNumerosLotes = new Set<number>();
+  
+  fornecedoresPlanilha.forEach(f => {
+    f.itens.forEach(item => todosNumerosItens.add(item.numero_item));
+  });
+  lotesCotacao?.forEach(l => todosNumerosLotes.add(l.numero_lote));
+
   rejeicoesAtivas?.forEach(r => {
     const itensAfetados = r.itens_afetados as number[] | null;
     if (!itensAfetados || itensAfetados.length === 0) {
@@ -455,16 +491,34 @@ export async function carregarItensVencedoresPorFornecedor(
     } else {
       // CRÍTICO: Quando critério é por_lote, itens_afetados são NÚMEROS DE LOTES
       if (criterio === "por_lote" || criterio === "lote") {
-        if (!lotesRejeitadosPorFornecedor.has(r.fornecedor_id)) {
-          lotesRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+        // Verificar se rejeitou TODOS os lotes - se sim, é rejeição global
+        const rejeitouTodosLotes = todosNumerosLotes.size > 0 && 
+          itensAfetados.length >= todosNumerosLotes.size &&
+          [...todosNumerosLotes].every(lote => itensAfetados.includes(lote));
+        
+        if (rejeitouTodosLotes) {
+          fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
+        } else {
+          if (!lotesRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+            lotesRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+          }
+          itensAfetados.forEach(loteNum => lotesRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(loteNum));
         }
-        itensAfetados.forEach(loteNum => lotesRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(loteNum));
       } else {
         // Para outros critérios, são números de itens
-        if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
-          itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+        // Verificar se rejeitou TODOS os itens - se sim, é rejeição global
+        const rejeitouTodosItens = todosNumerosItens.size > 0 && 
+          itensAfetados.length >= todosNumerosItens.size &&
+          [...todosNumerosItens].every(item => itensAfetados.includes(item));
+        
+        if (rejeitouTodosItens) {
+          fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
+        } else {
+          if (!itensRejeitadosPorFornecedor.has(r.fornecedor_id)) {
+            itensRejeitadosPorFornecedor.set(r.fornecedor_id, new Set());
+          }
+          itensAfetados.forEach(item => itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item));
         }
-        itensAfetados.forEach(item => itensRejeitadosPorFornecedor.get(r.fornecedor_id)!.add(item));
       }
     }
   });
