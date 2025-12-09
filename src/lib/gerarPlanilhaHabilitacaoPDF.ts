@@ -1070,41 +1070,16 @@ export async function gerarPlanilhaHabilitacaoPDF(
   // Seção de empresas inabilitadas com motivos
   const empresasInabilitadas = respostas.filter(r => r.rejeitado || r.itens_rejeitados.length > 0);
   
-  console.log("📋 Empresas inabilitadas para PDF:", empresasInabilitadas.map(e => ({
-    razao: e.fornecedor.razao_social,
-    rejeitado: e.rejeitado,
-    itens: e.itens_rejeitados
-  })));
-  
-  // CRÍTICO: Obter página atual e posição Y final da tabela
-  const paginaAtual = doc.getNumberOfPages();
+  // CRÍTICO: Obter posição Y final da tabela
   const finalY = (doc as any).lastAutoTable?.finalY || 150;
-  
-  // Calcular espaço necessário para todas empresas inabilitadas
-  let espacoNecessario = 20; // Título + margem
-  empresasInabilitadas.forEach((empresa) => {
-    espacoNecessario += 15; // Razão social + CNPJ
-    espacoNecessario += 5; // Status
-    if (empresa.motivo_rejeicao) {
-      const linhasMotivo = Math.ceil(empresa.motivo_rejeicao.length / 80);
-      espacoNecessario += linhasMotivo * 4 + 2;
-    }
-    espacoNecessario += 3;
-  });
-  
-  // Verificar se precisa nova página para TODAS as empresas inabilitadas
   let currentY = finalY + 10;
-  const espacoDisponivel = pageHeight - currentY - 50; // 50 para certificação
-  
-  console.log("📋 Espaço disponível:", espacoDisponivel, "Espaço necessário:", espacoNecessario);
   
   if (empresasInabilitadas.length > 0) {
-    // Se não há espaço suficiente para todas, nova página
-    if (espacoDisponivel < espacoNecessario) {
+    // Verificar se cabe pelo menos o título na página atual
+    if (currentY > pageHeight - 30) {
       doc.addPage();
       adicionarCabecalho();
       currentY = 40;
-      console.log("📋 Nova página criada para empresas inabilitadas");
     }
 
     doc.setFontSize(11);
@@ -1117,15 +1092,19 @@ export async function gerarPlanilhaHabilitacaoPDF(
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
 
-    empresasInabilitadas.forEach((empresa, index) => {
-      console.log(`📋 Renderizando empresa ${index + 1}: ${empresa.fornecedor.razao_social} na Y=${currentY}`);
+    empresasInabilitadas.forEach((empresa) => {
+      // Calcular espaço necessário para esta empresa específica
+      let espacoEmpresa = 20; // Razão + CNPJ + Status + margem
+      if (empresa.motivo_rejeicao) {
+        const linhasMotivo = Math.ceil(empresa.motivo_rejeicao.length / 80);
+        espacoEmpresa += linhasMotivo * 4;
+      }
       
       // Verificar se precisa de nova página para esta empresa
-      if (currentY > pageHeight - 50) {
+      if (currentY + espacoEmpresa > pageHeight - 45) {
         doc.addPage();
         adicionarCabecalho();
         currentY = 40;
-        console.log(`📋 Nova página para empresa ${empresa.fornecedor.razao_social}`);
       }
 
       doc.setFont("helvetica", "bold");
@@ -1147,10 +1126,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
       if (empresa.motivo_rejeicao) {
         const motivoLinhas = doc.splitTextToSize(`  Motivo: ${empresa.motivo_rejeicao}`, larguraUtil - 10);
         doc.text(motivoLinhas, margemEsquerda, currentY);
-        currentY += motivoLinhas.length * 4 + 4;
+        currentY += motivoLinhas.length * 4 + 2;
       }
 
-      currentY += 5;
+      currentY += 4;
     });
   }
 
