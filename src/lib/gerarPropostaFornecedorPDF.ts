@@ -475,7 +475,7 @@ export async function gerarPropostaFornecedorPDF(
         fillColor: [corFundo[0], corFundo[1], corFundo[2]]
       },
       columnStyles: ehDesconto ? columnStylesDesconto : columnStylesPreco,
-      margin: { left: 15, right: 15 },
+      margin: { left: 15, right: 15, top: 25, bottom: 25 },
       tableWidth: 180,
       // CRÍTICO: Permitir que linhas quebrem entre páginas
       rowPageBreak: 'auto',
@@ -485,6 +485,16 @@ export async function gerarPropostaFornecedorPDF(
         // Forçar wrap de texto em descrições longas
         if (data.column.index === 1 && data.section === 'body') {
           data.cell.styles.cellWidth = ehDesconto ? 92 : 58;
+        }
+      },
+      // Callback para desenhar borda na quebra de página
+      didDrawPage: (data) => {
+        // Desenhar linha de fechamento inferior na página atual se houver quebra
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (data.cursor && data.cursor.y > pageHeight - 30) {
+          doc.setDrawColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
+          doc.setLineWidth(0.3);
+          doc.line(15, pageHeight - 25, 195, pageHeight - 25);
         }
       }
     });
