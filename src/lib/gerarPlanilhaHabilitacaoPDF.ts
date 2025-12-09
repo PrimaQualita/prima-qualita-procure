@@ -1070,9 +1070,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
   // Seção de empresas inabilitadas com motivos
   const empresasInabilitadas = respostas.filter(r => r.rejeitado || r.itens_rejeitados.length > 0);
   
+  // CRÍTICO: Manter controle da posição Y atual para evitar página em branco
+  let currentY = ((doc as any).lastAutoTable?.finalY || 150) + 10;
+  
   if (empresasInabilitadas.length > 0) {
-    let currentY = (doc as any).lastAutoTable.finalY + 10;
-    
     if (currentY > pageHeight - 60) {
       doc.addPage();
       adicionarCabecalho();
@@ -1122,34 +1123,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
     });
   }
 
-  // Certificação Digital com quadro estilizado
-  // CRÍTICO: Calcular posição correta APÓS a seção de empresas inabilitadas
-  let certY: number;
+  // Certificação Digital - usar currentY diretamente (já rastreia posição correta)
+  let certY = currentY + 10;
   
-  if (empresasInabilitadas.length > 0) {
-    // Se há empresas inabilitadas, calcular baseado no conteúdo que foi escrito
-    // A posição final após o loop de empresas inabilitadas
-    // Precisamos recalcular quanto espaço foi usado
-    let espacoUsado = (doc as any).lastAutoTable?.finalY + 10 || 150;
-    espacoUsado += 6; // Título "EMPRESAS INABILITADAS"
-    
-    empresasInabilitadas.forEach((empresa) => {
-      espacoUsado += 5; // Nome da empresa
-      espacoUsado += 5; // CNPJ
-      espacoUsado += 5; // Status
-      if (empresa.motivo_rejeicao) {
-        const motivoLinhas = doc.splitTextToSize(`  Motivo: ${empresa.motivo_rejeicao}`, larguraUtil - 10);
-        espacoUsado += motivoLinhas.length * 4 + 2;
-      }
-      espacoUsado += 3;
-    });
-    
-    certY = espacoUsado + 10;
-  } else {
-    certY = ((doc as any).lastAutoTable?.finalY || 150) + 15;
-  }
-  
-  // Verificar se precisa de nova página
+  // Verificar se precisa de nova página para certificação
   if (certY > pageHeight - 50) {
     doc.addPage();
     adicionarCabecalho();
