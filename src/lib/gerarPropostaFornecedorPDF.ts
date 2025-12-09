@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from '@/integrations/supabase/client';
 import { gerarHashDocumento } from './certificacaoDigital';
@@ -327,435 +328,167 @@ export async function gerarPropostaFornecedorPDF(
     doc.text('ITENS DA PROPOSTA', 20, y);
     y += 8;
 
-    // Calcular larguras dinâmicas das colunas de valores (apenas para critério não-desconto)
-    let larguraVlUnit = 22;
-    let larguraVlTotal = 24;
-    let larguraMarca = 18;
-    let larguraQtd = 14;
-    let larguraUnid = 22;
+    // Preparar dados para autoTable
+    const ehDesconto = criterioJulgamento === 'desconto';
+    const ehPorLote = criterioJulgamento === 'por_lote';
     
-    if (criterioJulgamento !== 'desconto') {
-      // Encontrar os maiores valores para dimensionar colunas
-      let maiorVlUnit = 0;
-      let maiorVlTotal = 0;
+    const prepararDadosTabela = () => {
+      const dados: any[] = [];
+      let somaTotal = 0;
       
-      itensOrdenados.forEach((item: any) => {
-        const itemCotacao: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
-        if (itemCotacao) {
-          const vlUnit = item.valor_unitario_ofertado || 0;
-          const vlTotal = vlUnit * (itemCotacao.quantidade || 0);
-          maiorVlUnit = Math.max(maiorVlUnit, vlUnit);
-          maiorVlTotal = Math.max(maiorVlTotal, vlTotal);
-        }
-      });
-      
-      // Formatar para determinar largura necessária
-      const vlUnitFormatado = maiorVlUnit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      const vlTotalFormatado = maiorVlTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      
-      // Estimar largura necessária (aproximadamente 2.5 por caractere)
-      const larguraEstimadaUnit = Math.max(22, Math.ceil(vlUnitFormatado.length * 2.5));
-      const larguraEstimadaTotal = Math.max(24, Math.ceil(vlTotalFormatado.length * 2.5));
-      
-      // Limitar larguras máximas
-      larguraVlUnit = Math.min(larguraEstimadaUnit, 32);
-      larguraVlTotal = Math.min(larguraEstimadaTotal, 36);
-      
-      // Calcular espaço restante para distribuir entre MARCA, QTD, UNID
-      const espacoFixo = 15 + 58; // ITEM + DESCRIÇÃO
-      const espacoValores = larguraVlUnit + larguraVlTotal;
-      const espacoRestante = 180 - espacoFixo - espacoValores; // Total 180 (largura da tabela)
-      
-      // Distribuir proporcionalmente
-      larguraMarca = Math.floor(espacoRestante * 0.40);
-      larguraQtd = Math.floor(espacoRestante * 0.25);
-      larguraUnid = Math.floor(espacoRestante * 0.35);
-    }
-    
-    // Calcular posições das colunas baseado nas larguras
-    const colItemX = 15;
-    const colDescX = colItemX + 15;
-    const colMarcaX = colDescX + 58;
-    const colQtdX = colMarcaX + larguraMarca;
-    const colUnidX = colQtdX + larguraQtd;
-    const colVlUnitX = colUnidX + larguraUnid;
-    const colVlTotalX = colVlUnitX + larguraVlUnit;
-
-    // Cabeçalho da tabela com fundo
-    doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
-    doc.rect(15, y - 5, 180, 8, 'F');
-    
-    // Bordas do cabeçalho - cinza clara
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.1);
-    // Borda externa do cabeçalho
-    doc.rect(15, y - 5, 180, 8, 'S');
-    
-    // Bordas verticais internas do cabeçalho
-    if (criterioJulgamento === 'desconto') {
-      doc.line(30, y - 5, 30, y + 3);
-      doc.line(122, y - 5, 122, y + 3);
-      doc.line(145, y - 5, 145, y + 3);
-      doc.line(162, y - 5, 162, y + 3);
-    } else {
-      doc.line(colDescX, y - 5, colDescX, y + 3);
-      doc.line(colMarcaX, y - 5, colMarcaX, y + 3);
-      doc.line(colQtdX, y - 5, colQtdX, y + 3);
-      doc.line(colUnidX, y - 5, colUnidX, y + 3);
-      doc.line(colVlUnitX, y - 5, colVlUnitX, y + 3);
-      doc.line(colVlTotalX, y - 5, colVlTotalX, y + 3);
-    }
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    
-    // Posições diferentes baseado no critério
-    if (criterioJulgamento === 'desconto') {
-      // Critério DESCONTO: ITEM | DESCRICAO | QTD | UNID | DESCONTO
-      doc.text('ITEM', 22.5, y, { maxWidth: 15, align: 'center' });
-      doc.text('DESCRICAO', 76, y, { maxWidth: 86, align: 'center' });
-      doc.text('QTD', 133.5, y, { maxWidth: 20, align: 'center' });
-      doc.text('UNID', 153.5, y, { maxWidth: 18, align: 'center' });
-      doc.text('DESCONTO (%)', 178.5, y, { maxWidth: 32, align: 'center' });
-    } else {
-      // Outros critérios: ITEM | DESCRICAO | MARCA | QTD | UNID | VL. UNIT. | VL. TOTAL
-      const centerItemX = colItemX + 7.5;
-      const centerDescX = colDescX + 29;
-      const centerMarcaX = colMarcaX + (larguraMarca / 2);
-      const centerQtdX = colQtdX + (larguraQtd / 2);
-      const centerUnidX = colUnidX + (larguraUnid / 2);
-      const centerVlUnitX = colVlUnitX + (larguraVlUnit / 2);
-      const centerVlTotalX = colVlTotalX + (larguraVlTotal / 2);
-      
-      doc.text('ITEM', centerItemX, y, { maxWidth: 15, align: 'center' });
-      doc.text('DESCRICAO', centerDescX, y, { maxWidth: 58, align: 'center' });
-      doc.text('MARCA', centerMarcaX, y, { maxWidth: larguraMarca, align: 'center' });
-      doc.text('QTD', centerQtdX, y, { maxWidth: larguraQtd, align: 'center' });
-      doc.text('UNID', centerUnidX, y, { maxWidth: larguraUnid, align: 'center' });
-      doc.text('VL. UNIT.', centerVlUnitX, y, { maxWidth: larguraVlUnit, align: 'center' });
-      doc.text('VL. TOTAL', centerVlTotalX, y, { maxWidth: larguraVlTotal, align: 'center' });
-    }
-    
-    y += 6;
-    doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
-
-    // Itens da proposta
-    let isAlternate = false;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-
-    // Função auxiliar para renderizar linha de título de lote
-    const renderLoteTitulo = (loteNumero: number, loteDescricao: string) => {
-      if (y + 10 > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      // Usar mesma cor do cabeçalho da tabela (corSecundaria)
-      doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
-      doc.rect(15, y - 4, 180, 8, 'F');
-      // Borda cinza clara ao redor do título do lote
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.1);
-      doc.rect(15, y - 4, 180, 8, 'S');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`LOTE ${loteNumero} - ${loteDescricao}`, 105, y, { align: 'center' });
-      y += 8;
-      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      isAlternate = false;
-    };
-
-    // Função auxiliar para renderizar subtotal de lote
-    const renderSubtotalLote = (loteNumero: number, subtotal: number) => {
-      if (criterioJulgamento === 'desconto') return;
-      if (y + 10 > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.setFillColor(207, 238, 247);
-      doc.rect(15, y - 4, 180, 8, 'F');
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.1);
-      doc.rect(15, y - 4, 180, 8, 'S');
-      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Subtotal Lote ${loteNumero}:`, 140, y, { align: 'right' });
-      doc.text(subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 193, y, { align: 'right' });
-      y += 10;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-    };
-
-    // Função auxiliar para renderizar um item
-    const renderItem = (item: any) => {
-      const itemCotacao: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
-      
-      if (!itemCotacao) {
-        console.warn('Item sem dados de cotação:', item);
-        return 0;
-      }
-      
-      // Sanitizar descrição para remover caracteres especiais problemáticos
-      const descricaoSanitizada = sanitizarTexto(itemCotacao.descricao || '');
-      
-      // Quebrar descrição em múltiplas linhas - usar largura REAL da coluna menos padding
-      // Coluna DESCRIÇÃO: de colDescX até colMarcaX, com padding de 2 de cada lado = largura útil - 4
-      const larguraDescricao = criterioJulgamento === 'desconto' ? 84 : 54; // Reduzir para evitar overflow
-      const linhasDescricao = doc.splitTextToSize(descricaoSanitizada, larguraDescricao);
-      
-      // Calcular altura baseada em TODAS as colunas (não só descrição)
-      // LineHeight de 3.5 para texto de 8pt
-      const itemLineHeight = 3.5;
-      let maxLinhas = linhasDescricao.length;
-      
-      if (criterioJulgamento !== 'desconto') {
-        const marcaSanitizada = sanitizarTexto(item.marca || '-');
-        const unidadeSanitizada = sanitizarTexto(itemCotacao.unidade || '');
-        const marcaLinhas = doc.splitTextToSize(marcaSanitizada, larguraMarca - 4);
-        const unidLinhas = doc.splitTextToSize(unidadeSanitizada, larguraUnid - 4);
-        const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), larguraQtd - 2);
-        maxLinhas = Math.max(maxLinhas, marcaLinhas.length, unidLinhas.length, qtdLinhas.length);
-      }
-      
-      // Altura mínima de 10, usando lineHeightFactor de 1.1 que é usado na renderização
-      const lineHeightFactor = 1.1;
-      const textHeightReal = maxLinhas * itemLineHeight * lineHeightFactor;
-      const paddingVertical = 6; // 3 em cima, 3 embaixo
-      const alturaLinha = Math.max(10, textHeightReal + paddingVertical);
-      
-      // Verificar se precisa de nova página
-      if (y + alturaLinha > 270) {
-        doc.addPage();
-        y = 20;
-        
-        // Repetir cabeçalho da tabela
-        doc.setFillColor(corSecundaria[0], corSecundaria[1], corSecundaria[2]);
-        doc.rect(15, y - 5, 180, 8, 'F');
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.1);
-        // Borda externa do cabeçalho
-        doc.rect(15, y - 5, 180, 8, 'S');
-        
-        // Bordas verticais internas do cabeçalho
-        if (criterioJulgamento === 'desconto') {
-          doc.line(30, y - 5, 30, y + 3);
-          doc.line(122, y - 5, 122, y + 3);
-          doc.line(145, y - 5, 145, y + 3);
-          doc.line(162, y - 5, 162, y + 3);
-        } else {
-          doc.line(colDescX, y - 5, colDescX, y + 3);
-          doc.line(colMarcaX, y - 5, colMarcaX, y + 3);
-          doc.line(colQtdX, y - 5, colQtdX, y + 3);
-          doc.line(colUnidX, y - 5, colUnidX, y + 3);
-          doc.line(colVlUnitX, y - 5, colVlUnitX, y + 3);
-          doc.line(colVlTotalX, y - 5, colVlTotalX, y + 3);
-        }
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        
-        if (criterioJulgamento === 'desconto') {
-          doc.text('ITEM', 22.5, y, { maxWidth: 15, align: 'center' });
-          doc.text('DESCRICAO', 76, y, { maxWidth: 86, align: 'center' });
-          doc.text('QTD', 133.5, y, { maxWidth: 20, align: 'center' });
-          doc.text('UNID', 153.5, y, { maxWidth: 18, align: 'center' });
-          doc.text('DESCONTO (%)', 178.5, y, { maxWidth: 32, align: 'center' });
-        } else {
-          const centerItemX = colItemX + 7.5;
-          const centerDescX = colDescX + 29;
-          const centerMarcaX = colMarcaX + (larguraMarca / 2);
-          const centerQtdX = colQtdX + (larguraQtd / 2);
-          const centerUnidX = colUnidX + (larguraUnid / 2);
-          const centerVlUnitX = colVlUnitX + (larguraVlUnit / 2);
-          const centerVlTotalX = colVlTotalX + (larguraVlTotal / 2);
-          
-          doc.text('ITEM', centerItemX, y, { maxWidth: 15, align: 'center' });
-          doc.text('DESCRICAO', centerDescX, y, { maxWidth: 58, align: 'center' });
-          doc.text('MARCA', centerMarcaX, y, { maxWidth: larguraMarca, align: 'center' });
-          doc.text('QTD', centerQtdX, y, { maxWidth: larguraQtd, align: 'center' });
-          doc.text('UNID', centerUnidX, y, { maxWidth: larguraUnid, align: 'center' });
-          doc.text('VL. UNIT.', centerVlUnitX, y, { maxWidth: larguraVlUnit, align: 'center' });
-          doc.text('VL. TOTAL', centerVlTotalX, y, { maxWidth: larguraVlTotal, align: 'center' });
-        }
-        y += 6;
-        doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-      }
-      
-      const valorUnitario = criterioJulgamento === 'desconto' 
-        ? (item.percentual_desconto || 0)
-        : item.valor_unitario_ofertado;
-      const valorTotalItem = valorUnitario * itemCotacao.quantidade;
-
-      // Fundo alternado
-      if (isAlternate) {
-        doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
-        doc.rect(15, y - 4, 180, alturaLinha, 'F');
-      }
-
-      // Bordas cinza clara para toda a tabela
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.1);
-      
-      const yTop = y - 4;
-      const yBottom = y + alturaLinha - 4;
-      
-      // Borda superior (horizontal)
-      doc.line(15, yTop, 195, yTop);
-      // Borda inferior (horizontal)
-      doc.line(15, yBottom, 195, yBottom);
-      
-      // Bordas verticais (todas as colunas)
-      doc.line(15, yTop, 15, yBottom);   // Esquerda
-      doc.line(195, yTop, 195, yBottom); // Direita
-      
-      if (criterioJulgamento === 'desconto') {
-        doc.line(30, yTop, 30, yBottom);
-        doc.line(122, yTop, 122, yBottom);
-        doc.line(145, yTop, 145, yBottom);
-        doc.line(162, yTop, 162, yBottom);
-      } else {
-        doc.line(colDescX, yTop, colDescX, yBottom);
-        doc.line(colMarcaX, yTop, colMarcaX, yBottom);
-        doc.line(colQtdX, yTop, colQtdX, yBottom);
-        doc.line(colUnidX, yTop, colUnidX, yBottom);
-        doc.line(colVlUnitX, yTop, colVlUnitX, yBottom);
-        doc.line(colVlTotalX, yTop, colVlTotalX, yBottom);
-      }
-
-      const yCenter = yTop + (alturaLinha / 2) + 1.5;
-      
-      doc.text(itemCotacao.numero_item.toString(), 22.5, yCenter, { align: 'center' });
-      
-      if (criterioJulgamento === 'desconto') {
-        // Centralizar verticalmente na célula
-        // textHeight = altura total que o texto vai ocupar
-        // A primeira linha de texto em jsPDF é posicionada pela baseline, então adicionamos offset
-        const textHeight = linhasDescricao.length * itemLineHeight * lineHeightFactor;
-        const espacoSobrando = alturaLinha - textHeight;
-        // Dividir espaço sobrando igualmente acima e abaixo, offset de 2.5 para baseline da primeira linha
-        const yDescStart = yTop + (espacoSobrando / 2) + 2.5;
-        doc.text(descricaoSanitizada, 32, yDescStart, { 
-          maxWidth: larguraDescricao, 
-          align: 'justify',
-          lineHeightFactor: lineHeightFactor
-        });
-        doc.text(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 133.5, yCenter, { align: 'center' });
-        doc.text(sanitizarTexto(itemCotacao.unidade || ''), 153.5, yCenter, { align: 'center' });
-        const descontoFormatted = (valorUnitario && valorUnitario > 0)
-          ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-          : '-';
-        doc.text(descontoFormatted, 178.5, yCenter, { align: 'center' });
-      } else {
-        // Centralizar verticalmente na célula
-        // textHeight = altura total que o texto vai ocupar
-        // A primeira linha de texto em jsPDF é posicionada pela baseline, então adicionamos offset
-        const textHeight = linhasDescricao.length * itemLineHeight * lineHeightFactor;
-        const espacoSobrando = alturaLinha - textHeight;
-        // Dividir espaço sobrando igualmente acima e abaixo, offset de 2.5 para baseline da primeira linha
-        const yDescStart = yTop + (espacoSobrando / 2) + 2.5;
-        doc.text(descricaoSanitizada, colDescX + 2, yDescStart, { 
-          maxWidth: larguraDescricao, 
-          align: 'justify',
-          lineHeightFactor: lineHeightFactor
-        });
-        
-        const marcaSanitizada = sanitizarTexto(item.marca || '-');
-        const marcaLinhas = doc.splitTextToSize(marcaSanitizada, larguraMarca - 4);
-        const marcaTextHeight = marcaLinhas.length * itemLineHeight;
-        const yMarcaStart = yTop + (alturaLinha - marcaTextHeight) / 2 + itemLineHeight * 0.7;
-        const centerMarcaX = colMarcaX + (larguraMarca / 2);
-        marcaLinhas.forEach((linha: string, index: number) => {
-          doc.text(linha, centerMarcaX, yMarcaStart + (index * itemLineHeight), { maxWidth: larguraMarca - 4, align: 'center' });
-        });
-        
-        const qtdLinhas = doc.splitTextToSize(itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), larguraQtd - 2);
-        const qtdTextHeight = qtdLinhas.length * itemLineHeight;
-        const yQtdStart = yTop + (alturaLinha - qtdTextHeight) / 2 + itemLineHeight * 0.7;
-        const centerQtdX = colQtdX + (larguraQtd / 2);
-        qtdLinhas.forEach((linha: string, index: number) => {
-          doc.text(linha, centerQtdX, yQtdStart + (index * itemLineHeight), { maxWidth: larguraQtd - 2, align: 'center' });
-        });
-        
-        const unidadeSanitizada = sanitizarTexto(itemCotacao.unidade || '');
-        const unidLinhas = doc.splitTextToSize(unidadeSanitizada, larguraUnid - 4);
-        const unidTextHeight = unidLinhas.length * itemLineHeight;
-        const yUnidStart = yTop + (alturaLinha - unidTextHeight) / 2 + itemLineHeight * 0.7;
-        const centerUnidX = colUnidX + (larguraUnid / 2);
-        unidLinhas.forEach((linha: string, index: number) => {
-          doc.text(linha, centerUnidX, yUnidStart + (index * itemLineHeight), { maxWidth: larguraUnid - 4, align: 'center' });
-        });
-        
-        const valorUnitFormatted = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const valorTotalFormatted = valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        
-        const vlUnitLinhas = doc.splitTextToSize(valorUnitFormatted, larguraVlUnit - 2);
-        const vlUnitTextHeight = vlUnitLinhas.length * itemLineHeight;
-        const yVlUnitStart = yTop + (alturaLinha - vlUnitTextHeight) / 2 + itemLineHeight * 0.7;
-        const rightVlUnitX = colVlUnitX + larguraVlUnit - 2;
-        vlUnitLinhas.forEach((linha: string, index: number) => {
-          doc.text(linha, rightVlUnitX, yVlUnitStart + (index * itemLineHeight), { maxWidth: larguraVlUnit - 2, align: 'right' });
-        });
-        
-        const vlTotalLinhas = doc.splitTextToSize(valorTotalFormatted, larguraVlTotal - 2);
-        const vlTotalTextHeight = vlTotalLinhas.length * itemLineHeight;
-        const yVlTotalStart = yTop + (alturaLinha - vlTotalTextHeight) / 2 + itemLineHeight * 0.7;
-        const rightVlTotalX = colVlTotalX + larguraVlTotal - 2;
-        vlTotalLinhas.forEach((linha: string, index: number) => {
-          doc.text(linha, rightVlTotalX, yVlTotalStart + (index * itemLineHeight), { maxWidth: larguraVlTotal - 2, align: 'right' });
-        });
-      }
-      
-      y += alturaLinha;
-      isAlternate = !isAlternate;
-      
-      return criterioJulgamento === 'desconto' ? 0 : valorTotalItem;
-    };
-
-    // Renderizar itens - agrupados por lote se critério for por_lote
-    if (criterioJulgamento === 'por_lote' && lotesMap.size > 0) {
-      // Agrupar itens por lote_id
-      const itensPorLote = new Map<string, any[]>();
-      for (const item of itensOrdenados) {
-        const itemCot: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
-        const loteId = itemCot?.lote_id;
-        if (loteId) {
-          if (!itensPorLote.has(loteId)) {
-            itensPorLote.set(loteId, []);
+      // Se critério for por_lote, agrupar por lote
+      if (ehPorLote && lotesMap.size > 0) {
+        // Agrupar itens por lote_id
+        const itensPorLote = new Map<string, any[]>();
+        for (const item of itensOrdenados) {
+          const itemCot: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
+          const loteId = itemCot?.lote_id;
+          if (loteId) {
+            if (!itensPorLote.has(loteId)) {
+              itensPorLote.set(loteId, []);
+            }
+            itensPorLote.get(loteId)!.push(item);
           }
-          itensPorLote.get(loteId)!.push(item);
+        }
+        
+        // Ordenar lotes por numero_lote
+        const lotesOrdenados = Array.from(lotesMap.entries()).sort((a, b) => a[1].numero_lote - b[1].numero_lote);
+        
+        for (const [loteId, loteInfo] of lotesOrdenados) {
+          const itensDoLote = itensPorLote.get(loteId) || [];
+          if (itensDoLote.length === 0) continue;
+          
+          // Linha de título do lote - critério por_lote tem 7 colunas (como preço)
+          dados.push([
+            { content: `LOTE ${loteInfo.numero_lote} - ${loteInfo.descricao_lote}`, colSpan: 7, styles: { fillColor: [0, 102, 153], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' } }
+          ]);
+          
+          // Itens do lote
+          let subtotalLote = 0;
+          for (const item of itensDoLote) {
+            const itemCotacao: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
+            if (!itemCotacao) continue;
+            
+            const valorUnitario = item.valor_unitario_ofertado || 0;
+            const valorTotalItem = valorUnitario * itemCotacao.quantidade;
+            subtotalLote += valorTotalItem;
+            
+            dados.push([
+              itemCotacao.numero_item.toString(),
+              sanitizarTexto(itemCotacao.descricao || ''),
+              sanitizarTexto(item.marca || '-'),
+              itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+              sanitizarTexto(itemCotacao.unidade || ''),
+              valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+              valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+            ]);
+          }
+          
+          // Subtotal do lote
+          dados.push([
+            { content: `Subtotal Lote ${loteInfo.numero_lote}:`, colSpan: 6, styles: { fillColor: [207, 238, 247], fontStyle: 'bold', halign: 'right' } },
+            { content: subtotalLote.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), styles: { fillColor: [207, 238, 247], fontStyle: 'bold', halign: 'right' } }
+          ]);
+          
+          somaTotal += subtotalLote;
+        }
+      } else {
+        // Renderização normal sem lotes
+        for (const item of itensOrdenados) {
+          const itemCotacao: any = Array.isArray(item.itens_cotacao) ? item.itens_cotacao[0] : item.itens_cotacao;
+          if (!itemCotacao) continue;
+          
+          const valorUnitario = ehDesconto 
+            ? (item.percentual_desconto || 0)
+            : item.valor_unitario_ofertado;
+          const valorTotalItem = valorUnitario * itemCotacao.quantidade;
+          somaTotal += ehDesconto ? 0 : valorTotalItem;
+          
+          if (ehDesconto) {
+            dados.push([
+              itemCotacao.numero_item.toString(),
+              sanitizarTexto(itemCotacao.descricao || ''),
+              itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+              sanitizarTexto(itemCotacao.unidade || ''),
+              (valorUnitario && valorUnitario > 0) ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : '-'
+            ]);
+          } else {
+            dados.push([
+              itemCotacao.numero_item.toString(),
+              sanitizarTexto(itemCotacao.descricao || ''),
+              sanitizarTexto(item.marca || '-'),
+              itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+              sanitizarTexto(itemCotacao.unidade || ''),
+              valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+              valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+            ]);
+          }
         }
       }
       
-      // Ordenar lotes por numero_lote
-      const lotesOrdenados = Array.from(lotesMap.entries()).sort((a, b) => a[1].numero_lote - b[1].numero_lote);
-      
-      for (const [loteId, loteInfo] of lotesOrdenados) {
-        const itensDoLote = itensPorLote.get(loteId) || [];
-        if (itensDoLote.length === 0) continue;
-        
-        renderLoteTitulo(loteInfo.numero_lote, loteInfo.descricao_lote);
-        
-        let subtotalLote = 0;
-        for (const item of itensDoLote) {
-          subtotalLote += renderItem(item);
+      return { dados, somaTotal };
+    };
+    
+    const { dados: dadosTabela } = prepararDadosTabela();
+    
+    // Configurações de colunas baseadas no critério
+    const headersDesconto = ['ITEM', 'DESCRICAO', 'QTD', 'UNID', 'DESCONTO (%)'];
+    const headersPreco = ['ITEM', 'DESCRICAO', 'MARCA', 'QTD', 'UNID', 'VL. UNIT.', 'VL. TOTAL'];
+    
+    const columnStylesDesconto: any = {
+      0: { cellWidth: 12, halign: 'center' },
+      1: { cellWidth: 92, halign: 'justify' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 18, halign: 'center' },
+      4: { cellWidth: 32, halign: 'center' }
+    };
+    
+    const columnStylesPreco: any = {
+      0: { cellWidth: 12, halign: 'center' },
+      1: { cellWidth: 58, halign: 'justify' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 16, halign: 'center' },
+      4: { cellWidth: 20, halign: 'center' },
+      5: { cellWidth: 26, halign: 'right' },
+      6: { cellWidth: 26, halign: 'right' }
+    };
+    
+    autoTable(doc, {
+      startY: y,
+      head: [ehDesconto ? headersDesconto : headersPreco],
+      body: dadosTabela,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [corSecundaria[0], corSecundaria[1], corSecundaria[2]],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center',
+        fontSize: 9
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [corTexto[0], corTexto[1], corTexto[2]],
+        cellPadding: 2
+      },
+      alternateRowStyles: {
+        fillColor: [corFundo[0], corFundo[1], corFundo[2]]
+      },
+      columnStyles: ehDesconto ? columnStylesDesconto : columnStylesPreco,
+      margin: { left: 15, right: 15 },
+      tableWidth: 180,
+      // CRÍTICO: Permitir que linhas quebrem entre páginas
+      rowPageBreak: 'auto',
+      // Repetir cabeçalho em cada página
+      showHead: 'everyPage',
+      didParseCell: (data) => {
+        // Forçar wrap de texto em descrições longas
+        if (data.column.index === 1 && data.section === 'body') {
+          data.cell.styles.cellWidth = ehDesconto ? 92 : 58;
         }
-        
-        renderSubtotalLote(loteInfo.numero_lote, subtotalLote);
       }
-    } else {
-      // Renderização normal sem lotes
-      for (const item of itensOrdenados) {
-        renderItem(item);
-      }
-    }
+    });
+    
+    y = (doc as any).lastAutoTable.finalY;
 
     // Linha de separação
     y += 2;
@@ -765,7 +498,7 @@ export async function gerarPropostaFornecedorPDF(
     y += 8;
 
     // Valor total com destaque (APENAS quando não for desconto)
-    if (criterioJulgamento !== 'desconto') {
+    if (!ehDesconto) {
       doc.setFillColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
       doc.rect(120, y - 6, 75, 12, 'F');
       
