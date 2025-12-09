@@ -477,6 +477,8 @@ export async function gerarPropostaFornecedorPDF(
       columnStyles: ehDesconto ? columnStylesDesconto : columnStylesPreco,
       margin: { left: 15, right: 15, top: 25, bottom: 20 },
       tableWidth: 180,
+      // EVITAR quebra de linha entre páginas - linha inteira vai para próxima página
+      rowPageBreak: 'avoid',
       // Repetir cabeçalho em cada página
       showHead: 'everyPage',
       didParseCell: (data) => {
