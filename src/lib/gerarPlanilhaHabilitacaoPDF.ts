@@ -759,6 +759,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
     };
   });
 
+  // Rastrear linhas já desenhadas para células que quebram entre páginas
+  const linhasDesenhadasPorRow: Map<string, number> = new Map();
+
   // PRÉ-CALCULAR o menor fontSize necessário para todas as células de valores
   let menorFontSize = 7;
   const fontSizeMinimo = 5.5;
@@ -1009,20 +1012,34 @@ export async function gerarPlanilhaHabilitacaoPDF(
         const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
         const alturaLinha = menorFontSize * 0.42;
         
-        // Calcular posição Y inicial centralizada verticalmente
-        const alturaTextoTotal = linhasTexto.length * alturaLinha;
+        // Rastrear linhas já desenhadas para esta célula (para quebras de página)
+        const rowKey = `${data.row.index}_desc`;
+        const linhasJaDesenhadas = linhasDesenhadasPorRow.get(rowKey) || 0;
+        
+        // Calcular posição Y inicial
         let yInicio = cell.y + padding + alturaLinha * 0.8;
-        if (alturaTextoTotal < cell.height - (padding * 2)) {
-          yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha * 0.8;
+        
+        // Se é a primeira parte da célula e o texto cabe, centralizar
+        if (linhasJaDesenhadas === 0) {
+          const alturaTextoTotal = linhasTexto.length * alturaLinha;
+          if (alturaTextoTotal < cell.height - (padding * 2)) {
+            yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha * 0.8;
+          }
         }
         
-        // Desenhar cada linha com justificação
-        for (let i = 0; i < linhasTexto.length; i++) {
+        // Limites da célula
+        const cellBottom = cell.y + cell.height - 0.5;
+        let linhasDesenhadasNestaCelula = 0;
+        
+        // Desenhar cada linha com justificação, começando de onde parou
+        for (let i = linhasJaDesenhadas; i < linhasTexto.length; i++) {
           const linha = linhasTexto[i];
-          const yLinha = yInicio + (i * alturaLinha);
+          const yLinha = yInicio + (linhasDesenhadasNestaCelula * alturaLinha);
           
           // Verificar se está dentro dos limites da célula
-          if (yLinha > cell.y + cell.height - 1) break;
+          if (yLinha > cellBottom) break;
+          
+          linhasDesenhadasNestaCelula++;
           
           const palavras = linha.trim().split(/\s+/);
           const x = cell.x + padding;
@@ -1056,6 +1073,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
             doc.text(linha, x, yLinha);
           }
         }
+        
+        // Atualizar contador de linhas desenhadas
+        linhasDesenhadasPorRow.set(rowKey, linhasJaDesenhadas + linhasDesenhadasNestaCelula);
       }
     },
     didDrawPage: (data) => {
