@@ -1007,12 +1007,12 @@ export async function gerarPlanilhaConsolidadaPDF(
       doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
       doc.rect(cell.x + 0.5, cell.y + 0.5, cell.width - 1, cell.height - 1, 'F');
       
-      // CRÍTICO: Sempre forçar cor preta e fonte normal para texto justificado
+      // CRÍTICO: Definir fonte e cor ANTES de splitTextToSize para garantir consistência
       doc.setFontSize(menorFontSize);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(0, 0, 0); // Sempre preto
+      doc.setTextColor(0, 0, 0);
       
-      // Quebrar texto em linhas
+      // Quebrar texto em linhas - APÓS definir fonte para garantir cálculo correto
       const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
       const alturaLinha = menorFontSize * 0.42;
       
@@ -1021,7 +1021,6 @@ export async function gerarPlanilhaConsolidadaPDF(
       const linhasQueCabem = Math.floor(espacoVertical / alturaLinha);
       
       // Determinar o índice inicial das linhas a desenhar
-      // Se esta é uma célula de continuação (célula quebrada), precisamos pular as linhas anteriores
       const rowKey = `${data.row.index}_desc`;
       const linhasJaDesenhadas = linhasDesenhadasPorRow.get(rowKey) || 0;
       const indiceLinhInicio = linhasJaDesenhadas;
@@ -1039,7 +1038,6 @@ export async function gerarPlanilhaConsolidadaPDF(
       }
       
       // Limites da célula para clipping
-      const cellTop = cell.y + 0.3;
       const cellBottom = cell.y + cell.height - 0.3;
       
       // Contador de linhas desenhadas nesta célula
@@ -1052,24 +1050,19 @@ export async function gerarPlanilhaConsolidadaPDF(
         
         // Verificar se a linha cabe na célula atual
         if (yLinha > cellBottom - alturaLinha * 0.3) {
-          break; // Próximas linhas vão para a continuação da célula
+          break;
         }
         
         linhasDesenhadasNestaCelula++;
         
-        // CRÍTICO: Reforçar cor preta antes de cada linha
+        // Garantir cor preta para cada linha
         doc.setTextColor(0, 0, 0);
         
         const palavras = linha.trim().split(/\s+/);
         const x = cell.x + padding;
         
-        // Última linha do texto completo: alinhar à esquerda
-        if (i === linhasTexto.length - 1) {
-          doc.text(linha, x, yLinha);
-          continue;
-        }
-        
-        if (palavras.length <= 1) {
+        // Última linha do texto completo OU linha com poucas palavras: alinhar à esquerda
+        if (i === linhasTexto.length - 1 || palavras.length <= 1) {
           doc.text(linha, x, yLinha);
           continue;
         }
@@ -1084,12 +1077,10 @@ export async function gerarPlanilhaConsolidadaPDF(
         const espacoRestante = larguraDisponivel - larguraTotal;
         const espacoPorGap = espacoRestante / (palavras.length - 1);
         
-        // Verificar se espaçamento é razoável (evitar justificação excessiva)
-        if (espacoPorGap > doc.getTextWidth('   ')) {
-          // Espaçamento muito grande, usar alinhamento à esquerda
-          doc.text(linha, x, yLinha);
-        } else {
-          // Desenhar palavras com espaçamento justificado
+        // Espaçamento razoável (não muito grande): justificar
+        // Caso contrário, alinhar à esquerda
+        const espacoNormal = doc.getTextWidth(' ');
+        if (espacoPorGap <= espacoNormal * 3 && espacoPorGap >= 0) {
           let xAtual = x;
           for (let j = 0; j < palavras.length; j++) {
             doc.text(palavras[j], xAtual, yLinha);
@@ -1097,6 +1088,8 @@ export async function gerarPlanilhaConsolidadaPDF(
               xAtual += doc.getTextWidth(palavras[j]) + espacoPorGap;
             }
           }
+        } else {
+          doc.text(linha, x, yLinha);
         }
       }
       
