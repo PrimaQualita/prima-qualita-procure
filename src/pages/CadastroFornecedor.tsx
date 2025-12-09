@@ -117,11 +117,9 @@ export default function CadastroFornecedor() {
   const loadPerguntas = async () => {
     try {
       console.log("Carregando perguntas de due diligence...");
+      // Use the secure function that only exposes public columns (no scoring weights)
       const { data, error } = await supabase
-        .from("perguntas_due_diligence")
-        .select("*")
-        .eq("ativo", true)
-        .order("ordem");
+        .rpc("get_perguntas_due_diligence_publicas");
 
       if (error) {
         console.error("Erro ao buscar perguntas:", error);
