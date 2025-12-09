@@ -859,7 +859,8 @@ export const gerarProcessoCompletoPDF = async (
         const valoresItem: { fornecedorId: string; desconto: number; inabilitado: boolean; razaoSocial: string }[] = [];
         
         for (const fornecedor of fornecedoresData) {
-          if (fornecedor.cnpj === '55555555555555') continue;
+          // Excluir preços públicos usando email (critério correto)
+          if (fornecedor.email?.includes('precos.publicos')) continue;
           
           const fornecedorId = fornecedor.fornecedor_id;
           const itensInabilitados = itensInabilitadosPorFornecedor.get(fornecedorId) || [];
@@ -867,10 +868,12 @@ export const gerarProcessoCompletoPDF = async (
           const inabilitadoNoItem = inabilitacaoGlobal || itensInabilitados.includes(itemCotacao.numero_item);
           
           const itemFornecedor = fornecedor.itens?.find((i: any) => i.numero_item === itemCotacao.numero_item);
-          if (itemFornecedor?.valor_unitario && itemFornecedor.valor_unitario > 0) {
+          // CORREÇÃO: usar percentual_desconto (que é onde o desconto está armazenado na consolidada)
+          const descontoValor = itemFornecedor?.percentual_desconto || itemFornecedor?.valor_unitario || 0;
+          if (descontoValor > 0) {
             valoresItem.push({
               fornecedorId,
-              desconto: itemFornecedor.valor_unitario, // No critério desconto, valor_unitario é o % de desconto
+              desconto: descontoValor,
               inabilitado: inabilitadoNoItem,
               razaoSocial: fornecedor.razao_social || ''
             });
