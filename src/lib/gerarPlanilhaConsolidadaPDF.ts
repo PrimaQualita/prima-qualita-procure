@@ -965,6 +965,81 @@ export async function gerarPlanilhaConsolidadaPDF(
         data.cell.styles.textColor = [0, 0, 0];
         data.cell.styles.overflow = 'linebreak';
       }
+    },
+    didDrawCell: (data) => {
+      // Texto justificado para coluna de descrição
+      if (data.section === 'body' && data.column.index === 1) {
+        const linhaAtual = linhas[data.row.index];
+        if (linhaAtual?.isLoteHeader || linhaAtual?.isSubtotal) return;
+        if (criterioJulgamento !== 'desconto' && data.row.index === linhas.length - 1) return;
+        
+        // Usar as linhas já quebradas pelo autoTable (funciona corretamente com quebras de página)
+        const linhasTexto = data.cell.text;
+        if (!linhasTexto || linhasTexto.length === 0) return;
+        
+        const cell = data.cell;
+        const padding = 2;
+        const larguraDisponivel = cell.width - (padding * 2);
+        
+        // Obter cor de fundo
+        const fillColor = cell.styles.fillColor;
+        let bgColor: [number, number, number] = [255, 255, 255];
+        if (Array.isArray(fillColor) && fillColor.length >= 3) {
+          bgColor = [fillColor[0] as number, fillColor[1] as number, fillColor[2] as number];
+        }
+        
+        // Cobrir texto original
+        doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+        doc.rect(cell.x + 0.3, cell.y + 0.3, cell.width - 0.6, cell.height - 0.6, 'F');
+        
+        // Configurar fonte
+        doc.setFontSize(menorFontSize);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        
+        const alturaLinha = menorFontSize * 0.42;
+        const alturaTextoTotal = linhasTexto.length * alturaLinha;
+        
+        // Centralizar verticalmente se couber
+        let yInicio = cell.y + padding + alturaLinha * 0.8;
+        if (alturaTextoTotal < cell.height - (padding * 2)) {
+          yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha * 0.8;
+        }
+        
+        // Desenhar cada linha com justificação
+        linhasTexto.forEach((linha: string, idx: number) => {
+          const yLinha = yInicio + (idx * alturaLinha);
+          const palavras = linha.trim().split(/\s+/);
+          const x = cell.x + padding;
+          
+          // Última linha: alinhar à esquerda
+          if (idx === linhasTexto.length - 1 || palavras.length <= 1) {
+            doc.text(linha, x, yLinha);
+            return;
+          }
+          
+          // Calcular espaçamento para justificar
+          let larguraTotal = 0;
+          for (const palavra of palavras) {
+            larguraTotal += doc.getTextWidth(palavra);
+          }
+          
+          const espacoRestante = larguraDisponivel - larguraTotal;
+          const espacoPorGap = espacoRestante / (palavras.length - 1);
+          
+          if (espacoRestante >= 0 && espacoPorGap < doc.getTextWidth(' ') * 3) {
+            let xAtual = x;
+            for (let j = 0; j < palavras.length; j++) {
+              doc.text(palavras[j], xAtual, yLinha);
+              if (j < palavras.length - 1) {
+                xAtual += doc.getTextWidth(palavras[j]) + espacoPorGap;
+              }
+            }
+          } else {
+            doc.text(linha, x, yLinha);
+          }
+        });
+      }
     }
     // Descrição usa renderização nativa do autoTable (overflow: 'linebreak') - sem lógica manual que causa cortes
   });
