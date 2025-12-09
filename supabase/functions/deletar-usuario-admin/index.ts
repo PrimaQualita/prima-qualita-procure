@@ -52,6 +52,18 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Autorização necessária" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        }
+      );
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -62,6 +74,40 @@ serve(async (req) => {
         },
       }
     );
+
+    // Verify the user making the request is a gestor (admin)
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user: requestingUser }, error: verifyError } = await supabaseAdmin.auth.getUser(token);
+    
+    if (verifyError || !requestingUser) {
+      return new Response(
+        JSON.stringify({ error: "Token inválido ou expirado" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        }
+      );
+    }
+
+    // Check if user has gestor role
+    const { data: gestorRole, error: gestorRoleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', requestingUser.id)
+      .eq('role', 'gestor')
+      .single();
+
+    if (gestorRoleError || !gestorRole) {
+      return new Response(
+        JSON.stringify({ error: "Acesso negado. Apenas gestores podem deletar usuários." }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403,
+        }
+      );
+    }
+
+    console.log(`Gestor ${requestingUser.email} solicitou deleção de usuário`);
 
     const body = deleteUserSchema.parse(await req.json());
     
@@ -75,12 +121,12 @@ serve(async (req) => {
         throw new Error(`Erro ao buscar usuário: ${userError.message}`);
       }
 
-      const user = userData.users.find(u => u.email === body.email);
-      if (!user) {
+      const foundUser = userData.users.find(u => u.email === body.email);
+      if (!foundUser) {
         throw new Error(`Usuário com e-mail ${body.email} não encontrado`);
       }
       
-      userId = user.id;
+      userId = foundUser.id;
     }
 
     if (!userId) {
@@ -88,12 +134,12 @@ serve(async (req) => {
     }
 
     // Deletar roles
-    const { error: roleError } = await supabaseAdmin
+    const { error: deleteRoleError } = await supabaseAdmin
       .from("user_roles")
       .delete()
       .eq("user_id", userId);
 
-    if (roleError) throw roleError;
+    if (deleteRoleError) throw deleteRoleError;
 
     // Deletar profile
     const { error: profileError } = await supabaseAdmin
@@ -104,9 +150,9 @@ serve(async (req) => {
     if (profileError) throw profileError;
 
     // Deletar usuário do auth
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
-    if (authError) throw authError;
+    if (deleteAuthError) throw deleteAuthError;
 
     return new Response(
       JSON.stringify({ success: true }),
