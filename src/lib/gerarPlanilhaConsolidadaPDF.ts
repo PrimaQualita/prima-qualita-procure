@@ -993,6 +993,10 @@ export async function gerarPlanilhaConsolidadaPDF(
       const padding = 3;
       const larguraDisponivel = cell.width - (padding * 2);
       
+      // Limites da célula para clipping
+      const cellTop = cell.y;
+      const cellBottom = cell.y + cell.height;
+      
       // Obter cor de fundo atual da célula
       const fillColor = cell.styles.fillColor;
       let bgColor: [number, number, number] = [255, 255, 255];
@@ -1025,10 +1029,15 @@ export async function gerarPlanilhaConsolidadaPDF(
         yInicio = cell.y + padding + alturaLinha * 0.7;
       }
       
-      // Desenhar cada linha (sem limite - célula já foi dimensionada pelo autoTable)
+      // Desenhar cada linha - APENAS se estiver dentro dos limites da célula
       for (let i = 0; i < linhasTexto.length; i++) {
         const linha = linhasTexto[i];
         const yLinha = yInicio + (i * alturaLinha);
+        
+        // CLIPPING: Pular linhas que estão fora dos limites da célula
+        if (yLinha < cellTop || yLinha > cellBottom - 1) {
+          continue;
+        }
         
         const palavras = linha.trim().split(/\s+/);
         const x = cell.x + padding;
