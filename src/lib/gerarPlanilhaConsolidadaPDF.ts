@@ -788,6 +788,9 @@ export async function gerarPlanilhaConsolidadaPDF(
   // Armazenar textos de descrição para desenho customizado
   const descricoesPorLinha: Map<number, string> = new Map();
   
+  // Rastrear linhas já desenhadas para células quebradas entre páginas
+  const linhasDesenhadasPorRow: Map<string, number> = new Map();
+  
   // PRÉ-CALCULAR o menor fontSize necessário para todas as células de valores
   let menorFontSize = 8; // Valor inicial
   const fontSizeMinimo = 6;
@@ -993,10 +996,6 @@ export async function gerarPlanilhaConsolidadaPDF(
       const padding = 3;
       const larguraDisponivel = cell.width - (padding * 2);
       
-      // Limites da célula para clipping
-      const cellTop = cell.y + 0.5;
-      const cellBottom = cell.y + cell.height - 0.5;
-      
       // Obter cor de fundo atual da célula
       const fillColor = cell.styles.fillColor;
       let bgColor: [number, number, number] = [255, 255, 255];
@@ -1017,41 +1016,59 @@ export async function gerarPlanilhaConsolidadaPDF(
       const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
       const alturaLinha = menorFontSize * 0.42;
       
-      // Calcular altura total necessária para o texto
-      const alturaTextoTotal = linhasTexto.length * alturaLinha;
+      // Calcular quantas linhas cabem na célula atual
+      const espacoVertical = cell.height - (padding * 2);
+      const linhasQueCabem = Math.floor(espacoVertical / alturaLinha);
       
-      // Para células quebradas entre páginas, usar posição relativa à célula atual
-      // yInicio sempre começa do topo da célula visível + padding
+      // Determinar o índice inicial das linhas a desenhar
+      // Se esta é uma célula de continuação (célula quebrada), precisamos pular as linhas anteriores
+      const rowKey = `${data.row.index}_desc`;
+      const linhasJaDesenhadas = linhasDesenhadasPorRow.get(rowKey) || 0;
+      const indiceLinhInicio = linhasJaDesenhadas;
+      
+      // Calcular posição Y inicial (sempre do topo da célula visível)
       let yInicio = cell.y + padding + alturaLinha * 0.7;
       
-      // Se o texto cabe na célula, centralizar verticalmente
-      if (alturaTextoTotal < cell.height - (padding * 2)) {
-        yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha * 0.7;
+      // Se todas as linhas cabem e é a primeira parte, centralizar verticalmente
+      const linhasRestantes = linhasTexto.length - indiceLinhInicio;
+      if (linhasRestantes <= linhasQueCabem && indiceLinhInicio === 0) {
+        const alturaTextoTotal = linhasTexto.length * alturaLinha;
+        if (alturaTextoTotal < espacoVertical) {
+          yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha * 0.7;
+        }
       }
       
-      // Desenhar cada linha - APENAS se estiver dentro dos limites da célula
-      for (let i = 0; i < linhasTexto.length; i++) {
+      // Limites da célula para clipping
+      const cellTop = cell.y + 0.3;
+      const cellBottom = cell.y + cell.height - 0.3;
+      
+      // Contador de linhas desenhadas nesta célula
+      let linhasDesenhadasNestaCelula = 0;
+      
+      // Desenhar linhas a partir do índice correto
+      for (let i = indiceLinhInicio; i < linhasTexto.length; i++) {
         const linha = linhasTexto[i];
-        const yLinha = yInicio + (i * alturaLinha);
+        const yLinha = yInicio + (linhasDesenhadasNestaCelula * alturaLinha);
         
-        // CLIPPING: Pular linhas que estão fora dos limites visíveis da célula
-        if (yLinha < cellTop || yLinha > cellBottom) {
-          continue;
+        // Verificar se a linha cabe na célula atual
+        if (yLinha > cellBottom - alturaLinha * 0.3) {
+          break; // Próximas linhas vão para a continuação da célula
         }
         
-        // CRÍTICO: Reforçar cor preta antes de cada linha (evita herdar cor errada)
+        linhasDesenhadasNestaCelula++;
+        
+        // CRÍTICO: Reforçar cor preta antes de cada linha
         doc.setTextColor(0, 0, 0);
         
         const palavras = linha.trim().split(/\s+/);
         const x = cell.x + padding;
         
-        // Última linha: alinhar à esquerda (padrão de justificação)
+        // Última linha do texto completo: alinhar à esquerda
         if (i === linhasTexto.length - 1) {
           doc.text(linha, x, yLinha);
           continue;
         }
         
-        // Se só tem uma palavra, não há o que justificar
         if (palavras.length <= 1) {
           doc.text(linha, x, yLinha);
           continue;
@@ -1082,6 +1099,9 @@ export async function gerarPlanilhaConsolidadaPDF(
           }
         }
       }
+      
+      // Atualizar contador de linhas desenhadas para esta row
+      linhasDesenhadasPorRow.set(rowKey, linhasJaDesenhadas + linhasDesenhadasNestaCelula);
     }
   });
 
