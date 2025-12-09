@@ -2105,6 +2105,14 @@ export function DialogFinalizarProcesso({
 
         const rejeicao = rejeitadosData?.find(r => r.fornecedor_id === resposta.fornecedor_id);
         
+        // Log para debug de inabilitação
+        console.log(`📋 Planilha Habilitação - ${resposta.fornecedores.razao_social}:`, {
+          fornecedor_id: resposta.fornecedor_id,
+          temRejeicao: !!rejeicao,
+          itens_afetados: rejeicao?.itens_afetados || [],
+          motivo: rejeicao?.motivo_rejeicao
+        });
+        
         respostasFormatadas.push({
           fornecedor: {
             id: resposta.fornecedores.id,
