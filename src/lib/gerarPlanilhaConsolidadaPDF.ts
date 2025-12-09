@@ -965,13 +965,16 @@ export async function gerarPlanilhaConsolidadaPDF(
       }
       
       // Para coluna de descrição (índice 1) em linhas normais, armazenar texto para desenho customizado
+      // CRÍTICO: Limpar o texto nativo para evitar que autoTable desenhe e nós desenhamos novamente
       if (data.column.index === 1 && !linhaAtual?.isLoteHeader && !linhaAtual?.isSubtotal) {
         const textoOriginal = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : String(data.cell.text || '');
         if (textoOriginal && textoOriginal.trim()) {
           descricoesPorLinha.set(data.row.index, textoOriginal);
-          // Adicionar padding extra para compensar bug de cálculo de altura
-          const textLines = data.cell.text.length;
-          const extraPadding = Math.ceil(textLines * 0.6);
+          // Limpar texto para que autoTable não desenhe - nós vamos desenhar no didDrawCell
+          data.cell.text = [''];
+          // Adicionar padding extra para compensar altura do texto que será desenhado
+          const linhasEstimadas = Math.ceil(textoOriginal.length / 50);
+          const extraPadding = Math.ceil(linhasEstimadas * 0.6);
           data.cell.styles.cellPadding = { 
             top: 2, 
             right: 3, 
