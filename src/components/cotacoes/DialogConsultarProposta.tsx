@@ -60,7 +60,7 @@ export function DialogConsultarProposta({
       // Buscar dados da cotação
       const { data: cotacaoData, error: cotacaoError } = await supabase
         .from("cotacoes_precos")
-        .select("titulo_cotacao, descricao_cotacao, criterio_julgamento, data_limite_resposta")
+        .select("titulo_cotacao, descricao_cotacao, criterio_julgamento, data_limite_resposta, processos_compras(tipo)")
         .eq("id", cotacaoId)
         .single();
 
@@ -222,7 +222,7 @@ export function DialogConsultarProposta({
                          <TableRow>
                            <TableHead className="w-20">Item</TableHead>
                            <TableHead>Descrição</TableHead>
-                           <TableHead className="w-32">Marca</TableHead>
+                           {cotacao?.processos_compras?.tipo === "material" && <TableHead className="w-32">Marca</TableHead>}
                            <TableHead className="w-28 text-right">Quantidade</TableHead>
                            {cotacao?.criterio_julgamento === "desconto" ? (
                              <TableHead className="w-32 text-right">Desconto (%)</TableHead>
@@ -250,7 +250,7 @@ export function DialogConsultarProposta({
                                  )}
                              </div>
                              </TableCell>
-                             <TableCell>{item.marca || "-"}</TableCell>
+                             {cotacao?.processos_compras?.tipo === "material" && <TableCell>{item.marca || "-"}</TableCell>}
                              <TableCell className="text-right">
                                {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade}
                              </TableCell>
@@ -300,7 +300,7 @@ export function DialogConsultarProposta({
                      <TableRow>
                        <TableHead className="w-20">Item</TableHead>
                        <TableHead>Descrição</TableHead>
-                       <TableHead className="w-32">Marca</TableHead>
+                       {cotacao?.processos_compras?.tipo === "material" && <TableHead className="w-32">Marca</TableHead>}
                        <TableHead className="w-28 text-right">Quantidade</TableHead>
                        {cotacao?.criterio_julgamento === "desconto" ? (
                          <TableHead className="w-32 text-right">Desconto (%)</TableHead>
@@ -328,7 +328,7 @@ export function DialogConsultarProposta({
                              )}
                              </div>
                          </TableCell>
-                         <TableCell>{item.marca || "-"}</TableCell>
+                         {cotacao?.processos_compras?.tipo === "material" && <TableCell>{item.marca || "-"}</TableCell>}
                          <TableCell className="text-right">
                            {item.itens_cotacao.quantidade} {item.itens_cotacao.unidade}
                          </TableCell>
