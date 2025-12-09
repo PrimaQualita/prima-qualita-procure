@@ -2129,7 +2129,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Processar por cotação: APENAS vencedores + rejeitados
+      // Processar por cotação: vencedores + rejeitados + SEGUNDOS COLOCADOS
       for (const cotacaoId of cotacaoIdsDireta) {
         const processoId = cotacaoParaProcesso.get(cotacaoId);
         if (!processoId) continue;
@@ -2142,22 +2142,62 @@ Deno.serve(async (req) => {
         // Buscar VENCEDORES da planilha consolidada mais recente
         const planilha = planilhaMaisRecentePorCotacao.get(cotacaoId);
         let countVencedores = 0;
+        const fornecedoresRejeitadosIds = new Set(
+          (rejeicoesAtivas?.filter(r => r.cotacao_id === cotacaoId) || []).map(r => r.fornecedor_id)
+        );
+        
         if (planilha && planilha.fornecedores_incluidos) {
           const fornecedores = planilha.fornecedores_incluidos as any[];
+          
+          // Primeiro: identificar itens onde o vencedor original foi rejeitado
+          // Para estes itens, precisamos incluir o segundo colocado
+          const itensComVencedorRejeitado = new Set<number>();
+          
+          for (const forn of fornecedores) {
+            if (forn.email && forn.email.includes('precos.publicos')) continue;
+            
+            const itens = forn.itens as any[] || [];
+            for (const item of itens) {
+              if (item.eh_vencedor === true && fornecedoresRejeitadosIds.has(forn.fornecedor_id)) {
+                itensComVencedorRejeitado.add(item.numero_item);
+              }
+            }
+          }
+          
+          console.log(`  📋 Itens com vencedor rejeitado: ${Array.from(itensComVencedorRejeitado).join(', ') || 'nenhum'}`);
+          
           for (const forn of fornecedores) {
             // Verificar se é preço público pelo email
             if (forn.email && forn.email.includes('precos.publicos')) {
               continue;
             }
             
-            // Verificar se tem algum item vencedor
             const itens = forn.itens as any[] || [];
+            
+            // Verificar se tem algum item vencedor
             const temItemVencedor = itens.some((item: any) => item.eh_vencedor === true);
             
             if (temItemVencedor && forn.fornecedor_id) {
               fornecedoresDoProcesso.add(forn.fornecedor_id);
               countVencedores++;
               console.log(`  ✅ Vencedor adicionado: ${forn.razao_social} (${forn.fornecedor_id.substring(0,8)})`);
+            }
+            
+            // NOVO: Verificar se é segundo colocado em item onde vencedor foi rejeitado
+            // Para isso, precisa ter cotado o item E não ser preço público E não estar rejeitado
+            if (!fornecedoresRejeitadosIds.has(forn.fornecedor_id) && forn.fornecedor_id) {
+              for (const itemNum of itensComVencedorRejeitado) {
+                const cotouItem = itens.some((item: any) => 
+                  item.numero_item === itemNum && 
+                  item.valor_unitario_ofertado != null && 
+                  item.valor_unitario_ofertado > 0
+                );
+                
+                if (cotouItem && !fornecedoresDoProcesso.has(forn.fornecedor_id)) {
+                  fornecedoresDoProcesso.add(forn.fornecedor_id);
+                  console.log(`  🥈 Segundo colocado adicionado: ${forn.razao_social} (${forn.fornecedor_id.substring(0,8)}) - cotou item ${itemNum}`);
+                }
+              }
             }
           }
         }
@@ -2170,7 +2210,7 @@ Deno.serve(async (req) => {
           console.log(`  ⚠️ Rejeitado adicionado: ${r.fornecedor_id.substring(0,8)}`);
         }
 
-        console.log(`  📊 Cotação ${cotacaoId.substring(0,8)}: TOTAL ${fornecedoresDoProcesso.size} fornecedores (${countVencedores} vencedores + ${rejeicoes.length} rejeitados)`);
+        console.log(`  📊 Cotação ${cotacaoId.substring(0,8)}: TOTAL ${fornecedoresDoProcesso.size} fornecedores (${countVencedores} vencedores + ${rejeicoes.length} rejeitados + segundos colocados)`);
       }
     }
 
