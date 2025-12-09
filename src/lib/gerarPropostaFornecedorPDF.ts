@@ -468,7 +468,8 @@ export async function gerarPropostaFornecedorPDF(
       bodyStyles: {
         fontSize: 8,
         textColor: [corTexto[0], corTexto[1], corTexto[2]],
-        cellPadding: { top: 3, right: 2, bottom: 3, left: 2 }
+        cellPadding: { top: 4, right: 2, bottom: 5, left: 2 },
+        minCellHeight: 10
       },
       alternateRowStyles: {
         fillColor: [corFundo[0], corFundo[1], corFundo[2]]
