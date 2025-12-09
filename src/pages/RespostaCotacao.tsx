@@ -343,53 +343,70 @@ const RespostaCotacao = () => {
 
       const isDesconto = processoCompra?.criterio_julgamento === "desconto";
       const isPorLote = processoCompra?.criterio_julgamento === "por_lote";
+      const mostrarMarca = processoCompra?.tipo === "material";
 
       // Definir cabeçalhos baseado no critério
       if (isDesconto) {
-        worksheet.columns = [
+        const columns: any[] = [
           { header: 'Item', key: 'item', width: 10 },
           { header: 'Descrição', key: 'descricao', width: 50 },
           { header: 'Quantidade', key: 'quantidade', width: 15 },
           { header: 'Unidade', key: 'unidade', width: 12 },
-          { header: 'Marca', key: 'marca', width: 20 },
-          { header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 }
         ];
+        if (mostrarMarca) {
+          columns.push({ header: 'Marca', key: 'marca', width: 20 });
+        }
+        columns.push({ header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 });
+        worksheet.columns = columns;
 
         // Adicionar linhas - critério desconto
         itensCotacao.forEach(item => {
-          worksheet.addRow({
+          const rowData: any = {
             item: item.numero_item,
             descricao: item.descricao,
             quantidade: item.quantidade,
             unidade: item.unidade,
-            marca: '',
             desconto: ''
-          });
+          };
+          if (mostrarMarca) rowData.marca = '';
+          worksheet.addRow(rowData);
         });
       } else {
-        worksheet.columns = [
+        const columns: any[] = [
           { header: 'Item', key: 'item', width: 10 },
           { header: 'Descrição', key: 'descricao', width: 50 },
           { header: 'Quantidade', key: 'quantidade', width: 15 },
           { header: 'Unidade de Medida', key: 'unidade', width: 18 },
-          { header: 'Marca', key: 'marca', width: 20 },
+        ];
+        if (mostrarMarca) {
+          columns.push({ header: 'Marca', key: 'marca', width: 20 });
+        }
+        columns.push(
           { header: 'Valor Unitário', key: 'valorUnitario', width: 20 },
           { header: 'Valor Total', key: 'valorTotal', width: 20 }
-        ];
+        );
+        worksheet.columns = columns;
+
+        // Índices dinâmicos baseado em se tem marca ou não
+        const colValor = mostrarMarca ? 6 : 5;
+        const colTotal = mostrarMarca ? 7 : 6;
+        const colLetraValor = mostrarMarca ? 'F' : 'E';
+        const colLetraTotal = mostrarMarca ? 'G' : 'F';
 
         // Se for por lote, agrupar por lote
         if (isPorLote && lotes.length > 0) {
           lotes.forEach(lote => {
             // Adicionar linha de título do lote
-            const loteRow = worksheet.addRow({
+            const loteRowData: any = {
               item: `LOTE ${lote.numero_lote}`,
               descricao: lote.descricao_lote,
               quantidade: '',
               unidade: '',
-              marca: '',
               valorUnitario: '',
               valorTotal: ''
-            });
+            };
+            if (mostrarMarca) loteRowData.marca = '';
+            const loteRow = worksheet.addRow(loteRowData);
             
             // Estilizar linha do lote
             loteRow.eachCell((cell) => {
@@ -407,36 +424,38 @@ const RespostaCotacao = () => {
             const primeiraLinhaItens = worksheet.rowCount + 1;
             
             itensDoLote.forEach(item => {
-              const row = worksheet.addRow({
+              const rowData: any = {
                 item: item.numero_item,
                 descricao: item.descricao,
                 quantidade: item.quantidade,
                 unidade: item.unidade,
-                marca: '',
                 valorUnitario: '',
                 valorTotal: ''
-              });
+              };
+              if (mostrarMarca) rowData.marca = '';
+              const row = worksheet.addRow(rowData);
 
               // Fórmula para calcular Valor Total (Quantidade * Valor Unitário)
               const rowNumber = row.number;
-              row.getCell(7).value = { formula: `C${rowNumber}*F${rowNumber}` };
+              row.getCell(colTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
             });
             
             const ultimaLinhaItens = worksheet.rowCount;
             
             // Adicionar linha de subtotal do lote
-            const subtotalRow = worksheet.addRow({
+            const subtotalRowData: any = {
               item: '',
               descricao: '',
               quantidade: '',
               unidade: '',
-              marca: '',
               valorUnitario: `SUBTOTAL LOTE ${lote.numero_lote}:`,
               valorTotal: ''
-            });
+            };
+            if (mostrarMarca) subtotalRowData.marca = '';
+            const subtotalRow = worksheet.addRow(subtotalRowData);
             
             // Fórmula para somar valores totais do lote
-            subtotalRow.getCell(7).value = { formula: `SUM(G${primeiraLinhaItens}:G${ultimaLinhaItens})` };
+            subtotalRow.getCell(colTotal).value = { formula: `SUM(${colLetraTotal}${primeiraLinhaItens}:${colLetraTotal}${ultimaLinhaItens})` };
             
             // Estilizar linha de subtotal
             subtotalRow.eachCell((cell) => {
@@ -451,28 +470,29 @@ const RespostaCotacao = () => {
           });
           
           // Adicionar linha de total geral
-          const totalGeralRow = worksheet.addRow({
+          const totalGeralRowData: any = {
             item: '',
             descricao: '',
             quantidade: '',
             unidade: '',
-            marca: '',
             valorUnitario: 'VALOR TOTAL GERAL:',
             valorTotal: ''
-          });
+          };
+          if (mostrarMarca) totalGeralRowData.marca = '';
+          const totalGeralRow = worksheet.addRow(totalGeralRowData);
           
-          // Soma de todos os subtotais (coluna G onde temos os valores)
+          // Soma de todos os subtotais (coluna de valor total)
           const linhasSubtotal: number[] = [];
           worksheet.eachRow((row, rowNumber) => {
-            const cell = row.getCell(6);
+            const cell = row.getCell(colValor);
             if (cell.value && String(cell.value).includes('SUBTOTAL LOTE')) {
               linhasSubtotal.push(rowNumber);
             }
           });
           
           if (linhasSubtotal.length > 0) {
-            const formula = linhasSubtotal.map(r => `G${r}`).join('+');
-            totalGeralRow.getCell(7).value = { formula };
+            const formula = linhasSubtotal.map(r => `${colLetraTotal}${r}`).join('+');
+            totalGeralRow.getCell(colTotal).value = { formula };
           }
           
           // Estilizar linha de total geral
@@ -488,19 +508,20 @@ const RespostaCotacao = () => {
         } else {
           // Adicionar linhas - outros critérios (global ou item)
           itensCotacao.forEach(item => {
-            const row = worksheet.addRow({
+            const rowData: any = {
               item: item.numero_item,
               descricao: item.descricao,
               quantidade: item.quantidade,
               unidade: item.unidade,
-              marca: '',
               valorUnitario: '',
               valorTotal: ''
-            });
+            };
+            if (mostrarMarca) rowData.marca = '';
+            const row = worksheet.addRow(rowData);
 
             // Fórmula para calcular Valor Total (Quantidade * Valor Unitário)
             const rowNumber = row.number;
-            row.getCell(7).value = { formula: `C${rowNumber}*F${rowNumber}` };
+            row.getCell(colTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
           });
         }
       }
@@ -573,6 +594,11 @@ const RespostaCotacao = () => {
         const isDesconto = processoCompra?.criterio_julgamento === "desconto";
         const criterio = processoCompra?.criterio_julgamento;
         const isPorLote = criterio === "lote" || criterio === "por_lote";
+        const mostrarMarca = processoCompra?.tipo === "material";
+        
+        // Índices dinâmicos baseado em se tem marca ou não
+        const colMarcaIdx = mostrarMarca ? 4 : -1;
+        const colValorIdx = mostrarMarca ? 5 : 4;
         
         // Variável para rastrear o lote atual durante a importação
         let loteAtualId: string | null = null;
@@ -583,8 +609,8 @@ const RespostaCotacao = () => {
           if (!row || row.length === 0) continue;
           
           const itemCol = row[0];
-          const marcaCol = row[4];
-          const valorCol = row[5];
+          const marcaCol = mostrarMarca ? row[colMarcaIdx] : null;
+          const valorCol = row[colValorIdx];
           
           // Detectar linha de título de lote e atualizar lote atual
           if (typeof itemCol === 'string' && itemCol.toUpperCase().startsWith('LOTE')) {
