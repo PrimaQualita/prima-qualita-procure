@@ -966,7 +966,59 @@ export async function gerarPlanilhaConsolidadaPDF(
         data.cell.styles.overflow = 'linebreak';
       }
     },
-    // Descrição renderizada nativamente pelo autoTable com overflow: 'linebreak'
+    didDrawCell: (data) => {
+      // Texto justificado para coluna de descrição usando suporte nativo do jsPDF
+      if (data.section === 'body' && data.column.index === 1) {
+        const linhaAtual = linhas[data.row.index];
+        if (linhaAtual?.isLoteHeader || linhaAtual?.isSubtotal) return;
+        if (criterioJulgamento !== 'desconto' && data.row.index === linhas.length - 1) return;
+        
+        const textoOriginal = data.cell.text.join(' ');
+        if (!textoOriginal || !textoOriginal.trim()) return;
+        
+        const cell = data.cell;
+        const padding = 2;
+        const larguraDisponivel = cell.width - (padding * 2);
+        
+        // Obter cor de fundo
+        const fillColor = cell.styles.fillColor;
+        let bgColor: [number, number, number] = [255, 255, 255];
+        if (Array.isArray(fillColor) && fillColor.length >= 3) {
+          bgColor = [fillColor[0] as number, fillColor[1] as number, fillColor[2] as number];
+        }
+        
+        // Cobrir texto original
+        doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+        doc.rect(cell.x + 0.3, cell.y + 0.3, cell.width - 0.6, cell.height - 0.6, 'F');
+        
+        // Configurar fonte
+        doc.setFontSize(menorFontSize);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        
+        // Usar align: 'justify' nativo do jsPDF
+        const x = cell.x + padding;
+        const alturaLinha = menorFontSize * 0.42;
+        
+        // Calcular posição Y centralizada
+        const linhasEstimadas = doc.splitTextToSize(textoOriginal, larguraDisponivel);
+        const alturaTextoTotal = linhasEstimadas.length * alturaLinha;
+        let yInicio = cell.y + padding + alturaLinha * 0.8;
+        if (alturaTextoTotal < cell.height - (padding * 2)) {
+          yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha * 0.8;
+        }
+        
+        // Desenhar texto justificado
+        doc.text(textoOriginal, x, yInicio, { 
+          maxWidth: larguraDisponivel, 
+          align: 'justify',
+          lineHeightFactor: 1.15
+        });
+        
+        // Resetar word spacing para não afetar outros textos
+        (doc as any).internal.write(0, "Tw");
+      }
+    }
   });
 
   // Pegar posição Y após a tabela
