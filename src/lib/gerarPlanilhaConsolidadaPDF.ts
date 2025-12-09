@@ -838,7 +838,8 @@ export async function gerarPlanilhaConsolidadaPDF(
     head: [colunas.map(c => c.header)],
     body: linhas.map(linha => colunas.map(col => linha[col.dataKey] || '')),
     theme: 'grid',
-    rowPageBreak: 'avoid', // Evitar quebra de linha entre páginas
+    rowPageBreak: 'auto', // Permitir quebra de linha entre páginas
+    showHead: 'everyPage', // Repetir cabeçalho em cada página
     styles: {
       lineColor: [200, 200, 200],
       lineWidth: 0.1
@@ -860,9 +861,9 @@ export async function gerarPlanilhaConsolidadaPDF(
       textColor: [0, 0, 0],
       lineWidth: 0.1,
       lineColor: [200, 200, 200],
-      cellPadding: { top: 3, right: 2, bottom: 3, left: 2 },
+      cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
       halign: 'center',
-      valign: 'middle',
+      valign: 'top',
       minCellHeight: 10,
       overflow: 'linebreak',
       cellWidth: 'wrap'
@@ -965,6 +966,15 @@ export async function gerarPlanilhaConsolidadaPDF(
         const textoOriginal = Array.isArray(data.cell.text) ? data.cell.text.join(' ') : String(data.cell.text || '');
         if (textoOriginal && textoOriginal.trim()) {
           descricoesPorLinha.set(data.row.index, textoOriginal);
+          // Adicionar padding extra para compensar bug de cálculo de altura
+          const textLines = data.cell.text.length;
+          const extraPadding = Math.ceil(textLines * 0.3);
+          data.cell.styles.cellPadding = { 
+            top: 2, 
+            right: 3, 
+            bottom: 2 + extraPadding, 
+            left: 3 
+          };
         }
       }
     },
