@@ -994,8 +994,8 @@ export async function gerarPlanilhaConsolidadaPDF(
       const larguraDisponivel = cell.width - (padding * 2);
       
       // Limites da célula para clipping
-      const cellTop = cell.y;
-      const cellBottom = cell.y + cell.height;
+      const cellTop = cell.y + 0.5;
+      const cellBottom = cell.y + cell.height - 0.5;
       
       // Obter cor de fundo atual da célula
       const fillColor = cell.styles.fillColor;
@@ -1008,25 +1008,25 @@ export async function gerarPlanilhaConsolidadaPDF(
       doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
       doc.rect(cell.x + 0.5, cell.y + 0.5, cell.width - 1, cell.height - 1, 'F');
       
-      // Configurar fonte (usar o menorFontSize calculado)
+      // CRÍTICO: Sempre forçar cor preta e fonte normal para texto justificado
       doc.setFontSize(menorFontSize);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(0, 0, 0); // Sempre preto
       
       // Quebrar texto em linhas
       const linhasTexto = doc.splitTextToSize(textoOriginal, larguraDisponivel);
-      // Altura da linha proporcional ao fontSize (aproximadamente 1.2x o fontSize em mm)
       const alturaLinha = menorFontSize * 0.42;
       
-      // Calcular posição Y inicial (centralizado verticalmente)
+      // Calcular altura total necessária para o texto
       const alturaTextoTotal = linhasTexto.length * alturaLinha;
-      const espacoVertical = cell.height - (padding * 2);
-      let yInicio: number;
       
-      if (alturaTextoTotal < espacoVertical) {
+      // Para células quebradas entre páginas, usar posição relativa à célula atual
+      // yInicio sempre começa do topo da célula visível + padding
+      let yInicio = cell.y + padding + alturaLinha * 0.7;
+      
+      // Se o texto cabe na célula, centralizar verticalmente
+      if (alturaTextoTotal < cell.height - (padding * 2)) {
         yInicio = cell.y + (cell.height - alturaTextoTotal) / 2 + alturaLinha * 0.7;
-      } else {
-        yInicio = cell.y + padding + alturaLinha * 0.7;
       }
       
       // Desenhar cada linha - APENAS se estiver dentro dos limites da célula
@@ -1034,10 +1034,13 @@ export async function gerarPlanilhaConsolidadaPDF(
         const linha = linhasTexto[i];
         const yLinha = yInicio + (i * alturaLinha);
         
-        // CLIPPING: Pular linhas que estão fora dos limites da célula
-        if (yLinha < cellTop || yLinha > cellBottom - 1) {
+        // CLIPPING: Pular linhas que estão fora dos limites visíveis da célula
+        if (yLinha < cellTop || yLinha > cellBottom) {
           continue;
         }
+        
+        // CRÍTICO: Reforçar cor preta antes de cada linha (evita herdar cor errada)
+        doc.setTextColor(0, 0, 0);
         
         const palavras = linha.trim().split(/\s+/);
         const x = cell.x + padding;
@@ -1064,12 +1067,18 @@ export async function gerarPlanilhaConsolidadaPDF(
         const espacoRestante = larguraDisponivel - larguraTotal;
         const espacoPorGap = espacoRestante / (palavras.length - 1);
         
-        // Desenhar palavras com espaçamento justificado
-        let xAtual = x;
-        for (let j = 0; j < palavras.length; j++) {
-          doc.text(palavras[j], xAtual, yLinha);
-          if (j < palavras.length - 1) {
-            xAtual += doc.getTextWidth(palavras[j]) + espacoPorGap;
+        // Verificar se espaçamento é razoável (evitar justificação excessiva)
+        if (espacoPorGap > doc.getTextWidth('   ')) {
+          // Espaçamento muito grande, usar alinhamento à esquerda
+          doc.text(linha, x, yLinha);
+        } else {
+          // Desenhar palavras com espaçamento justificado
+          let xAtual = x;
+          for (let j = 0; j < palavras.length; j++) {
+            doc.text(palavras[j], xAtual, yLinha);
+            if (j < palavras.length - 1) {
+              xAtual += doc.getTextWidth(palavras[j]) + espacoPorGap;
+            }
           }
         }
       }
