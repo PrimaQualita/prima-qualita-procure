@@ -1043,9 +1043,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
           const espacoRestante = larguraDisponivel - larguraTotal;
           const espacoPorGap = espacoRestante / (palavras.length - 1);
           
-          // Espaçamento razoável: justificar; caso contrário, alinhar à esquerda
-          const espacoNormal = doc.getTextWidth(' ');
-          if (espacoPorGap <= espacoNormal * 4 && espacoPorGap >= 0) {
+          // Sempre justificar (exceto última linha que já foi tratada acima)
+          if (espacoRestante >= 0) {
             let xAtual = x;
             for (let j = 0; j < palavras.length; j++) {
               doc.text(palavras[j], xAtual, yLinha);
