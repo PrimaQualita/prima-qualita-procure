@@ -789,11 +789,13 @@ const SistemaLancesFornecedor = () => {
       }
 
       // Verificar se ainda é editável (5 minutos antes da sessão)
-      const dataHoraSelecao = new Date(`${propostaData.selecoes_fornecedores.data_sessao_disputa}T${propostaData.selecoes_fornecedores.hora_sessao_disputa}`);
+      // Usar fuso horário de Brasília (America/Sao_Paulo = UTC-3)
+      const dataHoraSelecao = new Date(`${propostaData.selecoes_fornecedores.data_sessao_disputa}T${propostaData.selecoes_fornecedores.hora_sessao_disputa}:00-03:00`);
       const cincoMinutosAntes = new Date(dataHoraSelecao.getTime() - 5 * 60 * 1000);
       const agora = new Date();
+      const agoraBrasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
       
-      setEditavel(agora < cincoMinutosAntes);
+      setEditavel(agoraBrasilia < cincoMinutosAntes);
 
       // Carregar itens da proposta
       const { data: itensData, error: itensError } = await supabase
@@ -1682,7 +1684,8 @@ const SistemaLancesFornecedor = () => {
     );
   }
 
-  const dataHoraSelecao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}`);
+  // Usar fuso horário de Brasília (America/Sao_Paulo = UTC-3)
+  const dataHoraSelecao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}:00-03:00`);
   const cincoMinutosAntes = new Date(dataHoraSelecao.getTime() - 5 * 60 * 1000);
 
   return (
