@@ -69,6 +69,7 @@ interface FornecedorVencedor {
   cnpj: string;
   email: string;
   itensVencedores: number[];
+  itensLicitados: number[]; // Todos os itens que o fornecedor licitou (pode ser segundo colocado)
   valorTotal: number;
 }
 
@@ -495,6 +496,16 @@ export function DialogAnaliseDocumentalSelecao({
         }
       }
 
+      // Criar mapa de itens licitados por fornecedor (TODOS os itens onde deu lance)
+      const itensLicitadosPorFornecedor = new Map<string, Set<number>>();
+      (todosLancesData || []).forEach((lance: any) => {
+        const fornId = lance.fornecedor_id;
+        if (!itensLicitadosPorFornecedor.has(fornId)) {
+          itensLicitadosPorFornecedor.set(fornId, new Set());
+        }
+        itensLicitadosPorFornecedor.get(fornId)!.add(lance.numero_item);
+      });
+
       // Agrupar por fornecedor
       const fornecedoresMap = new Map<string, FornecedorVencedor>();
       
@@ -514,6 +525,7 @@ export function DialogAnaliseDocumentalSelecao({
             cnpj: lance.fornecedores?.cnpj || "N/A",
             email: lance.fornecedores?.email || "N/A",
             itensVencedores: [],
+            itensLicitados: Array.from(itensLicitadosPorFornecedor.get(fornId) || []).sort((a, b) => a - b),
             valorTotal: 0,
           });
         }
@@ -538,6 +550,7 @@ export function DialogAnaliseDocumentalSelecao({
             cnpj: segundo.fornecedor?.cnpj || "N/A",
             email: segundo.fornecedor?.email || "N/A",
             itensVencedores: [],
+            itensLicitados: Array.from(itensLicitadosPorFornecedor.get(fornId) || []).sort((a, b) => a - b),
             valorTotal: 0,
           });
         }
@@ -611,6 +624,7 @@ export function DialogAnaliseDocumentalSelecao({
                 cnpj: fornData.cnpj || "N/A",
                 email: fornData.email || "N/A",
                 itensVencedores: inab.itens_afetados, // Mostrar os itens que foram inabilitados
+                itensLicitados: Array.from(itensLicitadosPorFornecedor.get(fornecedorId) || inab.itens_afetados).sort((a, b) => (a as number) - (b as number)),
                 valorTotal: 0,
               },
               documentosExistentes: docs,
@@ -1420,13 +1434,14 @@ export function DialogAnaliseDocumentalSelecao({
     setTipoInabilitacao('completa');
     setItensSelecionadosInabilitacao([]);
     
-    // Se critério for global ou fornecedor tem apenas 1 item, vai direto para inabilitação
-    if (criterioJulgamento === 'global' || data.fornecedor.itensVencedores.length <= 1) {
-      const segundos = await buscarSegundosColocados(data.fornecedor.itensVencedores, data.fornecedor.id);
+    // Se critério for global, vai direto para inabilitação completa
+    // Caso contrário, SEMPRE mostra opções (mesmo com 1 item vencido, pode ter outros licitados)
+    if (criterioJulgamento === 'global') {
+      const segundos = await buscarSegundosColocados(data.fornecedor.itensLicitados, data.fornecedor.id);
       console.log("Segundos colocados encontrados:", segundos);
       setDialogInabilitar(true);
     } else {
-      // Mostra diálogo de escolha primeiro
+      // Mostra diálogo de escolha primeiro - fornecedor pode ser segundo colocado em outros itens
       setDialogEscolhaTipoInabilitacao(true);
     }
   };
@@ -1437,13 +1452,13 @@ export function DialogAnaliseDocumentalSelecao({
     setDialogEscolhaTipoInabilitacao(false);
     
     if (tipoInabilitacao === 'completa') {
-      // Buscar segundos colocados para todos os itens
-      const segundos = await buscarSegundosColocados(fornecedorParaInabilitar.fornecedor.itensVencedores, fornecedorParaInabilitar.fornecedor.id);
+      // Buscar segundos colocados para TODOS os itens licitados (não só vencidos)
+      const segundos = await buscarSegundosColocados(fornecedorParaInabilitar.fornecedor.itensLicitados, fornecedorParaInabilitar.fornecedor.id);
       console.log("Segundos colocados encontrados:", segundos);
       setDialogInabilitar(true);
     } else {
       // Mostra diálogo de inabilitação com seleção de itens
-      // Pré-selecionar todos os itens
+      // Pré-selecionar apenas os itens que o fornecedor venceu
       setItensSelecionadosInabilitacao([...fornecedorParaInabilitar.fornecedor.itensVencedores]);
       setDialogInabilitar(true);
     }
@@ -1461,7 +1476,7 @@ export function DialogAnaliseDocumentalSelecao({
   
   const handleSelecionarTodosItens = () => {
     if (!fornecedorParaInabilitar) return;
-    setItensSelecionadosInabilitacao([...fornecedorParaInabilitar.fornecedor.itensVencedores]);
+    setItensSelecionadosInabilitacao([...fornecedorParaInabilitar.fornecedor.itensLicitados]);
   };
   
   const handleDeselecionarTodosItens = () => {
@@ -2645,8 +2660,11 @@ export function DialogAnaliseDocumentalSelecao({
                 Como deseja inabilitar o fornecedor{" "}
                 <strong>{fornecedorParaInabilitar?.fornecedor.razao_social}</strong>?
               </p>
+              <p className="text-sm text-muted-foreground mb-2">
+                Itens vencidos: {fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ") || "Nenhum"}
+              </p>
               <p className="text-sm text-muted-foreground">
-                Este fornecedor venceu os itens: {fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}
+                Total de itens licitados: {fornecedorParaInabilitar?.fornecedor.itensLicitados.sort((a, b) => a - b).join(", ")}
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -2732,23 +2750,29 @@ export function DialogAnaliseDocumentalSelecao({
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
-                      {fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).map((item) => (
-                        <div 
-                          key={item}
-                          className={`flex items-center gap-2 p-2 border rounded cursor-pointer transition-colors ${
-                            itensSelecionadosInabilitacao.includes(item) 
-                              ? 'border-destructive bg-destructive/10' 
-                              : 'hover:bg-muted'
-                          }`}
-                          onClick={() => handleToggleItemInabilitacao(item)}
-                        >
-                          <Checkbox
-                            checked={itensSelecionadosInabilitacao.includes(item)}
-                            onCheckedChange={() => handleToggleItemInabilitacao(item)}
-                          />
-                          <span className="text-sm">Item {item}</span>
-                        </div>
-                      ))}
+                      {fornecedorParaInabilitar?.fornecedor.itensLicitados.sort((a, b) => a - b).map((item) => {
+                        const ehVencedor = fornecedorParaInabilitar?.fornecedor.itensVencedores.includes(item);
+                        return (
+                          <div 
+                            key={item}
+                            className={`flex items-center gap-2 p-2 border rounded cursor-pointer transition-colors ${
+                              itensSelecionadosInabilitacao.includes(item) 
+                                ? 'border-destructive bg-destructive/10' 
+                                : 'hover:bg-muted'
+                            }`}
+                            onClick={() => handleToggleItemInabilitacao(item)}
+                          >
+                            <Checkbox
+                              checked={itensSelecionadosInabilitacao.includes(item)}
+                              onCheckedChange={() => handleToggleItemInabilitacao(item)}
+                            />
+                            <span className="text-sm">
+                              Item {item}
+                              {ehVencedor && <span className="text-xs text-primary ml-1">(1º)</span>}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                     {itensSelecionadosInabilitacao.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-2">
@@ -2758,8 +2782,8 @@ export function DialogAnaliseDocumentalSelecao({
                   </div>
                 ) : (
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-sm font-medium">Itens afetados:</p>
-                    <p className="text-sm">{fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")}</p>
+                    <p className="text-sm font-medium">Itens afetados (todos os licitados):</p>
+                    <p className="text-sm">{fornecedorParaInabilitar?.fornecedor.itensLicitados.sort((a, b) => a - b).join(", ")}</p>
                   </div>
                 )}
 
