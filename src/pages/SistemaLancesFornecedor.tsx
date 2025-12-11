@@ -1688,8 +1688,18 @@ const SistemaLancesFornecedor = () => {
   }
 
   // Usar fuso horário de Brasília (America/Sao_Paulo = UTC-3)
-  const dataHoraSelecao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}:00-03:00`);
-  const cincoMinutosAntes = new Date(dataHoraSelecao.getTime() - 5 * 60 * 1000);
+  // Verificar se data e hora estão definidos E válidos antes de criar o objeto Date
+  let dataHoraSelecao: Date | null = null;
+  let cincoMinutosAntes: Date | null = null;
+  
+  if (selecao.data_sessao_disputa && selecao.hora_sessao_disputa) {
+    const tentativaData = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}:00-03:00`);
+    // Verificar se a data é válida (não é NaN)
+    if (!isNaN(tentativaData.getTime())) {
+      dataHoraSelecao = tentativaData;
+      cincoMinutosAntes = new Date(dataHoraSelecao.getTime() - 5 * 60 * 1000);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -1919,7 +1929,7 @@ const SistemaLancesFornecedor = () => {
               {selecao.titulo_selecao}
             </CardTitle>
             <CardDescription>
-              Sessão de Disputa: {format(dataHoraSelecao, "dd/MM/yyyy 'às' HH:mm")}
+              Sessão de Disputa: {dataHoraSelecao ? format(dataHoraSelecao, "dd/MM/yyyy 'às' HH:mm") : "Data não definida"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1938,7 +1948,7 @@ const SistemaLancesFornecedor = () => {
                   {editavel ? (
                     <Badge variant="default" className="bg-green-500">
                       <Eye className="h-3 w-3 mr-1" />
-                      Editável até {format(cincoMinutosAntes, "dd/MM/yyyy HH:mm")}
+                      Editável até {cincoMinutosAntes ? format(cincoMinutosAntes, "dd/MM/yyyy HH:mm") : "N/A"}
                     </Badge>
                   ) : (
                     <Badge variant="destructive">
