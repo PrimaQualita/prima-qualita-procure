@@ -1314,9 +1314,27 @@ export const gerarProcessoCompletoPDF = async (
           }
           // Se tem storage path, gerar signed URL
           else if (doc.storagePath) {
+            // Extrair path relativo se storagePath for URL completa
+            let cleanStoragePath = doc.storagePath;
+            
+            // Se é URL completa do storage, extrair apenas o path relativo
+            if (cleanStoragePath.includes('/storage/v1/object/')) {
+              const bucketMatch = cleanStoragePath.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(\?|$)/);
+              if (bucketMatch) {
+                cleanStoragePath = bucketMatch[2].split('?')[0];
+                console.log(`    🔄 Path extraído de URL: ${cleanStoragePath}`);
+              }
+            }
+            // Remover prefixo do bucket se existir
+            else if (cleanStoragePath.startsWith('processo-anexos/')) {
+              cleanStoragePath = cleanStoragePath.replace('processo-anexos/', '');
+            } else if (cleanStoragePath.startsWith('documents/')) {
+              cleanStoragePath = cleanStoragePath.replace('documents/', '');
+            }
+            
             const { data: signedUrlData, error: signedError } = await supabase.storage
               .from(doc.bucket)
-              .createSignedUrl(doc.storagePath, 60);
+              .createSignedUrl(cleanStoragePath, 60);
             
             if (signedError || !signedUrlData) {
               console.error(`    ✗ Erro ao gerar URL assinada: ${signedError?.message}`);
