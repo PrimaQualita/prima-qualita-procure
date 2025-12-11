@@ -1687,7 +1687,7 @@ export function DialogAnaliseDocumentalSelecao({
         return;
       }
 
-      // Reverter a inabilitação
+      // Reverter TODAS as inabilitações do fornecedor (pode haver múltiplos registros)
       const { error: revertError } = await supabase
         .from("fornecedores_inabilitados_selecao")
         .update({
@@ -1696,7 +1696,9 @@ export function DialogAnaliseDocumentalSelecao({
           motivo_reversao: motivoReversao || "Reversão solicitada pelo gestor",
           usuario_reverteu_id: user.id,
         })
-        .eq("id", inabilitacaoParaReverter.inabilitado.id);
+        .eq("selecao_id", selecaoId)
+        .eq("fornecedor_id", inabilitacaoParaReverter.fornecedor.id)
+        .eq("revertido", false);
 
       if (revertError) throw revertError;
 
@@ -1804,17 +1806,33 @@ export function DialogAnaliseDocumentalSelecao({
             {/* Mostrar inabilitação parcial para fornecedores habilitados */}
             {temInabilitacaoParcial && (
               <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded text-sm">
-                <p className="text-orange-700 font-medium flex items-center gap-1">
-                  <AlertTriangle className="h-4 w-4" />
-                  Inabilitação parcial
-                </p>
-                <p className="text-orange-600">
-                  <span className="font-medium">Itens inabilitados:</span>{" "}
-                  {itensInabilitados.sort((a, b) => a - b).join(", ")}
-                </p>
-                <p className="text-orange-600 text-xs mt-1">
-                  <span className="font-medium">Motivo:</span> {data.inabilitado!.motivo_inabilitacao}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-orange-700 font-medium flex items-center gap-1">
+                      <AlertTriangle className="h-4 w-4" />
+                      Inabilitação parcial
+                    </p>
+                    <p className="text-orange-600">
+                      <span className="font-medium">Itens inabilitados:</span>{" "}
+                      {itensInabilitados.sort((a, b) => a - b).join(", ")}
+                    </p>
+                    <p className="text-orange-600 text-xs mt-1">
+                      <span className="font-medium">Motivo:</span> {data.inabilitado!.motivo_inabilitacao}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 border-orange-500 text-orange-700 hover:bg-orange-200"
+                    onClick={() => {
+                      setInabilitacaoParaReverter(data);
+                      setDialogReverterInabilitacao(true);
+                    }}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Reverter
+                  </Button>
+                </div>
               </div>
             )}
             {/* Mostrar motivo para fornecedores totalmente inabilitados */}
