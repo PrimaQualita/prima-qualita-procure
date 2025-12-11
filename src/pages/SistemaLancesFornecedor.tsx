@@ -2260,46 +2260,19 @@ const SistemaLancesFornecedor = () => {
                   </div>
                 )}
                 
-                {/* Chat de Negociação Expandido */}
+                {/* Chat de Negociação como Dialog */}
                 {itemSelecionado !== null && isItemEmNegociacaoParaMim(itemSelecionado) && (
-                  <div className="border-2 border-amber-300 rounded-lg p-4 bg-amber-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Trophy className="h-4 w-4 text-amber-600" />
-                        <Label className="font-semibold text-amber-900">Chat de Negociação - Item {itemSelecionado}</Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={() => handleRecusarNegociacao(itemSelecionado)}
-                          className="h-6 px-2 text-xs"
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Recusar
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setItemSelecionado(null)}
-                          className="h-6 px-2 text-xs"
-                        >
-                          Fechar
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="h-64">
-                      <ChatNegociacao
-                        selecaoId={selecao.id}
-                        numeroItem={itemSelecionado}
-                        fornecedorId={proposta.fornecedor_id}
-                        fornecedorNome={proposta.fornecedores?.razao_social || "Fornecedor"}
-                        tituloSelecao={selecao.titulo_selecao}
-                        isGestor={false}
-                        codigoAcesso={proposta.codigo_acesso}
-                      />
-                    </div>
-                  </div>
+                  <ChatNegociacao
+                    selecaoId={selecao.id}
+                    numeroItem={itemSelecionado}
+                    fornecedorId={proposta.fornecedor_id}
+                    fornecedorNome={proposta.fornecedores?.razao_social || "Fornecedor"}
+                    tituloSelecao={selecao.titulo_selecao}
+                    isGestor={false}
+                    codigoAcesso={proposta.codigo_acesso}
+                    open={true}
+                    onClose={() => setItemSelecionado(null)}
+                  />
                 )}
 
                 {/* Seção de Itens Vencidos pelo Fornecedor */}

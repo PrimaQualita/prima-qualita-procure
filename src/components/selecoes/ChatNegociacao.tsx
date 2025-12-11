@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Send, Lock } from "lucide-react";
+import { Send, Lock, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -213,8 +213,16 @@ export function ChatNegociacao({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="max-w-2xl h-[70vh] flex flex-col p-0">
-        <DialogHeader className="px-6 py-4 border-b bg-amber-50">
+      <DialogContent className="max-w-2xl h-[70vh] flex flex-col p-0" hideCloseButton>
+        <DialogHeader className="px-6 py-4 border-b bg-amber-50 relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 top-4 h-7 w-7 rounded-full hover:bg-amber-200"
+            onClick={handleClose}
+          >
+            <X className="h-4 w-4" />
+          </Button>
           <DialogTitle className="flex items-center gap-2 text-lg pr-10">
             <Lock className="h-5 w-5 text-amber-600" />
             Chat Privado - Item {numeroItem}
