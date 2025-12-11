@@ -448,15 +448,26 @@ export default function RespostasCotacao() {
         .eq("id", respostaId)
         .single();
 
+      // Função para extrair path relativo de uma URL completa ou retornar o path se já for relativo
+      const extractStoragePath = (urlOrPath: string): string => {
+        if (urlOrPath.startsWith('http')) {
+          // Extrair apenas o path após 'processo-anexos/'
+          const match = urlOrPath.match(/processo-anexos\/(.+)$/);
+          return match ? match[1] : urlOrPath;
+        }
+        return urlOrPath;
+      };
+
       // Se já existe PDF e tem protocolo válido no banco, abrir o existente
       if (resposta.anexos && resposta.anexos.length > 0 && respostaBanco?.protocolo) {
         const propostaPDF = resposta.anexos.find(a => a.tipo_anexo === 'PROPOSTA');
         
         if (propostaPDF) {
           console.log('📄 Abrindo PDF existente com protocolo válido:', respostaBanco.protocolo);
+          const storagePath = extractStoragePath(propostaPDF.url_arquivo);
           const { data: fileData, error: downloadError } = await supabase.storage
             .from('processo-anexos')
-            .download(propostaPDF.url_arquivo);
+            .download(storagePath);
 
           if (downloadError) throw downloadError;
 
@@ -475,7 +486,8 @@ export default function RespostasCotacao() {
         const propostaPDFAntigo = resposta.anexos.find(a => a.tipo_anexo === 'PROPOSTA');
         if (propostaPDFAntigo) {
           console.log('🗑️ Deletando PDF antigo sem protocolo válido');
-          await supabase.storage.from('processo-anexos').remove([propostaPDFAntigo.url_arquivo]);
+          const oldPath = extractStoragePath(propostaPDFAntigo.url_arquivo);
+          await supabase.storage.from('processo-anexos').remove([oldPath]);
           await supabase.from('anexos_cotacao_fornecedor').delete().eq('id', propostaPDFAntigo.id);
         }
       }
