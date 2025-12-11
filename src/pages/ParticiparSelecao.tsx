@@ -65,6 +65,47 @@ const formatarCNPJ = (valor: string): string => {
   return `${apenasNumeros.slice(0, 2)}.${apenasNumeros.slice(2, 5)}.${apenasNumeros.slice(5, 8)}/${apenasNumeros.slice(8, 12)}-${apenasNumeros.slice(12, 14)}`;
 };
 
+// Identificar UF pelo CEP
+const identificarUfPorCep = (cep: string): string => {
+  const cepLimpo = cep.replace(/[^\d]/g, "");
+  if (cepLimpo.length < 5) return "";
+  
+  const prefixo = parseInt(cepLimpo.substring(0, 5));
+  
+  // Faixas de CEP por estado
+  if (prefixo >= 1000 && prefixo <= 19999) return "SP";
+  if (prefixo >= 20000 && prefixo <= 28999) return "RJ";
+  if (prefixo >= 29000 && prefixo <= 29999) return "ES";
+  if (prefixo >= 30000 && prefixo <= 39999) return "MG";
+  if (prefixo >= 40000 && prefixo <= 48999) return "BA";
+  if (prefixo >= 49000 && prefixo <= 49999) return "SE";
+  if (prefixo >= 50000 && prefixo <= 56999) return "PE";
+  if (prefixo >= 57000 && prefixo <= 57999) return "AL";
+  if (prefixo >= 58000 && prefixo <= 58999) return "PB";
+  if (prefixo >= 59000 && prefixo <= 59999) return "RN";
+  if (prefixo >= 60000 && prefixo <= 63999) return "CE";
+  if (prefixo >= 64000 && prefixo <= 64999) return "PI";
+  if (prefixo >= 65000 && prefixo <= 65999) return "MA";
+  if (prefixo >= 66000 && prefixo <= 68899) return "PA";
+  if (prefixo >= 68900 && prefixo <= 68999) return "AP";
+  if (prefixo >= 69000 && prefixo <= 69299) return "AM";
+  if (prefixo >= 69300 && prefixo <= 69399) return "RR";
+  if (prefixo >= 69400 && prefixo <= 69899) return "AM";
+  if (prefixo >= 69900 && prefixo <= 69999) return "AC";
+  if (prefixo >= 70000 && prefixo <= 72799) return "DF";
+  if (prefixo >= 72800 && prefixo <= 72999) return "GO";
+  if (prefixo >= 73000 && prefixo <= 76799) return "GO";
+  if (prefixo >= 76800 && prefixo <= 77999) return "TO";
+  if (prefixo >= 78000 && prefixo <= 78899) return "MT";
+  if (prefixo >= 78900 && prefixo <= 78999) return "RO";
+  if (prefixo >= 79000 && prefixo <= 79999) return "MS";
+  if (prefixo >= 80000 && prefixo <= 87999) return "PR";
+  if (prefixo >= 88000 && prefixo <= 89999) return "SC";
+  if (prefixo >= 90000 && prefixo <= 99999) return "RS";
+  
+  return "";
+};
+
 const formatarTelefone = (valor: string): string => {
   const apenasNumeros = valor.replace(/[^\d]/g, "");
   if (apenasNumeros.length <= 2) return apenasNumeros;
@@ -272,6 +313,11 @@ const ParticiparSelecao = () => {
                 municipio = parte;
               }
             }
+          }
+          
+          // Identificar UF pelo CEP se não encontrou
+          if (!uf && cep) {
+            uf = identificarUfPorCep(cep);
           }
           
           setDadosEmpresa(prev => ({
@@ -1247,16 +1293,6 @@ const ParticiparSelecao = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <Label>Razão Social *</Label>
-                      <Input
-                        value={dadosEmpresa.razao_social}
-                        onChange={(e) => setDadosEmpresa(prev => ({ ...prev, razao_social: e.target.value }))}
-                        className={errors.razao_social ? "border-red-500" : ""}
-                      />
-                      {errors.razao_social && <p className="text-sm text-red-500 mt-1">{errors.razao_social}</p>}
-                    </div>
-
                     <div>
                       <Label>CNPJ *</Label>
                       <Input
@@ -1283,6 +1319,16 @@ const ParticiparSelecao = () => {
                           ℹ️ Este CNPJ já enviou propostas anteriormente. Os dados serão vinculados.
                         </p>
                       )}
+                    </div>
+
+                    <div>
+                      <Label>Razão Social *</Label>
+                      <Input
+                        value={dadosEmpresa.razao_social}
+                        onChange={(e) => setDadosEmpresa(prev => ({ ...prev, razao_social: e.target.value }))}
+                        className={errors.razao_social ? "border-red-500" : ""}
+                      />
+                      {errors.razao_social && <p className="text-sm text-red-500 mt-1">{errors.razao_social}</p>}
                     </div>
 
                     <div>
