@@ -906,7 +906,7 @@ const DetalheSelecao = () => {
           
           {/* Gerar Ata */}
           <Button
-            variant="outline"
+            variant="default"
             size="lg"
             className="w-full"
             disabled={gerandoAta}
@@ -1013,7 +1013,7 @@ const DetalheSelecao = () => {
             return isResponsavelLegal;
           })() ? (
             <Button
-              variant="outline"
+              variant="default"
               size="lg"
               className="w-full mt-4"
               disabled={gerandoHomologacao}
