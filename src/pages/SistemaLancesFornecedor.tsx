@@ -113,6 +113,9 @@ const SistemaLancesFornecedor = () => {
   useEffect(() => {
     if (propostaId) {
       loadProposta();
+    } else {
+      // Se não tem propostaId, não fica em loading infinito
+      setLoading(false);
     }
   }, [propostaId]);
 
@@ -810,8 +813,8 @@ const SistemaLancesFornecedor = () => {
 
     } catch (error) {
       console.error("Erro ao carregar proposta:", error);
-      toast.error("Erro ao carregar proposta");
-      navigate("/");
+      toast.error("Erro ao carregar proposta. Verifique se você tem acesso.");
+      // NÃO redireciona - deixa mostrar a mensagem "Proposta não encontrada"
     } finally {
       setLoading(false);
     }
