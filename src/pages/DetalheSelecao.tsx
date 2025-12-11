@@ -79,6 +79,7 @@ const DetalheSelecao = () => {
   
   // Estado para Processo Completo
   const [gerandoProcessoCompleto, setGerandoProcessoCompleto] = useState(false);
+  const [processoCompletoSalvo, setProcessoCompletoSalvo] = useState<any>(null);
 
   useEffect(() => {
     if (selecaoId) {
@@ -212,6 +213,9 @@ const DetalheSelecao = () => {
       
       // Carregar homologações geradas
       await loadHomologacoesGeradas();
+      
+      // Carregar processo completo salvo
+      await loadProcessoCompleto(selecaoData.processo_compra_id);
 
     } catch (error) {
       console.error("Erro ao carregar seleção:", error);
@@ -345,6 +349,25 @@ const DetalheSelecao = () => {
     } catch (error) {
       console.error("❌ Erro ao carregar itens:", error);
       toast.error("Erro ao carregar itens");
+    }
+  };
+
+  // Carregar processo completo salvo
+  const loadProcessoCompleto = async (processoId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("anexos_processo_compra")
+        .select("*")
+        .eq("processo_compra_id", processoId)
+        .eq("tipo_anexo", "PROCESSO_COMPLETO_SELECAO")
+        .order("data_upload", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      setProcessoCompletoSalvo(data);
+    } catch (error) {
+      console.error("Erro ao carregar processo completo:", error);
     }
   };
 
@@ -515,26 +538,73 @@ const DetalheSelecao = () => {
   const handleGerarProcessoCompleto = async () => {
     try {
       setGerandoProcessoCompleto(true);
+      
+      // Gerar o PDF (não temporário - salvar no storage)
       const result = await gerarProcessoCompletoSelecaoPDF(
         selecaoId!,
         selecao?.numero_selecao || "S/N",
-        true // temporário = download direto
+        false // temporário = false para salvar no storage
       );
       
-      if (result.blob) {
-        const url = URL.createObjectURL(result.blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = result.filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        toast.success("Processo completo gerado com sucesso!");
+      // Salvar como anexo do processo de compra
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error: anexoError } = await supabase
+        .from("anexos_processo_compra")
+        .insert({
+          processo_compra_id: processo.id,
+          tipo_anexo: "PROCESSO_COMPLETO_SELECAO",
+          nome_arquivo: result.filename,
+          url_arquivo: result.url,
+          usuario_upload_id: session?.user.id,
+          data_upload: new Date().toISOString()
+        });
+
+      if (anexoError) {
+        console.error("Erro ao salvar processo completo:", anexoError);
+        throw anexoError;
       }
+
+      // Calcular valor total dos itens vencedores
+      let valorTotalFechamento = 0;
+      if (processo?.criterio_julgamento !== "desconto") {
+        itens.forEach(item => {
+          valorTotalFechamento += item.valor_total || 0;
+        });
+      }
+
+      // Atualizar status do processo para concluído
+      const { error: statusError } = await supabase
+        .from("processos_compras")
+        .update({ 
+          status_processo: "concluido",
+          valor_total_cotacao: valorTotalFechamento
+        })
+        .eq("id", processo.id);
+
+      if (statusError) {
+        console.error("Erro ao atualizar status do processo:", statusError);
+      }
+
+      // Atualizar status da seleção para encerrada
+      const { error: selecaoError } = await supabase
+        .from("selecoes_fornecedores")
+        .update({ 
+          status_selecao: "encerrada"
+        })
+        .eq("id", selecaoId);
+
+      if (selecaoError) {
+        console.error("Erro ao atualizar status da seleção:", selecaoError);
+      }
+
+      // Recarregar dados
+      await loadProcessoCompleto(processo.id);
+      await loadSelecao();
+      
+      toast.success("Processo finalizado com sucesso! O PDF está disponível acima dos documentos.");
     } catch (error) {
       console.error("Erro ao gerar processo completo:", error);
-      toast.error("Erro ao gerar processo completo");
+      toast.error("Erro ao finalizar processo");
     } finally {
       setGerandoProcessoCompleto(false);
     }
@@ -665,6 +735,53 @@ const DetalheSelecao = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Processo Completo Salvo */}
+        {processoCompletoSalvo && (
+          <Card className="mb-6 border-green-500 bg-green-50/50">
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2 text-green-700">
+                <FileCheck className="h-5 w-5" />
+                Processo Finalizado
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="py-2">
+              <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{processoCompletoSalvo.nome_arquivo}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Finalizado em: {new Date(processoCompletoSalvo.data_upload).toLocaleString("pt-BR")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => window.open(processoCompletoSalvo.url_arquivo, "_blank")}
+                    title="Visualizar"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      const link = document.createElement("a");
+                      link.href = processoCompletoSalvo.url_arquivo;
+                      link.download = processoCompletoSalvo.nome_arquivo;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    title="Download"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Documentos */}
         <Card className="mb-6">
