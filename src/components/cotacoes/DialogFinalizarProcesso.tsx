@@ -3396,6 +3396,42 @@ export function DialogFinalizarProcesso({
                                     variant="destructive"
                                     onClick={async () => {
                                       try {
+                                        // PRIMEIRO: Buscar documentos associados ao campo
+                                        const { data: docsAssociados } = await supabase
+                                          .from("documentos_finalizacao_fornecedor")
+                                          .select("url_arquivo")
+                                          .eq("campo_documento_id", campo.id!);
+                                        
+                                        // Deletar arquivos do storage se existirem
+                                        if (docsAssociados && docsAssociados.length > 0) {
+                                          const pathsParaDeletar = docsAssociados
+                                            .filter(d => d.url_arquivo)
+                                            .map(d => {
+                                              let path = d.url_arquivo;
+                                              if (path.includes('/processo-anexos/')) {
+                                                path = path.split('/processo-anexos/')[1];
+                                              }
+                                              if (path.includes('?')) {
+                                                path = path.split('?')[0];
+                                              }
+                                              return path;
+                                            })
+                                            .filter(Boolean);
+                                          
+                                          if (pathsParaDeletar.length > 0) {
+                                            await supabase.storage
+                                              .from("processo-anexos")
+                                              .remove(pathsParaDeletar);
+                                          }
+                                          
+                                          // Deletar registros dos documentos
+                                          await supabase
+                                            .from("documentos_finalizacao_fornecedor")
+                                            .delete()
+                                            .eq("campo_documento_id", campo.id!);
+                                        }
+                                        
+                                        // POR ÚLTIMO: Deletar o campo
                                         const { error } = await supabase
                                           .from("campos_documentos_finalizacao")
                                           .delete()
