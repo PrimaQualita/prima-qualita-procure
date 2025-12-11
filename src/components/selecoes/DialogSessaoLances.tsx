@@ -2760,18 +2760,16 @@ export function DialogSessaoLances({
                                   </Button>
                                 </div>
                                 {chatAberto && fornecedorId && (
-                                  <div className="mt-3 border-t border-amber-300 pt-3">
-                                    <div className="h-[150px] bg-white dark:bg-background rounded-lg border">
-                                      <ChatNegociacao
-                                        selecaoId={selecaoId}
-                                        numeroItem={numeroItem}
-                                        fornecedorId={fornecedorId}
-                                        fornecedorNome={nomeFornecedor}
-                                        tituloSelecao={tituloSelecao}
-                                        isGestor={true}
-                                      />
-                                    </div>
-                                  </div>
+                                  <ChatNegociacao
+                                    selecaoId={selecaoId}
+                                    numeroItem={numeroItem}
+                                    fornecedorId={fornecedorId}
+                                    fornecedorNome={nomeFornecedor}
+                                    tituloSelecao={tituloSelecao}
+                                    isGestor={true}
+                                    open={chatAberto}
+                                    onClose={() => setItemChatPrivado(null)}
+                                  />
                                 )}
                               </div>
                             );
