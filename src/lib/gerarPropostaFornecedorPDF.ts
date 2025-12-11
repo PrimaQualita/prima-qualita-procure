@@ -726,8 +726,13 @@ export async function gerarPropostaFornecedorPDF(
 
     if (uploadError) throw uploadError;
 
+    // Obter URL pública completa do storage
+    const { data: { publicUrl } } = supabase.storage
+      .from('processo-anexos')
+      .getPublicUrl(uploadData.path);
+
     return {
-      url: uploadData.path,
+      url: publicUrl,
       nome: nomeArquivo,
       hash: hash,
       protocolo: protocolo
