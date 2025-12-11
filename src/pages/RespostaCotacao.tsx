@@ -1002,10 +1002,11 @@ const RespostaCotacao = () => {
 
       console.log('💾 Inserindo', respostasItens.length, 'itens para resposta ID:', respostaCriada.id);
 
-      const { data: itensInseridos, error: itensError } = await supabaseAnon
-        .from("respostas_itens_fornecedor")
-        .insert(respostasItens)
-        .select();
+      // Usar função RPC SECURITY DEFINER para contornar RLS
+      const { data: rpcResult, error: itensError } = await supabaseAnon
+        .rpc('inserir_respostas_itens', {
+          p_itens: respostasItens
+        });
 
       if (itensError) {
         console.error('❌ Erro ao criar itens:', itensError);
@@ -1013,7 +1014,7 @@ const RespostaCotacao = () => {
         throw itensError;
       }
 
-      console.log('✅ Itens inseridos com sucesso:', itensInseridos);
+      console.log('✅ Itens inseridos com sucesso:', rpcResult);
 
       // Aguardar um pouco para garantir que a transação foi concluída
       await new Promise(resolve => setTimeout(resolve, 500));

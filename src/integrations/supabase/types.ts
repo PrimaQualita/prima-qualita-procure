@@ -3000,6 +3000,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      inserir_respostas_itens: { Args: { p_itens: Json }; Returns: Json }
       is_internal_user: { Args: { _user_id: string }; Returns: boolean }
       pode_inserir_resposta_item: {
         Args: { p_resposta_id: string }
