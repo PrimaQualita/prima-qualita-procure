@@ -95,6 +95,12 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
       return `Processo ${processoNum} - Homologação da ${tipoSelecao} ${selecaoNum}`;
     }
     
+    // Autorizações de Seleção
+    if (categoria === 'autorizacoes_selecao' && tipo === 'processo') {
+      const processoNum = grupo.processoNumero || 'S/N';
+      return `Processo ${processoNum}`;
+    }
+    
     // Propostas de Seleção - agora usa porProcesso
     if (categoria === 'propostas_selecao' && tipo === 'processo') {
       const processoNum = grupo.processoNumero || 'S/N';
@@ -117,14 +123,33 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
   
   // Função para formatar nome do documento com numeração romana
   const getNomeDocumento = (doc: any, idx: number, totalDocs: number, grupo: any) => {
+    // Planilhas de Lances com numeração romana
     if (categoria === 'planilhas_lances' && totalDocs > 1) {
       const selecaoNum = grupo.selecaoNumero || 'S/N';
       const numRomano = idx > 0 ? ` ${toRoman(idx + 1)}` : '';
       return `Planilha de Lances da ${grupo.credenciamento ? 'Credenciamento' : 'Seleção'} ${selecaoNum}${numRomano}`;
     }
+    
+    // Propostas de Seleção
     if (categoria === 'propostas_selecao' && doc.fornecedorNome) {
       return `Proposta ${doc.fornecedorNome}`;
     }
+    
+    // Atas do Certame - nome bonito
+    if (categoria === 'atas_certame') {
+      const selecaoNum = grupo.selecaoNumero || 'S/N';
+      const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+      return `Ata da ${tipoSelecao} ${selecaoNum}`;
+    }
+    
+    // Homologações - nome bonito
+    if (categoria === 'homologacoes') {
+      const selecaoNum = grupo.selecaoNumero || 'S/N';
+      const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+      return `Homologação da ${tipoSelecao} ${selecaoNum}`;
+    }
+    
+    // Usar fileName se já está formatado (vem da edge function)
     return doc.fileName;
   };
   

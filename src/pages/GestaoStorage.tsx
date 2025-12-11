@@ -742,6 +742,35 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
+              <Card className="border-emerald-200 bg-emerald-50/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-emerald-900">Autorizações Seleção</p>
+                      <p className="text-2xl font-bold text-emerald-700">{resultado.estatisticasPorCategoria?.autorizacoes_selecao?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-emerald-600">
+                        {resultado.estatisticasPorCategoria?.autorizacoes_selecao?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-emerald-700/70">PDFs de autorização seleção</p>
+                    </div>
+                    {resultado.estatisticasPorCategoria?.autorizacoes_selecao?.porProcesso?.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Autorizações de Seleção de Fornecedores',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.autorizacoes_selecao.porProcesso,
+                          categoria: 'autorizacoes_selecao'
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="border-orange-200 bg-orange-50/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-2">

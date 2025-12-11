@@ -954,6 +954,7 @@ Deno.serve(async (req) => {
       cotacoes: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       relatorios_finais: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       autorizacoes_compra_direta: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      autorizacoes_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       processos_finalizados: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       planilhas_finais: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       habilitacao: {
@@ -2161,21 +2162,24 @@ Deno.serve(async (req) => {
           console.log(`❌ Relatório final sem dados de processo no banco`);
         }
       } else if (pathSemBucket.startsWith('autorizacoes/') || autorizacoesMap.has(pathSemBucket)) {
-        // Autorizações de Compra Direta - agrupar por processo
-        estatisticasPorCategoria.autorizacoes_compra_direta.arquivos++;
-        estatisticasPorCategoria.autorizacoes_compra_direta.tamanho += metadata.size;
-        estatisticasPorCategoria.autorizacoes_compra_direta.detalhes.push({ path, fileName, size: metadata.size });
-        
-        console.log(`🔍 Processando autorização: ${path}`);
-        
-        // Buscar dados da autorização no mapa pré-carregado
+        // Autorizações - separar por tipo (compra_direta vs selecao_fornecedores)
         const autorizacaoData = autorizacoesMap.get(pathSemBucket);
+        const tipoAutorizacao = autorizacaoData?.tipoAutorizacao || 'compra_direta';
+        const isSelecao = tipoAutorizacao === 'selecao_fornecedores';
+        
+        const categoria = isSelecao ? estatisticasPorCategoria.autorizacoes_selecao : estatisticasPorCategoria.autorizacoes_compra_direta;
+        
+        categoria.arquivos++;
+        categoria.tamanho += metadata.size;
+        categoria.detalhes.push({ path, fileName, size: metadata.size });
+        
+        console.log(`🔍 Processando autorização ${tipoAutorizacao}: ${path}`);
         
         if (autorizacaoData && autorizacaoData.processoId) {
           const processoId = autorizacaoData.processoId;
           
-          if (!estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso!.has(processoId)) {
-            estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso!.set(processoId, {
+          if (!categoria.porProcesso!.has(processoId)) {
+            categoria.porProcesso!.set(processoId, {
               processoId,
               processoNumero: autorizacaoData.processoNumero,
               processoObjeto: autorizacaoData.processoObjeto,
@@ -2183,16 +2187,18 @@ Deno.serve(async (req) => {
             });
           }
           
-          // Nome do documento: "Autorização Compra Direta + número do processo"
-          const nomeAutorizacao = `Autorização Compra Direta ${autorizacaoData.processoNumero}`;
+          // Nome do documento baseado no tipo
+          const nomeAutorizacao = isSelecao 
+            ? `Autorização Seleção de Fornecedores ${autorizacaoData.processoNumero}`
+            : `Autorização Compra Direta ${autorizacaoData.processoNumero}`;
           
-          estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso!.get(processoId)!.documentos.push({
+          categoria.porProcesso!.get(processoId)!.documentos.push({
             path,
             fileName: nomeAutorizacao,
             size: metadata.size
           });
           
-          console.log(`✅ Autorização adicionada ao processo ${autorizacaoData.processoNumero}`);
+          console.log(`✅ Autorização ${tipoAutorizacao} adicionada ao processo ${autorizacaoData.processoNumero}`);
         } else {
           console.log(`❌ Autorização sem dados de processo no banco`);
         }
@@ -3256,6 +3262,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.autorizacoes_compra_direta.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.autorizacoes_compra_direta.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso!.values())
+        },
+        autorizacoes_selecao: {
+          arquivos: estatisticasPorCategoria.autorizacoes_selecao.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.autorizacoes_selecao.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.autorizacoes_selecao.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.autorizacoes_selecao.porProcesso!.values())
         },
         processos_finalizados: {
           arquivos: estatisticasPorCategoria.processos_finalizados.arquivos,
