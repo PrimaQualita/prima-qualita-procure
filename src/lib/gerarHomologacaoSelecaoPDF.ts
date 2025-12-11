@@ -52,6 +52,19 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
 
     if (lancesError) throw lancesError;
 
+    // Buscar itens da cotação para obter quantidades (necessário para critério por_item)
+    let quantidadesPorItem = new Map<number, number>();
+    if (criterioJulgamento === "por_item" && selecao.cotacao_relacionada_id) {
+      const { data: itensData } = await supabase
+        .from("itens_cotacao")
+        .select("numero_item, quantidade")
+        .eq("cotacao_id", selecao.cotacao_relacionada_id);
+      
+      (itensData || []).forEach((item: any) => {
+        quantidadesPorItem.set(item.numero_item, item.quantidade || 1);
+      });
+    }
+
     // Buscar inabilitações
     const { data: inabilitacoesData } = await supabase
       .from("fornecedores_inabilitados_selecao")
@@ -110,7 +123,15 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
       }
       const grupo = vencedoresPorFornecedor.get(fornecedorId)!;
       grupo.itens.push(numeroItem);
-      grupo.valorTotal += lance.valor_lance || 0;
+      
+      // Para critério por_item: valor total = valor_lance × quantidade
+      // Para outros critérios: mantém lógica original
+      if (criterioJulgamento === "por_item") {
+        const quantidade = quantidadesPorItem.get(numeroItem) || 1;
+        grupo.valorTotal += (lance.valor_lance || 0) * quantidade;
+      } else {
+        grupo.valorTotal += lance.valor_lance || 0;
+      }
     });
 
     // Converter imagens para base64
