@@ -129,6 +129,9 @@ export function DialogSessaoLances({
   // Estado - Planilhas de Lances geradas (múltiplas)
   const [planilhasGeradas, setPlanilhasGeradas] = useState<{ id: string; nome_arquivo: string; url_arquivo: string; data_geracao: string; protocolo: string }[]>([]);
 
+  // Estado - Fornecedores online (Presença em tempo real)
+  const [fornecedoresOnline, setFornecedoresOnline] = useState<{ fornecedor_id: string; razao_social: string; online_at: string }[]>([]);
+
   // Carregar dados iniciais
   useEffect(() => {
     if (open) {
@@ -238,6 +241,46 @@ export function DialogSessaoLances({
 
     return () => clearInterval(interval);
   }, [itensEmFechamento.size]);
+
+  // Rastrear fornecedores online via Presence
+  useEffect(() => {
+    if (!open || !selecaoId) return;
+
+    const presenceChannel = supabase.channel(`presence_selecao_${selecaoId}`);
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const fornecedores: { fornecedor_id: string; razao_social: string; online_at: string }[] = [];
+        
+        Object.values(state).forEach((presences: any) => {
+          presences.forEach((presence: any) => {
+            if (presence.fornecedor_id && presence.razao_social) {
+              // Evitar duplicatas
+              if (!fornecedores.some(f => f.fornecedor_id === presence.fornecedor_id)) {
+                fornecedores.push({
+                  fornecedor_id: presence.fornecedor_id,
+                  razao_social: presence.razao_social,
+                  online_at: presence.online_at,
+                });
+              }
+            }
+          });
+        });
+        
+        setFornecedoresOnline(fornecedores);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [open, selecaoId]);
+
+  // Helper para extrair primeiro nome da razão social
+  const getPrimeiroNome = (razaoSocial: string) => {
+    return razaoSocial.split(' ')[0];
+  };
 
   // Função para formatar tempo restante
   const formatarTempoRestante = (tempoExpiracao: number) => {
@@ -2304,6 +2347,25 @@ export function DialogSessaoLances({
             <Gavel className="h-5 w-5" />
             Sessão de Lances
           </DialogTitle>
+          {/* Fornecedores Online */}
+          {fornecedoresOnline.length > 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                <span className="font-medium">{fornecedoresOnline.length} online:</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {fornecedoresOnline.map((f) => (
+                  <Badge key={f.fornecedor_id} variant="secondary" className="text-xs py-0 px-2">
+                    {getPrimeiroNome(f.razao_social)}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
         </DialogHeader>
 
         <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden min-h-0">
