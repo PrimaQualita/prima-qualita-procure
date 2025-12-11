@@ -3108,15 +3108,7 @@ export function DialogAnaliseDocumentalSelecao({
                   Selecione os itens a serem reabilitados:
                 </p>
                 <div className="grid grid-cols-4 gap-2">
-                  {(async () => {
-                    // Buscar itens afetados da inabilitação
-                    const { data: inab } = await supabase
-                      .from("fornecedores_inabilitados_selecao")
-                      .select("itens_afetados")
-                      .eq("id", recursoParaResponder.inabilitacao_id)
-                      .single();
-                    return inab?.itens_afetados || [];
-                  })() && recursoParaResponder.itensInabilitados?.map((item: number) => (
+                  {(recursoParaResponder.fornecedores_inabilitados_selecao?.itens_afetados || []).map((item: number) => (
                     <div 
                       key={item}
                       className={`flex items-center gap-2 p-2 border rounded cursor-pointer transition-colors ${
