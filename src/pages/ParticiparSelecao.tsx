@@ -196,19 +196,93 @@ const ParticiparSelecao = () => {
         // Tentar extrair endereço se disponível
         if (fornecedorExistente.endereco_comercial) {
           const endereco = fornecedorExistente.endereco_comercial;
-          // Tenta fazer parse do endereço se estiver em formato estruturado
-          const matchEndereco = endereco.match(/^(.+?),?\s*(\d+)?\s*[-,]?\s*(.+?)?\s*[-,]?\s*(.+?)?\s*[-\/]?\s*([A-Z]{2})?\s*[-,]?\s*(\d{5}-?\d{3})?$/i);
-          if (matchEndereco) {
-            setDadosEmpresa(prev => ({
-              ...prev,
-              logradouro: matchEndereco[1]?.trim() || prev.logradouro,
-              numero: matchEndereco[2]?.trim() || prev.numero,
-              bairro: matchEndereco[3]?.trim() || prev.bairro,
-              municipio: matchEndereco[4]?.trim() || prev.municipio,
-              uf: matchEndereco[5]?.trim().toUpperCase() || prev.uf,
-              cep: matchEndereco[6]?.trim() || prev.cep,
-            }));
+          
+          // Parse mais robusto: dividir por vírgula e identificar partes
+          // Formato esperado: "Rua X, Nº 123, Bairro, Cidade - UF, CEP" ou variações
+          const partes = endereco.split(',').map(p => p.trim());
+          
+          let logradouro = '';
+          let numero = '';
+          let bairro = '';
+          let municipio = '';
+          let uf = '';
+          let cep = '';
+          
+          // Primeira parte geralmente é logradouro (pode incluir número)
+          if (partes[0]) {
+            const primeiraParteMatch = partes[0].match(/^(.+?)\s*[,\s]*(?:N[°ºo]?\s*)?(\d+\w*)?$/i);
+            if (primeiraParteMatch) {
+              logradouro = primeiraParteMatch[1]?.trim() || partes[0];
+              if (primeiraParteMatch[2]) numero = primeiraParteMatch[2];
+            } else {
+              logradouro = partes[0];
+            }
           }
+          
+          // Procurar número em outras partes se não encontrou
+          if (!numero) {
+            for (const parte of partes) {
+              const matchNumero = parte.match(/^(?:N[°ºo]?\s*)?(\d+\w*)$/i);
+              if (matchNumero) {
+                numero = matchNumero[1];
+                break;
+              }
+            }
+          }
+          
+          // Procurar UF (2 letras maiúsculas) - geralmente está junto com cidade
+          for (let i = partes.length - 1; i >= 0; i--) {
+            const matchUF = partes[i].match(/[-\/\s]([A-Z]{2})(?:\s*[-,]?\s*(\d{5}-?\d{3}))?$/i);
+            if (matchUF) {
+              uf = matchUF[1].toUpperCase();
+              if (matchUF[2]) cep = matchUF[2];
+              // Cidade é o que vem antes do UF
+              const cidadeMatch = partes[i].match(/^(.+?)\s*[-\/]\s*[A-Z]{2}/i);
+              if (cidadeMatch) municipio = cidadeMatch[1].trim();
+              break;
+            }
+          }
+          
+          // Procurar CEP se não encontrou
+          if (!cep) {
+            for (const parte of partes) {
+              const matchCEP = parte.match(/(\d{5}-?\d{3})/);
+              if (matchCEP) {
+                cep = matchCEP[1];
+                break;
+              }
+            }
+          }
+          
+          // Bairro geralmente é a penúltima parte antes de cidade-UF
+          if (partes.length >= 3) {
+            // Identificar qual parte é o bairro (não é logradouro, número, cidade-UF nem CEP)
+            for (let i = 1; i < partes.length - 1; i++) {
+              const parte = partes[i].trim();
+              // Pular se for número
+              if (/^(?:N[°ºo]?\s*)?\d+\w*$/i.test(parte)) continue;
+              // Pular se contiver UF
+              if (/[-\/]\s*[A-Z]{2}/i.test(parte)) continue;
+              // Pular se for CEP
+              if (/\d{5}-?\d{3}/.test(parte)) continue;
+              
+              if (!bairro) {
+                bairro = parte;
+              } else if (!municipio) {
+                municipio = parte;
+              }
+            }
+          }
+          
+          setDadosEmpresa(prev => ({
+            ...prev,
+            logradouro: logradouro || prev.logradouro,
+            numero: numero || prev.numero,
+            bairro: bairro || prev.bairro,
+            municipio: municipio || prev.municipio,
+            uf: uf || prev.uf,
+            cep: cep || prev.cep,
+          }));
         }
         
         toast.success("Dados do fornecedor preenchidos automaticamente!");
