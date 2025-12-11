@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       `),
       supabase.from('planilhas_consolidadas').select('url_arquivo, nome_arquivo'),
       supabase.from('planilhas_lances_selecao').select('url_arquivo, nome_arquivo'),
-      supabase.from('autorizacoes_processo').select(`url_arquivo, nome_arquivo, tipo_autorizacao, cotacao_id, cotacoes_precos!inner(processo_compra_id, processos_compras!inner(numero_processo_interno, objeto_resumido))`),
+      supabase.from('autorizacoes_processo').select(`url_arquivo, nome_arquivo, tipo_autorizacao, cotacao_id, cotacoes_precos!inner(id, processo_compra_id, processos_compras!inner(numero_processo_interno, objeto_resumido))`),
       supabase.from('encaminhamentos_processo').select('url, storage_path, nome_arquivo, processo_numero'),
       supabase.from('analises_compliance').select('url_documento, nome_arquivo'),
       supabase.from('anexos_processo_compra').select('url_arquivo, nome_arquivo, tipo_anexo'),
@@ -280,18 +280,47 @@ Deno.serve(async (req) => {
       processoId: string; 
       processoNumero: string;
       processoObjeto: string;
+      cotacaoId: string;
+      numeroSelecao: string;
     }>();
     if (autorizacoes) {
+      // Buscar seleções para obter numero_selecao para autorizações de seleção
+      const cotacaoIds = autorizacoes
+        .filter(a => a.tipo_autorizacao === 'selecao_fornecedores')
+        .map(a => (a as any).cotacoes_precos?.id)
+        .filter(Boolean);
+      
+      let selecoesMap = new Map<string, string>();
+      if (cotacaoIds.length > 0) {
+        const { data: selecoes } = await supabase
+          .from('selecoes_fornecedores')
+          .select('cotacao_relacionada_id, numero_selecao')
+          .in('cotacao_relacionada_id', cotacaoIds);
+        
+        if (selecoes) {
+          for (const sel of selecoes) {
+            if (sel.cotacao_relacionada_id) {
+              selecoesMap.set(sel.cotacao_relacionada_id, sel.numero_selecao || '');
+            }
+          }
+        }
+      }
+      
       for (const aut of autorizacoes) {
         const path = aut.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || aut.url_arquivo;
         const cotacao = (aut as any).cotacoes_precos;
         const processo = cotacao?.processos_compras;
+        const cotacaoId = cotacao?.id || '';
+        const numeroSelecao = selecoesMap.get(cotacaoId) || '';
+        
         autorizacoesMap.set(path, {
           nomeArquivo: aut.nome_arquivo,
           tipoAutorizacao: aut.tipo_autorizacao,
           processoId: cotacao?.processo_compra_id || '',
           processoNumero: processo?.numero_processo_interno || '',
-          processoObjeto: processo?.objeto_resumido || ''
+          processoObjeto: processo?.objeto_resumido || '',
+          cotacaoId,
+          numeroSelecao
         });
         nomesBonitos.set(path, aut.nome_arquivo);
       }
@@ -2187,9 +2216,9 @@ Deno.serve(async (req) => {
             });
           }
           
-          // Nome do documento baseado no tipo
+          // Nome do documento baseado no tipo - usar numero_selecao para seleções
           const nomeAutorizacao = isSelecao 
-            ? `Autorização Seleção de Fornecedores ${autorizacaoData.processoNumero}`
+            ? `Autorização Seleção de Fornecedores ${autorizacaoData.numeroSelecao || autorizacaoData.processoNumero}`
             : `Autorização Compra Direta ${autorizacaoData.processoNumero}`;
           
           categoria.porProcesso!.get(processoId)!.documentos.push({
