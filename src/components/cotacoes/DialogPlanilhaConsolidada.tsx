@@ -785,7 +785,7 @@ export function DialogPlanilhaConsolidada({
       console.log('✅ Estimativas salvas:', insertData?.[0]?.estimativas_itens);
 
       // CRÍTICO: Invalidar todas as aprovações de documentos ao gerar nova planilha
-      console.log("🔄 Invalidando aprovações anteriores de documentos...");
+      console.log("🔄 [V3] Invalidando aprovações anteriores de documentos...");
       
       // PRIMEIRO: Resetar campo documentos_aprovados da cotação
       const { error: resetApprovedError } = await supabase
@@ -806,9 +806,12 @@ export function DialogPlanilhaConsolidada({
         .select("id")
         .eq("cotacao_id", cotacaoId);
       
+      console.log(`📋 [V3] Campos encontrados para cotacao ${cotacaoId}: ${campos?.length || 0}`);
+      
       // TERCEIRO: Deletar documentos enviados pelos fornecedores
       if (campos && campos.length > 0) {
         const campoIds = campos.map(c => c.id);
+        console.log(`📋 [V3] Campo IDs: ${campoIds.join(', ')}`);
         
         // CRÍTICO: Buscar URLs dos arquivos ANTES de deletar registros
         const { data: docsParaDeletar } = await supabase
@@ -816,12 +819,15 @@ export function DialogPlanilhaConsolidada({
           .select("url_arquivo")
           .in("campo_documento_id", campoIds);
         
+        console.log(`📋 [V3] Documentos encontrados para deletar: ${docsParaDeletar?.length || 0}`);
+        
         // Deletar arquivos do storage PRIMEIRO
         if (docsParaDeletar && docsParaDeletar.length > 0) {
           const pathsParaDeletar = docsParaDeletar
             .filter(d => d.url_arquivo)
             .map(d => {
               let path = d.url_arquivo;
+              console.log(`📋 [V3] URL original: ${path}`);
               // Limpar URL para extrair apenas o path relativo
               if (path.includes('/processo-anexos/')) {
                 path = path.split('/processo-anexos/')[1];
@@ -829,24 +835,30 @@ export function DialogPlanilhaConsolidada({
               if (path.includes('?')) {
                 path = path.split('?')[0];
               }
+              console.log(`📋 [V3] Path extraído: ${path}`);
               return path;
             })
             .filter(Boolean);
           
+          console.log(`🗑️ [V3] Paths finais para deletar: ${pathsParaDeletar.length}`);
+          pathsParaDeletar.forEach(p => console.log(`   - ${p}`));
+          
           if (pathsParaDeletar.length > 0) {
-            console.log(`🗑️ Deletando ${pathsParaDeletar.length} arquivos do storage...`);
+            console.log(`🗑️ [V3] Deletando ${pathsParaDeletar.length} arquivos do storage...`);
             const { error: storageError } = await supabase.storage
               .from("processo-anexos")
               .remove(pathsParaDeletar);
             
             if (storageError) {
-              console.error("Erro ao deletar arquivos do storage:", storageError);
+              console.error("❌ [V3] Erro ao deletar arquivos do storage:", storageError);
             } else {
-              console.log("✅ Arquivos deletados do storage");
+              console.log("✅ [V3] Arquivos deletados do storage com sucesso!");
             }
           }
+        } else {
+          console.log("📋 [V3] Nenhum documento para deletar do storage");
         }
-        
+
         // DEPOIS deletar registros do banco
         const { error: deleteDocsError } = await supabase
           .from("documentos_finalizacao_fornecedor")
