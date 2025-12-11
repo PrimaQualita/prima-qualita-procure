@@ -69,12 +69,22 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
   };
 
   const processosFiltrados = useMemo(() => {
-    if (!searchProcessos.trim()) return processos;
-    const termo = searchProcessos.toLowerCase();
-    return processos.filter((proc) => {
-      const numero = proc.processoNumero.toLowerCase();
-      const objeto = stripHtml(proc.processoObjeto).toLowerCase();
-      return numero.includes(termo) || objeto.includes(termo);
+    let resultado = processos;
+    
+    if (searchProcessos.trim()) {
+      const termo = searchProcessos.toLowerCase();
+      resultado = processos.filter((proc) => {
+        const numero = proc.processoNumero.toLowerCase();
+        const objeto = stripHtml(proc.processoObjeto).toLowerCase();
+        return numero.includes(termo) || objeto.includes(termo);
+      });
+    }
+    
+    // Ordenar por número do processo em ordem crescente
+    return resultado.sort((a, b) => {
+      const numA = a.processoNumero.split('/')[0];
+      const numB = b.processoNumero.split('/')[0];
+      return numA.localeCompare(numB, undefined, { numeric: true });
     });
   }, [processos, searchProcessos]);
 

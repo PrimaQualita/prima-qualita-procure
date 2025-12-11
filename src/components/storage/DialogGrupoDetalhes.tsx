@@ -39,13 +39,27 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
   };
 
   const gruposFiltrados = useMemo(() => {
-    if (!searchGrupos.trim()) return grupos;
-    const termo = searchGrupos.toLowerCase();
-    return grupos.filter((grupo: any) => {
-      const nome = getNomeGrupo(grupo).toLowerCase();
-      const objeto = getObjetoProcesso(grupo)?.toLowerCase() || "";
-      return nome.includes(termo) || objeto.includes(termo);
-    });
+    let resultado = grupos;
+    
+    if (searchGrupos.trim()) {
+      const termo = searchGrupos.toLowerCase();
+      resultado = grupos.filter((grupo: any) => {
+        const nome = getNomeGrupo(grupo).toLowerCase();
+        const objeto = getObjetoProcesso(grupo)?.toLowerCase() || "";
+        return nome.includes(termo) || objeto.includes(termo);
+      });
+    }
+    
+    // Ordenar por número do processo em ordem crescente
+    if (tipo === 'processo') {
+      return resultado.sort((a: any, b: any) => {
+        const numA = a.processoNumero || '';
+        const numB = b.processoNumero || '';
+        return numA.localeCompare(numB, undefined, { numeric: true });
+      });
+    }
+    
+    return resultado;
   }, [grupos, searchGrupos, tipo]);
 
   const documentosFiltrados = useMemo(() => {
