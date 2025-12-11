@@ -427,14 +427,28 @@ export function DialogAnaliseDocumentalSelecao({
 
       const inabilitacoesMap = new Map<string, FornecedorInabilitado>();
       (inabilitacoes || []).forEach((inab: any) => {
-        inabilitacoesMap.set(inab.fornecedor_id, {
-          id: inab.id,
-          fornecedor_id: inab.fornecedor_id,
-          itens_afetados: inab.itens_afetados,
-          motivo_inabilitacao: inab.motivo_inabilitacao,
-          data_inabilitacao: inab.data_inabilitacao,
-          revertido: inab.revertido,
-        });
+        const existing = inabilitacoesMap.get(inab.fornecedor_id);
+        if (existing) {
+          // Acumular itens de múltiplas inabilitações do mesmo fornecedor
+          const todosItens = [...new Set([...existing.itens_afetados, ...inab.itens_afetados])];
+          const motivos = existing.motivo_inabilitacao !== inab.motivo_inabilitacao 
+            ? `${existing.motivo_inabilitacao}; ${inab.motivo_inabilitacao}`
+            : existing.motivo_inabilitacao;
+          inabilitacoesMap.set(inab.fornecedor_id, {
+            ...existing,
+            itens_afetados: todosItens,
+            motivo_inabilitacao: motivos,
+          });
+        } else {
+          inabilitacoesMap.set(inab.fornecedor_id, {
+            id: inab.id,
+            fornecedor_id: inab.fornecedor_id,
+            itens_afetados: inab.itens_afetados,
+            motivo_inabilitacao: inab.motivo_inabilitacao,
+            data_inabilitacao: inab.data_inabilitacao,
+            revertido: inab.revertido,
+          });
+        }
       });
 
       // Identificar itens que foram inabilitados e precisam ir para segundo colocado
