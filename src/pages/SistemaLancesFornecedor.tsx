@@ -1784,8 +1784,63 @@ const SistemaLancesFornecedor = () => {
           </Button>
         </div>
 
-        {/* Aviso de Intenção de Recurso (5 minutos após encerramento da habilitação) - PARA TODOS OS FORNECEDORES */}
-        {habilitacaoEncerrada && !minhaIntencaoRecurso && tempoRestanteIntencao !== null && tempoRestanteIntencao > 0 && (
+        {/* Alerta IMEDIATO de Inabilitação - Aparece assim que fornecedor é inabilitado */}
+        {minhaInabilitacao && !minhaIntencaoRecurso && (
+          <Card className="border-red-500/50 bg-red-500/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-5 w-5" />
+                ⚠️ Você foi inabilitado nesta seleção
+              </CardTitle>
+              <CardDescription className="text-red-600">
+                Motivo: {minhaInabilitacao.motivo_inabilitacao}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-red-50 p-3 rounded-lg space-y-2">
+                <p className="text-sm text-red-700">
+                  <strong>Itens afetados:</strong> {minhaInabilitacao.itens_afetados?.length > 0 
+                    ? minhaInabilitacao.itens_afetados.join(", ") 
+                    : "Todos os itens"}
+                </p>
+                <p className="text-sm text-red-700">
+                  <strong>Data da inabilitação:</strong> {format(new Date(minhaInabilitacao.data_inabilitacao), "dd/MM/yyyy 'às' HH:mm")}
+                </p>
+              </div>
+              
+              <div className="bg-amber-50 p-3 rounded-lg">
+                <p className="text-sm font-medium text-amber-800 mb-2">
+                  Deseja apresentar recurso contra esta inabilitação?
+                </p>
+                <p className="text-xs text-amber-700 mb-3">
+                  Você pode recorrer da decisão. O gestor poderá dar provimento total (reabilitar todos os itens), 
+                  provimento parcial (reabilitar alguns itens) ou negar provimento.
+                </p>
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => setDialogIntencaoRecurso(true)}
+                    className="flex-1 bg-amber-600 hover:bg-amber-700"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Sim, desejo recorrer
+                  </Button>
+                  <Button 
+                    onClick={() => handleRegistrarIntencaoRecurso(false)}
+                    variant="outline"
+                    className="flex-1 border-amber-300"
+                    disabled={enviandoIntencao}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Não desejo recorrer
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Aviso de Intenção de Recurso (5 minutos após encerramento da habilitação) - PARA FORNECEDORES NÃO INABILITADOS */}
+        {habilitacaoEncerrada && !minhaInabilitacao && !minhaIntencaoRecurso && tempoRestanteIntencao !== null && tempoRestanteIntencao > 0 && (
           <Card className="border-amber-500/50 bg-amber-500/10">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-amber-700">
