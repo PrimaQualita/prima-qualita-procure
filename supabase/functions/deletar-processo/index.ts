@@ -8,17 +8,43 @@ const corsHeaders = {
 function extractPath(url: string | null, bucket: string = 'processo-anexos'): string | null {
   if (!url) return null;
   
-  // Se a URL já é um caminho relativo (não contém http), retorna direto
-  if (!url.startsWith('http')) {
-    return url.split('?')[0];
+  // Remover query params primeiro
+  let cleanUrl = url.split('?')[0];
+  
+  // Se a URL começa com o prefixo do bucket (formato incorreto salvo no banco), remover
+  if (cleanUrl.startsWith(`${bucket}/`)) {
+    cleanUrl = cleanUrl.substring(bucket.length + 1);
   }
   
-  const marker = `${bucket}/`;
-  if (url.includes(marker)) {
-    return url.split(marker)[1]?.split('?')[0] || null;
+  // Se a URL é completa com http
+  if (cleanUrl.startsWith('http')) {
+    const marker = `${bucket}/`;
+    if (cleanUrl.includes(marker)) {
+      return cleanUrl.split(marker)[1] || null;
+    }
+    // Se não tem o marker, tentar extrair o path após /object/public/ ou /object/sign/
+    const publicMarker = '/object/public/';
+    const signedMarker = '/object/sign/';
+    if (cleanUrl.includes(publicMarker)) {
+      const afterMarker = cleanUrl.split(publicMarker)[1];
+      // Remover o nome do bucket do início se presente
+      if (afterMarker?.startsWith(`${bucket}/`)) {
+        return afterMarker.substring(bucket.length + 1);
+      }
+      return afterMarker || null;
+    }
+    if (cleanUrl.includes(signedMarker)) {
+      const afterMarker = cleanUrl.split(signedMarker)[1];
+      if (afterMarker?.startsWith(`${bucket}/`)) {
+        return afterMarker.substring(bucket.length + 1);
+      }
+      return afterMarker || null;
+    }
+    return null;
   }
-  // Se não tem o marker, pode ser só o path
-  return url.split('?')[0];
+  
+  // Se já é um caminho relativo limpo, retorna direto
+  return cleanUrl;
 }
 
 Deno.serve(async (req) => {
