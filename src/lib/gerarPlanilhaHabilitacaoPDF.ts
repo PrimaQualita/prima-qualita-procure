@@ -248,7 +248,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
   const textoObjeto = 'Objeto:';
   doc.text(textoObjeto, margemEsquerda, yPosition);
   
-  const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<\/?p>/g, '');
+  const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
   doc.setFont('helvetica', 'normal');
   
   const larguraObjeto = doc.getTextWidth(textoObjeto);

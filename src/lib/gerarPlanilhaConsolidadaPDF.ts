@@ -258,7 +258,7 @@ export async function gerarPlanilhaConsolidadaPDF(
   doc.text(textoObjeto, margemEsquerda, y);
   
   // Quebrar texto do objeto e aplicar justificação manual
-  const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<\/?p>/g, '');
+  const objetoDecodificado = decodeHtmlEntities(processo.objeto).replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
   doc.setFont('helvetica', 'normal');
   
   // Primeira linha ao lado de "Objeto:"
