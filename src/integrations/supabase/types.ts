@@ -3020,6 +3020,10 @@ export type Database = {
           url_arquivo: string
         }[]
       }
+      verificar_resposta_cotacao_existe: {
+        Args: { p_cnpj: string; p_cotacao_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "gestor" | "colaborador" | "compliance"
