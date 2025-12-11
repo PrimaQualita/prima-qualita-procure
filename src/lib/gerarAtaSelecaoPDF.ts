@@ -278,14 +278,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       return (a.numero_item || 0) - (b.numero_item || 0);
     }
     
-    // Dentro do mesmo item, priorizar lances de negociação
-    const aIsNegociacao = a.tipo_lance === 'negociacao';
-    const bIsNegociacao = b.tipo_lance === 'negociacao';
-    
-    if (aIsNegociacao && !bIsNegociacao) return -1; // a vem antes
-    if (!aIsNegociacao && bIsNegociacao) return 1;  // b vem antes
-    
-    // Se ambos são negociação ou ambos não são, ordenar por valor
+    // Dentro do mesmo item, ordenar por valor (MELHOR VALOR VENCE - sem priorizar negociação)
     // Desconto: maior é melhor (ordem decrescente)
     // Preço: menor é melhor (ordem crescente)
     if (isDesconto) {

@@ -551,7 +551,7 @@ export function DialogAnaliseDocumentalSelecao({
         } else {
           forn.valorTotal += lance.valor_lance * quantidade; // Somar valor monetário total
         }
-        console.log(`📌 [VENCEDOR ORIGINAL] ${forn.razao_social} agora tem itensVencedores:`, [...forn.itensVencedores]);
+        
       });
 
       // Depois, adicionar itens dos segundos colocados
@@ -579,7 +579,7 @@ export function DialogAnaliseDocumentalSelecao({
             forn.valorTotal += segundo.valor_lance * quantidade; // Somar valor monetário total
           }
         }
-        console.log(`📌 [SEGUNDO COLOCADO] ${forn.razao_social} agora tem itensVencedores:`, [...forn.itensVencedores]);
+        
       });
 
       // Carregar documentos e campos de cada fornecedor
@@ -594,7 +594,7 @@ export function DialogAnaliseDocumentalSelecao({
           const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
 
           const inabilitacaoFornecedor = inabilitacoesMap.get(forn.id);
-          console.log(`🔍 [FORNECEDOR ${forn.razao_social}] id: ${forn.id}, inabilitado:`, inabilitacaoFornecedor);
+          
 
           return {
             fornecedor: forn,
