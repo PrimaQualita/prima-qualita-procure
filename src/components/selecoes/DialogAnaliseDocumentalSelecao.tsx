@@ -397,19 +397,11 @@ export function DialogAnaliseDocumentalSelecao({
         });
         
         // Priorizar lances de negociação
-        const temNegociacao = lancesOrdenados.some(l => l.tipo_lance === 'negociacao');
-        
-        let vencedor;
-        if (temNegociacao) {
-          // Se tem negociação, pegar o melhor lance de negociação
-          const lancesNegociacao = lancesOrdenados.filter(l => l.tipo_lance === 'negociacao');
-          vencedor = lancesNegociacao[0];
-          console.log(`🤝 [ANÁLISE DOC] Item ${numeroItem}: Vencedor por NEGOCIAÇÃO -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
-        } else {
-          // Senão, pegar o primeiro da lista ordenada
-          vencedor = lancesOrdenados[0];
-          console.log(`🏆 [ANÁLISE DOC] Item ${numeroItem}: Vencedor por LANCE -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
-        }
+        // CRÍTICO: O vencedor é SEMPRE o primeiro da lista ordenada (menor preço ou maior desconto)
+        // Lance de negociação NÃO tem prioridade automática - deve vencer apenas se tiver o melhor valor
+        const vencedor = lancesOrdenados[0];
+        const tipoVencedor = vencedor.tipo_lance === 'negociacao' ? 'NEGOCIAÇÃO' : 'LANCE';
+        console.log(`🏆 [ANÁLISE DOC] Item ${numeroItem}: Vencedor por ${tipoVencedor} -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
         
         vencedoresData.push(vencedor);
       });
