@@ -1159,7 +1159,7 @@ Deno.serve(async (req) => {
             });
           }
         }
-      } else if (tipoAnexo === 'PROCESSO_COMPLETO') {
+      } else if (tipoAnexo === 'PROCESSO_COMPLETO' || tipoAnexo === 'PROCESSO_COMPLETO_SELECAO') {
         // Processos Finalizados (PDFs mesclados de compra direta e seleção)
         estatisticasPorCategoria.processos_finalizados.arquivos++;
         estatisticasPorCategoria.processos_finalizados.tamanho += metadata.size;
