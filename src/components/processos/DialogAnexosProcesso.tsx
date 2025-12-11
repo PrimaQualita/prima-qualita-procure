@@ -380,16 +380,24 @@ export function DialogAnexosProcesso({
 
             // Formatar nome amigável para processo completo
             const formatarNomeProcessoCompleto = (nomeArquivo: string) => {
-              // Extrair número do processo do nome do arquivo (ex: processo_completo_001-2025_...)
-              const match = nomeArquivo.match(/processo_completo_(\d+-\d+)/i);
-              if (match) {
-                const numero = match[1].replace('-', '/');
+              // Extrair número do processo do nome do arquivo
+              // Padrão compra direta: processo_completo_001-2025_...
+              // Padrão seleção: processo_completo_selecao_001/2025_...
+              const matchCompradireta = nomeArquivo.match(/processo_completo_(\d+-\d+)/i);
+              if (matchCompradireta) {
+                const numero = matchCompradireta[1].replace('-', '/');
                 return `Processo ${numero}`;
               }
+              
+              const matchSelecao = nomeArquivo.match(/processo_completo_selecao_(\d+)\/(\d+)/i);
+              if (matchSelecao) {
+                return `Processo ${matchSelecao[1]}/${matchSelecao[2]}`;
+              }
+              
               return nomeArquivo;
             };
 
-            const nomeExibicao = tipo === "PROCESSO_COMPLETO" 
+            const nomeExibicao = (tipo === "PROCESSO_COMPLETO" || tipo === "PROCESSO_COMPLETO_SELECAO")
               ? formatarNomeProcessoCompleto(anexo.nome_arquivo)
               : anexo.nome_arquivo;
 
