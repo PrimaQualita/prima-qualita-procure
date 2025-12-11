@@ -2769,6 +2769,15 @@ export function DialogSessaoLances({
                                     isGestor={true}
                                     open={chatAberto}
                                     onClose={() => setItemChatPrivado(null)}
+                                    itensDisponiveis={itensParaNegociacao
+                                      .filter(i => itensEmNegociacao.has(i.numero_item))
+                                      .map(i => {
+                                        const fId = itensEmNegociacao.get(i.numero_item) || '';
+                                        const fNome = fornecedoresNegociacao.get(i.numero_item)?.razaoSocial || 
+                                                      vencedoresPorItem.get(i.numero_item)?.razaoSocial || 'Fornecedor';
+                                        return { numeroItem: i.numero_item, fornecedorId: fId, fornecedorNome: fNome };
+                                      })}
+                                    onSelectItem={(item) => setItemChatPrivado(item.numeroItem)}
                                   />
                                 )}
                               </div>
