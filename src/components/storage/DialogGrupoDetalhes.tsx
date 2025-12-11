@@ -61,7 +61,6 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
       const totalPlanilhas = grupo.documentos?.length || 1;
       
       if (totalPlanilhas > 1) {
-        // Se tiver múltiplas planilhas, cada documento terá numeração romana
         return `Planilhas de Lances da Seleção ${selecaoNum}`;
       }
       return `Planilha de Lances da Seleção ${selecaoNum}`;
@@ -79,6 +78,26 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
       const selecaoNum = grupo.selecaoNumero || grupo.processoNumero || 'S/N';
       const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
       return `Edital da ${tipoSelecao} ${selecaoNum}`;
+    }
+    
+    // Atas do Certame
+    if (categoria === 'atas_certame' && tipo === 'processo') {
+      const selecaoNum = grupo.selecaoNumero || grupo.processoNumero || 'S/N';
+      const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+      return `Ata da ${tipoSelecao} ${selecaoNum}`;
+    }
+    
+    // Homologações
+    if (categoria === 'homologacoes' && tipo === 'processo') {
+      const selecaoNum = grupo.selecaoNumero || grupo.processoNumero || 'S/N';
+      const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+      return `Homologação da ${tipoSelecao} ${selecaoNum}`;
+    }
+    
+    // Propostas de Seleção
+    if (categoria === 'propostas_selecao' && tipo === 'selecao') {
+      const selecaoNum = grupo.selecaoNumero || 'S/N';
+      return `Propostas da Seleção ${selecaoNum}`;
     }
     
     if (tipo === 'selecao') return `Seleção de Fornecedores ${grupo.selecaoNumero || 'S/N'} - ${grupo.selecaoTitulo}`;
