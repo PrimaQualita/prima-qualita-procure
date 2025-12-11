@@ -442,16 +442,9 @@ export function DialogSessaoLances({
       }
 
       console.log(`🔄 [ATUALIZAR ITEM ${numeroItem}] Iniciando ordenação...`);
-      // 5. Ordenar com priorização de negociação e critério
+      // 5. Ordenar por valor (MELHOR VALOR VENCE - sem priorização de negociação)
       const lancesOrdenados = [...lancesValidos].sort((a, b) => {
-        // PRIORIDADE 1: Lances de negociação vêm SEMPRE primeiro
-        const aIsNegociacao = a.tipo_lance === "negociacao";
-        const bIsNegociacao = b.tipo_lance === "negociacao";
-        
-        if (aIsNegociacao && !bIsNegociacao) return -1;
-        if (!aIsNegociacao && bIsNegociacao) return 1;
-        
-        // PRIORIDADE 2: Ordenar por valor conforme critério
+        // Ordenar por valor conforme critério - negociação NÃO tem prioridade
         if (isDesconto) {
           // Desconto: MAIOR é melhor (DESCRESCENTE)
           console.log(`🔢 [ATUALIZAR ITEM ${numeroItem} DESCONTO] Comparando ${a.valor_lance} vs ${b.valor_lance}`);
@@ -461,7 +454,7 @@ export function DialogSessaoLances({
           if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
         }
         
-        // PRIORIDADE 3: Desempate por data
+        // Desempate por data
         return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
       });
 
@@ -679,8 +672,8 @@ export function DialogSessaoLances({
 
       const fornecedoresMap = new Map(fornecedoresData?.map(f => [f.id, f.razao_social]) || []);
 
-      // Identificar vencedor por item
-      // PRIORIZAR lances de negociação sobre lances regulares de proposta
+      // Identificar vencedor por item baseado no MELHOR VALOR (não priorizar negociação)
+      // CRÍTICO: Lance de negociação NÃO tem prioridade automática - vence quem tem o melhor valor
       const vencedores = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
       
       lancesFiltrados.forEach((lance) => {
@@ -693,12 +686,11 @@ export function DialogSessaoLances({
             razaoSocial: fornecedoresMap.get(lance.fornecedor_id) || 'Fornecedor',
             valorLance: lance.valor_lance
           });
-        } 
-        // Se este lance é de negociação, SEMPRE substituir se for melhor
-        else if (lance.tipo_lance === 'negociacao') {
+        } else {
+          // Substituir se este lance for MELHOR que o atual (independente do tipo)
           const valorMelhor = isDesconto 
-            ? lance.valor_lance >= vencedorAtual.valorLance  // Desconto: maior é melhor
-            : lance.valor_lance <= vencedorAtual.valorLance; // Preço: menor é melhor
+            ? lance.valor_lance > vencedorAtual.valorLance  // Desconto: maior é melhor
+            : lance.valor_lance < vencedorAtual.valorLance; // Preço: menor é melhor
             
           if (valorMelhor) {
             vencedores.set(lance.numero_item, {
@@ -710,7 +702,7 @@ export function DialogSessaoLances({
         }
       });
 
-      console.log("🏆 Vencedores carregados (com priorização de negociação):", Array.from(vencedores.entries()));
+      console.log("🏆 Vencedores carregados:", Array.from(vencedores.entries()));
       setVencedoresPorItem(vencedores);
     } catch (error) {
       console.error("Erro ao carregar vencedores:", error);
@@ -808,23 +800,16 @@ export function DialogSessaoLances({
       if (lancesError) throw lancesError;
 
       if (lancesItem && lancesItem.length > 0) {
-        // Ordenar localmente com priorização de negociação
+        // Ordenar por valor - MELHOR VALOR VENCE (sem priorização de negociação)
         const lancesOrdenados = [...lancesItem].sort((a, b) => {
-          // PRIORIDADE 1: Lances de negociação vêm SEMPRE primeiro
-          const aIsNegociacao = a.tipo_lance === "negociacao";
-          const bIsNegociacao = b.tipo_lance === "negociacao";
-          
-          if (aIsNegociacao && !bIsNegociacao) return -1;
-          if (!aIsNegociacao && bIsNegociacao) return 1;
-          
-          // PRIORIDADE 2: Ordenar por valor conforme critério
+          // Ordenar por valor conforme critério
           if (isDesconto) {
             if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
           } else {
             if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
           }
           
-          // PRIORIDADE 3: Desempate por data
+          // Desempate por data
           return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
         });
 
@@ -1152,14 +1137,7 @@ export function DialogSessaoLances({
           return a.numero_item - b.numero_item;
         }
         
-        // Dentro do mesmo item, priorizar lances de negociação
-        const aIsNegociacao = a.tipo_lance === "negociacao";
-        const bIsNegociacao = b.tipo_lance === "negociacao";
-        
-        if (aIsNegociacao && !bIsNegociacao) return -1; // a vem antes
-        if (!aIsNegociacao && bIsNegociacao) return 1;  // b vem antes
-        
-        // Se ambos são negociação ou ambos não são, ordenar por valor
+        // Dentro do mesmo item, ordenar por valor (MELHOR VALOR VENCE - sem priorizar negociação)
         // Desconto: maior é melhor (ordem decrescente)
         // Preço: menor é melhor (ordem crescente)
         if (isDesconto) {
@@ -1169,7 +1147,7 @@ export function DialogSessaoLances({
         }
       });
       
-      console.log("🎯 Lances ordenados com priorização de negociação:", lancesOrdenados);
+      console.log("🎯 Lances ordenados por valor:", lancesOrdenados);
       
       setLances(lancesOrdenados);
       // Atualizar vencedores quando lances mudam
@@ -1411,11 +1389,7 @@ export function DialogSessaoLances({
       // Para cada item, ordenar e escolher vencedor
       lancesPorItem.forEach((lancesDoItem, numeroItem) => {
         const lancesOrdenados = lancesDoItem.sort((a, b) => {
-          // 1. Priorizar negociação
-          if (a.tipo_lance === 'negociacao' && b.tipo_lance !== 'negociacao') return -1;
-          if (a.tipo_lance !== 'negociacao' && b.tipo_lance === 'negociacao') return 1;
-          
-          // 2. Ordenar por valor baseado no critério
+          // Ordenar por valor baseado no critério (MELHOR VALOR VENCE - sem priorizar negociação)
           if (isDesconto) {
             // Desconto: maior é melhor
             if (b.valor_lance !== a.valor_lance) return b.valor_lance - a.valor_lance;
@@ -1424,7 +1398,7 @@ export function DialogSessaoLances({
             if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
           }
           
-          // 3. Desempate por data
+          // Desempate por data
           return new Date(a.data_hora_lance || 0).getTime() - new Date(b.data_hora_lance || 0).getTime();
         });
 
@@ -1769,16 +1743,9 @@ export function DialogSessaoLances({
           const lancesValidos = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
           const lancesInabilitados = lancesDoItem.filter(l => isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
           
-          // ORDENAÇÃO CUSTOMIZADA para lances válidos: priorizar negociação e ordenar por critério
+          // Ordenar lances válidos por valor (MELHOR VALOR VENCE - sem priorizar negociação)
           const isDesconto = criterioJulgamento === "desconto";
           const lancesValidosOrdenados = lancesValidos.sort((a, b) => {
-            // Priorizar lances de negociação
-            const aIsNegociacao = a.tipo_lance === "negociacao";
-            const bIsNegociacao = b.tipo_lance === "negociacao";
-            
-            if (aIsNegociacao && !bIsNegociacao) return -1;
-            if (!aIsNegociacao && bIsNegociacao) return 1;
-            
             // Ordenar por valor conforme critério
             if (isDesconto) {
               return b.valor_lance - a.valor_lance; // Maior desconto primeiro (DECRESCENTE)
