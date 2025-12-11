@@ -94,7 +94,18 @@ Deno.serve(async (req) => {
       supabase.from('encaminhamentos_processo').select('url, storage_path, nome_arquivo, processo_numero'),
       supabase.from('analises_compliance').select('url_documento, nome_arquivo'),
       supabase.from('anexos_processo_compra').select('url_arquivo, nome_arquivo, tipo_anexo'),
-      supabase.from('anexos_selecao').select('url_arquivo, nome_arquivo'),
+      supabase.from('anexos_selecao').select(`
+        url_arquivo, 
+        nome_arquivo, 
+        tipo_documento,
+        selecao_id,
+        selecoes_fornecedores!inner(
+          titulo_selecao,
+          numero_selecao,
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno, objeto_resumido, credenciamento)
+        )
+      `),
       supabase.from('documentos_fornecedor').select('url_arquivo, nome_arquivo, em_vigor, fornecedor_id, tipo_documento'),
       supabase.from('documentos_finalizacao_fornecedor').select('url_arquivo, nome_arquivo'),
       supabase.from('documentos_processo_finalizado').select('url_arquivo, nome_arquivo, tipo_documento'),
@@ -193,13 +204,47 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Processar anexos de seleção
+    // Processar anexos de seleção e criar mapa com detalhes
+    const anexosSelecaoMap = new Map<string, { 
+      tipoDocumento: string;
+      selecaoId: string;
+      processoId: string;
+      processoNumero: string;
+      processoObjeto: string;
+      credenciamento: boolean;
+      selecaoNumero: string;
+      nomeArquivo: string;
+    }>();
     if (anexosSelecao) {
       for (const anx of anexosSelecao) {
         const path = anx.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || anx.url_arquivo;
         nomesBonitos.set(path, anx.nome_arquivo);
+        
+        const selecaoData = (anx as any).selecoes_fornecedores;
+        const processoData = selecaoData?.processos_compras;
+        
+        // Remover tags HTML do objeto
+        let objetoLimpo = processoData?.objeto_resumido || '';
+        objetoLimpo = objetoLimpo
+          .replace(/<p>/g, '')
+          .replace(/<\/p>/g, '\n')
+          .replace(/<br\s*\/?>/g, '\n')
+          .replace(/<[^>]+>/g, '')
+          .trim();
+        
+        anexosSelecaoMap.set(path, {
+          tipoDocumento: anx.tipo_documento || 'outro',
+          selecaoId: anx.selecao_id,
+          processoId: selecaoData?.processo_compra_id || '',
+          processoNumero: processoData?.numero_processo_interno || '',
+          processoObjeto: objetoLimpo,
+          credenciamento: processoData?.credenciamento || false,
+          selecaoNumero: selecaoData?.numero_selecao || '',
+          nomeArquivo: anx.nome_arquivo
+        });
       }
     }
+    console.log(`📋 Anexos de seleção mapeados: ${anexosSelecaoMap.size}`);
 
     // Processar documentos de fornecedor
     const docsCadastroAtivosMap = new Map<string, { 
@@ -681,7 +726,32 @@ Deno.serve(async (req) => {
         }>() 
       },
       propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
-      anexos_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
+      avisos_certame: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porProcesso: new Map<string, { 
+          processoId: string; 
+          processoNumero: string; 
+          processoObjeto: string;
+          tipoSelecao: string; // "Seleção de Fornecedores" ou "Credenciamento"
+          selecaoNumero: string;
+          documentos: Array<{ path: string; fileName: string; size: number }>;
+        }>() 
+      },
+      editais: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porProcesso: new Map<string, { 
+          processoId: string; 
+          processoNumero: string; 
+          processoObjeto: string;
+          tipoSelecao: string; // "Seleção de Fornecedores" ou "Credenciamento"
+          selecaoNumero: string;
+          documentos: Array<{ path: string; fileName: string; size: number }>;
+        }>() 
+      },
       planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
       recursos: { 
         arquivos: 0, 
@@ -1207,42 +1277,76 @@ Deno.serve(async (req) => {
         continue;
       }
       
-      // 7. Anexos de seleção (avisos, editais)
+      // 7. Anexos de seleção (avisos, editais) - SEPARADOS EM DUAS CATEGORIAS
       if (pathSemBucket.startsWith('selecoes/')) {
-          estatisticasPorCategoria.anexos_selecao.arquivos++;
-          estatisticasPorCategoria.anexos_selecao.tamanho += metadata.size;
-          estatisticasPorCategoria.anexos_selecao.detalhes.push({ path, fileName, size: metadata.size });
           arquivosJaCategorizados.add(path);
           
-          // O path é selecoes/selecao_UUID_tipo_timestamp.pdf então capturar UUID após selecao_
-          // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (8-4-4-4-12)
-          const selecaoIdMatch = pathSemBucket.match(/selecoes\/selecao_([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
-          console.log(`📁 Anexo seleção encontrado: ${pathSemBucket}, UUID match: ${selecaoIdMatch?.[1] || 'não encontrado'}`);
+          // Buscar detalhes do anexo no mapa
+          const anexoInfo = anexosSelecaoMap.get(pathSemBucket);
+          console.log(`📁 Anexo seleção encontrado: ${pathSemBucket}, tipo: ${anexoInfo?.tipoDocumento || 'desconhecido'}`);
           
-          if (selecaoIdMatch) {
-            const selecaoId = selecaoIdMatch[1].toLowerCase();
-            const selecao = selecoesMap.get(selecaoId);
-            console.log(`   Seleção no mapa: ${selecao ? `${selecao.titulo} (${selecao.numero})` : 'NÃO ENCONTRADA'}`);
+          if (anexoInfo) {
+            const tipoSelecao = anexoInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+            const processoKey = anexoInfo.processoId;
             
-            if (selecao) {
-              if (!estatisticasPorCategoria.anexos_selecao.porSelecao!.has(selecaoId)) {
-                estatisticasPorCategoria.anexos_selecao.porSelecao!.set(selecaoId, {
-                  selecaoId,
-                  selecaoTitulo: selecao.titulo,
-                  selecaoNumero: selecao.numero,
+            // Determinar categoria baseado no tipo_documento
+            if (anexoInfo.tipoDocumento === 'aviso') {
+              estatisticasPorCategoria.avisos_certame.arquivos++;
+              estatisticasPorCategoria.avisos_certame.tamanho += metadata.size;
+              estatisticasPorCategoria.avisos_certame.detalhes.push({ path, fileName, size: metadata.size });
+              
+              if (!estatisticasPorCategoria.avisos_certame.porProcesso!.has(processoKey)) {
+                estatisticasPorCategoria.avisos_certame.porProcesso!.set(processoKey, {
+                  processoId: anexoInfo.processoId,
+                  processoNumero: anexoInfo.processoNumero,
+                  processoObjeto: anexoInfo.processoObjeto,
+                  tipoSelecao,
+                  selecaoNumero: anexoInfo.selecaoNumero,
                   documentos: []
                 });
               }
-              
-              estatisticasPorCategoria.anexos_selecao.porSelecao!.get(selecaoId)!.documentos.push({
+              estatisticasPorCategoria.avisos_certame.porProcesso!.get(processoKey)!.documentos.push({
                 path,
                 fileName,
                 size: metadata.size
               });
+              console.log(`   ✅ Categorizado como AVISO - ${tipoSelecao} - Processo ${anexoInfo.processoNumero}`);
+            } else if (anexoInfo.tipoDocumento === 'edital') {
+              estatisticasPorCategoria.editais.arquivos++;
+              estatisticasPorCategoria.editais.tamanho += metadata.size;
+              estatisticasPorCategoria.editais.detalhes.push({ path, fileName, size: metadata.size });
+              
+              if (!estatisticasPorCategoria.editais.porProcesso!.has(processoKey)) {
+                estatisticasPorCategoria.editais.porProcesso!.set(processoKey, {
+                  processoId: anexoInfo.processoId,
+                  processoNumero: anexoInfo.processoNumero,
+                  processoObjeto: anexoInfo.processoObjeto,
+                  tipoSelecao,
+                  selecaoNumero: anexoInfo.selecaoNumero,
+                  documentos: []
+                });
+              }
+              estatisticasPorCategoria.editais.porProcesso!.get(processoKey)!.documentos.push({
+                path,
+                fileName,
+                size: metadata.size
+              });
+              console.log(`   ✅ Categorizado como EDITAL - ${tipoSelecao} - Processo ${anexoInfo.processoNumero}`);
+            } else {
+              // Outros anexos de seleção vão para "outros"
+              estatisticasPorCategoria.outros.arquivos++;
+              estatisticasPorCategoria.outros.tamanho += metadata.size;
+              estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
+              console.log(`   ⚠️ Anexo de seleção tipo desconhecido: ${anexoInfo.tipoDocumento}`);
             }
+          } else {
+            // Arquivo em selecoes/ mas sem registro no banco
+            estatisticasPorCategoria.outros.arquivos++;
+            estatisticasPorCategoria.outros.tamanho += metadata.size;
+            estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
+            console.log(`   ⚠️ Anexo seleção sem registro no banco: ${pathSemBucket}`);
           }
           
-          console.log(`Arquivo categorizado (anexo seleção): ${fileName} (${path})`);
           continue;
         }
         
@@ -2721,11 +2825,17 @@ Deno.serve(async (req) => {
           detalhes: estatisticasPorCategoria.propostas_selecao.detalhes,
           porSelecao: Array.from(estatisticasPorCategoria.propostas_selecao.porSelecao!.values())
         },
-        anexos_selecao: {
-          arquivos: estatisticasPorCategoria.anexos_selecao.arquivos,
-          tamanhoMB: Number((estatisticasPorCategoria.anexos_selecao.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.anexos_selecao.detalhes,
-          porSelecao: Array.from(estatisticasPorCategoria.anexos_selecao.porSelecao!.values())
+        avisos_certame: {
+          arquivos: estatisticasPorCategoria.avisos_certame.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.avisos_certame.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.avisos_certame.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.avisos_certame.porProcesso!.values())
+        },
+        editais: {
+          arquivos: estatisticasPorCategoria.editais.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.editais.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.editais.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.editais.porProcesso!.values())
         },
         planilhas_lances: {
           arquivos: estatisticasPorCategoria.planilhas_lances.arquivos,
