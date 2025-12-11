@@ -1269,24 +1269,32 @@ export default function PortalFornecedor() {
                                   {/* Enviar/Atualizar - apenas quando status é "pendente" */}
                                   {campo.status_solicitacao === "pendente" && (
                                     <>
-                                      <Input
+                                      <input
                                         type="file"
                                         accept=".pdf"
                                         onChange={(e) => {
                                           const file = e.target.files?.[0];
-                                          if (file) handleUploadDocumentoSelecao(campo.id, file);
+                                          if (file) {
+                                            handleUploadDocumentoSelecao(campo.id, file);
+                                            e.target.value = ''; // Reset para permitir reselecionar mesmo arquivo
+                                          }
                                         }}
                                         className="hidden"
                                         id={`upload-selecao-${campo.id}`}
                                       />
-                                      <Button
-                                        size="sm"
-                                        onClick={() => document.getElementById(`upload-selecao-${campo.id}`)?.click()}
-                                        className="bg-blue-600 hover:bg-blue-700"
-                                      >
-                                        <Upload className="h-4 w-4 mr-2" />
-                                        {campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
-                                      </Button>
+                                      <label htmlFor={`upload-selecao-${campo.id}`}>
+                                        <Button
+                                          size="sm"
+                                          type="button"
+                                          asChild
+                                          className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                                        >
+                                          <span>
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            {campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
+                                          </span>
+                                        </Button>
+                                      </label>
                                     </>
                                   )}
                                 </div>
