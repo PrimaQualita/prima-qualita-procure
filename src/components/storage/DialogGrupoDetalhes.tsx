@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, Search } from "lucide-react";
+import { Eye, Search, ChevronRight, Calendar } from "lucide-react";
 import { useState, useMemo } from "react";
 import { stripHtml } from "@/lib/htmlUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,10 +31,61 @@ const toRoman = (num: number): string => {
   return result;
 };
 
+// Função para extrair ano do grupo
+const extrairAno = (grupo: any): string => {
+  // Tentar extrair do número do processo (ex: 001/2025)
+  if (grupo.processoNumero) {
+    const match = grupo.processoNumero.match(/\/(\d{4})$/);
+    if (match) return match[1];
+  }
+  // Tentar extrair do número da seleção
+  if (grupo.selecaoNumero) {
+    const match = grupo.selecaoNumero.match(/\/(\d{4})$/);
+    if (match) return match[1];
+  }
+  // Tentar extrair de datas
+  if (grupo.dataGeracao) {
+    const date = new Date(grupo.dataGeracao);
+    if (!isNaN(date.getTime())) return date.getFullYear().toString();
+  }
+  if (grupo.dataCriacao) {
+    const date = new Date(grupo.dataCriacao);
+    if (!isNaN(date.getTime())) return date.getFullYear().toString();
+  }
+  // Fallback para ano atual
+  return new Date().getFullYear().toString();
+};
+
 export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, categoria }: DialogGrupoDetalhesProps) {
+  const [anoSelecionado, setAnoSelecionado] = useState<string | null>(null);
   const [documentosGrupo, setDocumentosGrupo] = useState<{nome: string, documentos: any[], grupo?: any} | null>(null);
   const [searchGrupos, setSearchGrupos] = useState("");
   const [searchDocs, setSearchDocs] = useState("");
+
+  // Agrupar por ano
+  const gruposPorAno = useMemo(() => {
+    const mapa = new Map<string, any[]>();
+    grupos.forEach((grupo: any) => {
+      const ano = extrairAno(grupo);
+      if (!mapa.has(ano)) {
+        mapa.set(ano, []);
+      }
+      mapa.get(ano)!.push(grupo);
+    });
+    // Ordenar anos em ordem decrescente (mais recente primeiro)
+    return new Map([...mapa.entries()].sort((a, b) => b[0].localeCompare(a[0])));
+  }, [grupos]);
+
+  // Anos disponíveis
+  const anosDisponiveis = useMemo(() => {
+    return Array.from(gruposPorAno.keys());
+  }, [gruposPorAno]);
+
+  // Grupos do ano selecionado
+  const gruposDoAno = useMemo(() => {
+    if (!anoSelecionado) return [];
+    return gruposPorAno.get(anoSelecionado) || [];
+  }, [anoSelecionado, gruposPorAno]);
 
   // Para planilhas de lances, criar mapa de contagem por seleção
   const planilhasPorSelecao = useMemo(() => {
@@ -46,11 +97,6 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
     });
     return mapa;
   }, [grupos, categoria]);
-
-  // Índice atual por seleção para numeração romana
-  const indicesPorSelecao = useMemo(() => {
-    return new Map<string, number>();
-  }, []);
 
   const getNomeGrupo = (grupo: any, idx: number) => {
     if (tipo === 'fornecedor') return grupo.fornecedorNome;
@@ -161,11 +207,11 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
   };
 
   const gruposFiltrados = useMemo(() => {
-    let resultado = grupos;
+    let resultado = gruposDoAno;
     
     if (searchGrupos.trim()) {
       const termo = searchGrupos.toLowerCase();
-      resultado = grupos.filter((grupo: any, idx: number) => {
+      resultado = gruposDoAno.filter((grupo: any, idx: number) => {
         const nome = getNomeGrupo(grupo, idx).toLowerCase();
         const objeto = getObjetoProcesso(grupo)?.toLowerCase() || "";
         return nome.includes(termo) || objeto.includes(termo);
@@ -182,7 +228,7 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
     }
     
     return resultado;
-  }, [grupos, searchGrupos, tipo]);
+  }, [gruposDoAno, searchGrupos, tipo]);
 
   const documentosFiltrados = useMemo(() => {
     if (!documentosGrupo || !searchDocs.trim()) return documentosGrupo?.documentos || [];
@@ -192,12 +238,79 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
     );
   }, [documentosGrupo, searchDocs]);
 
+  // Calcular total de documentos por ano
+  const getTotalDocumentosAno = (ano: string) => {
+    const gruposAno = gruposPorAno.get(ano) || [];
+    return gruposAno.reduce((total: number, grupo: any) => total + (grupo.documentos?.length || 0), 0);
+  };
+
+  // Calcular total de tamanho por ano
+  const getTotalTamanhoAno = (ano: string) => {
+    const gruposAno = gruposPorAno.get(ano) || [];
+    return gruposAno.reduce((total: number, grupo: any) => {
+      const tamanhoGrupo = grupo.documentos?.reduce((sum: number, doc: any) => sum + (doc.size || 0), 0) || 0;
+      return total + tamanhoGrupo;
+    }, 0);
+  };
+
+  // Reset ao fechar
+  const handleClose = (value: boolean) => {
+    if (!value) {
+      setAnoSelecionado(null);
+      setDocumentosGrupo(null);
+      setSearchGrupos("");
+      setSearchDocs("");
+    }
+    onOpenChange(value);
+  };
+
   return (
     <>
-      <Dialog open={open && !documentosGrupo} onOpenChange={onOpenChange}>
+      {/* Primeiro nível: Seleção de ANO */}
+      <Dialog open={open && !anoSelecionado && !documentosGrupo} onOpenChange={handleClose}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{titulo} - Selecione o Ano</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 overflow-y-auto flex-1 pr-2">
+            {anosDisponiveis.map((ano) => (
+              <Card 
+                key={ano} 
+                className="border-primary/20 hover:border-primary/50 cursor-pointer transition-colors"
+                onClick={() => setAnoSelecionado(ano)}
+              >
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-primary/10 p-2 rounded-lg">
+                        <Calendar className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-xl">{ano}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {gruposPorAno.get(ano)?.length || 0} {tipo === 'processo' ? 'processo(s)' : tipo === 'fornecedor' ? 'fornecedor(es)' : 'grupo(s)'} • {getTotalDocumentosAno(ano)} documento(s) • {(getTotalTamanhoAno(ano) / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {anosDisponiveis.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">Nenhum documento encontrado.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Segundo nível: Lista de grupos do ano */}
+      <Dialog open={!!anoSelecionado && !documentosGrupo} onOpenChange={() => setAnoSelecionado(null)}>
         <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{titulo}</DialogTitle>
+            <DialogTitle>
+              <span className="text-muted-foreground">{titulo} •</span> {anoSelecionado}
+            </DialogTitle>
           </DialogHeader>
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -241,14 +354,20 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
                 </CardContent>
               </Card>
             ))}
+            {gruposFiltrados.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">Nenhum resultado encontrado.</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* Terceiro nível: Documentos do grupo */}
       <Dialog open={!!documentosGrupo} onOpenChange={() => setDocumentosGrupo(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{documentosGrupo?.nome} - Documentos</DialogTitle>
+            <DialogTitle>
+              <span className="text-muted-foreground">{anoSelecionado} •</span> {documentosGrupo?.nome}
+            </DialogTitle>
           </DialogHeader>
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
