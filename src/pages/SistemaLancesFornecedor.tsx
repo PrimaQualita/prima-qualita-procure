@@ -1269,26 +1269,28 @@ const SistemaLancesFornecedor = () => {
 
       console.log("🔥 Lance inserido com sucesso. tipo_lance:", tipoLance);
 
-      // Se for negociação, registrar no chat que fornecedor aceitou
-      // O gestor é quem fecha o item através do sistema de controle
-      if (isNegociacao) {
-        console.log("📨 Registrando aceitação de negociação no chat:", numeroItem);
+      // Se for negociação, fechar a negociação automaticamente após enviar o lance
+      if (isNegociacao && proposta.codigo_acesso) {
+        console.log("📨 Fechando negociação após aceitar - Item:", numeroItem);
         
-        // Registrar no chat que fornecedor aceitou e melhorou a oferta
-        const { error: chatError } = await supabase
-          .from("mensagens_negociacao")
-          .insert({
-            selecao_id: selecao.id,
-            fornecedor_id: proposta.fornecedor_id,
-            numero_item: numeroItem,
-            mensagem: "✅ Fornecedor aceitou a negociação e melhorou a oferta.",
-            tipo_remetente: "fornecedor"
-          });
-        
-        if (chatError) {
-          console.error("❌ Erro ao inserir mensagem no chat:", chatError);
+        // Usar função SECURITY DEFINER para fechar negociação via código de acesso
+        const { data, error: fechamentoError } = await supabase.rpc('fechar_negociacao_fornecedor', {
+          p_selecao_id: selecao.id,
+          p_numero_item: numeroItem,
+          p_fornecedor_id: proposta.fornecedor_id,
+          p_codigo_acesso: proposta.codigo_acesso,
+          p_foi_aceito: true // Indica que foi aceitação, não recusa
+        });
+
+        if (fechamentoError) {
+          console.error("❌ Erro ao fechar negociação:", fechamentoError);
         } else {
-          console.log("✅ Mensagem de aceitação registrada no chat");
+          const result = data as { success: boolean; error?: string };
+          if (result?.success) {
+            console.log("✅ Negociação fechada com sucesso após aceitar");
+          } else {
+            console.error("❌ Falha ao fechar negociação:", result?.error);
+          }
         }
       }
 
@@ -1322,7 +1324,8 @@ const SistemaLancesFornecedor = () => {
         p_selecao_id: selecao.id,
         p_numero_item: numeroItem,
         p_fornecedor_id: proposta.fornecedor_id,
-        p_codigo_acesso: proposta.codigo_acesso
+        p_codigo_acesso: proposta.codigo_acesso,
+        p_foi_aceito: false // Indica que foi recusa
       });
 
       if (error) throw error;
