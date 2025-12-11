@@ -809,6 +809,45 @@ export function DialogPlanilhaConsolidada({
       // TERCEIRO: Deletar documentos enviados pelos fornecedores
       if (campos && campos.length > 0) {
         const campoIds = campos.map(c => c.id);
+        
+        // CRÍTICO: Buscar URLs dos arquivos ANTES de deletar registros
+        const { data: docsParaDeletar } = await supabase
+          .from("documentos_finalizacao_fornecedor")
+          .select("url_arquivo")
+          .in("campo_documento_id", campoIds);
+        
+        // Deletar arquivos do storage PRIMEIRO
+        if (docsParaDeletar && docsParaDeletar.length > 0) {
+          const pathsParaDeletar = docsParaDeletar
+            .filter(d => d.url_arquivo)
+            .map(d => {
+              let path = d.url_arquivo;
+              // Limpar URL para extrair apenas o path relativo
+              if (path.includes('/processo-anexos/')) {
+                path = path.split('/processo-anexos/')[1];
+              }
+              if (path.includes('?')) {
+                path = path.split('?')[0];
+              }
+              return path;
+            })
+            .filter(Boolean);
+          
+          if (pathsParaDeletar.length > 0) {
+            console.log(`🗑️ Deletando ${pathsParaDeletar.length} arquivos do storage...`);
+            const { error: storageError } = await supabase.storage
+              .from("processo-anexos")
+              .remove(pathsParaDeletar);
+            
+            if (storageError) {
+              console.error("Erro ao deletar arquivos do storage:", storageError);
+            } else {
+              console.log("✅ Arquivos deletados do storage");
+            }
+          }
+        }
+        
+        // DEPOIS deletar registros do banco
         const { error: deleteDocsError } = await supabase
           .from("documentos_finalizacao_fornecedor")
           .delete()
