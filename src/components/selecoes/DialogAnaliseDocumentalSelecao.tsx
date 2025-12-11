@@ -559,8 +559,9 @@ export function DialogAnaliseDocumentalSelecao({
         } else {
           forn.valorTotal += lance.valor_lance * quantidade; // Somar valor monetário total
         }
+        console.log(`📌 [VENCEDOR ORIGINAL] ${forn.razao_social} agora tem itensVencedores:`, [...forn.itensVencedores]);
       });
-      
+
       // Depois, adicionar itens dos segundos colocados
       segundosColocadosMap.forEach((segundo, itemNum) => {
         const fornId = segundo.fornecedor_id;
@@ -586,6 +587,7 @@ export function DialogAnaliseDocumentalSelecao({
             forn.valorTotal += segundo.valor_lance * quantidade; // Somar valor monetário total
           }
         }
+        console.log(`📌 [SEGUNDO COLOCADO] ${forn.razao_social} agora tem itensVencedores:`, [...forn.itensVencedores]);
       });
 
       // Carregar documentos e campos de cada fornecedor
