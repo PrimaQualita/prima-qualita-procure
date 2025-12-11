@@ -251,14 +251,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-indigo-700/70">PDFs de propostas</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.propostas_selecao?.porProcesso?.length > 0 && (
+                    {(resultado.estatisticasPorCategoria?.propostas_selecao?.arquivos > 0) && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setGrupoDetalhes({
                           titulo: 'Propostas de Seleção',
                           tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.propostas_selecao.porProcesso,
+                          grupos: resultado.estatisticasPorCategoria.propostas_selecao.porProcesso || [],
                           categoria: 'propostas_selecao'
                         })}
                       >
@@ -396,14 +396,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-teal-700/70">Consolidadas</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.planilhas_lances?.porProcesso?.length > 0 && (
+                    {(resultado.estatisticasPorCategoria?.planilhas_lances?.arquivos > 0) && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setGrupoDetalhes({
                           titulo: 'Planilhas de Lances',
                           tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.planilhas_lances.porProcesso,
+                          grupos: resultado.estatisticasPorCategoria.planilhas_lances.porProcesso || [],
                           categoria: 'planilhas_lances'
                         })}
                       >
@@ -425,7 +425,7 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-amber-700/70">Enviados e respostas</p>
                     </div>
-                    {(resultado.estatisticasPorCategoria?.recursos?.porProcessoHierarquico?.length > 0 || resultado.estatisticasPorCategoria?.recursos?.porSelecao?.length > 0) && (
+                    {(resultado.estatisticasPorCategoria?.recursos?.arquivos > 0) && (
                       <Button
                         size="sm"
                         variant="outline"

@@ -84,7 +84,8 @@ Deno.serve(async (req) => {
       { data: referencias, error: refError },
       { data: anexosProcessoTipos },
       { data: fornecedores },
-      { data: avaliacoes }
+      { data: avaliacoes },
+      { data: propostasSelecaoDB }
     ] = await Promise.all([
       supabase.from('atas_selecao').select(`
         url_arquivo, 
@@ -134,7 +135,19 @@ Deno.serve(async (req) => {
       supabase.rpc('get_all_file_references'),
       supabase.from('anexos_processo_compra').select('url_arquivo, tipo_anexo'),
       supabase.from('fornecedores').select('id, razao_social'),
-      supabase.from('avaliacoes_cadastro_fornecedor').select('id, fornecedor_id')
+      supabase.from('avaliacoes_cadastro_fornecedor').select('id, fornecedor_id'),
+      supabase.from('selecao_propostas_fornecedor').select(`
+        url_pdf_proposta,
+        selecao_id,
+        fornecedor_id,
+        fornecedores!inner(razao_social),
+        selecoes_fornecedores!inner(
+          numero_selecao,
+          titulo_selecao,
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno, objeto_resumido, credenciamento)
+        )
+      `)
     ]);
     
     console.log(`✅ Queries DB: ${Date.now() - startTime}ms`);
@@ -207,7 +220,44 @@ Deno.serve(async (req) => {
     }
     console.log(`📋 Homologações mapeadas: ${homologacoesSelecaoMap.size}`);
 
-    // Processar planilhas consolidadas
+    // Processar propostas de seleção - criar mapa com detalhes para categorização
+    const propostasSelecaoMap = new Map<string, { 
+      selecaoId: string;
+      selecaoNumero: string;
+      processoId: string;
+      processoNumero: string;
+      processoObjeto: string;
+      credenciamento: boolean;
+      fornecedorId: string;
+      fornecedorNome: string;
+    }>();
+    if (propostasSelecaoDB) {
+      for (const prop of propostasSelecaoDB) {
+        if (!prop.url_pdf_proposta) continue;
+        const path = prop.url_pdf_proposta.split('processo-anexos/')[1]?.split('?')[0] || prop.url_pdf_proposta;
+        
+        const selecaoData = (prop as any).selecoes_fornecedores;
+        const processoData = selecaoData?.processos_compras;
+        const fornecedorData = (prop as any).fornecedores;
+        
+        let objetoLimpo = processoData?.objeto_resumido || '';
+        objetoLimpo = objetoLimpo.replace(/<[^>]+>/g, '').trim();
+        
+        propostasSelecaoMap.set(path, {
+          selecaoId: prop.selecao_id,
+          selecaoNumero: selecaoData?.numero_selecao || '',
+          processoId: selecaoData?.processo_compra_id || '',
+          processoNumero: processoData?.numero_processo_interno || '',
+          processoObjeto: objetoLimpo,
+          credenciamento: processoData?.credenciamento || false,
+          fornecedorId: prop.fornecedor_id,
+          fornecedorNome: fornecedorData?.razao_social || 'Desconhecido'
+        });
+        nomesBonitos.set(path, `Proposta ${fornecedorData?.razao_social || 'Desconhecido'}`);
+      }
+    }
+    console.log(`📋 Propostas de seleção mapeadas: ${propostasSelecaoMap.size}`);
+
     if (planilhas) {
       for (const plan of planilhas) {
         const path = plan.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || plan.url_arquivo;
@@ -2187,22 +2237,53 @@ Deno.serve(async (req) => {
           console.log(`❌ Planilha final sem dados de processo no banco`);
         }
       } else {
-        // Outros - SOMENTE se arquivo tem referência no banco
-        // Se não tiver referência, deixar para lógica de órfãos
-        if (!arquivosJaCategorizados.has(path)) {
-          // Verificar se tem referência no banco antes de categorizar como "outros"
-          const temReferencia = pathsDB.has(path) || nomeArquivoDB.has(fileName);
+        // Verificar se é uma proposta de seleção pelo mapa
+        if (propostasSelecaoMap.has(pathSemBucket)) {
+          arquivosJaCategorizados.add(path);
+          estatisticasPorCategoria.propostas_selecao.arquivos++;
+          estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
           
-          if (temReferencia) {
-            estatisticasPorCategoria.outros.arquivos++;
-            estatisticasPorCategoria.outros.tamanho += metadata.size;
-            estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
-            arquivosJaCategorizados.add(path);
-          } else {
-            console.log(`⚠️ Arquivo "${fileName}" não tem referência no banco - será verificado como órfão`);
+          const propostaInfo = propostasSelecaoMap.get(pathSemBucket)!;
+          const processoKey = propostaInfo.processoId;
+          const tipoSelecao = propostaInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+          
+          if (!estatisticasPorCategoria.propostas_selecao.porProcesso!.has(processoKey)) {
+            estatisticasPorCategoria.propostas_selecao.porProcesso!.set(processoKey, {
+              processoId: processoKey,
+              processoNumero: propostaInfo.processoNumero,
+              processoObjeto: propostaInfo.processoObjeto,
+              tipoSelecao,
+              selecaoNumero: propostaInfo.selecaoNumero,
+              credenciamento: propostaInfo.credenciamento,
+              documentos: []
+            });
           }
+          
+          estatisticasPorCategoria.propostas_selecao.porProcesso!.get(processoKey)!.documentos.push({
+            path,
+            fileName: `Proposta ${propostaInfo.fornecedorNome}`,
+            size: metadata.size,
+            fornecedorNome: propostaInfo.fornecedorNome
+          });
+          console.log(`   ✅ Categorizado como PROPOSTA DE SELEÇÃO - ${propostaInfo.fornecedorNome}`);
         } else {
-          console.log(`📁 Arquivo ignorado em "outros" (já categorizado): ${fileName}`);
+          // Outros - SOMENTE se arquivo tem referência no banco
+          // Se não tiver referência, deixar para lógica de órfãos
+          if (!arquivosJaCategorizados.has(path)) {
+            // Verificar se tem referência no banco antes de categorizar como "outros"
+            const temReferencia = pathsDB.has(path) || nomeArquivoDB.has(fileName);
+            
+            if (temReferencia) {
+              estatisticasPorCategoria.outros.arquivos++;
+              estatisticasPorCategoria.outros.tamanho += metadata.size;
+              estatisticasPorCategoria.outros.detalhes.push({ path, fileName, size: metadata.size });
+              arquivosJaCategorizados.add(path);
+            } else {
+              console.log(`⚠️ Arquivo "${fileName}" não tem referência no banco - será verificado como órfão`);
+            }
+          } else {
+            console.log(`📁 Arquivo ignorado em "outros" (já categorizado): ${fileName}`);
+          }
         }
       }
       
