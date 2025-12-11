@@ -172,7 +172,7 @@ const ParticiparSelecao = () => {
     try {
       const { data: fornecedorExistente } = await supabase
         .from('fornecedores')
-        .select('id, user_id, status_aprovacao')
+        .select('id, user_id, status_aprovacao, razao_social, email, telefone, endereco_comercial')
         .eq('cnpj', cnpjLimpo)
         .maybeSingle();
 
@@ -183,6 +183,35 @@ const ParticiparSelecao = () => {
           existe: true,
           temCadastro: temCadastroCompleto
         });
+        
+        // Preencher automaticamente os dados do fornecedor se já existir
+        setDadosEmpresa(prev => ({
+          ...prev,
+          razao_social: fornecedorExistente.razao_social || prev.razao_social,
+          cnpj: formatarCNPJ(cnpjLimpo),
+          email: fornecedorExistente.email || prev.email,
+          telefone: fornecedorExistente.telefone ? formatarTelefone(fornecedorExistente.telefone) : prev.telefone,
+        }));
+        
+        // Tentar extrair endereço se disponível
+        if (fornecedorExistente.endereco_comercial) {
+          const endereco = fornecedorExistente.endereco_comercial;
+          // Tenta fazer parse do endereço se estiver em formato estruturado
+          const matchEndereco = endereco.match(/^(.+?),?\s*(\d+)?\s*[-,]?\s*(.+?)?\s*[-,]?\s*(.+?)?\s*[-\/]?\s*([A-Z]{2})?\s*[-,]?\s*(\d{5}-?\d{3})?$/i);
+          if (matchEndereco) {
+            setDadosEmpresa(prev => ({
+              ...prev,
+              logradouro: matchEndereco[1]?.trim() || prev.logradouro,
+              numero: matchEndereco[2]?.trim() || prev.numero,
+              bairro: matchEndereco[3]?.trim() || prev.bairro,
+              municipio: matchEndereco[4]?.trim() || prev.municipio,
+              uf: matchEndereco[5]?.trim().toUpperCase() || prev.uf,
+              cep: matchEndereco[6]?.trim() || prev.cep,
+            }));
+          }
+        }
+        
+        toast.success("Dados do fornecedor preenchidos automaticamente!");
       } else {
         setCnpjStatus({ verificando: false, existe: false, temCadastro: false });
       }
