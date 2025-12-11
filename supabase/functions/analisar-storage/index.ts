@@ -1920,7 +1920,40 @@ Deno.serve(async (req) => {
         continue;
       }
       
-      // 4. Para outros tipos de arquivos, usar fallback por nome
+      // 4. Verificar se é documento de habilitação (pasta habilitacao/ - atestados de capacidade técnica, etc.)
+      // CRÍTICO: Documentos solicitados em campos_documentos_finalizacao ficam nesta pasta
+      if (pathSemBucket.startsWith('habilitacao/')) {
+        // Verificar se está em docsHabilitacaoMap (documentos_finalizacao_fornecedor)
+        if (docsHabilitacaoMap.has(pathSemBucket)) {
+          console.log(`✅ Arquivo "${fileName}" em pasta habilitacao está referenciado em documentos_finalizacao_fornecedor`);
+          continue;
+        }
+        // Verificar versão decodificada
+        try {
+          const decodedPath = decodeURIComponent(pathSemBucket);
+          if (docsHabilitacaoMap.has(decodedPath)) {
+            console.log(`✅ Arquivo "${fileName}" em pasta habilitacao encontrado (decoded)`);
+            continue;
+          }
+        } catch (e) {}
+        // Verificar em pathsDB (path completo)
+        if (pathsDB.has(arquivo) || pathsDB.has(`processo-anexos/${pathSemBucket}`)) {
+          console.log(`✅ Arquivo "${fileName}" em pasta habilitacao está referenciado no banco`);
+          continue;
+        }
+        // Verificar por nome do arquivo (fallback)
+        if (nomeArquivoDB.has(fileName)) {
+          console.log(`✅ Arquivo "${fileName}" em pasta habilitacao encontrado por nome`);
+          continue;
+        }
+        // Se não está referenciado, é ÓRFÃO
+        console.log(`⚠️ ÓRFÃO: Arquivo "${fileName}" em pasta habilitacao mas NÃO está referenciado no banco`);
+        arquivosOrfaos.push({ path: arquivo, size: metadata.size });
+        tamanhoOrfaos += metadata.size;
+        continue;
+      }
+      
+      // 5. Para outros tipos de arquivos, usar fallback por nome
       if (nomeArquivoDB.has(fileName)) {
         console.log(`✅ Arquivo "${fileName}" encontrado no DB (fallback por nome)`);
         continue;
