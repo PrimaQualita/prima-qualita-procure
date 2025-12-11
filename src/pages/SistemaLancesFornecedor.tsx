@@ -91,6 +91,42 @@ const SistemaLancesFornecedor = () => {
     });
   }, [itensEstimados]);
 
+  // TEMPO REAL: Atualizar estado `editavel` a cada segundo
+  useEffect(() => {
+    if (!selecao?.data_sessao_disputa || !selecao?.hora_sessao_disputa) return;
+
+    const verificarEditavel = () => {
+      const horaCompleta = selecao.hora_sessao_disputa.includes(':') 
+        ? selecao.hora_sessao_disputa 
+        : `${selecao.hora_sessao_disputa}:00`;
+      const horaFormatada = horaCompleta.split(':').length === 2 ? `${horaCompleta}:00` : horaCompleta;
+      const dataHoraSelecao = new Date(`${selecao.data_sessao_disputa}T${horaFormatada}-03:00`);
+      
+      if (isNaN(dataHoraSelecao.getTime())) return;
+      
+      const cincoMinutosAntes = new Date(dataHoraSelecao.getTime() - 5 * 60 * 1000);
+      const agora = new Date();
+      const agoraBrasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      
+      const novoEditavel = agoraBrasilia < cincoMinutosAntes;
+      
+      setEditavel(prev => {
+        if (prev !== novoEditavel) {
+          console.log("⏰ [TEMPO REAL] Editável mudou:", novoEditavel, { agoraBrasilia: agoraBrasilia.toISOString(), cincoMinutosAntes: cincoMinutosAntes.toISOString() });
+        }
+        return novoEditavel;
+      });
+    };
+
+    // Verificar imediatamente
+    verificarEditavel();
+
+    // Verificar a cada segundo
+    const interval = setInterval(verificarEditavel, 1000);
+
+    return () => clearInterval(interval);
+  }, [selecao?.data_sessao_disputa, selecao?.hora_sessao_disputa]);
+
   // CRÍTICO: Filtrar lances excluindo fornecedores inabilitados de forma reativa
   // Isso garante que sempre que lances ou fornecedoresInabilitados mudam, os lances são refiltrados
   const lancesFiltrados = useMemo(() => {
