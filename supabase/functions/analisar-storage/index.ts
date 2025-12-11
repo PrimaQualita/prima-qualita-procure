@@ -1215,10 +1215,14 @@ Deno.serve(async (req) => {
           arquivosJaCategorizados.add(path);
           
           // O path é selecoes/selecao_UUID_tipo_timestamp.pdf então capturar UUID após selecao_
-          const selecaoIdMatch = pathSemBucket.match(/selecoes\/selecao_([a-f0-9-]+)/);
+          // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (8-4-4-4-12)
+          const selecaoIdMatch = pathSemBucket.match(/selecoes\/selecao_([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+          console.log(`📁 Anexo seleção encontrado: ${pathSemBucket}, UUID match: ${selecaoIdMatch?.[1] || 'não encontrado'}`);
+          
           if (selecaoIdMatch) {
-            const selecaoId = selecaoIdMatch[1];
+            const selecaoId = selecaoIdMatch[1].toLowerCase();
             const selecao = selecoesMap.get(selecaoId);
+            console.log(`   Seleção no mapa: ${selecao ? `${selecao.titulo} (${selecao.numero})` : 'NÃO ENCONTRADA'}`);
             
             if (selecao) {
               if (!estatisticasPorCategoria.anexos_selecao.porSelecao!.has(selecaoId)) {
