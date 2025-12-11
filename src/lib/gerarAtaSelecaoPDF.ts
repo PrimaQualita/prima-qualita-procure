@@ -1688,10 +1688,13 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const finalUrl = publicUrl + cacheBust;
   console.log('>>> URL final com cache bust:', finalUrl);
 
-  // Atualizar registro da ata com nova URL
+  // Atualizar registro da ata com nova URL e limpar url_arquivo_original (arquivo já foi deletado)
   const { error: updateError } = await supabase
     .from('atas_selecao')
-    .update({ url_arquivo: finalUrl })
+    .update({ 
+      url_arquivo: finalUrl,
+      url_arquivo_original: null // Limpar referência ao arquivo original que foi deletado
+    })
     .eq('id', ataId);
 
   if (updateError) {

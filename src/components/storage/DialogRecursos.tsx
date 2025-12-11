@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, Search, ChevronLeft } from "lucide-react";
+import { Eye, Search, ChevronLeft, Calendar } from "lucide-react";
 import { useState, useMemo } from "react";
 import { stripHtml } from "@/lib/htmlUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +35,17 @@ interface DialogRecursosProps {
 
 type TipoRecurso = 'enviados' | 'respostas';
 
+// Extrair ano do processo
+const extrairAno = (proc: Processo): string => {
+  if (proc.processoNumero) {
+    const match = proc.processoNumero.match(/\/(\d{4})$/);
+    if (match) return match[1];
+  }
+  return new Date().getFullYear().toString();
+};
+
 export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursosProps) {
+  const [anoSelecionado, setAnoSelecionado] = useState<string | null>(null);
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState<Fornecedor | null>(null);
   const [tipoRecursoSelecionado, setTipoRecursoSelecionado] = useState<TipoRecurso | null>(null);
@@ -43,8 +53,28 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
   const [searchFornecedores, setSearchFornecedores] = useState("");
   const [searchRecursos, setSearchRecursos] = useState("");
 
-  // View atual: 'processos' | 'fornecedores' | 'tipos' | 'recursos'
-  const view = tipoRecursoSelecionado ? 'recursos' : fornecedorSelecionado ? 'tipos' : processoSelecionado ? 'fornecedores' : 'processos';
+  // Agrupar processos por ano
+  const processosPorAno = useMemo(() => {
+    const mapa = new Map<string, Processo[]>();
+    processos.forEach((proc) => {
+      const ano = extrairAno(proc);
+      if (!mapa.has(ano)) {
+        mapa.set(ano, []);
+      }
+      mapa.get(ano)!.push(proc);
+    });
+    return new Map([...mapa.entries()].sort((a, b) => b[0].localeCompare(a[0])));
+  }, [processos]);
+
+  const anosDisponiveis = useMemo(() => Array.from(processosPorAno.keys()), [processosPorAno]);
+
+  const processosDoAno = useMemo(() => {
+    if (!anoSelecionado) return [];
+    return processosPorAno.get(anoSelecionado) || [];
+  }, [anoSelecionado, processosPorAno]);
+
+  // View atual: 'anos' | 'processos' | 'fornecedores' | 'tipos' | 'recursos'
+  const view = tipoRecursoSelecionado ? 'recursos' : fornecedorSelecionado ? 'tipos' : processoSelecionado ? 'fornecedores' : anoSelecionado ? 'processos' : 'anos';
 
   const handleVoltar = () => {
     if (view === 'recursos') {
@@ -55,11 +85,15 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
     } else if (view === 'fornecedores') {
       setProcessoSelecionado(null);
       setSearchFornecedores("");
+    } else if (view === 'processos') {
+      setAnoSelecionado(null);
+      setSearchProcessos("");
     }
   };
 
   const handleClose = () => {
     onOpenChange(false);
+    setAnoSelecionado(null);
     setProcessoSelecionado(null);
     setFornecedorSelecionado(null);
     setTipoRecursoSelecionado(null);
@@ -69,24 +103,23 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
   };
 
   const processosFiltrados = useMemo(() => {
-    let resultado = processos;
+    let resultado = processosDoAno;
     
     if (searchProcessos.trim()) {
       const termo = searchProcessos.toLowerCase();
-      resultado = processos.filter((proc) => {
+      resultado = processosDoAno.filter((proc) => {
         const numero = proc.processoNumero.toLowerCase();
         const objeto = stripHtml(proc.processoObjeto).toLowerCase();
         return numero.includes(termo) || objeto.includes(termo);
       });
     }
     
-    // Ordenar por número do processo em ordem crescente
     return resultado.sort((a, b) => {
       const numA = a.processoNumero.split('/')[0];
       const numB = b.processoNumero.split('/')[0];
       return numA.localeCompare(numB, undefined, { numeric: true });
     });
-  }, [processos, searchProcessos]);
+  }, [processosDoAno, searchProcessos]);
 
   const fornecedoresFiltrados = useMemo(() => {
     if (!processoSelecionado) return [];
@@ -138,6 +171,16 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
     );
   };
 
+  const getTotalRecursosAno = (ano: string) => {
+    const procs = processosPorAno.get(ano) || [];
+    return procs.reduce((sum, proc) => sum + getTotalRecursosProcesso(proc), 0);
+  };
+
+  const getTotalSizeAno = (ano: string) => {
+    const procs = processosPorAno.get(ano) || [];
+    return procs.reduce((sum, proc) => sum + getTotalSizeProcesso(proc), 0);
+  };
+
   const formatRecursoName = (recurso: Recurso, tipo: TipoRecurso) => {
     if (tipo === 'respostas') {
       return `Resposta Recurso ${recurso.fornecedorNome}`;
@@ -150,13 +193,14 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
       <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            {view !== 'processos' && (
+            {view !== 'anos' && (
               <Button variant="ghost" size="sm" onClick={handleVoltar}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
             )}
             <DialogTitle>
-              {view === 'processos' && 'Recursos - Processos'}
+              {view === 'anos' && 'Recursos - Selecione o Ano'}
+              {view === 'processos' && <><span className="text-muted-foreground">Recursos •</span> {anoSelecionado}</>}
               {view === 'fornecedores' && `Processo ${processoSelecionado!.processoNumero} - Fornecedores`}
               {view === 'tipos' && `${fornecedorSelecionado!.fornecedorNome} - Tipos de Recurso`}
               {view === 'recursos' && `${tipoRecursoSelecionado === 'enviados' ? 'Recursos Enviados' : 'Respostas de Recursos'}`}
@@ -164,8 +208,40 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
           </div>
         </DialogHeader>
 
+        {/* Seleção de Ano */}
+        {view === 'anos' && (
+          <div className="space-y-3 overflow-y-auto flex-1 pr-2">
+            {anosDisponiveis.map((ano) => (
+              <Card 
+                key={ano} 
+                className="border-primary/20 hover:border-primary/50 cursor-pointer transition-colors"
+                onClick={() => setAnoSelecionado(ano)}
+              >
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-primary/10 p-2 rounded-lg">
+                        <Calendar className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-xl">{ano}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {processosPorAno.get(ano)?.length || 0} processo(s) • {getTotalRecursosAno(ano)} recurso(s) • {(getTotalSizeAno(ano) / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {anosDisponiveis.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">Nenhum recurso encontrado.</p>
+            )}
+          </div>
+        )}
+
         {/* Barra de pesquisa */}
-        {view !== 'tipos' && (
+        {view !== 'anos' && view !== 'tipos' && (
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
