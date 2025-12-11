@@ -50,6 +50,7 @@ const TIPOS_ANEXOS_OBRIGATORIOS = [
 
 const TIPOS_ANEXOS_GERADOS = [
   { tipo: "PROCESSO_COMPLETO", label: "Processo Completo Consolidado" },
+  { tipo: "PROCESSO_COMPLETO_SELECAO", label: "Processo Completo Consolidado" },
 ];
 
 export function DialogAnexosProcesso({
@@ -238,9 +239,9 @@ export function DialogAnexosProcesso({
 
       if (error) throw error;
 
-      // Se deletou o processo completo, apenas voltar status - NÃO deletar documentos individuais
+      // Se deletou o processo completo (compra direta ou seleção), apenas voltar status - NÃO deletar documentos individuais
       // (planilha de habilitação, relatório final e autorização devem ser mantidos)
-      if (anexo.tipo_anexo === "PROCESSO_COMPLETO" && processoId) {
+      if ((anexo.tipo_anexo === "PROCESSO_COMPLETO" || anexo.tipo_anexo === "PROCESSO_COMPLETO_SELECAO") && processoId) {
         console.log("🗑️ Processo completo deletado, voltando status do processo...");
         
         // Voltar status para em_cotacao e zerar valor total
