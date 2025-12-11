@@ -258,7 +258,8 @@ export default function GestaoStorage() {
                         onClick={() => setGrupoDetalhes({
                           titulo: 'Propostas de Seleção',
                           tipo: 'selecao',
-                          grupos: resultado.estatisticasPorCategoria.propostas_selecao.porSelecao
+                          grupos: resultado.estatisticasPorCategoria.propostas_selecao.porSelecao,
+                          categoria: 'propostas_selecao'
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -317,6 +318,64 @@ export default function GestaoStorage() {
                           tipo: 'processo',
                           grupos: resultado.estatisticasPorCategoria.editais.porProcesso,
                           categoria: 'editais'
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-rose-200 bg-rose-50/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-rose-900">Atas do Certame</p>
+                      <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.atas_certame?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-rose-600">
+                        {resultado.estatisticasPorCategoria?.atas_certame?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-rose-700/70">Atas de Seleção</p>
+                    </div>
+                    {(resultado.estatisticasPorCategoria?.atas_certame?.porProcesso?.length > 0) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Atas do Certame',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.atas_certame.porProcesso,
+                          categoria: 'atas_certame'
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-violet-200 bg-violet-50/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-violet-900">Homologações</p>
+                      <p className="text-2xl font-bold text-violet-700">{resultado.estatisticasPorCategoria?.homologacoes?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-violet-600">
+                        {resultado.estatisticasPorCategoria?.homologacoes?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-violet-700/70">Homologações de Seleção</p>
+                    </div>
+                    {(resultado.estatisticasPorCategoria?.homologacoes?.porProcesso?.length > 0) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Homologações',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.homologacoes.porProcesso,
+                          categoria: 'homologacoes'
                         })}
                       >
                         <Eye className="h-4 w-4" />

@@ -86,8 +86,28 @@ Deno.serve(async (req) => {
       { data: fornecedores },
       { data: avaliacoes }
     ] = await Promise.all([
-      supabase.from('atas_selecao').select('url_arquivo, nome_arquivo'),
-      supabase.from('homologacoes_selecao').select('url_arquivo, nome_arquivo'),
+      supabase.from('atas_selecao').select(`
+        url_arquivo, 
+        nome_arquivo, 
+        selecao_id,
+        selecoes_fornecedores!inner(
+          titulo_selecao,
+          numero_selecao,
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno, objeto_resumido, credenciamento)
+        )
+      `),
+      supabase.from('homologacoes_selecao').select(`
+        url_arquivo, 
+        nome_arquivo, 
+        selecao_id,
+        selecoes_fornecedores!inner(
+          titulo_selecao,
+          numero_selecao,
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno, objeto_resumido, credenciamento)
+        )
+      `),
       supabase.from('planilhas_consolidadas').select('url_arquivo, nome_arquivo'),
       supabase.from('planilhas_lances_selecao').select('url_arquivo, nome_arquivo'),
       supabase.from('autorizacoes_processo').select(`url_arquivo, nome_arquivo, tipo_autorizacao, cotacao_id, cotacoes_precos!inner(processo_compra_id, processos_compras!inner(numero_processo_interno, objeto_resumido))`),
@@ -119,21 +139,73 @@ Deno.serve(async (req) => {
     
     console.log(`✅ Queries DB: ${Date.now() - startTime}ms`);
     
-    // Processar atas
+    // Processar atas - criar mapa com detalhes
+    const atasSelecaoMap = new Map<string, { 
+      selecaoId: string;
+      selecaoNumero: string;
+      processoId: string;
+      processoNumero: string;
+      processoObjeto: string;
+      credenciamento: boolean;
+      nomeArquivo: string;
+    }>();
     if (atas) {
       for (const ata of atas) {
         const path = ata.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || ata.url_arquivo;
         nomesBonitos.set(path, ata.nome_arquivo);
+        
+        const selecaoData = (ata as any).selecoes_fornecedores;
+        const processoData = selecaoData?.processos_compras;
+        
+        let objetoLimpo = processoData?.objeto_resumido || '';
+        objetoLimpo = objetoLimpo.replace(/<[^>]+>/g, '').trim();
+        
+        atasSelecaoMap.set(path, {
+          selecaoId: ata.selecao_id,
+          selecaoNumero: selecaoData?.numero_selecao || '',
+          processoId: selecaoData?.processo_compra_id || '',
+          processoNumero: processoData?.numero_processo_interno || '',
+          processoObjeto: objetoLimpo,
+          credenciamento: processoData?.credenciamento || false,
+          nomeArquivo: ata.nome_arquivo
+        });
       }
     }
+    console.log(`📋 Atas de seleção mapeadas: ${atasSelecaoMap.size}`);
 
-    // Processar homologações
+    // Processar homologações - criar mapa com detalhes
+    const homologacoesSelecaoMap = new Map<string, { 
+      selecaoId: string;
+      selecaoNumero: string;
+      processoId: string;
+      processoNumero: string;
+      processoObjeto: string;
+      credenciamento: boolean;
+      nomeArquivo: string;
+    }>();
     if (homologacoes) {
       for (const homol of homologacoes) {
         const path = homol.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || homol.url_arquivo;
         nomesBonitos.set(path, homol.nome_arquivo);
+        
+        const selecaoData = (homol as any).selecoes_fornecedores;
+        const processoData = selecaoData?.processos_compras;
+        
+        let objetoLimpo = processoData?.objeto_resumido || '';
+        objetoLimpo = objetoLimpo.replace(/<[^>]+>/g, '').trim();
+        
+        homologacoesSelecaoMap.set(path, {
+          selecaoId: homol.selecao_id,
+          selecaoNumero: selecaoData?.numero_selecao || '',
+          processoId: selecaoData?.processo_compra_id || '',
+          processoNumero: processoData?.numero_processo_interno || '',
+          processoObjeto: objetoLimpo,
+          credenciamento: processoData?.credenciamento || false,
+          nomeArquivo: homol.nome_arquivo
+        });
       }
     }
+    console.log(`📋 Homologações mapeadas: ${homologacoesSelecaoMap.size}`);
 
     // Processar planilhas consolidadas
     if (planilhas) {
@@ -752,6 +824,34 @@ Deno.serve(async (req) => {
           documentos: Array<{ path: string; fileName: string; size: number }>;
         }>() 
       },
+      atas_certame: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porProcesso: new Map<string, { 
+          processoId: string; 
+          processoNumero: string; 
+          processoObjeto: string;
+          tipoSelecao: string;
+          selecaoNumero: string;
+          credenciamento: boolean;
+          documentos: Array<{ path: string; fileName: string; size: number }>;
+        }>() 
+      },
+      homologacoes: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porProcesso: new Map<string, { 
+          processoId: string; 
+          processoNumero: string; 
+          processoObjeto: string;
+          tipoSelecao: string;
+          selecaoNumero: string;
+          credenciamento: boolean;
+          documentos: Array<{ path: string; fileName: string; size: number }>;
+        }>() 
+      },
       planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
       recursos: { 
         arquivos: 0, 
@@ -1347,6 +1447,115 @@ Deno.serve(async (req) => {
             console.log(`   ⚠️ Anexo seleção sem registro no banco: ${pathSemBucket}`);
           }
           
+          continue;
+        }
+        
+        // 8. Atas de seleção (atas-selecao/)
+        if (pathSemBucket.includes('atas-selecao/') || atasSelecaoMap.has(pathSemBucket)) {
+          arquivosJaCategorizados.add(path);
+          estatisticasPorCategoria.atas_certame.arquivos++;
+          estatisticasPorCategoria.atas_certame.tamanho += metadata.size;
+          estatisticasPorCategoria.atas_certame.detalhes.push({ path, fileName, size: metadata.size });
+          
+          const ataInfo = atasSelecaoMap.get(pathSemBucket);
+          if (ataInfo) {
+            const tipoSelecao = ataInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+            const processoKey = ataInfo.processoId;
+            
+            if (!estatisticasPorCategoria.atas_certame.porProcesso!.has(processoKey)) {
+              estatisticasPorCategoria.atas_certame.porProcesso!.set(processoKey, {
+                processoId: ataInfo.processoId,
+                processoNumero: ataInfo.processoNumero,
+                processoObjeto: ataInfo.processoObjeto,
+                tipoSelecao,
+                selecaoNumero: ataInfo.selecaoNumero,
+                credenciamento: ataInfo.credenciamento,
+                documentos: []
+              });
+            }
+            estatisticasPorCategoria.atas_certame.porProcesso!.get(processoKey)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+            console.log(`   ✅ Categorizado como ATA - ${tipoSelecao} ${ataInfo.selecaoNumero}`);
+          }
+          continue;
+        }
+        
+        // 9. Homologações de seleção (homologacoes-selecao/)
+        if (pathSemBucket.includes('homologacoes-selecao/') || homologacoesSelecaoMap.has(pathSemBucket)) {
+          arquivosJaCategorizados.add(path);
+          estatisticasPorCategoria.homologacoes.arquivos++;
+          estatisticasPorCategoria.homologacoes.tamanho += metadata.size;
+          estatisticasPorCategoria.homologacoes.detalhes.push({ path, fileName, size: metadata.size });
+          
+          const homolInfo = homologacoesSelecaoMap.get(pathSemBucket);
+          if (homolInfo) {
+            const tipoSelecao = homolInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+            const processoKey = homolInfo.processoId;
+            
+            if (!estatisticasPorCategoria.homologacoes.porProcesso!.has(processoKey)) {
+              estatisticasPorCategoria.homologacoes.porProcesso!.set(processoKey, {
+                processoId: homolInfo.processoId,
+                processoNumero: homolInfo.processoNumero,
+                processoObjeto: homolInfo.processoObjeto,
+                tipoSelecao,
+                selecaoNumero: homolInfo.selecaoNumero,
+                credenciamento: homolInfo.credenciamento,
+                documentos: []
+              });
+            }
+            estatisticasPorCategoria.homologacoes.porProcesso!.get(processoKey)!.documentos.push({
+              path,
+              fileName,
+              size: metadata.size
+            });
+            console.log(`   ✅ Categorizado como HOMOLOGAÇÃO - ${tipoSelecao} ${homolInfo.selecaoNumero}`);
+          }
+          continue;
+        }
+        
+        // 10. Propostas de seleção que estão em proposta_selecao_
+        if (pathSemBucket.startsWith('proposta_selecao_')) {
+          arquivosJaCategorizados.add(path);
+          estatisticasPorCategoria.propostas_selecao.arquivos++;
+          estatisticasPorCategoria.propostas_selecao.tamanho += metadata.size;
+          estatisticasPorCategoria.propostas_selecao.detalhes.push({ path, fileName, size: metadata.size });
+          
+          // Buscar proposta no banco
+          const { data: propostaData } = await supabase
+            .from('selecao_propostas_fornecedor')
+            .select(`
+              selecao_id,
+              fornecedor_id,
+              fornecedores!inner(razao_social),
+              selecoes_fornecedores!inner(numero_selecao, titulo_selecao)
+            `)
+            .ilike('url_pdf_proposta', `%${pathSemBucket}%`)
+            .maybeSingle();
+          
+          if (propostaData) {
+            const selecaoId = propostaData.selecao_id;
+            const fornecedorNome = (propostaData as any).fornecedores?.razao_social || 'Desconhecido';
+            const selecaoData = (propostaData as any).selecoes_fornecedores;
+            
+            if (!estatisticasPorCategoria.propostas_selecao.porSelecao!.has(selecaoId)) {
+              estatisticasPorCategoria.propostas_selecao.porSelecao!.set(selecaoId, {
+                selecaoId,
+                selecaoTitulo: selecaoData?.titulo_selecao || '',
+                selecaoNumero: selecaoData?.numero_selecao || '',
+                documentos: []
+              });
+            }
+            
+            estatisticasPorCategoria.propostas_selecao.porSelecao!.get(selecaoId)!.documentos.push({
+              path,
+              fileName: `Proposta ${fornecedorNome}`,
+              size: metadata.size,
+              fornecedorNome
+            });
+          }
           continue;
         }
         
@@ -2836,6 +3045,18 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.editais.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.editais.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.editais.porProcesso!.values())
+        },
+        atas_certame: {
+          arquivos: estatisticasPorCategoria.atas_certame.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.atas_certame.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.atas_certame.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.atas_certame.porProcesso!.values())
+        },
+        homologacoes: {
+          arquivos: estatisticasPorCategoria.homologacoes.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.homologacoes.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.homologacoes.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.homologacoes.porProcesso!.values())
         },
         planilhas_lances: {
           arquivos: estatisticasPorCategoria.planilhas_lances.arquivos,
