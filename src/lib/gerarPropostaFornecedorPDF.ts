@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { supabase } from '@/integrations/supabase/client';
+import { supabasePublic as supabase } from '@/integrations/supabase/public-client';
 import { gerarHashDocumento } from './certificacaoDigital';
 
 // Função para formatar CNPJ
