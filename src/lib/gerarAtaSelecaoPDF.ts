@@ -1665,6 +1665,20 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   console.log('>>> Upload concluído com sucesso');
 
+  // Deletar arquivo original (não-assinado) para evitar duplicação
+  if (storagePath !== newStoragePath) {
+    console.log('>>> Deletando arquivo original não-assinado:', storagePath);
+    const { error: deleteError } = await supabase.storage
+      .from('processo-anexos')
+      .remove([storagePath]);
+    
+    if (deleteError) {
+      console.warn('Aviso: Não foi possível deletar arquivo original:', deleteError);
+    } else {
+      console.log('>>> Arquivo original deletado com sucesso');
+    }
+  }
+
   // Obter URL pública do novo PDF com cache bust
   const cacheBust = `?t=${Date.now()}`;
   const { data: { publicUrl } } = supabase.storage
