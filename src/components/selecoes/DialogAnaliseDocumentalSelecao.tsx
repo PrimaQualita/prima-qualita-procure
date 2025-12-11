@@ -451,6 +451,13 @@ export function DialogAnaliseDocumentalSelecao({
         }
       });
 
+      console.log("📋 [ANÁLISE DOC] InabilitacoesMap final:", 
+        Array.from(inabilitacoesMap.entries()).map(([id, inab]) => ({
+          fornecedor_id: id,
+          itens_afetados: inab.itens_afetados,
+          motivo: inab.motivo_inabilitacao
+        })));
+
       // Identificar itens que foram inabilitados e precisam ir para segundo colocado
       const itensInabilitadosParaSegundo: number[] = [];
       (vencedoresData || []).forEach((lance: any) => {
@@ -592,12 +599,15 @@ export function DialogAnaliseDocumentalSelecao({
 
           const todosAprovados = verificarTodosDocumentosAprovados(forn.id, docs, campos);
 
+          const inabilitacaoFornecedor = inabilitacoesMap.get(forn.id);
+          console.log(`🔍 [FORNECEDOR ${forn.razao_social}] id: ${forn.id}, inabilitado:`, inabilitacaoFornecedor);
+
           return {
             fornecedor: forn,
             documentosExistentes: docs,
             campos: campos,
             todosDocumentosAprovados: todosAprovados,
-            inabilitado: inabilitacoesMap.get(forn.id),
+            inabilitado: inabilitacaoFornecedor,
           };
         })
       );
