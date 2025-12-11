@@ -1,11 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollAreaWithArrows } from "@/components/ui/scroll-area-with-arrows";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Send, Lock } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface MensagemNegociacao {
   id: string;
@@ -27,6 +31,7 @@ interface ChatNegociacaoProps {
   isGestor?: boolean;
   codigoAcesso?: string;
   onClose?: () => void;
+  open?: boolean;
 }
 
 export function ChatNegociacao({
@@ -38,11 +43,13 @@ export function ChatNegociacao({
   isGestor = true,
   codigoAcesso,
   onClose,
+  open = true,
 }: ChatNegociacaoProps) {
   const [mensagens, setMensagens] = useState<MensagemNegociacao[]>([]);
   const [novaMensagem, setNovaMensagem] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
 
   useEffect(() => {
@@ -68,6 +75,11 @@ export function ChatNegociacao({
       supabase.removeChannel(channel);
     };
   }, [selecaoId, numeroItem, fornecedorId]);
+
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [mensagens]);
 
 
   const loadUserProfile = async () => {
@@ -181,87 +193,91 @@ export function ChatNegociacao({
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit",
     });
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="py-2 px-3 border-b">
-        <CardTitle className="text-xs flex items-center gap-2">
-          <Lock className="h-3 w-3 text-amber-600" />
-          Chat Privado - Item {numeroItem}
-        </CardTitle>
-        <p className="text-xs text-muted-foreground truncate">
-          Negociação com: {fornecedorNome}
-        </p>
-      </CardHeader>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose?.()}>
+      <DialogContent className="max-w-2xl h-[70vh] flex flex-col p-0">
+        <DialogHeader className="px-6 py-4 border-b bg-amber-50">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <Lock className="h-5 w-5 text-amber-600" />
+            Chat Privado - Item {numeroItem}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Negociação com: <span className="font-medium">{fornecedorNome}</span>
+          </p>
+        </DialogHeader>
 
-      <CardContent className="flex-1 flex flex-col p-2 overflow-hidden min-h-0">
-        <ScrollAreaWithArrows className="flex-1 min-h-0 h-full" orientation="both">
-          <div className="space-y-2 pr-2">
-            {mensagens.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-4">
+        {/* Área de mensagens */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 bg-background">
+          {mensagens.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-center text-sm text-muted-foreground">
                 Nenhuma mensagem ainda. Inicie a negociação!
               </p>
-            ) : (
-              mensagens.map((msg) => {
-                const isMinhaMsg = isGestor
-                  ? msg.tipo_remetente === "gestor"
-                  : msg.tipo_remetente === "fornecedor";
+            </div>
+          ) : (
+            mensagens.map((msg) => {
+              const isMinhaMsg = isGestor
+                ? msg.tipo_remetente === "gestor"
+                : msg.tipo_remetente === "fornecedor";
 
-                return (
+              return (
+                <div
+                  key={msg.id}
+                  className={`flex ${isMinhaMsg ? "justify-end" : "justify-start"}`}
+                >
                   <div
-                    key={msg.id}
-                    className={`flex ${isMinhaMsg ? "justify-end" : "justify-start"}`}
+                    className={`max-w-[75%] rounded-lg px-4 py-3 shadow-sm ${
+                      isMinhaMsg
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted border"
+                    }`}
                   >
-                    <div
-                      className={`max-w-[85%] rounded-lg p-2 ${
-                        isMinhaMsg
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      }`}
-                    >
-                      <p className="text-xs font-medium mb-1">
-                        {msg.tipo_remetente === "gestor"
-                          ? msg.usuario_nome || "Gestor"
-                          : msg.fornecedor_nome || "Fornecedor"}
-                      </p>
-                      <p className="text-xs whitespace-pre-wrap">{msg.mensagem}</p>
-                      <p className="text-[10px] opacity-70 mt-1">
-                        {formatDateTime(msg.created_at)}
-                      </p>
-                    </div>
+                    <p className="text-xs font-semibold mb-1 opacity-80">
+                      {msg.tipo_remetente === "gestor"
+                        ? msg.usuario_nome || "Gestor"
+                        : msg.fornecedor_nome || "Fornecedor"}
+                    </p>
+                    <p className="text-sm whitespace-pre-wrap">{msg.mensagem}</p>
+                    <p className="text-[11px] opacity-60 mt-2 text-right">
+                      {formatDateTime(msg.created_at)}
+                    </p>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </ScrollAreaWithArrows>
-
-        <div className="flex gap-2 mt-2 pt-2 border-t">
-          <Input
-            value={novaMensagem}
-            onChange={(e) => setNovaMensagem(e.target.value)}
-            placeholder="Digite sua mensagem..."
-            className="text-xs h-8"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleEnviar();
-              }
-            }}
-          />
-          <Button
-            size="sm"
-            onClick={handleEnviar}
-            disabled={enviando || !novaMensagem.trim()}
-            className="h-8 px-3"
-          >
-            <Send className="h-3 w-3" />
-          </Button>
+                </div>
+              );
+            })
+          )}
+          <div ref={messagesEndRef} />
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Input de mensagem */}
+        <div className="px-6 py-4 border-t bg-muted/30">
+          <div className="flex gap-3">
+            <Input
+              value={novaMensagem}
+              onChange={(e) => setNovaMensagem(e.target.value)}
+              placeholder="Digite sua mensagem..."
+              className="flex-1 h-10"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleEnviar();
+                }
+              }}
+            />
+            <Button
+              onClick={handleEnviar}
+              disabled={enviando || !novaMensagem.trim()}
+              className="h-10 px-4"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Enviar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
