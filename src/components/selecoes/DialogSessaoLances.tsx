@@ -2689,10 +2689,13 @@ export function DialogSessaoLances({
             {(() => {
               const itensParaNegociacao = itens.filter(
                 (item) => {
+                  // Item em negociação ativa sempre aparece
                   if (itensEmNegociacao.has(item.numero_item)) return true;
+                  // Item já negociado/concluído não aparece
                   if (itensNegociacaoConcluida.has(item.numero_item)) return false;
-                  return itensFechados.has(item.numero_item) && 
-                         !itensAbertos.has(item.numero_item) && 
+                  // Item disponível para negociação: não está aberto para lances E tem vencedor identificado
+                  // Não precisa estar em itensFechados - basta não estar em itensAbertos
+                  return !itensAbertos.has(item.numero_item) && 
                          vencedoresPorItem.has(item.numero_item);
                 }
               ).sort((a, b) => a.numero_item - b.numero_item);
