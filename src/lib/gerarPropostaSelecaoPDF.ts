@@ -343,15 +343,19 @@ export async function gerarPropostaSelecaoPDF(
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
 
-    // Largura da coluna de descrição baseada nas bordas
-    const descricaoLargura = colPositions[1] - colPositions[0] - 4;
+    // Largura da coluna de descrição baseada nas bordas - com padding adequado
+    const descricaoLargura = colPositions[1] - colPositions[0] - 6;
+    
+    // Espaçamento entre linhas de texto da descrição (mais espaço para legibilidade)
+    const espacamentoLinhaDescTexto = 4.2;
     
     // Calcular altura total da tabela primeiro
     let alturaTotal = 0;
     const alturasPorItem: number[] = [];
     for (const item of itensOrdenados) {
-      const descLines = doc.splitTextToSize(item.descricao, descricaoLargura);
-      const alturaLinha = Math.max(descLines.length * 4, 6);
+      const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
+      // Altura mínima de 7, e cada linha adicional soma espacamentoLinhaDescTexto
+      const alturaLinha = Math.max(6 + ((descLines.length - 1) * espacamentoLinhaDescTexto), 7);
       alturasPorItem.push(alturaLinha);
       alturaTotal += alturaLinha;
     }
@@ -374,7 +378,8 @@ export async function gerarPropostaSelecaoPDF(
       const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
       
       const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
-      const alturaLinha = Math.max(descLines.length * 4, 6);
+      // Altura mínima de 7, e cada linha adicional soma espacamentoLinhaDescTexto
+      const alturaLinha = Math.max(6 + ((descLines.length - 1) * espacamentoLinhaDescTexto), 7);
       
       // Sombra azul claro alternada (zebra striping)
       if (itemIndex % 2 === 1) {
@@ -392,28 +397,30 @@ export async function gerarPropostaSelecaoPDF(
         doc.line(xPos, y, xPos, y + alturaLinha);
       });
       
-      // Centralização vertical para todas as colunas
+      // Centralização vertical para colunas fixas (não descrição)
       const yVerticalCenter = y + (alturaLinha / 2) + 1;
       
       // Item - centralizado horizontalmente
       doc.text(item.numero_item.toString(), colItemCenter, yVerticalCenter, { align: 'center' });
       
-      // Descrição com alinhamento justificado em TODAS as linhas exceto última
+      // Descrição com alinhamento justificado - começando do topo da célula com padding
       const descricaoX = colDesc;
-      const descricaoYInicio = y + 3;
-      const espacamentoLinhaDesc = 4;
+      const descricaoYInicio = y + 3.5;
       
       // Renderizar cada linha da descrição com justificação
       descLines.forEach((linha: string, index: number) => {
-        const yLinha = descricaoYInicio + (index * espacamentoLinhaDesc);
+        const yLinha = descricaoYInicio + (index * espacamentoLinhaDescTexto);
         const isUltimaLinha = index === descLines.length - 1;
         
-        if (isUltimaLinha) {
-          // Última linha: alinhamento à esquerda
-          doc.text(linha.trim(), descricaoX, yLinha);
-        } else {
-          // TODAS as outras linhas: justificado
-          renderizarTextoJustificado(doc, linha.trim(), descricaoX, yLinha, descricaoLargura);
+        // Verificar se a linha cabe dentro da célula
+        if (yLinha <= y + alturaLinha - 1) {
+          if (isUltimaLinha || descLines.length === 1) {
+            // Última linha ou linha única: alinhamento à esquerda
+            doc.text(linha.trim(), descricaoX, yLinha);
+          } else {
+            // Linhas intermediárias: justificado
+            renderizarTextoJustificado(doc, linha.trim(), descricaoX, yLinha, descricaoLargura);
+          }
         }
       });
       

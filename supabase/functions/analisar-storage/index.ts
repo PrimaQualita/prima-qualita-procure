@@ -1212,8 +1212,10 @@ Deno.serve(async (req) => {
           estatisticasPorCategoria.anexos_selecao.arquivos++;
           estatisticasPorCategoria.anexos_selecao.tamanho += metadata.size;
           estatisticasPorCategoria.anexos_selecao.detalhes.push({ path, fileName, size: metadata.size });
+          arquivosJaCategorizados.add(path);
           
-          const selecaoIdMatch = pathSemBucket.match(/selecoes\/([a-f0-9-]+)/);
+          // O path é selecoes/selecao_UUID_tipo_timestamp.pdf então capturar UUID após selecao_
+          const selecaoIdMatch = pathSemBucket.match(/selecoes\/selecao_([a-f0-9-]+)/);
           if (selecaoIdMatch) {
             const selecaoId = selecaoIdMatch[1];
             const selecao = selecoesMap.get(selecaoId);
@@ -1235,7 +1237,12 @@ Deno.serve(async (req) => {
               });
             }
           }
-        } else if (pathSemBucket.startsWith('selecao_') && pathSemBucket.includes('planilha')) {
+          
+          console.log(`Arquivo categorizado (anexo seleção): ${fileName} (${path})`);
+          continue;
+        }
+        
+        if (pathSemBucket.startsWith('selecao_') && pathSemBucket.includes('planilha')) {
           // Planilhas de lances
           estatisticasPorCategoria.planilhas_lances.arquivos++;
           estatisticasPorCategoria.planilhas_lances.tamanho += metadata.size;
