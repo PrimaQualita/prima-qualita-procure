@@ -657,9 +657,11 @@ const ParticiparSelecao = () => {
     setSubmitting(true);
     try {
       // Validar prazo - bloquear envios a menos de 5 minutos da sessão
-      const dataHoraSessao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}`);
+      // Usar fuso horário de Brasília (America/Sao_Paulo = UTC-3)
+      const dataHoraSessao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}:00-03:00`);
       const agora = new Date();
-      const diferencaMinutos = (dataHoraSessao.getTime() - agora.getTime()) / (1000 * 60);
+      const agoraBrasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const diferencaMinutos = (dataHoraSessao.getTime() - agoraBrasilia.getTime()) / (1000 * 60);
       
       if (diferencaMinutos < 5) {
         toast.error("O prazo para envio de propostas encerrou-se 5 minutos antes da sessão");
