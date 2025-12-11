@@ -16,7 +16,7 @@ export default function GestaoStorage() {
   const [analisando, setAnalisando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [limpando, setLimpando] = useState(false);
-  const [grupoDetalhes, setGrupoDetalhes] = useState<{titulo: string, tipo: string, grupos: any[]} | null>(null);
+  const [grupoDetalhes, setGrupoDetalhes] = useState<{titulo: string, tipo: string, grupos: any[], categoria?: string} | null>(null);
   const [documentosGrupo, setDocumentosGrupo] = useState<{nome: string, documentos: any[]} | null>(null);
   const [dialogOrfaosAberto, setDialogOrfaosAberto] = useState(false);
   const [dialogHabilitacaoAberto, setDialogHabilitacaoAberto] = useState(false);
@@ -286,7 +286,8 @@ export default function GestaoStorage() {
                         onClick={() => setGrupoDetalhes({
                           titulo: 'Avisos de Certame',
                           tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.avisos_certame.porProcesso
+                          grupos: resultado.estatisticasPorCategoria.avisos_certame.porProcesso,
+                          categoria: 'avisos_certame'
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -314,7 +315,8 @@ export default function GestaoStorage() {
                         onClick={() => setGrupoDetalhes({
                           titulo: 'Editais',
                           tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.editais.porProcesso
+                          grupos: resultado.estatisticasPorCategoria.editais.porProcesso,
+                          categoria: 'editais'
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -342,7 +344,8 @@ export default function GestaoStorage() {
                         onClick={() => setGrupoDetalhes({
                           titulo: 'Planilhas de Lances',
                           tipo: 'selecao',
-                          grupos: resultado.estatisticasPorCategoria.planilhas_lances.porSelecao
+                          grupos: resultado.estatisticasPorCategoria.planilhas_lances.porSelecao,
+                          categoria: 'planilhas_lances'
                         })}
                       >
                         <Eye className="h-4 w-4" />
@@ -887,6 +890,7 @@ export default function GestaoStorage() {
         titulo={grupoDetalhes?.titulo || ''}
         tipo={grupoDetalhes?.tipo || ''}
         grupos={grupoDetalhes?.grupos || []}
+        categoria={grupoDetalhes?.categoria}
       />
 
       <DialogDocumentosSimples
