@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 interface MensagemNegociacao {
   id: string;
@@ -22,6 +23,12 @@ interface MensagemNegociacao {
   fornecedor_nome?: string;
 }
 
+interface ItemNegociacao {
+  numeroItem: number;
+  fornecedorId: string;
+  fornecedorNome: string;
+}
+
 interface ChatNegociacaoProps {
   selecaoId: string;
   numeroItem: number;
@@ -32,6 +39,8 @@ interface ChatNegociacaoProps {
   codigoAcesso?: string;
   onClose?: () => void;
   open?: boolean;
+  itensDisponiveis?: ItemNegociacao[];
+  onSelectItem?: (item: ItemNegociacao) => void;
 }
 
 export function ChatNegociacao({
@@ -44,6 +53,8 @@ export function ChatNegociacao({
   codigoAcesso,
   onClose,
   open = true,
+  itensDisponiveis = [],
+  onSelectItem,
 }: ChatNegociacaoProps) {
   const [mensagens, setMensagens] = useState<MensagemNegociacao[]>([]);
   const [novaMensagem, setNovaMensagem] = useState("");
@@ -196,17 +207,44 @@ export function ChatNegociacao({
     });
   };
 
+  const handleClose = () => {
+    onClose?.();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose?.()}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
       <DialogContent className="max-w-2xl h-[70vh] flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b bg-amber-50">
-          <DialogTitle className="flex items-center gap-2 text-lg">
+          <DialogTitle className="flex items-center gap-2 text-lg pr-10">
             <Lock className="h-5 w-5 text-amber-600" />
             Chat Privado - Item {numeroItem}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
             Negociação com: <span className="font-medium">{fornecedorNome}</span>
           </p>
+          
+          {/* Lista de itens disponíveis para negociação */}
+          {itensDisponiveis.length > 1 && (
+            <div className="mt-3 pt-3 border-t border-amber-200">
+              <p className="text-xs text-muted-foreground mb-2">Itens disponíveis para negociação:</p>
+              <div className="flex flex-wrap gap-2">
+                {itensDisponiveis.map((item) => (
+                  <Badge
+                    key={`${item.numeroItem}-${item.fornecedorId}`}
+                    variant={item.numeroItem === numeroItem && item.fornecedorId === fornecedorId ? "default" : "outline"}
+                    className={`cursor-pointer transition-colors ${
+                      item.numeroItem === numeroItem && item.fornecedorId === fornecedorId
+                        ? "bg-amber-600 hover:bg-amber-700"
+                        : "hover:bg-amber-100 border-amber-400"
+                    }`}
+                    onClick={() => onSelectItem?.(item)}
+                  >
+                    Item {item.numeroItem}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
         </DialogHeader>
 
         {/* Área de mensagens */}
