@@ -3001,6 +3001,14 @@ export type Database = {
         Returns: boolean
       }
       is_internal_user: { Args: { _user_id: string }; Returns: boolean }
+      verificar_cnpj_existe: { Args: { p_cnpj: string }; Returns: boolean }
+      verificar_fornecedor_participacao: {
+        Args: { p_cnpj: string }
+        Returns: {
+          pode_participar: boolean
+          status_aprovacao: string
+        }[]
+      }
       verificar_recurso_fornecedor: {
         Args: { p_protocolo: string }
         Returns: {
