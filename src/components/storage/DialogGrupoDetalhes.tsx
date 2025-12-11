@@ -13,18 +13,76 @@ interface DialogGrupoDetalhesProps {
   titulo: string;
   tipo: string;
   grupos: any[];
+  categoria?: string;
 }
 
-export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }: DialogGrupoDetalhesProps) {
-  const [documentosGrupo, setDocumentosGrupo] = useState<{nome: string, documentos: any[]} | null>(null);
+// Função para converter número para romano
+const toRoman = (num: number): string => {
+  const romanNumerals: [number, string][] = [
+    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+  ];
+  let result = '';
+  for (const [value, symbol] of romanNumerals) {
+    while (num >= value) {
+      result += symbol;
+      num -= value;
+    }
+  }
+  return result;
+};
+
+export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, categoria }: DialogGrupoDetalhesProps) {
+  const [documentosGrupo, setDocumentosGrupo] = useState<{nome: string, documentos: any[], grupo?: any} | null>(null);
   const [searchGrupos, setSearchGrupos] = useState("");
   const [searchDocs, setSearchDocs] = useState("");
 
-  const getNomeGrupo = (grupo: any) => {
+  // Para planilhas de lances, criar mapa de contagem por seleção
+  const planilhasPorSelecao = useMemo(() => {
+    if (categoria !== 'planilhas_lances') return new Map();
+    const mapa = new Map<string, number>();
+    grupos.forEach((grupo: any) => {
+      const selecaoId = grupo.selecaoId || grupo.processoNumero || 'unknown';
+      mapa.set(selecaoId, (mapa.get(selecaoId) || 0) + 1);
+    });
+    return mapa;
+  }, [grupos, categoria]);
+
+  // Índice atual por seleção para numeração romana
+  const indicesPorSelecao = useMemo(() => {
+    return new Map<string, number>();
+  }, []);
+
+  const getNomeGrupo = (grupo: any, idx: number) => {
     if (tipo === 'fornecedor') return grupo.fornecedorNome;
+    
+    // Planilhas de Lances da Seleção
+    if (categoria === 'planilhas_lances' && tipo === 'selecao') {
+      const selecaoNum = grupo.selecaoNumero || 'S/N';
+      const totalPlanilhas = grupo.documentos?.length || 1;
+      
+      if (totalPlanilhas > 1) {
+        // Se tiver múltiplas planilhas, cada documento terá numeração romana
+        return `Planilhas de Lances da Seleção ${selecaoNum}`;
+      }
+      return `Planilha de Lances da Seleção ${selecaoNum}`;
+    }
+    
+    // Avisos de Certame
+    if (categoria === 'avisos_certame' && tipo === 'processo') {
+      const selecaoNum = grupo.selecaoNumero || grupo.processoNumero || 'S/N';
+      const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+      return `Aviso da ${tipoSelecao} ${selecaoNum}`;
+    }
+    
+    // Editais
+    if (categoria === 'editais' && tipo === 'processo') {
+      const selecaoNum = grupo.selecaoNumero || grupo.processoNumero || 'S/N';
+      const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+      return `Edital da ${tipoSelecao} ${selecaoNum}`;
+    }
+    
     if (tipo === 'selecao') return `Seleção de Fornecedores ${grupo.selecaoNumero || 'S/N'} - ${grupo.selecaoTitulo}`;
     if (tipo === 'processo') {
-      // Se tem tipoSelecao (usado em avisos/editais), usar ele
       if (grupo.tipoSelecao) {
         return `${grupo.tipoSelecao} ${grupo.selecaoNumero || ''} - Processo ${grupo.processoNumero}`;
       }
@@ -33,6 +91,16 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
     }
     if (tipo === 'tipo') return grupo.tipoNome;
     return grupo.nome || 'Sem nome';
+  };
+  
+  // Função para formatar nome do documento com numeração romana
+  const getNomeDocumento = (doc: any, idx: number, totalDocs: number, grupo: any) => {
+    if (categoria === 'planilhas_lances' && totalDocs > 1) {
+      const selecaoNum = grupo.selecaoNumero || 'S/N';
+      const numRomano = idx > 0 ? ` ${toRoman(idx + 1)}` : '';
+      return `Planilha de Lances da Seleção ${selecaoNum}${numRomano}`;
+    }
+    return doc.fileName;
   };
   
   const getObjetoProcesso = (grupo: any) => {
@@ -47,8 +115,8 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
     
     if (searchGrupos.trim()) {
       const termo = searchGrupos.toLowerCase();
-      resultado = grupos.filter((grupo: any) => {
-        const nome = getNomeGrupo(grupo).toLowerCase();
+      resultado = grupos.filter((grupo: any, idx: number) => {
+        const nome = getNomeGrupo(grupo, idx).toLowerCase();
         const objeto = getObjetoProcesso(grupo)?.toLowerCase() || "";
         return nome.includes(termo) || objeto.includes(termo);
       });
@@ -96,7 +164,7 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{getNomeGrupo(grupo)}</h3>
+                      <h3 className="font-semibold text-lg">{getNomeGrupo(grupo, idx)}</h3>
                       {getObjetoProcesso(grupo) && (
                         <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap break-words">
                           {getObjetoProcesso(grupo)}
@@ -111,8 +179,9 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
                       size="sm"
                       variant="outline"
                       onClick={() => setDocumentosGrupo({
-                        nome: getNomeGrupo(grupo),
-                        documentos: grupo.documentos
+                        nome: getNomeGrupo(grupo, idx),
+                        documentos: grupo.documentos,
+                        grupo: grupo
                       })}
                     >
                       <Eye className="h-4 w-4 mr-2" />
@@ -173,9 +242,11 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
                 }
               };
 
+              const nomeExibicao = getNomeDocumento(doc, i, documentosFiltrados.length, documentosGrupo?.grupo);
+
               return (
                 <div key={i} className="flex justify-between items-center p-3 bg-muted/50 rounded border">
-                  <span className="truncate flex-1 text-sm font-medium">{doc.fileName}</span>
+                  <span className="truncate flex-1 text-sm font-medium">{nomeExibicao}</span>
                   <div className="flex items-center gap-2 ml-4">
                     <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
                       {(doc.size / 1024).toFixed(1)} KB
