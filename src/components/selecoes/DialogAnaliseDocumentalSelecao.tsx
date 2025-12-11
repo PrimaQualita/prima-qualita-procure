@@ -1765,7 +1765,7 @@ export function DialogAnaliseDocumentalSelecao({
     console.log(`🎴 [RENDER CARD ${data.fornecedor.razao_social}] isInabilitado=${isInabilitado}, itensInabilitados=${JSON.stringify(itensInabilitados)}, temInabilitacaoParcial=${temInabilitacaoParcial}`);
     
     return (
-    <Card key={data.fornecedor.id} className={`border-2 ${isInabilitado ? 'border-destructive/50 bg-destructive/5' : ''}`}>
+    <Card key={data.fornecedor.id} className={`border-2 ${isInabilitado ? 'border-destructive/50 bg-destructive/5' : temInabilitacaoParcial ? 'border-orange-300 bg-orange-50' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
@@ -1777,10 +1777,28 @@ export function DialogAnaliseDocumentalSelecao({
                   INABILITADO
                 </Badge>
               )}
+              {temInabilitacaoParcial && (
+                <Badge className="bg-orange-500 hover:bg-orange-600">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  INABILITADO PARCIAL
+                </Badge>
+              )}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
               CNPJ: {formatCNPJ(data.fornecedor.cnpj)} | Email: {data.fornecedor.email}
             </p>
+            {/* Mostrar itens afetados para inabilitação parcial */}
+            {temInabilitacaoParcial && data.inabilitado && (
+              <div className="mt-1">
+                <p className="text-sm text-orange-700">
+                  <span className="font-medium">Itens inabilitados:</span>{" "}
+                  {itensInabilitados.sort((a, b) => a - b).join(", ")}
+                </p>
+                <p className="text-sm text-orange-700">
+                  <span className="font-medium">Motivo:</span> {data.inabilitado.motivo_inabilitacao}
+                </p>
+              </div>
+            )}
             {/* Só mostrar "Itens vencedores" se não for totalmente inabilitado */}
             {!isInabilitado && (
               <p className="text-sm mt-1">
@@ -1803,38 +1821,6 @@ export function DialogAnaliseDocumentalSelecao({
                 }
               </p>
             )}
-            {/* Mostrar inabilitação parcial para fornecedores habilitados */}
-            {temInabilitacaoParcial && (
-              <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded text-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-orange-700 font-medium flex items-center gap-1">
-                      <AlertTriangle className="h-4 w-4" />
-                      Inabilitação parcial
-                    </p>
-                    <p className="text-orange-600">
-                      <span className="font-medium">Itens inabilitados:</span>{" "}
-                      {itensInabilitados.sort((a, b) => a - b).join(", ")}
-                    </p>
-                    <p className="text-orange-600 text-xs mt-1">
-                      <span className="font-medium">Motivo:</span> {data.inabilitado!.motivo_inabilitacao}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0 border-orange-500 text-orange-700 hover:bg-orange-200"
-                    onClick={() => {
-                      setInabilitacaoParaReverter(data);
-                      setDialogReverterInabilitacao(true);
-                    }}
-                  >
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                    Reverter
-                  </Button>
-                </div>
-              </div>
-            )}
             {/* Mostrar motivo para fornecedores totalmente inabilitados */}
             {isInabilitado && data.inabilitado && (
               <div className="mt-2">
@@ -1849,6 +1835,22 @@ export function DialogAnaliseDocumentalSelecao({
             )}
           </div>
           <div className="flex flex-col gap-2 items-end">
+            {/* Botão de Reverter Inabilitação para parcialmente inabilitados */}
+            {temInabilitacaoParcial && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-orange-500 text-orange-700 hover:bg-orange-100"
+                onClick={() => {
+                  setInabilitacaoParaReverter(data);
+                  setMotivoReversao("");
+                  setDialogReverterInabilitacao(true);
+                }}
+              >
+                <Undo2 className="h-4 w-4 mr-1" />
+                Reverter Inabilitação
+              </Button>
+            )}
             {!isInabilitado ? (
               <>
                 {fornecedoresAprovadosGeral.has(data.fornecedor.id) ? (
