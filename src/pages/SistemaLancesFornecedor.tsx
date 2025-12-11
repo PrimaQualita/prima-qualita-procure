@@ -793,10 +793,24 @@ const SistemaLancesFornecedor = () => {
 
       // Verificar se ainda é editável (5 minutos antes da sessão)
       // Usar fuso horário de Brasília (America/Sao_Paulo = UTC-3)
-      const dataHoraSelecao = new Date(`${propostaData.selecoes_fornecedores.data_sessao_disputa}T${propostaData.selecoes_fornecedores.hora_sessao_disputa}:00-03:00`);
+      const horaCompleta = propostaData.selecoes_fornecedores.hora_sessao_disputa.includes(':') 
+        ? propostaData.selecoes_fornecedores.hora_sessao_disputa 
+        : `${propostaData.selecoes_fornecedores.hora_sessao_disputa}:00`;
+      // Garantir formato HH:MM:SS
+      const horaFormatada = horaCompleta.split(':').length === 2 ? `${horaCompleta}:00` : horaCompleta;
+      const dataHoraSelecao = new Date(`${propostaData.selecoes_fornecedores.data_sessao_disputa}T${horaFormatada}-03:00`);
       const cincoMinutosAntes = new Date(dataHoraSelecao.getTime() - 5 * 60 * 1000);
       const agora = new Date();
       const agoraBrasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      
+      console.log("DEBUG editavel:", {
+        horaOriginal: propostaData.selecoes_fornecedores.hora_sessao_disputa,
+        horaFormatada,
+        dataHoraSelecao: dataHoraSelecao.toISOString(),
+        cincoMinutosAntes: cincoMinutosAntes.toISOString(),
+        agoraBrasilia: agoraBrasilia.toISOString(),
+        editavel: agoraBrasilia < cincoMinutosAntes
+      });
       
       setEditavel(agoraBrasilia < cincoMinutosAntes);
 
@@ -1693,7 +1707,11 @@ const SistemaLancesFornecedor = () => {
   let cincoMinutosAntes: Date | null = null;
   
   if (selecao.data_sessao_disputa && selecao.hora_sessao_disputa) {
-    const tentativaData = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}:00-03:00`);
+    // Garantir formato HH:MM:SS sem duplicar segundos
+    const horaFormatada = selecao.hora_sessao_disputa.split(':').length === 2 
+      ? `${selecao.hora_sessao_disputa}:00` 
+      : selecao.hora_sessao_disputa;
+    const tentativaData = new Date(`${selecao.data_sessao_disputa}T${horaFormatada}-03:00`);
     // Verificar se a data é válida (não é NaN)
     if (!isNaN(tentativaData.getTime())) {
       dataHoraSelecao = tentativaData;
