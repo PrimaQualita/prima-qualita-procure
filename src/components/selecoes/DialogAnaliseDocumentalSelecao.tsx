@@ -1779,22 +1779,28 @@ export function DialogAnaliseDocumentalSelecao({
             <p className="text-sm text-muted-foreground">
               CNPJ: {formatCNPJ(data.fornecedor.cnpj)} | Email: {data.fornecedor.email}
             </p>
-            <p className="text-sm mt-1">
-              <span className="font-medium">Itens vencedores:</span>{" "}
-              {temInabilitacaoParcial 
-                ? itensHabilitados.sort((a, b) => a - b).join(", ")
-                : data.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")
-              }
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">
-                {criterioJulgamento === 'desconto' ? 'Desconto médio:' : 'Valor total:'}
-              </span>{" "}
-              {criterioJulgamento === 'desconto' 
-                ? `${(data.fornecedor.valorTotal / data.fornecedor.itensVencedores.length).toFixed(2)}%`
-                : formatCurrency(data.fornecedor.valorTotal)
-              }
-            </p>
+            {/* Só mostrar "Itens vencedores" se não for totalmente inabilitado */}
+            {!isInabilitado && (
+              <p className="text-sm mt-1">
+                <span className="font-medium">Itens vencedores:</span>{" "}
+                {temInabilitacaoParcial 
+                  ? itensHabilitados.sort((a, b) => a - b).join(", ")
+                  : data.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")
+                }
+              </p>
+            )}
+            {/* Só mostrar valor total se não for totalmente inabilitado */}
+            {!isInabilitado && (
+              <p className="text-sm">
+                <span className="font-medium">
+                  {criterioJulgamento === 'desconto' ? 'Desconto médio:' : 'Valor total:'}
+                </span>{" "}
+                {criterioJulgamento === 'desconto' 
+                  ? `${(data.fornecedor.valorTotal / data.fornecedor.itensVencedores.length).toFixed(2)}%`
+                  : formatCurrency(data.fornecedor.valorTotal)
+                }
+              </p>
+            )}
             {/* Mostrar inabilitação parcial para fornecedores habilitados */}
             {temInabilitacaoParcial && (
               <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded text-sm">
