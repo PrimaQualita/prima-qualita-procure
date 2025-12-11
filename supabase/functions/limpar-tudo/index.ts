@@ -15,6 +15,44 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ========================================
+    // VERIFICAÇÃO DE PERMISSÃO - APENAS GESTORES
+    // ========================================
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Token de autorização não fornecido' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Usuário não autenticado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    // Verificar se usuário tem role 'gestor'
+    const { data: roleData, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'gestor')
+      .maybeSingle();
+
+    if (roleError || !roleData) {
+      console.log(`🚫 Acesso negado para usuário ${user.id} - não é gestor`);
+      return new Response(
+        JSON.stringify({ error: 'Acesso negado. Apenas gestores podem executar esta operação.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
+    console.log(`✅ Usuário ${user.id} autorizado como gestor`);
     console.log('🗑️ Iniciando limpeza TOTAL do sistema...');
 
     // 1. Deletar TODOS os arquivos do storage
