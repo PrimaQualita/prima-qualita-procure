@@ -272,33 +272,50 @@ export default function GestaoStorage() {
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-cyan-900">Anexos Seleção</p>
-                      <p className="text-2xl font-bold text-cyan-700">{resultado.estatisticasPorCategoria?.anexos_selecao?.arquivos || 0}</p>
+                      <p className="text-xs font-medium text-cyan-900">Avisos de Certame</p>
+                      <p className="text-2xl font-bold text-cyan-700">{resultado.estatisticasPorCategoria?.avisos_certame?.arquivos || 0}</p>
                       <p className="text-sm font-semibold text-cyan-600">
-                        {resultado.estatisticasPorCategoria?.anexos_selecao?.tamanhoMB || 0} MB
+                        {resultado.estatisticasPorCategoria?.avisos_certame?.tamanhoMB || 0} MB
                       </p>
-                      <p className="text-xs text-cyan-700/70">Avisos, editais</p>
+                      <p className="text-xs text-cyan-700/70">Seleção / Credenciamento</p>
                     </div>
-                    {(resultado.estatisticasPorCategoria?.anexos_selecao?.arquivos > 0) && (
+                    {(resultado.estatisticasPorCategoria?.avisos_certame?.porProcesso?.length > 0) && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          // Se tem porSelecao, usar; senão, criar grupos a partir dos detalhes
-                          const grupos = resultado.estatisticasPorCategoria.anexos_selecao.porSelecao?.length > 0
-                            ? resultado.estatisticasPorCategoria.anexos_selecao.porSelecao
-                            : [{
-                                selecaoId: 'sem-agrupamento',
-                                selecaoTitulo: 'Anexos de Seleção',
-                                selecaoNumero: '',
-                                documentos: resultado.estatisticasPorCategoria.anexos_selecao.detalhes
-                              }];
-                          setGrupoDetalhes({
-                            titulo: 'Anexos de Seleção',
-                            tipo: 'selecao',
-                            grupos
-                          });
-                        }}
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Avisos de Certame',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.avisos_certame.porProcesso
+                        })}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-indigo-200 bg-indigo-50/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2 flex-1">
+                      <p className="text-xs font-medium text-indigo-900">Editais</p>
+                      <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.editais?.arquivos || 0}</p>
+                      <p className="text-sm font-semibold text-indigo-600">
+                        {resultado.estatisticasPorCategoria?.editais?.tamanhoMB || 0} MB
+                      </p>
+                      <p className="text-xs text-indigo-700/70">Seleção / Credenciamento</p>
+                    </div>
+                    {(resultado.estatisticasPorCategoria?.editais?.porProcesso?.length > 0) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGrupoDetalhes({
+                          titulo: 'Editais',
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.editais.porProcesso
+                        })}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>

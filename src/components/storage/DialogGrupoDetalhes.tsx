@@ -24,6 +24,10 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos }
     if (tipo === 'fornecedor') return grupo.fornecedorNome;
     if (tipo === 'selecao') return `Seleção de Fornecedores ${grupo.selecaoNumero || 'S/N'} - ${grupo.selecaoTitulo}`;
     if (tipo === 'processo') {
+      // Se tem tipoSelecao (usado em avisos/editais), usar ele
+      if (grupo.tipoSelecao) {
+        return `${grupo.tipoSelecao} ${grupo.selecaoNumero || ''} - Processo ${grupo.processoNumero}`;
+      }
       const prefix = grupo.credenciamento ? 'Credenciamento' : 'Processo';
       return `${prefix} ${grupo.processoNumero}`;
     }
