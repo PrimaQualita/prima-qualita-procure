@@ -670,7 +670,9 @@ export function DialogAnaliseDocumentalSelecao({
       console.log("🏆 [ANÁLISE DOC] VENCEDORES FINAIS HABILITADOS:", habilitados.map(h => ({
         nome: h.fornecedor.razao_social,
         itens: h.fornecedor.itensVencedores,
-        valorTotal: h.fornecedor.valorTotal
+        valorTotal: h.fornecedor.valorTotal,
+        temInabilitacao: !!h.inabilitado,
+        itensInabilitados: h.inabilitado?.itens_afetados || []
       })));
       
       console.log("🚫 [ANÁLISE DOC] FORNECEDORES INABILITADOS:", inabilitadosFornecedores.map(i => ({
@@ -1763,6 +1765,8 @@ export function DialogAnaliseDocumentalSelecao({
       item => !itensInabilitados.includes(item)
     );
     const temInabilitacaoParcial = !isInabilitado && itensInabilitados.length > 0;
+    
+    console.log(`🎴 [RENDER CARD ${data.fornecedor.razao_social}] isInabilitado=${isInabilitado}, itensInabilitados=${JSON.stringify(itensInabilitados)}, temInabilitacaoParcial=${temInabilitacaoParcial}`);
     
     return (
     <Card key={data.fornecedor.id} className={`border-2 ${isInabilitado ? 'border-destructive/50 bg-destructive/5' : ''}`}>
