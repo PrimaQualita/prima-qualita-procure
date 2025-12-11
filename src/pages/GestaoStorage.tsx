@@ -279,15 +279,26 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-cyan-700/70">Avisos, editais</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.anexos_selecao?.porSelecao?.length > 0 && (
+                    {(resultado.estatisticasPorCategoria?.anexos_selecao?.arquivos > 0) && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Anexos de Seleção',
-                          tipo: 'selecao',
-                          grupos: resultado.estatisticasPorCategoria.anexos_selecao.porSelecao
-                        })}
+                        onClick={() => {
+                          // Se tem porSelecao, usar; senão, criar grupos a partir dos detalhes
+                          const grupos = resultado.estatisticasPorCategoria.anexos_selecao.porSelecao?.length > 0
+                            ? resultado.estatisticasPorCategoria.anexos_selecao.porSelecao
+                            : [{
+                                selecaoId: 'sem-agrupamento',
+                                selecaoTitulo: 'Anexos de Seleção',
+                                selecaoNumero: '',
+                                documentos: resultado.estatisticasPorCategoria.anexos_selecao.detalhes
+                              }];
+                          setGrupoDetalhes({
+                            titulo: 'Anexos de Seleção',
+                            tipo: 'selecao',
+                            grupos
+                          });
+                        }}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
