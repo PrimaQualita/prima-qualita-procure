@@ -1695,15 +1695,27 @@ Deno.serve(async (req) => {
           console.log(`⚠️ Arquivo órfão em recursos: ${fileName}`);
         }
         
-        // Tentar identificar se é recurso de seleção ou cotação
-        const selecaoIdMatch = pathSemBucket.match(/recursos\/selecao_([a-f0-9-]+)/);
+        // Primeiro tentar buscar em recursos_inabilitacao_selecao (seleção de fornecedores)
+        const { data: recursoSelecao } = await supabase
+          .from('recursos_inabilitacao_selecao')
+          .select(`
+            fornecedor_id,
+            selecao_id,
+            fornecedores!inner(razao_social),
+            selecoes_fornecedores!inner(processo_compra_id)
+          `)
+          .or(`url_pdf_recurso.ilike.%${pathSemBucket}%,url_pdf_recurso.ilike.%${fileName}%,url_pdf_resposta.ilike.%${pathSemBucket}%,url_pdf_resposta.ilike.%${fileName}%`)
+          .maybeSingle();
         
-        if (selecaoIdMatch) {
-          // Recurso de seleção de fornecedores
-          const selecaoId = selecaoIdMatch[1];
-          const selecao = selecoesMap.get(selecaoId);
+        if (recursoSelecao) {
+          const fornecedorNome = (recursoSelecao as any).fornecedores?.razao_social || 'Desconhecido';
+          const processoId = (recursoSelecao as any).selecoes_fornecedores?.processo_compra_id;
+          const processo = processoId ? processosMap.get(processoId) : null;
+          const selecaoId = recursoSelecao.selecao_id;
+          const selecao = selecaoId ? selecoesMap.get(selecaoId) : null;
           
-          if (selecao) {
+          // Adicionar a porSelecao para manter compatibilidade
+          if (selecao && selecaoId) {
             if (!estatisticasPorCategoria.recursos.porSelecao!.has(selecaoId)) {
               estatisticasPorCategoria.recursos.porSelecao!.set(selecaoId, {
                 selecaoId,
@@ -1720,58 +1732,40 @@ Deno.serve(async (req) => {
             });
           }
           
-          // Buscar recurso no banco para obter fornecedor e processo
-          const { data: recursoData } = await supabase
-            .from('recursos_inabilitacao_selecao')
-            .select(`
-              fornecedor_id,
-              selecao_id,
-              fornecedores!inner(razao_social),
-              selecoes_fornecedores!inner(processo_compra_id)
-            `)
-            .eq('selecao_id', selecaoId)
-            .or(`url_pdf_recurso.ilike.%${pathSemBucket}%,url_pdf_resposta.ilike.%${pathSemBucket}%`)
-            .maybeSingle();
-          
-          if (recursoData) {
-            const fornecedorNome = (recursoData as any).fornecedores?.razao_social || 'Desconhecido';
-            const processoId = (recursoData as any).selecoes_fornecedores?.processo_compra_id;
-            const processo = processoId ? processosMap.get(processoId) : null;
-            
-            if (processo && processoId) {
-              // Inicializar processo se não existir
-              if (!estatisticasPorCategoria.recursos.porProcessoHierarquico!.has(processoId)) {
-                estatisticasPorCategoria.recursos.porProcessoHierarquico!.set(processoId, {
-                  processoId,
-                  processoNumero: processo.numero,
-                  processoObjeto: processo.objeto,
-                  fornecedores: new Map()
-                });
-              }
-              
-              const procHier = estatisticasPorCategoria.recursos.porProcessoHierarquico!.get(processoId)!;
-              
-              // Inicializar fornecedor se não existir
-              if (!procHier.fornecedores.has(recursoData.fornecedor_id)) {
-                procHier.fornecedores.set(recursoData.fornecedor_id, {
-                  fornecedorId: recursoData.fornecedor_id,
-                  fornecedorNome,
-                  recursos: []
-                });
-              }
-              
-              // Adicionar recurso
-              procHier.fornecedores.get(recursoData.fornecedor_id)!.recursos.push({
-                path,
-                fileName,
-                size: metadata.size,
-                fornecedorNome
+          if (processo && processoId) {
+            // Inicializar processo se não existir
+            if (!estatisticasPorCategoria.recursos.porProcessoHierarquico!.has(processoId)) {
+              estatisticasPorCategoria.recursos.porProcessoHierarquico!.set(processoId, {
+                processoId,
+                processoNumero: processo.numero,
+                processoObjeto: processo.objeto,
+                fornecedores: new Map()
               });
             }
+            
+            const procHier = estatisticasPorCategoria.recursos.porProcessoHierarquico!.get(processoId)!;
+            
+            // Inicializar fornecedor se não existir
+            if (!procHier.fornecedores.has(recursoSelecao.fornecedor_id)) {
+              procHier.fornecedores.set(recursoSelecao.fornecedor_id, {
+                fornecedorId: recursoSelecao.fornecedor_id,
+                fornecedorNome,
+                recursos: []
+              });
+            }
+            
+            // Adicionar recurso
+            procHier.fornecedores.get(recursoSelecao.fornecedor_id)!.recursos.push({
+              path,
+              fileName,
+              size: metadata.size,
+              fornecedorNome
+            });
+            
+            console.log(`✅ Recurso seleção adicionado: ${fileName} -> Processo ${processo.numero}, Fornecedor ${fornecedorNome}`);
           }
         } else {
-          // Recurso de cotação de preços (recursos/enviados/ ou recursos/respostas/)
-          // Buscar na tabela recursos_fornecedor pelo path do arquivo
+          // Se não é recurso de seleção, tentar buscar em recursos_fornecedor (cotação de preços)
           const { data: recursoCotacao } = await supabase
             .from('recursos_fornecedor')
             .select(`
@@ -1868,6 +1862,8 @@ Deno.serve(async (req) => {
                 size: metadata.size,
                 fornecedorNome
               });
+              
+              console.log(`✅ Recurso cotação adicionado: ${fileName} -> Processo ${processo.numero_processo_interno}, Fornecedor ${fornecedorNome}`);
             }
           }
         }
