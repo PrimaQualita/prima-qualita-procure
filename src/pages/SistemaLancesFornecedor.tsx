@@ -1311,36 +1311,26 @@ const SistemaLancesFornecedor = () => {
   };
 
   const handleRecusarNegociacao = async (numeroItem: number) => {
-    if (!selecao?.id || !proposta?.fornecedor_id) {
+    if (!selecao?.id || !proposta?.fornecedor_id || !proposta?.codigo_acesso) {
       toast.error("Erro ao recusar negociação");
       return;
     }
 
     try {
-      // Fechar o item - fornecedor recusou negociar
-      const { error } = await supabase
-        .from("itens_abertos_lances")
-        .update({
-          em_negociacao: false,
-          negociacao_concluida: true,
-          aberto: false,
-          data_fechamento: new Date().toISOString()
-        })
-        .eq("selecao_id", selecao.id)
-        .eq("numero_item", numeroItem);
+      // Usar função SECURITY DEFINER para fechar negociação via código de acesso
+      const { data, error } = await supabase.rpc('fechar_negociacao_fornecedor', {
+        p_selecao_id: selecao.id,
+        p_numero_item: numeroItem,
+        p_fornecedor_id: proposta.fornecedor_id,
+        p_codigo_acesso: proposta.codigo_acesso
+      });
 
       if (error) throw error;
 
-      // Registrar a recusa como mensagem no chat
-      await supabase
-        .from("mensagens_negociacao")
-        .insert({
-          selecao_id: selecao.id,
-          fornecedor_id: proposta.fornecedor_id,
-          numero_item: numeroItem,
-          mensagem: "❌ Fornecedor recusou a negociação e encerrou o item.",
-          tipo_remetente: "fornecedor"
-        });
+      const result = data as { success: boolean; error?: string };
+      if (!result?.success) {
+        throw new Error(result?.error || 'Erro ao fechar negociação');
+      }
 
       toast.success(`Negociação do Item ${numeroItem} recusada e encerrada`);
       setItemSelecionado(null);
