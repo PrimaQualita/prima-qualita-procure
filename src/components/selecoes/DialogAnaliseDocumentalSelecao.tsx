@@ -1274,11 +1274,40 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
+  // Helper para extrair path do storage a partir de URL completa
+  const extractStoragePath = (url: string): string => {
+    if (!url) return url;
+    // Se for URL completa do Supabase, extrair apenas o path relativo
+    if (url.includes('processo-anexos/')) {
+      const parts = url.split('processo-anexos/');
+      return parts[parts.length - 1];
+    }
+    return url;
+  };
+
   // Handler para excluir PDF de recurso/resposta
   const handleExcluirPdfRecurso = async () => {
     if (!confirmDeletePdf.recursoId || !confirmDeletePdf.tipo) return;
     
     try {
+      // 1. Buscar a URL do arquivo antes de atualizar
+      const { data: recursoData } = await supabase
+        .from("recursos_inabilitacao_selecao")
+        .select("url_pdf_recurso, url_pdf_resposta")
+        .eq("id", confirmDeletePdf.recursoId)
+        .single();
+      
+      const urlArquivo = confirmDeletePdf.tipo === 'recurso' 
+        ? recursoData?.url_pdf_recurso 
+        : recursoData?.url_pdf_resposta;
+      
+      // 2. Deletar arquivo do storage PRIMEIRO
+      if (urlArquivo) {
+        const storagePath = extractStoragePath(urlArquivo);
+        await supabase.storage.from("processo-anexos").remove([storagePath]);
+      }
+      
+      // 3. DEPOIS atualizar o registro no banco
       if (confirmDeletePdf.tipo === 'recurso') {
         await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_recurso: null, nome_arquivo_recurso: null, protocolo_recurso: null }).eq("id", confirmDeletePdf.recursoId);
       } else {
@@ -1299,6 +1328,27 @@ export function DialogAnaliseDocumentalSelecao({
     if (!confirmDeleteRecurso.recursoId) return;
     
     try {
+      // 1. Buscar as URLs dos arquivos antes de deletar
+      const { data: recursoData } = await supabase
+        .from("recursos_inabilitacao_selecao")
+        .select("url_pdf_recurso, url_pdf_resposta")
+        .eq("id", confirmDeleteRecurso.recursoId)
+        .single();
+      
+      // 2. Deletar arquivos do storage PRIMEIRO
+      const filesToDelete: string[] = [];
+      if (recursoData?.url_pdf_recurso) {
+        filesToDelete.push(extractStoragePath(recursoData.url_pdf_recurso));
+      }
+      if (recursoData?.url_pdf_resposta) {
+        filesToDelete.push(extractStoragePath(recursoData.url_pdf_resposta));
+      }
+      
+      if (filesToDelete.length > 0) {
+        await supabase.storage.from("processo-anexos").remove(filesToDelete);
+      }
+      
+      // 3. DEPOIS deletar o registro do banco
       const { error } = await supabase
         .from("recursos_inabilitacao_selecao")
         .delete()
