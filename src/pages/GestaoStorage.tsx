@@ -251,14 +251,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-indigo-700/70">PDFs de propostas</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.propostas_selecao?.porSelecao?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.propostas_selecao?.porProcesso?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setGrupoDetalhes({
                           titulo: 'Propostas de Seleção',
-                          tipo: 'selecao',
-                          grupos: resultado.estatisticasPorCategoria.propostas_selecao.porSelecao,
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.propostas_selecao.porProcesso,
                           categoria: 'propostas_selecao'
                         })}
                       >
@@ -396,14 +396,14 @@ export default function GestaoStorage() {
                       </p>
                       <p className="text-xs text-teal-700/70">Consolidadas</p>
                     </div>
-                    {resultado.estatisticasPorCategoria?.planilhas_lances?.porSelecao?.length > 0 && (
+                    {resultado.estatisticasPorCategoria?.planilhas_lances?.porProcesso?.length > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setGrupoDetalhes({
                           titulo: 'Planilhas de Lances',
-                          tipo: 'selecao',
-                          grupos: resultado.estatisticasPorCategoria.planilhas_lances.porSelecao,
+                          tipo: 'processo',
+                          grupos: resultado.estatisticasPorCategoria.planilhas_lances.porProcesso,
                           categoria: 'planilhas_lances'
                         })}
                       >
