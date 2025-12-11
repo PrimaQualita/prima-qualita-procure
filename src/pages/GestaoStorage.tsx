@@ -211,649 +211,375 @@ export default function GestaoStorage() {
                 </CardContent>
               </Card>
 
-              {/* Estatísticas Detalhadas por Categoria */}
-              <Card className="border-purple-200 bg-purple-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-purple-900">Docs Cadastro</p>
-                      <p className="text-2xl font-bold text-purple-700">{resultado.estatisticasPorCategoria?.documentos_fornecedores?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-purple-600">
-                        {resultado.estatisticasPorCategoria?.documentos_fornecedores?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-purple-700/70">CNDs, CNPJ, Relatórios KPMG</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.documentos_fornecedores?.porFornecedor?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Documentos de Cadastro',
-                          tipo: 'fornecedor',
-                          grupos: resultado.estatisticasPorCategoria.documentos_fornecedores.porFornecedor
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-indigo-200 bg-indigo-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-indigo-900">Propostas Seleção</p>
-                      <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.propostas_selecao?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-indigo-600">
-                        {resultado.estatisticasPorCategoria?.propostas_selecao?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-indigo-700/70">PDFs de propostas</p>
-                    </div>
-                    {(resultado.estatisticasPorCategoria?.propostas_selecao?.arquivos > 0) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Propostas de Seleção',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.propostas_selecao.porProcesso || [],
-                          categoria: 'propostas_selecao'
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-cyan-200 bg-cyan-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-cyan-900">Avisos de Certame</p>
-                      <p className="text-2xl font-bold text-cyan-700">{resultado.estatisticasPorCategoria?.avisos_certame?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-cyan-600">
-                        {resultado.estatisticasPorCategoria?.avisos_certame?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-cyan-700/70">Seleção / Credenciamento</p>
-                    </div>
-                    {(resultado.estatisticasPorCategoria?.avisos_certame?.porProcesso?.length > 0) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Avisos de Certame',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.avisos_certame.porProcesso,
-                          categoria: 'avisos_certame'
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-indigo-200 bg-indigo-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-indigo-900">Editais</p>
-                      <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.editais?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-indigo-600">
-                        {resultado.estatisticasPorCategoria?.editais?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-indigo-700/70">Seleção / Credenciamento</p>
-                    </div>
-                    {(resultado.estatisticasPorCategoria?.editais?.porProcesso?.length > 0) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Editais',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.editais.porProcesso,
-                          categoria: 'editais'
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-rose-200 bg-rose-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-rose-900">Atas do Certame</p>
-                      <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.atas_certame?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-rose-600">
-                        {resultado.estatisticasPorCategoria?.atas_certame?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-rose-700/70">Atas de Seleção</p>
-                    </div>
-                    {(resultado.estatisticasPorCategoria?.atas_certame?.porProcesso?.length > 0) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Atas do Certame',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.atas_certame.porProcesso,
-                          categoria: 'atas_certame'
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-violet-200 bg-violet-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-violet-900">Homologações</p>
-                      <p className="text-2xl font-bold text-violet-700">{resultado.estatisticasPorCategoria?.homologacoes?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-violet-600">
-                        {resultado.estatisticasPorCategoria?.homologacoes?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-violet-700/70">Homologações de Seleção</p>
-                    </div>
-                    {(resultado.estatisticasPorCategoria?.homologacoes?.porProcesso?.length > 0) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Homologações',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.homologacoes.porProcesso,
-                          categoria: 'homologacoes'
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-teal-200 bg-teal-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-teal-900">Planilhas Lances</p>
-                      <p className="text-2xl font-bold text-teal-700">{resultado.estatisticasPorCategoria?.planilhas_lances?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-teal-600">
-                        {resultado.estatisticasPorCategoria?.planilhas_lances?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-teal-700/70">Consolidadas</p>
-                    </div>
-                    {(resultado.estatisticasPorCategoria?.planilhas_lances?.arquivos > 0) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Planilhas de Lances',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.planilhas_lances.porProcesso || [],
-                          categoria: 'planilhas_lances'
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-amber-200 bg-amber-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-amber-900">Recursos</p>
-                      <p className="text-2xl font-bold text-amber-700">{resultado.estatisticasPorCategoria?.recursos?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-amber-600">
-                        {resultado.estatisticasPorCategoria?.recursos?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-amber-700/70">Enviados e respostas</p>
-                    </div>
-                    {(resultado.estatisticasPorCategoria?.recursos?.arquivos > 0) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDialogRecursosAberto(true)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-emerald-200 bg-emerald-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-emerald-900">Encaminhamentos</p>
-                      <p className="text-2xl font-bold text-emerald-700">{resultado.estatisticasPorCategoria?.encaminhamentos?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-emerald-600">
-                        {resultado.estatisticasPorCategoria?.encaminhamentos?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-emerald-700/70">PDFs oficiais</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.encaminhamentos?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Encaminhamentos',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.encaminhamentos.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-purple-200 bg-purple-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-purple-900">Análises de Compliance</p>
-                      <p className="text-2xl font-bold text-purple-700">{resultado.estatisticasPorCategoria?.analises_compliance?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-purple-600">
-                        {resultado.estatisticasPorCategoria?.analises_compliance?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-purple-700/70">Pareceres compliance</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.analises_compliance?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Análises de Compliance',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.analises_compliance.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-indigo-200 bg-indigo-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-indigo-900">Termos de Referência</p>
-                      <p className="text-2xl font-bold text-indigo-700">{resultado.estatisticasPorCategoria?.termos_referencia?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-indigo-600">
-                        {resultado.estatisticasPorCategoria?.termos_referencia?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-indigo-700/70">Anexados em processos</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.termos_referencia?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Termos de Referência',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.termos_referencia.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-violet-200 bg-violet-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-violet-900">Requisições</p>
-                      <p className="text-2xl font-bold text-violet-700">{resultado.estatisticasPorCategoria?.requisicoes?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-violet-600">
-                        {resultado.estatisticasPorCategoria?.requisicoes?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-violet-700/70">Anexadas em processos</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.requisicoes?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Requisições',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.requisicoes.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-fuchsia-200 bg-fuchsia-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-fuchsia-900">Autorização da Despesa</p>
-                      <p className="text-2xl font-bold text-fuchsia-700">{resultado.estatisticasPorCategoria?.autorizacao_despesa?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-fuchsia-600">
-                        {resultado.estatisticasPorCategoria?.autorizacao_despesa?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-fuchsia-700/70">Anexadas em processos</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.autorizacao_despesa?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Autorização da Despesa',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.autorizacao_despesa.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-rose-200 bg-rose-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-rose-900">Outros Anexos Processos</p>
-                      <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.processos_anexos_outros?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-rose-600">
-                        {resultado.estatisticasPorCategoria?.processos_anexos_outros?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-rose-700/70">Outros anexos</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.processos_anexos_outros?.detalhes?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDocumentosGrupo({
-                          nome: 'Outros Anexos de Processos',
-                          documentos: resultado.estatisticasPorCategoria.processos_anexos_outros.detalhes
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-blue-200 bg-blue-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-blue-900">Cotações</p>
-                      <p className="text-2xl font-bold text-blue-700">{resultado.estatisticasPorCategoria?.cotacoes?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-blue-600">
-                        {resultado.estatisticasPorCategoria?.cotacoes?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-blue-700/70">Propostas e planilhas</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.cotacoes?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Cotações por Processo',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.cotacoes.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-sky-200 bg-sky-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-sky-900">Capas Processo</p>
-                      <p className="text-2xl font-bold text-sky-700">{resultado.estatisticasPorCategoria?.capas_processo?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-sky-600">
-                        {resultado.estatisticasPorCategoria?.capas_processo?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-sky-700/70">PDFs de capa</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.capas_processo?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Capas de Processo',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.capas_processo.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-rose-200 bg-rose-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-rose-900">Habilitação</p>
-                      <p className="text-2xl font-bold text-rose-700">{resultado.estatisticasPorCategoria?.habilitacao?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-rose-600">
-                        {resultado.estatisticasPorCategoria?.habilitacao?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-rose-700/70">Docs solicitados</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.habilitacao?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDialogHabilitacaoAberto(true)}
-                        title="Ver por Processo → Fornecedor"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-lime-200 bg-lime-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-lime-900">Relatórios Finais</p>
-                      <p className="text-2xl font-bold text-lime-700">{resultado.estatisticasPorCategoria?.relatorios_finais?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-lime-600">
-                        {resultado.estatisticasPorCategoria?.relatorios_finais?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-lime-700/70">PDFs de relatório final</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.relatorios_finais?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Relatórios Finais',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.relatorios_finais.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-green-200 bg-green-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-green-900">Autorizações Compra Direta</p>
-                      <p className="text-2xl font-bold text-green-700">{resultado.estatisticasPorCategoria?.autorizacoes_compra_direta?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-green-600">
-                        {resultado.estatisticasPorCategoria?.autorizacoes_compra_direta?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-green-700/70">PDFs de autorização</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.autorizacoes_compra_direta?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Autorizações de Compra Direta',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.autorizacoes_compra_direta.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-emerald-200 bg-emerald-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-emerald-900">Autorizações Seleção</p>
-                      <p className="text-2xl font-bold text-emerald-700">{resultado.estatisticasPorCategoria?.autorizacoes_selecao?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-emerald-600">
-                        {resultado.estatisticasPorCategoria?.autorizacoes_selecao?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-emerald-700/70">PDFs de autorização seleção</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.autorizacoes_selecao?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Autorizações de Seleção de Fornecedores',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.autorizacoes_selecao.porProcesso,
-                          categoria: 'autorizacoes_selecao'
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-orange-200 bg-orange-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-orange-900">Processos Finalizados</p>
-                      <p className="text-2xl font-bold text-orange-700">{resultado.estatisticasPorCategoria?.processos_finalizados?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-orange-600">
-                        {resultado.estatisticasPorCategoria?.processos_finalizados?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-orange-700/70">PDFs mesclados completos</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.processos_finalizados?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Processos Finalizados',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.processos_finalizados.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-pink-200 bg-pink-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-pink-900">Planilhas Finais</p>
-                      <p className="text-2xl font-bold text-pink-700">{resultado.estatisticasPorCategoria?.planilhas_finais?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-pink-600">
-                        {resultado.estatisticasPorCategoria?.planilhas_finais?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-pink-700/70">Resultado final de habilitação</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.planilhas_finais?.porProcesso?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setGrupoDetalhes({
-                          titulo: 'Planilhas Finais',
-                          tipo: 'processo',
-                          grupos: resultado.estatisticasPorCategoria.planilhas_finais.porProcesso
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-slate-200 bg-slate-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs font-medium text-slate-900">Outros</p>
-                      <p className="text-2xl font-bold text-slate-700">{resultado.estatisticasPorCategoria?.outros?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-slate-600">
-                        {resultado.estatisticasPorCategoria?.outros?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-slate-700/70">Não categorizados</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.outros?.detalhes?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDocumentosGrupo({
-                          nome: 'Outros (Não Categorizados)',
-                          documentos: resultado.estatisticasPorCategoria.outros.detalhes
-                        })}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
+              {/* Estatísticas Detalhadas por Categoria - Ordenadas Alfabeticamente */}
+              {[
+                // Análises de Compliance
+                {
+                  key: 'analises_compliance',
+                  title: 'Análises de Compliance',
+                  colorClass: 'border-purple-200 bg-purple-50/50',
+                  description: 'Pareceres compliance',
+                  data: resultado.estatisticasPorCategoria?.analises_compliance,
+                  viewType: 'processo',
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Análises de Compliance',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.analises_compliance?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.analises_compliance?.porProcesso?.length > 0
+                },
+                // Atas do Certame
+                {
+                  key: 'atas_certame',
+                  title: 'Atas do Certame',
+                  colorClass: 'border-rose-200 bg-rose-50/50',
+                  description: 'Atas de Seleção',
+                  data: resultado.estatisticasPorCategoria?.atas_certame,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Atas do Certame',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.atas_certame?.porProcesso || [],
+                    categoria: 'atas_certame'
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.atas_certame?.porProcesso?.length > 0
+                },
+                // Autorização da Despesa
+                {
+                  key: 'autorizacao_despesa',
+                  title: 'Autorização da Despesa',
+                  colorClass: 'border-fuchsia-200 bg-fuchsia-50/50',
+                  description: 'Anexadas em processos',
+                  data: resultado.estatisticasPorCategoria?.autorizacao_despesa,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Autorização da Despesa',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.autorizacao_despesa?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.autorizacao_despesa?.porProcesso?.length > 0
+                },
+                // Autorizações Compra Direta
+                {
+                  key: 'autorizacoes_compra_direta',
+                  title: 'Autorizações Compra Direta',
+                  colorClass: 'border-green-200 bg-green-50/50',
+                  description: 'PDFs de autorização',
+                  data: resultado.estatisticasPorCategoria?.autorizacoes_compra_direta,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Autorizações de Compra Direta',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.autorizacoes_compra_direta?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.autorizacoes_compra_direta?.porProcesso?.length > 0
+                },
+                // Autorizações Seleção
+                {
+                  key: 'autorizacoes_selecao',
+                  title: 'Autorizações Seleção',
+                  colorClass: 'border-emerald-200 bg-emerald-50/50',
+                  description: 'PDFs de autorização seleção',
+                  data: resultado.estatisticasPorCategoria?.autorizacoes_selecao,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Autorizações de Seleção de Fornecedores',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.autorizacoes_selecao?.porProcesso || [],
+                    categoria: 'autorizacoes_selecao'
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.autorizacoes_selecao?.porProcesso?.length > 0
+                },
+                // Avisos de Certame
+                {
+                  key: 'avisos_certame',
+                  title: 'Avisos de Certame',
+                  colorClass: 'border-cyan-200 bg-cyan-50/50',
+                  description: 'Seleção / Credenciamento',
+                  data: resultado.estatisticasPorCategoria?.avisos_certame,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Avisos de Certame',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.avisos_certame?.porProcesso || [],
+                    categoria: 'avisos_certame'
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.avisos_certame?.porProcesso?.length > 0
+                },
+                // Capas Processo
+                {
+                  key: 'capas_processo',
+                  title: 'Capas Processo',
+                  colorClass: 'border-sky-200 bg-sky-50/50',
+                  description: 'PDFs de capa',
+                  data: resultado.estatisticasPorCategoria?.capas_processo,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Capas de Processo',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.capas_processo?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.capas_processo?.porProcesso?.length > 0
+                },
+                // Cotações
+                {
+                  key: 'cotacoes',
+                  title: 'Cotações',
+                  colorClass: 'border-blue-200 bg-blue-50/50',
+                  description: 'Propostas e planilhas',
+                  data: resultado.estatisticasPorCategoria?.cotacoes,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Cotações por Processo',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.cotacoes?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.cotacoes?.porProcesso?.length > 0
+                },
+                // Docs Cadastro
+                {
+                  key: 'documentos_fornecedores',
+                  title: 'Docs Cadastro',
+                  colorClass: 'border-purple-200 bg-purple-50/50',
+                  description: 'CNDs, CNPJ, Relatórios KPMG',
+                  data: resultado.estatisticasPorCategoria?.documentos_fornecedores,
+                  viewType: 'fornecedor',
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Documentos de Cadastro',
+                    tipo: 'fornecedor',
+                    grupos: resultado.estatisticasPorCategoria?.documentos_fornecedores?.porFornecedor || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.documentos_fornecedores?.porFornecedor?.length > 0
+                },
+                // Documentos Antigos
+                {
+                  key: 'documentos_antigos',
+                  title: 'Documentos Antigos',
+                  colorClass: 'border-stone-200 bg-stone-50/50',
+                  description: 'Certidões substituídas',
+                  data: resultado.estatisticasPorCategoria?.documentos_antigos,
+                  onClick: () => setDialogDocumentosAntigosAberto(true),
+                  showView: resultado.estatisticasPorCategoria?.documentos_antigos?.porFornecedor?.length > 0,
+                  hasIcon: true
+                },
+                // Editais
+                {
+                  key: 'editais',
+                  title: 'Editais',
+                  colorClass: 'border-indigo-200 bg-indigo-50/50',
+                  description: 'Seleção / Credenciamento',
+                  data: resultado.estatisticasPorCategoria?.editais,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Editais',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.editais?.porProcesso || [],
+                    categoria: 'editais'
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.editais?.porProcesso?.length > 0
+                },
+                // Encaminhamentos
+                {
+                  key: 'encaminhamentos',
+                  title: 'Encaminhamentos',
+                  colorClass: 'border-emerald-200 bg-emerald-50/50',
+                  description: 'PDFs oficiais',
+                  data: resultado.estatisticasPorCategoria?.encaminhamentos,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Encaminhamentos',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.encaminhamentos?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.encaminhamentos?.porProcesso?.length > 0
+                },
+                // Habilitação
+                {
+                  key: 'habilitacao',
+                  title: 'Habilitação',
+                  colorClass: 'border-rose-200 bg-rose-50/50',
+                  description: 'Docs solicitados',
+                  data: resultado.estatisticasPorCategoria?.habilitacao,
+                  onClick: () => setDialogHabilitacaoAberto(true),
+                  showView: resultado.estatisticasPorCategoria?.habilitacao?.porProcesso?.length > 0
+                },
+                // Homologações
+                {
+                  key: 'homologacoes',
+                  title: 'Homologações',
+                  colorClass: 'border-violet-200 bg-violet-50/50',
+                  description: 'Homologações de Seleção',
+                  data: resultado.estatisticasPorCategoria?.homologacoes,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Homologações',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.homologacoes?.porProcesso || [],
+                    categoria: 'homologacoes'
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.homologacoes?.porProcesso?.length > 0
+                },
+                // Outros
+                {
+                  key: 'outros',
+                  title: 'Outros',
+                  colorClass: 'border-slate-200 bg-slate-50/50',
+                  description: 'Não categorizados',
+                  data: resultado.estatisticasPorCategoria?.outros,
+                  onClick: () => setDocumentosGrupo({
+                    nome: 'Outros (Não Categorizados)',
+                    documentos: resultado.estatisticasPorCategoria?.outros?.detalhes || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.outros?.detalhes?.length > 0
+                },
+                // Outros Anexos Processos
+                {
+                  key: 'processos_anexos_outros',
+                  title: 'Outros Anexos Processos',
+                  colorClass: 'border-rose-200 bg-rose-50/50',
+                  description: 'Outros anexos',
+                  data: resultado.estatisticasPorCategoria?.processos_anexos_outros,
+                  onClick: () => setDocumentosGrupo({
+                    nome: 'Outros Anexos de Processos',
+                    documentos: resultado.estatisticasPorCategoria?.processos_anexos_outros?.detalhes || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.processos_anexos_outros?.detalhes?.length > 0
+                },
+                // Planilhas Finais
+                {
+                  key: 'planilhas_finais',
+                  title: 'Planilhas Finais',
+                  colorClass: 'border-pink-200 bg-pink-50/50',
+                  description: 'Resultado final de habilitação',
+                  data: resultado.estatisticasPorCategoria?.planilhas_finais,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Planilhas Finais',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.planilhas_finais?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.planilhas_finais?.porProcesso?.length > 0
+                },
+                // Planilhas Lances
+                {
+                  key: 'planilhas_lances',
+                  title: 'Planilhas Lances',
+                  colorClass: 'border-teal-200 bg-teal-50/50',
+                  description: 'Consolidadas',
+                  data: resultado.estatisticasPorCategoria?.planilhas_lances,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Planilhas de Lances',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.planilhas_lances?.porProcesso || [],
+                    categoria: 'planilhas_lances'
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.planilhas_lances?.arquivos > 0
+                },
+                // Processos Finalizados
+                {
+                  key: 'processos_finalizados',
+                  title: 'Processos Finalizados',
+                  colorClass: 'border-orange-200 bg-orange-50/50',
+                  description: 'PDFs mesclados completos',
+                  data: resultado.estatisticasPorCategoria?.processos_finalizados,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Processos Finalizados',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.processos_finalizados?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.processos_finalizados?.porProcesso?.length > 0
+                },
+                // Propostas Seleção
+                {
+                  key: 'propostas_selecao',
+                  title: 'Propostas Seleção',
+                  colorClass: 'border-indigo-200 bg-indigo-50/50',
+                  description: 'PDFs de propostas',
+                  data: resultado.estatisticasPorCategoria?.propostas_selecao,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Propostas de Seleção',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.propostas_selecao?.porProcesso || [],
+                    categoria: 'propostas_selecao'
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.propostas_selecao?.arquivos > 0
+                },
+                // Recursos
+                {
+                  key: 'recursos',
+                  title: 'Recursos',
+                  colorClass: 'border-amber-200 bg-amber-50/50',
+                  description: 'Enviados e respostas',
+                  data: resultado.estatisticasPorCategoria?.recursos,
+                  onClick: () => setDialogRecursosAberto(true),
+                  showView: resultado.estatisticasPorCategoria?.recursos?.arquivos > 0
+                },
+                // Relatórios Finais
+                {
+                  key: 'relatorios_finais',
+                  title: 'Relatórios Finais',
+                  colorClass: 'border-lime-200 bg-lime-50/50',
+                  description: 'PDFs de relatório final',
+                  data: resultado.estatisticasPorCategoria?.relatorios_finais,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Relatórios Finais',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.relatorios_finais?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.relatorios_finais?.porProcesso?.length > 0
+                },
+                // Requisições
+                {
+                  key: 'requisicoes',
+                  title: 'Requisições',
+                  colorClass: 'border-violet-200 bg-violet-50/50',
+                  description: 'Anexadas em processos',
+                  data: resultado.estatisticasPorCategoria?.requisicoes,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Requisições',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.requisicoes?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.requisicoes?.porProcesso?.length > 0
+                },
+                // Termos de Referência
+                {
+                  key: 'termos_referencia',
+                  title: 'Termos de Referência',
+                  colorClass: 'border-indigo-200 bg-indigo-50/50',
+                  description: 'Anexados em processos',
+                  data: resultado.estatisticasPorCategoria?.termos_referencia,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Termos de Referência',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.termos_referencia?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.termos_referencia?.porProcesso?.length > 0
+                }
+              ]
+              .sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'))
+              .map((cat) => {
+                const colorMatch = cat.colorClass.match(/border-(\w+)-/);
+                const color = colorMatch ? colorMatch[1] : 'slate';
+                
+                return (
+                  <Card key={cat.key} className={cat.colorClass}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center gap-1">
+                            {cat.hasIcon && <Archive className={`h-4 w-4 text-${color}-600`} />}
+                            <p className={`text-xs font-medium text-${color}-900`}>{cat.title}</p>
+                          </div>
+                          <p className={`text-2xl font-bold text-${color}-700`}>{cat.data?.arquivos || 0}</p>
+                          <p className={`text-sm font-semibold text-${color}-600`}>
+                            {cat.data?.tamanhoMB || 0} MB
+                          </p>
+                          <p className={`text-xs text-${color}-700/70`}>{cat.description}</p>
+                        </div>
+                        {cat.showView && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={cat.onClick}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
               <Card className="border-stone-200 bg-stone-50/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-2">
