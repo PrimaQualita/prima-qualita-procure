@@ -784,8 +784,9 @@ export function DialogPlanilhaConsolidada({
       console.log('✅ Dados retornados do insert:', insertData);
       console.log('✅ Estimativas salvas:', insertData?.[0]?.estimativas_itens);
 
-      // CRÍTICO: Invalidar todas as aprovações de documentos ao gerar nova planilha
-      console.log("🔄 [V3] Invalidando aprovações anteriores de documentos...");
+      // CRÍTICO: Ao gerar nova planilha, apenas INVALIDAR aprovações
+      // NÃO deletar arquivos físicos nem registros - manter para re-análise
+      console.log("🔄 [V4] Invalidando apenas aprovações (mantendo arquivos e solicitações)...");
       
       // PRIMEIRO: Resetar campo documentos_aprovados da cotação
       const { error: resetApprovedError } = await supabase
@@ -800,91 +801,23 @@ export function DialogPlanilhaConsolidada({
         console.log("✅ Campo documentos_aprovados resetado");
       }
       
-      // SEGUNDO: Buscar IDs dos campos antes de deletar
-      const { data: campos } = await supabase
+      // SEGUNDO: Resetar status das solicitações para "pendente" (manter arquivos!)
+      const { error: resetStatusError } = await supabase
         .from("campos_documentos_finalizacao")
-        .select("id")
+        .update({ 
+          status_solicitacao: "pendente",
+          data_aprovacao: null,
+          data_conclusao: null
+        })
         .eq("cotacao_id", cotacaoId);
       
-      console.log(`📋 [V3] Campos encontrados para cotacao ${cotacaoId}: ${campos?.length || 0}`);
-      
-      // TERCEIRO: Deletar documentos enviados pelos fornecedores
-      if (campos && campos.length > 0) {
-        const campoIds = campos.map(c => c.id);
-        console.log(`📋 [V3] Campo IDs: ${campoIds.join(', ')}`);
-        
-        // CRÍTICO: Buscar URLs dos arquivos ANTES de deletar registros
-        const { data: docsParaDeletar } = await supabase
-          .from("documentos_finalizacao_fornecedor")
-          .select("url_arquivo")
-          .in("campo_documento_id", campoIds);
-        
-        console.log(`📋 [V3] Documentos encontrados para deletar: ${docsParaDeletar?.length || 0}`);
-        
-        // Deletar arquivos do storage PRIMEIRO
-        if (docsParaDeletar && docsParaDeletar.length > 0) {
-          const pathsParaDeletar = docsParaDeletar
-            .filter(d => d.url_arquivo)
-            .map(d => {
-              let path = d.url_arquivo;
-              console.log(`📋 [V3] URL original: ${path}`);
-              // Limpar URL para extrair apenas o path relativo
-              if (path.includes('/processo-anexos/')) {
-                path = path.split('/processo-anexos/')[1];
-              }
-              if (path.includes('?')) {
-                path = path.split('?')[0];
-              }
-              console.log(`📋 [V3] Path extraído: ${path}`);
-              return path;
-            })
-            .filter(Boolean);
-          
-          console.log(`🗑️ [V3] Paths finais para deletar: ${pathsParaDeletar.length}`);
-          pathsParaDeletar.forEach(p => console.log(`   - ${p}`));
-          
-          if (pathsParaDeletar.length > 0) {
-            console.log(`🗑️ [V3] Deletando ${pathsParaDeletar.length} arquivos do storage...`);
-            const { error: storageError } = await supabase.storage
-              .from("processo-anexos")
-              .remove(pathsParaDeletar);
-            
-            if (storageError) {
-              console.error("❌ [V3] Erro ao deletar arquivos do storage:", storageError);
-            } else {
-              console.log("✅ [V3] Arquivos deletados do storage com sucesso!");
-            }
-          }
-        } else {
-          console.log("📋 [V3] Nenhum documento para deletar do storage");
-        }
-
-        // DEPOIS deletar registros do banco
-        const { error: deleteDocsError } = await supabase
-          .from("documentos_finalizacao_fornecedor")
-          .delete()
-          .in("campo_documento_id", campoIds);
-        
-        if (deleteDocsError) {
-          console.error("Erro ao limpar documentos enviados:", deleteDocsError);
-        } else {
-          console.log("✅ Documentos enviados por fornecedores invalidados");
-        }
-      }
-
-      // QUARTO: Deletar solicitações de documentos de finalizacao
-      const { error: deleteError } = await supabase
-        .from("campos_documentos_finalizacao")
-        .delete()
-        .eq("cotacao_id", cotacaoId);
-      
-      if (deleteError) {
-        console.error("Erro ao limpar solicitações:", deleteError);
+      if (resetStatusError) {
+        console.error("Erro ao resetar status das solicitações:", resetStatusError);
       } else {
-        console.log("✅ Solicitações de documentos invalidadas");
+        console.log("✅ Status das solicitações resetado para pendente (arquivos mantidos)");
       }
 
-      console.log("✅ Todas as aprovações anteriores invalidadas com sucesso");
+      console.log("✅ Aprovações invalidadas - arquivos e solicitações mantidos para re-análise");
 
       toast.success("✅ Planilha gerada com sucesso!", {
         description: `${todosItens.length} itens processados. Protocolo: ${dadosProtocolo.protocolo.substring(0, 19)}...`,
