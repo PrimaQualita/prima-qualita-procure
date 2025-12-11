@@ -336,13 +336,12 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       .from("selecao_propostas_fornecedor")
       .select(`
         id, 
-        data_envio,
-        url_proposta,
-        nome_arquivo_proposta,
+        data_envio_proposta,
+        url_pdf_proposta,
         fornecedores(razao_social)
       `)
       .eq("selecao_id", selecaoId)
-      .order("data_envio", { ascending: true });
+      .order("data_envio_proposta", { ascending: true });
 
     if (propostasError) {
       console.error("Erro ao buscar propostas de seleção:", propostasError);
@@ -354,12 +353,16 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       for (const proposta of propostasSelecao) {
         const razaoSocial = (proposta.fornecedores as any)?.razao_social || 'Fornecedor';
         
-        if (proposta.url_proposta && proposta.nome_arquivo_proposta) {
+        if (proposta.url_pdf_proposta) {
+          // Extrair nome do arquivo da URL
+          const urlParts = proposta.url_pdf_proposta.split('/');
+          const nomeArquivo = decodeURIComponent(urlParts[urlParts.length - 1]);
+          
           documentosOrdenados.push({
             tipo: "Proposta Seleção",
-            data: proposta.data_envio,
-            nome: `${razaoSocial} - ${proposta.nome_arquivo_proposta}`,
-            url: proposta.url_proposta,
+            data: proposta.data_envio_proposta,
+            nome: `${razaoSocial} - ${nomeArquivo}`,
+            url: proposta.url_pdf_proposta,
             bucket: "processo-anexos",
             fornecedor: razaoSocial
           });
