@@ -26,6 +26,7 @@ export default function PortalFornecedor() {
   const [documentosPendentesSelecao, setDocumentosPendentesSelecao] = useState<any[]>([]);
   const [atasPendentes, setAtasPendentes] = useState<any[]>([]);
   const [inabilitacoesPendentes, setInabilitacoesPendentes] = useState<any[]>([]);
+  const [inabilitacoesSelecaoPendentes, setInabilitacoesSelecaoPendentes] = useState<any[]>([]);
   const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<string>("");
@@ -108,6 +109,7 @@ export default function PortalFornecedor() {
     await loadDocumentosPendentesSelecao(fornecedorData.id);
     await loadAtasPendentes(fornecedorData.id);
     await loadInabilitacoesPendentes(fornecedorData.id);
+    await loadInabilitacoesSelecaoPendentes(fornecedorData.id);
     setLoading(false);
   };
 
@@ -374,7 +376,7 @@ export default function PortalFornecedor() {
 
   const loadInabilitacoesPendentes = async (fornecedorId: string) => {
     try {
-      console.log("🔍 Carregando inabilitações pendentes de recurso...");
+      console.log("🔍 Carregando inabilitações pendentes de recurso (cotação)...");
       
       // Buscar rejeições em cotações onde o fornecedor ainda pode recorrer
       // (não revertidas e SEM recurso já enviado - apenas 'sem_recurso' ou null)
@@ -401,10 +403,68 @@ export default function PortalFornecedor() {
 
       if (error) throw error;
       
-      console.log("✅ Inabilitações encontradas:", rejeicoes);
+      console.log("✅ Inabilitações cotação encontradas:", rejeicoes);
       setInabilitacoesPendentes(rejeicoes || []);
     } catch (error) {
       console.error("❌ Erro ao carregar inabilitações pendentes:", error);
+    }
+  };
+
+  const loadInabilitacoesSelecaoPendentes = async (fornecedorId: string) => {
+    try {
+      console.log("🔍 Carregando inabilitações pendentes de recurso (seleção)...");
+      
+      // Buscar inabilitações em seleções onde o fornecedor ainda pode recorrer
+      const { data: inabilitacoes, error } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select(`
+          id,
+          motivo_inabilitacao,
+          data_inabilitacao,
+          itens_afetados,
+          selecao_id,
+          selecoes_fornecedores (
+            titulo_selecao,
+            numero_selecao,
+            processo_compra_id,
+            processos_compras (
+              numero_processo_interno
+            )
+          )
+        `)
+        .eq("fornecedor_id", fornecedorId)
+        .eq("revertido", false);
+
+      if (error) throw error;
+
+      // Verificar quais têm recurso já enviado
+      const inabilitacoesComRecurso = await Promise.all(
+        (inabilitacoes || []).map(async (inab) => {
+          const { data: recursos } = await supabase
+            .from("recursos_inabilitacao_selecao")
+            .select("id, status_recurso")
+            .eq("inabilitacao_id", inab.id)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          const recurso = recursos?.[0];
+          return {
+            ...inab,
+            recurso_id: recurso?.id || null,
+            status_recurso: recurso?.status_recurso || null
+          };
+        })
+      );
+
+      // Filtrar apenas os que ainda podem recorrer (sem recurso ou recurso em aberto para envio)
+      const pendentes = inabilitacoesComRecurso.filter(
+        inab => !inab.status_recurso || inab.status_recurso === 'aguardando_recurso'
+      );
+      
+      console.log("✅ Inabilitações seleção encontradas:", pendentes);
+      setInabilitacoesSelecaoPendentes(pendentes);
+    } catch (error) {
+      console.error("❌ Erro ao carregar inabilitações de seleção pendentes:", error);
     }
   };
 
@@ -837,6 +897,66 @@ export default function PortalFornecedor() {
                   </div>
                   <p className="text-sm text-red-600 dark:text-red-300 mt-3">
                     Acesse a aba "Cotações de Preços" para visualizar detalhes e enviar seu recurso.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Alerta de Inabilitações em Seleções - Possibilidade de Recurso */}
+        {inabilitacoesSelecaoPendentes.length > 0 && (
+          <Card className="mb-6 border-orange-500/50 bg-orange-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-orange-700 dark:text-orange-400 mb-3">
+                    ⚠️ Você foi inabilitado em {inabilitacoesSelecaoPendentes.length} seleção(ões) de fornecedores! Você pode apresentar recurso.
+                  </p>
+                  <div className="space-y-3">
+                    {inabilitacoesSelecaoPendentes.map((inabilitacao) => (
+                      <div key={inabilitacao.id} className="p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg border">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">
+                              {inabilitacao.selecoes_fornecedores?.processos_compras?.numero_processo_interno || "Processo"} - {inabilitacao.selecoes_fornecedores?.titulo_selecao || "Seleção"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Motivo: {inabilitacao.motivo_inabilitacao}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Itens afetados: {inabilitacao.itens_afetados?.join(", ") || "Todos"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Data: {new Date(inabilitacao.data_inabilitacao).toLocaleDateString()}
+                            </p>
+                            {inabilitacao.status_recurso && (
+                              <Badge variant="outline" className="mt-1 text-xs">
+                                Recurso: {inabilitacao.status_recurso === 'aguardando_recurso' ? 'Aguardando envio' : 
+                                         inabilitacao.status_recurso === 'enviado' ? 'Enviado' :
+                                         inabilitacao.status_recurso === 'em_analise' ? 'Em análise' : 
+                                         inabilitacao.status_recurso === 'indeferido' ? 'Indeferido' : 
+                                         inabilitacao.status_recurso === 'deferido' ? 'Deferido' :
+                                         inabilitacao.status_recurso === 'deferido_parcial' ? 'Deferido Parcialmente' :
+                                         inabilitacao.status_recurso}
+                              </Badge>
+                            )}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/participar-selecao?id=${inabilitacao.selecao_id}`)}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Ver Seleção
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-orange-600 dark:text-orange-300 mt-3">
+                    Clique em "Ver Seleção" ou acesse a aba "Seleções" para visualizar detalhes e enviar seu recurso.
                   </p>
                 </div>
               </div>
