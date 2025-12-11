@@ -19,10 +19,10 @@ export const gerarProcessoCompletoSelecaoPDF = async (
   const pdfFinal = await PDFDocument.create();
 
   try {
-    // 1. Buscar o processo de compras vinculado à seleção
+    // 1. Buscar o processo de compras vinculado à seleção e data de encerramento da habilitação
     const { data: selecao, error: selecaoError } = await supabase
       .from("selecoes_fornecedores")
-      .select("processo_compra_id")
+      .select("processo_compra_id, data_encerramento_habilitacao, habilitacao_encerrada")
       .eq("id", selecaoId)
       .single();
 
@@ -276,12 +276,28 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       console.log(`Análise de compliance encontrada: ${analiseCompliance ? 'SIM' : 'NÃO'}`);
 
       if (analiseCompliance && analiseCompliance.url_documento) {
+        // Extrair storage path corretamente - pode ser URL completa ou path relativo
+        let storagePath = analiseCompliance.url_documento;
+        
+        // Se for URL completa, extrair apenas o path relativo
+        if (storagePath.includes('/storage/v1/object/')) {
+          const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
+          if (match) {
+            storagePath = match[1].split('?')[0];
+          }
+        } else if (storagePath.startsWith('processo-anexos/')) {
+          storagePath = storagePath.replace('processo-anexos/', '');
+        }
+        // Se começar com documents/, é um path relativo do bucket documents - usar URL direta
+        const useDirectUrl = storagePath.startsWith('documents/');
+        
         documentosOrdenados.push({
           tipo: "Análise Compliance",
           data: analiseCompliance.data_analise || analiseCompliance.created_at,
           nome: analiseCompliance.nome_arquivo || `Análise Compliance - ${analiseCompliance.protocolo}`,
-          url: analiseCompliance.url_documento,
-          bucket: "processo-anexos"
+          url: useDirectUrl ? analiseCompliance.url_documento : undefined,
+          storagePath: useDirectUrl ? undefined : storagePath,
+          bucket: useDirectUrl ? "documents" : "processo-anexos"
         });
       }
     }
@@ -351,7 +367,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // 10. Buscar planilhas de lances
+    // 10. Buscar planilhas de lances - separar antes e depois do encerramento da habilitação
     console.log("\n📊 === BUSCANDO PLANILHAS DE LANCES ===");
     const { data: planilhasLances, error: planilhasError } = await supabase
       .from("planilhas_lances_selecao")
@@ -365,17 +381,41 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
     console.log(`Planilhas de lances encontradas: ${planilhasLances?.length || 0}`);
     
+    // Separar planilhas: antes e depois do encerramento da habilitação
+    const dataEncerramentoHabilitacao = selecao?.data_encerramento_habilitacao 
+      ? new Date(selecao.data_encerramento_habilitacao).getTime() 
+      : null;
+    
+    const planilhasAntesHabilitacao: any[] = [];
+    const planilhasAposHabilitacao: any[] = [];
+    
     if (planilhasLances && planilhasLances.length > 0) {
       planilhasLances.forEach(planilha => {
-        documentosOrdenados.push({
-          tipo: "Planilha de Lances",
-          data: planilha.data_geracao,
-          nome: planilha.nome_arquivo,
-          url: planilha.url_arquivo,
-          bucket: "processo-anexos"
-        });
+        const dataPlanilha = new Date(planilha.data_geracao).getTime();
+        
+        // Se não há data de encerramento ou planilha foi gerada ANTES do encerramento
+        if (!dataEncerramentoHabilitacao || dataPlanilha < dataEncerramentoHabilitacao) {
+          planilhasAntesHabilitacao.push(planilha);
+        } else {
+          // Planilha gerada APÓS o encerramento da habilitação
+          planilhasAposHabilitacao.push(planilha);
+        }
       });
     }
+    
+    console.log(`  📊 Planilhas antes da habilitação: ${planilhasAntesHabilitacao.length}`);
+    console.log(`  📊 Planilhas após habilitação: ${planilhasAposHabilitacao.length}`);
+    
+    // Adicionar planilhas ANTES do encerramento da habilitação (ordem cronológica normal)
+    planilhasAntesHabilitacao.forEach(planilha => {
+      documentosOrdenados.push({
+        tipo: "Planilha de Lances",
+        data: planilha.data_geracao,
+        nome: planilha.nome_arquivo,
+        url: planilha.url_arquivo,
+        bucket: "processo-anexos"
+      });
+    });
 
     // 11. Autorização de Seleção de Fornecedores (se houver) - ANTES DA ORDENAÇÃO
     console.log("\n✅ === BUSCANDO AUTORIZAÇÃO DE SELEÇÃO ===");
@@ -592,43 +632,78 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           }
         }
       }
-    }
-
-    // 13. Buscar recursos de inabilitação (se houver) e voltar para ordem cronológica
-    console.log("\n⚖️ === BUSCANDO RECURSOS ===");
-    const { data: recursos, error: recursosError } = await supabase
-      .from("recursos_inabilitacao_selecao")
-      .select("*")
-      .eq("selecao_id", selecaoId)
-      .order("created_at", { ascending: true });
-
-    if (recursosError) {
-      console.error("Erro ao buscar recursos:", recursosError);
-    }
-
-    console.log(`Recursos encontrados: ${recursos?.length || 0}`);
-    
-    if (recursos && recursos.length > 0) {
-      recursos.forEach(recurso => {
-        if (recurso.url_recurso) {
-          documentosOrdenados.push({
-            tipo: "Recurso Inabilitação",
-            data: recurso.created_at,
-            nome: `Recurso - ${recurso.protocolo_recurso}`,
-            url: recurso.url_recurso,
-            bucket: "processo-anexos"
-          });
-        }
+      
+      // 3. TERCEIRO: Buscar RECURSOS deste fornecedor específico (recurso + resposta após seus documentos)
+      console.log(`  📝 Buscando recursos do fornecedor...`);
+      const { data: recursosFornecedor, error: recursosFornError } = await supabase
+        .from("recursos_inabilitacao_selecao")
+        .select("*, fornecedores(razao_social)")
+        .eq("selecao_id", selecaoId)
+        .eq("fornecedor_id", fornecedorId)
+        .order("created_at", { ascending: true });
+      
+      if (recursosFornError) {
+        console.error(`  ❌ Erro ao buscar recursos do fornecedor:`, recursosFornError);
+      }
+      
+      if (recursosFornecedor && recursosFornecedor.length > 0) {
+        console.log(`  📝 Recursos do fornecedor: ${recursosFornecedor.length}`);
         
-        if (recurso.url_resposta) {
-          documentosOrdenados.push({
-            tipo: "Resposta Recurso",
-            data: recurso.data_resposta || recurso.created_at,
-            nome: `Resposta Recurso - ${recurso.protocolo_resposta}`,
-            url: recurso.url_resposta,
-            bucket: "processo-anexos"
-          });
+        // Adicionar recursos em ordem cronológica: recurso seguido de sua resposta
+        for (let i = 0; i < recursosFornecedor.length; i++) {
+          const recurso = recursosFornecedor[i];
+          const razaoSocial = (recurso.fornecedores as any)?.razao_social || 'Fornecedor';
+          
+          // Data do recurso (logo após documentos do fornecedor)
+          const dataRecurso = new Date(new Date(dataFornecedor).getTime() + 50 + (i * 2)).toISOString();
+          
+          // Adicionar o recurso
+          if (recurso.url_pdf_recurso) {
+            documentosOrdenados.push({
+              tipo: "Recurso de Inabilitação",
+              data: dataRecurso,
+              nome: `Recurso - ${razaoSocial}`,
+              url: recurso.url_pdf_recurso,
+              bucket: "processo-anexos",
+              fornecedor: fornecedorId
+            });
+            console.log(`    📝 Recurso: ${razaoSocial}`);
+          }
+          
+          // Adicionar a resposta do recurso (imediatamente após o recurso)
+          if (recurso.url_pdf_resposta) {
+            const dataResposta = new Date(new Date(dataRecurso).getTime() + 1).toISOString();
+            documentosOrdenados.push({
+              tipo: "Resposta de Recurso",
+              data: dataResposta,
+              nome: `Resposta Recurso - ${razaoSocial}`,
+              url: recurso.url_pdf_resposta,
+              bucket: "processo-anexos",
+              fornecedor: fornecedorId
+            });
+            console.log(`    📝 Resposta Recurso: ${razaoSocial}`);
+          }
         }
+      }
+    }
+
+    // 13. Adicionar planilhas de lances geradas APÓS o encerramento da habilitação
+    if (planilhasAposHabilitacao.length > 0) {
+      console.log("\n📊 === ADICIONANDO PLANILHAS DE LANCES APÓS HABILITAÇÃO ===");
+      
+      // Data base para planilhas após habilitação (após todos os documentos dos fornecedores)
+      const dataBasePlanilhasPos = new Date(new Date(dataBaseFornecedores).getTime() + (fornecedoresArray.length * 200) + 500).toISOString();
+      
+      planilhasAposHabilitacao.forEach((planilha, idx) => {
+        const dataPlanilha = new Date(new Date(dataBasePlanilhasPos).getTime() + (idx * 100)).toISOString();
+        documentosOrdenados.push({
+          tipo: "Planilha de Lances (Pós-Habilitação)",
+          data: dataPlanilha,
+          nome: planilha.nome_arquivo,
+          url: planilha.url_arquivo,
+          bucket: "processo-anexos"
+        });
+        console.log(`  📊 Planilha pós-habilitação: ${planilha.nome_arquivo}`);
       });
     }
 
@@ -698,8 +773,21 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         
         if (doc.storagePath || isStoragePath) {
           // Usar signed URL para storage paths
-          const path = doc.storagePath || doc.url;
-          console.log(`    Gerando signed URL para storage path: ${path}`);
+          let path = doc.storagePath || doc.url;
+          
+          // Limpar path se necessário
+          if (path?.includes('/storage/v1/object/')) {
+            const bucketMatch = doc.bucket === 'documents' ? 'documents' : 'processo-anexos';
+            const regex = new RegExp(`/${bucketMatch}/(.+?)(\\?|$)`);
+            const match = path.match(regex);
+            if (match) {
+              path = match[1].split('?')[0];
+            }
+          } else if (path?.startsWith(`${doc.bucket}/`)) {
+            path = path.replace(`${doc.bucket}/`, '');
+          }
+          
+          console.log(`    Gerando signed URL para storage path: ${path} (bucket: ${doc.bucket})`);
           
           const { data: signedUrlData, error: signedError } = await supabase.storage
             .from(doc.bucket)
