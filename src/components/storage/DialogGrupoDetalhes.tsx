@@ -55,55 +55,58 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
   const getNomeGrupo = (grupo: any, idx: number) => {
     if (tipo === 'fornecedor') return grupo.fornecedorNome;
     
-    // Planilhas de Lances da Seleção
-    if (categoria === 'planilhas_lances' && tipo === 'selecao') {
+    // Planilhas de Lances da Seleção - agora usa porProcesso
+    if (categoria === 'planilhas_lances' && tipo === 'processo') {
+      const processoNum = grupo.processoNumero || 'S/N';
       const selecaoNum = grupo.selecaoNumero || 'S/N';
-      const totalPlanilhas = grupo.documentos?.length || 1;
-      
-      if (totalPlanilhas > 1) {
-        return `Planilhas de Lances da Seleção ${selecaoNum}`;
-      }
-      return `Planilha de Lances da Seleção ${selecaoNum}`;
+      const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+      return `Processo ${processoNum} - ${tipoSelecao} ${selecaoNum}`;
     }
     
     // Avisos de Certame
     if (categoria === 'avisos_certame' && tipo === 'processo') {
+      const processoNum = grupo.processoNumero || 'S/N';
       const selecaoNum = grupo.selecaoNumero || grupo.processoNumero || 'S/N';
       const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
-      return `Aviso da ${tipoSelecao} ${selecaoNum}`;
+      return `Processo ${processoNum} - Aviso da ${tipoSelecao} ${selecaoNum}`;
     }
     
     // Editais
     if (categoria === 'editais' && tipo === 'processo') {
+      const processoNum = grupo.processoNumero || 'S/N';
       const selecaoNum = grupo.selecaoNumero || grupo.processoNumero || 'S/N';
       const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
-      return `Edital da ${tipoSelecao} ${selecaoNum}`;
+      return `Processo ${processoNum} - Edital da ${tipoSelecao} ${selecaoNum}`;
     }
     
     // Atas do Certame
     if (categoria === 'atas_certame' && tipo === 'processo') {
+      const processoNum = grupo.processoNumero || 'S/N';
       const selecaoNum = grupo.selecaoNumero || grupo.processoNumero || 'S/N';
       const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
-      return `Ata da ${tipoSelecao} ${selecaoNum}`;
+      return `Processo ${processoNum} - Ata da ${tipoSelecao} ${selecaoNum}`;
     }
     
     // Homologações
     if (categoria === 'homologacoes' && tipo === 'processo') {
+      const processoNum = grupo.processoNumero || 'S/N';
       const selecaoNum = grupo.selecaoNumero || grupo.processoNumero || 'S/N';
       const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
-      return `Homologação da ${tipoSelecao} ${selecaoNum}`;
+      return `Processo ${processoNum} - Homologação da ${tipoSelecao} ${selecaoNum}`;
     }
     
-    // Propostas de Seleção
-    if (categoria === 'propostas_selecao' && tipo === 'selecao') {
+    // Propostas de Seleção - agora usa porProcesso
+    if (categoria === 'propostas_selecao' && tipo === 'processo') {
+      const processoNum = grupo.processoNumero || 'S/N';
       const selecaoNum = grupo.selecaoNumero || 'S/N';
-      return `Propostas da Seleção ${selecaoNum}`;
+      const tipoSelecao = grupo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+      return `Processo ${processoNum} - ${tipoSelecao} ${selecaoNum}`;
     }
     
     if (tipo === 'selecao') return `Seleção de Fornecedores ${grupo.selecaoNumero || 'S/N'} - ${grupo.selecaoTitulo}`;
     if (tipo === 'processo') {
       if (grupo.tipoSelecao) {
-        return `${grupo.tipoSelecao} ${grupo.selecaoNumero || ''} - Processo ${grupo.processoNumero}`;
+        return `Processo ${grupo.processoNumero} - ${grupo.tipoSelecao} ${grupo.selecaoNumero || ''}`;
       }
       const prefix = grupo.credenciamento ? 'Credenciamento' : 'Processo';
       return `${prefix} ${grupo.processoNumero}`;
@@ -117,7 +120,10 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
     if (categoria === 'planilhas_lances' && totalDocs > 1) {
       const selecaoNum = grupo.selecaoNumero || 'S/N';
       const numRomano = idx > 0 ? ` ${toRoman(idx + 1)}` : '';
-      return `Planilha de Lances da Seleção ${selecaoNum}${numRomano}`;
+      return `Planilha de Lances da ${grupo.credenciamento ? 'Credenciamento' : 'Seleção'} ${selecaoNum}${numRomano}`;
+    }
+    if (categoria === 'propostas_selecao' && doc.fornecedorNome) {
+      return `Proposta ${doc.fornecedorNome}`;
     }
     return doc.fileName;
   };

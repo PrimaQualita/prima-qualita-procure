@@ -480,13 +480,14 @@ Deno.serve(async (req) => {
     }
 
     // Buscar dados de seleções para agrupar documentos
-    const { data: selecoes } = await supabase.from('selecoes_fornecedores').select('id, titulo_selecao, numero_selecao');
-    const selecoesMap = new Map<string, { titulo: string; numero: string }>();
+    const { data: selecoes } = await supabase.from('selecoes_fornecedores').select('id, titulo_selecao, numero_selecao, processo_compra_id');
+    const selecoesMap = new Map<string, { titulo: string; numero: string; processoId: string }>();
     if (selecoes) {
       for (const sel of selecoes) {
         selecoesMap.set(sel.id, {
           titulo: sel.titulo_selecao,
-          numero: sel.numero_selecao || sel.id.substring(0, 8)
+          numero: sel.numero_selecao || sel.id.substring(0, 8),
+          processoId: sel.processo_compra_id
         });
       }
     }
@@ -797,7 +798,20 @@ Deno.serve(async (req) => {
           }> 
         }>() 
       },
-      propostas_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
+      propostas_selecao: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porProcesso: new Map<string, { 
+          processoId: string; 
+          processoNumero: string; 
+          processoObjeto: string;
+          tipoSelecao: string;
+          selecaoNumero: string;
+          credenciamento: boolean;
+          documentos: Array<{ path: string; fileName: string; size: number; fornecedorNome?: string }>;
+        }>() 
+      },
       avisos_certame: { 
         arquivos: 0, 
         tamanho: 0, 
@@ -806,8 +820,9 @@ Deno.serve(async (req) => {
           processoId: string; 
           processoNumero: string; 
           processoObjeto: string;
-          tipoSelecao: string; // "Seleção de Fornecedores" ou "Credenciamento"
+          tipoSelecao: string;
           selecaoNumero: string;
+          credenciamento: boolean;
           documentos: Array<{ path: string; fileName: string; size: number }>;
         }>() 
       },
@@ -819,8 +834,9 @@ Deno.serve(async (req) => {
           processoId: string; 
           processoNumero: string; 
           processoObjeto: string;
-          tipoSelecao: string; // "Seleção de Fornecedores" ou "Credenciamento"
+          tipoSelecao: string;
           selecaoNumero: string;
+          credenciamento: boolean;
           documentos: Array<{ path: string; fileName: string; size: number }>;
         }>() 
       },
@@ -852,7 +868,20 @@ Deno.serve(async (req) => {
           documentos: Array<{ path: string; fileName: string; size: number }>;
         }>() 
       },
-      planilhas_lances: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porSelecao: new Map<string, any>() },
+      planilhas_lances: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porProcesso: new Map<string, { 
+          processoId: string; 
+          processoNumero: string; 
+          processoObjeto: string;
+          tipoSelecao: string;
+          selecaoNumero: string;
+          credenciamento: boolean;
+          documentos: Array<{ path: string; fileName: string; size: number }>;
+        }>() 
+      },
       recursos: { 
         arquivos: 0, 
         tamanho: 0, 
@@ -1356,16 +1385,23 @@ Deno.serve(async (req) => {
           const selecao = selecoesMap.get(selecaoId);
           
           if (selecao) {
-            if (!estatisticasPorCategoria.propostas_selecao.porSelecao!.has(selecaoId)) {
-              estatisticasPorCategoria.propostas_selecao.porSelecao!.set(selecaoId, {
-                selecaoId,
-                selecaoTitulo: selecao.titulo,
+            const processoKey = selecao.processoId;
+            const processo = processosMap.get(processoKey);
+            const tipoSelecao = processo?.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+            
+            if (!estatisticasPorCategoria.propostas_selecao.porProcesso!.has(processoKey)) {
+              estatisticasPorCategoria.propostas_selecao.porProcesso!.set(processoKey, {
+                processoId: processoKey,
+                processoNumero: processo?.numero || '',
+                processoObjeto: processo?.objeto || '',
+                tipoSelecao,
                 selecaoNumero: selecao.numero,
+                credenciamento: processo?.credenciamento || false,
                 documentos: []
               });
             }
             
-            estatisticasPorCategoria.propostas_selecao.porSelecao!.get(selecaoId)!.documentos.push({
+            estatisticasPorCategoria.propostas_selecao.porProcesso!.get(processoKey)!.documentos.push({
               path,
               fileName,
               size: metadata.size
@@ -1402,6 +1438,7 @@ Deno.serve(async (req) => {
                   processoObjeto: anexoInfo.processoObjeto,
                   tipoSelecao,
                   selecaoNumero: anexoInfo.selecaoNumero,
+                  credenciamento: anexoInfo.credenciamento,
                   documentos: []
                 });
               }
@@ -1423,6 +1460,7 @@ Deno.serve(async (req) => {
                   processoObjeto: anexoInfo.processoObjeto,
                   tipoSelecao,
                   selecaoNumero: anexoInfo.selecaoNumero,
+                  credenciamento: anexoInfo.credenciamento,
                   documentos: []
                 });
               }
@@ -1450,69 +1488,66 @@ Deno.serve(async (req) => {
           continue;
         }
         
-        // 8. Atas de seleção (atas-selecao/)
-        if (pathSemBucket.includes('atas-selecao/') || atasSelecaoMap.has(pathSemBucket)) {
+        // 8. Atas de seleção - SÓ contar se existir no banco (atasSelecaoMap)
+        // CRÍTICO: Não usar pathSemBucket.includes('atas-selecao/') pois pode haver arquivos órfãos
+        if (atasSelecaoMap.has(pathSemBucket)) {
           arquivosJaCategorizados.add(path);
           estatisticasPorCategoria.atas_certame.arquivos++;
           estatisticasPorCategoria.atas_certame.tamanho += metadata.size;
           estatisticasPorCategoria.atas_certame.detalhes.push({ path, fileName, size: metadata.size });
           
-          const ataInfo = atasSelecaoMap.get(pathSemBucket);
-          if (ataInfo) {
-            const tipoSelecao = ataInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
-            const processoKey = ataInfo.processoId;
-            
-            if (!estatisticasPorCategoria.atas_certame.porProcesso!.has(processoKey)) {
-              estatisticasPorCategoria.atas_certame.porProcesso!.set(processoKey, {
-                processoId: ataInfo.processoId,
-                processoNumero: ataInfo.processoNumero,
-                processoObjeto: ataInfo.processoObjeto,
-                tipoSelecao,
-                selecaoNumero: ataInfo.selecaoNumero,
-                credenciamento: ataInfo.credenciamento,
-                documentos: []
-              });
-            }
-            estatisticasPorCategoria.atas_certame.porProcesso!.get(processoKey)!.documentos.push({
-              path,
-              fileName,
-              size: metadata.size
+          const ataInfo = atasSelecaoMap.get(pathSemBucket)!;
+          const tipoSelecao = ataInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+          const processoKey = ataInfo.processoId;
+          
+          if (!estatisticasPorCategoria.atas_certame.porProcesso!.has(processoKey)) {
+            estatisticasPorCategoria.atas_certame.porProcesso!.set(processoKey, {
+              processoId: ataInfo.processoId,
+              processoNumero: ataInfo.processoNumero,
+              processoObjeto: ataInfo.processoObjeto,
+              tipoSelecao,
+              selecaoNumero: ataInfo.selecaoNumero,
+              credenciamento: ataInfo.credenciamento,
+              documentos: []
             });
-            console.log(`   ✅ Categorizado como ATA - ${tipoSelecao} ${ataInfo.selecaoNumero}`);
           }
+          estatisticasPorCategoria.atas_certame.porProcesso!.get(processoKey)!.documentos.push({
+            path,
+            fileName,
+            size: metadata.size
+          });
+          console.log(`   ✅ Categorizado como ATA - ${tipoSelecao} ${ataInfo.selecaoNumero}`);
           continue;
         }
         
-        // 9. Homologações de seleção (homologacoes-selecao/)
-        if (pathSemBucket.includes('homologacoes-selecao/') || homologacoesSelecaoMap.has(pathSemBucket)) {
+        // 9. Homologações de seleção - SÓ contar se existir no banco
+        if (homologacoesSelecaoMap.has(pathSemBucket)) {
           arquivosJaCategorizados.add(path);
           estatisticasPorCategoria.homologacoes.arquivos++;
           estatisticasPorCategoria.homologacoes.tamanho += metadata.size;
           estatisticasPorCategoria.homologacoes.detalhes.push({ path, fileName, size: metadata.size });
           
-          const homolInfo = homologacoesSelecaoMap.get(pathSemBucket);
-          if (homolInfo) {
-            const tipoSelecao = homolInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
-            const processoKey = homolInfo.processoId;
-            
-            if (!estatisticasPorCategoria.homologacoes.porProcesso!.has(processoKey)) {
-              estatisticasPorCategoria.homologacoes.porProcesso!.set(processoKey, {
-                processoId: homolInfo.processoId,
-                processoNumero: homolInfo.processoNumero,
-                processoObjeto: homolInfo.processoObjeto,
-                tipoSelecao,
-                selecaoNumero: homolInfo.selecaoNumero,
-                credenciamento: homolInfo.credenciamento,
-                documentos: []
-              });
-            }
-            estatisticasPorCategoria.homologacoes.porProcesso!.get(processoKey)!.documentos.push({
-              path,
-              fileName,
-              size: metadata.size
+          const homolInfo = homologacoesSelecaoMap.get(pathSemBucket)!;
+          const tipoSelecao = homolInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+          const processoKey = homolInfo.processoId;
+          
+          if (!estatisticasPorCategoria.homologacoes.porProcesso!.has(processoKey)) {
+            estatisticasPorCategoria.homologacoes.porProcesso!.set(processoKey, {
+              processoId: homolInfo.processoId,
+              processoNumero: homolInfo.processoNumero,
+              processoObjeto: homolInfo.processoObjeto,
+              tipoSelecao,
+              selecaoNumero: homolInfo.selecaoNumero,
+              credenciamento: homolInfo.credenciamento,
+              documentos: []
             });
-            console.log(`   ✅ Categorizado como HOMOLOGAÇÃO - ${tipoSelecao} ${homolInfo.selecaoNumero}`);
           }
+          estatisticasPorCategoria.homologacoes.porProcesso!.get(processoKey)!.documentos.push({
+            path,
+            fileName,
+            size: metadata.size
+          });
+          console.log(`   ✅ Categorizado como HOMOLOGAÇÃO - ${tipoSelecao} ${homolInfo.selecaoNumero}`);
           continue;
         }
         
@@ -1530,26 +1565,31 @@ Deno.serve(async (req) => {
               selecao_id,
               fornecedor_id,
               fornecedores!inner(razao_social),
-              selecoes_fornecedores!inner(numero_selecao, titulo_selecao)
+              selecoes_fornecedores!inner(numero_selecao, titulo_selecao, processo_compra_id, processos_compras!inner(numero_processo_interno, objeto_resumido, credenciamento))
             `)
             .ilike('url_pdf_proposta', `%${pathSemBucket}%`)
             .maybeSingle();
           
           if (propostaData) {
-            const selecaoId = propostaData.selecao_id;
             const fornecedorNome = (propostaData as any).fornecedores?.razao_social || 'Desconhecido';
             const selecaoData = (propostaData as any).selecoes_fornecedores;
+            const processoData = selecaoData?.processos_compras;
+            const processoKey = selecaoData?.processo_compra_id || propostaData.selecao_id;
+            const tipoSelecao = processoData?.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
             
-            if (!estatisticasPorCategoria.propostas_selecao.porSelecao!.has(selecaoId)) {
-              estatisticasPorCategoria.propostas_selecao.porSelecao!.set(selecaoId, {
-                selecaoId,
-                selecaoTitulo: selecaoData?.titulo_selecao || '',
+            if (!estatisticasPorCategoria.propostas_selecao.porProcesso!.has(processoKey)) {
+              estatisticasPorCategoria.propostas_selecao.porProcesso!.set(processoKey, {
+                processoId: processoKey,
+                processoNumero: processoData?.numero_processo_interno || '',
+                processoObjeto: processoData?.objeto_resumido || '',
+                tipoSelecao,
                 selecaoNumero: selecaoData?.numero_selecao || '',
+                credenciamento: processoData?.credenciamento || false,
                 documentos: []
               });
             }
             
-            estatisticasPorCategoria.propostas_selecao.porSelecao!.get(selecaoId)!.documentos.push({
+            estatisticasPorCategoria.propostas_selecao.porProcesso!.get(processoKey)!.documentos.push({
               path,
               fileName: `Proposta ${fornecedorNome}`,
               size: metadata.size,
@@ -1571,16 +1611,23 @@ Deno.serve(async (req) => {
             const selecao = selecoesMap.get(selecaoId);
             
             if (selecao) {
-              if (!estatisticasPorCategoria.planilhas_lances.porSelecao!.has(selecaoId)) {
-                estatisticasPorCategoria.planilhas_lances.porSelecao!.set(selecaoId, {
-                  selecaoId,
-                  selecaoTitulo: selecao.titulo,
+              const processoKey = selecao.processoId;
+              const processo = processosMap.get(processoKey);
+              const tipoSelecao = processo?.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+              
+              if (!estatisticasPorCategoria.planilhas_lances.porProcesso!.has(processoKey)) {
+                estatisticasPorCategoria.planilhas_lances.porProcesso!.set(processoKey, {
+                  processoId: processoKey,
+                  processoNumero: processo?.numero || '',
+                  processoObjeto: processo?.objeto || '',
+                  tipoSelecao,
                   selecaoNumero: selecao.numero,
+                  credenciamento: processo?.credenciamento || false,
                   documentos: []
                 });
               }
               
-              estatisticasPorCategoria.planilhas_lances.porSelecao!.get(selecaoId)!.documentos.push({
+              estatisticasPorCategoria.planilhas_lances.porProcesso!.get(processoKey)!.documentos.push({
                 path,
                 fileName,
                 size: metadata.size
@@ -3032,7 +3079,7 @@ Deno.serve(async (req) => {
           arquivos: estatisticasPorCategoria.propostas_selecao.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.propostas_selecao.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.propostas_selecao.detalhes,
-          porSelecao: Array.from(estatisticasPorCategoria.propostas_selecao.porSelecao!.values())
+          porProcesso: Array.from(estatisticasPorCategoria.propostas_selecao.porProcesso!.values())
         },
         avisos_certame: {
           arquivos: estatisticasPorCategoria.avisos_certame.arquivos,
@@ -3062,7 +3109,7 @@ Deno.serve(async (req) => {
           arquivos: estatisticasPorCategoria.planilhas_lances.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.planilhas_lances.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.planilhas_lances.detalhes,
-          porSelecao: Array.from(estatisticasPorCategoria.planilhas_lances.porSelecao!.values())
+          porProcesso: Array.from(estatisticasPorCategoria.planilhas_lances.porProcesso!.values())
         },
         recursos: {
           arquivos: estatisticasPorCategoria.recursos.arquivos,
