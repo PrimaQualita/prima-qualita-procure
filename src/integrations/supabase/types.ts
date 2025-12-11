@@ -2969,15 +2969,26 @@ export type Database = {
         Args: { p_coluna: string; p_path: string; p_tabela: string }
         Returns: number
       }
-      fechar_negociacao_fornecedor: {
-        Args: {
-          p_codigo_acesso: string
-          p_fornecedor_id: string
-          p_numero_item: number
-          p_selecao_id: string
-        }
-        Returns: Json
-      }
+      fechar_negociacao_fornecedor:
+        | {
+            Args: {
+              p_codigo_acesso: string
+              p_fornecedor_id: string
+              p_numero_item: number
+              p_selecao_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_codigo_acesso: string
+              p_foi_aceito?: boolean
+              p_fornecedor_id: string
+              p_numero_item: number
+              p_selecao_id: string
+            }
+            Returns: Json
+          }
       fornecedor_has_proposta_cotacao: {
         Args: { _cotacao_id: string; _user_id: string }
         Returns: boolean
