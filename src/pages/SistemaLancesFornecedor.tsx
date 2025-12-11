@@ -253,11 +253,36 @@ const SistemaLancesFornecedor = () => {
         loadLances();
       }, 3000);
 
+      // Canal de presença para rastrear fornecedores online
+      const presenceChannel = supabase.channel(`presence_selecao_${selecao.id}`);
+      
+      presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+          // Presença sincronizada
+        })
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            // Enviar nossa presença com dados do fornecedor
+            const { data: fornecedorData } = await supabase
+              .from('fornecedores')
+              .select('razao_social')
+              .eq('id', proposta.fornecedor_id)
+              .single();
+            
+            await presenceChannel.track({
+              fornecedor_id: proposta.fornecedor_id,
+              razao_social: fornecedorData?.razao_social || 'Fornecedor',
+              online_at: new Date().toISOString(),
+            });
+          }
+        });
+
       return () => {
         supabase.removeChannel(channel);
         supabase.removeChannel(channelItens);
         supabase.removeChannel(channelMensagens);
         supabase.removeChannel(channelInabilitacoes);
+        supabase.removeChannel(presenceChannel);
         clearInterval(pollingInterval);
       };
     }
