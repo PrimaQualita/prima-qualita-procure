@@ -112,6 +112,23 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     
     const documentosOrdenados: DocumentoOrdenado[] = [];
 
+    const isPdfUrl = (url?: string | null) => {
+      if (!url) return false;
+      return url.split("?")[0].toLowerCase().endsWith(".pdf");
+    };
+
+    const getFileNameFromUrl = (url?: string | null) => {
+      if (!url) return "";
+      const clean = url.split("?")[0];
+      const parts = clean.split("/");
+      const last = parts[parts.length - 1] || "";
+      try {
+        return decodeURIComponent(last);
+      } catch {
+        return last;
+      }
+    };
+
     // 3. E-mails enviados na cotação (se houver)
     if (cotacaoId) {
       console.log("\n📧 === BUSCANDO E-MAILS DE COTAÇÃO ===");
@@ -616,22 +633,37 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           }
 
           if (docsEnviados && docsEnviados.length > 0) {
-            console.log(`  ✅ INCLUINDO ${docsEnviados.length} documento(s) adicional(is): ${campo.nome_campo}`);
+            console.log(
+              `  ✅ INCLUINDO ${docsEnviados.length} documento(s) adicional(is): ${campo.nome_campo}`
+            );
             for (const doc of docsEnviados) {
-              if (doc.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-                documentosOrdenados.push({
-                  tipo: "Documento Habilitação (Adicional)",
-                  data: dataFornecedor,
-                  nome: `${campo.nome_campo} - ${doc.nome_arquivo}`,
-                  url: doc.url_arquivo,
-                  bucket: "processo-anexos",
-                  fornecedor: fornecedorId
-                });
-                console.log(`    - ${doc.nome_arquivo}`);
+              const url = doc.url_arquivo;
+              if (!url) continue;
+
+              // IMPORTANTE: documentos_finalizacao_fornecedor.nome_arquivo é nome de exibição (sem extensão)
+              // então validamos pelo URL.
+              if (!isPdfUrl(url)) {
+                console.log(`    ⚠️ AVISO: documento não é PDF (url: ${url})`);
+                continue;
               }
+
+              const nomeArquivo =
+                getFileNameFromUrl(url) || doc.nome_arquivo || "documento.pdf";
+
+              documentosOrdenados.push({
+                tipo: "Documento Habilitação (Adicional)",
+                data: dataFornecedor,
+                nome: `${campo.nome_campo} - ${nomeArquivo}`,
+                url,
+                bucket: "processo-anexos",
+                fornecedor: fornecedorId,
+              });
+              console.log(`    - ${nomeArquivo}`);
             }
           } else {
-            console.log(`  ⚠️ NENHUM documento adicional encontrado para: ${campo.nome_campo}`);
+            console.log(
+              `  ⚠️ NENHUM documento adicional encontrado para: ${campo.nome_campo}`
+            );
           }
         }
       }
@@ -740,10 +772,15 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     console.log("\n📝 === BUSCANDO PROPOSTAS REALINHADAS ===");
     const { data: propostasRealinhadas, error: propostasRealinhadasError } = await supabase
       .from("propostas_realinhadas")
-      .select(`
-        *,
+      .select(
+        `
+        id,
+        data_envio,
+        url_pdf_proposta,
+        protocolo,
         fornecedores(razao_social)
-      `)
+      `
+      )
       .eq("selecao_id", selecaoId)
       .order("data_envio", { ascending: true });
 
@@ -752,25 +789,30 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     }
 
     console.log(`Propostas realinhadas encontradas: ${propostasRealinhadas?.length || 0}`);
-    
+
     if (propostasRealinhadas && propostasRealinhadas.length > 0) {
       // Calcular data para propostas realinhadas (após a última ata)
-      const ultimaDataAta = atas && atas.length > 0 
-        ? new Date(atas[atas.length - 1].data_geracao).getTime() + 1000
-        : new Date().getTime();
-      
+      const ultimaDataAta =
+        atas && atas.length > 0
+          ? new Date(atas[atas.length - 1].data_geracao).getTime() + 1000
+          : new Date().getTime();
+
       propostasRealinhadas.forEach((proposta, idx) => {
-        if (proposta.url_arquivo) {
-          const razaoSocial = (proposta.fornecedores as any)?.razao_social || 'Fornecedor';
-          const dataProposta = new Date(ultimaDataAta + (idx * 100)).toISOString();
-          
+        if (proposta.url_pdf_proposta) {
+          const razaoSocial =
+            (proposta.fornecedores as any)?.razao_social || "Fornecedor";
+          const dataProposta = new Date(ultimaDataAta + idx * 100).toISOString();
+          const nomeArquivo =
+            getFileNameFromUrl(proposta.url_pdf_proposta) ||
+            "proposta_realinhada.pdf";
+
           documentosOrdenados.push({
             tipo: "Proposta Realinhada",
             data: dataProposta,
-            nome: `Proposta Realinhada - ${razaoSocial} - ${proposta.nome_arquivo || 'proposta.pdf'}`,
-            url: proposta.url_arquivo,
+            nome: `Proposta Realinhada - ${razaoSocial} - ${nomeArquivo}`,
+            url: proposta.url_pdf_proposta,
             bucket: "processo-anexos",
-            fornecedor: razaoSocial
+            fornecedor: razaoSocial,
           });
           console.log(`  ✓ Proposta Realinhada: ${razaoSocial}`);
         }
