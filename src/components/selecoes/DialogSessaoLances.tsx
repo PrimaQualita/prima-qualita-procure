@@ -2888,18 +2888,180 @@ export function DialogSessaoLances({
           <div className="col-span-3 flex flex-col overflow-hidden gap-3">
             {/* Seção de Negociação */}
             {(() => {
-              const itensParaNegociacao = itens.filter(
-                (item) => {
+              if (isPorLote) {
+                const lotesParaNegociacao = lotes
+                  .filter((lote) => {
+                    const numeroLote = lote.numero_lote;
+                    // Lote em negociação ativa sempre aparece
+                    if (itensEmNegociacao.has(numeroLote)) return true;
+                    // Lote já negociado/concluído não aparece
+                    if (itensNegociacaoConcluida.has(numeroLote)) return false;
+                    // Lote disponível para negociação: não está aberto para lances E tem vencedor identificado
+                    return !lotesAbertos.has(numeroLote) && vencedoresPorItem.has(numeroLote);
+                  })
+                  .sort((a, b) => a.numero_lote - b.numero_lote);
+
+                if (lotesParaNegociacao.length === 0) return null;
+
+                return (
+                  <Card className="bg-amber-50 dark:bg-amber-950 border-amber-200 flex-shrink-0">
+                    <CardHeader className="py-2">
+                      <CardTitle className="text-xs flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                        <Handshake className="h-4 w-4" />
+                        Rodada de Negociação
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-0">
+                      <ScrollAreaWithArrows className="h-[250px]" orientation="both" scrollStep={80}>
+                        <div className="space-y-2">
+                          {lotesParaNegociacao.map((lote) => {
+                            const numeroLote = lote.numero_lote;
+                            const emNegociacaoAtiva = itensEmNegociacao.has(numeroLote);
+                            const fornecedorId =
+                              itensEmNegociacao.get(numeroLote) ||
+                              itensComHistoricoNegociacao.get(numeroLote);
+                            const vencedor = vencedoresPorItem.get(numeroLote);
+                            const fornecedorNegociando = fornecedoresNegociacao.get(numeroLote);
+                            const temHistoricoNegociacao = itensComHistoricoNegociacao.has(numeroLote);
+                            const chatAberto = itemChatPrivado === numeroLote;
+                            // Usar nome do fornecedor em negociação se disponível, senão usar vencedor
+                            const nomeFornecedor =
+                              fornecedorNegociando?.razaoSocial || vencedor?.razaoSocial || "Fornecedor";
+
+                            if (emNegociacaoAtiva) {
+                              return (
+                                <div
+                                  key={`neg-lote-${numeroLote}`}
+                                  className="p-2 bg-amber-100 dark:bg-amber-900 rounded-lg border border-amber-300"
+                                >
+                                  <div className="flex items-start gap-2 mb-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="bg-amber-500 text-white border-amber-500 text-xs shrink-0"
+                                    >
+                                      Em Negociação
+                                    </Badge>
+                                    <div className="min-w-0">
+                                      <span className="font-semibold text-xs">Lote {numeroLote}</span>
+                                      <p className="text-xs text-amber-700 dark:text-amber-300 truncate">
+                                        {nomeFornecedor}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setItemChatPrivado(chatAberto ? null : numeroLote)}
+                                      className={`text-xs flex-1 ${
+                                        chatAberto
+                                          ? "bg-amber-200 border-amber-400"
+                                          : "border-amber-400 text-amber-700 hover:bg-amber-100"
+                                      }`}
+                                    >
+                                      <MessagesSquare className="h-3 w-3 mr-1" />
+                                      {chatAberto ? "Fechar" : "Chat"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => handleFecharNegociacao(numeroLote)}
+                                      disabled={salvando}
+                                      className="text-xs flex-1"
+                                    >
+                                      <Lock className="h-3 w-3 mr-1" />
+                                      Encerrar
+                                    </Button>
+                                  </div>
+
+                                  {chatAberto && fornecedorId && (
+                                    <ChatNegociacao
+                                      selecaoId={selecaoId}
+                                      numeroItem={numeroLote}
+                                      fornecedorId={fornecedorId}
+                                      fornecedorNome={nomeFornecedor}
+                                      tituloSelecao={tituloSelecao}
+                                      isGestor={true}
+                                      open={chatAberto}
+                                      onClose={() => setItemChatPrivado(null)}
+                                      itensDisponiveis={lotesParaNegociacao
+                                        .filter((l) => itensEmNegociacao.has(l.numero_lote))
+                                        .map((l) => {
+                                          const fId = itensEmNegociacao.get(l.numero_lote) || "";
+                                          const fNome =
+                                            fornecedoresNegociacao.get(l.numero_lote)?.razaoSocial ||
+                                            vencedoresPorItem.get(l.numero_lote)?.razaoSocial ||
+                                            "Fornecedor";
+                                          return {
+                                            numeroItem: l.numero_lote,
+                                            fornecedorId: fId,
+                                            fornecedorNome: fNome,
+                                          };
+                                        })}
+                                      onSelectItem={(item) => setItemChatPrivado(item.numeroItem)}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div
+                                key={`avail-lote-${numeroLote}`}
+                                className="p-2 bg-white dark:bg-background rounded-lg border text-xs"
+                              >
+                                <div className="flex items-start gap-2 mb-2">
+                                  <Trophy className="h-3 w-3 text-yellow-600 shrink-0 mt-0.5" />
+                                  <div className="min-w-0 flex-1">
+                                    <span className="font-semibold">Lote {numeroLote}</span>
+                                    <p className="text-muted-foreground truncate text-[10px]">
+                                      {vencedor?.razaoSocial}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-amber-500 text-amber-700 hover:bg-amber-100 text-xs flex-1"
+                                    onClick={() => handleAbrirNegociacao(numeroLote)}
+                                    disabled={salvando}
+                                  >
+                                    <Handshake className="h-3 w-3 mr-1" />
+                                    Negociar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-gray-400 text-gray-600 hover:bg-gray-100 text-xs px-2"
+                                    onClick={() => handleNaoNegociar(numeroLote)}
+                                    disabled={salvando}
+                                    title="Não Negociar"
+                                  >
+                                    <Ban className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </ScrollAreaWithArrows>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              const itensParaNegociacao = itens
+                .filter((item) => {
                   // Item em negociação ativa sempre aparece
                   if (itensEmNegociacao.has(item.numero_item)) return true;
                   // Item já negociado/concluído não aparece
                   if (itensNegociacaoConcluida.has(item.numero_item)) return false;
                   // Item disponível para negociação: não está aberto para lances E tem vencedor identificado
                   // Não precisa estar em itensFechados - basta não estar em itensAbertos
-                  return !itensAbertos.has(item.numero_item) && 
-                         vencedoresPorItem.has(item.numero_item);
-                }
-              ).sort((a, b) => a.numero_item - b.numero_item);
+                  return !itensAbertos.has(item.numero_item) && vencedoresPorItem.has(item.numero_item);
+                })
+                .sort((a, b) => a.numero_item - b.numero_item);
 
               if (itensParaNegociacao.length === 0) return null;
 
@@ -2917,7 +3079,8 @@ export function DialogSessaoLances({
                         {itensParaNegociacao.map((item) => {
                           const numeroItem = item.numero_item;
                           const emNegociacaoAtiva = itensEmNegociacao.has(numeroItem);
-                          const fornecedorId = itensEmNegociacao.get(numeroItem) || itensComHistoricoNegociacao.get(numeroItem);
+                          const fornecedorId =
+                            itensEmNegociacao.get(numeroItem) || itensComHistoricoNegociacao.get(numeroItem);
                           const vencedor = vencedoresPorItem.get(numeroItem);
                           const fornecedorNegociando = fornecedoresNegociacao.get(numeroItem);
                           const temHistoricoNegociacao = itensComHistoricoNegociacao.has(numeroItem);
