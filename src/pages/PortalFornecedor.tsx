@@ -82,6 +82,17 @@ export default function PortalFornecedor() {
     };
   }, [fornecedor]);
 
+  // Interval para atualizar inabilitações pendentes (verificar prazos em tempo real)
+  useEffect(() => {
+    if (!fornecedor) return;
+    
+    const interval = setInterval(() => {
+      loadInabilitacoesPendentes(fornecedor.id);
+    }, 10000); // Atualiza a cada 10 segundos
+    
+    return () => clearInterval(interval);
+  }, [fornecedor]);
+
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -379,8 +390,6 @@ export default function PortalFornecedor() {
       console.log("🔍 Carregando inabilitações pendentes de recurso (cotação)...");
       
       // Buscar rejeições em cotações onde o fornecedor ainda pode recorrer
-      // (não revertidas e SEM recurso já enviado - apenas 'sem_recurso' ou null)
-      // Exclui também 'declinou_recurso' pois fornecedor optou por não recorrer
       const { data: rejeicoes, error } = await supabase
         .from("fornecedores_rejeitados_cotacao")
         .select(`
@@ -389,6 +398,8 @@ export default function PortalFornecedor() {
           data_rejeicao,
           status_recurso,
           cotacao_id,
+          data_manifestacao_intencao,
+          prazo_recurso_expirado,
           cotacoes_precos (
             titulo_cotacao,
             processo_compra_id,
@@ -398,13 +409,40 @@ export default function PortalFornecedor() {
           )
         `)
         .eq("fornecedor_id", fornecedorId)
-        .eq("revertido", false)
-        .or("status_recurso.is.null,status_recurso.eq.sem_recurso");
+        .eq("revertido", false);
 
       if (error) throw error;
       
-      console.log("✅ Inabilitações cotação encontradas:", rejeicoes);
-      setInabilitacoesPendentes(rejeicoes || []);
+      // Filtrar no frontend para verificar prazos em tempo real
+      const agoraBrasilia = new Date();
+      const utc = agoraBrasilia.getTime() + (agoraBrasilia.getTimezoneOffset() * 60000);
+      const agora = new Date(utc + (3600000 * -3));
+      
+      const rejeicoesValidas = (rejeicoes || []).filter(rejeicao => {
+        // Só exibe se status é sem_recurso ou null
+        if (rejeicao.status_recurso && 
+            rejeicao.status_recurso !== 'sem_recurso') {
+          return false;
+        }
+        
+        // Se tem prazo_recurso_expirado = true, ignorar
+        if (rejeicao.prazo_recurso_expirado) return false;
+        
+        // Se já manifestou interesse, verificar se está dentro das 24h
+        if (rejeicao.data_manifestacao_intencao) {
+          const dataManifestacao = new Date(rejeicao.data_manifestacao_intencao);
+          const limite24h = new Date(dataManifestacao.getTime() + 24 * 60 * 60 * 1000);
+          return agora < limite24h;
+        }
+        
+        // Se não manifestou interesse, verificar se está dentro dos 5 minutos
+        const dataRejeicao = new Date(rejeicao.data_rejeicao);
+        const limiteCincoMin = new Date(dataRejeicao.getTime() + 5 * 60 * 1000);
+        return agora < limiteCincoMin;
+      });
+      
+      console.log("✅ Inabilitações cotação encontradas:", rejeicoesValidas);
+      setInabilitacoesPendentes(rejeicoesValidas);
     } catch (error) {
       console.error("❌ Erro ao carregar inabilitações pendentes:", error);
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { AlertCircle, FileText } from "lucide-react";
+import { AlertCircle, FileText, Clock, Timer } from "lucide-react";
 import { gerarRecursoPDF } from "@/lib/gerarRecursoPDF";
 
 interface Rejeicao {
@@ -15,6 +15,8 @@ interface Rejeicao {
   data_rejeicao: string;
   status_recurso: string;
   cotacao_id: string;
+  data_manifestacao_intencao?: string | null;
+  prazo_recurso_expirado?: boolean;
   cotacoes_precos: {
     titulo_cotacao: string;
     processos_compras: {
@@ -36,6 +38,13 @@ interface NotificacaoRejeicaoProps {
   onRecursoEnviado?: () => void;
 }
 
+// Função para obter horário de Brasília
+const getHorarioBrasilia = (): Date => {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  return new Date(utc + (3600000 * -3)); // UTC-3
+};
+
 export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: NotificacaoRejeicaoProps) {
   const [rejeicoes, setRejeicoes] = useState<Rejeicao[]>([]);
   const [desejaRecorrer, setDesejaRecorrer] = useState<{ [key: string]: boolean }>({});
@@ -43,6 +52,65 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
   const [mensagemRecurso, setMensagemRecurso] = useState<{ [key: string]: string }>({});
   const [enviandoRecurso, setEnviandoRecurso] = useState<{ [key: string]: boolean }>({});
   const [fornecedorData, setFornecedorData] = useState<any>(null);
+  const [temposRestantes, setTemposRestantes] = useState<{ [key: string]: number }>({});
+
+  // Timer para verificar prazos em tempo real
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const novosTempos: { [key: string]: number } = {};
+      const agoraBrasilia = getHorarioBrasilia();
+      
+      rejeicoes.forEach(rejeicao => {
+        if (rejeicao.status_recurso === 'sem_recurso' && !rejeicao.prazo_recurso_expirado && !rejeicao.data_manifestacao_intencao) {
+          // Prazo de 5 minutos para manifestar interesse
+          const dataRejeicao = new Date(rejeicao.data_rejeicao);
+          const limiteCincoMin = new Date(dataRejeicao.getTime() + 5 * 60 * 1000);
+          const segundosRestantes = Math.floor((limiteCincoMin.getTime() - agoraBrasilia.getTime()) / 1000);
+          
+          if (segundosRestantes <= 0) {
+            // Expirou - atualizar no banco
+            expirarPrazoRecurso(rejeicao.id);
+            novosTempos[rejeicao.id] = 0;
+          } else {
+            novosTempos[rejeicao.id] = segundosRestantes;
+          }
+        } else if (rejeicao.status_recurso === 'sem_recurso' && rejeicao.data_manifestacao_intencao) {
+          // Prazo de 24h para enviar recurso
+          const dataManifestacao = new Date(rejeicao.data_manifestacao_intencao);
+          const limite24h = new Date(dataManifestacao.getTime() + 24 * 60 * 60 * 1000);
+          const segundosRestantes = Math.floor((limite24h.getTime() - agoraBrasilia.getTime()) / 1000);
+          
+          if (segundosRestantes <= 0) {
+            // Expirou 24h - marcar como expirado
+            expirarPrazoRecurso(rejeicao.id);
+            novosTempos[rejeicao.id] = 0;
+          } else {
+            novosTempos[rejeicao.id] = segundosRestantes;
+          }
+        }
+      });
+      
+      setTemposRestantes(novosTempos);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [rejeicoes]);
+
+  const expirarPrazoRecurso = async (rejeicaoId: string) => {
+    try {
+      await supabase
+        .from('fornecedores_rejeitados_cotacao')
+        .update({ 
+          prazo_recurso_expirado: true,
+          status_recurso: 'prazo_expirado'
+        })
+        .eq('id', rejeicaoId);
+      
+      loadRejeicoes();
+    } catch (error) {
+      console.error('Erro ao expirar prazo:', error);
+    }
+  };
 
   useEffect(() => {
     loadRejeicoes();
@@ -68,7 +136,9 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
           data_rejeicao,
           status_recurso,
           cotacao_id,
-          fornecedor_id
+          fornecedor_id,
+          data_manifestacao_intencao,
+          prazo_recurso_expirado
         `)
         .eq('fornecedor_id', fornecedorId)
         .eq('revertido', false)
@@ -132,7 +202,9 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
           return {
             ...rejeicao,
             cotacoes_precos: cotacao || null,
-            resposta_recurso: respostaRecurso
+            resposta_recurso: respostaRecurso,
+            data_manifestacao_intencao: rejeicao.data_manifestacao_intencao,
+            prazo_recurso_expirado: rejeicao.prazo_recurso_expirado
           };
         });
 
@@ -320,44 +392,77 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
               </div>
             )}
 
-            {/* Opção de enviar recurso - só aparece se ainda não enviou E não tem resposta */}
-            {!rejeicao.resposta_recurso && rejeicao.status_recurso === 'sem_recurso' && !desejaRecorrer[rejeicao.id] && !desejaDeclinar[rejeicao.id] && (
-              <div className="space-y-2">
+            {/* Prazo expirado - não pode mais recorrer */}
+            {(rejeicao.prazo_recurso_expirado || rejeicao.status_recurso === 'prazo_expirado') && !rejeicao.resposta_recurso && (
+              <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-4 border border-gray-300 dark:border-gray-600">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <Timer className="h-4 w-4" />
+                  Prazo para recurso expirado
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  O prazo para manifestar interesse em recorrer ou enviar o recurso já expirou.
+                </p>
+              </div>
+            )}
+
+            {/* Opção de manifestar interesse em recorrer - Timer de 5 minutos */}
+            {!rejeicao.resposta_recurso && 
+             rejeicao.status_recurso === 'sem_recurso' && 
+             !rejeicao.prazo_recurso_expirado &&
+             !rejeicao.data_manifestacao_intencao &&
+             !desejaRecorrer[rejeicao.id] && 
+             !desejaDeclinar[rejeicao.id] && (
+              <div className="space-y-3">
+                {/* Timer de 5 minutos */}
+                {temposRestantes[rejeicao.id] !== undefined && temposRestantes[rejeicao.id] > 0 && (
+                  <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 p-3 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <Clock className="h-5 w-5 animate-pulse" />
+                    <span className="text-sm font-medium">
+                      Tempo restante para manifestar interesse: {Math.floor(temposRestantes[rejeicao.id] / 60)}:{(temposRestantes[rejeicao.id] % 60).toString().padStart(2, '0')}
+                    </span>
+                  </div>
+                )}
+                
                 <p className="text-sm font-medium">Deseja entrar com recurso?</p>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setDesejaRecorrer(prev => ({ ...prev, [rejeicao.id]: true }))}
+                    onClick={async () => {
+                      // Registrar manifestação de interesse
+                      const { error } = await supabase
+                        .from('fornecedores_rejeitados_cotacao')
+                        .update({ 
+                          data_manifestacao_intencao: new Date().toISOString()
+                        })
+                        .eq('id', rejeicao.id);
+                      
+                      if (error) {
+                        console.error('Erro ao registrar interesse:', error);
+                        toast.error('Erro ao registrar interesse');
+                        return;
+                      }
+                      
+                      setDesejaRecorrer(prev => ({ ...prev, [rejeicao.id]: true }));
+                      toast.success('Interesse registrado! Você tem 24 horas para enviar o recurso.');
+                      await loadRejeicoes();
+                    }}
                   >
                     Sim, desejo recorrer
                   </Button>
                   <Button 
                     variant="ghost" 
                     onClick={async () => {
-                      console.log('🔄 Tentando registrar declínio de recurso para rejeição:', rejeicao.id);
-                      
-                      // Atualizar status no banco para 'declinou_recurso'
                       const { data, error } = await supabase
                         .from('fornecedores_rejeitados_cotacao')
                         .update({ status_recurso: 'declinou_recurso' })
                         .eq('id', rejeicao.id)
                         .select();
                       
-                      console.log('📋 Resultado da atualização:', { data, error });
-                      
                       if (error) {
-                        console.error('❌ Erro ao registrar decisão:', error);
                         toast.error(`Erro ao registrar decisão: ${error.message}`);
                         return;
                       }
                       
-                      if (!data || data.length === 0) {
-                        console.error('❌ Nenhum registro atualizado - possível problema de RLS');
-                        toast.error('Erro: não foi possível atualizar o registro');
-                        return;
-                      }
-                      
-                      console.log('✅ Registro atualizado com sucesso:', data);
                       setDesejaDeclinar(prev => ({ ...prev, [rejeicao.id]: true }));
                       toast.success('Opção registrada. Você optou por não recorrer.');
                       await loadRejeicoes();
@@ -372,8 +477,58 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
               </div>
             )}
 
-            {/* Formulário de envio de recurso */}
-            {!rejeicao.resposta_recurso && desejaRecorrer[rejeicao.id] && rejeicao.status_recurso === 'sem_recurso' && !desejaDeclinar[rejeicao.id] && (
+            {/* Formulário de envio de recurso - após manifestar interesse (24h) */}
+            {!rejeicao.resposta_recurso && 
+             rejeicao.status_recurso === 'sem_recurso' && 
+             rejeicao.data_manifestacao_intencao &&
+             !rejeicao.prazo_recurso_expirado && (
+              <div className="space-y-4 border-t pt-4">
+                {/* Timer de 24 horas */}
+                {temposRestantes[rejeicao.id] !== undefined && temposRestantes[rejeicao.id] > 0 && (
+                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <Clock className="h-5 w-5" />
+                    <span className="text-sm font-medium">
+                      Tempo restante para enviar recurso: {Math.floor(temposRestantes[rejeicao.id] / 3600)}h {Math.floor((temposRestantes[rejeicao.id] % 3600) / 60)}min
+                    </span>
+                  </div>
+                )}
+                
+                <div>
+                  <Label htmlFor={`mensagem-${rejeicao.id}`}>
+                    Razões do Recurso (Obrigatório)
+                  </Label>
+                  <Textarea
+                    id={`mensagem-${rejeicao.id}`}
+                    placeholder="Descreva detalhadamente os motivos e fundamentos do seu recurso..."
+                    value={mensagemRecurso[rejeicao.id] || ''}
+                    onChange={(e) =>
+                      setMensagemRecurso(prev => ({ ...prev, [rejeicao.id]: e.target.value }))
+                    }
+                    className="mt-2 min-h-[150px]"
+                    rows={6}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Um documento PDF certificado será gerado automaticamente com suas razões.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleEnviarRecurso(rejeicao.id, rejeicao)}
+                    disabled={enviandoRecurso[rejeicao.id] || !mensagemRecurso[rejeicao.id]?.trim()}
+                  >
+                    {enviandoRecurso[rejeicao.id] ? 'Gerando PDF...' : 'Enviar Recurso'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Formulário de envio de recurso - aberto imediatamente via botão (fallback para fluxo antigo) */}
+            {!rejeicao.resposta_recurso && 
+             desejaRecorrer[rejeicao.id] && 
+             rejeicao.status_recurso === 'sem_recurso' && 
+             !rejeicao.data_manifestacao_intencao &&
+             !desejaDeclinar[rejeicao.id] && (
               <div className="space-y-4 border-t pt-4">
                 <div>
                   <Label htmlFor={`mensagem-${rejeicao.id}`}>

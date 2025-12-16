@@ -1311,6 +1311,7 @@ export type Database = {
         Row: {
           cotacao_id: string
           created_at: string | null
+          data_manifestacao_intencao: string | null
           data_rejeicao: string
           data_reversao: string | null
           fornecedor_id: string
@@ -1318,6 +1319,7 @@ export type Database = {
           itens_afetados: number[] | null
           motivo_rejeicao: string
           motivo_reversao: string | null
+          prazo_recurso_expirado: boolean | null
           revertido: boolean | null
           status_recurso: string | null
           usuario_rejeitou_id: string
@@ -1326,6 +1328,7 @@ export type Database = {
         Insert: {
           cotacao_id: string
           created_at?: string | null
+          data_manifestacao_intencao?: string | null
           data_rejeicao?: string
           data_reversao?: string | null
           fornecedor_id: string
@@ -1333,6 +1336,7 @@ export type Database = {
           itens_afetados?: number[] | null
           motivo_rejeicao: string
           motivo_reversao?: string | null
+          prazo_recurso_expirado?: boolean | null
           revertido?: boolean | null
           status_recurso?: string | null
           usuario_rejeitou_id: string
@@ -1341,6 +1345,7 @@ export type Database = {
         Update: {
           cotacao_id?: string
           created_at?: string | null
+          data_manifestacao_intencao?: string | null
           data_rejeicao?: string
           data_reversao?: string | null
           fornecedor_id?: string
@@ -1348,6 +1353,7 @@ export type Database = {
           itens_afetados?: number[] | null
           motivo_rejeicao?: string
           motivo_reversao?: string | null
+          prazo_recurso_expirado?: boolean | null
           revertido?: boolean | null
           status_recurso?: string | null
           usuario_rejeitou_id?: string
