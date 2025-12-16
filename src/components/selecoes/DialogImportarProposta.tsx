@@ -65,6 +65,11 @@ export function DialogImportarProposta({
     
     const isPorLote = criterioJulgamento === 'por_lote';
     
+    console.log("🔍 gerarTemplate - criterioJulgamento:", criterioJulgamento);
+    console.log("🔍 gerarTemplate - isPorLote:", isPorLote);
+    console.log("🔍 gerarTemplate - lotes:", lotes);
+    console.log("🔍 gerarTemplate - itens:", itens.map(i => ({ id: i.id, numero_item: i.numero_item, lote_id: i.lote_id })));
+    
     // Se for por lote, usar estrutura igual à cotação
     if (isPorLote && lotes.length > 0) {
       // Definir colunas
@@ -86,6 +91,8 @@ export function DialogImportarProposta({
       });
 
       lotes.forEach(lote => {
+        console.log("🔍 Processando lote:", lote.id, lote.numero_lote, lote.descricao_lote);
+        
         // Adicionar linha de título do lote
         const loteRow = worksheet.addRow({
           item: `LOTE ${lote.numero_lote}`,
@@ -110,6 +117,8 @@ export function DialogImportarProposta({
         
         // Adicionar itens deste lote
         const itensDoLote = itens.filter(item => item.lote_id === lote.id);
+        console.log("🔍 Itens do lote", lote.numero_lote, ":", itensDoLote.length, itensDoLote.map(i => ({ id: i.id, numero_item: i.numero_item, lote_id: i.lote_id })));
+        
         const primeiraLinhaItens = worksheet.rowCount + 1;
         
         itensDoLote.forEach(item => {
