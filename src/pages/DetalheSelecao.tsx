@@ -47,7 +47,8 @@ const DetalheSelecao = () => {
   const [loading, setLoading] = useState(true);
   const [selecao, setSelecao] = useState<any>(null);
   const [processo, setProcesso] = useState<any>(null);
-  const [itens, setItens] = useState<Item[]>([]);
+const [itens, setItens] = useState<Item[]>([]);
+  const [lotes, setLotes] = useState<{ id: string; numero_lote: number; descricao_lote: string; itens: Item[]; valor_total_lote: number }[]>([]);
   const [valorTotal, setValorTotal] = useState(0);
   const [dialogEnviarOpen, setDialogEnviarOpen] = useState(false);
   const [dialogAvisoOpen, setDialogAvisoOpen] = useState(false);
@@ -229,8 +230,8 @@ const DetalheSelecao = () => {
     try {
       console.log("🔍 Buscando planilha para cotacao:", cotacaoId);
 
-      // Buscar a planilha consolidada mais recente, os itens originais E o critério de julgamento da cotação
-      const [planilhaResult, itensOriginaisResult, cotacaoResult] = await Promise.all([
+      // Buscar a planilha consolidada mais recente, os itens originais, lotes E o critério de julgamento da cotação
+      const [planilhaResult, itensOriginaisResult, lotesResult, cotacaoResult] = await Promise.all([
         supabase
           .from("planilhas_consolidadas")
           .select("fornecedores_incluidos, data_geracao")
@@ -244,6 +245,11 @@ const DetalheSelecao = () => {
           .eq("cotacao_id", cotacaoId)
           .order("numero_item", { ascending: true }),
         supabase
+          .from("lotes_cotacao")
+          .select("*")
+          .eq("cotacao_id", cotacaoId)
+          .order("numero_lote", { ascending: true }),
+        supabase
           .from("cotacoes_precos")
           .select("criterio_julgamento")
           .eq("id", cotacaoId)
@@ -252,14 +258,17 @@ const DetalheSelecao = () => {
 
       const { data: planilha, error: planilhaError } = planilhaResult;
       const { data: itensOriginais, error: itensError } = itensOriginaisResult;
+      const { data: lotesData, error: lotesError } = lotesResult;
       const { data: cotacaoData, error: cotacaoError } = cotacaoResult;
 
       console.log("📊 Planilha encontrada:", planilha);
       console.log("📋 Itens originais:", itensOriginais);
+      console.log("📦 Lotes encontrados:", lotesData);
       console.log("🎯 Critério de julgamento:", cotacaoData?.criterio_julgamento);
 
       if (planilhaError) throw planilhaError;
       if (itensError) throw itensError;
+      if (lotesError) throw lotesError;
       if (cotacaoError) throw cotacaoError;
 
       if (!planilha) {
@@ -346,6 +355,29 @@ const DetalheSelecao = () => {
 
       setItens(todosItens);
       setValorTotal(total);
+
+      // Carregar lotes se critério for por_lote
+      if (cotacaoData?.criterio_julgamento === "por_lote" && lotesData && lotesData.length > 0) {
+        const lotesFormatados = lotesData.map((lote: any) => {
+          const itensDoLote = todosItens.filter(item => {
+            const itemOriginal = itensOriginais.find((io: any) => io.numero_item === item.numero_item);
+            return itemOriginal?.lote_id === lote.id;
+          });
+          
+          const valorTotalLote = itensDoLote.reduce((acc, item) => acc + item.valor_total, 0);
+          
+          return {
+            id: lote.id,
+            numero_lote: lote.numero_lote,
+            descricao_lote: lote.descricao_lote,
+            itens: itensDoLote,
+            valor_total_lote: valorTotalLote
+          };
+        });
+        
+        console.log("📦 Lotes formatados:", lotesFormatados);
+        setLotes(lotesFormatados);
+      }
     } catch (error) {
       console.error("❌ Erro ao carregar itens:", error);
       toast.error("Erro ao carregar itens");
@@ -1171,6 +1203,7 @@ const DetalheSelecao = () => {
         onOpenChange={setDialogSessaoOpen}
         selecaoId={selecaoId!}
         itens={itens}
+        lotes={lotes}
         criterioJulgamento={selecao?.criterios_julgamento || processo?.criterio_julgamento || "Menor Preço Global"}
         sessaoFinalizada={selecao?.sessao_finalizada || false}
         onFinalizarSessao={handleFinalizarSessao}

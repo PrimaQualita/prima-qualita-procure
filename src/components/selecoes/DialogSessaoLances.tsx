@@ -31,6 +31,15 @@ interface Item {
   descricao: string;
   quantidade?: number;
   unidade?: string;
+  lote_id?: string;
+}
+
+interface Lote {
+  id: string;
+  numero_lote: number;
+  descricao_lote: string;
+  itens: Item[];
+  valor_total_lote: number;
 }
 
 interface Lance {
@@ -68,6 +77,7 @@ interface DialogSessaoLancesProps {
   onOpenChange: (open: boolean) => void;
   selecaoId: string;
   itens: Item[];
+  lotes?: Lote[];
   criterioJulgamento: string;
   tituloSelecao?: string;
   sessaoFinalizada?: boolean;
@@ -81,11 +91,14 @@ export function DialogSessaoLances({
   selecaoId,
   onVencedoresAtualizados,
   itens,
+  lotes = [],
   criterioJulgamento,
   tituloSelecao = "Seleção de Fornecedores",
   sessaoFinalizada = false,
   onFinalizarSessao,
 }: DialogSessaoLancesProps) {
+  const isPorLote = criterioJulgamento === "por_lote";
+  
   // Estado - Controle de Itens
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
   const [itensSelecionados, setItensSelecionados] = useState<Set<number>>(new Set());
@@ -97,6 +110,12 @@ export function DialogSessaoLances({
   const [itensNegociacaoConcluida, setItensNegociacaoConcluida] = useState<Set<number>>(new Set()); // Itens que já foram negociados ou marcados como "não negociar"
   const [vencedoresPorItem, setVencedoresPorItem] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
   const [itensEmFechamento, setItensEmFechamento] = useState<Map<number, number>>(new Map()); // Map<numeroItem, tempoExpiracao>
+  
+  // Estado - Controle de Lotes (apenas para critério por_lote)
+  const [lotesAbertos, setLotesAbertos] = useState<Set<number>>(new Set());
+  const [lotesSelecionados, setLotesSelecionados] = useState<Set<number>>(new Set());
+  const [lotesEmFechamento, setLotesEmFechamento] = useState<Map<number, number>>(new Map());
+  const [vencedoresPorLote, setVencedoresPorLote] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
 
   // Estado - Sistema de Lances
   const [lances, setLances] = useState<Lance[]>([]);
@@ -614,6 +633,11 @@ export function DialogSessaoLances({
         }
       });
 
+      // Atualizar estados apropriados baseado no critério
+      if (isPorLote) {
+        setLotesAbertos(abertos);
+        setLotesEmFechamento(emFechamento);
+      }
       setItensAbertos(abertos);
       setItensFechados(fechados);
       setItensEmNegociacao(emNegociacao);
@@ -938,11 +962,148 @@ export function DialogSessaoLances({
   };
 
   const handleSelecionarTodos = () => {
-    setItensSelecionados(new Set(itens.map((item) => item.numero_item)));
+    if (isPorLote) {
+      setLotesSelecionados(new Set(lotes.map((lote) => lote.numero_lote)));
+    } else {
+      setItensSelecionados(new Set(itens.map((item) => item.numero_item)));
+    }
   };
 
   const handleLimparSelecao = () => {
-    setItensSelecionados(new Set());
+    if (isPorLote) {
+      setLotesSelecionados(new Set());
+    } else {
+      setItensSelecionados(new Set());
+    }
+  };
+
+  // === FUNÇÕES PARA LOTES (apenas critério por_lote) ===
+  const handleToggleLote = (numeroLote: number) => {
+    const novos = new Set(lotesSelecionados);
+    if (novos.has(numeroLote)) {
+      novos.delete(numeroLote);
+    } else {
+      novos.add(numeroLote);
+    }
+    setLotesSelecionados(novos);
+  };
+
+  const handleAbrirLotes = async () => {
+    if (lotesSelecionados.size === 0) {
+      toast.error("Selecione pelo menos um lote");
+      return;
+    }
+
+    // Verificar limite de 10 lotes abertos
+    const totalAbertos = lotesAbertos.size;
+    const novosParaAbrir = Array.from(lotesSelecionados).filter(num => !lotesAbertos.has(num)).length;
+    
+    if (totalAbertos + novosParaAbrir > 10) {
+      const disponiveis = 10 - totalAbertos;
+      toast.error(`Limite de 10 lotes abertos por vez. Você pode abrir mais ${disponiveis} lote(s).`);
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      // Para lotes, usamos numero_item = numero_lote na tabela itens_abertos_lances
+      const { data: existentes } = await supabase
+        .from("itens_abertos_lances")
+        .select("numero_item")
+        .eq("selecao_id", selecaoId)
+        .in("numero_item", Array.from(lotesSelecionados));
+
+      const numerosExistentes = new Set(existentes?.map(e => e.numero_item) || []);
+
+      if (numerosExistentes.size > 0) {
+        await supabase
+          .from("itens_abertos_lances")
+          .update({ aberto: true, data_fechamento: null })
+          .eq("selecao_id", selecaoId)
+          .in("numero_item", Array.from(numerosExistentes));
+      }
+
+      const novosLotes = Array.from(lotesSelecionados)
+        .filter(num => !numerosExistentes.has(num))
+        .map(numeroLote => ({
+          selecao_id: selecaoId,
+          numero_item: numeroLote, // Usamos numero_item para armazenar numero_lote
+          aberto: true,
+        }));
+
+      if (novosLotes.length > 0) {
+        const { error } = await supabase.from("itens_abertos_lances").insert(novosLotes);
+        if (error) throw error;
+      }
+
+      toast.success(`${lotesSelecionados.size} lote(s) aberto(s) para lances`);
+      await loadItensAbertos();
+      setLotesSelecionados(new Set());
+    } catch (error) {
+      console.error("Erro ao abrir lotes:", error);
+      toast.error("Erro ao abrir lotes para lances");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleFecharLotes = async () => {
+    if (lotesSelecionados.size === 0) {
+      toast.error("Selecione pelo menos um lote");
+      return;
+    }
+
+    // Filtrar apenas lotes que estão abertos
+    const lotesParaFechar = Array.from(lotesSelecionados).filter(numeroLote => 
+      lotesAbertos.has(numeroLote)
+    );
+
+    if (lotesParaFechar.length === 0) {
+      toast.error("Nenhum dos lotes selecionados está aberto");
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      const TEMPO_FECHAMENTO = 120;
+      const agora = new Date().toISOString();
+      
+      // Atualizar todos os lotes selecionados de uma vez
+      const { data, error } = await supabase
+        .from("itens_abertos_lances")
+        .update({
+          iniciando_fechamento: true,
+          data_inicio_fechamento: agora,
+          segundos_para_fechar: TEMPO_FECHAMENTO,
+        })
+        .eq("selecao_id", selecaoId)
+        .eq("aberto", true)
+        .in("numero_item", lotesParaFechar)
+        .select();
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        toast.error("Nenhum lote foi atualizado. Verifique se os lotes estão abertos.");
+        return;
+      }
+
+      // Agendar fechamento automático para cada lote
+      lotesParaFechar.forEach((numeroLote) => {
+        setTimeout(async () => {
+          await fecharItemNegociacao(numeroLote); // Reutiliza função de fechar item
+        }, TEMPO_FECHAMENTO * 1000);
+      });
+
+      toast.success(`${data.length} lote(s) entrando em processo de fechamento (2 minutos)`);
+      await loadItensAbertos();
+      setLotesSelecionados(new Set());
+    } catch (error) {
+      console.error("Erro ao iniciar fechamento de lotes:", error);
+      toast.error("Erro ao fechar lotes");
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleAbrirItens = async () => {
@@ -2342,7 +2503,7 @@ export function DialogSessaoLances({
               <CardHeader className="py-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Lock className="h-4 w-4" />
-                  Controle de Itens
+                  {isPorLote ? "Controle de Lotes" : "Controle de Itens"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col overflow-hidden p-3">
@@ -2357,74 +2518,147 @@ export function DialogSessaoLances({
 
                 <ScrollAreaWithArrows className="flex-1" orientation="both" scrollStep={60}>
                   <div className="space-y-2 pr-2 min-w-max">
-                    {itens.map((item) => {
-                      const estaAberto = itensAbertos.has(item.numero_item);
-                      const estaSelecionado = itensSelecionados.has(item.numero_item);
-                      const lancesItem = getLancesDoItem(item.numero_item);
-                      const emFechamento = itensEmFechamento.get(item.numero_item);
+                    {isPorLote ? (
+                      // === RENDERIZAÇÃO POR LOTES ===
+                      lotes.map((lote) => {
+                        const estaAberto = lotesAbertos.has(lote.numero_lote);
+                        const estaSelecionado = lotesSelecionados.has(lote.numero_lote);
+                        const emFechamento = lotesEmFechamento.get(lote.numero_lote);
 
-                      return (
-                        <div
-                          key={item.numero_item}
-                          className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                            emFechamento 
-                              ? "bg-amber-50 border-amber-400 dark:bg-amber-950" 
-                              : estaAberto 
-                                ? "bg-green-50 border-green-300 dark:bg-green-950" 
-                                : "bg-background hover:bg-muted"
-                          } ${itemSelecionadoLances === item.numero_item ? "ring-2 ring-primary" : ""}`}
-                          onClick={() => setItemSelecionadoLances(item.numero_item)}
-                        >
-                          <Checkbox
-                            id={`item-${item.numero_item}`}
-                            checked={estaSelecionado}
-                            onCheckedChange={() => handleToggleItem(item.numero_item)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <Label htmlFor={`item-${item.numero_item}`} className="cursor-pointer">
-                              <div className="flex items-center gap-1">
-                                <span className="font-semibold text-xs">Item {item.numero_item}</span>
-                                {emFechamento ? (
-                                  <Timer className="h-3 w-3 text-amber-600 animate-pulse" />
-                                ) : estaAberto ? (
-                                  <Unlock className="h-3 w-3 text-green-600" />
-                                ) : (
-                                  <Lock className="h-3 w-3 text-muted-foreground" />
-                                )}
-                                {lancesItem.length > 0 && (
+                        return (
+                          <div
+                            key={lote.numero_lote}
+                            className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                              emFechamento 
+                                ? "bg-amber-50 border-amber-400 dark:bg-amber-950" 
+                                : estaAberto 
+                                  ? "bg-green-50 border-green-300 dark:bg-green-950" 
+                                  : "bg-background hover:bg-muted"
+                            }`}
+                          >
+                            <Checkbox
+                              id={`lote-${lote.numero_lote}`}
+                              checked={estaSelecionado}
+                              onCheckedChange={() => handleToggleLote(lote.numero_lote)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <Label htmlFor={`lote-${lote.numero_lote}`} className="cursor-pointer">
+                                <div className="flex items-center gap-1">
+                                  <span className="font-semibold text-xs">Lote {lote.numero_lote}</span>
+                                  {emFechamento ? (
+                                    <Timer className="h-3 w-3 text-amber-600 animate-pulse" />
+                                  ) : estaAberto ? (
+                                    <Unlock className="h-3 w-3 text-green-600" />
+                                  ) : (
+                                    <Lock className="h-3 w-3 text-muted-foreground" />
+                                  )}
                                   <Badge variant="secondary" className="text-xs px-1">
-                                    {lancesItem.length}
+                                    {lote.itens?.length || 0} itens
                                   </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                {item.descricao}
-                              </p>
-                              {/* Countdown de fechamento */}
-                              {emFechamento && (
-                                <div className="flex items-center gap-1 mt-1 text-amber-700 font-semibold text-xs">
-                                  <Timer className="h-3 w-3" />
-                                  <span>Fechando em {formatarTempoRestante(emFechamento)}</span>
                                 </div>
-                              )}
-                            </Label>
+                                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                  {lote.descricao_lote}
+                                </p>
+                                <p className="text-xs font-medium text-primary mt-0.5">
+                                  Total: {formatCurrency(lote.valor_total_lote)}
+                                </p>
+                                {emFechamento && (
+                                  <div className="flex items-center gap-1 mt-1 text-amber-700 font-semibold text-xs">
+                                    <Timer className="h-3 w-3" />
+                                    <span>Fechando em {formatarTempoRestante(emFechamento)}</span>
+                                  </div>
+                                )}
+                              </Label>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    ) : (
+                      // === RENDERIZAÇÃO POR ITENS ===
+                      itens.map((item) => {
+                        const estaAberto = itensAbertos.has(item.numero_item);
+                        const estaSelecionado = itensSelecionados.has(item.numero_item);
+                        const lancesItem = getLancesDoItem(item.numero_item);
+                        const emFechamento = itensEmFechamento.get(item.numero_item);
+
+                        return (
+                          <div
+                            key={item.numero_item}
+                            className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                              emFechamento 
+                                ? "bg-amber-50 border-amber-400 dark:bg-amber-950" 
+                                : estaAberto 
+                                  ? "bg-green-50 border-green-300 dark:bg-green-950" 
+                                  : "bg-background hover:bg-muted"
+                            } ${itemSelecionadoLances === item.numero_item ? "ring-2 ring-primary" : ""}`}
+                            onClick={() => setItemSelecionadoLances(item.numero_item)}
+                          >
+                            <Checkbox
+                              id={`item-${item.numero_item}`}
+                              checked={estaSelecionado}
+                              onCheckedChange={() => handleToggleItem(item.numero_item)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <Label htmlFor={`item-${item.numero_item}`} className="cursor-pointer">
+                                <div className="flex items-center gap-1">
+                                  <span className="font-semibold text-xs">Item {item.numero_item}</span>
+                                  {emFechamento ? (
+                                    <Timer className="h-3 w-3 text-amber-600 animate-pulse" />
+                                  ) : estaAberto ? (
+                                    <Unlock className="h-3 w-3 text-green-600" />
+                                  ) : (
+                                    <Lock className="h-3 w-3 text-muted-foreground" />
+                                  )}
+                                  {lancesItem.length > 0 && (
+                                    <Badge variant="secondary" className="text-xs px-1">
+                                      {lancesItem.length}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                  {item.descricao}
+                                </p>
+                                {emFechamento && (
+                                  <div className="flex items-center gap-1 mt-1 text-amber-700 font-semibold text-xs">
+                                    <Timer className="h-3 w-3" />
+                                    <span>Fechando em {formatarTempoRestante(emFechamento)}</span>
+                                  </div>
+                                )}
+                              </Label>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </ScrollAreaWithArrows>
 
                 <div className="flex gap-2 mt-3 pt-3 border-t">
-                  <Button size="sm" className="flex-1 text-xs" onClick={handleAbrirItens} disabled={salvando || itensSelecionados.size === 0}>
-                    <Unlock className="h-3 w-3 mr-1" />
-                    Abrir ({itensSelecionados.size})
-                  </Button>
-                  <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={handleFecharItens} disabled={salvando || itensSelecionados.size === 0}>
-                    <Lock className="h-3 w-3 mr-1" />
-                    Fechar ({itensSelecionados.size})
-                  </Button>
+                  {isPorLote ? (
+                    <>
+                      <Button size="sm" className="flex-1 text-xs" onClick={handleAbrirLotes} disabled={salvando || lotesSelecionados.size === 0}>
+                        <Unlock className="h-3 w-3 mr-1" />
+                        Abrir ({lotesSelecionados.size})
+                      </Button>
+                      <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={handleFecharLotes} disabled={salvando || lotesSelecionados.size === 0}>
+                        <Lock className="h-3 w-3 mr-1" />
+                        Fechar ({lotesSelecionados.size})
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button size="sm" className="flex-1 text-xs" onClick={handleAbrirItens} disabled={salvando || itensSelecionados.size === 0}>
+                        <Unlock className="h-3 w-3 mr-1" />
+                        Abrir ({itensSelecionados.size})
+                      </Button>
+                      <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={handleFecharItens} disabled={salvando || itensSelecionados.size === 0}>
+                        <Lock className="h-3 w-3 mr-1" />
+                        Fechar ({itensSelecionados.size})
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
