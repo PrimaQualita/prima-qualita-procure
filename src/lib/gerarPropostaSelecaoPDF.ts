@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
@@ -316,7 +317,7 @@ export async function gerarPropostaSelecaoPDF(
     y += 8;
     doc.setTextColor(0, 0, 0);
 
-    // ============ LÓGICA ESPECÍFICA PARA POR_LOTE ============
+    // ============ LÓGICA ESPECÍFICA PARA POR_LOTE COM AUTOTABLE ============
     if (criterioJulgamento === 'por_lote') {
       // Agrupar itens por lote
       const lotes = new Map<string, { numero_lote: number; descricao_lote: string; itens: ItemProposta[] }>();
@@ -336,145 +337,112 @@ export async function gerarPropostaSelecaoPDF(
       // Ordenar lotes por número
       const lotesOrdenados = Array.from(lotes.values()).sort((a, b) => a.numero_lote - b.numero_lote);
 
-      // Definir colunas para por_lote
-      const colPositions = [
-        margemEsquerda + 12,   // Fim Item
-        margemEsquerda + 77,   // Fim Descrição
-        margemEsquerda + 92,   // Fim Qtd
-        margemEsquerda + 107,  // Fim Unid
-        margemEsquerda + 132,  // Fim Marca
-        margemEsquerda + 157   // Fim Valor Unitário
-      ];
-      
-      const descricaoLargura = colPositions[1] - colPositions[0] - 6;
-      const espacamentoLinhaDescTexto = 4.2;
+      // Preparar dados para autoTable com estrutura por lote
+      const tableData: any[] = [];
+      const loteSubtotals: { [key: number]: number } = {};
 
-      // Renderizar cada lote
       for (const lote of lotesOrdenados) {
-        // Verificar se precisa nova página para o título do lote
-        if (y > 260) {
-          doc.addPage();
-          y = 20;
-        }
-
-        // Título do lote com fundo cinza
-        doc.setFillColor(220, 220, 220);
-        doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text(lote.descricao_lote, margemEsquerda + 2, y);
-        y += 8;
-
-        // Cabeçalho da tabela para este lote
-        doc.setFillColor(30, 159, 204);
-        doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(255, 255, 255);
-
-        const colItemCenter = margemEsquerda + (colPositions[0] - margemEsquerda) / 2;
-        const colDescCenter = colPositions[0] + (colPositions[1] - colPositions[0]) / 2;
-        const colQtdCenter = colPositions[1] + (colPositions[2] - colPositions[1]) / 2;
-        const colUniCenter = colPositions[2] + (colPositions[3] - colPositions[2]) / 2;
-        const colMarcaCenter = colPositions[3] + (colPositions[4] - colPositions[3]) / 2;
-        const colValorUnitCenter = colPositions[4] + (colPositions[5] - colPositions[4]) / 2;
-        const colValorTotalCenter = colPositions[5] + (margemEsquerda + larguraUtil - colPositions[5]) / 2;
-
-        const headerYCenter = y - 1;
-        doc.text('Item', colItemCenter, headerYCenter, { align: 'center' });
-        doc.text('Descrição', colDescCenter, headerYCenter, { align: 'center' });
-        doc.text('Qtd', colQtdCenter, headerYCenter, { align: 'center' });
-        doc.text('Unid', colUniCenter, headerYCenter, { align: 'center' });
-        doc.text('Marca', colMarcaCenter, headerYCenter, { align: 'center' });
-        doc.text('Vlr Unit.', colValorUnitCenter, headerYCenter, { align: 'center' });
-        doc.text('Vlr Total', colValorTotalCenter, headerYCenter, { align: 'center' });
-        y += 5;
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-
-        const tabelaY = y - 10;
-        let subtotalLote = 0;
-
-        // Renderizar itens do lote
-        lote.itens.forEach((item, itemIndex) => {
-          if (y > 270) {
-            doc.addPage();
-            y = 20;
-          }
-
-          const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
-          subtotalLote += valorTotalItem;
-
-          const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
-          const alturaLinha = Math.max(6 + ((descLines.length - 1) * espacamentoLinhaDescTexto), 7);
-
-          // Sombra zebra
-          if (itemIndex % 2 === 1) {
-            doc.setFillColor(224, 242, 250);
-            doc.rect(margemEsquerda, y, larguraUtil, alturaLinha, 'F');
-          }
-
-          // Linha horizontal inferior
-          doc.setDrawColor(200, 200, 200);
-          doc.setLineWidth(0.3);
-          doc.line(margemEsquerda, y + alturaLinha, margemEsquerda + larguraUtil, y + alturaLinha);
-
-          // Linhas verticais
-          colPositions.forEach(xPos => {
-            doc.line(xPos, y, xPos, y + alturaLinha);
-          });
-
-          const yVerticalCenter = y + (alturaLinha / 2) + 1;
-          const colDesc = colPositions[0] + 2;
-
-          doc.text(item.numero_item.toString(), colItemCenter, yVerticalCenter, { align: 'center' });
-
-          // Descrição
-          const descricaoYInicio = y + 3.5;
-          descLines.forEach((linha: string, index: number) => {
-            const yLinha = descricaoYInicio + (index * espacamentoLinhaDescTexto);
-            const isUltimaLinha = index === descLines.length - 1;
-            if (yLinha <= y + alturaLinha - 1) {
-              if (isUltimaLinha || descLines.length === 1) {
-                doc.text(linha.trim(), colDesc, yLinha);
-              } else {
-                renderizarTextoJustificado(doc, linha.trim(), colDesc, yLinha, descricaoLargura);
-              }
-            }
-          });
-
-          doc.text(item.quantidade.toString(), colQtdCenter, yVerticalCenter, { align: 'center' });
-          doc.text(sanitizarTexto(item.unidade), colUniCenter, yVerticalCenter, { align: 'center' });
-          doc.text(sanitizarTexto(item.marca || '-'), colMarcaCenter, yVerticalCenter, { align: 'center' });
-
-          const valorUnitRight = colPositions[5] - 2;
-          const valorTotalRight = margemEsquerda + larguraUtil - 2;
-          doc.text(`R$ ${formatarMoeda(item.valor_unitario_ofertado)}`, valorUnitRight, yVerticalCenter, { align: 'right' });
-          doc.text(`R$ ${formatarMoeda(valorTotalItem)}`, valorTotalRight, yVerticalCenter, { align: 'right' });
-
-          y += alturaLinha;
+        // Linha de título do lote
+        tableData.push({
+          isLoteTitle: true,
+          loteDescricao: lote.descricao_lote
         });
 
+        let subtotalLote = 0;
+        
+        // Itens do lote
+        lote.itens.forEach(item => {
+          const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
+          subtotalLote += valorTotalItem;
+          
+          tableData.push({
+            isLoteTitle: false,
+            isSubtotal: false,
+            item: item.numero_item.toString(),
+            descricao: sanitizarTexto(item.descricao),
+            quantidade: item.quantidade.toString(),
+            unidade: sanitizarTexto(item.unidade),
+            marca: sanitizarTexto(item.marca || '-'),
+            valorUnitario: `R$ ${formatarMoeda(item.valor_unitario_ofertado)}`,
+            valorTotal: `R$ ${formatarMoeda(valorTotalItem)}`
+          });
+        });
+
+        loteSubtotals[lote.numero_lote] = subtotalLote;
+
         // Linha de subtotal do lote
-        doc.setFillColor(240, 240, 240);
-        doc.rect(margemEsquerda, y, larguraUtil, 7, 'F');
-        doc.setDrawColor(200, 200, 200);
-        doc.line(margemEsquerda, y + 7, margemEsquerda + larguraUtil, y + 7);
-        
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text(`Subtotal ${lote.descricao_lote}:`, margemEsquerda + 2, y + 5);
-        doc.text(`R$ ${formatarMoeda(subtotalLote)}`, margemEsquerda + larguraUtil - 2, y + 5, { align: 'right' });
-        
-        y += 12;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
+        tableData.push({
+          isSubtotal: true,
+          loteDescricao: lote.descricao_lote,
+          subtotal: `R$ ${formatarMoeda(subtotalLote)}`
+        });
       }
 
+      // Larguras de coluna
+      const colWidths = {
+        item: 12,
+        descricao: 65,
+        quantidade: 15,
+        unidade: 15,
+        marca: 25,
+        valorUnitario: 25,
+        valorTotal: 23
+      };
+
+      // Usar autoTable para renderização robusta com quebra de página
+      autoTable(doc, {
+        startY: y,
+        margin: { left: margemEsquerda, right: 15 },
+        tableWidth: larguraUtil,
+        rowPageBreak: 'auto',
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+          overflow: 'linebreak',
+          lineColor: [200, 200, 200],
+          lineWidth: 0.3
+        },
+        headStyles: {
+          fillColor: [30, 159, 204],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        columnStyles: {
+          0: { cellWidth: colWidths.item, halign: 'center' },
+          1: { cellWidth: colWidths.descricao, halign: 'left' },
+          2: { cellWidth: colWidths.quantidade, halign: 'center' },
+          3: { cellWidth: colWidths.unidade, halign: 'center' },
+          4: { cellWidth: colWidths.marca, halign: 'center' },
+          5: { cellWidth: colWidths.valorUnitario, halign: 'right' },
+          6: { cellWidth: colWidths.valorTotal, halign: 'right' }
+        },
+        head: [['Item', 'Descrição', 'Qtd', 'Unid', 'Marca', 'Vlr Unit.', 'Vlr Total']],
+        body: tableData.map(row => {
+          if (row.isLoteTitle) {
+            return [{ content: row.loteDescricao, colSpan: 7, styles: { fillColor: [220, 220, 220], fontStyle: 'bold', halign: 'left' } }];
+          } else if (row.isSubtotal) {
+            return [{ content: `Subtotal ${row.loteDescricao}:`, colSpan: 6, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', halign: 'left' } }, 
+                    { content: row.subtotal, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', halign: 'right' } }];
+          } else {
+            return [row.item, row.descricao, row.quantidade, row.unidade, row.marca, row.valorUnitario, row.valorTotal];
+          }
+        }),
+        didParseCell: (data) => {
+          // Adicionar padding dinâmico para descrições longas
+          if (data.column.index === 1 && data.section === 'body' && data.cell.text && typeof data.cell.text === 'object') {
+            const textLines = Array.isArray(data.cell.text) ? data.cell.text.length : 1;
+            if (textLines > 2) {
+              data.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2 + (textLines - 2) * 1.5, left: 2 };
+            }
+          }
+        }
+      });
+
+      // Obter posição Y final após autoTable
+      y = (doc as any).lastAutoTable.finalY + 5;
+
       // Valor Total Geral
-      y += 3;
       doc.setFillColor(30, 159, 204);
       doc.rect(margemEsquerda, y, larguraUtil, 8, 'F');
       doc.setFont('helvetica', 'bold');
