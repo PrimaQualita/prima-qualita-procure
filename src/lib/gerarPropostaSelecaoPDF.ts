@@ -436,6 +436,57 @@ export async function gerarPropostaSelecaoPDF(
               data.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2 + (textLines - 2) * 1.5, left: 2 };
             }
           }
+        },
+        didDrawCell: (data) => {
+          // Renderizar texto justificado na coluna de descrição (coluna 1)
+          if (data.column.index === 1 && data.section === 'body' && data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
+            // Verificar se não é linha de título de lote ou subtotal
+            const rowData = tableData[data.row.index];
+            if (rowData && !rowData.isLoteTitle && !rowData.isSubtotal) {
+              // Limpar texto renderizado pelo autoTable
+              const cellX = data.cell.x;
+              const cellY = data.cell.y;
+              const cellWidth = data.cell.width;
+              const cellHeight = data.cell.height;
+              
+              // Preencher fundo da célula (mantém zebra se existir)
+              const fillColor = data.cell.styles.fillColor;
+              if (fillColor && Array.isArray(fillColor)) {
+                doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+              } else {
+                doc.setFillColor(255, 255, 255);
+              }
+              doc.rect(cellX + 0.3, cellY + 0.3, cellWidth - 0.6, cellHeight - 0.6, 'F');
+              
+              // Configurar fonte
+              doc.setFontSize(8);
+              doc.setFont('helvetica', 'normal');
+              doc.setTextColor(0, 0, 0);
+              
+              // Renderizar cada linha justificada
+              const padding = 2;
+              const larguraTexto = cellWidth - (padding * 2);
+              const textLines = data.cell.text as string[];
+              const lineHeight = 3.5;
+              
+              textLines.forEach((linha, index) => {
+                const yLinha = cellY + padding + 2 + (index * lineHeight);
+                
+                // Verificar se linha está dentro da célula (clipping)
+                if (yLinha < cellY + cellHeight - 1) {
+                  const isUltimaLinha = index === textLines.length - 1;
+                  
+                  if (isUltimaLinha || textLines.length === 1) {
+                    // Última linha: alinhamento normal à esquerda
+                    doc.text(linha.trim(), cellX + padding, yLinha);
+                  } else {
+                    // Linhas intermediárias: justificar
+                    renderizarTextoJustificado(doc, linha.trim(), cellX + padding, yLinha, larguraTexto);
+                  }
+                }
+              });
+            }
+          }
         }
       });
 
