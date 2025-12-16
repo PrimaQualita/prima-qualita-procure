@@ -1533,8 +1533,8 @@ export function DialogAnaliseDocumentalSelecao({
       setDialogInabilitar(true);
     } else {
       // Mostra diálogo de inabilitação com seleção de itens
-      // Pré-selecionar apenas os itens que o fornecedor venceu
-      setItensSelecionadosInabilitacao([...fornecedorParaInabilitar.fornecedor.itensVencedores]);
+      // Pré-selecionar todos os itens/lotes que o fornecedor licitou
+      setItensSelecionadosInabilitacao([...fornecedorParaInabilitar.fornecedor.itensLicitados]);
       setDialogInabilitar(true);
     }
   };
@@ -1581,10 +1581,10 @@ export function DialogAnaliseDocumentalSelecao({
         return;
       }
 
-      // Usar itens selecionados na inabilitação parcial, ou todos na completa
+      // Usar itens selecionados na inabilitação parcial, ou todos os licitados na completa
       const itensAfetados = tipoInabilitacao === 'parcial' 
         ? itensSelecionadosInabilitacao 
-        : fornecedorParaInabilitar.fornecedor.itensVencedores;
+        : fornecedorParaInabilitar.fornecedor.itensLicitados;
       const fornecedorInabId = fornecedorParaInabilitar.fornecedor.id;
 
       // RECALCULAR segundos colocados AGORA para garantir dados frescos
@@ -2814,8 +2814,8 @@ export function DialogAnaliseDocumentalSelecao({
                   <p className="font-medium">Inabilitar fornecedor completamente</p>
                   <p className="text-sm text-muted-foreground">
                     {criterioJulgamento === 'por_lote'
-                      ? 'Inabilitar todos os lotes que o fornecedor venceu'
-                      : 'Inabilitar todos os itens que o fornecedor venceu'}
+                      ? 'Inabilitar todos os lotes que o fornecedor licitou'
+                      : 'Inabilitar todos os itens que o fornecedor licitou'}
                   </p>
                 </div>
               </div>
