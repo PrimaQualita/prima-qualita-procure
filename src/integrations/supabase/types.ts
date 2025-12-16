@@ -2162,10 +2162,13 @@ export type Database = {
       }
       propostas_realinhadas: {
         Row: {
+          correcao_solicitada: boolean | null
           created_at: string
           data_envio: string
+          data_solicitacao_correcao: string | null
           fornecedor_id: string
           id: string
+          motivo_correcao: string | null
           observacoes: string | null
           protocolo: string | null
           selecao_id: string
@@ -2173,10 +2176,13 @@ export type Database = {
           valor_total_proposta: number
         }
         Insert: {
+          correcao_solicitada?: boolean | null
           created_at?: string
           data_envio?: string
+          data_solicitacao_correcao?: string | null
           fornecedor_id: string
           id?: string
+          motivo_correcao?: string | null
           observacoes?: string | null
           protocolo?: string | null
           selecao_id: string
@@ -2184,10 +2190,13 @@ export type Database = {
           valor_total_proposta?: number
         }
         Update: {
+          correcao_solicitada?: boolean | null
           created_at?: string
           data_envio?: string
+          data_solicitacao_correcao?: string | null
           fornecedor_id?: string
           id?: string
+          motivo_correcao?: string | null
           observacoes?: string | null
           protocolo?: string | null
           selecao_id?: string
