@@ -110,17 +110,16 @@ export const gerarPropostaRealinhadaPDF = async (
   itens: ItemPropostaRealinhada[],
   fornecedor: DadosFornecedor,
   processo: DadosProcesso,
-  protocolo: string,
   observacoes?: string
-): Promise<{ pdfBlob: Blob; pdfUrl: string }> => {
+): Promise<{ pdfBlob: Blob; pdfUrl: string; protocolo: string }> => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
   let yPos = margin;
 
-  // Protocolo de certificação
-  const protocoloCertificacao = gerarProtocoloCertificacao();
+  // Gerar protocolo único no formato padrão XXXX-XXXX-XXXX-XXXX
+  const protocolo = gerarProtocoloCertificacao();
 
   // Header
   doc.setFillColor(0, 75, 140);
@@ -444,27 +443,37 @@ export const gerarPropostaRealinhadaPDF = async (
     finalY += 10;
   }
   
+  // Link de verificação no formato correto
+  const linkVerificacao = `${window.location.origin}/verificar-proposta?protocolo=${protocolo}`;
+  
   // Box de certificação
   doc.setFillColor(245, 245, 245);
-  doc.setDrawColor(0, 75, 140);
+  doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.5);
-  doc.rect(margin, finalY, pageWidth - margin * 2, 40, 'FD');
+  doc.rect(margin, finalY, pageWidth - margin * 2, 45, 'FD');
   
-  doc.setTextColor(0, 75, 140);
-  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 139);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('CERTIFICAÇÃO DIGITAL', pageWidth / 2, finalY + 8, { align: 'center' });
   
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Protocolo de Autenticidade: ${protocoloCertificacao}`, pageWidth / 2, finalY + 16, { align: 'center' });
-  doc.text(`Documento gerado eletronicamente em ${new Date().toLocaleString('pt-BR')}`, pageWidth / 2, finalY + 23, { align: 'center' });
-  doc.text(`Responsável: ${fornecedor.razao_social}`, pageWidth / 2, finalY + 30, { align: 'center' });
+  doc.text(`Responsável: ${fornecedor.razao_social}`, margin + 5, finalY + 16);
+  doc.text(`Protocolo: ${protocolo}`, margin + 5, finalY + 22);
   
+  doc.setFont('helvetica', 'bold');
+  doc.text('Verificar autenticidade em:', margin + 5, finalY + 28);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(0, 0, 255);
+  doc.textWithLink(linkVerificacao, margin + 5, finalY + 33, { url: linkVerificacao });
+  
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(7);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Verifique a autenticidade em: https://primaqualita.com.br/verificar-documento', pageWidth / 2, finalY + 37, { align: 'center' });
+  doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margin + 5, finalY + 40);
 
   // Rodapé em todas as páginas
   const totalPagesAfter = doc.getNumberOfPages();
@@ -479,7 +488,7 @@ export const gerarPropostaRealinhadaPDF = async (
       { align: 'center' }
     );
     doc.text(
-      `Protocolo: ${protocoloCertificacao}`,
+      `Protocolo: ${protocolo}`,
       margin,
       pageHeight - 10
     );
@@ -490,7 +499,7 @@ export const gerarPropostaRealinhadaPDF = async (
 
   // Salvar no storage
   const timestamp = Date.now();
-  const nomeArquivo = `proposta_realinhada_${protocoloCertificacao.replace(/-/g, '_')}_${timestamp}.pdf`;
+  const nomeArquivo = `proposta_realinhada_${protocolo.replace(/-/g, '_')}_${timestamp}.pdf`;
   const storagePath = `propostas_realinhadas/${nomeArquivo}`;
 
   const { error: uploadError } = await supabase.storage
@@ -511,6 +520,7 @@ export const gerarPropostaRealinhadaPDF = async (
 
   return {
     pdfBlob,
-    pdfUrl: urlData.publicUrl
+    pdfUrl: urlData.publicUrl,
+    protocolo
   };
 };
