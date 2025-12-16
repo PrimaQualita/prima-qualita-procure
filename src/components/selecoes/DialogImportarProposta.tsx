@@ -282,8 +282,151 @@ export function DialogImportarProposta({
     setLoading(true);
     try {
       const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
+      const workbook = XLSX.read(data, { type: "array" });
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+      const isPorLote = criterioJulgamento === "por_lote";
+
+      // ✅ IMPORTAÇÃO POR LOTE (mesma lógica da cotação): rastreia o lote atual e valida por (lote_id + numero_item)
+      if (isPorLote) {
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+        if (!rows || rows.length < 2) {
+          toast.error("A planilha está vazia");
+          setLoading(false);
+          return;
+        }
+
+        const header = (rows[0] || []).map((h) => String(h ?? "").trim());
+        const idxItem = header.findIndex((h) => h.toLowerCase() === "item");
+        const idxMarca = header.findIndex((h) => h.toLowerCase() === "marca");
+        const idxValor = header.findIndex((h) => h.toLowerCase() === "valor unitário");
+
+        if (idxItem === -1 || idxMarca === -1 || idxValor === -1) {
+          toast.error("Planilha inválida. Use o template fornecido.");
+          setLoading(false);
+          return;
+        }
+
+        const parseValor = (v: unknown): number => {
+          if (v === null || v === undefined) return 0;
+          if (typeof v === "number") return v;
+          const raw = String(v).trim();
+          if (!raw) return 0;
+
+          // Remove moeda e espaços
+          let s = raw.replace(/^R\$\s*/i, "").replace(/\s/g, "");
+
+          // Mantém apenas dígitos, ponto, vírgula e sinal
+          s = s.replace(/[^0-9,.-]/g, "");
+
+          // Se tiver vírgula, assume formato PT-BR (ponto = milhar, vírgula = decimal)
+          if (s.includes(",")) {
+            s = s.replace(/\./g, "").replace(",", ".");
+          }
+
+          const n = parseFloat(s);
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        let loteAtualId: string | null = null;
+        let loteAtualNumero: number | null = null;
+
+        const dadosImportados: Array<{
+          numero_item: number;
+          marca: string;
+          valor_unitario: number;
+          lote_id?: string | null;
+        }> = [];
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i] || [];
+          const itemCol = row[idxItem];
+          const marcaCol = row[idxMarca];
+          const valorCol = row[idxValor];
+
+          // Detectar título do lote
+          if (typeof itemCol === "string" && itemCol.toUpperCase().startsWith("LOTE")) {
+            const matchLote = itemCol.match(/LOTE\s*(\d+)/i);
+            if (matchLote) {
+              const numeroLote = parseInt(matchLote[1]);
+              loteAtualNumero = Number.isFinite(numeroLote) ? numeroLote : null;
+              const loteEncontrado = lotes.find((l) => l.numero_lote === numeroLote);
+              loteAtualId = loteEncontrado?.id || null;
+            } else {
+              loteAtualNumero = null;
+              loteAtualId = null;
+            }
+            continue;
+          }
+
+          // Pular linhas de subtotal/total
+          if (typeof valorCol === "string") {
+            const v = valorCol.toUpperCase();
+            if (v.includes("SUBTOTAL") || v.includes("VALOR TOTAL") || v.includes("TOTAL GERAL")) {
+              continue;
+            }
+          }
+
+          // Item numérico
+          const numeroItem = typeof itemCol === "number" ? itemCol : parseInt(String(itemCol ?? ""));
+          if (!Number.isFinite(numeroItem) || numeroItem <= 0) continue;
+
+          const marca = String(marcaCol ?? "").trim();
+          const valorUnitario = parseValor(valorCol);
+
+          // Apenas itens preenchidos
+          const temMarca = marca !== "";
+          const temValor = valorUnitario > 0;
+          if (!temMarca && !temValor) continue;
+
+          if (!loteAtualId || !loteAtualNumero) {
+            toast.error(
+              `Não foi possível identificar o lote do Item ${numeroItem}. Use o template e não remova as linhas de título dos lotes.`
+            );
+            setLoading(false);
+            return;
+          }
+
+          dadosImportados.push({
+            numero_item: numeroItem,
+            marca,
+            valor_unitario: valorUnitario,
+            lote_id: loteAtualId,
+          });
+        }
+
+        if (dadosImportados.length === 0) {
+          toast.error(
+            "Nenhum item foi preenchido na planilha. Preencha pelo menos um item com marca ou valor unitário."
+          );
+          setLoading(false);
+          return;
+        }
+
+        // Validar existência por (lote_id + numero_item)
+        const invalidos = dadosImportados
+          .filter((d) => !itens.some((it) => it.numero_item === d.numero_item && it.lote_id === d.lote_id))
+          .map((d) => {
+            const numeroLote = lotes.find((l) => l.id === d.lote_id)?.numero_lote;
+            return `Lote ${numeroLote ?? "?"} - Item ${d.numero_item}`;
+          });
+
+        if (invalidos.length > 0) {
+          toast.error(`Itens inválidos encontrados: ${invalidos.join(", ")}`);
+          setLoading(false);
+          return;
+        }
+
+        onImportSuccess(dadosImportados as any);
+        toast.success(
+          `${dadosImportados.length} ${dadosImportados.length === 1 ? "item importado" : "itens importados"} com sucesso!`
+        );
+        onOpenChange(false);
+        return;
+      }
+
+      // ====== IMPORTAÇÃO PADRÃO (outros critérios) - sem alteração ======
       const jsonData = XLSX.utils.sheet_to_json<ItemPlanilha>(worksheet);
 
       if (jsonData.length === 0) {
@@ -293,12 +436,11 @@ export function DialogImportarProposta({
       }
 
       const primeiraLinha = jsonData[0];
-      const isPorLote = criterioJulgamento === 'por_lote';
-      
+
       // Validar estrutura da planilha
-      const temFormatoLote = 'Item' in primeiraLinha;
-      const temFormatoPadrao = 'Número do Item' in primeiraLinha;
-      
+      const temFormatoLote = "Item" in primeiraLinha;
+      const temFormatoPadrao = "Número do Item" in primeiraLinha;
+
       if (!temFormatoLote && !temFormatoPadrao) {
         toast.error("Planilha inválida. Use o template fornecido.");
         setLoading(false);
@@ -307,65 +449,68 @@ export function DialogImportarProposta({
 
       // Processar dados baseado no formato
       const dadosImportados = jsonData
-        .filter(item => {
+        .filter((item) => {
           // Pular linhas que são títulos de lote, subtotais ou total geral
-          const itemCol = item['Item'] ?? item['Número do Item'];
-          if (itemCol !== undefined && typeof itemCol === 'string') {
+          const itemCol = item["Item"] ?? item["Número do Item"];
+          if (itemCol !== undefined && typeof itemCol === "string") {
             const itemStr = String(itemCol).toUpperCase();
-            if (itemStr.startsWith('LOTE') || itemStr === '') return false;
+            if (itemStr.startsWith("LOTE") || itemStr === "") return false;
           }
-          const marcaCol = item['Marca'];
-          if (marcaCol !== undefined && typeof marcaCol === 'string') {
+          const marcaCol = item["Marca"];
+          if (marcaCol !== undefined && typeof marcaCol === "string") {
             const marcaStr = String(marcaCol).toUpperCase();
-            if (marcaStr.includes('SUBTOTAL') || marcaStr.includes('VALOR TOTAL')) return false;
+            if (marcaStr.includes("SUBTOTAL") || marcaStr.includes("VALOR TOTAL")) return false;
           }
-          
+
           // Apenas itens que têm marca OU valor unitário preenchidos
-          const temMarca = item['Marca'] && String(item['Marca']).trim() !== '';
-          const temValor = item['Valor Unitário'] !== undefined && 
-                          item['Valor Unitário'] !== null && 
-                          String(item['Valor Unitário']).trim() !== '' &&
-                          Number(item['Valor Unitário']) > 0;
+          const temMarca = item["Marca"] && String(item["Marca"]).trim() !== "";
+          const temValor =
+            item["Valor Unitário"] !== undefined &&
+            item["Valor Unitário"] !== null &&
+            String(item["Valor Unitário"]).trim() !== "" &&
+            Number(item["Valor Unitário"]) > 0;
           return temMarca || temValor;
         })
-        .map(item => {
-          const valorBase = Number(item['Valor Unitário']) || 0;
+        .map((item) => {
+          const valorBase = Number(item["Valor Unitário"]) || 0;
           // Se critério é desconto, valor na planilha já é percentual (0.55 = 0.55%)
           // Precisa dividir por 100 para converter em decimal (0.55% = 0.0055)
-          const valorUnitario = criterioJulgamento === "desconto" 
-            ? valorBase / 100 
-            : valorBase;
-          
+          const valorUnitario = criterioJulgamento === "desconto" ? valorBase / 100 : valorBase;
+
           // Obter número do item do formato correto
-          const numeroItem = item['Número do Item'] ?? item['Item'];
-          
+          const numeroItem = item["Número do Item"] ?? item["Item"];
+
           return {
             numero_item: Number(numeroItem),
-            marca: String(item['Marca'] || '').trim(),
-            valor_unitario: valorUnitario
+            marca: String(item["Marca"] || "").trim(),
+            valor_unitario: valorUnitario,
           };
         });
 
       if (dadosImportados.length === 0) {
-        toast.error("Nenhum item foi preenchido na planilha. Preencha pelo menos um item com marca ou valor unitário.");
+        toast.error(
+          "Nenhum item foi preenchido na planilha. Preencha pelo menos um item com marca ou valor unitário."
+        );
         setLoading(false);
         return;
       }
 
       // Validar se os números de item existem
-      const numerosItensValidos = itens.map(i => i.numero_item);
+      const numerosItensValidos = itens.map((i) => i.numero_item);
       const numerosInvalidos = dadosImportados
-        .filter(d => !numerosItensValidos.includes(d.numero_item))
-        .map(d => d.numero_item);
+        .filter((d) => !numerosItensValidos.includes(d.numero_item))
+        .map((d) => d.numero_item);
 
       if (numerosInvalidos.length > 0) {
-        toast.error(`Números de item inválidos encontrados: ${numerosInvalidos.join(', ')}`);
+        toast.error(`Números de item inválidos encontrados: ${numerosInvalidos.join(", ")}`);
         setLoading(false);
         return;
       }
 
       onImportSuccess(dadosImportados);
-      toast.success(`${dadosImportados.length} ${dadosImportados.length === 1 ? 'item importado' : 'itens importados'} com sucesso!`);
+      toast.success(
+        `${dadosImportados.length} ${dadosImportados.length === 1 ? "item importado" : "itens importados"} com sucesso!`
+      );
       onOpenChange(false);
     } catch (error) {
       console.error("Erro ao importar planilha:", error);
@@ -374,6 +519,7 @@ export function DialogImportarProposta({
       setLoading(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
