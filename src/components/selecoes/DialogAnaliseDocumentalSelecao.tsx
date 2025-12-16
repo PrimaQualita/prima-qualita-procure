@@ -801,7 +801,9 @@ export function DialogAnaliseDocumentalSelecao({
 
         if (revertError) throw revertError;
         
-        // Limpar negociações abertas com segundo colocado para os itens reabilitados
+        const fecharLoteAoReabilitar = criterioJulgamento === "por_lote";
+
+        // Limpar negociações abertas com segundo colocado para os itens/lotes reabilitados
         // pois o vencedor original foi reabilitado
         if (inabilitacao?.itens_afetados) {
           for (const item of inabilitacao.itens_afetados) {
@@ -810,7 +812,17 @@ export function DialogAnaliseDocumentalSelecao({
               .update({
                 em_negociacao: false,
                 fornecedor_negociacao_id: null,
-                negociacao_concluida: true
+                negociacao_concluida: true,
+                ...(fecharLoteAoReabilitar
+                  ? {
+                      aberto: false,
+                      nao_negociar: true,
+                      iniciando_fechamento: false,
+                      data_inicio_fechamento: null,
+                      segundos_para_fechar: null,
+                      data_fechamento: new Date().toISOString(),
+                    }
+                  : {}),
               })
               .eq("selecao_id", selecaoId)
               .eq("numero_item", item);
