@@ -208,37 +208,61 @@ const PropostaRealinhada = () => {
       .maybeSingle();
 
     // Buscar marcas da proposta original do fornecedor via proposta_id
-    // Usar descrição para matching pois numero_item pode repetir entre lotes
-    const marcasPorDescricao = new Map<string, string>();
+    // Usar palavras-chave da descrição para matching
+    const respostasOriginais: any[] = [];
     if (propostaFornecedor) {
-      const { data: respostasOriginais } = await (supabase as any)
+      const { data } = await (supabase as any)
         .from("selecao_respostas_itens_fornecedor")
         .select("numero_item, marca, descricao")
         .eq("proposta_id", propostaFornecedor.id);
-
-      respostasOriginais?.forEach((resposta: any) => {
-        if (resposta.marca && resposta.descricao) {
-          // Usar primeiros 30 chars da descrição como chave para matching
-          const chaveDescricao = resposta.descricao.substring(0, 30).toLowerCase();
-          marcasPorDescricao.set(chaveDescricao, resposta.marca);
-        }
-      });
+      
+      if (data) {
+        respostasOriginais.push(...data);
+      }
     }
 
-    // Função helper para buscar marca pela descrição do item
+    // Função para extrair palavras-chave de uma descrição
+    const extrairPalavrasChave = (texto: string): string[] => {
+      const palavrasIgnorar = new Set([
+        'de', 'da', 'do', 'das', 'dos', 'com', 'para', 'em', 'no', 'na', 
+        'nos', 'nas', 'por', 'uma', 'um', 'e', 'ou', 'que', 'a', 'o',
+        'tipo', 'uso', 'alta', 'alto', 'mínima', 'mínimo', 'máxima', 'máximo'
+      ]);
+      return texto
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter(p => p.length > 2 && !palavrasIgnorar.has(p));
+    };
+
+    // Função helper para buscar marca pela descrição do item usando palavras-chave
     const buscarMarcaPorDescricao = (descricaoItem: string): string => {
-      const chaveItem = descricaoItem.substring(0, 30).toLowerCase();
-      // Buscar correspondência exata primeiro
-      if (marcasPorDescricao.has(chaveItem)) {
-        return marcasPorDescricao.get(chaveItem) || "";
-      }
-      // Buscar por substring se não encontrar exato
-      for (const [chave, marca] of marcasPorDescricao.entries()) {
-        if (chaveItem.includes(chave.substring(0, 15)) || chave.includes(chaveItem.substring(0, 15))) {
-          return marca;
+      const palavrasItem = extrairPalavrasChave(descricaoItem);
+      
+      let melhorMatch = { marca: "", score: 0 };
+      
+      for (const resposta of respostasOriginais) {
+        if (!resposta.marca || !resposta.descricao) continue;
+        
+        const palavrasResposta = extrairPalavrasChave(resposta.descricao);
+        
+        // Contar palavras em comum
+        let score = 0;
+        for (const palavra of palavrasResposta) {
+          if (palavrasItem.some(p => p.includes(palavra) || palavra.includes(p))) {
+            score++;
+          }
+        }
+        
+        // Preferir matches com mais palavras em comum
+        if (score > melhorMatch.score && score >= 2) {
+          melhorMatch = { marca: resposta.marca, score };
         }
       }
-      return "";
+      
+      return melhorMatch.marca;
     };
 
     const itensProcessados: ItemVencedor[] = [];
