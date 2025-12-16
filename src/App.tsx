@@ -40,6 +40,7 @@ import DetalheSelecao from "./pages/DetalheSelecao";
 import ParticiparSelecao from "./pages/ParticiparSelecao";
 import PropostasSelecao from "./pages/PropostasSelecao";
 import SistemaLancesFornecedor from "./pages/SistemaLancesFornecedor";
+import PropostaRealinhada from "./pages/PropostaRealinhada";
 import RecuperarSenha from "./pages/RecuperarSenha";
 import NotFound from "./pages/NotFound";
 
@@ -89,6 +90,7 @@ const App = () => {
             <Route path="/participar-selecao" element={<ParticiparSelecao />} />
             <Route path="/propostas-selecao" element={<PropostasSelecao />} />
             <Route path="/sistema-lances-fornecedor" element={<SistemaLancesFornecedor />} />
+            <Route path="/proposta-realinhada" element={<PropostaRealinhada />} />
             <Route path="/incluir-precos-publicos" element={<IncluirPrecosPublicos />} />
             <Route path="/verificar-proposta" element={<VerificarProposta />} />
             <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />

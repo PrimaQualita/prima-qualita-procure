@@ -2160,6 +2160,107 @@ export type Database = {
         }
         Relationships: []
       }
+      propostas_realinhadas: {
+        Row: {
+          created_at: string
+          data_envio: string
+          fornecedor_id: string
+          id: string
+          observacoes: string | null
+          protocolo: string | null
+          selecao_id: string
+          url_pdf_proposta: string | null
+          valor_total_proposta: number
+        }
+        Insert: {
+          created_at?: string
+          data_envio?: string
+          fornecedor_id: string
+          id?: string
+          observacoes?: string | null
+          protocolo?: string | null
+          selecao_id: string
+          url_pdf_proposta?: string | null
+          valor_total_proposta?: number
+        }
+        Update: {
+          created_at?: string
+          data_envio?: string
+          fornecedor_id?: string
+          id?: string
+          observacoes?: string | null
+          protocolo?: string | null
+          selecao_id?: string
+          url_pdf_proposta?: string | null
+          valor_total_proposta?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "propostas_realinhadas_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "propostas_realinhadas_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      propostas_realinhadas_itens: {
+        Row: {
+          created_at: string
+          descricao: string
+          id: string
+          marca: string | null
+          numero_item: number
+          numero_lote: number | null
+          proposta_realinhada_id: string
+          quantidade: number
+          unidade: string
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          created_at?: string
+          descricao: string
+          id?: string
+          marca?: string | null
+          numero_item: number
+          numero_lote?: number | null
+          proposta_realinhada_id: string
+          quantidade: number
+          unidade: string
+          valor_total: number
+          valor_unitario: number
+        }
+        Update: {
+          created_at?: string
+          descricao?: string
+          id?: string
+          marca?: string | null
+          numero_item?: number
+          numero_lote?: number | null
+          proposta_realinhada_id?: string
+          quantidade?: number
+          unidade?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "propostas_realinhadas_itens_proposta_realinhada_id_fkey"
+            columns: ["proposta_realinhada_id"]
+            isOneToOne: false
+            referencedRelation: "propostas_realinhadas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recursos_fornecedor: {
         Row: {
           created_at: string | null
