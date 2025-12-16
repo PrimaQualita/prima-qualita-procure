@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck, Pencil, RefreshCw, Eye } from "lucide-react";
+import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck, Pencil, RefreshCw, Eye, Send } from "lucide-react";
 import { toast } from "sonner";
 import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
 import { NotificacaoRejeicao } from "@/components/fornecedores/NotificacaoRejeicao";
@@ -27,6 +27,7 @@ export default function PortalFornecedor() {
   const [atasPendentes, setAtasPendentes] = useState<any[]>([]);
   const [inabilitacoesPendentes, setInabilitacoesPendentes] = useState<any[]>([]);
   const [inabilitacoesSelecaoPendentes, setInabilitacoesSelecaoPendentes] = useState<any[]>([]);
+  const [propostasRealinhadasPendentes, setPropostasRealinhadasPendentes] = useState<any[]>([]);
   const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<string>("");
@@ -121,6 +122,7 @@ export default function PortalFornecedor() {
     await loadAtasPendentes(fornecedorData.id);
     await loadInabilitacoesPendentes(fornecedorData.id);
     await loadInabilitacoesSelecaoPendentes(fornecedorData.id);
+    await loadPropostasRealinhadasPendentes(fornecedorData.id);
     setLoading(false);
   };
 
@@ -503,6 +505,73 @@ export default function PortalFornecedor() {
       setInabilitacoesSelecaoPendentes(pendentes);
     } catch (error) {
       console.error("❌ Erro ao carregar inabilitações de seleção pendentes:", error);
+    }
+  };
+
+  const loadPropostasRealinhadasPendentes = async (fornecedorId: string) => {
+    try {
+      console.log("🔍 Carregando propostas realinhadas pendentes...");
+      
+      // Buscar atas que o fornecedor já assinou (status aceito)
+      const { data: assinaturasAceitas, error: assinaturasError } = await supabase
+        .from("atas_assinaturas_fornecedor")
+        .select(`
+          id,
+          ata_id,
+          data_assinatura,
+          atas_selecao (
+            id,
+            selecao_id,
+            protocolo,
+            selecoes_fornecedores (
+              id,
+              titulo_selecao,
+              numero_selecao
+            )
+          )
+        `)
+        .eq("fornecedor_id", fornecedorId)
+        .eq("status_assinatura", "aceito");
+
+      if (assinaturasError) throw assinaturasError;
+
+      if (!assinaturasAceitas || assinaturasAceitas.length === 0) {
+        setPropostasRealinhadasPendentes([]);
+        return;
+      }
+
+      // Para cada ata assinada, verificar se já enviou proposta realinhada
+      const pendentes = [];
+      
+      for (const assinatura of assinaturasAceitas) {
+        const selecaoId = assinatura.atas_selecao?.selecao_id;
+        if (!selecaoId) continue;
+
+        // Verificar se já existe proposta realinhada para esta seleção
+        const { data: propostaExistente } = await supabase
+          .from("propostas_realinhadas")
+          .select("id")
+          .eq("selecao_id", selecaoId)
+          .eq("fornecedor_id", fornecedorId)
+          .maybeSingle();
+
+        // Se não existe proposta realinhada, adicionar na lista de pendentes
+        if (!propostaExistente) {
+          pendentes.push({
+            id: assinatura.id,
+            selecao_id: selecaoId,
+            data_assinatura: assinatura.data_assinatura,
+            titulo_selecao: assinatura.atas_selecao?.selecoes_fornecedores?.titulo_selecao || "Sem título",
+            numero_selecao: assinatura.atas_selecao?.selecoes_fornecedores?.numero_selecao || "N/A",
+            protocolo_ata: assinatura.atas_selecao?.protocolo
+          });
+        }
+      }
+
+      console.log("✅ Propostas realinhadas pendentes:", pendentes);
+      setPropostasRealinhadasPendentes(pendentes);
+    } catch (error) {
+      console.error("❌ Erro ao carregar propostas realinhadas pendentes:", error);
     }
   };
 
@@ -897,7 +966,46 @@ export default function PortalFornecedor() {
           </Card>
         )}
 
-        {/* Alerta de Inabilitações em Cotações - Possibilidade de Recurso */}
+        {/* Alerta de Propostas Realinhadas Pendentes */}
+        {propostasRealinhadasPendentes.length > 0 && (
+          <Card className="mb-6 border-purple-500/50 bg-purple-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <Send className="h-5 w-5 text-purple-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-purple-700 dark:text-purple-400 mb-3">
+                    📄 Você assinou {propostasRealinhadasPendentes.length} ata(s) e precisa enviar a(s) proposta(s) realinhada(s)!
+                  </p>
+                  <p className="text-sm text-purple-600 dark:text-purple-300 mb-3">
+                    Após assinar a ata, você deve enviar a proposta realinhada com os valores detalhados dos itens que ganhou.
+                  </p>
+                  <div className="space-y-3">
+                    {propostasRealinhadasPendentes.map((pendente) => (
+                      <div key={pendente.id} className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg border">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">
+                            Seleção: {pendente.numero_selecao} - {pendente.titulo_selecao}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Ata assinada em: {new Date(pendente.data_assinatura).toLocaleString("pt-BR")}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => navigate(`/sistema-lances-fornecedor?selecao=${pendente.selecao_id}`)}
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          <Send className="h-4 w-4 mr-1" />
+                          Enviar Proposta
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {inabilitacoesPendentes.length > 0 && (
           <Card className="mb-6 border-red-500/50 bg-red-500/10">
             <CardContent className="pt-6">
