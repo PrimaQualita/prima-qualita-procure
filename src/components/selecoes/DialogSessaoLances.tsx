@@ -1887,8 +1887,12 @@ export function DialogSessaoLances({
 
       lancesGroupedByItem.forEach(({ elemento, lances: lancesDoItem }) => {
         // Título baseado em lote ou item
+        // Remover prefixo "Lote XX - " da descrição se existir para evitar duplicação
+        const descricaoLimpa = elemento.isLote 
+          ? elemento.descricao.replace(/^Lote\s*\d+\s*[-–:]\s*/i, '')
+          : elemento.descricao;
         const tituloTexto = elemento.isLote 
-          ? `Lote ${toRoman(elemento.numero)}: ${elemento.descricao}`
+          ? `Lote ${toRoman(elemento.numero)} - ${descricaoLimpa}`
           : `Item ${elemento.numero}: ${elemento.descricao}`;
         const termoSemLances = elemento.isLote ? "Nenhum lance registrado para este lote" : "Nenhum lance registrado para este item";
 
@@ -2165,9 +2169,14 @@ export function DialogSessaoLances({
         // Formatar número/identificador
         const identificador = elemento.isLote ? toRoman(elemento.numero) : elemento.numero.toString();
         
+        // Remover prefixo "Lote XX - " da descrição se existir para evitar duplicação
+        const descricaoLimpaResumo = elemento.isLote 
+          ? elemento.descricao.replace(/^Lote\s*\d+\s*[-–:]\s*/i, '')
+          : elemento.descricao;
+        
         return [
           identificador,
-          elemento.descricao, // Descrição completa
+          descricaoLimpaResumo, // Descrição sem duplicação
           vencedor?.fornecedores?.razao_social || "Sem lances",
           marca,
           elemento.isLote ? "-" : quantidade.toString(),
