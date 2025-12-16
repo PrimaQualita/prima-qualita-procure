@@ -286,8 +286,10 @@ export const gerarPropostaRealinhadaPDF = async (
     margin: { left: margin, right: margin },
     styles: {
       fontSize: 8,
-      cellPadding: 3,
-      valign: 'middle', // Centralização vertical
+      cellPadding: 2,
+      overflow: 'linebreak',
+      lineColor: [200, 200, 200],
+      lineWidth: 0.3
     },
     headStyles: {
       fillColor: [0, 75, 140],
@@ -297,69 +299,110 @@ export const gerarPropostaRealinhadaPDF = async (
       valign: 'middle',
     },
     columnStyles: {
-      0: { cellWidth: 15, halign: 'center', valign: 'middle' },  // Item
-      1: { cellWidth: 'auto', halign: 'left', valign: 'middle' },  // Descrição - será justificada no didDrawCell
-      2: { cellWidth: 15, halign: 'center', valign: 'middle' },  // Qtd
-      3: { cellWidth: 15, halign: 'center', valign: 'middle' },  // Un
-      4: { cellWidth: 25, halign: 'center', valign: 'middle' },  // Marca
-      5: { cellWidth: 24, halign: 'right', valign: 'middle' },  // Vlr Unit
-      6: { cellWidth: 24, halign: 'right', valign: 'middle' },  // Vlr Total
+      0: { cellWidth: 12, halign: 'center' },  // Item
+      1: { cellWidth: 65, halign: 'left' },    // Descrição
+      2: { cellWidth: 15, halign: 'center' },  // Qtd
+      3: { cellWidth: 15, halign: 'center' },  // Un
+      4: { cellWidth: 25, halign: 'center' },  // Marca
+      5: { cellWidth: 25, halign: 'right' },   // Vlr Unit
+      6: { cellWidth: 23, halign: 'right' },   // Vlr Total
     },
     rowPageBreak: 'auto',
-    didDrawCell: function(data) {
-      // Renderizar descrição justificada (coluna 1, body rows)
-      if (data.section !== 'body' || data.column.index !== 1) return;
-
-      const cell = data.cell;
-      const lines = (cell.text || []).map((t) => String(t));
-      const fullText = lines.join(' ').trim();
-      if (!fullText) return;
-
-      // Segurança extra: ignorar linhas especiais (quando aplicável)
-      if (/^(LOTE\s+\d+|SUBTOTAL|VALOR TOTAL)/i.test(fullText)) return;
-
-      const paddingX = 2;
-      const paddingY = 2;
-      const maxWidth = cell.width - paddingX * 2;
-      const lineHeight = 4;
-
-      // Pintar fundo para "apagar" o texto padrão do autoTable
-      const fill = (cell.styles as any)?.fillColor;
-      if (Array.isArray(fill) && fill.length >= 3) {
-        doc.setFillColor(fill[0], fill[1], fill[2]);
+    didParseCell: (data) => {
+      // Adicionar padding dinâmico para descrições longas
+      if (data.column.index === 1 && data.section === 'body' && data.cell.text && typeof data.cell.text === 'object') {
+        const textLines = Array.isArray(data.cell.text) ? data.cell.text.length : 1;
+        if (textLines > 2) {
+          data.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2 + (textLines - 2) * 1.5, left: 2 };
+        }
+      }
+    },
+    didDrawCell: (data) => {
+      // Ignorar header e linhas especiais (lote, subtotal, total)
+      if (data.section !== 'body') return;
+      
+      const rowData = tableData[data.row.index];
+      if (!rowData) return;
+      
+      // Verificar se é linha especial (array com objeto colSpan ou objeto especial)
+      if (Array.isArray(rowData) && rowData.length === 1 && rowData[0]?.colSpan) return;
+      if (Array.isArray(rowData) && rowData.length === 2 && rowData[0]?.colSpan) return;
+      
+      const cellX = data.cell.x;
+      const cellY = data.cell.y;
+      const cellWidth = data.cell.width;
+      const cellHeight = data.cell.height;
+      
+      // Preencher fundo da célula
+      const fillColor = data.cell.styles.fillColor;
+      if (fillColor && Array.isArray(fillColor)) {
+        doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
       } else {
         doc.setFillColor(255, 255, 255);
       }
-      doc.rect(cell.x + 0.2, cell.y + 0.2, cell.width - 0.4, cell.height - 0.4, 'F');
-
-      doc.setFont('helvetica', 'normal');
+      doc.rect(cellX + 0.3, cellY + 0.3, cellWidth - 0.6, cellHeight - 0.6, 'F');
+      
+      // Configurar fonte
       doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
-
-      const totalHeight = lines.length * lineHeight;
-      const yStart = cell.y + (cell.height - totalHeight) / 2 + lineHeight * 0.75;
-
-      lines.forEach((line, idx) => {
-        const y = yStart + idx * lineHeight;
-        if (y > cell.y + cell.height - paddingY) return;
-
-        const words = line.trim().split(/\s+/).filter(Boolean);
-        const isLast = idx === lines.length - 1;
-
-        if (!isLast && words.length > 1) {
-          const textWidth = words.reduce((acc, w) => acc + doc.getTextWidth(w), 0);
-          const extraSpace = Math.max(0, maxWidth - textWidth);
-          const space = extraSpace / (words.length - 1);
-
-          let xCursor = cell.x + paddingX;
-          words.forEach((w, i) => {
-            doc.text(w, xCursor, y);
-            if (i < words.length - 1) xCursor += doc.getTextWidth(w) + space;
-          });
-        } else {
-          doc.text(line, cell.x + paddingX, y);
+      
+      // Coluna 1 (Descrição): texto justificado
+      if (data.column.index === 1 && data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
+        const padding = 2;
+        const larguraTexto = cellWidth - (padding * 2);
+        const textLines = data.cell.text as string[];
+        const lineHeight = 3.5;
+        
+        textLines.forEach((linha, index) => {
+          const yLinha = cellY + padding + 2 + (index * lineHeight);
+          
+          // Verificar se a linha está dentro dos limites da célula
+          if (yLinha < cellY + cellHeight - 1) {
+            const isUltimaLinha = index === textLines.length - 1;
+            
+            if (isUltimaLinha || textLines.length === 1) {
+              // Última linha ou linha única: alinhamento à esquerda
+              doc.text(linha.trim(), cellX + padding, yLinha);
+            } else {
+              // Linhas intermediárias: justificar
+              const palavras = linha.trim().split(/\s+/).filter(p => p.length > 0);
+              if (palavras.length > 1) {
+                let larguraPalavras = 0;
+                palavras.forEach(palavra => {
+                  larguraPalavras += doc.getTextWidth(palavra);
+                });
+                const espacoDisponivel = larguraTexto - larguraPalavras;
+                const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
+                
+                let xAtual = cellX + padding;
+                palavras.forEach((palavra, idx) => {
+                  doc.text(palavra, xAtual, yLinha);
+                  if (idx < palavras.length - 1) {
+                    xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
+                  }
+                });
+              } else {
+                doc.text(linha.trim(), cellX + padding, yLinha);
+              }
+            }
+          }
+        });
+      }
+      // Outras colunas: centralizar verticalmente
+      else if (data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
+        const texto = data.cell.text.join(' ').trim();
+        const yCenter = cellY + (cellHeight / 2) + 1;
+        
+        // Colunas com alinhamento à direita (valores)
+        if (data.column.index === 5 || data.column.index === 6) {
+          doc.text(texto, cellX + cellWidth - 2, yCenter, { align: 'right' });
         }
-      });
+        // Colunas com alinhamento central
+        else {
+          doc.text(texto, cellX + (cellWidth / 2), yCenter, { align: 'center' });
+        }
+      }
     }
   });
 
