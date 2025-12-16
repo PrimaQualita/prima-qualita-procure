@@ -35,6 +35,14 @@ interface Item {
   marca?: string;
 }
 
+interface CotacaoItemLote {
+  numero_lote: number;
+  numero_item: number;
+  quantidade: number;
+  unidade: string;
+  descricao: string;
+}
+
 const SistemaLancesFornecedor = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -44,6 +52,7 @@ const SistemaLancesFornecedor = () => {
   const [proposta, setProposta] = useState<any>(null);
   const [selecao, setSelecao] = useState<any>(null);
   const [itens, setItens] = useState<Item[]>([]);
+  const [itensCotacao, setItensCotacao] = useState<CotacaoItemLote[]>([]);
   const [editavel, setEditavel] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
@@ -80,6 +89,152 @@ const SistemaLancesFornecedor = () => {
   // Estado para documentos rejeitados
   const [documentosRejeitados, setDocumentosRejeitados] = useState<any[]>([]);
   const [numeroProcesso, setNumeroProcesso] = useState<string>("");
+
+  const normalizarTexto = (texto?: string): string => {
+    if (!texto) return "";
+    return texto
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const pontuarDescricao = (a?: string, b?: string): number => {
+    const na = normalizarTexto(a);
+    const nb = normalizarTexto(b);
+    if (!na || !nb) return 0;
+
+    if (na.includes(nb) || nb.includes(na)) return 10;
+
+    const ta = new Set(na.split(" ").filter((t) => t.length >= 4));
+    const tb = new Set(nb.split(" ").filter((t) => t.length >= 4));
+    let overlap = 0;
+    ta.forEach((t) => {
+      if (tb.has(t)) overlap += 1;
+    });
+    return overlap;
+  };
+
+  const resolverNumeroLoteParaItem = (
+    item: {
+      numero_item: number;
+      quantidade?: number;
+      unidade?: string;
+      descricao?: string;
+    },
+    itensCotacaoLocal: CotacaoItemLote[]
+  ): number | null => {
+    const candidatos = itensCotacaoLocal.filter((ci) => ci.numero_item === item.numero_item);
+    if (candidatos.length === 0) return null;
+
+    let melhor: { numero_lote: number; score: number } | null = null;
+
+    for (const ci of candidatos) {
+      let score = 0;
+
+      if (Number(ci.quantidade) === Number(item.quantidade)) score += 10;
+      if (ci.unidade && item.unidade && ci.unidade === item.unidade) score += 2;
+
+      score += pontuarDescricao(ci.descricao, item.descricao);
+
+      if (!melhor || score > melhor.score) {
+        melhor = { numero_lote: ci.numero_lote, score };
+      }
+    }
+
+    return melhor?.numero_lote ?? null;
+  };
+
+  const calcularMenorValorDasPropostas = (
+    todasPropostas: any[],
+    criterioJulgamento: string | null | undefined,
+    itensCotacaoLocal: CotacaoItemLote[],
+    inabilitacoesPorFornecedor: Map<string, number[]>
+  ): Map<number, number> => {
+    // por_lote: menor subtotal do lote (soma de valor_unitario_ofertado * quantidade de todos itens do lote)
+    if (criterioJulgamento === "por_lote") {
+      const menorPorLote = new Map<number, number>();
+      if (itensCotacaoLocal.length === 0) return menorPorLote;
+
+      const esperadosPorLote = new Map<number, number>();
+      itensCotacaoLocal.forEach((ci) => {
+        esperadosPorLote.set(ci.numero_lote, (esperadosPorLote.get(ci.numero_lote) || 0) + 1);
+      });
+
+      todasPropostas.forEach((prop: any) => {
+        const fornecedorIdStr = String(prop.fornecedor_id);
+        const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
+
+        const totais = new Map<number, { total: number; preenchidos: number }>();
+
+        (prop.selecao_respostas_itens_fornecedor || []).forEach((item: any) => {
+          // Mantém compatibilidade com a regra atual de exclusão por item (quando existir)
+          if (itensInabilitados.includes(item.numero_item)) return;
+
+          if (Number(item.valor_unitario_ofertado) > 0) {
+            const numeroLote = resolverNumeroLoteParaItem(item, itensCotacaoLocal);
+            if (!numeroLote) return;
+
+            const totalItem =
+              Number(item.valor_total_item) > 0
+                ? Number(item.valor_total_item)
+                : Number(item.valor_unitario_ofertado) * Number(item.quantidade || 0);
+
+            const atual = totais.get(numeroLote) || { total: 0, preenchidos: 0 };
+            totais.set(numeroLote, {
+              total: atual.total + totalItem,
+              preenchidos: atual.preenchidos + 1,
+            });
+          }
+        });
+
+        totais.forEach((info, numeroLote) => {
+          const esperados = esperadosPorLote.get(numeroLote) || 0;
+          if (esperados > 0 && info.preenchidos === esperados && info.total > 0) {
+            const atual = menorPorLote.get(numeroLote);
+            if (!atual || info.total < atual) {
+              menorPorLote.set(numeroLote, info.total);
+            }
+          }
+        });
+      });
+
+      return menorPorLote;
+    }
+
+    // Demais critérios: manter exatamente a lógica atual (por item / desconto)
+    const isDesconto = criterioJulgamento === "desconto";
+    const mapaMenorValor = new Map<number, number>();
+
+    todasPropostas.forEach((prop: any) => {
+      const fornecedorIdStr = String(prop.fornecedor_id);
+      const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
+
+      if (prop.selecao_respostas_itens_fornecedor) {
+        prop.selecao_respostas_itens_fornecedor.forEach((item: any) => {
+          if (itensInabilitados.includes(item.numero_item)) return;
+
+          if (Number(item.valor_unitario_ofertado) > 0) {
+            const valorAtual = mapaMenorValor.get(item.numero_item);
+
+            if (isDesconto) {
+              if (!valorAtual || Number(item.valor_unitario_ofertado) > valorAtual) {
+                mapaMenorValor.set(item.numero_item, Number(item.valor_unitario_ofertado));
+              }
+            } else {
+              if (!valorAtual || Number(item.valor_unitario_ofertado) < valorAtual) {
+                mapaMenorValor.set(item.numero_item, Number(item.valor_unitario_ofertado));
+              }
+            }
+          }
+        });
+      }
+    });
+
+    return mapaMenorValor;
+  };
 
   // DEBUG: Monitorar mudanças em itensEstimados
   useEffect(() => {
