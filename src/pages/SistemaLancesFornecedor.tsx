@@ -868,24 +868,64 @@ const SistemaLancesFornecedor = () => {
       setProposta(propostaData);
       setSelecao(propostaData.selecoes_fornecedores);
 
+      const criterioJulgamento = propostaData.selecoes_fornecedores.processos_compras?.criterio_julgamento;
+      const cotacaoId = propostaData.selecoes_fornecedores?.cotacao_relacionada_id as string | null | undefined;
+      let itensCotacaoLocal: CotacaoItemLote[] = itensCotacao;
+
       // Buscar número do processo através da cotação relacionada
-      if (propostaData.selecoes_fornecedores?.cotacao_relacionada_id) {
+      if (cotacaoId) {
         const { data: cotacaoData } = await supabase
           .from("cotacoes_precos")
           .select("processos_compras (numero_processo_interno)")
-          .eq("id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
+          .eq("id", cotacaoId)
           .single();
-        
+
         setNumeroProcesso((cotacaoData as any)?.processos_compras?.numero_processo_interno || "");
       }
+
+      // por_lote: carregar itens da cotação (mapeamento lote→itens) para permitir subtotal por lote
+      if (criterioJulgamento === "por_lote" && cotacaoId) {
+        const [{ data: lotesData, error: lotesError }, { data: itensData, error: itensError }] = await Promise.all([
+          supabase.from("lotes_cotacao").select("id, numero_lote").eq("cotacao_id", cotacaoId),
+          supabase
+            .from("itens_cotacao")
+            .select("lote_id, numero_item, quantidade, unidade, descricao")
+            .eq("cotacao_id", cotacaoId),
+        ]);
+
+        if (lotesError) {
+          console.error("❌ Erro ao buscar lotes_cotacao:", lotesError);
+        }
+        if (itensError) {
+          console.error("❌ Erro ao buscar itens_cotacao:", itensError);
+        }
+
+        const mapaLotes = new Map<string, number>();
+        (lotesData || []).forEach((l: any) => {
+          mapaLotes.set(String(l.id), Number(l.numero_lote));
+        });
+
+        itensCotacaoLocal = (itensData || [])
+          .map((it: any) => ({
+            numero_lote: mapaLotes.get(String(it.lote_id)) || 0,
+            numero_item: Number(it.numero_item),
+            quantidade: Number(it.quantidade),
+            unidade: String(it.unidade || ""),
+            descricao: String(it.descricao || ""),
+          }))
+          .filter((it: CotacaoItemLote) => it.numero_lote > 0);
+
+        setItensCotacao(itensCotacaoLocal);
+      }
+
       // Buscar estimativas da planilha consolidada mais recente
-      if (propostaData.selecoes_fornecedores.cotacao_relacionada_id) {
-        console.log('🔍 Buscando estimativas da cotação:', propostaData.selecoes_fornecedores.cotacao_relacionada_id);
+      if (cotacaoId) {
+        console.log('🔍 Buscando estimativas da cotação:', cotacaoId);
         
         const { data: planilhaData, error: planilhaError } = await supabase
           .from("planilhas_consolidadas")
           .select("estimativas_itens, created_at, id")
-          .eq("cotacao_id", propostaData.selecoes_fornecedores.cotacao_relacionada_id)
+          .eq("cotacao_id", cotacaoId)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -899,24 +939,42 @@ const SistemaLancesFornecedor = () => {
           console.log('📊 [loadProposta] JSON:', JSON.stringify(planilhaData.estimativas_itens));
           
           if (planilhaData.estimativas_itens) {
-            const mapaEstimados = new Map<number, number>();
             const estimativas = planilhaData.estimativas_itens as Record<string, number>;
-            
-            console.log('📊 [loadProposta] Após cast:', estimativas);
-            console.log('📊 [loadProposta] Chaves:', Object.keys(estimativas));
-            console.log('📊 [loadProposta] Valores:', Object.values(estimativas));
-            
-            // Converter objeto para Map
-            Object.entries(estimativas).forEach(([numeroItem, valor]) => {
-              const num = parseInt(numeroItem);
-              console.log(`   📌 [loadProposta] Adicionando: "${numeroItem}" -> num=${num}, valor=${valor}`);
-              mapaEstimados.set(num, valor);
-            });
 
-            console.log('✅ [loadProposta] Mapa FINAL:', Object.fromEntries(mapaEstimados));
-            console.log('✅ [loadProposta] Tamanho do mapa:', mapaEstimados.size);
-            setItensEstimados(mapaEstimados);
-            console.log('✅ [loadProposta] setItensEstimados CHAMADO');
+            // por_lote: estimado = subtotal do lote (somatório estimativa_unitária × quantidade)
+            if (criterioJulgamento === "por_lote") {
+              const mapaSubtotalLote = new Map<number, number>();
+
+              if (itensCotacaoLocal.length === 0) {
+                console.warn("⚠️ por_lote: itensCotacaoLocal vazio; não foi possível calcular estimado por lote");
+              } else {
+                itensCotacaoLocal.forEach((ci) => {
+                  const key = `${ci.numero_lote}_${ci.numero_item}`;
+                  const estimativaUnit = Number(estimativas[key] || 0);
+                  if (estimativaUnit > 0) {
+                    mapaSubtotalLote.set(
+                      ci.numero_lote,
+                      (mapaSubtotalLote.get(ci.numero_lote) || 0) + estimativaUnit * Number(ci.quantidade)
+                    );
+                  }
+                });
+              }
+
+              console.log('✅ [loadProposta] Estimado por LOTE (subtotal):', Object.fromEntries(mapaSubtotalLote));
+              setItensEstimados(mapaSubtotalLote);
+            } else {
+              // Demais critérios: manter comportamento atual (chave numérica)
+              const mapaEstimados = new Map<number, number>();
+              Object.entries(estimativas).forEach(([numeroItem, valor]) => {
+                const num = parseInt(numeroItem);
+                mapaEstimados.set(num, Number(valor));
+              });
+
+              console.log('✅ [loadProposta] Mapa FINAL:', Object.fromEntries(mapaEstimados));
+              console.log('✅ [loadProposta] Tamanho do mapa:', mapaEstimados.size);
+              setItensEstimados(mapaEstimados);
+              console.log('✅ [loadProposta] setItensEstimados CHAMADO');
+            }
           } else {
             console.warn('⚠️ Planilha sem campo estimativas_itens - foi gerada antes da atualização');
             console.warn('⚠️ GERE UMA NOVA PLANILHA para que as estimativas apareçam');
@@ -949,7 +1007,7 @@ const SistemaLancesFornecedor = () => {
       setFornecedoresInabilitados(fornecedoresInabilitadosIds);
       console.log('Fornecedores inabilitados na seleção (strings):', Array.from(fornecedoresInabilitadosIds));
 
-      // Buscar o menor valor de cada item das propostas de TODOS os fornecedores da seleção (exceto inabilitados POR ITEM)
+      // Buscar o menor valor de cada item/lote das propostas de TODOS os fornecedores da seleção (exceto inabilitados)
       const { data: todasPropostas, error: propostasError } = await supabase
         .from("selecao_propostas_fornecedor")
         .select(`
@@ -957,54 +1015,25 @@ const SistemaLancesFornecedor = () => {
           fornecedor_id,
           selecao_respostas_itens_fornecedor (
             numero_item,
-            valor_unitario_ofertado
+            descricao,
+            quantidade,
+            unidade,
+            valor_unitario_ofertado,
+            valor_total_item
           )
         `)
         .eq("selecao_id", propostaData.selecoes_fornecedores.id);
 
       if (!propostasError && todasPropostas) {
-        const isDesconto = propostaData.selecoes_fornecedores.processos_compras?.criterio_julgamento === "desconto";
-        const mapaMenorValor = new Map<number, number>();
-        
-        console.log('🔍 Analisando todas as propostas para', isDesconto ? 'MAIOR DESCONTO' : 'MENOR VALOR');
-        
-        todasPropostas.forEach((prop: any) => {
-          const fornecedorIdStr = String(prop.fornecedor_id);
-          const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
-          
-          if (prop.selecao_respostas_itens_fornecedor) {
-            prop.selecao_respostas_itens_fornecedor.forEach((item: any) => {
-              // Excluir apenas se o fornecedor está inabilitado PARA ESTE ITEM ESPECÍFICO
-              if (itensInabilitados.includes(item.numero_item)) {
-                console.log('Excluindo item', item.numero_item, 'do fornecedor inabilitado:', fornecedorIdStr);
-                return;
-              }
-              
-              if (item.valor_unitario_ofertado > 0) {
-                console.log(`📌 Item ${item.numero_item}: Fornecedor ${fornecedorIdStr} ofereceu ${item.valor_unitario_ofertado}`);
-                
-                const valorAtual = mapaMenorValor.get(item.numero_item);
-                // Para desconto: pegar MAIOR valor (maior desconto = melhor)
-                // Para valor: pegar MENOR valor (menor preço = melhor)
-                if (isDesconto) {
-                  if (!valorAtual || item.valor_unitario_ofertado > valorAtual) {
-                    console.log(`✅ Item ${item.numero_item}: Novo MAIOR desconto ${item.valor_unitario_ofertado} (anterior: ${valorAtual || 'nenhum'})`);
-                    mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
-                  } else {
-                    console.log(`❌ Item ${item.numero_item}: Desconto ${item.valor_unitario_ofertado} NÃO supera ${valorAtual}`);
-                  }
-                } else {
-                  if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
-                    mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
-                  }
-                }
-              }
-            });
-          }
-        });
+        const mapaMelhorValor = calcularMenorValorDasPropostas(
+          todasPropostas,
+          criterioJulgamento,
+          itensCotacaoLocal,
+          inabilitacoesPorFornecedor
+        );
 
-        console.log(`🏆 ${isDesconto ? 'MAIOR DESCONTO' : 'MENOR VALOR'} final por item:`, Object.fromEntries(mapaMenorValor));
-        setMenorValorPropostas(mapaMenorValor);
+        console.log('🏆 Melhor valor final (por item ou por lote):', Object.fromEntries(mapaMelhorValor));
+        setMenorValorPropostas(mapaMelhorValor);
       }
 
       // Verificar se ainda é editável (5 minutos antes da sessão)
@@ -1149,7 +1178,7 @@ const SistemaLancesFornecedor = () => {
       
       console.log('loadLances: Fornecedores inabilitados (Set):', Array.from(inabilitadosIds), 'tamanho:', inabilitadosIds.size);
 
-      // Recalcular menor valor das propostas excluindo fornecedores inabilitados POR ITEM
+      // Recalcular menor valor das propostas excluindo fornecedores inabilitados (por item ou por lote)
       const { data: todasPropostas } = await supabase
         .from("selecao_propostas_fornecedor")
         .select(`
@@ -1157,48 +1186,32 @@ const SistemaLancesFornecedor = () => {
           fornecedor_id,
           selecao_respostas_itens_fornecedor (
             numero_item,
-            valor_unitario_ofertado
+            descricao,
+            quantidade,
+            unidade,
+            valor_unitario_ofertado,
+            valor_total_item
           )
         `)
         .eq("selecao_id", selecao.id);
 
-      if (todasPropostas) {
-        const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
-        const mapaMenorValor = new Map<number, number>();
-        
-        todasPropostas.forEach((prop: any) => {
-          const fornecedorIdStr = String(prop.fornecedor_id);
-          const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
-          
-          if (prop.selecao_respostas_itens_fornecedor) {
-            prop.selecao_respostas_itens_fornecedor.forEach((item: any) => {
-              // Excluir apenas se o fornecedor está inabilitado PARA ESTE ITEM ESPECÍFICO
-              if (itensInabilitados.includes(item.numero_item)) {
-                console.log('Excluindo item', item.numero_item, 'do fornecedor inabilitado:', fornecedorIdStr);
-                return;
-              }
-              
-              if (item.valor_unitario_ofertado > 0) {
-                const valorAtual = mapaMenorValor.get(item.numero_item);
-                
-                // Para desconto: pegar MAIOR valor (maior desconto = melhor)
-                // Para valor: pegar MENOR valor (menor preço = melhor)
-                if (isDesconto) {
-                  if (!valorAtual || item.valor_unitario_ofertado > valorAtual) {
-                    mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
-                  }
-                } else {
-                  if (!valorAtual || item.valor_unitario_ofertado < valorAtual) {
-                    mapaMenorValor.set(item.numero_item, item.valor_unitario_ofertado);
-                  }
-                }
-              }
-            });
-          }
-        });
+      const criterioJulgamento = selecao?.processos_compras?.criterio_julgamento;
 
-        console.log(`${isDesconto ? 'MAIOR DESCONTO' : 'Menor valor'} por item no polling:`, Object.fromEntries(mapaMenorValor));
-        setMenorValorPropostas(mapaMenorValor);
+      // por_lote: só recalcular quando o mapeamento de itens da cotação já foi carregado
+      if (todasPropostas) {
+        if (criterioJulgamento === "por_lote" && itensCotacao.length === 0) {
+          console.warn("⚠️ por_lote: itensCotacao ainda não carregado; mantendo menorValorPropostas atual");
+        } else {
+          const mapaMelhorValor = calcularMenorValorDasPropostas(
+            todasPropostas,
+            criterioJulgamento,
+            itensCotacao,
+            inabilitacoesPorFornecedor
+          );
+
+          console.log('🏆 Melhor valor (polling):', Object.fromEntries(mapaMelhorValor));
+          setMenorValorPropostas(mapaMelhorValor);
+        }
       }
 
       const { data, error } = await supabase
@@ -1238,32 +1251,71 @@ const SistemaLancesFornecedor = () => {
     return lancesFiltrados.filter(l => l.numero_item === numeroItem);
   };
 
+  const getSubtotalPropostaDoLote = (numeroLote: number): number => {
+    if (itensCotacao.length === 0) return 0;
+
+    const esperados = itensCotacao.filter((ci) => ci.numero_lote === numeroLote);
+    if (esperados.length === 0) return 0;
+
+    let total = 0;
+    let preenchidos = 0;
+
+    itens.forEach((it) => {
+      if (Number(it.valor_unitario_ofertado) > 0) {
+        const lote = resolverNumeroLoteParaItem(it, itensCotacao);
+        if (lote === numeroLote) {
+          total += Number(it.valor_unitario_ofertado) * Number(it.quantidade);
+          preenchidos += 1;
+        }
+      }
+    });
+
+    // Participação granular por lote: só considera válido se o lote estiver completo
+    if (preenchidos !== esperados.length) return 0;
+
+    return total;
+  };
+
   const fornecedorApresentouPropostaNoItem = (numeroItem: number): boolean => {
-    const itemProposta = itens.find(i => i.numero_item === numeroItem);
+    const criterio = selecao?.processos_compras?.criterio_julgamento;
+
+    if (criterio === "por_lote") {
+      return getSubtotalPropostaDoLote(numeroItem) > 0;
+    }
+
+    const itemProposta = itens.find((i) => i.numero_item === numeroItem);
     return !!itemProposta && itemProposta.valor_unitario_ofertado > 0;
   };
 
   const isFornecedorDesclassificadoNoItem = (numeroItem: number) => {
-    const itemProposta = itens.find(i => i.numero_item === numeroItem);
-    if (!itemProposta) {
-      return false;
-    }
-    
+    const criterio = selecao?.processos_compras?.criterio_julgamento;
+
     const valorEstimado = itensEstimados.get(numeroItem);
     if (!valorEstimado || valorEstimado === 0) {
       return false;
     }
-    
-    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
-    
+
+    if (criterio === "por_lote") {
+      const subtotal = getSubtotalPropostaDoLote(numeroItem);
+      if (!subtotal) return false;
+      return subtotal > valorEstimado;
+    }
+
+    const itemProposta = itens.find((i) => i.numero_item === numeroItem);
+    if (!itemProposta) {
+      return false;
+    }
+
+    const isDesconto = criterio === "desconto";
+
     if (isDesconto) {
       // Para desconto: desclassifica se desconto ofertado for MENOR (<) que o estimado
       // Porque menor desconto = preço mais alto
       return itemProposta.valor_unitario_ofertado < valorEstimado;
-    } else {
-      // Para valor: desclassifica se valor ofertado for MAIOR (>) que o estimado
-      return itemProposta.valor_unitario_ofertado > valorEstimado;
     }
+
+    // Para valor: desclassifica se valor ofertado for MAIOR (>) que o estimado
+    return itemProposta.valor_unitario_ofertado > valorEstimado;
   };
 
   const isLanceDesclassificado = (numeroItem: number, valorLance: number) => {
@@ -1531,24 +1583,27 @@ const SistemaLancesFornecedor = () => {
   const isFornecedorVencendoItem = (numeroItem: number): boolean => {
     const itemAberto = itensAbertos.has(numeroItem);
     const itemFechado = itensFechados.has(numeroItem);
-    
+
     if (!itemAberto && !itemFechado) return false;
-    
+
+    const criterio = selecao?.processos_compras?.criterio_julgamento;
+    const isDesconto = criterio === "desconto";
+    const isPorLote = criterio === "por_lote";
+
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
-    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
-    
+
     const lancesDoItem = lances.filter(
-      l => l.numero_item === numeroItem && !fornecedoresInabilitados.has(l.fornecedor_id)
+      (l) => l.numero_item === numeroItem && !fornecedoresInabilitados.has(l.fornecedor_id)
     );
-    
+
     // Se há lances, verificar pelos lances
     if (lancesDoItem.length > 0) {
       const lancesClassificados = isDesconto
-        ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado)
-        : lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
-      
+        ? lancesDoItem.filter((l) => l.valor_lance >= valorEstimado)
+        : lancesDoItem.filter((l) => l.valor_lance <= valorEstimado);
+
       if (lancesClassificados.length === 0) return false;
-      
+
       const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
         if (isDesconto) {
           if (a.valor_lance !== b.valor_lance) return b.valor_lance - a.valor_lance;
@@ -1557,48 +1612,60 @@ const SistemaLancesFornecedor = () => {
         }
         return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
       });
-      
+
       const vencedor = lancesOrdenados[0];
       return vencedor?.fornecedor_id === proposta.fornecedor_id;
     }
-    
+
     // Se NÃO há lances, verificar pela proposta inicial
-    const itemProposta = itens.find(i => i.numero_item === numeroItem);
     const melhorValorProposta = menorValorPropostas.get(numeroItem);
-    
+
+    if (isPorLote) {
+      const meuSubtotal = getSubtotalPropostaDoLote(numeroItem);
+      if (meuSubtotal > 0 && melhorValorProposta) {
+        const isClassificado = meuSubtotal <= valorEstimado;
+        return isClassificado && meuSubtotal === melhorValorProposta;
+      }
+      return false;
+    }
+
+    const itemProposta = itens.find((i) => i.numero_item === numeroItem);
     if (itemProposta && itemProposta.valor_unitario_ofertado > 0 && melhorValorProposta) {
       return itemProposta.valor_unitario_ofertado === melhorValorProposta;
     }
-    
+
     return false;
   };
 
   // Verifica se o fornecedor venceu um item fechado
   const getItensVencidosPeloFornecedor = (): number[] => {
     if (!proposta?.fornecedor_id) return [];
-    
+
     const itensVencidos: number[] = [];
-    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
-    
-    itensFechados.forEach(numeroItem => {
+
+    const criterio = selecao?.processos_compras?.criterio_julgamento;
+    const isDesconto = criterio === "desconto";
+    const isPorLote = criterio === "por_lote";
+
+    itensFechados.forEach((numeroItem) => {
       const valorEstimado = itensEstimados.get(numeroItem) || 0;
       const lancesDoItem = getLancesDoItem(numeroItem);
-      
+
       // Filtrar apenas lances classificados
       const lancesClassificados = isDesconto
-        ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado) // Desconto: maior ou igual ao estimado
-        : lancesDoItem.filter(l => l.valor_lance <= valorEstimado); // Preço: menor ou igual ao estimado
-      
+        ? lancesDoItem.filter((l) => l.valor_lance >= valorEstimado) // Desconto: maior ou igual ao estimado
+        : lancesDoItem.filter((l) => l.valor_lance <= valorEstimado); // Preço: menor ou igual ao estimado
+
       if (lancesClassificados.length > 0) {
         // Ordenar PRIORIZANDO lances de negociação
         const lancesOrdenados = [...lancesClassificados].sort((a, b) => {
           // PRIORIDADE 1: Lances de negociação vêm SEMPRE primeiro
           const aIsNegociacao = a.tipo_lance === "negociacao";
           const bIsNegociacao = b.tipo_lance === "negociacao";
-          
+
           if (aIsNegociacao && !bIsNegociacao) return -1; // a vem antes
-          if (!aIsNegociacao && bIsNegociacao) return 1;  // b vem antes
-          
+          if (!aIsNegociacao && bIsNegociacao) return 1; // b vem antes
+
           // PRIORIDADE 2: Ordenar por valor conforme critério
           if (isDesconto) {
             // Desconto: maior valor vence
@@ -1607,38 +1674,42 @@ const SistemaLancesFornecedor = () => {
             // Preço: menor valor vence
             if (a.valor_lance !== b.valor_lance) return a.valor_lance - b.valor_lance;
           }
-          
+
           // PRIORIDADE 3: Desempate por data (mais antigo ganha)
           return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
         });
-        
+
         // Verificar se o lance vencedor é do fornecedor atual
         if (lancesOrdenados[0]?.fornecedor_id === proposta.fornecedor_id) {
           itensVencidos.push(numeroItem);
         }
       } else {
         // Se não há lances, verificar proposta inicial
-        const itemProposta = itens.find(i => i.numero_item === numeroItem);
-        if (itemProposta && itemProposta.valor_unitario_ofertado > 0) {
-          const valorOfertado = itemProposta.valor_unitario_ofertado;
-          
-          // Verificar classificação conforme critério
-          const isClassificado = isDesconto
-            ? valorOfertado >= valorEstimado
-            : valorOfertado <= valorEstimado;
-            
-          if (isClassificado) {
-            // Verificar se é o melhor valor entre todas as propostas
-            const melhorValor = menorValorPropostas.get(numeroItem); // Contém o melhor valor (maior desconto ou menor preço)
-              
-            if (melhorValor && valorOfertado === melhorValor) {
+        const melhorValor = menorValorPropostas.get(numeroItem); // Contém o melhor valor (maior desconto ou menor preço)
+
+        if (isPorLote) {
+          const meuSubtotal = getSubtotalPropostaDoLote(numeroItem);
+          if (meuSubtotal > 0 && melhorValor) {
+            const isClassificado = meuSubtotal <= valorEstimado;
+            if (isClassificado && meuSubtotal === melhorValor) {
+              itensVencidos.push(numeroItem);
+            }
+          }
+        } else {
+          const itemProposta = itens.find((i) => i.numero_item === numeroItem);
+          if (itemProposta && itemProposta.valor_unitario_ofertado > 0 && melhorValor) {
+            const valorOfertado = itemProposta.valor_unitario_ofertado;
+
+            const isClassificado = isDesconto ? valorOfertado >= valorEstimado : valorOfertado <= valorEstimado;
+
+            if (isClassificado && valorOfertado === melhorValor) {
               itensVencidos.push(numeroItem);
             }
           }
         }
       }
     });
-    
+
     return itensVencidos.sort((a, b) => a - b);
   };
 
