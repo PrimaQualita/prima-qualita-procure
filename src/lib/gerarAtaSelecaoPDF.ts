@@ -1075,7 +1075,32 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     currentY += espacoEntreSecoes;
   }
 
-  // ============= 11 - REGISTROS DO CHAT =============
+  // ============= 11 - PRAZO DE ENVIO DA PROPOSTA REALINHADA =============
+  checkNewPage(30);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${secaoNumero}. PRAZO DE ENVIO DA PROPOSTA REALINHADA`, marginLeft, currentY);
+  secaoNumero++;
+  currentY += espacoAposTitulo;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  
+  // Texto varia conforme o critério de julgamento
+  let textoPrazoRealinhada = '';
+  if (criterioJulgamento === 'por_lote') {
+    textoPrazoRealinhada = 'Os fornecedores vencedores terão o prazo de 48 (quarenta e oito) horas, contados a partir do encerramento desta sessão pública, para envio das propostas realinhadas referentes aos lotes arrematados, conforme valores finais registrados nesta Ata.';
+  } else if (criterioJulgamento === 'global') {
+    textoPrazoRealinhada = 'O fornecedor vencedor terá o prazo de 48 (quarenta e oito) horas, contados a partir do encerramento desta sessão pública, para envio da proposta realinhada, conforme valor final registrado nesta Ata.';
+  } else {
+    // por_item ou desconto - tratados como item
+    textoPrazoRealinhada = 'Os fornecedores vencedores terão o prazo de 48 (quarenta e oito) horas, contados a partir do encerramento desta sessão pública, para envio das propostas realinhadas referentes aos itens arrematados, conforme valores finais registrados nesta Ata.';
+  }
+  
+  currentY = drawJustifiedText(doc, textoPrazoRealinhada, marginLeft, currentY, contentWidth, lineHeight);
+  currentY += espacoEntreSecoes;
+
+  // ============= 12 - REGISTROS DO CHAT =============
   if (mensagensChat.length > 0) {
     checkNewPage(15);
     doc.setFontSize(11);
