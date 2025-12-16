@@ -1738,6 +1738,7 @@ const ParticiparSelecao = () => {
         itens={itens}
         onImportSuccess={handleImportSuccess}
         criterioJulgamento={criterioJulgamento}
+        lotes={lotes}
       />
     </div>
   );
