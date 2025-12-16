@@ -1345,7 +1345,16 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   console.log('Ata encontrada:', ata.nome_arquivo);
   
-  const urlOriginal = ata.url_arquivo_original || ata.url_arquivo.split('?')[0];
+  // IMPORTANTE: Sempre usar url_arquivo_original se disponível para evitar duplicação de páginas
+  // Se não tiver, usar url_arquivo mas remover sufixos "-assinado" para obter o original
+  let urlOriginal = ata.url_arquivo_original;
+  if (!urlOriginal) {
+    // Extrair URL base removendo cache bust e sufixos "-assinado"
+    let urlBase = ata.url_arquivo.split('?')[0];
+    // Remover múltiplos "-assinado" do final do nome do arquivo
+    urlBase = urlBase.replace(/-assinado(-assinado)*/g, '');
+    urlOriginal = urlBase;
+  }
   console.log('URL original para download:', urlOriginal);
 
   // Buscar assinaturas de fornecedores com responsaveis_legais e responsaveis_assinantes
@@ -1692,8 +1701,10 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const modifiedPdfBytes = await pdfDoc.save();
   const modifiedBlob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
 
-  // Upload do PDF modificado (sobrescrevendo o atual)
-  const newStoragePath = storagePath.replace('.pdf', '-assinado.pdf');
+  // Usar caminho fixo para o arquivo assinado (evitar múltiplos "-assinado")
+  // Remover qualquer "-assinado" existente e adicionar apenas um
+  let baseStoragePath = storagePath.replace(/-assinado(-assinado)*/g, '').replace('.pdf', '');
+  const newStoragePath = `${baseStoragePath}-assinado.pdf`;
   
   console.log('>>> Fazendo upload do PDF modificado');
   console.log('>>> Path original:', storagePath);
@@ -1713,17 +1724,18 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   console.log('>>> Upload concluído com sucesso');
 
-  // Deletar arquivo original (não-assinado) para evitar duplicação
-  if (storagePath !== newStoragePath) {
-    console.log('>>> Deletando arquivo original não-assinado:', storagePath);
+  // NÃO deletar arquivo original - precisamos dele para futuras atualizações
+  // Apenas deletar versões anteriores "-assinado" se o path mudou
+  if (storagePath !== newStoragePath && storagePath.includes('-assinado')) {
+    console.log('>>> Deletando versão anterior assinada:', storagePath);
     const { error: deleteError } = await supabase.storage
       .from('processo-anexos')
       .remove([storagePath]);
     
     if (deleteError) {
-      console.warn('Aviso: Não foi possível deletar arquivo original:', deleteError);
+      console.warn('Aviso: Não foi possível deletar versão anterior:', deleteError);
     } else {
-      console.log('>>> Arquivo original deletado com sucesso');
+      console.log('>>> Versão anterior deletada com sucesso');
     }
   }
 
@@ -1736,12 +1748,12 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const finalUrl = publicUrl + cacheBust;
   console.log('>>> URL final com cache bust:', finalUrl);
 
-  // Atualizar registro da ata com nova URL e limpar url_arquivo_original (arquivo já foi deletado)
+  // Atualizar registro da ata com nova URL (MANTER url_arquivo_original para futuras atualizações)
   const { error: updateError } = await supabase
     .from('atas_selecao')
     .update({ 
-      url_arquivo: finalUrl,
-      url_arquivo_original: null // Limpar referência ao arquivo original que foi deletado
+      url_arquivo: finalUrl
+      // NÃO limpar url_arquivo_original - precisamos dele para futuras atualizações
     })
     .eq('id', ataId);
 
