@@ -198,6 +198,21 @@ const PropostaRealinhada = () => {
 
     if (!itensCotacao) return;
 
+    // Buscar marcas da proposta original do fornecedor
+    const { data: respostasOriginais } = await (supabase as any)
+      .from("selecao_respostas_itens_fornecedor")
+      .select("numero_item, marca")
+      .eq("selecao_id", selecaoId)
+      .eq("fornecedor_id", fornecedor.id);
+
+    // Criar mapa de marcas por item
+    const marcasPorItem = new Map<number, string>();
+    respostasOriginais?.forEach((resposta: any) => {
+      if (resposta.marca) {
+        marcasPorItem.set(resposta.numero_item, resposta.marca);
+      }
+    });
+
     const itensProcessados: ItemVencedor[] = [];
     const lotesMap = new Map<number, number>();
     let totalGanho = 0;
@@ -229,7 +244,7 @@ const PropostaRealinhada = () => {
             quantidade: item.quantidade,
             unidade: item.unidade,
             valor_total_ganho: loteInfo.valorTotal,
-            marca: item.marca,
+            marca: marcasPorItem.get(item.numero_item) || item.marca || "",
           });
         });
       });
@@ -247,7 +262,7 @@ const PropostaRealinhada = () => {
           quantidade: item.quantidade,
           unidade: item.unidade,
           valor_total_ganho: valorTotalGlobal,
-          marca: item.marca,
+          marca: marcasPorItem.get(item.numero_item) || item.marca || "",
         });
       });
     } else {
@@ -265,7 +280,7 @@ const PropostaRealinhada = () => {
             quantidade: itemOriginal.quantidade,
             unidade: itemOriginal.unidade,
             valor_total_ganho: valorTotal,
-            marca: itemOriginal.marca,
+            marca: marcasPorItem.get(lance.numero_item) || itemOriginal.marca || "",
           });
         }
       });
@@ -600,13 +615,8 @@ const PropostaRealinhada = () => {
                         <TableCell>{item.quantidade}</TableCell>
                         <TableCell>{item.unidade}</TableCell>
                         {processo?.tipo === "material" && (
-                          <TableCell>
-                            <Input
-                              value={resposta?.marca || ""}
-                              onChange={(e) => handleMarcaChange(item.numero_item, e.target.value)}
-                              placeholder="Marca"
-                              className="h-8"
-                            />
+                          <TableCell className="text-center">
+                            <span className="text-sm">{resposta?.marca || item.marca || "-"}</span>
                           </TableCell>
                         )}
                         <TableCell>
