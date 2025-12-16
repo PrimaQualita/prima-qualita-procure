@@ -196,32 +196,32 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // 5. Planilha consolidada da cotação (se houver)
+    // 5. Planilhas consolidadas da cotação (TODAS, não apenas a última)
     if (cotacaoId) {
-      console.log("\n📊 === BUSCANDO PLANILHA CONSOLIDADA DE COTAÇÃO ===");
+      console.log("\n📊 === BUSCANDO PLANILHAS CONSOLIDADAS DE COTAÇÃO ===");
       
-      const { data: planilhaConsolidada, error: planilhaError } = await supabase
+      const { data: planilhasConsolidadas, error: planilhaError } = await supabase
         .from("planilhas_consolidadas")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .order("data_geracao", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("data_geracao", { ascending: true }); // Ordem cronológica
 
       if (planilhaError) {
-        console.error("Erro ao buscar planilha consolidada:", planilhaError);
+        console.error("Erro ao buscar planilhas consolidadas:", planilhaError);
       }
 
-      console.log(`Planilha consolidada encontrada: ${planilhaConsolidada ? 'SIM' : 'NÃO'}`);
+      console.log(`Planilhas consolidadas encontradas: ${planilhasConsolidadas?.length || 0}`);
 
-      if (planilhaConsolidada) {
-        console.log(`✓ Planilha consolidada encontrada: ${planilhaConsolidada.nome_arquivo}`);
-        documentosOrdenados.push({
-          tipo: "Planilha Consolidada Cotação",
-          data: planilhaConsolidada.data_geracao,
-          nome: planilhaConsolidada.nome_arquivo,
-          url: planilhaConsolidada.url_arquivo,
-          bucket: "processo-anexos"
+      if (planilhasConsolidadas && planilhasConsolidadas.length > 0) {
+        planilhasConsolidadas.forEach((planilha, idx) => {
+          console.log(`✓ Planilha consolidada ${idx + 1}: ${planilha.nome_arquivo}`);
+          documentosOrdenados.push({
+            tipo: "Planilha Consolidada Cotação",
+            data: planilha.data_geracao,
+            nome: planilha.nome_arquivo,
+            url: planilha.url_arquivo,
+            bucket: "processo-anexos"
+          });
         });
       } else {
         console.log("⚠️ Nenhuma planilha consolidada encontrada");
@@ -736,6 +736,47 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
+    // 14b. Buscar PROPOSTAS REALINHADAS (devem vir APÓS a ata e ANTES da homologação)
+    console.log("\n📝 === BUSCANDO PROPOSTAS REALINHADAS ===");
+    const { data: propostasRealinhadas, error: propostasRealinhadasError } = await supabase
+      .from("propostas_realinhadas")
+      .select(`
+        *,
+        fornecedores(razao_social)
+      `)
+      .eq("selecao_id", selecaoId)
+      .order("data_envio", { ascending: true });
+
+    if (propostasRealinhadasError) {
+      console.error("Erro ao buscar propostas realinhadas:", propostasRealinhadasError);
+    }
+
+    console.log(`Propostas realinhadas encontradas: ${propostasRealinhadas?.length || 0}`);
+    
+    if (propostasRealinhadas && propostasRealinhadas.length > 0) {
+      // Calcular data para propostas realinhadas (após a última ata)
+      const ultimaDataAta = atas && atas.length > 0 
+        ? new Date(atas[atas.length - 1].data_geracao).getTime() + 1000
+        : new Date().getTime();
+      
+      propostasRealinhadas.forEach((proposta, idx) => {
+        if (proposta.url_arquivo) {
+          const razaoSocial = (proposta.fornecedores as any)?.razao_social || 'Fornecedor';
+          const dataProposta = new Date(ultimaDataAta + (idx * 100)).toISOString();
+          
+          documentosOrdenados.push({
+            tipo: "Proposta Realinhada",
+            data: dataProposta,
+            nome: `Proposta Realinhada - ${razaoSocial} - ${proposta.nome_arquivo || 'proposta.pdf'}`,
+            url: proposta.url_arquivo,
+            bucket: "processo-anexos",
+            fornecedor: razaoSocial
+          });
+          console.log(`  ✓ Proposta Realinhada: ${razaoSocial}`);
+        }
+      });
+    }
+
     // 15. Buscar homologações geradas
     console.log("\n✅ === BUSCANDO HOMOLOGAÇÕES ===");
     const { data: homologacoes, error: homologacoesError } = await supabase
@@ -751,10 +792,21 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     console.log(`Homologações encontradas: ${homologacoes?.length || 0}`);
     
     if (homologacoes && homologacoes.length > 0) {
-      homologacoes.forEach(homologacao => {
+      // Calcular data para homologações (após propostas realinhadas)
+      const ultimaDataRealinhada = propostasRealinhadas && propostasRealinhadas.length > 0
+        ? new Date(atas && atas.length > 0 
+            ? new Date(atas[atas.length - 1].data_geracao).getTime() + 1000 + (propostasRealinhadas.length * 100)
+            : new Date().getTime() + (propostasRealinhadas.length * 100)
+          ).getTime() + 1000
+        : (atas && atas.length > 0 
+            ? new Date(atas[atas.length - 1].data_geracao).getTime() + 2000
+            : new Date().getTime() + 2000);
+      
+      homologacoes.forEach((homologacao, idx) => {
+        const dataHomologacao = new Date(ultimaDataRealinhada + (idx * 100)).toISOString();
         documentosOrdenados.push({
           tipo: "Homologação",
-          data: homologacao.data_geracao,
+          data: dataHomologacao,
           nome: homologacao.nome_arquivo,
           url: homologacao.url_arquivo,
           bucket: "processo-anexos"
