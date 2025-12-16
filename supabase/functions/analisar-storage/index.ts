@@ -769,8 +769,24 @@ Deno.serve(async (req) => {
     }
     console.log(`📋 Inabilitados por seleção mapeados: ${inabilitadosPorSelecao.size} seleções`);
 
-    // Buscar vencedores de seleção via planilhas de lances (último lance vencedor por item)
-    // Para seleção, precisamos buscar de selecoes_fornecedores que tem cotacao_relacionada_id
+    // Buscar vencedores de SELEÇÃO via lances (indicativo_lance_vencedor = true)
+    // Para seleção de fornecedores, vencedores são os que têm lances vencedores, NÃO da planilha consolidada
+    const { data: lancesVencedores } = await supabase
+      .from('lances_fornecedores')
+      .select('selecao_id, fornecedor_id')
+      .eq('indicativo_lance_vencedor', true);
+    const vencedoresPorSelecao = new Map<string, Set<string>>();
+    if (lancesVencedores) {
+      for (const lance of lancesVencedores) {
+        if (!vencedoresPorSelecao.has(lance.selecao_id)) {
+          vencedoresPorSelecao.set(lance.selecao_id, new Set());
+        }
+        vencedoresPorSelecao.get(lance.selecao_id)!.add(lance.fornecedor_id);
+      }
+    }
+    console.log(`📋 Vencedores por seleção (via lances): ${vencedoresPorSelecao.size} seleções`);
+
+    // Buscar mapeamento de seleções para cotações relacionadas
     const { data: selecoesComCotacao } = await supabase
       .from('selecoes_fornecedores')
       .select('id, cotacao_relacionada_id');
@@ -2148,14 +2164,11 @@ Deno.serve(async (req) => {
               }
             }
             
-            // Verificar se é vencedor via cotacao_relacionada_id da seleção
-            const cotacaoRelacionada = selecaoParaCotacao.get(selecaoId);
-            if (cotacaoRelacionada) {
-              const vencedores = vencedoresPorCotacao.get(cotacaoRelacionada);
-              if (vencedores && vencedores.has(fornecedorId)) {
-                ehVencedorOuInabilitado = true;
-                console.log(`✅ Fornecedor ${fornecedorNome} é VENCEDOR na seleção`);
-              }
+            // Verificar se é VENCEDOR via lances (indicativo_lance_vencedor = true)
+            const vencedoresSelecao = vencedoresPorSelecao.get(selecaoId);
+            if (vencedoresSelecao && vencedoresSelecao.has(fornecedorId)) {
+              ehVencedorOuInabilitado = true;
+              console.log(`✅ Fornecedor ${fornecedorNome} é VENCEDOR na seleção (via lances)`);
             }
             
             // Verificar se é inabilitado na seleção
