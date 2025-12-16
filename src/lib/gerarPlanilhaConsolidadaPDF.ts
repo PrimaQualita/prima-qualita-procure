@@ -207,8 +207,8 @@ export async function gerarPlanilhaConsolidadaPDF(
   dadosProtocolo: DadosProtocolo,
   calculosPorItem: Record<string, 'menor' | 'media' | 'mediana'> = {},
   criterioJulgamento?: string
-): Promise<{ blob: Blob; estimativas: Record<number, number> }> {
-  const estimativasCalculadas: Record<number, number> = {};
+): Promise<{ blob: Blob; estimativas: Record<string, number> }> {
+  const estimativasCalculadas: Record<string, number> = {};
   
   // Carregar logo
   const logoBase64 = await loadImageAsBase64(logoCompleto);
@@ -678,7 +678,12 @@ export async function gerarPlanilhaConsolidadaPDF(
       }
       
       const valorTotalEstimativa = valorEstimativa * item.quantidade;
-      estimativasCalculadas[item.numero_item] = valorEstimativa;
+      
+      // Usar chave composta apenas para critério por_lote para evitar sobrescrita entre lotes
+      const chaveEstimativa = criterioJulgamento === 'por_lote' && item.lote_numero
+        ? `${item.lote_numero}_${item.numero_item}`
+        : String(item.numero_item);
+      estimativasCalculadas[chaveEstimativa] = valorEstimativa;
       
       if (criterioJulgamento === 'desconto') {
         linha.estimativa = formatarPercentual(valorEstimativa);
@@ -694,7 +699,11 @@ export async function gerarPlanilhaConsolidadaPDF(
       }
     } else {
       linha.estimativa = '-';
-      estimativasCalculadas[item.numero_item] = 0;
+      // Usar chave composta apenas para critério por_lote
+      const chaveEstimativa = criterioJulgamento === 'por_lote' && item.lote_numero
+        ? `${item.lote_numero}_${item.numero_item}`
+        : String(item.numero_item);
+      estimativasCalculadas[chaveEstimativa] = 0;
     }
 
     return linha;

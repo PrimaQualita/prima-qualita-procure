@@ -234,7 +234,7 @@ const [itens, setItens] = useState<Item[]>([]);
       const [planilhaResult, itensOriginaisResult, lotesResult, cotacaoResult] = await Promise.all([
         supabase
           .from("planilhas_consolidadas")
-          .select("fornecedores_incluidos, data_geracao")
+          .select("fornecedores_incluidos, estimativas_itens, data_geracao")
           .eq("cotacao_id", cotacaoId)
           .order("data_geracao", { ascending: false })
           .limit(1)
@@ -290,7 +290,9 @@ const [itens, setItens] = useState<Item[]>([]);
 
       // Extrair itens da planilha consolidada
       const fornecedoresArray = planilha.fornecedores_incluidos as any[];
+      const estimativasItens = planilha.estimativas_itens as Record<string, number> | null;
       console.log("👥 Total de fornecedores:", fornecedoresArray?.length || 0);
+      console.log("📊 Estimativas da planilha:", estimativasItens);
 
       if (!fornecedoresArray || fornecedoresArray.length === 0) {
         console.warn("⚠️ Planilha sem fornecedores");
@@ -303,47 +305,69 @@ const [itens, setItens] = useState<Item[]>([]);
       const isDesconto = cotacaoData?.criterio_julgamento === "desconto";
       const isPorLote = cotacaoData?.criterio_julgamento === "por_lote";
       
-      // Para por_lote, usar chave composta lote_id + numero_item para evitar sobreposição
-      const valoresEstimadosPorItem = new Map<string, number>();
-
-      fornecedoresArray.forEach((fornecedor: any) => {
-        if (fornecedor.itens) {
-          fornecedor.itens.forEach((item: any) => {
-            // Usar chave composta para por_lote para evitar sobreposição de numero_item entre lotes
-            const chave = isPorLote && item.lote_id 
-              ? `${item.lote_id}_${item.numero_item}` 
-              : String(item.numero_item);
-            const valorAtual = valoresEstimadosPorItem.get(chave);
-            // Para desconto, usar percentual_desconto; para valor, usar valor_unitario
-            const valorItem = isDesconto ? (item.percentual_desconto || 0) : (item.valor_unitario || 0);
-            
-            if (isDesconto) {
-              // Para desconto, queremos o MAIOR percentual
-              if (!valorAtual || valorItem > valorAtual) {
-                valoresEstimadosPorItem.set(chave, valorItem);
-              }
-            } else {
-              // Para valor, queremos o MENOR preço
-              if (!valorAtual || valorItem < valorAtual) {
-                valoresEstimadosPorItem.set(chave, valorItem);
-              }
-            }
-          });
-        }
-      });
-
-      console.log(isDesconto ? "💵 Maiores descontos por item:" : "💵 Menores valores por item:", valoresEstimadosPorItem);
-
+      // Criar mapa de lote_id -> numero_lote para usar na chave composta
+      const mapaLoteIdParaNumero = new Map<string, number>();
+      if (lotesData) {
+        lotesData.forEach((lote: any) => {
+          mapaLoteIdParaNumero.set(lote.id, lote.numero_lote);
+        });
+      }
+      
       // Usar os valores/descontos estimados para a seleção
       const todosItens: Item[] = [];
       let total = 0;
 
       itensOriginais.forEach((itemOriginal: any) => {
-        // Usar chave composta para por_lote
-        const chave = isPorLote && itemOriginal.lote_id 
-          ? `${itemOriginal.lote_id}_${itemOriginal.numero_item}` 
-          : String(itemOriginal.numero_item);
-        const valorEstimado = valoresEstimadosPorItem.get(chave) || 0;
+        let valorEstimado = 0;
+        
+        // Tentar usar estimativas_itens da planilha (fonte primária)
+        if (estimativasItens) {
+          if (isPorLote && itemOriginal.lote_id) {
+            // Para por_lote, usar chave composta numero_lote_numero_item
+            const numeroLote = mapaLoteIdParaNumero.get(itemOriginal.lote_id);
+            const chave = `${numeroLote}_${itemOriginal.numero_item}`;
+            valorEstimado = estimativasItens[chave] || 0;
+            console.log(`   Item ${itemOriginal.numero_item} Lote ${numeroLote}: chave=${chave}, valor=${valorEstimado}`);
+          } else {
+            // Para outros critérios, usar numero_item como chave
+            valorEstimado = estimativasItens[String(itemOriginal.numero_item)] || 0;
+          }
+        }
+        
+        // Fallback: se não encontrou estimativa, buscar menor valor dos fornecedores
+        if (valorEstimado === 0 && fornecedoresArray) {
+          fornecedoresArray.forEach((fornecedor: any) => {
+            if (fornecedor.itens) {
+              const itemFornecedor = fornecedor.itens.find((i: any) => {
+                if (isPorLote && itemOriginal.lote_id) {
+                  return i.numero_item === itemOriginal.numero_item && i.lote_id === itemOriginal.lote_id;
+                }
+                return i.numero_item === itemOriginal.numero_item;
+              });
+              
+              if (itemFornecedor) {
+                const valorItem = isDesconto 
+                  ? (itemFornecedor.percentual_desconto || 0) 
+                  : (itemFornecedor.valor_unitario || 0);
+                
+                if (valorItem > 0) {
+                  if (isDesconto) {
+                    // Para desconto, queremos o MAIOR percentual
+                    if (valorEstimado === 0 || valorItem > valorEstimado) {
+                      valorEstimado = valorItem;
+                    }
+                  } else {
+                    // Para valor, queremos o MENOR preço
+                    if (valorEstimado === 0 || valorItem < valorEstimado) {
+                      valorEstimado = valorItem;
+                    }
+                  }
+                }
+              }
+            }
+          });
+        }
+        
         // Para desconto, valor_total não é calculado (não faz sentido)
         const valorTotalItem = isDesconto ? 0 : (valorEstimado * itemOriginal.quantidade);
         
