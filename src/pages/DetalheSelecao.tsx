@@ -301,24 +301,31 @@ const [itens, setItens] = useState<Item[]>([]);
       // Para critério de desconto, buscar o MAIOR desconto de cada item
       // Para outros critérios, buscar o MENOR valor de cada item
       const isDesconto = cotacaoData?.criterio_julgamento === "desconto";
-      const valoresEstimadosPorItem = new Map<number, number>();
+      const isPorLote = cotacaoData?.criterio_julgamento === "por_lote";
+      
+      // Para por_lote, usar chave composta lote_id + numero_item para evitar sobreposição
+      const valoresEstimadosPorItem = new Map<string, number>();
 
       fornecedoresArray.forEach((fornecedor: any) => {
         if (fornecedor.itens) {
           fornecedor.itens.forEach((item: any) => {
-            const valorAtual = valoresEstimadosPorItem.get(item.numero_item);
+            // Usar chave composta para por_lote para evitar sobreposição de numero_item entre lotes
+            const chave = isPorLote && item.lote_id 
+              ? `${item.lote_id}_${item.numero_item}` 
+              : String(item.numero_item);
+            const valorAtual = valoresEstimadosPorItem.get(chave);
             // Para desconto, usar percentual_desconto; para valor, usar valor_unitario
             const valorItem = isDesconto ? (item.percentual_desconto || 0) : (item.valor_unitario || 0);
             
             if (isDesconto) {
               // Para desconto, queremos o MAIOR percentual
               if (!valorAtual || valorItem > valorAtual) {
-                valoresEstimadosPorItem.set(item.numero_item, valorItem);
+                valoresEstimadosPorItem.set(chave, valorItem);
               }
             } else {
               // Para valor, queremos o MENOR preço
               if (!valorAtual || valorItem < valorAtual) {
-                valoresEstimadosPorItem.set(item.numero_item, valorItem);
+                valoresEstimadosPorItem.set(chave, valorItem);
               }
             }
           });
@@ -331,8 +338,12 @@ const [itens, setItens] = useState<Item[]>([]);
       const todosItens: Item[] = [];
       let total = 0;
 
-      itensOriginais.forEach((itemOriginal) => {
-        const valorEstimado = valoresEstimadosPorItem.get(itemOriginal.numero_item) || 0;
+      itensOriginais.forEach((itemOriginal: any) => {
+        // Usar chave composta para por_lote
+        const chave = isPorLote && itemOriginal.lote_id 
+          ? `${itemOriginal.lote_id}_${itemOriginal.numero_item}` 
+          : String(itemOriginal.numero_item);
+        const valorEstimado = valoresEstimadosPorItem.get(chave) || 0;
         // Para desconto, valor_total não é calculado (não faz sentido)
         const valorTotalItem = isDesconto ? 0 : (valorEstimado * itemOriginal.quantidade);
         
