@@ -617,12 +617,26 @@ const SistemaLancesFornecedor = () => {
     if (!selecao?.id || !proposta?.fornecedor_id) return;
     
     try {
-      // 1. Verificar se assinou a ata
+      // 1. Verificar se existe ata para esta seleção e se fornecedor assinou
+      const { data: atas } = await supabase
+        .from("atas_selecao")
+        .select("id")
+        .eq("selecao_id", selecao.id);
+      
+      if (!atas || atas.length === 0) {
+        setAssinouAta(false);
+        setEhVencedor(false);
+        return;
+      }
+      
+      const ataIds = atas.map(a => a.id);
+      
       const { data: assinatura } = await supabase
         .from("atas_assinaturas_fornecedor")
         .select("status_assinatura, ata_id")
         .eq("fornecedor_id", proposta.fornecedor_id)
-        .in("status_assinatura", ["aceito"])
+        .in("ata_id", ataIds)
+        .eq("status_assinatura", "aceito")
         .maybeSingle();
       
       const fornecedorAssinouAta = !!assinatura;
@@ -633,33 +647,77 @@ const SistemaLancesFornecedor = () => {
         return;
       }
       
-      // 2. Verificar se ata pertence a esta seleção
-      if (assinatura?.ata_id) {
-        const { data: ataData } = await supabase
-          .from("atas_selecao")
-          .select("selecao_id")
-          .eq("id", assinatura.ata_id)
-          .single();
-        
-        if (ataData?.selecao_id !== selecao.id) {
-          setAssinouAta(false);
-          setEhVencedor(false);
-          return;
-        }
-      }
-      
-      // 3. Verificar se é vencedor em algum item/lote
-      const { data: lancesVencedores } = await supabase
+      // 2. Identificar vencedores DINAMICAMENTE (não depender de indicativo_lance_vencedor)
+      const { data: todosLances } = await supabase
         .from("lances_fornecedores")
         .select("*")
         .eq("selecao_id", selecao.id)
-        .eq("fornecedor_id", proposta.fornecedor_id)
-        .eq("indicativo_lance_vencedor", true);
+        .order("data_hora_lance", { ascending: false });
       
-      const fornecedorEhVencedor = lancesVencedores && lancesVencedores.length > 0;
+      if (!todosLances || todosLances.length === 0) {
+        setEhVencedor(false);
+        return;
+      }
+      
+      // Buscar critério de julgamento
+      const criterio = selecao?.criterios_julgamento || "por_item";
+      
+      // Agrupar por item/lote e identificar vencedor de cada
+      const vencedoresPorItem = new Map<number, string>();
+      const itensPorFornecedor = new Map<number, { fornecedor_id: string; valor: number }[]>();
+      
+      todosLances.forEach((lance: any) => {
+        const key = lance.numero_item;
+        if (!itensPorFornecedor.has(key)) {
+          itensPorFornecedor.set(key, []);
+        }
+        
+        // Verificar se já existe lance deste fornecedor para este item
+        const lancesItem = itensPorFornecedor.get(key)!;
+        const existente = lancesItem.find(l => l.fornecedor_id === lance.fornecedor_id);
+        
+        if (!existente) {
+          lancesItem.push({ fornecedor_id: lance.fornecedor_id, valor: lance.valor_lance });
+        } else {
+          // Atualizar se for melhor lance
+          if (criterio === "desconto") {
+            if (lance.valor_lance > existente.valor) {
+              existente.valor = lance.valor_lance;
+            }
+          } else {
+            if (lance.valor_lance < existente.valor) {
+              existente.valor = lance.valor_lance;
+            }
+          }
+        }
+      });
+      
+      // Identificar vencedor de cada item
+      itensPorFornecedor.forEach((lances, numeroItem) => {
+        if (lances.length === 0) return;
+        
+        // Ordenar: desconto = maior vence, preço = menor vence
+        const ordenado = [...lances].sort((a, b) => {
+          if (criterio === "desconto") {
+            return b.valor - a.valor; // Maior primeiro
+          }
+          return a.valor - b.valor; // Menor primeiro
+        });
+        
+        vencedoresPorItem.set(numeroItem, ordenado[0].fornecedor_id);
+      });
+      
+      // Verificar se o fornecedor atual é vencedor em algum item
+      let fornecedorEhVencedor = false;
+      vencedoresPorItem.forEach((vencedorId) => {
+        if (vencedorId === proposta.fornecedor_id) {
+          fornecedorEhVencedor = true;
+        }
+      });
+      
       setEhVencedor(fornecedorEhVencedor);
       
-      // 4. Verificar se já enviou proposta realinhada
+      // 3. Verificar se já enviou proposta realinhada
       if (fornecedorEhVencedor) {
         const { data: propostaRealinhada } = await supabase
           .from("propostas_realinhadas")
