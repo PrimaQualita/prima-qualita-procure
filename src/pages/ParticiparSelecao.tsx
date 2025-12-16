@@ -251,7 +251,8 @@ const ParticiparSelecao = () => {
           
           // Primeira parte geralmente é logradouro (pode incluir número)
           if (partes[0]) {
-            const primeiraParteMatch = partes[0].match(/^(.+?)\s*[,\s]*(?:N[°ºo]?\s*)?(\d+\w*)?$/i);
+            // Aceita números com hífen como 34-C
+            const primeiraParteMatch = partes[0].match(/^(.+?)\s*[,\s]*(?:N[°ºo]?\s*)?(\d+[\w-]*)?$/i);
             if (primeiraParteMatch) {
               logradouro = primeiraParteMatch[1]?.trim() || partes[0];
               if (primeiraParteMatch[2]) numero = primeiraParteMatch[2];
@@ -263,7 +264,8 @@ const ParticiparSelecao = () => {
           // Procurar número em outras partes se não encontrou
           if (!numero) {
             for (const parte of partes) {
-              const matchNumero = parte.match(/^(?:N[°ºo]?\s*)?(\d+\w*)$/i);
+              // Aceita formatos como: "Nº 34-C", "N° 123", "34A", "100-B", etc.
+              const matchNumero = parte.match(/^(?:N[°ºo]?\s*)?(\d+[\w-]*)$/i);
               if (matchNumero) {
                 numero = matchNumero[1];
                 break;
@@ -300,8 +302,8 @@ const ParticiparSelecao = () => {
             // Identificar qual parte é o bairro (não é logradouro, número, cidade-UF nem CEP)
             for (let i = 1; i < partes.length - 1; i++) {
               const parte = partes[i].trim();
-              // Pular se for número
-              if (/^(?:N[°ºo]?\s*)?\d+\w*$/i.test(parte)) continue;
+              // Pular se for número (aceita formatos como 34-C, 100A, etc.)
+              if (/^(?:N[°ºo]?\s*)?\d+[\w-]*$/i.test(parte)) continue;
               // Pular se contiver UF
               if (/[-\/]\s*[A-Z]{2}/i.test(parte)) continue;
               // Pular se for CEP
