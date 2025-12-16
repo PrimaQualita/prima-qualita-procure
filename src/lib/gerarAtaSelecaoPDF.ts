@@ -1455,28 +1455,62 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   // Combinar todas as assinaturas
   const todasAssinaturas = [...assinaturasFormatadas, ...assinaturasUsuariosFormatadas];
 
-  // Extrair o path do storage da URL ORIGINAL
-  const urlParts = urlOriginal.split('/processo-anexos/');
-  if (urlParts.length < 2) {
-    console.error('URL inválida:', urlOriginal);
-    throw new Error('URL do arquivo inválida');
+  // Helper para extrair path relativo do bucket a partir de URL pública (ou receber path já relativo)
+  const extractStoragePathFromProcessoAnexosUrl = (urlOrPath: string): string => {
+    const cleaned = (urlOrPath || '').split('?')[0];
+    if (!cleaned) throw new Error('URL do arquivo inválida');
+
+    const marker = '/processo-anexos/';
+
+    // Caso seja URL pública completa
+    if (cleaned.includes(marker)) {
+      const parts = cleaned.split(marker);
+      if (parts.length < 2 || !parts[1]) throw new Error('URL do arquivo inválida');
+      return parts[1];
+    }
+
+    // Caso já seja path relativo dentro do bucket
+    return cleaned.replace(/^\/+/, '');
+  };
+
+  const storagePathOriginal = extractStoragePathFromProcessoAnexosUrl(urlOriginal);
+  const storagePathAtual = extractStoragePathFromProcessoAnexosUrl(ata.url_arquivo);
+
+  // Mantemos o storagePath ORIGINAL como referência para nomear o arquivo assinado
+  const storagePath = storagePathOriginal;
+
+  console.log('Storage path (original):', storagePathOriginal);
+  console.log('Storage path (atual):', storagePathAtual);
+
+  const tryDownload = async (path: string) => {
+    const { data, error } = await supabase.storage.from('processo-anexos').download(path);
+    return { data, error };
+  };
+
+  // Baixar PDF base: preferir o original; se ele não existir (versões antigas deletavam), usar o atual.
+  let fileData: Blob | null = null;
+  let sourceStoragePath = storagePathOriginal;
+
+  const { data: originalData, error: originalError } = await tryDownload(storagePathOriginal);
+  if (originalError || !originalData) {
+    console.warn('Aviso: não foi possível baixar PDF original, tentando PDF atual...', originalError);
+
+    const { data: atualData, error: atualError } = await tryDownload(storagePathAtual);
+    if (atualError || !atualData) {
+      console.error('Erro ao baixar PDF (original e atual):', { originalError, atualError });
+      throw new Error('Erro ao baixar PDF existente');
+    }
+
+    fileData = atualData;
+    sourceStoragePath = storagePathAtual;
+  } else {
+    fileData = originalData;
   }
-  const storagePath = urlParts[1];
-  console.log('Storage path:', storagePath);
 
-  // Baixar PDF ORIGINAL diretamente do storage
-  const { data: fileData, error: downloadError } = await supabase.storage
-    .from('processo-anexos')
-    .download(storagePath);
-
-  if (downloadError || !fileData) {
-    console.error('Erro ao baixar PDF:', downloadError);
-    throw new Error('Erro ao baixar PDF existente: ' + downloadError?.message);
-  }
-
-  console.log('PDF original baixado com sucesso, tamanho:', fileData.size);
+  console.log('PDF base baixado com sucesso do path:', sourceStoragePath, 'tamanho:', fileData.size);
 
   const existingPdfBytes = await fileData.arrayBuffer();
+
 
   // Usar pdf-lib para modificar o PDF existente
   const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
@@ -1484,8 +1518,55 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const originalPageCount = pdfDoc.getPageCount();
-  console.log('PDF carregado, total de páginas:', originalPageCount);
+  const stripExistingTermoDeAceite = async (): Promise<number> => {
+    try {
+      // Precisamos tornar a atualização idempotente: remover o Termo anterior (se existir)
+      // antes de adicionar o novo, evitando duplicações a cada atualização.
+      const pdfjsLib: any = await import('pdfjs-dist');
+
+      const loadingTask = pdfjsLib.getDocument({
+        data: existingPdfBytes,
+        disableWorker: true,
+      });
+
+      const pdf = await loadingTask.promise;
+
+      let termoStartPage: number | null = null;
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+        const pageText = (textContent.items as any[])
+          .map((it) => (typeof it?.str === 'string' ? it.str : ''))
+          .join(' ');
+
+        if (pageText.includes('TERMO DE ACEITE E ASSINATURA DIGITAL')) {
+          termoStartPage = pageNumber;
+          break;
+        }
+      }
+
+      if (!termoStartPage) {
+        return pdfDoc.getPageCount();
+      }
+
+      const firstTermIndex = termoStartPage - 1; // 0-based
+      for (let idx = pdfDoc.getPageCount() - 1; idx >= firstTermIndex; idx--) {
+        pdfDoc.removePage(idx);
+      }
+
+      console.log('>>> Termo de aceite anterior removido. Páginas base:', pdfDoc.getPageCount());
+      return pdfDoc.getPageCount();
+    } catch (e) {
+      console.warn(
+        'Aviso: não foi possível detectar/remover termo anterior; continuando sem limpar.',
+        e
+      );
+      return pdfDoc.getPageCount();
+    }
+  };
+
+  const basePageCount = await stripExistingTermoDeAceite();
+  console.log('PDF carregado, páginas base:', basePageCount);
 
   // CRIAR NOVA PÁGINA para o termo de aceite (certificação ocupa final da última página)
   console.log('>>> CRIANDO NOVA PÁGINA DEDICADA para termo de aceite');
@@ -1687,8 +1768,8 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const rodapeExpandidoHeight = (rodapeExpandidoWidth / rodapeExpandidoDims.width) * rodapeExpandidoDims.height;
   
   const totalPages = pdfDoc.getPageCount();
-  // Adicionar rodapé apenas nas páginas do termo de aceite (a partir da página que criamos)
-  for (let i = originalPageCount; i < totalPages; i++) {
+  // Adicionar rodapé apenas nas páginas do termo de aceite (a partir da primeira página adicionada)
+  for (let i = basePageCount; i < totalPages; i++) {
     const pageToAddFooter = pdfDoc.getPage(i);
     pageToAddFooter.drawImage(rodapeExpandidoImage, {
       x: sideMargin,
