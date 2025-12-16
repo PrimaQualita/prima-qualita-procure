@@ -1854,10 +1854,12 @@ export function DialogAnaliseDocumentalSelecao({
                 </p>
               </div>
             )}
-            {/* Só mostrar "Itens vencedores" se não for totalmente inabilitado */}
+            {/* Só mostrar vencedores se não for totalmente inabilitado */}
             {!isInabilitado && (
               <p className="text-sm mt-1">
-                <span className="font-medium">Itens vencedores:</span>{" "}
+                <span className="font-medium">
+                  {criterioJulgamento === 'por_lote' ? 'Lotes vencedores:' : 'Itens vencedores:'}
+                </span>{" "}
                 {temInabilitacaoParcial 
                   ? itensHabilitados.sort((a, b) => a - b).join(", ")
                   : data.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ")
