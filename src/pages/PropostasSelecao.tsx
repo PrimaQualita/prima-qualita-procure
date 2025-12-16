@@ -68,6 +68,8 @@ export default function PropostasSelecao() {
   // Estados para propostas realinhadas
   const [propostaRealinhadaParaExcluir, setPropostaRealinhadaParaExcluir] = useState<any>(null);
   const [confirmDeleteRealinhadaOpen, setConfirmDeleteRealinhadaOpen] = useState(false);
+  const [propostaRealinhadaParaExcluirPdf, setPropostaRealinhadaParaExcluirPdf] = useState<any>(null);
+  const [confirmDeletePdfRealinhadaOpen, setConfirmDeletePdfRealinhadaOpen] = useState(false);
   const [propostaParaCorrecao, setPropostaParaCorrecao] = useState<any>(null);
   const [motivoCorrecao, setMotivoCorrecao] = useState("");
   const [dialogCorrecaoOpen, setDialogCorrecaoOpen] = useState(false);
@@ -178,6 +180,13 @@ export default function PropostasSelecao() {
     return new Date(dateString).toLocaleString('pt-BR');
   };
 
+  const extractStoragePath = (urlOrPath: string) => {
+    const noQuery = (urlOrPath || "").split("?")[0];
+    if (!noQuery) return "";
+    const marker = "processo-anexos/";
+    if (noQuery.includes(marker)) return noQuery.split(marker).pop() || "";
+    return noQuery.replace(/^processo-anexos\//, "");
+  };
   const handleVisualizarProposta = async (propostaId: string) => {
     try {
       setGerandoPDF(propostaId);
@@ -501,25 +510,26 @@ export default function PropostasSelecao() {
   
   const handleVisualizarPropostaRealinhada = async (proposta: any) => {
     try {
-      if (proposta.url_pdf_proposta) {
-        // Extrair path relativo
-        let path = proposta.url_pdf_proposta;
-        if (path.includes('processo-anexos/')) {
-          path = path.split('processo-anexos/').pop() || path;
-        }
-        
-        const { data: fileData, error: downloadError } = await supabase.storage
-          .from('processo-anexos')
-          .download(path);
-
-        if (downloadError) throw downloadError;
-
-        const pdfUrl = URL.createObjectURL(fileData);
-        window.open(pdfUrl, '_blank');
-        toast.success("Proposta realinhada carregada!");
-      } else {
+      if (!proposta.url_pdf_proposta) {
         toast.error("PDF não disponível");
+        return;
       }
+
+      const path = extractStoragePath(proposta.url_pdf_proposta);
+      if (!path) {
+        toast.error("Caminho do PDF inválido");
+        return;
+      }
+
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("processo-anexos")
+        .download(path);
+
+      if (downloadError) throw downloadError;
+
+      const pdfUrl = URL.createObjectURL(fileData);
+      window.open(pdfUrl, "_blank");
+      toast.success("Proposta realinhada carregada!");
     } catch (error: any) {
       console.error("Erro ao visualizar proposta realinhada:", error);
       toast.error("Erro ao carregar PDF");
@@ -780,6 +790,7 @@ export default function PropostasSelecao() {
                       <TableHead className="border-r border-border/50">Data de Envio</TableHead>
                       <TableHead className="border-r border-border/50">Protocolo</TableHead>
                       <TableHead className="border-r border-border/50">Status</TableHead>
+                      <TableHead className="border-r border-border/50">Proposta PDF</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -810,33 +821,62 @@ export default function PropostasSelecao() {
                             <Badge variant="default">Enviada</Badge>
                           )}
                         </TableCell>
+                        <TableCell className="border-r border-border/50">
+                          {proposta.url_pdf_proposta ? (
+                            <div className="flex items-center gap-2 text-sm">
+                              <svg
+                                className="h-4 w-4 text-muted-foreground"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                />
+                              </svg>
+                              <span className="truncate max-w-[180px]">
+                                {extractStoragePath(proposta.url_pdf_proposta).split("/").pop()}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">PDF não gerado</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             {proposta.url_pdf_proposta ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleVisualizarPropostaRealinhada(proposta)}
-                                disabled={gerandoPDF === proposta.id}
-                                title="Visualizar PDF"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            ) : (
                               <>
-                                <Badge variant="secondary" className="text-xs">
-                                  Sem PDF
-                                </Badge>
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleGerarPdfPropostaRealinhada(proposta)}
+                                  onClick={() => handleVisualizarPropostaRealinhada(proposta)}
                                   disabled={gerandoPDF === proposta.id}
-                                  title="Gerar PDF"
+                                  title="Visualizar PDF"
                                 >
-                                  <RefreshCw className={`h-4 w-4 ${gerandoPDF === proposta.id ? "animate-spin" : ""}`} />
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleExcluirPdfPropostaRealinhada(proposta)}
+                                  title="Excluir PDF"
+                                >
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleGerarPdfPropostaRealinhada(proposta)}
+                                disabled={gerandoPDF === proposta.id}
+                                title="Gerar PDF"
+                              >
+                                <RefreshCw className={`h-4 w-4 ${gerandoPDF === proposta.id ? "animate-spin" : ""}`} />
+                              </Button>
                             )}
                             <Button
                               variant="outline"
@@ -858,7 +898,7 @@ export default function PropostasSelecao() {
                                 setPropostaRealinhadaParaExcluir(proposta);
                                 setConfirmDeleteRealinhadaOpen(true);
                               }}
-                              title="Excluir Proposta"
+                              title="Excluir Proposta (geral)"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1063,6 +1103,27 @@ export default function PropostasSelecao() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={excluirPropostaCompleta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir Proposta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de Confirmação de Exclusão do PDF de Proposta Realinhada */}
+      <AlertDialog open={confirmDeletePdfRealinhadaOpen} onOpenChange={setConfirmDeletePdfRealinhadaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir PDF da Proposta Realinhada</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir apenas o PDF da proposta realinhada de{' '}
+              <strong>{propostaRealinhadaParaExcluirPdf?.fornecedor?.razao_social}</strong>?
+              <br />
+              O PDF poderá ser gerado novamente depois.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirPdfPropostaRealinhada} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir PDF
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
