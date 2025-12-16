@@ -604,56 +604,95 @@ export default function PropostasSelecao() {
     }
   };
 
-  const excluirPropostaRealinhada = async () => {
-    if (!propostaRealinhadaParaExcluir) return;
-    
+  const handleExcluirPdfPropostaRealinhada = (proposta: any) => {
+    setPropostaRealinhadaParaExcluirPdf(proposta);
+    setConfirmDeletePdfRealinhadaOpen(true);
+  };
+
+  const excluirPdfPropostaRealinhada = async () => {
+    if (!propostaRealinhadaParaExcluirPdf) return;
+
     try {
-      console.log("🗑️ Excluindo proposta realinhada:", propostaRealinhadaParaExcluir.id);
-      
-      // Deletar PDF do storage se existir
-      if (propostaRealinhadaParaExcluir.url_pdf_proposta) {
-        let path = propostaRealinhadaParaExcluir.url_pdf_proposta;
-        if (path.includes('processo-anexos/')) {
-          path = path.split('processo-anexos/').pop() || path;
-        }
-        
-        const { error: storageError } = await supabase.storage
-          .from('processo-anexos')
-          .remove([path]);
-        
-        if (storageError) {
-          console.error("⚠️ Erro ao deletar PDF:", storageError);
+      const url = propostaRealinhadaParaExcluirPdf.url_pdf_proposta as string | null;
+
+      if (url) {
+        const path = extractStoragePath(url);
+        if (path) {
+          const { error: storageError } = await supabase.storage
+            .from("processo-anexos")
+            .remove([path]);
+
+          const isNotFound = String((storageError as any)?.message || "")
+            .toLowerCase()
+            .includes("not found");
+
+          if (storageError && !isNotFound) throw storageError;
         }
       }
 
-      // Deletar itens da proposta primeiro
+      const { error: updateError } = await supabase
+        .from("propostas_realinhadas")
+        .update({ url_pdf_proposta: null })
+        .eq("id", propostaRealinhadaParaExcluirPdf.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("PDF excluído com sucesso");
+      setPropostaRealinhadaParaExcluirPdf(null);
+      setConfirmDeletePdfRealinhadaOpen(false);
+      await loadPropostasRealinhadas();
+    } catch (error: any) {
+      console.error("❌ Erro ao excluir PDF da proposta realinhada:", error);
+      toast.error(error?.message || "Erro ao excluir PDF");
+    }
+  };
+
+  const excluirPropostaRealinhada = async () => {
+    if (!propostaRealinhadaParaExcluir) return;
+
+    try {
+      console.log("🗑️ Excluindo proposta realinhada:", propostaRealinhadaParaExcluir.id);
+
+      // 1) Deletar PDF do storage primeiro (evita órfãos)
+      if (propostaRealinhadaParaExcluir.url_pdf_proposta) {
+        const path = extractStoragePath(propostaRealinhadaParaExcluir.url_pdf_proposta);
+        if (path) {
+          const { error: storageError } = await supabase.storage
+            .from("processo-anexos")
+            .remove([path]);
+
+          const isNotFound = String((storageError as any)?.message || "")
+            .toLowerCase()
+            .includes("not found");
+
+          if (storageError && !isNotFound) throw storageError;
+        }
+      }
+
+      // 2) Deletar itens
       const { error: itensError } = await (supabase as any)
-        .from('propostas_realinhadas_itens')
+        .from("propostas_realinhadas_itens")
         .delete()
-        .eq('proposta_realinhada_id', propostaRealinhadaParaExcluir.id);
+        .eq("proposta_realinhada_id", propostaRealinhadaParaExcluir.id);
 
       if (itensError) throw itensError;
 
-      // Deletar a proposta
+      // 3) Deletar proposta
       const { error: propostaError } = await supabase
-        .from('propostas_realinhadas')
+        .from("propostas_realinhadas")
         .delete()
-        .eq('id', propostaRealinhadaParaExcluir.id);
+        .eq("id", propostaRealinhadaParaExcluir.id);
 
       if (propostaError) throw propostaError;
-      
+
       console.log("✅ Proposta realinhada excluída");
-      
       setPropostaRealinhadaParaExcluir(null);
       setConfirmDeleteRealinhadaOpen(false);
-      
-      toast.success("Proposta realinhada excluída. O fornecedor poderá enviar nova proposta.");
-      
+      toast.success("Proposta realinhada excluída. O fornecedor poderá enviar uma nova proposta.");
       await loadPropostasRealinhadas();
-      
     } catch (error: any) {
       console.error("❌ Erro ao excluir proposta realinhada:", error);
-      toast.error(error.message || "Erro ao excluir proposta realinhada");
+      toast.error(error?.message || "Erro ao excluir proposta realinhada");
     }
   };
 
