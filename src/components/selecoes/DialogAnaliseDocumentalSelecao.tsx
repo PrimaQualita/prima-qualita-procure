@@ -3210,11 +3210,13 @@ export function DialogAnaliseDocumentalSelecao({
               </div>
             </div>
             
-            {/* Seleção de itens para provimento parcial */}
+            {/* Seleção de itens/lotes para provimento parcial */}
             {tipoProvimento === 'parcial' && recursoParaResponder && (
               <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
                 <p className="text-sm font-medium text-yellow-800 mb-2">
-                  Selecione os itens a serem reabilitados:
+                  {criterioJulgamento === 'por_lote' 
+                    ? 'Selecione os lotes a serem reabilitados:' 
+                    : 'Selecione os itens a serem reabilitados:'}
                 </p>
                 <div className="grid grid-cols-4 gap-2">
                   {(recursoParaResponder.fornecedores_inabilitados_selecao?.itens_afetados || []).map((item: number) => (
@@ -3243,13 +3245,15 @@ export function DialogAnaliseDocumentalSelecao({
                           );
                         }}
                       />
-                      <span className="text-sm">Item {item}</span>
+                      <span className="text-sm">
+                        {criterioJulgamento === 'por_lote' ? `Lote ${item}` : `Item ${item}`}
+                      </span>
                     </div>
                   ))}
                 </div>
                 {itensReabilitar.length > 0 && (
                   <p className="text-xs text-yellow-700 mt-2">
-                    {itensReabilitar.length} item(ns) será(ão) reabilitado(s)
+                    {itensReabilitar.length} {criterioJulgamento === 'por_lote' ? 'lote(s) será(ão) reabilitado(s)' : 'item(ns) será(ão) reabilitado(s)'}
                   </p>
                 )}
               </div>
@@ -3269,7 +3273,7 @@ export function DialogAnaliseDocumentalSelecao({
             {deferirRecurso && tipoProvimento === 'total' && (
               <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
                 <p className="text-sm text-green-700">
-                  <strong>Atenção:</strong> Ao deferir o recurso totalmente, a inabilitação será automaticamente revertida e o fornecedor voltará a participar da seleção em todos os itens.
+                  <strong>Atenção:</strong> Ao deferir o recurso totalmente, a inabilitação será automaticamente revertida e o fornecedor voltará a participar da seleção em {criterioJulgamento === 'por_lote' ? 'todos os lotes' : 'todos os itens'}.
                 </p>
               </div>
             )}
@@ -3277,7 +3281,7 @@ export function DialogAnaliseDocumentalSelecao({
             {tipoProvimento === 'parcial' && (
               <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
                 <p className="text-sm text-yellow-700">
-                  <strong>Atenção:</strong> Ao deferir parcialmente, apenas os itens selecionados serão reabilitados. O fornecedor permanecerá inabilitado nos demais itens.
+                  <strong>Atenção:</strong> Ao deferir parcialmente, apenas {criterioJulgamento === 'por_lote' ? 'os lotes selecionados serão reabilitados. O fornecedor permanecerá inabilitado nos demais lotes' : 'os itens selecionados serão reabilitados. O fornecedor permanecerá inabilitado nos demais itens'}.
                 </p>
               </div>
             )}
