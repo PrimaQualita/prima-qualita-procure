@@ -196,7 +196,7 @@ const PropostaRealinhada = () => {
       .select("*, lotes_cotacao(numero_lote, descricao_lote)")
       .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
 
-    if (!itensCotacao) return;
+    if (!itensCotacao || !fornecedor) return;
 
     // Buscar marcas da proposta original do fornecedor
     const { data: respostasOriginais } = await (supabase as any)
