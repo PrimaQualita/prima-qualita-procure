@@ -1086,6 +1086,17 @@ const [itens, setItens] = useState<Item[]>([]);
             </Card>
           )}
 
+          {/* Ver Propostas Realinhadas */}
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full mt-4"
+            onClick={() => navigate(`/propostas-selecao?selecao=${selecaoId}&tipo=realinhadas`)}
+          >
+            <Eye className="h-5 w-5 mr-2" />
+            Ver Propostas Realinhadas
+          </Button>
+
           {/* Gerar Homologação - APENAS para Responsável Legal */}
           {(() => {
             console.log("🎨 RENDER - isResponsavelLegal:", isResponsavelLegal);

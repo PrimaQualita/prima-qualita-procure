@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X, AlertCircle, Clock, FileX, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X, AlertCircle, Clock, FileX, CheckCircle, XCircle, FileText } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -89,6 +89,11 @@ const SistemaLancesFornecedor = () => {
   // Estado para documentos rejeitados
   const [documentosRejeitados, setDocumentosRejeitados] = useState<any[]>([]);
   const [numeroProcesso, setNumeroProcesso] = useState<string>("");
+  
+  // Estados para proposta realinhada
+  const [assinouAta, setAssinouAta] = useState(false);
+  const [ehVencedor, setEhVencedor] = useState(false);
+  const [jaEnviouPropostaRealinhada, setJaEnviouPropostaRealinhada] = useState(false);
 
   const normalizarTexto = (texto?: string): string => {
     if (!texto) return "";
@@ -309,6 +314,7 @@ const SistemaLancesFornecedor = () => {
       loadDocumentosRejeitados();
       loadHabilitacaoStatus();
       loadMinhaIntencaoRecurso();
+      loadStatusPropostaRealinhada();
 
       // Subscrição em tempo real para lances
       const channel = supabase
@@ -606,7 +612,69 @@ const SistemaLancesFornecedor = () => {
     }
   };
 
-  // Countdown para janela de 5 minutos de intenção de recurso
+  // Verificar status de proposta realinhada (se assinou ata e é vencedor)
+  const loadStatusPropostaRealinhada = async () => {
+    if (!selecao?.id || !proposta?.fornecedor_id) return;
+    
+    try {
+      // 1. Verificar se assinou a ata
+      const { data: assinatura } = await supabase
+        .from("atas_assinaturas_fornecedor")
+        .select("status_assinatura, ata_id")
+        .eq("fornecedor_id", proposta.fornecedor_id)
+        .in("status_assinatura", ["aceito"])
+        .maybeSingle();
+      
+      const fornecedorAssinouAta = !!assinatura;
+      setAssinouAta(fornecedorAssinouAta);
+      
+      if (!fornecedorAssinouAta) {
+        setEhVencedor(false);
+        return;
+      }
+      
+      // 2. Verificar se ata pertence a esta seleção
+      if (assinatura?.ata_id) {
+        const { data: ataData } = await supabase
+          .from("atas_selecao")
+          .select("selecao_id")
+          .eq("id", assinatura.ata_id)
+          .single();
+        
+        if (ataData?.selecao_id !== selecao.id) {
+          setAssinouAta(false);
+          setEhVencedor(false);
+          return;
+        }
+      }
+      
+      // 3. Verificar se é vencedor em algum item/lote
+      const { data: lancesVencedores } = await supabase
+        .from("lances_fornecedores")
+        .select("*")
+        .eq("selecao_id", selecao.id)
+        .eq("fornecedor_id", proposta.fornecedor_id)
+        .eq("indicativo_lance_vencedor", true);
+      
+      const fornecedorEhVencedor = lancesVencedores && lancesVencedores.length > 0;
+      setEhVencedor(fornecedorEhVencedor);
+      
+      // 4. Verificar se já enviou proposta realinhada
+      if (fornecedorEhVencedor) {
+        const { data: propostaRealinhada } = await supabase
+          .from("propostas_realinhadas")
+          .select("id")
+          .eq("selecao_id", selecao.id)
+          .eq("fornecedor_id", proposta.fornecedor_id)
+          .maybeSingle();
+        
+        setJaEnviouPropostaRealinhada(!!propostaRealinhada);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar status de proposta realinhada:", error);
+    }
+  };
+
   useEffect(() => {
     if (!habilitacaoEncerrada || !dataEncerramentoHabilitacao || minhaIntencaoRecurso) {
       setTempoRestanteIntencao(null);
@@ -2233,6 +2301,32 @@ const SistemaLancesFornecedor = () => {
                   )}
                 </div>
               ) : null}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card de Proposta Realinhada - Quando fornecedor assinou ata e é vencedor */}
+        {assinouAta && ehVencedor && (
+          <Card className="border-green-500/50 bg-green-500/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-green-700">
+                <Trophy className="h-5 w-5" />
+                {jaEnviouPropostaRealinhada ? "Proposta Realinhada Enviada" : "Parabéns! Você é vencedor nesta seleção"}
+              </CardTitle>
+              <CardDescription className="text-green-600">
+                {jaEnviouPropostaRealinhada 
+                  ? "Sua proposta realinhada já foi enviada com sucesso."
+                  : "Agora você precisa enviar a proposta realinhada com os valores detalhados dos itens que ganhou."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => navigate(`/proposta-realinhada?selecao=${selecao?.id}&fornecedor=${proposta?.fornecedor_id}`)}
+                className={jaEnviouPropostaRealinhada ? "bg-green-600 hover:bg-green-700" : ""}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                {jaEnviouPropostaRealinhada ? "Ver Proposta Realinhada" : "Enviar Proposta Realinhada"}
+              </Button>
             </CardContent>
           </Card>
         )}
