@@ -854,12 +854,24 @@ const SistemaLancesFornecedor = () => {
         .single();
 
       if (propostaError) throw propostaError;
-      
-      setProposta(propostaData);
-      setSelecao(propostaData.selecoes_fornecedores);
 
-      const criterioJulgamento = propostaData.selecoes_fornecedores.processos_compras?.criterio_julgamento;
-      const cotacaoId = propostaData.selecoes_fornecedores?.cotacao_relacionada_id as string | null | undefined;
+      const criterioJulgamento =
+        propostaData.selecoes_fornecedores.processos_compras?.criterio_julgamento ||
+        propostaData.selecoes_fornecedores.criterios_julgamento;
+
+      // Normalizar: garantir que selecao.processos_compras.criterio_julgamento exista sempre
+      const selecaoNormalizada = {
+        ...propostaData.selecoes_fornecedores,
+        processos_compras: {
+          ...(propostaData.selecoes_fornecedores.processos_compras || {}),
+          criterio_julgamento: criterioJulgamento,
+        },
+      };
+
+      setProposta(propostaData);
+      setSelecao(selecaoNormalizada);
+
+      const cotacaoId = selecaoNormalizada?.cotacao_relacionada_id as string | null | undefined;
       let itensCotacaoLocal: CotacaoItemLote[] = itensCotacao;
 
       // Buscar número do processo através da cotação relacionada
@@ -911,18 +923,17 @@ const SistemaLancesFornecedor = () => {
       // Buscar estimativas da planilha consolidada mais recente
       if (cotacaoId) {
         console.log('🔍 Buscando estimativas da cotação:', cotacaoId);
-        
+
         const { data: planilhaData, error: planilhaError } = await supabase
           .from("planilhas_consolidadas")
-          .select("estimativas_itens, created_at, id")
+          .select("estimativas_itens, data_geracao, id")
           .eq("cotacao_id", cotacaoId)
-          .order("created_at", { ascending: false })
+          .order("data_geracao", { ascending: false })
           .limit(1)
           .maybeSingle();
 
         console.log('📊 Planilha consolidada mais recente:', planilhaData);
         console.log('📊 Erro ao buscar planilha:', planilhaError);
-
         if (!planilhaError && planilhaData) {
           console.log('📊 [loadProposta] estimativas_itens BRUTAS do banco:', planilhaData.estimativas_itens);
           console.log('📊 [loadProposta] Tipo:', typeof planilhaData.estimativas_itens);
@@ -2677,84 +2688,211 @@ const SistemaLancesFornecedor = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {itens.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="w-[50px] font-medium text-center">{item.numero_item}</TableCell>
-                      <TableCell className="w-[35%] text-left">{item.descricao}</TableCell>
-                      <TableCell className="w-[90px] text-center">{item.quantidade}</TableCell>
-                      <TableCell className="w-[70px] text-center">{item.unidade}</TableCell>
-                      {selecao?.processos_compras?.tipo === "material" && (
-                        <TableCell className="w-[140px]">
-                          <Input
-                            value={item.marca || ""}
-                            onChange={(e) => handleUpdateItem(item.id, "marca", e.target.value)}
-                            disabled={!editavel}
-                            className="w-full"
-                          />
-                        </TableCell>
-                      )}
-                      <TableCell className="w-[90px] text-right pr-4">
-                        {selecao?.processos_compras?.criterio_julgamento === "desconto" ? (
-                          <div className="flex items-center justify-end gap-1">
-                            {editavel ? (
-                              <>
-                                <Input
-                                  type="text"
-                                  value={valoresDescontoTemp.get(item.id) ?? (item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2).replace('.', ',') : "")}
-                                  onChange={(e) => {
-                                    setValoresDescontoTemp(prev => {
-                                      const novo = new Map(prev);
-                                      novo.set(item.id, e.target.value);
-                                      return novo;
-                                    });
-                                  }}
-                                  onBlur={(e) => {
-                                    const valor = e.target.value.replace(',', '.');
-                                    const numero = parseFloat(valor);
-                                    if (!isNaN(numero) && numero >= 0) {
-                                      handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
-                                    } else if (e.target.value === '' || e.target.value === '0') {
-                                      handleUpdateItem(item.id, "valor_unitario_ofertado", 0);
-                                    }
-                                    setValoresDescontoTemp(prev => {
-                                      const novo = new Map(prev);
-                                      novo.delete(item.id);
-                                      return novo;
-                                    });
-                                  }}
-                                  className="w-16 text-right"
-                                  placeholder="0,00"
-                                />
-                                <span className="text-sm font-medium whitespace-nowrap">%</span>
-                              </>
-                            ) : (
-                              <span className="text-sm font-medium">
-                                {item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0 
-                                  ? `${item.valor_unitario_ofertado.toFixed(2).replace('.', ',')}%`
-                                  : "-"
-                                }
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2) : ""}
-                            onChange={(e) => handleUpdateItem(item.id, "valor_unitario_ofertado", parseFloat(e.target.value) || 0)}
-                            disabled={!editavel}
-                            className="w-full"
-                          />
+                  {selecao?.processos_compras?.criterio_julgamento === "por_lote" ? (
+                    (() => {
+                      const showMarca = selecao?.processos_compras?.tipo === "material";
+                      const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
+                      const colSpan = 4 + (showMarca ? 1 : 0) + 1 + (isDesconto ? 0 : 1);
+
+                      const grupos = new Map<number, Item[]>();
+                      const semLote: Item[] = [];
+
+                      itens.forEach((it) => {
+                        const lote = resolverNumeroLoteParaItem(it, itensCotacao);
+                        if (!lote) {
+                          semLote.push(it);
+                          return;
+                        }
+                        const arr = grupos.get(lote) || [];
+                        grupos.set(lote, [...arr, it]);
+                      });
+
+                      const lotesOrdenados = Array.from(grupos.keys()).sort((a, b) => a - b);
+
+                      return (
+                        <>
+                          {lotesOrdenados.map((numeroLote) => {
+                            const itensDoLote = (grupos.get(numeroLote) || []).slice().sort((a, b) => a.numero_item - b.numero_item);
+                            return (
+                              <React.Fragment key={`lote_${numeroLote}`}>
+                                <TableRow>
+                                  <TableCell colSpan={colSpan} className="bg-muted/30 font-semibold">
+                                    Lote {numeroLote}
+                                  </TableCell>
+                                </TableRow>
+
+                                {itensDoLote.map((item) => (
+                                  <TableRow key={item.id}>
+                                    <TableCell className="w-[50px] font-medium text-center">{item.numero_item}</TableCell>
+                                    <TableCell className="w-[35%] text-left">{item.descricao}</TableCell>
+                                    <TableCell className="w-[90px] text-center">{item.quantidade}</TableCell>
+                                    <TableCell className="w-[70px] text-center">{item.unidade}</TableCell>
+                                    {showMarca && (
+                                      <TableCell className="w-[140px]">
+                                        <Input
+                                          value={item.marca || ""}
+                                          onChange={(e) => handleUpdateItem(item.id, "marca", e.target.value)}
+                                          disabled={!editavel}
+                                          className="w-full"
+                                        />
+                                      </TableCell>
+                                    )}
+                                    <TableCell className="w-[90px] text-right pr-4">
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2) : ""}
+                                        onChange={(e) =>
+                                          handleUpdateItem(item.id, "valor_unitario_ofertado", parseFloat(e.target.value) || 0)
+                                        }
+                                        disabled={!editavel}
+                                        className="w-full"
+                                      />
+                                    </TableCell>
+                                    <TableCell className="w-[130px] font-semibold text-center">
+                                      {formatarMoeda(item.valor_unitario_ofertado * item.quantidade)}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+
+                                <TableRow>
+                                  <TableCell colSpan={colSpan} className="text-right text-sm text-muted-foreground">
+                                    Subtotal do Lote {numeroLote}: <span className="font-semibold text-foreground">{formatarMoeda(getSubtotalPropostaDoLote(numeroLote))}</span>
+                                  </TableCell>
+                                </TableRow>
+                              </React.Fragment>
+                            );
+                          })}
+
+                          {semLote.length > 0 && (
+                            <>
+                              <TableRow>
+                                <TableCell colSpan={colSpan} className="bg-muted/30 font-semibold">
+                                  Itens sem lote identificado
+                                </TableCell>
+                              </TableRow>
+                              {semLote.map((item) => (
+                                <TableRow key={item.id}>
+                                  <TableCell className="w-[50px] font-medium text-center">{item.numero_item}</TableCell>
+                                  <TableCell className="w-[35%] text-left">{item.descricao}</TableCell>
+                                  <TableCell className="w-[90px] text-center">{item.quantidade}</TableCell>
+                                  <TableCell className="w-[70px] text-center">{item.unidade}</TableCell>
+                                  {showMarca && (
+                                    <TableCell className="w-[140px]">
+                                      <Input
+                                        value={item.marca || ""}
+                                        onChange={(e) => handleUpdateItem(item.id, "marca", e.target.value)}
+                                        disabled={!editavel}
+                                        className="w-full"
+                                      />
+                                    </TableCell>
+                                  )}
+                                  <TableCell className="w-[90px] text-right pr-4">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2) : ""}
+                                      onChange={(e) =>
+                                        handleUpdateItem(item.id, "valor_unitario_ofertado", parseFloat(e.target.value) || 0)
+                                      }
+                                      disabled={!editavel}
+                                      className="w-full"
+                                    />
+                                  </TableCell>
+                                  <TableCell className="w-[130px] font-semibold text-center">
+                                    {formatarMoeda(item.valor_unitario_ofertado * item.quantidade)}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </>
+                          )}
+                        </>
+                      );
+                    })()
+                  ) : (
+                    itens.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="w-[50px] font-medium text-center">{item.numero_item}</TableCell>
+                        <TableCell className="w-[35%] text-left">{item.descricao}</TableCell>
+                        <TableCell className="w-[90px] text-center">{item.quantidade}</TableCell>
+                        <TableCell className="w-[70px] text-center">{item.unidade}</TableCell>
+                        {selecao?.processos_compras?.tipo === "material" && (
+                          <TableCell className="w-[140px]">
+                            <Input
+                              value={item.marca || ""}
+                              onChange={(e) => handleUpdateItem(item.id, "marca", e.target.value)}
+                              disabled={!editavel}
+                              className="w-full"
+                            />
+                          </TableCell>
                         )}
-                      </TableCell>
-                      {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
-                        <TableCell className="w-[130px] font-semibold text-center">
-                          {formatarMoeda(item.valor_unitario_ofertado * item.quantidade)}
+                        <TableCell className="w-[90px] text-right pr-4">
+                          {selecao?.processos_compras?.criterio_julgamento === "desconto" ? (
+                            <div className="flex items-center justify-end gap-1">
+                              {editavel ? (
+                                <>
+                                  <Input
+                                    type="text"
+                                    value={
+                                      valoresDescontoTemp.get(item.id) ??
+                                      (item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2).replace('.', ',') : "")
+                                    }
+                                    onChange={(e) => {
+                                      setValoresDescontoTemp((prev) => {
+                                        const novo = new Map(prev);
+                                        novo.set(item.id, e.target.value);
+                                        return novo;
+                                      });
+                                    }}
+                                    onBlur={(e) => {
+                                      const valor = e.target.value.replace(',', '.');
+                                      const numero = parseFloat(valor);
+                                      if (!isNaN(numero) && numero >= 0) {
+                                        handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
+                                      } else if (e.target.value === '' || e.target.value === '0') {
+                                        handleUpdateItem(item.id, "valor_unitario_ofertado", 0);
+                                      }
+                                      setValoresDescontoTemp((prev) => {
+                                        const novo = new Map(prev);
+                                        novo.delete(item.id);
+                                        return novo;
+                                      });
+                                    }}
+                                    className="w-16 text-right"
+                                    placeholder="0,00"
+                                  />
+                                  <span className="text-sm font-medium whitespace-nowrap">%</span>
+                                </>
+                              ) : (
+                                <span className="text-sm font-medium">
+                                  {item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0
+                                    ? `${item.valor_unitario_ofertado.toFixed(2).replace('.', ',')}%`
+                                    : "-"}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={item.valor_unitario_ofertado ? item.valor_unitario_ofertado.toFixed(2) : ""}
+                              onChange={(e) => handleUpdateItem(item.id, "valor_unitario_ofertado", parseFloat(e.target.value) || 0)}
+                              disabled={!editavel}
+                              className="w-full"
+                            />
+                          )}
                         </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
+                        {selecao?.processos_compras?.criterio_julgamento !== "desconto" && (
+                          <TableCell className="w-[130px] font-semibold text-center">
+                            {formatarMoeda(item.valor_unitario_ofertado * item.quantidade)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
