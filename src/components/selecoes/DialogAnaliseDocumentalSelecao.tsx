@@ -800,6 +800,22 @@ export function DialogAnaliseDocumentalSelecao({
           .eq("id", recursoParaResponder.inabilitacao_id);
 
         if (revertError) throw revertError;
+        
+        // Limpar negociações abertas com segundo colocado para os itens reabilitados
+        // pois o vencedor original foi reabilitado
+        if (inabilitacao?.itens_afetados) {
+          for (const item of inabilitacao.itens_afetados) {
+            await supabase
+              .from("itens_abertos_lances")
+              .update({
+                em_negociacao: false,
+                fornecedor_negociacao_id: null,
+                negociacao_concluida: true
+              })
+              .eq("selecao_id", selecaoId)
+              .eq("numero_item", item);
+          }
+        }
       }
       
       // Se deferido parcialmente, atualizar os itens afetados removendo os reabilitados
@@ -837,6 +853,19 @@ export function DialogAnaliseDocumentalSelecao({
             .update({ indicativo_lance_vencedor: true })
             .eq("selecao_id", selecaoId)
             .eq("fornecedor_id", inabilitacao.fornecedor_id)
+            .eq("numero_item", item);
+        }
+        
+        // Limpar negociações abertas com segundo colocado para os itens reabilitados
+        for (const item of itensReabilitar) {
+          await supabase
+            .from("itens_abertos_lances")
+            .update({
+              em_negociacao: false,
+              fornecedor_negociacao_id: null,
+              negociacao_concluida: true
+            })
+            .eq("selecao_id", selecaoId)
             .eq("numero_item", item);
         }
       }
