@@ -67,6 +67,7 @@ const ProcessosCompras = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [isGestor, setIsGestor] = useState(false);
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   
   // Estados para contratos
@@ -120,6 +121,15 @@ const ProcessosCompras = () => {
       .maybeSingle();
 
     setIsGestor(!!roleData);
+
+    // Verificar se é responsável legal
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("responsavel_legal")
+      .eq("id", session.user.id)
+      .maybeSingle();
+
+    setIsResponsavelLegal(!!profileData?.responsavel_legal);
     setLoading(false);
   };
 
@@ -418,7 +428,7 @@ const ProcessosCompras = () => {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            {isGestor && (
+                            {isResponsavelLegal && (
                               <Button
                                 variant="ghost"
                                 size="icon"
