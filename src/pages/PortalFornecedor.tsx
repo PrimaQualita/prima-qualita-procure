@@ -540,12 +540,40 @@ export default function PortalFornecedor() {
         return;
       }
 
+      // Pré-carregar a proposta original (ID) por seleção, pois a página de lances usa ?proposta=
+      const selecaoIds = Array.from(
+        new Set(
+          (assinaturasAceitas
+            .map((a: any) => a.atas_selecao?.selecao_id)
+            .filter(Boolean) as string[])
+        )
+      );
+
+      if (selecaoIds.length === 0) {
+        setPropostasRealinhadasPendentes([]);
+        return;
+      }
+
+      const { data: propostasOriginais, error: propostasOriginaisError } = await supabase
+        .from("selecao_propostas_fornecedor")
+        .select("id, selecao_id")
+        .eq("fornecedor_id", fornecedorId)
+        .in("selecao_id", selecaoIds);
+
+      if (propostasOriginaisError) throw propostasOriginaisError;
+
+      const propostaIdPorSelecao = new Map(
+        (propostasOriginais || []).map((p: any) => [p.selecao_id, p.id])
+      );
+
       // Para cada ata assinada, verificar se já enviou proposta realinhada
-      const pendentes = [];
-      
+      const pendentes: any[] = [];
+
       for (const assinatura of assinaturasAceitas) {
         const selecaoId = assinatura.atas_selecao?.selecao_id;
         if (!selecaoId) continue;
+
+        const propostaOriginalId = propostaIdPorSelecao.get(selecaoId) || null;
 
         // Verificar se já existe proposta realinhada para esta seleção
         const { data: propostaExistente } = await supabase
@@ -560,10 +588,15 @@ export default function PortalFornecedor() {
           pendentes.push({
             id: assinatura.id,
             selecao_id: selecaoId,
+            proposta_id: propostaOriginalId,
             data_assinatura: assinatura.data_assinatura,
-            titulo_selecao: assinatura.atas_selecao?.selecoes_fornecedores?.titulo_selecao || "Sem título",
-            numero_selecao: assinatura.atas_selecao?.selecoes_fornecedores?.numero_selecao || "N/A",
-            protocolo_ata: assinatura.atas_selecao?.protocolo
+            titulo_selecao:
+              assinatura.atas_selecao?.selecoes_fornecedores?.titulo_selecao ||
+              "Sem título",
+            numero_selecao:
+              assinatura.atas_selecao?.selecoes_fornecedores?.numero_selecao ||
+              "N/A",
+            protocolo_ata: assinatura.atas_selecao?.protocolo,
           });
         }
       }
@@ -992,7 +1025,17 @@ export default function PortalFornecedor() {
                         </div>
                         <Button
                           size="sm"
-                          onClick={() => navigate(`/sistema-lances-fornecedor?selecao=${pendente.selecao_id}`)}
+                          onClick={() => {
+                            if (!pendente.proposta_id) {
+                              toast.error(
+                                "Não foi possível abrir a página de lances: proposta original não encontrada."
+                              );
+                              return;
+                            }
+                            navigate(
+                              `/sistema-lances-fornecedor?proposta=${pendente.proposta_id}`
+                            );
+                          }}
                           className="bg-purple-600 hover:bg-purple-700"
                         >
                           <Send className="h-4 w-4 mr-1" />
