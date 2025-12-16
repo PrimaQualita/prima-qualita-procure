@@ -193,43 +193,96 @@ export async function gerarPropostaSelecaoPDF(
 
       if (respostasError) throw new Error(`Erro ao buscar respostas: ${respostasError.message}`);
 
-      // Para critério por_lote, criar mapa usando descrição como chave
-      // pois numero_item se repete entre lotes diferentes
-      const respostasMap = new Map<string, any>();
-      
+      // Combinar todos os itens com as respostas do fornecedor
       if (criterioJulgamento === 'por_lote') {
-        // Para por_lote, usar descrição como chave única
-        respostas?.forEach((r: any) => {
-          // Normalizar descrição removendo espaços extras
-          const descNormalizada = r.descricao?.trim().toLowerCase() || '';
-          respostasMap.set(descNormalizada, r);
+        // Para por_lote, ordenar itens por lote e numero_item
+        const itensOrdenadosPorLote = [...todosItens].sort((a: any, b: any) => {
+          const loteA = a.lotes_cotacao?.numero_lote || 0;
+          const loteB = b.lotes_cotacao?.numero_lote || 0;
+          if (loteA !== loteB) return loteA - loteB;
+          return a.numero_item - b.numero_item;
+        });
+
+        // Criar cópia das respostas para marcar as usadas
+        const respostasDisponiveis = [...(respostas || [])];
+        
+        itensFormatados = itensOrdenadosPorLote.map((item: any) => {
+          const loteInfo = item.lotes_cotacao;
+          const descItem = item.descricao?.toLowerCase() || '';
+          
+          // Encontrar melhor correspondência por similaridade de descrição
+          let melhorMatch: any = null;
+          let melhorScore = 0;
+          let melhorIndex = -1;
+          
+          respostasDisponiveis.forEach((r: any, index: number) => {
+            if (!r) return;
+            
+            const descResposta = r.descricao?.toLowerCase() || '';
+            
+            // Calcular score de similaridade
+            let score = 0;
+            
+            // Se descrição da resposta está contida na do item (início)
+            if (descItem.startsWith(descResposta.substring(0, Math.min(30, descResposta.length)))) {
+              score += 100;
+            }
+            
+            // Comparar primeiras palavras
+            const palavrasItem = descItem.split(/\s+/).slice(0, 3);
+            const palavrasResposta = descResposta.split(/\s+/).slice(0, 3);
+            const matchPalavras = palavrasItem.filter((p, i) => 
+              palavrasResposta[i] && p.startsWith(palavrasResposta[i].substring(0, 5))
+            ).length;
+            score += matchPalavras * 30;
+            
+            if (score > melhorScore) {
+              melhorScore = score;
+              melhorMatch = r;
+              melhorIndex = index;
+            }
+          });
+          
+          // Remover resposta usada para evitar duplicação
+          if (melhorIndex >= 0 && melhorScore >= 50) {
+            respostasDisponiveis[melhorIndex] = null;
+          }
+
+          return {
+            numero_item: item.numero_item,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            valor_unitario_ofertado: melhorMatch?.valor_unitario_ofertado || 0,
+            marca: melhorMatch?.marca || null,
+            lote_id: item.lote_id,
+            numero_lote: loteInfo?.numero_lote,
+            descricao_lote: loteInfo?.descricao_lote
+          };
         });
       } else {
+        // Para outros critérios, usar numero_item como chave
+        const respostasMap = new Map<number, any>();
         respostas?.forEach((r: any) => {
-          respostasMap.set(`item-${r.numero_item}`, r);
+          respostasMap.set(r.numero_item, r);
+        });
+
+        itensFormatados = todosItens.map((item: any) => {
+          const loteInfo = item.lotes_cotacao;
+          const resposta = respostasMap.get(item.numero_item);
+          return {
+            numero_item: item.numero_item,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            valor_unitario_ofertado: resposta?.valor_unitario_ofertado || 0,
+            marca: resposta?.marca || null,
+            lote_id: item.lote_id,
+            numero_lote: loteInfo?.numero_lote,
+            descricao_lote: loteInfo?.descricao_lote
+          };
         });
       }
-
-      // Combinar todos os itens com as respostas do fornecedor
-      itensFormatados = todosItens.map((item: any) => {
-        const loteInfo = item.lotes_cotacao;
-        // Para por_lote, usar descrição normalizada como chave
-        const chave = criterioJulgamento === 'por_lote'
-          ? item.descricao?.trim().toLowerCase() || ''
-          : `item-${item.numero_item}`;
-        const resposta = respostasMap.get(chave);
-        return {
-          numero_item: item.numero_item,
-          descricao: item.descricao,
-          quantidade: item.quantidade,
-          unidade: item.unidade,
-          valor_unitario_ofertado: resposta?.valor_unitario_ofertado || 0,
-          marca: resposta?.marca || null,
-          lote_id: item.lote_id,
-          numero_lote: loteInfo?.numero_lote,
-          descricao_lote: loteInfo?.descricao_lote
-        };
-      });
 
       console.log(`✅ ${itensFormatados.length} itens carregados com sucesso`);
     }
