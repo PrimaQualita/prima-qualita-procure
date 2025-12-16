@@ -13,6 +13,12 @@ import { Upload, Download } from "lucide-react";
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 
+interface Lote {
+  id: string;
+  numero_lote: number;
+  descricao_lote: string;
+}
+
 interface DialogImportarPropostaProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,10 +37,12 @@ interface DialogImportarPropostaProps {
     valor_unitario: number;
   }>) => void;
   criterioJulgamento?: string;
+  lotes?: Lote[];
 }
 
 interface ItemPlanilha {
-  'Número do Item': number;
+  'Número do Item'?: number;
+  'Item'?: number | string;
   'Descrição': string;
   'Marca': string;
   'Valor Unitário': number;
@@ -45,7 +53,8 @@ export function DialogImportarProposta({
   onOpenChange, 
   itens,
   onImportSuccess,
-  criterioJulgamento 
+  criterioJulgamento,
+  lotes = []
 }: DialogImportarPropostaProps) {
   const [loading, setLoading] = useState(false);
 
@@ -54,39 +63,180 @@ export function DialogImportarProposta({
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Proposta');
     
-    // Definir colunas
-    worksheet.columns = [
-      { header: 'Número do Item', key: 'numero', width: 15 },
-      { header: 'Descrição', key: 'descricao', width: 50 },
-      { header: 'Marca', key: 'marca', width: 30 },
-      { header: 'Valor Unitário', key: 'valor', width: 15 }
-    ];
+    const isPorLote = criterioJulgamento === 'por_lote';
     
-    // Adicionar dados dos itens
-    itens.forEach(item => {
-      worksheet.addRow({
-        numero: item.numero_item,
-        descricao: item.descricao,
+    // Se for por lote, usar estrutura igual à cotação
+    if (isPorLote && lotes.length > 0) {
+      // Definir colunas
+      worksheet.columns = [
+        { header: 'Item', key: 'item', width: 10 },
+        { header: 'Descrição', key: 'descricao', width: 50 },
+        { header: 'Quantidade', key: 'quantidade', width: 15 },
+        { header: 'Unidade de Medida', key: 'unidade', width: 18 },
+        { header: 'Marca', key: 'marca', width: 20 },
+        { header: 'Valor Unitário', key: 'valorUnitario', width: 20 },
+        { header: 'Valor Total', key: 'valorTotal', width: 20 }
+      ];
+
+      // Estilizar cabeçalho
+      const headerRow = worksheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.protection = { locked: true };
+      });
+
+      lotes.forEach(lote => {
+        // Adicionar linha de título do lote
+        const loteRow = worksheet.addRow({
+          item: `LOTE ${lote.numero_lote}`,
+          descricao: lote.descricao_lote,
+          quantidade: '',
+          unidade: '',
+          marca: '',
+          valorUnitario: '',
+          valorTotal: ''
+        });
+        
+        // Estilizar linha do lote
+        loteRow.eachCell((cell) => {
+          cell.font = { bold: true };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE6E6E6' }
+          };
+          cell.protection = { locked: true };
+        });
+        
+        // Adicionar itens deste lote
+        const itensDoLote = itens.filter(item => item.lote_id === lote.id);
+        const primeiraLinhaItens = worksheet.rowCount + 1;
+        
+        itensDoLote.forEach(item => {
+          const row = worksheet.addRow({
+            item: item.numero_item,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            marca: '',
+            valorUnitario: '',
+            valorTotal: ''
+          });
+
+          // Fórmula para calcular Valor Total (Quantidade * Valor Unitário)
+          const rowNumber = row.number;
+          row.getCell(7).value = { formula: `C${rowNumber}*F${rowNumber}` };
+          
+          // Proteger colunas Item, Descrição, Quantidade, Unidade
+          row.getCell(1).protection = { locked: true };
+          row.getCell(2).protection = { locked: true };
+          row.getCell(3).protection = { locked: true };
+          row.getCell(4).protection = { locked: true };
+          row.getCell(7).protection = { locked: true };
+          // Liberar Marca e Valor Unitário
+          row.getCell(5).protection = { locked: false };
+          row.getCell(6).protection = { locked: false };
+        });
+        
+        const ultimaLinhaItens = worksheet.rowCount;
+        
+        // Adicionar linha de subtotal do lote
+        const subtotalRow = worksheet.addRow({
+          item: '',
+          descricao: '',
+          quantidade: '',
+          unidade: '',
+          marca: '',
+          valorUnitario: `SUBTOTAL LOTE ${lote.numero_lote}:`,
+          valorTotal: ''
+        });
+        
+        // Fórmula para somar valores totais do lote
+        subtotalRow.getCell(7).value = { formula: `SUM(G${primeiraLinhaItens}:G${ultimaLinhaItens})` };
+        
+        // Estilizar linha de subtotal
+        subtotalRow.eachCell((cell) => {
+          cell.font = { bold: true };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFDDEEFF' }
+          };
+          cell.protection = { locked: true };
+        });
+      });
+      
+      // Adicionar linha de total geral
+      const totalGeralRow = worksheet.addRow({
+        item: '',
+        descricao: '',
+        quantidade: '',
+        unidade: '',
         marca: '',
-        valor: ''
+        valorUnitario: 'VALOR TOTAL GERAL:',
+        valorTotal: ''
       });
-    });
-    
-    // IMPORTANTE: Desproteger TODAS as células primeiro
-    worksheet.eachRow((row) => {
-      row.eachCell((cell) => {
-        cell.protection = { locked: false };
+      
+      // Soma de todos os subtotais
+      const linhasSubtotal: number[] = [];
+      worksheet.eachRow((row, rowNumber) => {
+        const cell = row.getCell(6);
+        if (cell.value && typeof cell.value === 'string' && cell.value.toString().includes('SUBTOTAL LOTE')) {
+          linhasSubtotal.push(rowNumber);
+        }
       });
-    });
-    
-    // Agora proteger APENAS as colunas A (1) e B (2)
-    worksheet.getColumn(1).eachCell((cell) => {
-      cell.protection = { locked: true };
-    });
-    
-    worksheet.getColumn(2).eachCell((cell) => {
-      cell.protection = { locked: true };
-    });
+      
+      if (linhasSubtotal.length > 0) {
+        const formulaSubtotais = linhasSubtotal.map(ln => `G${ln}`).join('+');
+        totalGeralRow.getCell(7).value = { formula: formulaSubtotais };
+      }
+      
+      // Estilizar linha de total geral
+      totalGeralRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4CAF50' }
+        };
+        cell.protection = { locked: true };
+      });
+      
+    } else {
+      // Template padrão para outros critérios (sem alteração)
+      worksheet.columns = [
+        { header: 'Número do Item', key: 'numero', width: 15 },
+        { header: 'Descrição', key: 'descricao', width: 50 },
+        { header: 'Marca', key: 'marca', width: 30 },
+        { header: 'Valor Unitário', key: 'valor', width: 15 }
+      ];
+      
+      // Adicionar dados dos itens
+      itens.forEach(item => {
+        worksheet.addRow({
+          numero: item.numero_item,
+          descricao: item.descricao,
+          marca: '',
+          valor: ''
+        });
+      });
+      
+      // IMPORTANTE: Desproteger TODAS as células primeiro
+      worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.protection = { locked: false };
+        });
+      });
+      
+      // Agora proteger APENAS as colunas A (1) e B (2)
+      worksheet.getColumn(1).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+      
+      worksheet.getColumn(2).eachCell((cell) => {
+        cell.protection = { locked: true };
+      });
+    }
     
     // Aplicar proteção na planilha
     await worksheet.protect('', {
@@ -113,7 +263,7 @@ export function DialogImportarProposta({
     link.click();
     window.URL.revokeObjectURL(url);
     
-    toast.success("Template baixado! Apenas 'Número do Item' e 'Descrição' estão bloqueadas.");
+    toast.success("Template baixado! Preencha apenas 'Marca' e 'Valor Unitário'.");
   };
 
   const handleImportarPlanilha = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,17 +283,34 @@ export function DialogImportarProposta({
         return;
       }
 
-      // Validar se existe coluna Número do Item e Descrição
       const primeiraLinha = jsonData[0];
-      if (!('Número do Item' in primeiraLinha) || !('Descrição' in primeiraLinha)) {
+      const isPorLote = criterioJulgamento === 'por_lote';
+      
+      // Validar estrutura da planilha
+      const temFormatoLote = 'Item' in primeiraLinha;
+      const temFormatoPadrao = 'Número do Item' in primeiraLinha;
+      
+      if (!temFormatoLote && !temFormatoPadrao) {
         toast.error("Planilha inválida. Use o template fornecido.");
         setLoading(false);
         return;
       }
 
-      // Processar dados apenas dos itens que foram preenchidos (têm marca ou valor)
+      // Processar dados baseado no formato
       const dadosImportados = jsonData
         .filter(item => {
+          // Pular linhas que são títulos de lote, subtotais ou total geral
+          const itemCol = item['Item'] ?? item['Número do Item'];
+          if (itemCol !== undefined && typeof itemCol === 'string') {
+            const itemStr = String(itemCol).toUpperCase();
+            if (itemStr.startsWith('LOTE') || itemStr === '') return false;
+          }
+          const marcaCol = item['Marca'];
+          if (marcaCol !== undefined && typeof marcaCol === 'string') {
+            const marcaStr = String(marcaCol).toUpperCase();
+            if (marcaStr.includes('SUBTOTAL') || marcaStr.includes('VALOR TOTAL')) return false;
+          }
+          
           // Apenas itens que têm marca OU valor unitário preenchidos
           const temMarca = item['Marca'] && String(item['Marca']).trim() !== '';
           const temValor = item['Valor Unitário'] !== undefined && 
@@ -160,8 +327,11 @@ export function DialogImportarProposta({
             ? valorBase / 100 
             : valorBase;
           
+          // Obter número do item do formato correto
+          const numeroItem = item['Número do Item'] ?? item['Item'];
+          
           return {
-            numero_item: Number(item['Número do Item']),
+            numero_item: Number(numeroItem),
             marca: String(item['Marca'] || '').trim(),
             valor_unitario: valorUnitario
           };
