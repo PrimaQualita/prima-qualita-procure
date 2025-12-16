@@ -560,9 +560,14 @@ export default function RespostasCotacao() {
       await loadRespostas();
       
       // Buscar o arquivo do storage e abrir em nova guia
+      // Extrair caminho relativo se resultado.url contiver URL completa
+      const storagePath = resultado.url.includes('processo-anexos/') 
+        ? resultado.url.split('processo-anexos/').pop() 
+        : resultado.url;
+      
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('processo-anexos')
-        .download(resultado.url);
+        .download(storagePath || resultado.nome);
 
       if (downloadError) throw downloadError;
 
