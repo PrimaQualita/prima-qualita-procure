@@ -10,6 +10,9 @@ interface ItemProposta {
   unidade: string;
   marca: string | null;
   valor_unitario_ofertado: number;
+  lote_id?: string;
+  numero_lote?: number;
+  descricao_lote?: string;
 }
 
 interface DadosFornecedor {
@@ -112,7 +115,7 @@ export async function gerarPropostaSelecaoPDF(
   observacoes: string | null,
   tituloSelecao: string,
   dataEnvioProposta: string,
-  itensAtualizados?: Array<{ numero_item: number; descricao: string; quantidade: number; unidade: string; marca: string | null; valor_unitario_ofertado: number }>,
+  itensAtualizados?: Array<{ numero_item: number; descricao: string; quantidade: number; unidade: string; marca: string | null; valor_unitario_ofertado: number; lote_id?: string; numero_lote?: number; descricao_lote?: string }>,
   criterioJulgamento?: string
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
@@ -138,7 +141,10 @@ export async function gerarPropostaSelecaoPDF(
         quantidade: item.quantidade,
         unidade: item.unidade,
         valor_unitario_ofertado: item.valor_unitario_ofertado || 0,
-        marca: item.marca
+        marca: item.marca,
+        lote_id: item.lote_id,
+        numero_lote: item.numero_lote,
+        descricao_lote: item.descricao_lote
       }));
     } else {
       // Buscar proposta para pegar o selecao_id e cotacao_id
@@ -159,10 +165,17 @@ export async function gerarPropostaSelecaoPDF(
 
       if (selecaoError) throw new Error(`Erro ao buscar seleção: ${selecaoError.message}`);
 
-      // Buscar TODOS os itens da cotação original
+      // Buscar TODOS os itens da cotação original com dados do lote
       const { data: todosItens, error: itensError } = await supabase
         .from('itens_cotacao')
-        .select('*')
+        .select(`
+          *,
+          lotes_cotacao (
+            id,
+            numero_lote,
+            descricao_lote
+          )
+        `)
         .eq('cotacao_id', selecao.cotacao_relacionada_id)
         .order('numero_item');
 
@@ -174,27 +187,46 @@ export async function gerarPropostaSelecaoPDF(
       // Buscar respostas do fornecedor para esta proposta
       const { data: respostas, error: respostasError } = await supabase
         .from('selecao_respostas_itens_fornecedor')
-        .select('numero_item, marca, valor_unitario_ofertado')
+        .select('numero_item, marca, valor_unitario_ofertado, descricao')
         .eq('proposta_id', propostaId);
 
       if (respostasError) throw new Error(`Erro ao buscar respostas: ${respostasError.message}`);
 
-      // Criar mapa de respostas por numero_item
-      const respostasMap = new Map<number, any>();
-      respostas?.forEach(r => {
-        respostasMap.set(r.numero_item, r);
-      });
+      // Para critério por_lote, criar mapa usando descrição como chave
+      // pois numero_item se repete entre lotes diferentes
+      const respostasMap = new Map<string, any>();
+      
+      if (criterioJulgamento === 'por_lote') {
+        // Para por_lote, usar descrição como chave única
+        respostas?.forEach((r: any) => {
+          // Normalizar descrição removendo espaços extras
+          const descNormalizada = r.descricao?.trim().toLowerCase() || '';
+          respostasMap.set(descNormalizada, r);
+        });
+      } else {
+        respostas?.forEach((r: any) => {
+          respostasMap.set(`item-${r.numero_item}`, r);
+        });
+      }
 
       // Combinar todos os itens com as respostas do fornecedor
       itensFormatados = todosItens.map((item: any) => {
-        const resposta = respostasMap.get(item.numero_item);
+        const loteInfo = item.lotes_cotacao;
+        // Para por_lote, usar descrição normalizada como chave
+        const chave = criterioJulgamento === 'por_lote'
+          ? item.descricao?.trim().toLowerCase() || ''
+          : `item-${item.numero_item}`;
+        const resposta = respostasMap.get(chave);
         return {
           numero_item: item.numero_item,
           descricao: item.descricao,
           quantidade: item.quantidade,
           unidade: item.unidade,
           valor_unitario_ofertado: resposta?.valor_unitario_ofertado || 0,
-          marca: resposta?.marca || null
+          marca: resposta?.marca || null,
+          lote_id: item.lote_id,
+          numero_lote: loteInfo?.numero_lote,
+          descricao_lote: loteInfo?.descricao_lote
         };
       });
 
@@ -204,7 +236,18 @@ export async function gerarPropostaSelecaoPDF(
     const doc = new jsPDF();
     const dataEnvio = new Date(dataEnvioProposta).toLocaleString('pt-BR');
     
-    const itensOrdenados = [...itensFormatados].sort((a, b) => a.numero_item - b.numero_item);
+    // Ordenar itens - para por_lote, ordenar por lote e depois por numero_item
+    let itensOrdenados: ItemProposta[];
+    if (criterioJulgamento === 'por_lote') {
+      itensOrdenados = [...itensFormatados].sort((a, b) => {
+        const loteA = a.numero_lote || 0;
+        const loteB = b.numero_lote || 0;
+        if (loteA !== loteB) return loteA - loteB;
+        return a.numero_item - b.numero_item;
+      });
+    } else {
+      itensOrdenados = [...itensFormatados].sort((a, b) => a.numero_item - b.numero_item);
+    }
     
     let y = 20;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -272,6 +315,179 @@ export async function gerarPropostaSelecaoPDF(
     doc.text('ITENS DA PROPOSTA', pageWidth / 2, y, { align: 'center' });
     y += 8;
     doc.setTextColor(0, 0, 0);
+
+    // ============ LÓGICA ESPECÍFICA PARA POR_LOTE ============
+    if (criterioJulgamento === 'por_lote') {
+      // Agrupar itens por lote
+      const lotes = new Map<string, { numero_lote: number; descricao_lote: string; itens: ItemProposta[] }>();
+      
+      itensOrdenados.forEach(item => {
+        const loteId = item.lote_id || 'sem-lote';
+        if (!lotes.has(loteId)) {
+          lotes.set(loteId, {
+            numero_lote: item.numero_lote || 0,
+            descricao_lote: item.descricao_lote || `Lote ${item.numero_lote || 0}`,
+            itens: []
+          });
+        }
+        lotes.get(loteId)!.itens.push(item);
+      });
+
+      // Ordenar lotes por número
+      const lotesOrdenados = Array.from(lotes.values()).sort((a, b) => a.numero_lote - b.numero_lote);
+
+      // Definir colunas para por_lote
+      const colPositions = [
+        margemEsquerda + 12,   // Fim Item
+        margemEsquerda + 77,   // Fim Descrição
+        margemEsquerda + 92,   // Fim Qtd
+        margemEsquerda + 107,  // Fim Unid
+        margemEsquerda + 132,  // Fim Marca
+        margemEsquerda + 157   // Fim Valor Unitário
+      ];
+      
+      const descricaoLargura = colPositions[1] - colPositions[0] - 6;
+      const espacamentoLinhaDescTexto = 4.2;
+
+      // Renderizar cada lote
+      for (const lote of lotesOrdenados) {
+        // Verificar se precisa nova página para o título do lote
+        if (y > 260) {
+          doc.addPage();
+          y = 20;
+        }
+
+        // Título do lote com fundo cinza
+        doc.setFillColor(220, 220, 220);
+        doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text(lote.descricao_lote, margemEsquerda + 2, y);
+        y += 8;
+
+        // Cabeçalho da tabela para este lote
+        doc.setFillColor(30, 159, 204);
+        doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 255, 255);
+
+        const colItemCenter = margemEsquerda + (colPositions[0] - margemEsquerda) / 2;
+        const colDescCenter = colPositions[0] + (colPositions[1] - colPositions[0]) / 2;
+        const colQtdCenter = colPositions[1] + (colPositions[2] - colPositions[1]) / 2;
+        const colUniCenter = colPositions[2] + (colPositions[3] - colPositions[2]) / 2;
+        const colMarcaCenter = colPositions[3] + (colPositions[4] - colPositions[3]) / 2;
+        const colValorUnitCenter = colPositions[4] + (colPositions[5] - colPositions[4]) / 2;
+        const colValorTotalCenter = colPositions[5] + (margemEsquerda + larguraUtil - colPositions[5]) / 2;
+
+        const headerYCenter = y - 1;
+        doc.text('Item', colItemCenter, headerYCenter, { align: 'center' });
+        doc.text('Descrição', colDescCenter, headerYCenter, { align: 'center' });
+        doc.text('Qtd', colQtdCenter, headerYCenter, { align: 'center' });
+        doc.text('Unid', colUniCenter, headerYCenter, { align: 'center' });
+        doc.text('Marca', colMarcaCenter, headerYCenter, { align: 'center' });
+        doc.text('Vlr Unit.', colValorUnitCenter, headerYCenter, { align: 'center' });
+        doc.text('Vlr Total', colValorTotalCenter, headerYCenter, { align: 'center' });
+        y += 5;
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+
+        const tabelaY = y - 10;
+        let subtotalLote = 0;
+
+        // Renderizar itens do lote
+        lote.itens.forEach((item, itemIndex) => {
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+          }
+
+          const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
+          subtotalLote += valorTotalItem;
+
+          const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
+          const alturaLinha = Math.max(6 + ((descLines.length - 1) * espacamentoLinhaDescTexto), 7);
+
+          // Sombra zebra
+          if (itemIndex % 2 === 1) {
+            doc.setFillColor(224, 242, 250);
+            doc.rect(margemEsquerda, y, larguraUtil, alturaLinha, 'F');
+          }
+
+          // Linha horizontal inferior
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.3);
+          doc.line(margemEsquerda, y + alturaLinha, margemEsquerda + larguraUtil, y + alturaLinha);
+
+          // Linhas verticais
+          colPositions.forEach(xPos => {
+            doc.line(xPos, y, xPos, y + alturaLinha);
+          });
+
+          const yVerticalCenter = y + (alturaLinha / 2) + 1;
+          const colDesc = colPositions[0] + 2;
+
+          doc.text(item.numero_item.toString(), colItemCenter, yVerticalCenter, { align: 'center' });
+
+          // Descrição
+          const descricaoYInicio = y + 3.5;
+          descLines.forEach((linha: string, index: number) => {
+            const yLinha = descricaoYInicio + (index * espacamentoLinhaDescTexto);
+            const isUltimaLinha = index === descLines.length - 1;
+            if (yLinha <= y + alturaLinha - 1) {
+              if (isUltimaLinha || descLines.length === 1) {
+                doc.text(linha.trim(), colDesc, yLinha);
+              } else {
+                renderizarTextoJustificado(doc, linha.trim(), colDesc, yLinha, descricaoLargura);
+              }
+            }
+          });
+
+          doc.text(item.quantidade.toString(), colQtdCenter, yVerticalCenter, { align: 'center' });
+          doc.text(sanitizarTexto(item.unidade), colUniCenter, yVerticalCenter, { align: 'center' });
+          doc.text(sanitizarTexto(item.marca || '-'), colMarcaCenter, yVerticalCenter, { align: 'center' });
+
+          const valorUnitRight = colPositions[5] - 2;
+          const valorTotalRight = margemEsquerda + larguraUtil - 2;
+          doc.text(`R$ ${formatarMoeda(item.valor_unitario_ofertado)}`, valorUnitRight, yVerticalCenter, { align: 'right' });
+          doc.text(`R$ ${formatarMoeda(valorTotalItem)}`, valorTotalRight, yVerticalCenter, { align: 'right' });
+
+          y += alturaLinha;
+        });
+
+        // Linha de subtotal do lote
+        doc.setFillColor(240, 240, 240);
+        doc.rect(margemEsquerda, y, larguraUtil, 7, 'F');
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margemEsquerda, y + 7, margemEsquerda + larguraUtil, y + 7);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text(`Subtotal ${lote.descricao_lote}:`, margemEsquerda + 2, y + 5);
+        doc.text(`R$ ${formatarMoeda(subtotalLote)}`, margemEsquerda + larguraUtil - 2, y + 5, { align: 'right' });
+        
+        y += 12;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+      }
+
+      // Valor Total Geral
+      y += 3;
+      doc.setFillColor(30, 159, 204);
+      doc.rect(margemEsquerda, y, larguraUtil, 8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(255, 255, 255);
+      doc.text('VALOR TOTAL DA PROPOSTA:', margemEsquerda + 2, y + 5.5);
+      const valorTexto = `R$ ${formatarMoeda(valorTotal)}`;
+      doc.text(valorTexto, margemEsquerda + larguraUtil - 2, y + 5.5, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+      y += 12;
+
+    } else {
+      // ============ LÓGICA ORIGINAL PARA OUTROS CRITÉRIOS ============
 
     // Desenhar borda externa da tabela (perímetro)
     const tabelaY = y - 5;
@@ -475,6 +691,7 @@ export async function gerarPropostaSelecaoPDF(
       
       y += 12;
     }
+    } // Fim do else (outros critérios)
 
     // Observações
     if (observacoes && observacoes.trim()) {
