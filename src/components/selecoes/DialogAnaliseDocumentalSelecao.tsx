@@ -379,6 +379,7 @@ export function DialogAnaliseDocumentalSelecao({
       // Para cada item, ordenar e pegar o vencedor
       const vencedoresData: any[] = [];
       const isDesconto = selecaoData?.criterios_julgamento === 'desconto';
+      const isPorLote = selecaoData?.criterios_julgamento === 'por_lote';
       
       console.log(`🎯 [ANÁLISE DOC] Critério é desconto?`, isDesconto);
       
@@ -401,7 +402,7 @@ export function DialogAnaliseDocumentalSelecao({
         // Lance de negociação NÃO tem prioridade automática - deve vencer apenas se tiver o melhor valor
         const vencedor = lancesOrdenados[0];
         const tipoVencedor = vencedor.tipo_lance === 'negociacao' ? 'NEGOCIAÇÃO' : 'LANCE';
-        console.log(`🏆 [ANÁLISE DOC] Item ${numeroItem}: Vencedor por ${tipoVencedor} -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
+        console.log(`🏆 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Vencedor por ${tipoVencedor} -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
         
         vencedoresData.push(vencedor);
       });
@@ -548,10 +549,12 @@ export function DialogAnaliseDocumentalSelecao({
         // Para desconto, somar os descontos. Para preço, somar os valores monetários
         if (isDesconto) {
           forn.valorTotal += lance.valor_lance; // Somar desconto percentual
+        } else if (isPorLote) {
+          // Em por_lote, valor_lance já é o subtotal do lote
+          forn.valorTotal += lance.valor_lance;
         } else {
           forn.valorTotal += lance.valor_lance * quantidade; // Somar valor monetário total
         }
-        
       });
 
       // Depois, adicionar itens dos segundos colocados
@@ -575,11 +578,13 @@ export function DialogAnaliseDocumentalSelecao({
           // Para desconto, somar os descontos. Para preço, somar os valores monetários
           if (isDesconto) {
             forn.valorTotal += segundo.valor_lance; // Somar desconto percentual
+          } else if (isPorLote) {
+            // Em por_lote, valor_lance já é o subtotal do lote
+            forn.valorTotal += segundo.valor_lance;
           } else {
             forn.valorTotal += segundo.valor_lance * quantidade; // Somar valor monetário total
           }
         }
-        
       });
 
       // Carregar documentos e campos de cada fornecedor
