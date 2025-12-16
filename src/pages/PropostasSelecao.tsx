@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 import { gerarPropostaSelecaoPDF } from "@/lib/gerarPropostaSelecaoPDF";
+import { gerarPropostaRealinhadaPDF } from "@/lib/gerarPropostaRealinhadaPDF";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -525,6 +526,74 @@ export default function PropostasSelecao() {
     }
   };
 
+  const handleGerarPdfPropostaRealinhada = async (proposta: any) => {
+    try {
+      setGerandoPDF(proposta.id);
+
+      if (!processo) throw new Error("Processo não carregado");
+
+      const protocolo = proposta.protocolo || `PR-${Date.now()}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
+
+      let itens = proposta.propostas_realinhadas_itens || [];
+      if (!itens.length) {
+        const { data, error } = await (supabase as any)
+          .from("propostas_realinhadas_itens")
+          .select("*")
+          .eq("proposta_realinhada_id", proposta.id);
+
+        if (error) throw error;
+        itens = data || [];
+      }
+
+      if (!itens.length) {
+        toast.error("Não há itens para gerar o PDF");
+        return;
+      }
+
+      const { pdfUrl } = await gerarPropostaRealinhadaPDF(
+        itens.map((i: any) => ({
+          numero_item: i.numero_item,
+          numero_lote: i.numero_lote ?? null,
+          descricao: i.descricao,
+          quantidade: i.quantidade,
+          unidade: i.unidade,
+          marca: i.marca ?? null,
+          valor_unitario: i.valor_unitario,
+          valor_total: i.valor_total,
+        })),
+        {
+          razao_social: proposta.fornecedor?.razao_social,
+          cnpj: proposta.fornecedor?.cnpj,
+          email: proposta.fornecedor?.email,
+          endereco_comercial: proposta.fornecedor?.endereco_comercial,
+        },
+        {
+          numero_processo_interno: processo.numero_processo_interno,
+          objeto_resumido: processo.objeto_resumido,
+          criterio_julgamento: processo.criterio_julgamento,
+        },
+        protocolo,
+        proposta.observacoes || undefined
+      );
+
+      const { error: updateError } = await supabase
+        .from("propostas_realinhadas")
+        .update({ url_pdf_proposta: pdfUrl, protocolo })
+        .eq("id", proposta.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("PDF gerado com sucesso!");
+      window.open(pdfUrl, "_blank");
+      await loadPropostasRealinhadas();
+    } catch (error: any) {
+      console.error("Erro ao gerar PDF da proposta realinhada:", error);
+      toast.error(error?.message || "Erro ao gerar PDF");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
   const excluirPropostaRealinhada = async () => {
     if (!propostaRealinhadaParaExcluir) return;
     
@@ -748,14 +817,26 @@ export default function PropostasSelecao() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleVisualizarPropostaRealinhada(proposta)}
+                                disabled={gerandoPDF === proposta.id}
                                 title="Visualizar PDF"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
                             ) : (
-                              <Badge variant="secondary" className="text-xs">
-                                Sem PDF
-                              </Badge>
+                              <>
+                                <Badge variant="secondary" className="text-xs">
+                                  Sem PDF
+                                </Badge>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleGerarPdfPropostaRealinhada(proposta)}
+                                  disabled={gerandoPDF === proposta.id}
+                                  title="Gerar PDF"
+                                >
+                                  <RefreshCw className={`h-4 w-4 ${gerandoPDF === proposta.id ? "animate-spin" : ""}`} />
+                                </Button>
+                              </>
                             )}
                             <Button
                               variant="outline"
