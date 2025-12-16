@@ -13,7 +13,7 @@ interface RespostaVerificada {
   valor_total_anual_ofertado: number;
   data_envio_resposta: string;
   protocolo: string | null;
-  tipo: 'selecao' | 'cotacao' | 'autorizacao';
+  tipo: 'selecao' | 'cotacao' | 'autorizacao' | 'realinhada';
   fornecedor: {
     razao_social: string;
     cnpj: string;
@@ -88,7 +88,49 @@ const VerificarProposta = () => {
         return;
       }
 
-      // Se não encontrou em seleção, tentar cotação
+      // Se não encontrou em seleção, tentar proposta realinhada
+      const { data: realinhadaData } = await supabaseAnon
+        .from("propostas_realinhadas")
+        .select(`
+          id,
+          protocolo,
+          valor_total_proposta,
+          data_envio,
+          fornecedores (
+            razao_social,
+            cnpj
+          ),
+          selecoes_fornecedores (
+            titulo_selecao,
+            processos_compras (
+              numero_processo_interno
+            )
+          )
+        `)
+        .eq("protocolo", protocolo)
+        .maybeSingle();
+
+      if (realinhadaData) {
+        console.log('✅ Proposta realinhada encontrada');
+        setResposta({
+          id: realinhadaData.id,
+          protocolo: realinhadaData.protocolo,
+          tipo: 'realinhada',
+          valor_total_anual_ofertado: realinhadaData.valor_total_proposta,
+          data_envio_resposta: realinhadaData.data_envio,
+          fornecedor: {
+            razao_social: (realinhadaData.fornecedores as any)?.razao_social || "N/A",
+            cnpj: (realinhadaData.fornecedores as any)?.cnpj || "N/A",
+          },
+          processo: {
+            titulo: (realinhadaData.selecoes_fornecedores as any)?.titulo_selecao || "N/A",
+            numero: (realinhadaData.selecoes_fornecedores as any)?.processos_compras?.numero_processo_interno || "N/A",
+          },
+        });
+        return;
+      }
+
+      // Se não encontrou em proposta realinhada, tentar cotação
       const { data: cotacaoData } = await supabaseAnon
         .from("cotacao_respostas_fornecedor")
         .select(`
@@ -225,7 +267,9 @@ const VerificarProposta = () => {
                 <div className="grid gap-3">
                   <div className="flex justify-between items-start py-2 border-b">
                     <span className="text-sm font-medium text-muted-foreground">Tipo de Documento:</span>
-                    <span className="text-sm font-medium">Proposta de Preços</span>
+                    <span className="text-sm font-medium">
+                      {resposta.tipo === 'realinhada' ? 'Proposta Realinhada' : 'Proposta de Preços'}
+                    </span>
                   </div>
 
                   <div className="flex justify-between items-start py-2 border-b">
