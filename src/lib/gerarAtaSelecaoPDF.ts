@@ -1518,42 +1518,28 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+  // Flag para garantir que a atualização seja idempotente (remover termo anterior antes de adicionar novo)
+  let termoRemovido = false;
+
   const stripExistingTermoDeAceite = async (): Promise<number> => {
     try {
-      // Precisamos tornar a atualização idempotente: remover o Termo anterior (se existir)
-      // antes de adicionar o novo, evitando duplicações a cada atualização.
-      const pdfjsLib: any = await import('pdfjs-dist');
+      const { findFirstPageIndexByText } = await import('@/lib/pdf/findFirstPageIndexByText');
 
-      const loadingTask = pdfjsLib.getDocument({
-        data: existingPdfBytes,
-        disableWorker: true,
-      });
+      const firstTermIndex = await findFirstPageIndexByText(
+        existingPdfBytes,
+        'TERMO DE ACEITE E ASSINATURA DIGITAL'
+      );
 
-      const pdf = await loadingTask.promise;
-
-      let termoStartPage: number | null = null;
-      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-        const page = await pdf.getPage(pageNumber);
-        const textContent = await page.getTextContent();
-        const pageText = (textContent.items as any[])
-          .map((it) => (typeof it?.str === 'string' ? it.str : ''))
-          .join(' ');
-
-        if (pageText.includes('TERMO DE ACEITE E ASSINATURA DIGITAL')) {
-          termoStartPage = pageNumber;
-          break;
-        }
-      }
-
-      if (!termoStartPage) {
+      if (firstTermIndex === null) {
+        console.log('>>> Termo de aceite anterior não encontrado; nada para remover.');
         return pdfDoc.getPageCount();
       }
 
-      const firstTermIndex = termoStartPage - 1; // 0-based
       for (let idx = pdfDoc.getPageCount() - 1; idx >= firstTermIndex; idx--) {
         pdfDoc.removePage(idx);
       }
 
+      termoRemovido = true;
       console.log('>>> Termo de aceite anterior removido. Páginas base:', pdfDoc.getPageCount());
       return pdfDoc.getPageCount();
     } catch (e) {
@@ -1565,8 +1551,44 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
     }
   };
 
+
   const basePageCount = await stripExistingTermoDeAceite();
   console.log('PDF carregado, páginas base:', basePageCount);
+
+  // Se o PDF "original" não existir mais (versões antigas deletavam), recriar o original (sem termo)
+  // para que as próximas atualizações sempre partam de uma base limpa.
+  if (sourceStoragePath !== storagePathOriginal && termoRemovido) {
+    try {
+      console.log('>>> Recriando e salvando PDF original (base) para evitar duplicações futuras...');
+
+      const baseBytes = await pdfDoc.save();
+      const baseBlob = new Blob([new Uint8Array(baseBytes)], { type: 'application/pdf' });
+
+      const { error: uploadBaseError } = await supabase.storage
+        .from('processo-anexos')
+        .upload(storagePathOriginal, baseBlob, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (uploadBaseError) {
+        console.warn('Aviso: não foi possível recriar o PDF original:', uploadBaseError);
+      } else {
+        const { data: { publicUrl: basePublicUrl } } = supabase.storage
+          .from('processo-anexos')
+          .getPublicUrl(storagePathOriginal);
+
+        await supabase
+          .from('atas_selecao')
+          .update({ url_arquivo_original: basePublicUrl })
+          .eq('id', ataId);
+
+        console.log('>>> PDF original recriado com sucesso:', storagePathOriginal);
+      }
+    } catch (e) {
+      console.warn('Aviso: falha ao recriar PDF original:', e);
+    }
+  }
 
   // CRIAR NOVA PÁGINA para o termo de aceite (certificação ocupa final da última página)
   console.log('>>> CRIANDO NOVA PÁGINA DEDICADA para termo de aceite');
