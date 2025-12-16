@@ -1208,7 +1208,56 @@ const [itens, setItens] = useState<Item[]>([]);
                       Nenhum item encontrado
                     </TableCell>
                   </TableRow>
+                ) : processo?.criterio_julgamento === "por_lote" && lotes.length > 0 ? (
+                  /* Renderização agrupada por lotes */
+                  <>
+                    {lotes.map((lote) => (
+                      <>
+                        {/* Linha de título do lote */}
+                        <TableRow key={`lote-${lote.id}`} className="bg-muted/50">
+                          <TableCell 
+                            colSpan={processo?.tipo === "material" ? 7 : 6} 
+                            className="font-bold text-primary"
+                          >
+                            Lote {lote.numero_lote}: {lote.descricao_lote}
+                          </TableCell>
+                        </TableRow>
+                        {/* Itens do lote */}
+                        {lote.itens.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>{item.numero_item}</TableCell>
+                            <TableCell>{item.descricao}</TableCell>
+                            <TableCell>{item.quantidade}</TableCell>
+                            <TableCell>{item.unidade}</TableCell>
+                            {processo?.tipo === "material" && <TableCell>{item.marca || "-"}</TableCell>}
+                            <TableCell className="text-right">{formatCurrency(item.valor_unitario_estimado)}</TableCell>
+                            <TableCell className="text-right font-medium">{formatCurrency(item.valor_total)}</TableCell>
+                          </TableRow>
+                        ))}
+                        {/* Subtotal do lote */}
+                        <TableRow className="bg-muted/30 border-b-2">
+                          <TableCell 
+                            colSpan={processo?.tipo === "material" ? 6 : 5} 
+                            className="text-right font-semibold"
+                          >
+                            Subtotal Lote {lote.numero_lote}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatCurrency(lote.valor_total_lote)}
+                          </TableCell>
+                        </TableRow>
+                      </>
+                    ))}
+                    {/* Valor Total Geral */}
+                    <TableRow className="bg-muted font-bold">
+                      <TableCell colSpan={processo?.tipo === "material" ? 6 : 5} className="text-right">
+                        VALOR TOTAL GERAL
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(valorTotal)}</TableCell>
+                    </TableRow>
+                  </>
                 ) : (
+                  /* Renderização padrão (outros critérios) */
                   <>
                     {itens.map((item) => (
                       <TableRow key={item.id}>
