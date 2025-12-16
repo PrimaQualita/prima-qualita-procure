@@ -422,7 +422,6 @@ const PropostaRealinhada = () => {
     setSubmitting(true);
     try {
       const valorTotal = calcularValorTotal();
-      const protocolo = `PR-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
       // Preparar itens para PDF
       const itensParaPDF = itensVencedores.map((item) => ({
@@ -436,8 +435,8 @@ const PropostaRealinhada = () => {
         marca: respostas[item.numero_item].marca || null,
       }));
 
-      // Gerar PDF
-      const { pdfUrl } = await gerarPropostaRealinhadaPDF(
+      // Gerar PDF (protocolo é gerado internamente)
+      const { pdfUrl, protocolo } = await gerarPropostaRealinhadaPDF(
         itensParaPDF,
         {
           razao_social: fornecedor.razao_social,
@@ -450,7 +449,6 @@ const PropostaRealinhada = () => {
           objeto_resumido: processo.objeto_resumido,
           criterio_julgamento: criterioJulgamento,
         },
-        protocolo,
         observacoes
       );
 

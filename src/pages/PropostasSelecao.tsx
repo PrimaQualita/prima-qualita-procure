@@ -542,8 +542,6 @@ export default function PropostasSelecao() {
 
       if (!processo) throw new Error("Processo não carregado");
 
-      const protocolo = proposta.protocolo || `PR-${Date.now()}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
-
       let itens = proposta.propostas_realinhadas_itens || [];
       if (!itens.length) {
         const { data, error } = await (supabase as any)
@@ -560,7 +558,8 @@ export default function PropostasSelecao() {
         return;
       }
 
-      const { pdfUrl } = await gerarPropostaRealinhadaPDF(
+      // Gerar PDF (protocolo é gerado internamente)
+      const { pdfUrl, protocolo } = await gerarPropostaRealinhadaPDF(
         itens.map((i: any) => ({
           numero_item: i.numero_item,
           numero_lote: i.numero_lote ?? null,
@@ -582,7 +581,6 @@ export default function PropostasSelecao() {
           objeto_resumido: processo.objeto_resumido,
           criterio_julgamento: processo.criterio_julgamento,
         },
-        protocolo,
         proposta.observacoes || undefined
       );
 
