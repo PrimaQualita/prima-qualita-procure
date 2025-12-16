@@ -77,6 +77,35 @@ const sanitizarTexto = (texto: string): string => {
     .trim();
 };
 
+const desenharLinhasJustificadas = (
+  doc: jsPDF,
+  linhas: string[],
+  x: number,
+  y: number,
+  largura: number,
+  lineHeight: number
+) => {
+  linhas.forEach((linha, idx) => {
+    const yLinha = y + idx * lineHeight;
+    const palavras = linha.trim().split(/\s+/).filter(Boolean);
+    const isUltimaLinha = idx === linhas.length - 1;
+
+    if (!isUltimaLinha && palavras.length > 1) {
+      const larguraTexto = palavras.reduce((acc, p) => acc + doc.getTextWidth(p), 0);
+      const espacoTotal = Math.max(0, largura - larguraTexto);
+      const espacoPorPalavra = espacoTotal / (palavras.length - 1);
+
+      let xAtual = x;
+      palavras.forEach((p, i) => {
+        doc.text(p, xAtual, yLinha);
+        if (i < palavras.length - 1) xAtual += doc.getTextWidth(p) + espacoPorPalavra;
+      });
+    } else {
+      doc.text(linha, x, yLinha);
+    }
+  });
+};
+
 export const gerarPropostaRealinhadaPDF = async (
   itens: ItemPropostaRealinhada[],
   fornecedor: DadosFornecedor,
@@ -110,30 +139,43 @@ export const gerarPropostaRealinhadaPDF = async (
   yPos = 45;
   doc.setTextColor(0, 0, 0);
 
-  // Dados do Processo - objeto sanitizado e com quebra de linha
+  // Dados do Processo - objeto sanitizado, completo e justificado
   const objetoSanitizado = sanitizarTexto(processo.objeto_resumido);
-  const objetoLinhas = doc.splitTextToSize(objetoSanitizado, pageWidth - margin * 2 - 10);
-  const alturaObjeto = Math.min(objetoLinhas.length * 5, 25); // Máximo 5 linhas
 
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin, yPos, pageWidth - margin * 2, 18 + alturaObjeto, 'F');
-  
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('DADOS DO PROCESSO', margin + 5, yPos + 6);
-  
+  const larguraBox = pageWidth - margin * 2;
+  const paddingBox = 5;
+  const xBox = margin;
+  const yBox = yPos;
+
+  const xLabel = xBox + paddingBox;
+  const xTextoObjeto = xBox + 20;
+  const larguraObjeto = xBox + larguraBox - paddingBox - xTextoObjeto;
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Processo: ${processo.numero_processo_interno}`, margin + 5, yPos + 13);
-  doc.text('Objeto:', margin + 5, yPos + 19);
-  
-  // Renderizar objeto com múltiplas linhas
-  const objetoExibir = objetoLinhas.slice(0, 4); // Máximo 4 linhas
-  objetoExibir.forEach((linha: string, idx: number) => {
-    doc.text(linha, margin + 20, yPos + 19 + (idx * 5));
-  });
-  
-  yPos += 25 + alturaObjeto;
+
+  const objetoLinhas = doc.splitTextToSize(objetoSanitizado, larguraObjeto) as string[];
+  const lineHeightObjeto = 4.2;
+
+  const alturaBox = 22 + objetoLinhas.length * lineHeightObjeto;
+
+  doc.setFillColor(240, 240, 240);
+  doc.rect(xBox, yBox, larguraBox, alturaBox, 'F');
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DADOS DO PROCESSO', xLabel, yBox + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(`Processo: ${processo.numero_processo_interno}`, xLabel, yBox + 13);
+  doc.text('Objeto:', xLabel, yBox + 19);
+
+  // Renderizar objeto (justificado e completo)
+  doc.setTextColor(0, 0, 0);
+  desenharLinhasJustificadas(doc, objetoLinhas, xTextoObjeto, yBox + 19, larguraObjeto, lineHeightObjeto);
+
+  yPos += alturaBox + 7;
 
   // Dados do Fornecedor
   doc.setFillColor(240, 240, 240);
@@ -266,67 +308,58 @@ export const gerarPropostaRealinhadaPDF = async (
     rowPageBreak: 'auto',
     didDrawCell: function(data) {
       // Renderizar descrição justificada (coluna 1, body rows)
-      if (data.section === 'body' && data.column.index === 1 && data.cell.text && data.cell.text.length > 0) {
-        const cellText = data.cell.text.join(' ');
-        if (cellText && !cellText.startsWith('LOTE') && !cellText.startsWith('SUBTOTAL') && !cellText.startsWith('VALOR TOTAL')) {
-          // Limpar texto original
-          const cell = data.cell;
-          const x = cell.x + 2;
-          const y = cell.y + 2;
-          const maxWidth = cell.width - 4;
-          const lineHeight = 4;
-          
-          // Quebrar texto em linhas
-          const palavras = cellText.split(' ');
-          const linhas: string[] = [];
-          let linhaAtual = '';
-          
-          doc.setFontSize(8);
-          palavras.forEach(palavra => {
-            const testeLinha = linhaAtual ? `${linhaAtual} ${palavra}` : palavra;
-            const largura = doc.getTextWidth(testeLinha);
-            if (largura < maxWidth) {
-              linhaAtual = testeLinha;
-            } else {
-              if (linhaAtual) linhas.push(linhaAtual);
-              linhaAtual = palavra;
-            }
-          });
-          if (linhaAtual) linhas.push(linhaAtual);
-          
-          // Calcular posição Y centralizada
-          const alturaTexto = linhas.length * lineHeight;
-          const yInicio = cell.y + (cell.height - alturaTexto) / 2 + lineHeight;
-          
-          // Desenhar cada linha justificada
-          doc.setFillColor(255, 255, 255);
-          doc.rect(cell.x + 1, cell.y + 1, cell.width - 2, cell.height - 2, 'F');
-          
-          doc.setTextColor(0, 0, 0);
-          doc.setFont('helvetica', 'normal');
-          
-          linhas.forEach((linha, idx) => {
-            const yLinha = yInicio + (idx * lineHeight);
-            if (yLinha < cell.y + cell.height - 2) {
-              // Justificar: distribuir espaços entre palavras
-              const palavrasLinha = linha.split(' ');
-              if (palavrasLinha.length > 1 && idx < linhas.length - 1) {
-                const larguraTexto = doc.getTextWidth(linha.replace(/ /g, ''));
-                const espacoTotal = maxWidth - larguraTexto;
-                const espacoPorPalavra = espacoTotal / (palavrasLinha.length - 1);
-                
-                let xAtual = x;
-                palavrasLinha.forEach((p, i) => {
-                  doc.text(p, xAtual, yLinha);
-                  xAtual += doc.getTextWidth(p) + espacoPorPalavra;
-                });
-              } else {
-                doc.text(linha, x, yLinha);
-              }
-            }
-          });
-        }
+      if (data.section !== 'body' || data.column.index !== 1) return;
+
+      const cell = data.cell;
+      const lines = (cell.text || []).map((t) => String(t));
+      const fullText = lines.join(' ').trim();
+      if (!fullText) return;
+
+      // Segurança extra: ignorar linhas especiais (quando aplicável)
+      if (/^(LOTE\s+\d+|SUBTOTAL|VALOR TOTAL)/i.test(fullText)) return;
+
+      const paddingX = 2;
+      const paddingY = 2;
+      const maxWidth = cell.width - paddingX * 2;
+      const lineHeight = 4;
+
+      // Pintar fundo para "apagar" o texto padrão do autoTable
+      const fill = (cell.styles as any)?.fillColor;
+      if (Array.isArray(fill) && fill.length >= 3) {
+        doc.setFillColor(fill[0], fill[1], fill[2]);
+      } else {
+        doc.setFillColor(255, 255, 255);
       }
+      doc.rect(cell.x + 0.2, cell.y + 0.2, cell.width - 0.4, cell.height - 0.4, 'F');
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+
+      const totalHeight = lines.length * lineHeight;
+      const yStart = cell.y + (cell.height - totalHeight) / 2 + lineHeight * 0.75;
+
+      lines.forEach((line, idx) => {
+        const y = yStart + idx * lineHeight;
+        if (y > cell.y + cell.height - paddingY) return;
+
+        const words = line.trim().split(/\s+/).filter(Boolean);
+        const isLast = idx === lines.length - 1;
+
+        if (!isLast && words.length > 1) {
+          const textWidth = words.reduce((acc, w) => acc + doc.getTextWidth(w), 0);
+          const extraSpace = Math.max(0, maxWidth - textWidth);
+          const space = extraSpace / (words.length - 1);
+
+          let xCursor = cell.x + paddingX;
+          words.forEach((w, i) => {
+            doc.text(w, xCursor, y);
+            if (i < words.length - 1) xCursor += doc.getTextWidth(w) + space;
+          });
+        } else {
+          doc.text(line, cell.x + paddingX, y);
+        }
+      });
     }
   });
 
