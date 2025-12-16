@@ -109,7 +109,7 @@ export async function gerarPropostaHTML(
           <td>${item.descricao}</td>
           <td style="text-align: center;">${formatarMoeda(item.quantidade)}</td>
           <td style="text-align: center;">${item.unidade}</td>
-          <td style="text-align: center;">${item.marca_ofertada || '-'}</td>
+          <td style="text-align: center;">${item.marca_ofertada || ''}</td>
           <td class="text-right">${formatarMoeda(item.valor_unitario_ofertado)}</td>
           <td class="text-right">${formatarMoeda(valorItemTotal)}</td>
         </tr>`;
