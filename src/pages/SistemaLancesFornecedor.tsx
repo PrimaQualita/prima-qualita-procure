@@ -1294,9 +1294,11 @@ const SistemaLancesFornecedor = () => {
         }
       }
 
+      const isPorLote = selecao?.processos_compras?.criterio_julgamento === "por_lote";
+      const tipoLabel = isPorLote ? "Lote" : "Item";
       toast.success(isNegociacao 
-        ? `Proposta de negociação enviada para o Item ${numeroItem}!` 
-        : `Lance enviado para o Item ${numeroItem}!`
+        ? `Proposta de negociação enviada para o ${tipoLabel} ${numeroItem}!` 
+        : `Lance enviado para o ${tipoLabel} ${numeroItem}!`
       );
       setValoresLances(prev => {
         const novo = new Map(prev);
@@ -1335,7 +1337,8 @@ const SistemaLancesFornecedor = () => {
         throw new Error(result?.error || 'Erro ao fechar negociação');
       }
 
-      toast.success(`Negociação do Item ${numeroItem} recusada e encerrada`);
+      const isPorLote = selecao?.processos_compras?.criterio_julgamento === "por_lote";
+      toast.success(`Negociação do ${isPorLote ? "Lote" : "Item"} ${numeroItem} recusada e encerrada`);
       setItemSelecionado(null);
       loadItensAbertos();
     } catch (error) {
@@ -2105,7 +2108,7 @@ const SistemaLancesFornecedor = () => {
                   Sistema de Lances em Tempo Real
                 </CardTitle>
                 <CardDescription>
-                  Acompanhe os lances e envie suas ofertas para os itens abertos
+                  Acompanhe os lances e envie suas ofertas para os {selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "lotes abertos" : "itens abertos"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2113,8 +2116,8 @@ const SistemaLancesFornecedor = () => {
                 {itensAbertos.size === 0 && itensEmNegociacao.size === 0 ? (
                   <div className="text-center py-8 text-muted-foreground border rounded-lg">
                     <Lock className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm font-medium">Nenhum item aberto para lances</p>
-                    <p className="text-xs mt-1">Aguarde o gestor abrir os itens</p>
+                    <p className="text-sm font-medium">Nenhum {selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "lote aberto" : "item aberto"} para lances</p>
+                    <p className="text-xs mt-1">Aguarde o gestor abrir os {selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "lotes" : "itens"}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -2153,7 +2156,7 @@ const SistemaLancesFornecedor = () => {
                               ) : (
                                 <Unlock className="h-3.5 w-3.5 text-primary" />
                               )}
-                              <span className="font-semibold text-sm">Item {numeroItem}</span>
+                              <span className="font-semibold text-sm">{selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "Lote" : "Item"} {numeroItem}</span>
                             </div>
                             {emFechamento && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-400 text-orange-600 bg-orange-100">
@@ -2170,7 +2173,7 @@ const SistemaLancesFornecedor = () => {
                           {/* Status de participação */}
                           {!podeParticipar ? (
                             <div className="text-center py-2 px-1 bg-muted/50 rounded text-[11px] text-muted-foreground">
-                              Sem proposta neste item
+                              Sem proposta neste {selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "lote" : "item"}
                             </div>
                           ) : desclassificado ? (
                             <div className="text-center py-2 px-1 bg-red-50 rounded space-y-1">
@@ -2328,13 +2331,13 @@ const SistemaLancesFornecedor = () => {
                   <div className="mt-6 pt-4 border-t">
                     <div className="flex items-center gap-2 mb-3">
                       <Trophy className="h-5 w-5 text-green-600" />
-                      <h3 className="font-semibold text-green-700">Itens Fechados - Resultado</h3>
+                      <h3 className="font-semibold text-green-700">{selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "Lotes Fechados" : "Itens Fechados"} - Resultado</h3>
                     </div>
                     
                     {getItensVencidosPeloFornecedor().length > 0 ? (
                       <div className="space-y-2">
                         <p className="text-sm text-green-600 mb-3">
-                          Parabéns! Você venceu {getItensVencidosPeloFornecedor().length} item(ns):
+                          Parabéns! Você venceu {getItensVencidosPeloFornecedor().length} {selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "lote(s)" : "item(ns)"}:
                         </p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                           {getItensVencidosPeloFornecedor().map((numeroItem) => {
@@ -2349,7 +2352,7 @@ const SistemaLancesFornecedor = () => {
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-1.5">
                                     <Trophy className="h-3.5 w-3.5 text-green-600" />
-                                    <span className="font-semibold text-sm text-green-700">Item {numeroItem}</span>
+                                    <span className="font-semibold text-sm text-green-700">{selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "Lote" : "Item"} {numeroItem}</span>
                                   </div>
                                   <Badge className="text-[10px] px-1.5 py-0 bg-green-600">
                                     Vencedor
@@ -2390,7 +2393,7 @@ const SistemaLancesFornecedor = () => {
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-1.5">
                                   <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                                  <span className="font-semibold text-sm text-muted-foreground">Item {numeroItem}</span>
+                                  <span className="font-semibold text-sm text-muted-foreground">{selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "Lote" : "Item"} {numeroItem}</span>
                                 </div>
                                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                                   Fechado
