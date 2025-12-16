@@ -18,6 +18,17 @@ import { Badge } from "@/components/ui/badge";
 interface Item {
   numero_item: number;
   descricao: string;
+  lote_id?: string;
+  quantidade?: number;
+  valor_unitario_estimado?: number;
+}
+
+interface Lote {
+  id: string;
+  numero_lote: number;
+  descricao_lote: string;
+  itens: Item[];
+  valor_total_lote: number;
 }
 
 interface DialogControleItensLancesProps {
@@ -25,6 +36,8 @@ interface DialogControleItensLancesProps {
   onOpenChange: (open: boolean) => void;
   selecaoId: string;
   itens: Item[];
+  lotes?: Lote[];
+  criterioJulgamento?: string;
   onVencedoresAtualizados?: () => void;
 }
 
@@ -33,15 +46,27 @@ export function DialogControleItensLances({
   onOpenChange,
   selecaoId,
   itens,
+  lotes = [],
+  criterioJulgamento = "",
 }: DialogControleItensLancesProps) {
-  console.log("🎯 COMPONENT RENDER: DialogControleItensLances renderizando - open:", open, "selecaoId:", selecaoId, "itens:", itens?.length);
+  const isPorLote = criterioJulgamento === "por_lote";
+  console.log("🎯 COMPONENT RENDER: DialogControleItensLances renderizando - open:", open, "selecaoId:", selecaoId, "itens:", itens?.length, "lotes:", lotes?.length, "isPorLote:", isPorLote);
   
+  // Estados para ITENS (critério por_item, global, desconto)
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
-  const [salvando, setSalvando] = useState(false);
   const [itensSelecionados, setItensSelecionados] = useState<Set<number>>(new Set());
-  const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map()); // Map<numeroItem, fornecedorId>
-  const [itensNegociacaoConcluida, setItensNegociacaoConcluida] = useState<Set<number>>(new Set()); // Itens que já foram negociados
+  const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map());
+  const [itensNegociacaoConcluida, setItensNegociacaoConcluida] = useState<Set<number>>(new Set());
   const [vencedoresPorItem, setVencedoresPorItem] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
+  
+  // Estados para LOTES (critério por_lote)
+  const [lotesAbertos, setLotesAbertos] = useState<Set<number>>(new Set());
+  const [lotesSelecionados, setLotesSelecionados] = useState<Set<number>>(new Set());
+  const [lotesEmNegociacao, setLotesEmNegociacao] = useState<Map<number, string>>(new Map());
+  const [lotesNegociacaoConcluida, setLotesNegociacaoConcluida] = useState<Set<number>>(new Set());
+  const [vencedoresPorLote, setVencedoresPorLote] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
+  
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     console.log("🔧 USEEFFECT: Executado - open:", open, "selecaoId:", selecaoId);
@@ -233,25 +258,33 @@ export function DialogControleItensLances({
       if (error) throw error;
 
       const abertos = new Set(data?.filter((item) => item.aberto).map((item) => item.numero_item) || []);
-      setItensAbertos(abertos);
-
-      // Mapear itens em negociação
+      
+      // Mapear itens/lotes em negociação
       const emNegociacao = new Map<number, string>();
       data?.forEach((item) => {
         if (item.em_negociacao && item.fornecedor_negociacao_id) {
           emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
         }
       });
-      setItensEmNegociacao(emNegociacao);
 
-      // Mapear itens com negociação concluída ou marcados como "não negociar"
+      // Mapear itens/lotes com negociação concluída ou marcados como "não negociar"
       const concluidos = new Set<number>();
       data?.forEach((item) => {
         if (item.negociacao_concluida || item.nao_negociar) {
           concluidos.add(item.numero_item);
         }
       });
-      setItensNegociacaoConcluida(concluidos);
+
+      // Atualizar estados apropriados baseado no critério
+      if (isPorLote) {
+        setLotesAbertos(abertos);
+        setLotesEmNegociacao(emNegociacao);
+        setLotesNegociacaoConcluida(concluidos);
+      } else {
+        setItensAbertos(abertos);
+        setItensEmNegociacao(emNegociacao);
+        setItensNegociacaoConcluida(concluidos);
+      }
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }
@@ -366,6 +399,7 @@ export function DialogControleItensLances({
     }
   };
 
+  // === FUNÇÕES PARA ITENS (critérios por_item, global, desconto) ===
   const handleToggleItem = (numeroItem: number) => {
     const novos = new Set(itensSelecionados);
     if (novos.has(numeroItem)) {
@@ -377,11 +411,144 @@ export function DialogControleItensLances({
   };
 
   const handleSelecionarTodos = () => {
-    setItensSelecionados(new Set(itens.map((item) => item.numero_item)));
+    if (isPorLote) {
+      setLotesSelecionados(new Set(lotes.map((lote) => lote.numero_lote)));
+    } else {
+      setItensSelecionados(new Set(itens.map((item) => item.numero_item)));
+    }
   };
 
   const handleLimparSelecao = () => {
-    setItensSelecionados(new Set());
+    if (isPorLote) {
+      setLotesSelecionados(new Set());
+    } else {
+      setItensSelecionados(new Set());
+    }
+  };
+
+  // === FUNÇÕES PARA LOTES (critério por_lote) ===
+  const handleToggleLote = (numeroLote: number) => {
+    const novos = new Set(lotesSelecionados);
+    if (novos.has(numeroLote)) {
+      novos.delete(numeroLote);
+    } else {
+      novos.add(numeroLote);
+    }
+    setLotesSelecionados(novos);
+  };
+
+  const handleAbrirLotes = async () => {
+    if (lotesSelecionados.size === 0) {
+      toast.error("Selecione pelo menos um lote");
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      // Verificar quais lotes já existem (usando numero_item = numero_lote para lotes)
+      const { data: existentes } = await supabase
+        .from("itens_abertos_lances")
+        .select("numero_item")
+        .eq("selecao_id", selecaoId)
+        .in("numero_item", Array.from(lotesSelecionados));
+
+      const numerosExistentes = new Set(existentes?.map(e => e.numero_item) || []);
+
+      // Atualizar lotes existentes
+      if (numerosExistentes.size > 0) {
+        await supabase
+          .from("itens_abertos_lances")
+          .update({ 
+            aberto: true, 
+            data_fechamento: null,
+            iniciando_fechamento: false,
+            data_inicio_fechamento: null,
+            segundos_para_fechar: null,
+            em_negociacao: false,
+            fornecedor_negociacao_id: null,
+            negociacao_concluida: false,
+            nao_negociar: false
+          })
+          .eq("selecao_id", selecaoId)
+          .in("numero_item", Array.from(numerosExistentes));
+      }
+
+      // Inserir novos lotes
+      const novosLotes = Array.from(lotesSelecionados)
+        .filter(num => !numerosExistentes.has(num))
+        .map(numeroLote => ({
+          selecao_id: selecaoId,
+          numero_item: numeroLote, // Para lotes, usamos numero_item como numero_lote
+          aberto: true,
+        }));
+
+      if (novosLotes.length > 0) {
+        const { error } = await supabase
+          .from("itens_abertos_lances")
+          .insert(novosLotes);
+
+        if (error) throw error;
+      }
+
+      toast.success(`${lotesSelecionados.size} lote(s) aberto(s) para lances`);
+      await loadItensAbertos();
+      setLotesSelecionados(new Set());
+    } catch (error) {
+      console.error("Erro ao abrir lotes:", error);
+      toast.error("Erro ao abrir lotes para lances");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleFecharLotes = async () => {
+    if (lotesSelecionados.size === 0) {
+      toast.error("Selecione pelo menos um lote");
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      const TEMPO_FECHAMENTO = 120; // 2 minutos
+      
+      const updates = Array.from(lotesSelecionados).map(async (numeroLote) => {
+        return supabase
+          .from("itens_abertos_lances")
+          .update({
+            iniciando_fechamento: true,
+            data_inicio_fechamento: new Date().toISOString(),
+            segundos_para_fechar: TEMPO_FECHAMENTO,
+          })
+          .eq("selecao_id", selecaoId)
+          .eq("numero_item", numeroLote);
+      });
+
+      await Promise.all(updates);
+
+      // Agendar fechamento automático após 2 minutos
+      Array.from(lotesSelecionados).forEach(async (numeroLote) => {
+        setTimeout(async () => {
+          await supabase
+            .from("itens_abertos_lances")
+            .update({ 
+              aberto: false, 
+              data_fechamento: new Date().toISOString(),
+              iniciando_fechamento: false
+            })
+            .eq("selecao_id", selecaoId)
+            .eq("numero_item", numeroLote);
+        }, TEMPO_FECHAMENTO * 1000);
+      });
+
+      toast.success(`${lotesSelecionados.size} lote(s) entrando em processo de fechamento (2 minutos)`);
+      await loadItensAbertos();
+      setLotesSelecionados(new Set());
+    } catch (error) {
+      console.error("Erro ao iniciar fechamento de lotes:", error);
+      toast.error("Erro ao fechar lotes");
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleAbrirItens = async () => {
@@ -763,10 +930,12 @@ export function DialogControleItensLances({
             <ChatSelecao selecaoId={selecaoId} />
           </div>
 
-          {/* Controle de Itens */}
+          {/* Controle de Itens/Lotes */}
           <div>
             <div className="border rounded-lg p-4">
-              <h3 className="font-semibold mb-4">Selecionar Itens para Lances</h3>
+              <h3 className="font-semibold mb-4">
+                {isPorLote ? "Selecionar Lotes para Lances" : "Selecionar Itens para Lances"}
+              </h3>
               
               <div className="flex gap-2 mb-4">
                 <Button
@@ -787,63 +956,111 @@ export function DialogControleItensLances({
 
               <ScrollArea className="h-[300px] pr-4">
                 <div className="space-y-2">
-                  {itens.map((item) => {
-                    const estaAberto = itensAbertos.has(item.numero_item);
-                    const estaSelecionado = itensSelecionados.has(item.numero_item);
+                  {isPorLote ? (
+                    // === RENDERIZAÇÃO POR LOTES ===
+                    lotes.map((lote) => {
+                      const estaAberto = lotesAbertos.has(lote.numero_lote);
+                      const estaSelecionado = lotesSelecionados.has(lote.numero_lote);
 
-                    return (
-                      <div
-                        key={item.numero_item}
-                        className={`flex items-start gap-3 p-3 rounded-lg border ${
-                          estaAberto ? "bg-green-50 border-green-300" : "bg-background"
-                        }`}
-                      >
-                        <Checkbox
-                          id={`item-${item.numero_item}`}
-                          checked={estaSelecionado}
-                          onCheckedChange={() => handleToggleItem(item.numero_item)}
-                        />
-                        <div className="flex-1">
-                          <Label
-                            htmlFor={`item-${item.numero_item}`}
-                            className="cursor-pointer"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">Item {item.numero_item}</span>
-                              {estaAberto ? (
-                                <Unlock className="h-3 w-3 text-green-600" />
-                              ) : (
-                                <Lock className="h-3 w-3 text-muted-foreground" />
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {item.descricao}
-                            </p>
-                          </Label>
+                      return (
+                        <div
+                          key={lote.numero_lote}
+                          className={`flex items-start gap-3 p-3 rounded-lg border ${
+                            estaAberto ? "bg-green-50 border-green-300" : "bg-background"
+                          }`}
+                        >
+                          <Checkbox
+                            id={`lote-${lote.numero_lote}`}
+                            checked={estaSelecionado}
+                            onCheckedChange={() => handleToggleLote(lote.numero_lote)}
+                          />
+                          <div className="flex-1">
+                            <Label
+                              htmlFor={`lote-${lote.numero_lote}`}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold">Lote {lote.numero_lote}</span>
+                                {estaAberto ? (
+                                  <Unlock className="h-3 w-3 text-green-600" />
+                                ) : (
+                                  <Lock className="h-3 w-3 text-muted-foreground" />
+                                )}
+                                <Badge variant="outline" className="text-xs">
+                                  {lote.itens?.length || 0} itens
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {lote.descricao_lote}
+                              </p>
+                              <p className="text-sm font-medium text-primary mt-1">
+                                Valor Total: {formatCurrency(lote.valor_total_lote)}
+                              </p>
+                            </Label>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  ) : (
+                    // === RENDERIZAÇÃO POR ITENS ===
+                    itens.map((item) => {
+                      const estaAberto = itensAbertos.has(item.numero_item);
+                      const estaSelecionado = itensSelecionados.has(item.numero_item);
+
+                      return (
+                        <div
+                          key={item.numero_item}
+                          className={`flex items-start gap-3 p-3 rounded-lg border ${
+                            estaAberto ? "bg-green-50 border-green-300" : "bg-background"
+                          }`}
+                        >
+                          <Checkbox
+                            id={`item-${item.numero_item}`}
+                            checked={estaSelecionado}
+                            onCheckedChange={() => handleToggleItem(item.numero_item)}
+                          />
+                          <div className="flex-1">
+                            <Label
+                              htmlFor={`item-${item.numero_item}`}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold">Item {item.numero_item}</span>
+                                {estaAberto ? (
+                                  <Unlock className="h-3 w-3 text-green-600" />
+                                ) : (
+                                  <Lock className="h-3 w-3 text-muted-foreground" />
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {item.descricao}
+                              </p>
+                            </Label>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </ScrollArea>
 
               <div className="flex gap-2 mt-4">
                 <Button
                   className="flex-1"
-                  onClick={handleAbrirItens}
-                  disabled={salvando || itensSelecionados.size === 0}
+                  onClick={isPorLote ? handleAbrirLotes : handleAbrirItens}
+                  disabled={salvando || (isPorLote ? lotesSelecionados.size === 0 : itensSelecionados.size === 0)}
                 >
                   <Unlock className="h-4 w-4 mr-2" />
-                  Abrir Lances ({itensSelecionados.size})
+                  Abrir Lances ({isPorLote ? lotesSelecionados.size : itensSelecionados.size})
                 </Button>
                 <Button
                   className="flex-1"
                   variant="destructive"
-                  onClick={handleFecharItens}
-                  disabled={salvando || itensSelecionados.size === 0}
+                  onClick={isPorLote ? handleFecharLotes : handleFecharItens}
+                  disabled={salvando || (isPorLote ? lotesSelecionados.size === 0 : itensSelecionados.size === 0)}
                 >
                   <Lock className="h-4 w-4 mr-2" />
-                  Fechar Lances ({itensSelecionados.size})
+                  Fechar Lances ({isPorLote ? lotesSelecionados.size : itensSelecionados.size})
                 </Button>
               </div>
             </div>
