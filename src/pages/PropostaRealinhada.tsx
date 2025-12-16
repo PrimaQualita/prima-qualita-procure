@@ -109,7 +109,7 @@ const PropostaRealinhada = () => {
       }
 
       // Carregar itens que o fornecedor ganhou
-      await loadItensVencedores(selecaoId!, fornecedorData.id, selecaoData.processos_compras?.criterio_julgamento);
+      await loadItensVencedores(selecaoId!, fornecedorData.id, selecaoData.processos_compras?.criterio_julgamento, fornecedorData);
 
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
@@ -119,7 +119,7 @@ const PropostaRealinhada = () => {
     }
   };
 
-  const loadItensVencedores = async (selecaoId: string, fornecedorId: string, criterio: string) => {
+  const loadItensVencedores = async (selecaoId: string, fornecedorId: string, criterio: string, fornecedorData: any) => {
     try {
       // Buscar todos os lances do fornecedor que são vencedores
       const { data: lancesVencedores, error: lancesError } = await supabase
@@ -172,9 +172,9 @@ const PropostaRealinhada = () => {
           return;
         }
 
-        await processarItensVencedores(selecaoId, meusLancesVencedores, criterio);
+        await processarItensVencedores(selecaoId, meusLancesVencedores, criterio, fornecedorData);
       } else {
-        await processarItensVencedores(selecaoId, lancesVencedores, criterio);
+        await processarItensVencedores(selecaoId, lancesVencedores, criterio, fornecedorData);
       }
     } catch (error) {
       console.error("Erro ao carregar itens vencedores:", error);
@@ -182,7 +182,7 @@ const PropostaRealinhada = () => {
     }
   };
 
-  const processarItensVencedores = async (selecaoId: string, lancesVencedores: any[], criterio: string) => {
+  const processarItensVencedores = async (selecaoId: string, lancesVencedores: any[], criterio: string, fornecedorData: any) => {
     // Buscar a cotação relacionada para obter descrições dos itens
     const { data: selecaoData } = await supabase
       .from("selecoes_fornecedores")
@@ -197,14 +197,14 @@ const PropostaRealinhada = () => {
       .select("*, lotes_cotacao(numero_lote, descricao_lote)")
       .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
 
-    if (!itensCotacao || !fornecedor) return;
+    if (!itensCotacao || !fornecedorData) return;
 
     // Buscar proposta do fornecedor para esta seleção
     const { data: propostaFornecedor } = await supabase
       .from("selecao_propostas_fornecedor")
       .select("id")
       .eq("selecao_id", selecaoId)
-      .eq("fornecedor_id", fornecedor.id)
+      .eq("fornecedor_id", fornecedorData.id)
       .maybeSingle();
 
     // Buscar marcas da proposta original do fornecedor via proposta_id
