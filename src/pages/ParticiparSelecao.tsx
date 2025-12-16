@@ -732,43 +732,54 @@ const ParticiparSelecao = () => {
     numero_item: number;
     marca: string;
     valor_unitario: number;
+    lote_id?: string | null;
   }>) => {
     // Atualizar respostas com dados importados
     const novasRespostas = { ...respostas };
-    
-    dadosImportados.forEach(dado => {
-      const item = itens.find(i => i.numero_item === dado.numero_item);
+
+    dadosImportados.forEach((dado) => {
+      const item =
+        criterioJulgamento === "por_lote" && dado.lote_id
+          ? itens.find((i) => i.numero_item === dado.numero_item && i.lote_id === dado.lote_id)
+          : itens.find((i) => i.numero_item === dado.numero_item);
+
       if (item) {
         // Para critério desconto, valor_unitario já está em percentual (0.35 = 0,35%)
         // Para outros critérios, representa valor monetário (500.00 = R$ 500,00)
-        const valorFormatado = criterioJulgamento === "desconto" 
-          ? dado.valor_unitario.toFixed(2).replace('.', ',')
-          : `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
-        
+        const valorFormatado =
+          criterioJulgamento === "desconto"
+            ? dado.valor_unitario.toFixed(2).replace(".", ",")
+            : `R$ ${dado.valor_unitario.toFixed(2).replace(".", ",")}`;
+
         novasRespostas[item.id] = {
           valor_unitario_ofertado: dado.valor_unitario,
           valor_display: valorFormatado,
-          marca_ofertada: dado.marca
+          marca_ofertada: dado.marca,
         };
       }
     });
-    
+
     setRespostas(novasRespostas);
-    
+
     // Forçar atualização dos inputs após o estado ser atualizado
     setTimeout(() => {
-      dadosImportados.forEach(dado => {
-        const item = itens.find(i => i.numero_item === dado.numero_item);
+      dadosImportados.forEach((dado) => {
+        const item =
+          criterioJulgamento === "por_lote" && dado.lote_id
+            ? itens.find((i) => i.numero_item === dado.numero_item && i.lote_id === dado.lote_id)
+            : itens.find((i) => i.numero_item === dado.numero_item);
+
         if (item) {
           // Buscar inputs por ID único
           const inputValor = document.getElementById(`input-valor-${item.id}`) as HTMLInputElement;
           if (inputValor) {
-            const valorFormatado = criterioJulgamento === "desconto"
-              ? `${dado.valor_unitario.toFixed(2).replace('.', ',')}`
-              : `R$ ${dado.valor_unitario.toFixed(2).replace('.', ',')}`;
+            const valorFormatado =
+              criterioJulgamento === "desconto"
+                ? `${dado.valor_unitario.toFixed(2).replace(".", ",")}`
+                : `R$ ${dado.valor_unitario.toFixed(2).replace(".", ",")}`;
             inputValor.value = valorFormatado;
           }
-          
+
           const inputMarca = document.getElementById(`input-marca-${item.id}`) as HTMLInputElement;
           if (inputMarca) {
             inputMarca.value = dado.marca;
@@ -776,7 +787,7 @@ const ParticiparSelecao = () => {
         }
       });
     }, 100);
-    
+
     toast.success("Dados importados com sucesso!");
   };
 
