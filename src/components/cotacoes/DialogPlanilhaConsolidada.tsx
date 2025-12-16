@@ -150,11 +150,14 @@ export function DialogPlanilhaConsolidada({
         .order("numero_item");
       
       // Formatar os dados dos itens com informações do lote
-      const itensFormatados = (todosItensData || []).map((item: any) => ({
-        ...item,
-        numero_lote: item.lotes_cotacao?.numero_lote,
-        descricao_lote: item.lotes_cotacao?.descricao_lote
-      }));
+      const itensFormatados = (todosItensData || []).map((item: any) => {
+        const lote = Array.isArray(item.lotes_cotacao) ? item.lotes_cotacao[0] : item.lotes_cotacao;
+        return {
+          ...item,
+          numero_lote: lote?.numero_lote,
+          descricao_lote: lote?.descricao_lote,
+        };
+      });
 
       const respostasCompletas: RespostaConsolidada[] = [];
 
