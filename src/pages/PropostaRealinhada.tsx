@@ -207,19 +207,38 @@ const PropostaRealinhada = () => {
       .maybeSingle();
 
     // Buscar marcas da proposta original do fornecedor via proposta_id
-    const marcasPorItem = new Map<number, string>();
+    // Usar descrição para matching pois numero_item pode repetir entre lotes
+    const marcasPorDescricao = new Map<string, string>();
     if (propostaFornecedor) {
       const { data: respostasOriginais } = await (supabase as any)
         .from("selecao_respostas_itens_fornecedor")
-        .select("numero_item, marca")
+        .select("numero_item, marca, descricao")
         .eq("proposta_id", propostaFornecedor.id);
 
       respostasOriginais?.forEach((resposta: any) => {
-        if (resposta.marca) {
-          marcasPorItem.set(resposta.numero_item, resposta.marca);
+        if (resposta.marca && resposta.descricao) {
+          // Usar primeiros 30 chars da descrição como chave para matching
+          const chaveDescricao = resposta.descricao.substring(0, 30).toLowerCase();
+          marcasPorDescricao.set(chaveDescricao, resposta.marca);
         }
       });
     }
+
+    // Função helper para buscar marca pela descrição do item
+    const buscarMarcaPorDescricao = (descricaoItem: string): string => {
+      const chaveItem = descricaoItem.substring(0, 30).toLowerCase();
+      // Buscar correspondência exata primeiro
+      if (marcasPorDescricao.has(chaveItem)) {
+        return marcasPorDescricao.get(chaveItem) || "";
+      }
+      // Buscar por substring se não encontrar exato
+      for (const [chave, marca] of marcasPorDescricao.entries()) {
+        if (chaveItem.includes(chave.substring(0, 15)) || chave.includes(chaveItem.substring(0, 15))) {
+          return marca;
+        }
+      }
+      return "";
+    };
 
     const itensProcessados: ItemVencedor[] = [];
     const lotesMap = new Map<number, number>();
@@ -252,7 +271,7 @@ const PropostaRealinhada = () => {
             quantidade: item.quantidade,
             unidade: item.unidade,
             valor_total_ganho: loteInfo.valorTotal,
-            marca: marcasPorItem.get(item.numero_item) || item.marca || "",
+            marca: buscarMarcaPorDescricao(item.descricao) || item.marca || "",
           });
         });
       });
@@ -270,7 +289,7 @@ const PropostaRealinhada = () => {
           quantidade: item.quantidade,
           unidade: item.unidade,
           valor_total_ganho: valorTotalGlobal,
-          marca: marcasPorItem.get(item.numero_item) || item.marca || "",
+          marca: buscarMarcaPorDescricao(item.descricao) || item.marca || "",
         });
       });
     } else {
@@ -288,7 +307,7 @@ const PropostaRealinhada = () => {
             quantidade: itemOriginal.quantidade,
             unidade: itemOriginal.unidade,
             valor_total_ganho: valorTotal,
-            marca: marcasPorItem.get(lance.numero_item) || itemOriginal.marca || "",
+            marca: buscarMarcaPorDescricao(itemOriginal.descricao) || itemOriginal.marca || "",
           });
         }
       });
