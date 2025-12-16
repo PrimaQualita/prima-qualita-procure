@@ -34,6 +34,7 @@ interface Item {
   descricao: string;
   quantidade: number;
   unidade: string;
+  lote_id?: string | null;
   marca?: string;
   valor_unitario_estimado: number;
   valor_total: number;
@@ -304,6 +305,16 @@ const [itens, setItens] = useState<Item[]>([]);
       // Para outros critérios, buscar o MENOR valor de cada item
       const isDesconto = cotacaoData?.criterio_julgamento === "desconto";
       const isPorLote = cotacaoData?.criterio_julgamento === "por_lote";
+      const estimativasTemChaveComposta =
+        !!estimativasItens && Object.keys(estimativasItens).some((k) => k.includes("_"));
+      const isPlanilhaLoteLegacy = isPorLote && !!estimativasItens && !estimativasTemChaveComposta;
+
+      if (isPlanilhaLoteLegacy) {
+        toast.error("Planilha consolidada antiga detectada", {
+          description:
+            "Para critério por lote (média/mediana/menor por lote), gere a Planilha Consolidada novamente para atualizar as estimativas.",
+        });
+      }
       
       // Criar mapa de lote_id -> numero_lote para usar na chave composta
       const mapaLoteIdParaNumero = new Map<string, number>();
@@ -319,23 +330,26 @@ const [itens, setItens] = useState<Item[]>([]);
 
       itensOriginais.forEach((itemOriginal: any) => {
         let valorEstimado = 0;
-        
+
         // Tentar usar estimativas_itens da planilha (fonte primária)
         if (estimativasItens) {
-          if (isPorLote && itemOriginal.lote_id) {
+          if (isPorLote && itemOriginal.lote_id && estimativasTemChaveComposta) {
             // Para por_lote, usar chave composta numero_lote_numero_item
             const numeroLote = mapaLoteIdParaNumero.get(itemOriginal.lote_id);
             const chave = `${numeroLote}_${itemOriginal.numero_item}`;
-            valorEstimado = estimativasItens[chave] || 0;
-            console.log(`   Item ${itemOriginal.numero_item} Lote ${numeroLote}: chave=${chave}, valor=${valorEstimado}`);
-          } else {
+            valorEstimado = Number(estimativasItens[chave] ?? 0);
+            console.log(
+              `   Item ${itemOriginal.numero_item} Lote ${numeroLote}: chave=${chave}, valor=${valorEstimado}`
+            );
+          } else if (!isPorLote) {
             // Para outros critérios, usar numero_item como chave
-            valorEstimado = estimativasItens[String(itemOriginal.numero_item)] || 0;
+            valorEstimado = Number(estimativasItens[String(itemOriginal.numero_item)] ?? 0);
           }
         }
-        
+
         // Fallback: se não encontrou estimativa, buscar menor valor dos fornecedores
-        if (valorEstimado === 0 && fornecedoresArray) {
+        // (NÃO usar fallback em por_lote quando a planilha ainda está no formato antigo)
+        if (valorEstimado === 0 && fornecedoresArray && !(isPorLote && !!estimativasItens && !estimativasTemChaveComposta)) {
           fornecedoresArray.forEach((fornecedor: any) => {
             if (fornecedor.itens) {
               const itemFornecedor = fornecedor.itens.find((i: any) => {
@@ -344,12 +358,12 @@ const [itens, setItens] = useState<Item[]>([]);
                 }
                 return i.numero_item === itemOriginal.numero_item;
               });
-              
+
               if (itemFornecedor) {
-                const valorItem = isDesconto 
-                  ? (itemFornecedor.percentual_desconto || 0) 
+                const valorItem = isDesconto
+                  ? (itemFornecedor.percentual_desconto || 0)
                   : (itemFornecedor.valor_unitario || 0);
-                
+
                 if (valorItem > 0) {
                   if (isDesconto) {
                     // Para desconto, queremos o MAIOR percentual
@@ -367,16 +381,17 @@ const [itens, setItens] = useState<Item[]>([]);
             }
           });
         }
-        
+
         // Para desconto, valor_total não é calculado (não faz sentido)
         const valorTotalItem = isDesconto ? 0 : (valorEstimado * itemOriginal.quantidade);
-        
+
         todosItens.push({
           id: itemOriginal.id,
           numero_item: itemOriginal.numero_item,
           descricao: itemOriginal.descricao,
           quantidade: itemOriginal.quantidade,
           unidade: itemOriginal.unidade,
+          lote_id: itemOriginal.lote_id ?? null,
           marca: itemOriginal.marca,
           valor_unitario_estimado: valorEstimado,
           valor_total: valorTotalItem
@@ -394,13 +409,10 @@ const [itens, setItens] = useState<Item[]>([]);
       // Carregar lotes se critério for por_lote
       if (cotacaoData?.criterio_julgamento === "por_lote" && lotesData && lotesData.length > 0) {
         const lotesFormatados = lotesData.map((lote: any) => {
-          const itensDoLote = todosItens.filter(item => {
-            const itemOriginal = itensOriginais.find((io: any) => io.numero_item === item.numero_item);
-            return itemOriginal?.lote_id === lote.id;
-          });
-          
+          const itensDoLote = todosItens.filter((item) => item.lote_id === lote.id);
+
           const valorTotalLote = itensDoLote.reduce((acc, item) => acc + item.valor_total, 0);
-          
+
           return {
             id: lote.id,
             numero_lote: lote.numero_lote,
@@ -409,7 +421,7 @@ const [itens, setItens] = useState<Item[]>([]);
             valor_total_lote: valorTotalLote
           };
         });
-        
+
         console.log("📦 Lotes formatados:", lotesFormatados);
         setLotes(lotesFormatados);
       }
