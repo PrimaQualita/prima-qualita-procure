@@ -2670,46 +2670,82 @@ Deno.serve(async (req) => {
     console.log(`📊 Processos com seleção de fornecedores: ${processosSelecaoSet.size}`);
 
     // ============================================================
-    // 3. SELEÇÃO DE FORNECEDORES: SIMPLES - pegar TODOS os fornecedores 
-    // que enviaram proposta (selecao_propostas_fornecedor) + inabilitados
+    // 3. SELEÇÃO DE FORNECEDORES: APENAS VENCEDORES (via lances) + INABILITADOS
+    // CRÍTICO: Não incluir fornecedores que participaram mas perderam
     // ============================================================
     const { data: selecoesData } = await supabase
       .from('selecoes_fornecedores')
-      .select('id, processo_compra_id')
+      .select('id, processo_compra_id, criterios_julgamento')
       .in('processo_compra_id', Array.from(processosSelecaoSet));
     
     const selecoesPorProcesso = new Map<string, string>();
+    const criteriosPorSelecao = new Map<string, string>();
     if (selecoesData) {
       for (const sel of selecoesData) {
         selecoesPorProcesso.set(sel.processo_compra_id, sel.id);
+        criteriosPorSelecao.set(sel.id, sel.criterios_julgamento || 'menor_preco');
       }
     }
 
     const selecaoIds = Array.from(selecoesPorProcesso.values());
     if (selecaoIds.length > 0) {
-      // Buscar TODAS as propostas de fornecedores
-      const { data: propostasSelecao } = await supabase
-        .from('selecao_propostas_fornecedor')
-        .select('selecao_id, fornecedor_id')
-        .in('selecao_id', selecaoIds);
+      // Buscar TODOS os lances para calcular vencedores dinamicamente
+      const { data: lancesSelecao } = await supabase
+        .from('lances_fornecedores')
+        .select('selecao_id, fornecedor_id, numero_item, valor_lance, data_hora_lance')
+        .in('selecao_id', selecaoIds)
+        .order('data_hora_lance', { ascending: false });
 
-      // Buscar inabilitados de seleção
+      // Buscar inabilitados de seleção (não revertidos)
       const { data: inabilitadosSelecao } = await supabase
         .from('fornecedores_inabilitados_selecao')
         .select('selecao_id, fornecedor_id')
-        .in('selecao_id', selecaoIds);
+        .in('selecao_id', selecaoIds)
+        .eq('revertido', false);
 
-      // Para cada seleção, adicionar TODOS os fornecedores com proposta + inabilitados
+      // Para cada seleção, identificar VENCEDORES dinamicamente + inabilitados
       for (const [processoId, selecaoId] of selecoesPorProcesso) {
         if (!fornecedoresPorProcessoHab.has(processoId)) {
           fornecedoresPorProcessoHab.set(processoId, new Set());
         }
         const fornecedoresDoProcesso = fornecedoresPorProcessoHab.get(processoId)!;
+        
+        const criterio = criteriosPorSelecao.get(selecaoId) || 'menor_preco';
+        const isDesconto = criterio === 'desconto' || criterio === 'maior_percentual_desconto';
 
-        // Adicionar TODOS os fornecedores com proposta
-        const propostas = propostasSelecao?.filter(p => p.selecao_id === selecaoId) || [];
-        for (const proposta of propostas) {
-          fornecedoresDoProcesso.add(proposta.fornecedor_id);
+        // Filtrar lances desta seleção
+        const lancesDaSelecao = lancesSelecao?.filter(l => l.selecao_id === selecaoId) || [];
+        
+        // Agrupar lances por item/lote (numero_item) e identificar o melhor lance de cada
+        const melhorLancePorItem = new Map<number, { fornecedor_id: string; valor_lance: number }>();
+        
+        for (const lance of lancesDaSelecao) {
+          const itemNum = lance.numero_item || 0;
+          const atual = melhorLancePorItem.get(itemNum);
+          
+          // Se não tem lance para este item ainda, ou se este lance é melhor
+          if (!atual) {
+            melhorLancePorItem.set(itemNum, { fornecedor_id: lance.fornecedor_id, valor_lance: lance.valor_lance });
+          } else {
+            // Comparar: para desconto maior é melhor, para preço menor é melhor
+            const esteLanceMelhor = isDesconto 
+              ? lance.valor_lance > atual.valor_lance
+              : lance.valor_lance < atual.valor_lance;
+            
+            if (esteLanceMelhor) {
+              melhorLancePorItem.set(itemNum, { fornecedor_id: lance.fornecedor_id, valor_lance: lance.valor_lance });
+            }
+          }
+        }
+        
+        // Adicionar VENCEDORES (fornecedores com melhor lance em algum item)
+        const vencedoresIds = new Set<string>();
+        for (const [itemNum, melhor] of melhorLancePorItem) {
+          vencedoresIds.add(melhor.fornecedor_id);
+        }
+        
+        for (const fornId of vencedoresIds) {
+          fornecedoresDoProcesso.add(fornId);
         }
 
         // Adicionar inabilitados também
@@ -2718,7 +2754,7 @@ Deno.serve(async (req) => {
           fornecedoresDoProcesso.add(inab.fornecedor_id);
         }
         
-        console.log(`  📊 Seleção ${selecaoId.substring(0,8)}: ${fornecedoresDoProcesso.size} fornecedores (${propostas.length} propostas + ${inabilitados.length} inabilitados)`);
+        console.log(`  📊 Seleção ${selecaoId.substring(0,8)}: ${fornecedoresDoProcesso.size} fornecedores (${vencedoresIds.size} vencedores via lances + ${inabilitados.length} inabilitados)`);
       }
     }
 
