@@ -41,8 +41,10 @@ export default function PropostasSelecao() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const selecaoId = searchParams.get("selecao");
+  const tipoPropostas = searchParams.get("tipo"); // "realinhadas" ou null para propostas normais
   
   const [propostas, setPropostas] = useState<PropostaFornecedor[]>([]);
+  const [propostasRealinhadas, setPropostasRealinhadas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selecao, setSelecao] = useState<any>(null);
   const [processo, setProcesso] = useState<any>(null);
@@ -52,11 +54,57 @@ export default function PropostasSelecao() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmDeleteCompletaOpen, setConfirmDeleteCompletaOpen] = useState(false);
 
+  const isRealinhadas = tipoPropostas === "realinhadas";
+
   useEffect(() => {
     if (selecaoId) {
-      loadPropostas();
+      if (isRealinhadas) {
+        loadPropostasRealinhadas();
+      } else {
+        loadPropostas();
+      }
     }
-  }, [selecaoId]);
+  }, [selecaoId, tipoPropostas]);
+
+  const loadPropostasRealinhadas = async () => {
+    try {
+      setLoading(true);
+      console.log("📋 Carregando propostas realinhadas para seleção:", selecaoId);
+
+      // Carregar seleção e processo
+      const { data: selecaoData, error: selecaoError } = await supabase
+        .from("selecoes_fornecedores")
+        .select("*, processos_compras(*)")
+        .eq("id", selecaoId)
+        .single();
+
+      if (selecaoError) throw selecaoError;
+      
+      setSelecao(selecaoData);
+      setProcesso(selecaoData.processos_compras);
+
+      // Carregar propostas realinhadas dos fornecedores vencedores
+      const { data: propostasData, error: propostasError } = await supabase
+        .from("propostas_realinhadas")
+        .select(`
+          *,
+          fornecedor:fornecedores(razao_social, cnpj, email, endereco_comercial),
+          propostas_realinhadas_itens(*)
+        `)
+        .eq("selecao_id", selecaoId)
+        .order("data_envio", { ascending: false });
+
+      if (propostasError) throw propostasError;
+
+      console.log("✅ Propostas realinhadas carregadas:", propostasData?.length || 0);
+      setPropostasRealinhadas(propostasData || []);
+    } catch (error) {
+      console.error("Erro ao carregar propostas realinhadas:", error);
+      toast.error("Erro ao carregar propostas realinhadas");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadPropostas = async () => {
     try {
@@ -464,7 +512,9 @@ export default function PropostasSelecao() {
           Voltar
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">Propostas Recebidas</h1>
+          <h1 className="text-3xl font-bold">
+            {isRealinhadas ? "Propostas Realinhadas" : "Propostas Recebidas"}
+          </h1>
           <p className="text-muted-foreground">
             {selecao?.titulo_selecao} - Processo {processo?.numero_processo_interno}
           </p>
@@ -502,80 +552,147 @@ export default function PropostasSelecao() {
         </CardContent>
       </Card>
 
-      {/* Tabela de Propostas */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Propostas dos Fornecedores ({propostas.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {propostas.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Nenhuma proposta recebida ainda</p>
-            </div>
-          ) : (
-            <div className="border border-border/50 rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-border/50">
-                    <TableHead className="border-r border-border/50">Fornecedor</TableHead>
-                    <TableHead className="border-r border-border/50">CNPJ</TableHead>
-                    {processo?.criterio_julgamento !== "desconto" && (
+      {/* Tabela de Propostas Realinhadas */}
+      {isRealinhadas ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Propostas Realinhadas dos Vencedores ({propostasRealinhadas.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {propostasRealinhadas.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Nenhuma proposta realinhada enviada ainda</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  As propostas realinhadas são enviadas pelos fornecedores vencedores após assinarem a ata.
+                </p>
+              </div>
+            ) : (
+              <div className="border border-border/50 rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-border/50">
+                      <TableHead className="border-r border-border/50">Fornecedor</TableHead>
+                      <TableHead className="border-r border-border/50">CNPJ</TableHead>
                       <TableHead className="text-right border-r border-border/50">Valor Total</TableHead>
-                    )}
-                    <TableHead className="border-r border-border/50">Data de Envio</TableHead>
-                    <TableHead className="border-r border-border/50">Status</TableHead>
-                    <TableHead className="border-r border-border/50">Proposta PDF</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {propostas.map((proposta) => (
-                    <TableRow key={proposta.id} className="border-b border-border/50">
-                      <TableCell className="font-medium border-r border-border/50">
-                        {proposta.fornecedor.razao_social}
-                      </TableCell>
-                      <TableCell className="border-r border-border/50">{formatCNPJ(proposta.fornecedor.cnpj)}</TableCell>
-                      {processo?.criterio_julgamento !== "desconto" && (
-                        <TableCell className="border-r border-border/50">
-                          <div className="text-right font-medium">
-                            {formatCurrency(proposta.valor_total_proposta)}
-                          </div>
+                      <TableHead className="border-r border-border/50">Data de Envio</TableHead>
+                      <TableHead className="border-r border-border/50">Protocolo</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {propostasRealinhadas.map((proposta) => (
+                      <TableRow key={proposta.id} className="border-b border-border/50">
+                        <TableCell className="font-medium border-r border-border/50">
+                          {proposta.fornecedor?.razao_social}
                         </TableCell>
+                        <TableCell className="border-r border-border/50">
+                          {proposta.fornecedor?.cnpj ? formatCNPJ(proposta.fornecedor.cnpj) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right border-r border-border/50 font-medium">
+                          {formatCurrency(proposta.valor_total_proposta)}
+                        </TableCell>
+                        <TableCell className="border-r border-border/50">
+                          {formatDateTime(proposta.data_envio)}
+                        </TableCell>
+                        <TableCell className="border-r border-border/50">
+                          <span className="text-xs font-mono">{proposta.protocolo || "-"}</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // Ver detalhes da proposta realinhada
+                              navigate(`/proposta-realinhada?selecao=${selecaoId}&fornecedor=${proposta.fornecedor_id}&view=true`);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ver Detalhes
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        /* Tabela de Propostas Normais */
+        <Card>
+          <CardHeader>
+            <CardTitle>Propostas dos Fornecedores ({propostas.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {propostas.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Nenhuma proposta recebida ainda</p>
+              </div>
+            ) : (
+              <div className="border border-border/50 rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-border/50">
+                      <TableHead className="border-r border-border/50">Fornecedor</TableHead>
+                      <TableHead className="border-r border-border/50">CNPJ</TableHead>
+                      {processo?.criterio_julgamento !== "desconto" && (
+                        <TableHead className="text-right border-r border-border/50">Valor Total</TableHead>
                       )}
-                      <TableCell className="border-r border-border/50">
-                        {formatDateTime(proposta.data_envio_proposta)}
-                      </TableCell>
-                      <TableCell className="border-r border-border/50">
-                        {proposta.desclassificado ? (
-                          <Badge variant="destructive">Desclassificado</Badge>
-                        ) : (
-                          <Badge variant="default">Classificado</Badge>
+                      <TableHead className="border-r border-border/50">Data de Envio</TableHead>
+                      <TableHead className="border-r border-border/50">Status</TableHead>
+                      <TableHead className="border-r border-border/50">Proposta PDF</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {propostas.map((proposta) => (
+                      <TableRow key={proposta.id} className="border-b border-border/50">
+                        <TableCell className="font-medium border-r border-border/50">
+                          {proposta.fornecedor.razao_social}
+                        </TableCell>
+                        <TableCell className="border-r border-border/50">{formatCNPJ(proposta.fornecedor.cnpj)}</TableCell>
+                        {processo?.criterio_julgamento !== "desconto" && (
+                          <TableCell className="border-r border-border/50">
+                            <div className="text-right font-medium">
+                              {formatCurrency(proposta.valor_total_proposta)}
+                            </div>
+                          </TableCell>
                         )}
-                      </TableCell>
-                      <TableCell className="border-r border-border/50">
-                        {proposta.url_pdf_proposta ? (
-                          <div className="flex items-center gap-2 text-sm">
-                            <svg 
-                              className="h-4 w-4 text-muted-foreground" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round" 
-                                strokeWidth={2} 
-                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" 
-                              />
-                            </svg>
-                            <span className="truncate max-w-[150px]">
-                              proposta_{proposta.fornecedor.cnpj.replace(/[^\d]/g, '').slice(0, 10)}...
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">PDF não gerado</span>
-                        )}
-                      </TableCell>
+                        <TableCell className="border-r border-border/50">
+                          {formatDateTime(proposta.data_envio_proposta)}
+                        </TableCell>
+                        <TableCell className="border-r border-border/50">
+                          {proposta.desclassificado ? (
+                            <Badge variant="destructive">Desclassificado</Badge>
+                          ) : (
+                            <Badge variant="default">Classificado</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="border-r border-border/50">
+                          {proposta.url_pdf_proposta ? (
+                            <div className="flex items-center gap-2 text-sm">
+                              <svg 
+                                className="h-4 w-4 text-muted-foreground" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                              >
+                                <path 
+                                  strokeLinecap="round" 
+                                  strokeLinejoin="round" 
+                                  strokeWidth={2} 
+                                  d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" 
+                                />
+                              </svg>
+                              <span className="truncate max-w-[150px]">
+                                proposta_{proposta.fornecedor.cnpj.replace(/[^\d]/g, '').slice(0, 10)}...
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">PDF não gerado</span>
+                          )}
+                        </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           {proposta.url_pdf_proposta ? (
@@ -655,6 +772,7 @@ export default function PropostasSelecao() {
           )}
         </CardContent>
       </Card>
+      )}
       
       {/* Diálogo de Confirmação de Exclusão */}
       <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
