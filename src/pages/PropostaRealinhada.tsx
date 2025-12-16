@@ -198,20 +198,28 @@ const PropostaRealinhada = () => {
 
     if (!itensCotacao || !fornecedor) return;
 
-    // Buscar marcas da proposta original do fornecedor
-    const { data: respostasOriginais } = await (supabase as any)
-      .from("selecao_respostas_itens_fornecedor")
-      .select("numero_item, marca")
+    // Buscar proposta do fornecedor para esta seleção
+    const { data: propostaFornecedor } = await supabase
+      .from("selecao_propostas_fornecedor")
+      .select("id")
       .eq("selecao_id", selecaoId)
-      .eq("fornecedor_id", fornecedor.id);
+      .eq("fornecedor_id", fornecedor.id)
+      .maybeSingle();
 
-    // Criar mapa de marcas por item
+    // Buscar marcas da proposta original do fornecedor via proposta_id
     const marcasPorItem = new Map<number, string>();
-    respostasOriginais?.forEach((resposta: any) => {
-      if (resposta.marca) {
-        marcasPorItem.set(resposta.numero_item, resposta.marca);
-      }
-    });
+    if (propostaFornecedor) {
+      const { data: respostasOriginais } = await (supabase as any)
+        .from("selecao_respostas_itens_fornecedor")
+        .select("numero_item, marca")
+        .eq("proposta_id", propostaFornecedor.id);
+
+      respostasOriginais?.forEach((resposta: any) => {
+        if (resposta.marca) {
+          marcasPorItem.set(resposta.numero_item, resposta.marca);
+        }
+      });
+    }
 
     const itensProcessados: ItemVencedor[] = [];
     const lotesMap = new Map<number, number>();
