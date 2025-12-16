@@ -2421,7 +2421,7 @@ export function DialogFinalizarProcesso({
                   numero: item.itens_cotacao.numero_item,
                   descricao: itemResposta.itens_cotacao.descricao,
                   valor: desconto,
-                  marca: itemResposta.marca || '-',
+                  marca: itemResposta.marca || '',
                   valorUnitario: desconto
                 });
               } else {
@@ -2434,7 +2434,7 @@ export function DialogFinalizarProcesso({
                   numero: item.itens_cotacao.numero_item,
                   descricao: itemResposta.itens_cotacao.descricao,
                   valor: valorItem,
-                  marca: itemResposta.marca || '-',
+                  marca: itemResposta.marca || '',
                   valorUnitario: valorUnitario
                 });
               }
@@ -2623,7 +2623,7 @@ export function DialogFinalizarProcesso({
             itensVencedoresComValor.push({
               numero: item.itens_cotacao.numero_item,
               valor: desconto,
-              marca: itemResposta.marca || '-',
+              marca: itemResposta.marca || '',
               valorUnitario: desconto
             });
           } else {
@@ -2634,7 +2634,7 @@ export function DialogFinalizarProcesso({
             itensVencedoresComValor.push({
               numero: item.itens_cotacao.numero_item,
               valor: valorItem,
-              marca: itemResposta.marca || '-',
+              marca: itemResposta.marca || '',
               valorUnitario: valorUnitario
             });
           }

@@ -376,7 +376,7 @@ export async function gerarPropostaFornecedorPDF(
             dados.push([
               itemCotacao.numero_item.toString(),
               sanitizarTexto(itemCotacao.descricao || ''),
-              sanitizarTexto(item.marca || '-'),
+              sanitizarTexto(item.marca || ''),
               itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
               sanitizarTexto(itemCotacao.unidade || ''),
               valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
@@ -416,7 +416,7 @@ export async function gerarPropostaFornecedorPDF(
             dados.push([
               itemCotacao.numero_item.toString(),
               sanitizarTexto(itemCotacao.descricao || ''),
-              sanitizarTexto(item.marca || '-'),
+              sanitizarTexto(item.marca || ''),
               itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
               sanitizarTexto(itemCotacao.unidade || ''),
               valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),

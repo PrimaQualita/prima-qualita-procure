@@ -244,7 +244,7 @@ export const gerarPropostaRealinhadaPDF = async (
           sanitizarTexto(item.descricao),
           item.quantidade.toString(),
           item.unidade,
-          item.marca || '-',
+          item.marca || '',
           `R$ ${formatarMoeda(item.valor_unitario)}`,
           `R$ ${formatarMoeda(item.valor_total)}`
         ]);
@@ -264,7 +264,7 @@ export const gerarPropostaRealinhadaPDF = async (
         sanitizarTexto(item.descricao),
         item.quantidade.toString(),
         item.unidade,
-        item.marca || '-',
+        item.marca || '',
         `R$ ${formatarMoeda(item.valor_unitario)}`,
         `R$ ${formatarMoeda(item.valor_total)}`
       ]);
