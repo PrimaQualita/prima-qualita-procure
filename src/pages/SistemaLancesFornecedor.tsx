@@ -236,16 +236,6 @@ const SistemaLancesFornecedor = () => {
     return mapaMenorValor;
   };
 
-  // DEBUG: Monitorar mudanças em itensEstimados
-  useEffect(() => {
-    console.log('🔄 [useEffect] itensEstimados MUDOU:', {
-      size: itensEstimados.size,
-      entries: Object.fromEntries(itensEstimados),
-      chaves: Array.from(itensEstimados.keys()),
-      valores: Array.from(itensEstimados.values())
-    });
-  }, [itensEstimados]);
-
   // TEMPO REAL: Atualizar estado `editavel` a cada segundo
   useEffect(() => {
     if (!selecao?.data_sessao_disputa || !selecao?.hora_sessao_disputa) return;
@@ -2347,10 +2337,10 @@ const SistemaLancesFornecedor = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                    {(() => {
-                      console.log('🎨 RENDERIZANDO ITENS - itensEstimados atual:', Object.fromEntries(itensEstimados));
-                      return Array.from(itensAbertos).sort((a, b) => a - b).slice(0, 10);
-                    })().map((numeroItem) => {
+                    {Array.from(itensAbertos)
+                      .sort((a, b) => a - b)
+                      .slice(0, 10)
+                      .map((numeroItem) => {
                       const tempoExpiracao = itensEmFechamento.get(numeroItem);
                       const emFechamento = tempoExpiracao !== undefined;
                       const segundosRestantes = emFechamento ? Math.max(0, Math.ceil((tempoExpiracao - Date.now()) / 1000)) : 0;
@@ -2410,7 +2400,11 @@ const SistemaLancesFornecedor = () => {
                                 Proposta acima do estimado
                               </p>
                               <p className="text-[10px] text-muted-foreground">
-                                Sua proposta: {formatarMoeda(itens.find(i => i.numero_item === numeroItem)?.valor_unitario_ofertado || 0)}
+                                {selecao?.processos_compras?.criterio_julgamento === "por_lote" ? (
+                                  <>Seu subtotal: {formatarMoeda(getSubtotalPropostaDoLote(numeroItem))}</>
+                                ) : (
+                                  <>Sua proposta: {formatarMoeda(itens.find(i => i.numero_item === numeroItem)?.valor_unitario_ofertado || 0)}</>
+                                )}
                               </p>
                               <p className="text-[10px] text-muted-foreground">
                                 Estimado: {formatarMoeda(itensEstimados.get(numeroItem) || 0)}
