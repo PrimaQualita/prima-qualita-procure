@@ -1405,6 +1405,18 @@ const SistemaLancesFornecedor = () => {
       return;
     }
 
+    // Verificar se fornecedor já enviou lance com mesmo valor para este item
+    const lancesDoFornecedorNoItem = lancesFiltrados.filter(
+      l => l.numero_item === numeroItem && l.fornecedor_id === proposta.fornecedor_id
+    );
+    const jaEnviouMesmoValor = lancesDoFornecedorNoItem.some(
+      l => Math.abs(l.valor_lance - valorNumerico) < 0.001
+    );
+    if (jaEnviouMesmoValor) {
+      toast.error("Você já enviou um lance com este valor. Informe um valor diferente.");
+      return;
+    }
+
     // Validações apenas para lances normais (não negociação)
     if (!isNegociacao) {
       const valorEstimado = itensEstimados.get(numeroItem) || 0;
