@@ -673,7 +673,7 @@ const PropostaRealinhada = () => {
                         <TableCell>{item.unidade}</TableCell>
                         {processo?.tipo === "material" && (
                           <TableCell className="text-center">
-                            <span className="text-sm">{resposta?.marca || item.marca || "-"}</span>
+                            <span className="text-sm">{resposta?.marca || item.marca || ""}</span>
                           </TableCell>
                         )}
                         <TableCell>
