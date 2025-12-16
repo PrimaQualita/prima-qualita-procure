@@ -702,12 +702,86 @@ Deno.serve(async (req) => {
     console.log(`📋 Documentos de processo finalizado mapeados: ${docsProcessoFinalizadoMap.size}`);
 
     // Buscar mapeamento de paths de planilhas consolidadas para cotacao_id
-    const { data: planilhasDB } = await supabase.from('planilhas_consolidadas').select('url_arquivo, cotacao_id');
+    // E também buscar fornecedores_incluidos para identificar VENCEDORES
+    const { data: planilhasDB } = await supabase
+      .from('planilhas_consolidadas')
+      .select('url_arquivo, cotacao_id, fornecedores_incluidos, data_geracao')
+      .order('data_geracao', { ascending: false });
     const planilhasConsolidadasMap = new Map<string, string>();
+    // Mapa de cotacao_id -> Set de fornecedor_ids vencedores
+    const vencedoresPorCotacao = new Map<string, Set<string>>();
     if (planilhasDB) {
       for (const plan of planilhasDB) {
         const path = plan.url_arquivo.split('processo-anexos/')[1]?.split('?')[0] || plan.url_arquivo;
         planilhasConsolidadasMap.set(path, plan.cotacao_id);
+        
+        // Processar fornecedores_incluidos para identificar vencedores
+        // Usar apenas a planilha mais recente por cotação
+        if (!vencedoresPorCotacao.has(plan.cotacao_id) && plan.fornecedores_incluidos) {
+          const vencedoresSet = new Set<string>();
+          const fornecedoresData = plan.fornecedores_incluidos as any[];
+          if (Array.isArray(fornecedoresData)) {
+            for (const forn of fornecedoresData) {
+              // Um fornecedor é vencedor se tem eh_vencedor: true em pelo menos um item
+              if (forn.itens && Array.isArray(forn.itens)) {
+                const temItemVencedor = forn.itens.some((item: any) => item.eh_vencedor === true);
+                if (temItemVencedor && forn.fornecedor_id) {
+                  vencedoresSet.add(forn.fornecedor_id);
+                }
+              }
+            }
+          }
+          vencedoresPorCotacao.set(plan.cotacao_id, vencedoresSet);
+        }
+      }
+    }
+    console.log(`📋 Vencedores por cotação mapeados: ${vencedoresPorCotacao.size} cotações`);
+
+    // Buscar fornecedores rejeitados (compra direta/cotação)
+    const { data: rejeitadosCotacaoData } = await supabase
+      .from('fornecedores_rejeitados_cotacao')
+      .select('fornecedor_id, cotacao_id, revertido')
+      .eq('revertido', false);
+    const rejeitadosPorCotacao = new Map<string, Set<string>>();
+    if (rejeitadosCotacaoData) {
+      for (const rej of rejeitadosCotacaoData) {
+        if (!rejeitadosPorCotacao.has(rej.cotacao_id)) {
+          rejeitadosPorCotacao.set(rej.cotacao_id, new Set());
+        }
+        rejeitadosPorCotacao.get(rej.cotacao_id)!.add(rej.fornecedor_id);
+      }
+    }
+    console.log(`📋 Rejeitados por cotação mapeados: ${rejeitadosPorCotacao.size} cotações`);
+
+    // Buscar fornecedores inabilitados (seleção de fornecedores)
+    const { data: inabilitadosSelecaoData } = await supabase
+      .from('fornecedores_inabilitados_selecao')
+      .select('fornecedor_id, selecao_id, revertido')
+      .eq('revertido', false);
+    const inabilitadosPorSelecao = new Map<string, Set<string>>();
+    if (inabilitadosSelecaoData) {
+      for (const inab of inabilitadosSelecaoData) {
+        if (!inabilitadosPorSelecao.has(inab.selecao_id)) {
+          inabilitadosPorSelecao.set(inab.selecao_id, new Set());
+        }
+        inabilitadosPorSelecao.get(inab.selecao_id)!.add(inab.fornecedor_id);
+      }
+    }
+    console.log(`📋 Inabilitados por seleção mapeados: ${inabilitadosPorSelecao.size} seleções`);
+
+    // Buscar vencedores de seleção via planilhas de lances (último lance vencedor por item)
+    // Para seleção, precisamos buscar de selecoes_fornecedores que tem cotacao_relacionada_id
+    const { data: selecoesComCotacao } = await supabase
+      .from('selecoes_fornecedores')
+      .select('id, cotacao_relacionada_id');
+    const selecaoParaCotacao = new Map<string, string>();
+    const cotacaoParaSelecao = new Map<string, string>();
+    if (selecoesComCotacao) {
+      for (const sel of selecoesComCotacao) {
+        if (sel.cotacao_relacionada_id) {
+          selecaoParaCotacao.set(sel.id, sel.cotacao_relacionada_id);
+          cotacaoParaSelecao.set(sel.cotacao_relacionada_id, sel.id);
+        }
       }
     }
 
@@ -2017,6 +2091,7 @@ Deno.serve(async (req) => {
         }
       } else if (pathSemBucket.startsWith('habilitacao/')) {
         // Documentos de habilitação (solicitados durante análise documental de seleção OU compra direta/cotação)
+        // REGRA CRÍTICA: Exibir APENAS fornecedores VENCEDORES e INABILITADOS/REJEITADOS
         estatisticasPorCategoria.habilitacao.arquivos++;
         estatisticasPorCategoria.habilitacao.tamanho += metadata.size;
         estatisticasPorCategoria.habilitacao.detalhes.push({ path, fileName, size: metadata.size });
@@ -2058,6 +2133,9 @@ Deno.serve(async (req) => {
           let processoObjeto = '';
           let credenciamento = false;
           
+          // Verificar se fornecedor é VENCEDOR ou INABILITADO/REJEITADO
+          let ehVencedorOuInabilitado = false;
+          
           if (selecaoId && selecao) {
             // É documento de seleção de fornecedores - buscar processo da seleção
             processoId = selecao.processo_compra_id;
@@ -2069,16 +2147,47 @@ Deno.serve(async (req) => {
                 credenciamento = procData.credenciamento;
               }
             }
+            
+            // Verificar se é vencedor via cotacao_relacionada_id da seleção
+            const cotacaoRelacionada = selecaoParaCotacao.get(selecaoId);
+            if (cotacaoRelacionada) {
+              const vencedores = vencedoresPorCotacao.get(cotacaoRelacionada);
+              if (vencedores && vencedores.has(fornecedorId)) {
+                ehVencedorOuInabilitado = true;
+                console.log(`✅ Fornecedor ${fornecedorNome} é VENCEDOR na seleção`);
+              }
+            }
+            
+            // Verificar se é inabilitado na seleção
+            const inabilitados = inabilitadosPorSelecao.get(selecaoId);
+            if (inabilitados && inabilitados.has(fornecedorId)) {
+              ehVencedorOuInabilitado = true;
+              console.log(`✅ Fornecedor ${fornecedorNome} é INABILITADO na seleção`);
+            }
           } else if (cotacaoId && cotacao) {
             // É documento de compra direta/cotação
             processoId = cotacao.processo_compra_id;
             const processo = cotacao.processos_compras;
             processoNumero = processo?.numero_processo_interno || processoId?.substring(0, 8) || '';
             processoObjeto = processo?.objeto_resumido || 'Sem objeto';
+            
+            // Verificar se é vencedor na cotação
+            const vencedores = vencedoresPorCotacao.get(cotacaoId);
+            if (vencedores && vencedores.has(fornecedorId)) {
+              ehVencedorOuInabilitado = true;
+              console.log(`✅ Fornecedor ${fornecedorNome} é VENCEDOR na cotação`);
+            }
+            
+            // Verificar se é rejeitado na cotação
+            const rejeitados = rejeitadosPorCotacao.get(cotacaoId);
+            if (rejeitados && rejeitados.has(fornecedorId)) {
+              ehVencedorOuInabilitado = true;
+              console.log(`✅ Fornecedor ${fornecedorNome} é REJEITADO na cotação`);
+            }
           }
           
-          // Adicionar na estrutura hierárquica: Processo → Fornecedor → Documentos
-          if (processoId && fornecedorId) {
+          // SOMENTE adicionar se for vencedor ou inabilitado/rejeitado
+          if (processoId && fornecedorId && ehVencedorOuInabilitado) {
             if (!estatisticasPorCategoria.habilitacao.porProcessoHierarquico.has(processoId)) {
               estatisticasPorCategoria.habilitacao.porProcessoHierarquico.set(processoId, {
                 processoId,
@@ -2103,6 +2212,8 @@ Deno.serve(async (req) => {
               fileName: docFinalizacao.nome_arquivo || fileName,
               size: metadata.size
             });
+          } else if (processoId && fornecedorId && !ehVencedorOuInabilitado) {
+            console.log(`⏭️ Fornecedor ${fornecedorNome} ignorado na habilitação (não é vencedor nem inabilitado)`);
           }
         }
       } else if (
