@@ -284,7 +284,7 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
     const headerEmpresaWidth = doc.getTextWidth(headerEmpresa);
     doc.text(headerEmpresa, tableX + (colWidths[0] - headerEmpresaWidth) / 2, yPosition + 5.5);
     
-    const headerItens = "Itens Vencedores";
+    const headerItens = criterioJulgamento === "por_lote" ? "Lotes Vencedores" : "Itens Vencedores";
     const headerItensWidth = doc.getTextWidth(headerItens);
     doc.text(headerItens, tableX + colWidths[0] + (colWidths[1] - headerItensWidth) / 2, yPosition + 5.5);
     
