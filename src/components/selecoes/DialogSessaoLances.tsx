@@ -3028,13 +3028,76 @@ export function DialogSessaoLances({
               );
             })()}
 
-            {/* Itens Concluídos - Podem ser Reabertos */}
+            {/* Itens/Lotes Concluídos - Podem ser Reabertos */}
             {(() => {
-              const itensConcluidos = itens.filter(
-                (item) => itensNegociacaoConcluida.has(item.numero_item) && 
-                          vencedoresPorItem.has(item.numero_item) &&
-                          !itensEmNegociacao.has(item.numero_item)
-              ).sort((a, b) => a.numero_item - b.numero_item);
+              if (isPorLote) {
+                const lotesConcluidos = lotes
+                  .filter(
+                    (lote) =>
+                      itensNegociacaoConcluida.has(lote.numero_lote) &&
+                      vencedoresPorItem.has(lote.numero_lote) &&
+                      !itensEmNegociacao.has(lote.numero_lote)
+                  )
+                  .sort((a, b) => a.numero_lote - b.numero_lote);
+
+                if (lotesConcluidos.length === 0) return null;
+
+                return (
+                  <Card className="bg-gray-50 dark:bg-gray-900 border-gray-200 flex-shrink-0">
+                    <CardHeader className="py-2">
+                      <CardTitle className="text-xs flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                        <CheckCircle className="h-4 w-4" />
+                        Lotes Concluídos ({lotesConcluidos.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-0">
+                      <ScrollAreaWithArrows className="h-[120px]" orientation="both" scrollStep={80}>
+                        <div className="space-y-2">
+                          {lotesConcluidos.map((lote) => {
+                            const numeroLote = lote.numero_lote;
+                            const vencedor = vencedoresPorItem.get(numeroLote);
+
+                            return (
+                              <div
+                                key={`done-lote-${numeroLote}`}
+                                className="p-2 bg-white dark:bg-background rounded-lg border text-xs flex items-center justify-between gap-2"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <Badge variant="outline" className="bg-gray-100 text-gray-700 text-[10px] shrink-0">
+                                    Lote {numeroLote}
+                                  </Badge>
+                                  <span className="text-muted-foreground truncate text-[10px]">
+                                    {vencedor?.razaoSocial}
+                                  </span>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-blue-500 text-blue-700 hover:bg-blue-100 text-[10px] h-6 px-2"
+                                  onClick={() => handleReabrirParaNegociacao(numeroLote, vencedor?.fornecedorId || "")}
+                                  disabled={salvando || !vencedor?.fornecedorId}
+                                >
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                  Reabrir
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </ScrollAreaWithArrows>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              const itensConcluidos = itens
+                .filter(
+                  (item) =>
+                    itensNegociacaoConcluida.has(item.numero_item) &&
+                    vencedoresPorItem.has(item.numero_item) &&
+                    !itensEmNegociacao.has(item.numero_item)
+                )
+                .sort((a, b) => a.numero_item - b.numero_item);
 
               if (itensConcluidos.length === 0) return null;
 
@@ -3054,7 +3117,10 @@ export function DialogSessaoLances({
                           const vencedor = vencedoresPorItem.get(numeroItem);
 
                           return (
-                            <div key={`done-${numeroItem}`} className="p-2 bg-white dark:bg-background rounded-lg border text-xs flex items-center justify-between gap-2">
+                            <div
+                              key={`done-${numeroItem}`}
+                              className="p-2 bg-white dark:bg-background rounded-lg border text-xs flex items-center justify-between gap-2"
+                            >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <Badge variant="outline" className="bg-gray-100 text-gray-700 text-[10px] shrink-0">
                                   Item {numeroItem}
