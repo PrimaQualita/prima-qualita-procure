@@ -1559,14 +1559,18 @@ export function DialogAnaliseDocumentalSelecao({
   };
 
   const handleInabilitarFornecedor = async () => {
+    const unidadeSingular = criterioJulgamento === 'por_lote' ? 'lote' : 'item';
+    const unidadePlural = criterioJulgamento === 'por_lote' ? 'lotes' : 'itens';
+    const UnidadePlural = unidadePlural.charAt(0).toUpperCase() + unidadePlural.slice(1);
+
     if (!fornecedorParaInabilitar || !motivoInabilitacao.trim()) {
       toast.error("Informe o motivo da inabilitação");
       return;
     }
     
-    // Se for inabilitação parcial, verificar se há itens selecionados
+    // Se for inabilitação parcial, verificar se há unidades selecionadas
     if (tipoInabilitacao === 'parcial' && itensSelecionadosInabilitacao.length === 0) {
-      toast.error("Selecione pelo menos um item para inabilitar");
+      toast.error(`Selecione pelo menos um ${unidadeSingular} para inabilitar`);
       return;
     }
 
@@ -1629,7 +1633,7 @@ export function DialogAnaliseDocumentalSelecao({
             .eq("selecao_id", selecaoId)
             .eq("numero_item", item);
         }
-        toast.success("Fornecedor inabilitado. Itens reabertos para negociação com os segundos colocados.");
+        toast.success(`Fornecedor inabilitado. ${UnidadePlural} reabertos para negociação com os segundos colocados.`);
         // NÃO chamar onReabrirNegociacao aqui pois já fizemos o update com o segundo colocado correto
         // A callback em DetalheSelecao.tsx sobrescreveria com o fornecedor errado
       } else {
@@ -1710,8 +1714,8 @@ export function DialogAnaliseDocumentalSelecao({
         
         const temSegundos = segundosAtualizados.length > 0;
         toast.success(temSegundos 
-          ? "Fornecedor inabilitado. Segundos colocados assumem os itens."
-          : "Fornecedor inabilitado. Itens sem segundo colocado foram fechados.");
+          ? `Fornecedor inabilitado. Segundos colocados assumem os ${unidadePlural}.`
+          : `Fornecedor inabilitado. ${UnidadePlural} sem segundo colocado foram fechados.`);
       }
 
       setDialogInabilitar(false);
@@ -1846,7 +1850,9 @@ export function DialogAnaliseDocumentalSelecao({
             {temInabilitacaoParcial && data.inabilitado && (
               <div className="mt-1">
                 <p className="text-sm text-orange-700">
-                  <span className="font-medium">Itens inabilitados:</span>{" "}
+                  <span className="font-medium">
+                    {criterioJulgamento === 'por_lote' ? 'Lotes inabilitados:' : 'Itens inabilitados:'}
+                  </span>{" "}
                   {itensInabilitados.sort((a, b) => a - b).join(", ")}
                 </p>
                 <p className="text-sm text-orange-700">
@@ -1882,7 +1888,9 @@ export function DialogAnaliseDocumentalSelecao({
             {isInabilitado && data.inabilitado && (
               <div className="mt-2">
                 <p className="text-sm text-destructive">
-                  <span className="font-medium">Itens afetados:</span>{" "}
+                  <span className="font-medium">
+                    {criterioJulgamento === 'por_lote' ? 'Lotes afetados:' : 'Itens afetados:'}
+                  </span>{" "}
                   {data.inabilitado.itens_afetados.sort((a, b) => a - b).join(", ")}
                 </p>
                 <p className="text-sm text-destructive">
@@ -2766,10 +2774,12 @@ export function DialogAnaliseDocumentalSelecao({
                 <strong>{fornecedorParaInabilitar?.fornecedor.razao_social}</strong>?
               </p>
               <p className="text-sm text-muted-foreground mb-2">
-                Itens vencidos: {fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ") || "Nenhum"}
+                {criterioJulgamento === 'por_lote' ? 'Lotes vencidos:' : 'Itens vencidos:'}{" "}
+                {fornecedorParaInabilitar?.fornecedor.itensVencedores.sort((a, b) => a - b).join(", ") || "Nenhum"}
               </p>
               <p className="text-sm text-muted-foreground">
-                Total de itens licitados: {fornecedorParaInabilitar?.fornecedor.itensLicitados.sort((a, b) => a - b).join(", ")}
+                {criterioJulgamento === 'por_lote' ? 'Total de lotes licitados:' : 'Total de itens licitados:'}{" "}
+                {fornecedorParaInabilitar?.fornecedor.itensLicitados.sort((a, b) => a - b).join(", ")}
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -2782,9 +2792,13 @@ export function DialogAnaliseDocumentalSelecao({
               <div className="flex items-center gap-3">
                 <div className={`w-4 h-4 rounded-full border-2 ${tipoInabilitacao === 'parcial' ? 'border-primary bg-primary' : 'border-muted-foreground'}`} />
                 <div>
-                  <p className="font-medium">Inabilitar apenas itens específicos</p>
+                  <p className="font-medium">
+                    {criterioJulgamento === 'por_lote' ? 'Inabilitar apenas lotes específicos' : 'Inabilitar apenas itens específicos'}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    Selecione quais itens o fornecedor será inabilitado
+                    {criterioJulgamento === 'por_lote'
+                      ? 'Selecione quais lotes o fornecedor será inabilitado'
+                      : 'Selecione quais itens o fornecedor será inabilitado'}
                   </p>
                 </div>
               </div>
@@ -2799,7 +2813,9 @@ export function DialogAnaliseDocumentalSelecao({
                 <div>
                   <p className="font-medium">Inabilitar fornecedor completamente</p>
                   <p className="text-sm text-muted-foreground">
-                    Inabilitar todos os itens que o fornecedor venceu
+                    {criterioJulgamento === 'por_lote'
+                      ? 'Inabilitar todos os lotes que o fornecedor venceu'
+                      : 'Inabilitar todos os itens que o fornecedor venceu'}
                   </p>
                 </div>
               </div>
@@ -2821,20 +2837,26 @@ export function DialogAnaliseDocumentalSelecao({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <UserX className="h-5 w-5" />
-              {tipoInabilitacao === 'parcial' ? 'Inabilitar Itens Específicos' : 'Inabilitar Fornecedor'}
+              {tipoInabilitacao === 'parcial'
+                ? (criterioJulgamento === 'por_lote' ? 'Inabilitar Lotes Específicos' : 'Inabilitar Itens Específicos')
+                : 'Inabilitar Fornecedor'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
                 <p>
                   Você está prestes a inabilitar o fornecedor{" "}
-                  <strong>{fornecedorParaInabilitar?.fornecedor.razao_social}</strong> 
-                  {tipoInabilitacao === 'parcial' ? ' nos itens selecionados' : ' na análise documental'}.
+                  <strong>{fornecedorParaInabilitar?.fornecedor.razao_social}</strong>
+                  {tipoInabilitacao === 'parcial'
+                    ? (criterioJulgamento === 'por_lote' ? ' nos lotes selecionados' : ' nos itens selecionados')
+                    : ' na análise documental'}.
                 </p>
                 
                 {tipoInabilitacao === 'parcial' ? (
                   <div className="bg-muted/50 p-3 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium">Selecione os itens para inabilitar:</p>
+                      <p className="text-sm font-medium">
+                        {criterioJulgamento === 'por_lote' ? 'Selecione os lotes para inabilitar:' : 'Selecione os itens para inabilitar:'}
+                      </p>
                       <div className="flex gap-2">
                         <Button
                           type="button"
@@ -2872,7 +2894,7 @@ export function DialogAnaliseDocumentalSelecao({
                               onCheckedChange={() => handleToggleItemInabilitacao(item)}
                             />
                             <span className="text-sm">
-                              Item {item}
+                              {criterioJulgamento === 'por_lote' ? `Lote ${item}` : `Item ${item}`}
                               {ehVencedor && <span className="text-xs text-primary ml-1">(1º)</span>}
                             </span>
                           </div>
@@ -2881,23 +2903,31 @@ export function DialogAnaliseDocumentalSelecao({
                     </div>
                     {itensSelecionadosInabilitacao.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-2">
-                        {itensSelecionadosInabilitacao.length} item(ns) selecionado(s)
+                        {criterioJulgamento === 'por_lote'
+                          ? `${itensSelecionadosInabilitacao.length} lote(s) selecionado(s)`
+                          : `${itensSelecionadosInabilitacao.length} item(ns) selecionado(s)`}
                       </p>
                     )}
                   </div>
                 ) : (
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-sm font-medium">Itens afetados (todos os licitados):</p>
+                    <p className="text-sm font-medium">
+                      {criterioJulgamento === 'por_lote' ? 'Lotes afetados (todos os licitados):' : 'Itens afetados (todos os licitados):'}
+                    </p>
                     <p className="text-sm">{fornecedorParaInabilitar?.fornecedor.itensLicitados.sort((a, b) => a - b).join(", ")}</p>
                   </div>
                 )}
 
                 {segundosColocados.length > 0 && (
                   <div className="bg-primary/10 p-3 rounded-lg">
-                    <p className="text-sm font-medium mb-2">Segundos colocados que assumirão os itens:</p>
+                    <p className="text-sm font-medium mb-2">
+                      {criterioJulgamento === 'por_lote'
+                        ? 'Segundos colocados que assumirão os lotes:'
+                        : 'Segundos colocados que assumirão os itens:'}
+                    </p>
                     {segundosColocados.map((seg) => (
                       <p key={seg.numero_item} className="text-sm">
-                        Item {seg.numero_item}: <strong>{seg.fornecedor_nome}</strong> - {formatCurrency(seg.valor_lance)}
+                        {criterioJulgamento === 'por_lote' ? 'Lote' : 'Item'} {seg.numero_item}: <strong>{seg.fornecedor_nome}</strong> - {formatCurrency(seg.valor_lance)}
                       </p>
                     ))}
                   </div>
@@ -2928,7 +2958,9 @@ export function DialogAnaliseDocumentalSelecao({
                   htmlFor="reabrirNegociacao"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                 >
-                  Reabrir itens para negociação após inabilitação
+                  {criterioJulgamento === 'por_lote'
+                    ? 'Reabrir lotes para negociação após inabilitação'
+                    : 'Reabrir itens para negociação após inabilitação'}
                 </label>
               </div>
             )}
