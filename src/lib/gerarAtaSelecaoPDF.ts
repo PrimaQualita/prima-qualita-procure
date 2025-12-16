@@ -324,8 +324,16 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     const valorUnitario = lance.valor_lance;
     
     // Para desconto, não multiplicar pela quantidade (desconto é percentual)
-    // Para preço, multiplicar pela quantidade para obter valor total
-    const valorTotal = criterioJulgamento === 'desconto' ? valorUnitario : valorUnitario * quantidade;
+    // Para por_lote, o lance já é o valor total do lote, não multiplicar
+    // Para preço por item, multiplicar pela quantidade para obter valor total
+    let valorTotal: number;
+    if (criterioJulgamento === 'desconto') {
+      valorTotal = valorUnitario; // Desconto é percentual
+    } else if (criterioJulgamento === 'por_lote') {
+      valorTotal = valorUnitario; // Lance do lote já é o valor total
+    } else {
+      valorTotal = valorUnitario * quantidade; // Preço por item
+    }
     
     return {
       numero_item: lance.numero_item || 0,
@@ -713,10 +721,11 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     });
 
     const colunaValorHeader = ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL';
+    const colunaItensHeader = criterioJulgamento === 'por_lote' ? 'LOTES' : 'ITENS';
 
     autoTable(doc, {
       startY: currentY,
-      head: [['FORNECEDOR', 'ITENS', colunaValorHeader]],
+      head: [['FORNECEDOR', colunaItensHeader, colunaValorHeader]],
       body: tabelaVencedoresLances,
       theme: 'grid',
       headStyles: { 
@@ -805,7 +814,13 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       checkNewPage(10);
       const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
       const qtdItens = inab.itens_afetados.length;
-      const textoItem = qtdItens === 1 ? 'no item' : 'nos itens';
+      // Adaptar texto conforme critério de julgamento
+      let textoItem: string;
+      if (criterioJulgamento === 'por_lote') {
+        textoItem = qtdItens === 1 ? 'no lote' : 'nos lotes';
+      } else {
+        textoItem = qtdItens === 1 ? 'no item' : 'nos itens';
+      }
       const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA ${textoItem}: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
       currentY = drawJustifiedText(doc, textoInab, marginLeft, currentY, contentWidth, lineHeight);
     });
@@ -849,9 +864,15 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         if (segundoColocado) {
           const quantidade = itensQuantidades[item.numero_item] || 1;
           // Para desconto, não multiplicar pela quantidade (desconto é percentual)
-          const valorTotal = criterioJulgamento === 'desconto' 
-            ? segundoColocado.valor_lance 
-            : segundoColocado.valor_lance * quantidade;
+          // Para por_lote, o lance já é o valor total do lote
+          let valorTotal: number;
+          if (criterioJulgamento === 'desconto') {
+            valorTotal = segundoColocado.valor_lance;
+          } else if (criterioJulgamento === 'por_lote') {
+            valorTotal = segundoColocado.valor_lance;
+          } else {
+            valorTotal = segundoColocado.valor_lance * quantidade;
+          }
           
           if (!vencedoresFinal[segundoColocado.fornecedor_id]) {
             vencedoresFinal[segundoColocado.fornecedor_id] = {
@@ -894,10 +915,11 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       });
 
       const colunaValorHeader = ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL';
+      const colunaItensHeader = criterioJulgamento === 'por_lote' ? 'LOTES' : 'ITENS';
 
       autoTable(doc, {
         startY: currentY,
-        head: [['FORNECEDOR', 'ITENS', colunaValorHeader]],
+        head: [['FORNECEDOR', colunaItensHeader, colunaValorHeader]],
         body: tabelaVencedores,
         theme: 'grid',
         headStyles: { 
@@ -951,7 +973,8 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   
   if (itensNegociados.length > 0) {
     const itensNegociadosStr = itensNegociados.join(', ');
-    const textoNegociacao = `Foram realizadas negociações nos seguintes itens: ${itensNegociadosStr}.`;
+    const termoNegociacao = criterioJulgamento === 'por_lote' ? 'lotes' : 'itens';
+    const textoNegociacao = `Foram realizadas negociações nos seguintes ${termoNegociacao}: ${itensNegociadosStr}.`;
     currentY = drawJustifiedText(doc, textoNegociacao, marginLeft, currentY, contentWidth, lineHeight);
   } else {
     currentY = drawJustifiedText(doc, "Não houve negociações durante esta sessão.", marginLeft, currentY, contentWidth, lineHeight);
