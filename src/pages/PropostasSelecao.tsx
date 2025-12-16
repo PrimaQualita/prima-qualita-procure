@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Eye, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, Download, Trash2, RefreshCw, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
@@ -19,6 +19,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface PropostaFornecedor {
   id: string;
@@ -53,6 +63,13 @@ export default function PropostasSelecao() {
   const [propostaParaExcluirCompleta, setPropostaParaExcluirCompleta] = useState<PropostaFornecedor | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmDeleteCompletaOpen, setConfirmDeleteCompletaOpen] = useState(false);
+  
+  // Estados para propostas realinhadas
+  const [propostaRealinhadaParaExcluir, setPropostaRealinhadaParaExcluir] = useState<any>(null);
+  const [confirmDeleteRealinhadaOpen, setConfirmDeleteRealinhadaOpen] = useState(false);
+  const [propostaParaCorrecao, setPropostaParaCorrecao] = useState<any>(null);
+  const [motivoCorrecao, setMotivoCorrecao] = useState("");
+  const [dialogCorrecaoOpen, setDialogCorrecaoOpen] = useState(false);
 
   const isRealinhadas = tipoPropostas === "realinhadas";
 
@@ -479,6 +496,123 @@ export default function PropostasSelecao() {
     }
   };
 
+  // === FUNÇÕES PARA PROPOSTAS REALINHADAS ===
+  
+  const handleVisualizarPropostaRealinhada = async (proposta: any) => {
+    try {
+      if (proposta.url_pdf_proposta) {
+        // Extrair path relativo
+        let path = proposta.url_pdf_proposta;
+        if (path.includes('processo-anexos/')) {
+          path = path.split('processo-anexos/').pop() || path;
+        }
+        
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('processo-anexos')
+          .download(path);
+
+        if (downloadError) throw downloadError;
+
+        const pdfUrl = URL.createObjectURL(fileData);
+        window.open(pdfUrl, '_blank');
+        toast.success("Proposta realinhada carregada!");
+      } else {
+        toast.error("PDF não disponível");
+      }
+    } catch (error: any) {
+      console.error("Erro ao visualizar proposta realinhada:", error);
+      toast.error("Erro ao carregar PDF");
+    }
+  };
+
+  const excluirPropostaRealinhada = async () => {
+    if (!propostaRealinhadaParaExcluir) return;
+    
+    try {
+      console.log("🗑️ Excluindo proposta realinhada:", propostaRealinhadaParaExcluir.id);
+      
+      // Deletar PDF do storage se existir
+      if (propostaRealinhadaParaExcluir.url_pdf_proposta) {
+        let path = propostaRealinhadaParaExcluir.url_pdf_proposta;
+        if (path.includes('processo-anexos/')) {
+          path = path.split('processo-anexos/').pop() || path;
+        }
+        
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove([path]);
+        
+        if (storageError) {
+          console.error("⚠️ Erro ao deletar PDF:", storageError);
+        }
+      }
+
+      // Deletar itens da proposta primeiro
+      const { error: itensError } = await (supabase as any)
+        .from('propostas_realinhadas_itens')
+        .delete()
+        .eq('proposta_realinhada_id', propostaRealinhadaParaExcluir.id);
+
+      if (itensError) throw itensError;
+
+      // Deletar a proposta
+      const { error: propostaError } = await supabase
+        .from('propostas_realinhadas')
+        .delete()
+        .eq('id', propostaRealinhadaParaExcluir.id);
+
+      if (propostaError) throw propostaError;
+      
+      console.log("✅ Proposta realinhada excluída");
+      
+      setPropostaRealinhadaParaExcluir(null);
+      setConfirmDeleteRealinhadaOpen(false);
+      
+      toast.success("Proposta realinhada excluída. O fornecedor poderá enviar nova proposta.");
+      
+      await loadPropostasRealinhadas();
+      
+    } catch (error: any) {
+      console.error("❌ Erro ao excluir proposta realinhada:", error);
+      toast.error(error.message || "Erro ao excluir proposta realinhada");
+    }
+  };
+
+  const solicitarCorrecao = async () => {
+    if (!propostaParaCorrecao || !motivoCorrecao.trim()) {
+      toast.error("Por favor, informe o motivo da solicitação de correção");
+      return;
+    }
+    
+    try {
+      console.log("📝 Solicitando correção da proposta:", propostaParaCorrecao.id);
+      
+      const { error } = await supabase
+        .from('propostas_realinhadas')
+        .update({
+          correcao_solicitada: true,
+          motivo_correcao: motivoCorrecao.trim(),
+          data_solicitacao_correcao: new Date().toISOString()
+        })
+        .eq('id', propostaParaCorrecao.id);
+
+      if (error) throw error;
+      
+      console.log("✅ Correção solicitada com sucesso");
+      
+      setPropostaParaCorrecao(null);
+      setMotivoCorrecao("");
+      setDialogCorrecaoOpen(false);
+      
+      toast.success("Correção solicitada! O fornecedor poderá editar a proposta.");
+      
+      await loadPropostasRealinhadas();
+      
+    } catch (error: any) {
+      console.error("❌ Erro ao solicitar correção:", error);
+      toast.error(error.message || "Erro ao solicitar correção");
+    }
+  };
 
   if (loading) {
     return (
@@ -576,6 +710,7 @@ export default function PropostasSelecao() {
                       <TableHead className="text-right border-r border-border/50">Valor Total</TableHead>
                       <TableHead className="border-r border-border/50">Data de Envio</TableHead>
                       <TableHead className="border-r border-border/50">Protocolo</TableHead>
+                      <TableHead className="border-r border-border/50">Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -597,18 +732,52 @@ export default function PropostasSelecao() {
                         <TableCell className="border-r border-border/50">
                           <span className="text-xs font-mono">{proposta.protocolo || "-"}</span>
                         </TableCell>
+                        <TableCell className="border-r border-border/50">
+                          {proposta.correcao_solicitada ? (
+                            <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                              Correção Solicitada
+                            </Badge>
+                          ) : (
+                            <Badge variant="default">Enviada</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              // Ver detalhes da proposta realinhada
-                              navigate(`/proposta-realinhada?selecao=${selecaoId}&fornecedor=${proposta.fornecedor_id}&view=true`);
-                            }}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            Ver Detalhes
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {proposta.url_pdf_proposta && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleVisualizarPropostaRealinhada(proposta)}
+                                title="Visualizar PDF"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setPropostaParaCorrecao(proposta);
+                                setMotivoCorrecao("");
+                                setDialogCorrecaoOpen(true);
+                              }}
+                              title="Solicitar Correção"
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setPropostaRealinhadaParaExcluir(proposta);
+                                setConfirmDeleteRealinhadaOpen(true);
+                              }}
+                              title="Excluir Proposta"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -813,6 +982,60 @@ export default function PropostasSelecao() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Diálogo de Confirmação de Exclusão de Proposta Realinhada */}
+      <AlertDialog open={confirmDeleteRealinhadaOpen} onOpenChange={setConfirmDeleteRealinhadaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Proposta Realinhada</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a proposta realinhada de <strong>{propostaRealinhadaParaExcluir?.fornecedor?.razao_social}</strong>?
+              <br /><br />
+              <strong className="text-destructive">Atenção:</strong> Esta ação removerá todos os dados da proposta realinhada. O fornecedor poderá enviar uma nova proposta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirPropostaRealinhada} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Proposta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de Solicitação de Correção */}
+      <Dialog open={dialogCorrecaoOpen} onOpenChange={setDialogCorrecaoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Solicitar Correção da Proposta</DialogTitle>
+            <DialogDescription>
+              Informe o motivo da solicitação de correção para a proposta de <strong>{propostaParaCorrecao?.fornecedor?.razao_social}</strong>.
+              O fornecedor poderá editar e reenviar a proposta.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="motivo-correcao">Motivo da Correção</Label>
+              <Textarea
+                id="motivo-correcao"
+                placeholder="Descreva o que precisa ser corrigido na proposta..."
+                value={motivoCorrecao}
+                onChange={(e) => setMotivoCorrecao(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogCorrecaoOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={solicitarCorrecao} disabled={!motivoCorrecao.trim()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Solicitar Correção
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
