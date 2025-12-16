@@ -1839,27 +1839,68 @@ export function DialogSessaoLances({
 
       doc.setTextColor(0, 0, 0);
 
-      // Agrupar lances por item - USANDO TODOS OS LANCES (incluindo inabilitados)
-      const lancesGroupedByItem = itens.map(item => {
-        const lancesItem = getLancesCompletosDoItem(item.numero_item);
-        return { item, lances: lancesItem };
+      // Função para converter número para romano
+      const toRoman = (num: number): string => {
+        const romanNumerals: [number, string][] = [
+          [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+          [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+          [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+        ];
+        let result = '';
+        for (const [value, symbol] of romanNumerals) {
+          while (num >= value) {
+            result += symbol;
+            num -= value;
+          }
+        }
+        return result;
+      };
+
+      // Quando critério for "por_lote", usar lotes ao invés de itens
+      const isPorLoteLocal = criterioJulgamento === "por_lote";
+      
+      // Preparar dados para iteração - usar lotes quando for por_lote
+      const elementosParaIterar = isPorLoteLocal && lotes.length > 0
+        ? lotes.map(lote => ({
+            numero: lote.numero_lote,
+            descricao: lote.descricao_lote,
+            quantidade: 1, // Lote não tem quantidade individual
+            unidade: "LOTE",
+            isLote: true
+          }))
+        : itens.map(item => ({
+            numero: item.numero_item,
+            descricao: item.descricao,
+            quantidade: item.quantidade || 1,
+            unidade: item.unidade || "UN",
+            isLote: false
+          }));
+
+      // Agrupar lances por item/lote - USANDO TODOS OS LANCES (incluindo inabilitados)
+      const lancesGroupedByItem = elementosParaIterar.map(elemento => {
+        const lancesElemento = getLancesCompletosDoItem(elemento.numero);
+        return { elemento, lances: lancesElemento };
       });
 
       let yPosition = yStart + 22;
       let temInabilitado = false; // Flag para legenda de inabilitados
 
-      lancesGroupedByItem.forEach(({ item, lances: lancesDoItem }) => {
-        const tituloTexto = `Item ${item.numero_item}: ${item.descricao}`;
+      lancesGroupedByItem.forEach(({ elemento, lances: lancesDoItem }) => {
+        // Título baseado em lote ou item
+        const tituloTexto = elemento.isLote 
+          ? `Lote ${toRoman(elemento.numero)}: ${elemento.descricao}`
+          : `Item ${elemento.numero}: ${elemento.descricao}`;
+        const termoSemLances = elemento.isLote ? "Nenhum lance registrado para este lote" : "Nenhum lance registrado para este item";
 
         if (lancesDoItem.length === 0) {
-          // Para itens sem lances, criar tabela apenas com título
+          // Para itens/lotes sem lances, criar tabela apenas com título
           autoTable(doc, {
             startY: yPosition,
             head: [
               [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [224, 242, 241], textColor: [0, 128, 128], halign: "left", fontStyle: "bold", fontSize: 10 } }],
               ["Pos.", "Fornecedor", "Valor", "Data/Hora"]
             ],
-            body: [[{ content: "Nenhum lance registrado para este item", colSpan: 4, styles: { halign: "center", textColor: [100, 100, 100], fontStyle: "italic" } }]],
+            body: [[{ content: termoSemLances, colSpan: 4, styles: { halign: "center", textColor: [100, 100, 100], fontStyle: "italic" } }]],
             theme: "striped",
             styles: { 
               fontSize: 8, 
@@ -1896,13 +1937,13 @@ export function DialogSessaoLances({
             return itensInabilitados.includes(numeroItem);
           };
 
-          // Verificar se há fornecedores inabilitados neste item específico
-          const temInabilitadoNoItem = lancesDoItem.some(l => isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
+          // Verificar se há fornecedores inabilitados neste item/lote específico
+          const temInabilitadoNoItem = lancesDoItem.some(l => isInabilitadoNoItem(l.fornecedor_id, elemento.numero));
           if (temInabilitadoNoItem) temInabilitado = true;
 
           // Reordenar: fornecedores válidos primeiro (ordenados por valor), inabilitados depois
-          const lancesValidos = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
-          const lancesInabilitados = lancesDoItem.filter(l => isInabilitadoNoItem(l.fornecedor_id, item.numero_item));
+          const lancesValidos = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, elemento.numero));
+          const lancesInabilitados = lancesDoItem.filter(l => isInabilitadoNoItem(l.fornecedor_id, elemento.numero));
           
           // Ordenar lances válidos por valor (MELHOR VALOR VENCE - sem priorizar negociação)
           const isDesconto = criterioJulgamento === "desconto";
@@ -1920,7 +1961,7 @@ export function DialogSessaoLances({
           const tableData = lancesOrdenados.map((lance, idx) => {
             const isNegociacao = lance.tipo_lance === "negociacao";
             const valorFormatado = formatValorLance(lance.valor_lance);
-            const isInabilitado = isInabilitadoNoItem(lance.fornecedor_id, item.numero_item);
+            const isInabilitado = isInabilitadoNoItem(lance.fornecedor_id, elemento.numero);
             
             // Posição: só conta para fornecedores válidos
             const posicaoExibida = isInabilitado ? "-" : `${lancesValidosOrdenados.findIndex(l => l.id === lance.id) + 1}º`;
@@ -2095,30 +2136,42 @@ export function DialogSessaoLances({
 
       let valorTotalGeral = 0;
       
-      const resumoData = itens.map(item => {
-        const vencedor = getVencedorItem(item.numero_item);
+      // Usar elementos preparados anteriormente (lotes ou itens conforme critério)
+      const resumoData = elementosParaIterar.map(elemento => {
+        const vencedor = getVencedorItem(elemento.numero);
         const isNegociacao = vencedor?.tipo_lance === "negociacao";
         const valorUnitarioFormatado = vencedor ? formatValorLance(vencedor.valor_lance) : "-";
-        const quantidade = item.quantidade || 1;
+        const quantidade = elemento.quantidade || 1;
         
         // Para desconto, não faz sentido calcular valor total (desconto não se multiplica por quantidade)
-        const valorTotal = criterioJulgamento === "desconto" ? 0 : (vencedor ? vencedor.valor_lance * quantidade : 0);
+        // Para lote, o valor do lance já é o valor total do lote
+        let valorTotal: number;
+        if (criterioJulgamento === "desconto") {
+          valorTotal = 0;
+        } else if (elemento.isLote) {
+          valorTotal = vencedor ? vencedor.valor_lance : 0; // Lance do lote já é o valor total
+        } else {
+          valorTotal = vencedor ? vencedor.valor_lance * quantidade : 0;
+        }
         const valorTotalFormatado = criterioJulgamento === "desconto" ? "-" : (vencedor ? formatCurrency(valorTotal) : "-");
         
         // Somar ao valor total geral
         valorTotalGeral += valorTotal;
         
-        // Buscar marca da proposta do fornecedor vencedor
-        const marcaKey = vencedor ? `${item.numero_item}-${vencedor.fornecedor_id}` : "";
-        const marca = marcasPorItemFornecedor[marcaKey] || "-";
+        // Buscar marca da proposta do fornecedor vencedor (não aplicável para lotes)
+        const marcaKey = vencedor ? `${elemento.numero}-${vencedor.fornecedor_id}` : "";
+        const marca = elemento.isLote ? "-" : (marcasPorItemFornecedor[marcaKey] || "-");
+        
+        // Formatar número/identificador
+        const identificador = elemento.isLote ? toRoman(elemento.numero) : elemento.numero.toString();
         
         return [
-          item.numero_item.toString(),
-          item.descricao, // Descrição completa
+          identificador,
+          elemento.descricao, // Descrição completa
           vencedor?.fornecedores?.razao_social || "Sem lances",
           marca,
-          quantidade.toString(),
-          item.unidade || "UN",
+          elemento.isLote ? "-" : quantidade.toString(),
+          elemento.isLote ? "LOTE" : (elemento.unidade || "UN"),
           isNegociacao ? `${valorUnitarioFormatado} *` : valorUnitarioFormatado,
           isNegociacao ? `${valorTotalFormatado} *` : valorTotalFormatado,
         ];
@@ -2143,15 +2196,18 @@ export function DialogSessaoLances({
       const paginaInicialResumo = doc.internal.pages.length - 1;
       paginasResumoProcessadas.add(paginaInicialResumo);
 
+      // Cabeçalho adaptado para lote ou item
+      const colunaIdentificador = isPorLoteLocal ? "Lote" : "Item";
+
       autoTable(doc, {
         startY: resumoStartY,
         head: [[
-          "Item", 
+          colunaIdentificador, 
           "Descrição", 
           "Vencedor", 
-          "Marca", 
-          "Qtd.", 
-          "Un.", 
+          isPorLoteLocal ? "-" : "Marca", 
+          isPorLoteLocal ? "-" : "Qtd.", 
+          isPorLoteLocal ? "-" : "Un.", 
           criterioJulgamento === "desconto" ? "% Desconto" : "Valor Unit.", 
           criterioJulgamento === "desconto" ? "-" : "Valor Total"
         ]],
@@ -2223,12 +2279,21 @@ export function DialogSessaoLances({
       // Calcular totais por fornecedor (apenas se não for desconto)
       if (criterioJulgamento !== "desconto") {
         const totaisPorFornecedor: Record<string, { nome: string; total: number }> = {};
-        itens.forEach(item => {
-          const vencedor = getVencedorItem(item.numero_item);
+        
+        // Usar elementos preparados (lotes ou itens)
+        elementosParaIterar.forEach(elemento => {
+          const vencedor = getVencedorItem(elemento.numero);
           if (vencedor && vencedor.fornecedores?.razao_social) {
             const fornecedorId = vencedor.fornecedor_id;
-            const quantidade = item.quantidade || 1;
-            const valorTotal = vencedor.valor_lance * quantidade;
+            
+            // Para lote, o valor do lance já é o total; para item, multiplicar pela quantidade
+            let valorTotal: number;
+            if (elemento.isLote) {
+              valorTotal = vencedor.valor_lance; // Lance do lote já é o valor total
+            } else {
+              const quantidade = elemento.quantidade || 1;
+              valorTotal = vencedor.valor_lance * quantidade;
+            }
             
             if (!totaisPorFornecedor[fornecedorId]) {
               totaisPorFornecedor[fornecedorId] = {
