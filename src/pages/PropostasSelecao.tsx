@@ -743,7 +743,7 @@ export default function PropostasSelecao() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {proposta.url_pdf_proposta && (
+                            {proposta.url_pdf_proposta ? (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -752,6 +752,10 @@ export default function PropostasSelecao() {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">
+                                Sem PDF
+                              </Badge>
                             )}
                             <Button
                               variant="outline"

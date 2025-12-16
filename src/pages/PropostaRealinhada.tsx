@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Save, FileText, Check, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
+import { gerarPropostaRealinhadaPDF } from "@/lib/gerarPropostaRealinhadaPDF";
 
 interface ItemVencedor {
   numero_item: number;
@@ -423,7 +424,37 @@ const PropostaRealinhada = () => {
       const valorTotal = calcularValorTotal();
       const protocolo = `PR-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-      // Criar proposta realinhada
+      // Preparar itens para PDF
+      const itensParaPDF = itensVencedores.map((item) => ({
+        numero_item: item.numero_item,
+        numero_lote: item.numero_lote || null,
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        valor_unitario: respostas[item.numero_item].valor_unitario,
+        valor_total: respostas[item.numero_item].valor_unitario * item.quantidade,
+        marca: respostas[item.numero_item].marca || null,
+      }));
+
+      // Gerar PDF
+      const { pdfUrl } = await gerarPropostaRealinhadaPDF(
+        itensParaPDF,
+        {
+          razao_social: fornecedor.razao_social,
+          cnpj: fornecedor.cnpj,
+          email: fornecedor.email,
+          endereco_comercial: fornecedor.endereco_comercial,
+        },
+        {
+          numero_processo_interno: processo.numero_processo_interno,
+          objeto_resumido: processo.objeto_resumido,
+          criterio_julgamento: criterioJulgamento,
+        },
+        protocolo,
+        observacoes
+      );
+
+      // Criar proposta realinhada com URL do PDF
       const { data: proposta, error: propostaError } = await supabase
         .from("propostas_realinhadas")
         .upsert({
@@ -432,6 +463,7 @@ const PropostaRealinhada = () => {
           valor_total_proposta: valorTotal,
           observacoes,
           protocolo,
+          url_pdf_proposta: pdfUrl,
         }, { onConflict: "selecao_id,fornecedor_id" })
         .select()
         .single();
