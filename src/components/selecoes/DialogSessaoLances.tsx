@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare, Trash2, CheckCircle, Ban, ChevronDown, ChevronUp, Bell, Timer } from "lucide-react";
+import { Gavel, Lock, Unlock, Send, RefreshCw, Trophy, FileSpreadsheet, MessageSquare, Handshake, MessagesSquare, Trash2, CheckCircle, Ban, ChevronDown, ChevronUp, Bell, Timer, AlertCircle } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ChatNegociacao } from "./ChatNegociacao";
@@ -3458,16 +3458,74 @@ export function DialogSessaoLances({
         {/* Botão Finalizar Sessão ou Remarcar Vencedores - Posição fixa no rodapé */}
         <div className="flex-shrink-0 pt-4 border-t bg-background">
           {!sessaoFinalizada ? (
-            <Button
-              variant="default"
-              size="lg"
-              className="w-full bg-green-600 hover:bg-green-700"
-              onClick={handleFinalizarSessaoInterna}
-              disabled={salvando}
-            >
-              <CheckCircle className="h-5 w-5 mr-2" />
-              {salvando ? "Finalizando..." : "Finalizar Sessão de Lances"}
-            </Button>
+            (() => {
+              // Validação: todos os itens/lotes devem estar fechados
+              const totalItensOuLotes = isPorLote ? lotes.length : itens.length;
+              const todosItensFechados = itensFechados.size >= totalItensOuLotes && totalItensOuLotes > 0;
+              
+              // Validação: pelo menos uma planilha de lances deve ter sido gerada
+              const planilhaGerada = planilhasGeradas.length > 0;
+              
+              // Determinar se pode finalizar
+              const podeFinalizarSessao = todosItensFechados && planilhaGerada;
+              
+              // Mensagens de erro para cada validação
+              const mensagensErro: string[] = [];
+              if (!todosItensFechados) {
+                const faltam = totalItensOuLotes - itensFechados.size;
+                mensagensErro.push(
+                  isPorLote 
+                    ? `Faltam ${faltam} lote(s) para fechar` 
+                    : `Faltam ${faltam} item(ns) para fechar`
+                );
+              }
+              if (!planilhaGerada) {
+                mensagensErro.push("Planilha de Lances não foi gerada");
+              }
+              
+              return (
+                <>
+                  <Button
+                    variant="default"
+                    size="lg"
+                    className={`w-full ${podeFinalizarSessao ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                    onClick={() => {
+                      if (!podeFinalizarSessao) {
+                        toast.error("Não é possível finalizar a sessão", {
+                          description: mensagensErro.join(". "),
+                          duration: 5000
+                        });
+                        return;
+                      }
+                      handleFinalizarSessaoInterna();
+                    }}
+                    disabled={salvando}
+                  >
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    {salvando ? "Finalizando..." : "Finalizar Sessão de Lances"}
+                  </Button>
+                  {!podeFinalizarSessao && (
+                    <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                      <p className="text-xs text-amber-700 font-medium flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Para finalizar a sessão:
+                      </p>
+                      <ul className="text-xs text-amber-600 mt-1 ml-4 list-disc">
+                        {!todosItensFechados && (
+                          <li>
+                            {isPorLote 
+                              ? `Feche todos os ${totalItensOuLotes} lotes (${itensFechados.size} fechados)` 
+                              : `Feche todos os ${totalItensOuLotes} itens (${itensFechados.size} fechados)`
+                            }
+                          </li>
+                        )}
+                        {!planilhaGerada && <li>Gere a Planilha de Lances</li>}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              );
+            })()
           ) : (
             <Button
               variant="outline"
