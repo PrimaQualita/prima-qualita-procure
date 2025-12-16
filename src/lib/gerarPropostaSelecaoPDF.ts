@@ -415,7 +415,7 @@ export async function gerarPropostaSelecaoPDF(
             descricao: sanitizarTexto(item.descricao),
             quantidade: item.quantidade.toString(),
             unidade: sanitizarTexto(item.unidade),
-            marca: sanitizarTexto(item.marca || '-'),
+            marca: sanitizarTexto(item.marca || ''),
             valorUnitario: `R$ ${formatarMoeda(item.valor_unitario_ofertado)}`,
             valorTotal: `R$ ${formatarMoeda(valorTotalItem)}`
           });
@@ -724,7 +724,7 @@ export async function gerarPropostaSelecaoPDF(
       // Quantidade, Unidade, Marca - centralizados horizontalmente
       doc.text(item.quantidade.toString(), colQtdCenter, yVerticalCenter, { align: 'center' });
       doc.text(sanitizarTexto(item.unidade), colUniCenter, yVerticalCenter, { align: 'center' });
-      doc.text(sanitizarTexto(item.marca || '-'), colMarcaCenter, yVerticalCenter, { align: 'center' });
+      doc.text(sanitizarTexto(item.marca || ''), colMarcaCenter, yVerticalCenter, { align: 'center' });
       
       // Valores conforme critério
       if (isDesconto) {
