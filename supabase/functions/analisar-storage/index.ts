@@ -2314,7 +2314,7 @@ Deno.serve(async (req) => {
         pathSemBucket.toLowerCase().includes('planilha_consolidada') ||
         pathSemBucket.includes('Planilha_Consolidada') ||
         pathSemBucket.includes('-EMAIL.pdf') ||
-        fileNameRaw.startsWith('proposta_')
+        (fileNameRaw.startsWith('proposta_') && !pathSemBucket.startsWith('propostas_realinhadas/'))
       ) {
         // Documentos de cotações - nome já foi buscado no início via nomesBonitos
         estatisticasPorCategoria.cotacoes.arquivos++;
