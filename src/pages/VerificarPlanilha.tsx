@@ -1,7 +1,7 @@
 // @ts-nocheck - Tabelas podem não existir no schema atual
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabasePublic } from "@/integrations/supabase/public-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +32,7 @@ export default function VerificarPlanilha() {
 
     try {
       // Primeiro, tentar buscar em planilhas_habilitacao (planilha final)
-      const { data: dataHabilitacao, error: errorHabilitacao } = await supabase
+      const { data: dataHabilitacao, error: errorHabilitacao } = await supabasePublic
         .from("planilhas_habilitacao")
         .select("*")
         .eq("protocolo", prot.trim())
@@ -46,7 +46,7 @@ export default function VerificarPlanilha() {
       }
 
       // Tentar buscar em planilhas_lances_selecao (seleção de fornecedores)
-      const { data: dataLances, error: errorLances } = await supabase
+      const { data: dataLances, error: errorLances } = await supabasePublic
         .from("planilhas_lances_selecao")
         .select("*")
         .eq("protocolo", prot.trim())
@@ -60,7 +60,7 @@ export default function VerificarPlanilha() {
       }
 
       // Se não encontrou, tentar buscar em planilhas_consolidadas (cotação de preços)
-      const { data: dataConsolidadas, error: errorConsolidadas } = await supabase
+      const { data: dataConsolidadas, error: errorConsolidadas } = await supabasePublic
         .from("planilhas_consolidadas")
         .select("*")
         .eq("protocolo", prot.trim())
