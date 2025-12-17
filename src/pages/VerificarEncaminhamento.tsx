@@ -38,18 +38,21 @@ export default function VerificarEncaminhamento() {
     setEncaminhamento(null);
 
     try {
-      const { data, error } = await supabase
-        .from("encaminhamentos_processo")
-        .select("*")
-        .eq("protocolo", protocolo)
-        .maybeSingle();
+      const { data: payload, error } = await supabase.functions.invoke(
+        "verificar-encaminhamento",
+        {
+          body: { protocolo },
+        }
+      );
 
       if (error) throw error;
 
-      if (!data) {
-        setErro("Encaminhamento não encontrado com este protocolo");
+      const encaminhamentoEncontrado = payload?.encaminhamento as EncaminhamentoVerificado | null | undefined;
+
+      if (!encaminhamentoEncontrado) {
+        setErro(payload?.error || "Encaminhamento não encontrado com este protocolo");
       } else {
-        setEncaminhamento(data);
+        setEncaminhamento(encaminhamentoEncontrado);
         toast({
           title: "Encaminhamento verificado",
           description: "Encaminhamento autêntico encontrado.",
