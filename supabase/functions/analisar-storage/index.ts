@@ -2558,6 +2558,14 @@ Deno.serve(async (req) => {
       if (docsHabilitacaoMap.has(pathSemBucket)) {
         continue;
       }
+      // Verificar se está no mapa de propostas de seleção
+      if (propostasSelecaoMap.has(pathSemBucket)) {
+        continue;
+      }
+      // Verificar se está no mapa de propostas realinhadas
+      if (propostasRealinhadasMap.has(pathSemBucket)) {
+        continue;
+      }
       
       const fileName = arquivo.split('/').pop() || arquivo;
       
