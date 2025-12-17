@@ -665,13 +665,13 @@ const ProcessosCompras = () => {
               </AlertDialogTitle>
             </div>
             <AlertDialogDescription asChild>
-              <div className="text-base space-y-3">
+              <div className="text-base space-y-3 mx-2">
                 <div className="p-3 bg-destructive/20 rounded-lg border-2 border-destructive">
                   <p className="text-center font-bold text-destructive mb-2">
                     ÚLTIMA CHANCE DE CANCELAR!
                   </p>
                   <p className="text-center text-foreground text-sm">
-                    Ao clicar em <strong>"EXCLUIR PERMANENTEMENTE"</strong>, você confirma que:
+                    Ao clicar em <strong>"EXCLUIR"</strong>, você confirma que:
                   </p>
                   <ul className="list-disc list-inside space-y-1 mt-2 text-sm text-foreground">
                     <li>Entende que <strong>TODOS os dados serão perdidos</strong></li>
@@ -679,7 +679,7 @@ const ProcessosCompras = () => {
                     <li>Assume total responsabilidade por esta ação</li>
                   </ul>
                 </div>
-                <p className="text-center text-muted-foreground text-xs">
+                <p className="text-center text-muted-foreground text-xs px-2">
                   Recomendação: Antes de excluir, certifique-se de ter exportado 
                   todos os documentos importantes.
                 </p>
