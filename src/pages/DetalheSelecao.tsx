@@ -827,7 +827,9 @@ const [itens, setItens] = useState<Item[]>([]);
             <CardContent className="py-2">
               <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
                 <div className="flex-1">
-                  <p className="font-medium text-sm">{processoCompletoSalvo.nome_arquivo}</p>
+                  <p className="font-medium text-sm">
+                    Processo Completo - Seleção {selecao?.numero_selecao || processoCompletoSalvo.nome_arquivo?.match(/selecao_(\d+\/\d+)/)?.[1] || "N/A"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     Finalizado em: {new Date(processoCompletoSalvo.data_upload).toLocaleString("pt-BR")}
                   </p>
