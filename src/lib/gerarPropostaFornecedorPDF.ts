@@ -436,16 +436,16 @@ export async function gerarPropostaFornecedorPDF(
     const headersPreco = ['ITEM', 'DESCRICAO', 'MARCA', 'QTD', 'UNID', 'VL. UNIT.', 'VL. TOTAL'];
     
     const columnStylesDesconto: any = {
-      0: { cellWidth: 12, halign: 'center', valign: 'middle' },
-      1: { cellWidth: 92, halign: 'justify', valign: 'middle' },
+      0: { cellWidth: 14, halign: 'center', valign: 'middle' },
+      1: { cellWidth: 90, halign: 'justify', valign: 'middle' },
       2: { cellWidth: 20, halign: 'center', valign: 'middle' },
       3: { cellWidth: 18, halign: 'center', valign: 'middle' },
       4: { cellWidth: 32, halign: 'center', valign: 'middle' }
     };
     
     const columnStylesPreco: any = {
-      0: { cellWidth: 11, halign: 'center', valign: 'middle' },
-      1: { cellWidth: 66, halign: 'justify', valign: 'middle' },
+      0: { cellWidth: 14, halign: 'center', valign: 'middle' },
+      1: { cellWidth: 63, halign: 'justify', valign: 'middle' },
       2: { cellWidth: 19, halign: 'center', valign: 'middle' },
       3: { cellWidth: 14, halign: 'center', valign: 'middle' },
       4: { cellWidth: 16, halign: 'center', valign: 'middle' },
@@ -486,7 +486,7 @@ export async function gerarPropostaFornecedorPDF(
       showHead: 'everyPage',
       didParseCell: (data) => {
         if (data.column.index === 1 && data.section === 'body') {
-          data.cell.styles.cellWidth = ehDesconto ? 92 : 66;
+          data.cell.styles.cellWidth = ehDesconto ? 90 : 63;
           // Adicionar padding extra na altura para compensar o bug de cálculo
           const textLines = data.cell.text.length;
           const extraPadding = Math.ceil(textLines * 0.5);
