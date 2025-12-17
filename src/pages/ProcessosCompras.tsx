@@ -654,52 +654,54 @@ const ProcessosCompras = () => {
           }
         }}
       >
-        <AlertDialogContent className="border-destructive border-4">
+        <AlertDialogContent className="border-destructive border-4 max-w-md">
           <AlertDialogHeader>
-            <div className="flex flex-col items-center gap-3 mb-2">
-              <div className="p-4 rounded-full bg-destructive animate-pulse">
-                <AlertTriangle className="h-12 w-12 text-destructive-foreground" />
+            <div className="flex flex-col items-center gap-2 mb-2">
+              <div className="p-3 rounded-full bg-destructive animate-pulse">
+                <AlertTriangle className="h-10 w-10 text-destructive-foreground" />
               </div>
-              <AlertDialogTitle className="text-2xl text-destructive text-center">
+              <AlertDialogTitle className="text-xl text-destructive text-center">
                 🚨 CONFIRMAÇÃO FINAL 🚨
               </AlertDialogTitle>
             </div>
-            <AlertDialogDescription className="text-base space-y-4">
-              <div className="p-4 bg-destructive/20 rounded-lg border-2 border-destructive">
-                <p className="text-center font-bold text-destructive text-lg mb-3">
-                  ÚLTIMA CHANCE DE CANCELAR!
+            <AlertDialogDescription asChild>
+              <div className="text-base space-y-3">
+                <div className="p-3 bg-destructive/20 rounded-lg border-2 border-destructive">
+                  <p className="text-center font-bold text-destructive mb-2">
+                    ÚLTIMA CHANCE DE CANCELAR!
+                  </p>
+                  <p className="text-center text-foreground text-sm">
+                    Ao clicar em <strong>"EXCLUIR PERMANENTEMENTE"</strong>, você confirma que:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 mt-2 text-sm text-foreground">
+                    <li>Entende que <strong>TODOS os dados serão perdidos</strong></li>
+                    <li>Não há backup disponível para recuperação</li>
+                    <li>Assume total responsabilidade por esta ação</li>
+                  </ul>
+                </div>
+                <p className="text-center text-muted-foreground text-xs">
+                  Recomendação: Antes de excluir, certifique-se de ter exportado 
+                  todos os documentos importantes.
                 </p>
-                <p className="text-center text-foreground">
-                  Ao clicar em <strong>"EXCLUIR PERMANENTEMENTE"</strong>, você confirma que:
-                </p>
-                <ul className="list-disc list-inside space-y-2 mt-3 text-sm text-foreground">
-                  <li>Entende que <strong>TODOS os dados serão perdidos</strong></li>
-                  <li>Não há backup disponível para recuperação</li>
-                  <li>Assume total responsabilidade por esta ação</li>
-                </ul>
               </div>
-              <p className="text-center text-muted-foreground text-sm">
-                Recomendação: Antes de excluir, certifique-se de ter exportado 
-                todos os documentos importantes.
-              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-2">
             <AlertDialogCancel 
               onClick={() => {
                 setContratoParaExcluir(null);
                 setEtapaConfirmacaoContrato(1);
               }}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto text-sm"
             >
-              Cancelar e manter o contrato
+              Cancelar e manter
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => {
                 handleDeleteContrato();
                 setEtapaConfirmacaoContrato(1);
               }}
-              className="bg-destructive hover:bg-destructive/90 w-full sm:w-auto font-bold"
+              className="bg-destructive hover:bg-destructive/90 w-full sm:w-auto font-bold text-sm"
             >
               🗑️ EXCLUIR PERMANENTEMENTE
             </AlertDialogAction>
