@@ -2420,6 +2420,39 @@ Deno.serve(async (req) => {
         } else {
           console.log(`❌ Autorização sem dados de processo no banco`);
         }
+      } else if (pathSemBucket.startsWith('propostas_realinhadas/') || propostasRealinhadasMap.has(pathSemBucket)) {
+        // Propostas Realinhadas - agrupar por processo
+        arquivosJaCategorizados.add(path);
+        estatisticasPorCategoria.propostas_realinhadas.arquivos++;
+        estatisticasPorCategoria.propostas_realinhadas.tamanho += metadata.size;
+        
+        const propostaInfo = propostasRealinhadasMap.get(pathSemBucket);
+        if (propostaInfo) {
+          const processoKey = propostaInfo.processoId;
+          const tipoSelecao = propostaInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+          
+          if (!estatisticasPorCategoria.propostas_realinhadas.porProcesso!.has(processoKey)) {
+            estatisticasPorCategoria.propostas_realinhadas.porProcesso!.set(processoKey, {
+              processoId: processoKey,
+              processoNumero: propostaInfo.processoNumero,
+              processoObjeto: propostaInfo.processoObjeto,
+              tipoSelecao,
+              selecaoNumero: propostaInfo.selecaoNumero,
+              credenciamento: propostaInfo.credenciamento,
+              documentos: []
+            });
+          }
+          
+          estatisticasPorCategoria.propostas_realinhadas.porProcesso!.get(processoKey)!.documentos.push({
+            path,
+            fileName: `Proposta Realinhada ${propostaInfo.fornecedorNome}`,
+            size: metadata.size,
+            fornecedorNome: propostaInfo.fornecedorNome
+          });
+          console.log(`   ✅ Categorizado como PROPOSTA REALINHADA - ${propostaInfo.fornecedorNome}`);
+        } else {
+          console.log(`⚠️ Proposta realinhada sem dados no mapa: ${pathSemBucket}`);
+        }
       } else if (pathSemBucket.startsWith('planilhas-habilitacao/') || planilhasHabilitacaoMap.has(pathSemBucket)) {
         // Planilhas Finais (Resultado Final / Planilhas de Habilitação) - agrupar por processo
         estatisticasPorCategoria.planilhas_finais.arquivos++;
@@ -2486,35 +2519,6 @@ Deno.serve(async (req) => {
             fornecedorNome: propostaInfo.fornecedorNome
           });
           console.log(`   ✅ Categorizado como PROPOSTA DE SELEÇÃO - ${propostaInfo.fornecedorNome}`);
-        } else if (propostasRealinhadasMap.has(pathSemBucket)) {
-          // Verificar se é uma proposta realinhada pelo mapa
-          arquivosJaCategorizados.add(path);
-          estatisticasPorCategoria.propostas_realinhadas.arquivos++;
-          estatisticasPorCategoria.propostas_realinhadas.tamanho += metadata.size;
-          
-          const propostaInfo = propostasRealinhadasMap.get(pathSemBucket)!;
-          const processoKey = propostaInfo.processoId;
-          const tipoSelecao = propostaInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
-          
-          if (!estatisticasPorCategoria.propostas_realinhadas.porProcesso!.has(processoKey)) {
-            estatisticasPorCategoria.propostas_realinhadas.porProcesso!.set(processoKey, {
-              processoId: processoKey,
-              processoNumero: propostaInfo.processoNumero,
-              processoObjeto: propostaInfo.processoObjeto,
-              tipoSelecao,
-              selecaoNumero: propostaInfo.selecaoNumero,
-              credenciamento: propostaInfo.credenciamento,
-              documentos: []
-            });
-          }
-          
-          estatisticasPorCategoria.propostas_realinhadas.porProcesso!.get(processoKey)!.documentos.push({
-            path,
-            fileName: `Proposta Realinhada ${propostaInfo.fornecedorNome}`,
-            size: metadata.size,
-            fornecedorNome: propostaInfo.fornecedorNome
-          });
-          console.log(`   ✅ Categorizado como PROPOSTA REALINHADA - ${propostaInfo.fornecedorNome}`);
         } else {
           // Outros - SOMENTE se arquivo tem referência no banco
           // Se não tiver referência, deixar para lógica de órfãos
