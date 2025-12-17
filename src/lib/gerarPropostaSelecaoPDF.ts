@@ -763,7 +763,7 @@ export async function gerarPropostaSelecaoPDF(
     // Desenhar borda externa completa da tabela (perímetro)
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.3);
-    doc.rect(margemEsquerda, tabelaY, larguraUtil, (y - tabelaY) + alturaHeader, 'S');
+    doc.rect(margemEsquerda, tabelaY, larguraUtil, y - tabelaY, 'S');
     
     // Linhas verticais completas da tabela
     colPositions.forEach(xPos => {
