@@ -1723,13 +1723,38 @@ const Cotacoes = () => {
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
                       Importar Excel
                     </Button>
-                    <Button 
-                      variant="secondary"
-                      onClick={() => navigate(`/respostas-cotacao?cotacao=${cotacaoSelecionada?.id}&contrato=${contratoSelecionado?.id}&processo=${processoSelecionado?.id}`)}
-                      size="sm"
-                    >
-                      Ver Respostas
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button 
+                              variant="secondary"
+                              onClick={() => {
+                                if (emailsSalvos.length === 0) {
+                                  toast.warning("É necessário anexar o e-mail de envio antes de ver as respostas", {
+                                    description: "Faça o upload do comprovante de envio na seção 'E-mails Anexados' abaixo."
+                                  });
+                                  return;
+                                }
+                                navigate(`/respostas-cotacao?cotacao=${cotacaoSelecionada?.id}&contrato=${contratoSelecionado?.id}&processo=${processoSelecionado?.id}`);
+                              }}
+                              size="sm"
+                              disabled={emailsSalvos.length === 0}
+                            >
+                              Ver Respostas
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        {emailsSalvos.length === 0 && (
+                          <TooltipContent>
+                            <div className="flex items-center gap-2">
+                              <Info className="h-4 w-4 text-amber-500" />
+                              <span>Anexe o e-mail de envio primeiro</span>
+                            </div>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                     <Button 
                       variant="outline"
                       onClick={() => navigate(`/incluir-precos-publicos?cotacao=${cotacaoSelecionada?.id}&contrato=${contratoSelecionado?.id}&processo=${processoSelecionado?.id}`)}
