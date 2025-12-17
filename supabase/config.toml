@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.verificar-documento]
 verify_jwt = false
+
+[functions.verificar-autorizacao]
+verify_jwt = false

@@ -38,12 +38,12 @@ export default function VerificarAutorizacao() {
 
   const verificarAutorizacao = async (protocoloParam?: string) => {
     const protocoloParaBuscar = protocoloParam || protocolo;
-    
+
     if (!protocoloParaBuscar.trim()) {
       toast({
         title: "Protocolo obrigatório",
         description: "Digite o protocolo do documento para verificar",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -52,518 +52,56 @@ export default function VerificarAutorizacao() {
     setBuscaRealizada(true);
     setAutorizacao(null);
     setTipoDocumento(null);
-    
+
     const protocoloLimpo = protocoloParaBuscar.trim();
-    const protocoloNormalizado = normalizarProtocolo(protocoloLimpo);
-    console.log('🔍 [VERIFICAÇÃO] Iniciando busca');
-    console.log('📋 [VERIFICAÇÃO] Protocolo original:', protocoloParaBuscar);
-    console.log('✨ [VERIFICAÇÃO] Protocolo limpo:', protocoloLimpo);
-    console.log('🔧 [VERIFICAÇÃO] Protocolo normalizado (16 chars):', protocoloNormalizado);
-    console.log('📏 [VERIFICAÇÃO] Tamanho:', protocoloLimpo.length);
-    
+
+    const formatarProtocoloNumerico = (proto: string) => {
+      const semHifens = proto.replace(/-/g, '').trim();
+      if (/^\d{16}$/.test(semHifens)) {
+        return semHifens.match(/.{1,4}/g)?.join('-') || proto;
+      }
+      return proto;
+    };
+
     try {
-      // 1. Autorizações de Processo
-      console.log('🔎 [VERIFICAÇÃO] Buscando em autorizacoes_processo...');
-      const { data: allAutData, error: autError } = await supabase
-        .from('autorizacoes_processo')
-        .select('*');
-      
-      const autData = allAutData?.find(doc => 
-        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
+      const protocoloFormatado = formatarProtocoloNumerico(protocoloLimpo);
+
+      const { data: payload, error } = await supabase.functions.invoke(
+        "verificar-autorizacao",
+        { body: { protocolo: protocoloFormatado } }
       );
 
-      console.log('📄 [VERIFICAÇÃO] Resultado autorizacoes_processo:', { 
-        encontrado: !!autData, 
-        erro: autError?.message,
-        dados: autData 
-      });
+      if (error) throw error;
 
-      if (autData) {
-        console.log('✅ [VERIFICAÇÃO] Autorização encontrada!');
-        const { data: cotacao } = await supabase
-          .from('cotacoes_precos')
-          .select('titulo_cotacao, processo_compra_id')
-          .eq('id', autData.cotacao_id)
-          .single();
+      const aut = payload?.autorizacao ?? null;
 
-        let processo = null;
-        if (cotacao?.processo_compra_id) {
-          const { data: processoData } = await supabase
-            .from('processos_compras')
-            .select('numero_processo_interno, objeto_resumido')
-            .eq('id', cotacao.processo_compra_id)
-            .single();
-          processo = processoData;
-        }
-
-        const { data: usuario } = await supabase
-          .from('profiles')
-          .select('nome_completo, cpf')
-          .eq('id', autData.usuario_gerador_id)
-          .single();
-
-        setAutorizacao({
-          ...autData,
-          cotacao: cotacao ? { ...cotacao, processo } : null,
-          usuario
-        });
-        setTipoDocumento('autorizacao');
-
+      if (!aut) {
         toast({
-          title: "Autorização verificada",
-          description: "Documento autêntico encontrado no sistema",
+          title: "Documento não encontrado",
+          description: "Não foi possível localizar uma autorização com este protocolo. Verifique se o protocolo está correto.",
+          variant: "destructive",
         });
+        setAutorizacao(null);
+        setTipoDocumento(null);
         return;
       }
 
-      // 2. Relatórios Finais
-      console.log('🔎 [VERIFICAÇÃO] Buscando em relatorios_finais...');
-      const { data: allRelData, error: relError } = await supabase
-        .from('relatorios_finais')
-        .select('*');
-      
-      const relData = allRelData?.find(doc => 
-        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
-      );
+      setAutorizacao(aut);
+      setTipoDocumento('autorizacao');
 
-      console.log('📋 [VERIFICAÇÃO] Resultado relatorios_finais:', { 
-        encontrado: !!relData, 
-        erro: relError?.message,
-        dados: relData 
-      });
-
-      if (relData) {
-        console.log('✅ [VERIFICAÇÃO] Relatório Final encontrado!');
-        const { data: cotacao } = await supabase
-          .from('cotacoes_precos')
-          .select('titulo_cotacao, processo_compra_id')
-          .eq('id', relData.cotacao_id)
-          .single();
-
-        let processo = null;
-        if (cotacao?.processo_compra_id) {
-          const { data: processoData } = await supabase
-            .from('processos_compras')
-            .select('numero_processo_interno, objeto_resumido')
-            .eq('id', cotacao.processo_compra_id)
-            .single();
-          processo = processoData;
-        }
-
-        const { data: usuario } = await supabase
-          .from('profiles')
-          .select('nome_completo, cpf')
-          .eq('id', relData.usuario_gerador_id)
-          .single();
-
-        setAutorizacao({
-          ...relData,
-          cotacao: cotacao ? { ...cotacao, processo } : null,
-          usuario
-        });
-        setTipoDocumento('relatorio');
-
-        toast({
-          title: "Relatório Final verificado",
-          description: "Documento autêntico encontrado no sistema",
-        });
-        return;
-      }
-
-      // 3. Análises de Compliance
-      console.log('🔎 [VERIFICAÇÃO] Buscando em analises_compliance...');
-      const { data: allCompData, error: compError } = await supabase
-        .from('analises_compliance')
-        .select('*');
-      
-      const compData = allCompData?.find(doc => 
-        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
-      );
-
-      console.log('📋 [VERIFICAÇÃO] Resultado analises_compliance:', { 
-        encontrado: !!compData, 
-        erro: compError?.message,
-        dados: compData 
-      });
-
-      if (compData) {
-        console.log('✅ [VERIFICAÇÃO] Análise de Compliance encontrada!');
-        
-        const { data: usuario } = await supabase
-          .from('profiles')
-          .select('nome_completo')
-          .eq('id', compData.usuario_analista_id)
-          .single();
-
-        setAutorizacao({
-          ...compData,
-          usuario
-        });
-        setTipoDocumento('compliance');
-
-        toast({
-          title: "Análise de Compliance verificada",
-          description: "Documento autêntico encontrado no sistema",
-        });
-        return;
-      }
-
-      // 4. Planilhas Consolidadas (SEMPRE PEGAR A MAIS RECENTE)
-      console.log('🔎 [VERIFICAÇÃO] Buscando em planilhas_consolidadas...');
-      const { data: allPlanData, error: planError } = await supabase
-        .from('planilhas_consolidadas')
-        .select('*')
-        .order('data_geracao', { ascending: false });
-      
-      const planData = allPlanData?.find(doc => 
-        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
-      );
-
-      console.log('📋 [VERIFICAÇÃO] Resultado planilhas_consolidadas:', { 
-        encontrado: !!planData, 
-        erro: planError?.message,
-        dados: planData 
-      });
-
-      if (planData) {
-        console.log('✅ [VERIFICAÇÃO] Planilha Consolidada encontrada!');
-
-        const { data: cotacao } = await supabase
-          .from('cotacoes_precos')
-          .select('titulo_cotacao, processo_compra_id')
-          .eq('id', planData.cotacao_id)
-          .single();
-
-        let processo = null;
-        if (cotacao?.processo_compra_id) {
-          const { data: processoData } = await supabase
-            .from('processos_compras')
-            .select('numero_processo_interno, objeto_resumido')
-            .eq('id', cotacao.processo_compra_id)
-            .single();
-          processo = processoData;
-        }
-
-        const { data: usuario } = await supabase
-          .from('profiles')
-          .select('nome_completo, cpf')
-          .eq('id', planData.usuario_gerador_id)
-          .single();
-
-        setAutorizacao({
-          ...planData,
-          cotacao: cotacao ? { ...cotacao, processo } : null,
-          usuario
-        });
-        setTipoDocumento('planilha');
-
-        toast({
-          title: "Planilha Consolidada verificada",
-          description: "Documento autêntico encontrado no sistema",
-        });
-        return;
-      }
-
-      // 5. Encaminhamentos de Processo
-      console.log('🔎 [VERIFICAÇÃO] Buscando em encaminhamentos_processo...');
-      const { data: allEncData, error: encError } = await supabase
-        .from('encaminhamentos_processo')
-        .select('*');
-      
-      const encData = allEncData?.find(doc => 
-        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
-      );
-
-      console.log('📋 [VERIFICAÇÃO] Resultado encaminhamentos_processo:', { 
-        encontrado: !!encData, 
-        erro: encError?.message,
-        dados: encData 
-      });
-
-      if (encData) {
-        console.log('✅ [VERIFICAÇÃO] Encaminhamento de Processo encontrado!');
-
-        let cotacao = null;
-        let processo = null;
-
-        if (encData.cotacao_id) {
-          const { data: cotacaoData } = await supabase
-            .from('cotacoes_precos')
-            .select('titulo_cotacao, processo_compra_id')
-            .eq('id', encData.cotacao_id)
-            .single();
-          cotacao = cotacaoData;
-
-          if (cotacaoData?.processo_compra_id) {
-            const { data: processoData } = await supabase
-              .from('processos_compras')
-              .select('numero_processo_interno, objeto_resumido')
-              .eq('id', cotacaoData.processo_compra_id)
-              .single();
-            processo = processoData;
-          }
-        }
-
-        const { data: usuario } = await supabase
-          .from('profiles')
-          .select('nome_completo, cpf')
-          .eq('id', encData.gerado_por)
-          .single();
-
-        setAutorizacao({
-          ...encData,
-          data_geracao: encData.created_at,
-          cotacao: cotacao ? { ...cotacao, processo } : null,
-          usuario
-        });
-        setTipoDocumento('encaminhamento');
-
-        toast({
-          title: "Encaminhamento de Processo verificado",
-          description: "Documento autêntico encontrado no sistema",
-        });
-        return;
-      }
-
-      // 6. Homologações de Seleção
-      console.log('🔎 [VERIFICAÇÃO] Buscando em homologacoes_selecao...');
-      const { data: allHomologacaoData, error: homologacaoError } = await supabase
-        .from('homologacoes_selecao')
-        .select('*');
-      
-      const homologacaoData = allHomologacaoData?.find(doc => 
-        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
-      );
-
-      console.log('📋 [VERIFICAÇÃO] Resultado homologacoes_selecao:', { 
-        encontrado: !!homologacaoData, 
-        erro: homologacaoError?.message,
-        dados: homologacaoData 
-      });
-
-      if (homologacaoData) {
-        console.log('✅ [VERIFICAÇÃO] Homologação encontrada!');
-        
-        const { data: selecao } = await supabase
-          .from('selecoes_fornecedores')
-          .select('numero_selecao, processo_compra_id')
-          .eq('id', homologacaoData.selecao_id)
-          .single();
-
-        let processo = null;
-        if (selecao?.processo_compra_id) {
-          const { data: processoData } = await supabase
-            .from('processos_compras')
-            .select('numero_processo_interno, objeto_resumido')
-            .eq('id', selecao.processo_compra_id)
-            .single();
-          processo = processoData;
-        }
-
-        let usuario = null;
-        if (homologacaoData.usuario_gerador_id) {
-          const { data: usuarioData } = await supabase
-            .from('profiles')
-            .select('nome_completo, cpf')
-            .eq('id', homologacaoData.usuario_gerador_id)
-            .single();
-          usuario = usuarioData;
-        }
-
-        setAutorizacao({
-          ...homologacaoData,
-          selecao: selecao ? { ...selecao, processo } : null,
-          usuario
-        });
-        setTipoDocumento('homologacao');
-
-        toast({
-          title: "Homologação verificada",
-          description: "Documento autêntico encontrado no sistema",
-        });
-        return;
-      }
-
-      // 7. Recursos de Fornecedor (Cotação/Rejeição) - Using secure RPC function
-      console.log('🔎 [VERIFICAÇÃO] Buscando recurso via RPC segura...');
-      const { data: recursoVerificado, error: recursoFornecedorError } = await supabase
-        .rpc('verificar_recurso_fornecedor', { p_protocolo: protocolo });
-
-      console.log('📋 [VERIFICAÇÃO] Resultado verificar_recurso_fornecedor:', { 
-        encontrado: recursoVerificado && recursoVerificado.length > 0, 
-        erro: recursoFornecedorError?.message 
-      });
-
-      if (recursoVerificado && recursoVerificado.length > 0) {
-        const recursoData = recursoVerificado[0];
-        console.log('✅ [VERIFICAÇÃO] Recurso de Cotação encontrado!');
-
-        setAutorizacao({
-          protocolo: protocolo,
-          data_geracao: recursoData.data_envio,
-          usuario: { nome_completo: recursoData.fornecedor_razao_social },
-          url_arquivo: recursoData.url_arquivo,
-          nome_arquivo: recursoData.nome_arquivo
-        });
-        setTipoDocumento('recurso');
-
-        toast({
-          title: "Recurso verificado",
-          description: "Documento autêntico encontrado no sistema",
-        });
-        return;
-      }
-
-      // 8. Recursos de Inabilitação em Seleção (Recurso do Fornecedor)
-      console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_inabilitacao_selecao (recurso)...');
-      // @ts-ignore - Supabase type inference too deep
-      const recursoResult = await supabase
-        .from('recursos_inabilitacao_selecao')
-        .select('*');
-      const allRecursoData = recursoResult.data as any;
-      const recursoError = recursoResult.error;
-      
-      const recursoData = allRecursoData?.find((doc: any) => 
-        normalizarProtocolo(doc.protocolo_recurso || '') === protocoloNormalizado
-      );
-
-      console.log('📋 [VERIFICAÇÃO] Resultado recursos_inabilitacao_selecao (recurso):', { 
-        encontrado: !!recursoData, 
-        erro: recursoError?.message 
-      });
-
-      if (recursoData) {
-        console.log('✅ [VERIFICAÇÃO] Recurso de Inabilitação encontrado!');
-        
-        const { data: fornecedor } = await supabase
-          .from('fornecedores')
-          .select('razao_social, cnpj')
-          .eq('id', recursoData.fornecedor_id)
-          .single();
-
-        setAutorizacao({
-          ...recursoData,
-          protocolo: recursoData.protocolo_recurso,
-          data_geracao: recursoData.data_envio_recurso,
-          usuario: { nome_completo: fornecedor?.razao_social }
-        });
-        setTipoDocumento('recurso');
-
-        toast({
-          title: "Recurso de Inabilitação verificado",
-          description: "Documento autêntico encontrado no sistema",
-        });
-        return;
-      }
-
-      // 9. Recursos de Inabilitação (Resposta do Gestor)
-      console.log('🔎 [VERIFICAÇÃO] Buscando em recursos_inabilitacao_selecao (resposta)...');
-      // @ts-ignore - Supabase type inference too deep
-      const respostaRecursoResult = await supabase
-        .from('recursos_inabilitacao_selecao')
-        .select('*');
-      const allRespostaRecursoData = respostaRecursoResult.data as any;
-      const respostaRecursoError = respostaRecursoResult.error;
-      
-      const respostaRecursoData = allRespostaRecursoData?.find((doc: any) => 
-        normalizarProtocolo(doc.protocolo_resposta || '') === protocoloNormalizado
-      );
-
-      console.log('📋 [VERIFICAÇÃO] Resultado recursos_inabilitacao_selecao (resposta):', { 
-        encontrado: !!respostaRecursoData, 
-        erro: respostaRecursoError?.message 
-      });
-
-      if (respostaRecursoData) {
-        console.log('✅ [VERIFICAÇÃO] Resposta de Recurso encontrada!');
-        
-        let usuario = null;
-        if (respostaRecursoData.usuario_gestor_id) {
-          const { data: usuarioData } = await supabase
-            .from('profiles')
-            .select('nome_completo, cpf')
-            .eq('id', respostaRecursoData.usuario_gestor_id)
-            .single();
-          usuario = usuarioData;
-        }
-
-        setAutorizacao({
-          ...respostaRecursoData,
-          protocolo: respostaRecursoData.protocolo_resposta,
-          data_geracao: respostaRecursoData.data_resposta_gestor,
-          usuario
-        });
-        setTipoDocumento('resposta_recurso');
-
-        toast({
-          title: "Resposta de Recurso verificada",
-          description: "Documento autêntico encontrado no sistema",
-        });
-        return;
-      }
-
-      // 10. Respostas de Recursos (Cotação/Rejeição)
-      console.log('🔎 [VERIFICAÇÃO] Buscando em respostas_recursos...');
-      const { data: allRespostasRecursos, error: respostasRecursosError } = await supabase
-        .from('respostas_recursos')
-        .select('*');
-      
-      const respostaRecursoFornecedorData = allRespostasRecursos?.find((doc: any) => 
-        normalizarProtocolo(doc.protocolo || '') === protocoloNormalizado
-      );
-
-      console.log('📋 [VERIFICAÇÃO] Resultado respostas_recursos:', { 
-        encontrado: !!respostaRecursoFornecedorData, 
-        erro: respostasRecursosError?.message 
-      });
-
-      if (respostaRecursoFornecedorData) {
-        console.log('✅ [VERIFICAÇÃO] Resposta de Recurso (Cotação) encontrada!');
-        
-        let usuario = null;
-        if (respostaRecursoFornecedorData.usuario_respondeu_id) {
-          const { data: usuarioData } = await supabase
-            .from('profiles')
-            .select('nome_completo, cpf')
-            .eq('id', respostaRecursoFornecedorData.usuario_respondeu_id)
-            .single();
-          usuario = usuarioData;
-        }
-
-        setAutorizacao({
-          ...respostaRecursoFornecedorData,
-          protocolo: respostaRecursoFornecedorData.protocolo,
-          data_geracao: respostaRecursoFornecedorData.data_resposta,
-          usuario,
-          url_arquivo: respostaRecursoFornecedorData.url_documento
-        });
-        setTipoDocumento('resposta_recurso');
-
-        toast({
-          title: "Resposta de Recurso verificada",
-          description: "Documento autêntico encontrado no sistema",
-        });
-        return;
-      }
-
-      // Não encontrou em nenhuma tabela
-      console.error('❌ [VERIFICAÇÃO] Documento não encontrado em nenhuma tabela');
-      console.error('🔍 [VERIFICAÇÃO] Protocolo buscado:', protocoloLimpo);
-      
       toast({
-        title: "Documento não encontrado",
-        description: "Não foi possível localizar um documento com este protocolo. Verifique se o protocolo está correto.",
-        variant: "destructive"
+        title: "Autorização verificada",
+        description: "Documento autêntico encontrado no sistema",
+      });
+    } catch (error) {
+      console.error('💥 [VERIFICAÇÃO] Erro ao verificar autorização:', error);
+      toast({
+        title: "Erro ao verificar",
+        description: "Ocorreu um erro ao buscar a autorização",
+        variant: "destructive",
       });
       setAutorizacao(null);
       setTipoDocumento(null);
-    } catch (error) {
-      console.error('💥 [VERIFICAÇÃO] Erro ao verificar documento:', error);
-      toast({
-        title: "Erro ao verificar",
-        description: "Ocorreu um erro ao buscar o documento",
-        variant: "destructive"
-      });
     } finally {
       setLoading(false);
     }
