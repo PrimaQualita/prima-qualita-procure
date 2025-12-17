@@ -677,10 +677,6 @@ export async function gerarPropostaSelecaoPDF(
         doc.setLineWidth(0.3);
         doc.rect(margemEsquerda, tabelaY, larguraUtil, y - tabelaY, 'S');
         
-        // Linhas verticais completas até o ponto atual
-        colPositions.forEach(xPos => {
-          doc.line(xPos, tabelaY, xPos, y);
-        });
         
         doc.addPage();
         y = 20;
@@ -765,10 +761,6 @@ export async function gerarPropostaSelecaoPDF(
     doc.setLineWidth(0.3);
     doc.rect(margemEsquerda, tabelaY, larguraUtil, y - tabelaY, 'S');
     
-    // Linhas verticais completas da tabela
-    colPositions.forEach(xPos => {
-      doc.line(xPos, tabelaY, xPos, y);
-    });
 
     y += 5;
 
