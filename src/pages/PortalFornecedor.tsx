@@ -567,6 +567,7 @@ export default function PortalFornecedor() {
       );
 
       // Para cada ata assinada, verificar se já enviou proposta realinhada
+      // E VERIFICAR SE O FORNECEDOR REALMENTE VENCEU ALGUM ITEM/LOTE
       const pendentes: any[] = [];
 
       for (const assinatura of assinaturasAceitas) {
@@ -574,6 +575,21 @@ export default function PortalFornecedor() {
         if (!selecaoId) continue;
 
         const propostaOriginalId = propostaIdPorSelecao.get(selecaoId) || null;
+
+        // CRÍTICO: Verificar se o fornecedor venceu algum item/lote nesta seleção
+        // Buscar lances vencedores deste fornecedor para esta seleção
+        const { data: lancesVencedores } = await supabase
+          .from("lances_fornecedores")
+          .select("id, numero_item")
+          .eq("selecao_id", selecaoId)
+          .eq("fornecedor_id", fornecedorId)
+          .eq("indicativo_lance_vencedor", true);
+
+        // Se não tem nenhum lance vencedor, não precisa enviar proposta realinhada
+        if (!lancesVencedores || lancesVencedores.length === 0) {
+          console.log(`⚠️ Fornecedor não venceu nenhum item na seleção ${selecaoId} - ignorando proposta realinhada`);
+          continue;
+        }
 
         // Verificar se já existe proposta realinhada para esta seleção
         const { data: propostaExistente } = await supabase
