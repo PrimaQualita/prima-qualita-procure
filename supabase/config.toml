@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.verificar-encaminhamento]
 verify_jwt = false
+
+[functions.verificar-documento]
+verify_jwt = false

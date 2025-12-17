@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, CheckCircle2, XCircle, FileText, FileCheck, FileSpreadsheet, FileBox } from "lucide-react";
+import { Shield, CheckCircle2, XCircle, FileText, FileCheck, FileSpreadsheet, FileBox, Gavel, FileSignature, ScrollText } from "lucide-react";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
@@ -36,115 +36,103 @@ const VerificarDocumento = () => {
 
     try {
       console.log('Procurando protocolo:', prot);
-      // 1. Autorizações de Processo
-      const { data: autorizacao, error: errorAuth } = await supabase
-        .from('autorizacoes_processo')
-        .select('*')
-        .eq('protocolo', prot)
-        .maybeSingle();
+      
+      // Usar edge function para bypass de RLS
+      const { data: payload, error } = await supabase.functions.invoke(
+        "verificar-documento",
+        { body: { protocolo: prot } }
+      );
 
-      console.log('Autorizacao:', autorizacao, errorAuth);
+      if (error) throw error;
 
-      if (autorizacao) {
-        setResultado({
-          encontrado: true,
-          tipo: 'Autorização de Processo',
-          icone: FileCheck,
-          data: autorizacao,
-          detalhes: {
-            'Protocolo': autorizacao.protocolo,
-            'Data de Geração': format(new Date(autorizacao.data_geracao), 'dd/MM/yyyy HH:mm'),
-            'Tipo de Autorização': autorizacao.tipo_autorizacao === 'compra_direta' ? 'Compra Direta' : 'Seleção de Fornecedores',
-            'Arquivo': autorizacao.nome_arquivo,
-          }
-        });
+      const doc = payload?.documento;
+      const tipo = payload?.tipo;
+
+      if (!doc) {
+        setResultado({ encontrado: false });
         return;
       }
 
-      // 2. Relatórios Finais
-      const { data: relatorio, error: errorRel } = await supabase
-        .from('relatorios_finais')
-        .select('*')
-        .eq('protocolo', prot)
-        .maybeSingle();
+      // Mapear tipo para exibição
+      const tipoMap: Record<string, { label: string; icone: any }> = {
+        autorizacao: { label: 'Autorização de Processo', icone: FileCheck },
+        relatorio_final: { label: 'Relatório Final', icone: FileText },
+        planilha_consolidada: { label: 'Planilha Consolidada', icone: FileSpreadsheet },
+        encaminhamento: { label: 'Encaminhamento de Processo', icone: FileBox },
+        planilha_habilitacao: { label: 'Planilha de Habilitação', icone: FileSpreadsheet },
+        planilha_lances: { label: 'Planilha de Lances', icone: FileSpreadsheet },
+        ata_selecao: { label: 'Ata de Seleção', icone: Gavel },
+        homologacao: { label: 'Homologação de Seleção', icone: FileSignature },
+        proposta_selecao: { label: 'Proposta de Seleção', icone: FileText },
+        proposta_realinhada: { label: 'Proposta Realinhada', icone: FileText },
+        proposta_cotacao: { label: 'Proposta de Cotação', icone: FileText },
+        recurso_fornecedor: { label: 'Recurso de Fornecedor', icone: ScrollText },
+        recurso_inabilitacao: { label: 'Recurso de Inabilitação', icone: ScrollText },
+        resposta_recurso: { label: 'Resposta de Recurso', icone: ScrollText },
+      };
 
-      console.log('Relatorio:', relatorio, errorRel);
+      const tipoInfo = tipoMap[tipo] || { label: 'Documento', icone: FileText };
+      
+      // Montar detalhes baseado no tipo
+      const detalhes: Record<string, string> = {
+        'Protocolo': doc.protocolo || doc.protocolo_recurso || prot,
+      };
 
-      if (relatorio) {
-        setResultado({
-          encontrado: true,
-          tipo: 'Relatório Final',
-          icone: FileText,
-          data: relatorio,
-          detalhes: {
-            'Protocolo': relatorio.protocolo,
-            'Data de Geração': format(new Date(relatorio.data_geracao), 'dd/MM/yyyy HH:mm'),
-            'Arquivo': relatorio.nome_arquivo,
-          }
-        });
-        return;
+      if (doc.data_geracao) {
+        detalhes['Data de Geração'] = format(new Date(doc.data_geracao), 'dd/MM/yyyy HH:mm');
+      } else if (doc.created_at) {
+        detalhes['Data de Geração'] = format(new Date(doc.created_at), 'dd/MM/yyyy HH:mm');
+      } else if (doc.data_envio) {
+        detalhes['Data de Envio'] = format(new Date(doc.data_envio), 'dd/MM/yyyy HH:mm');
+      } else if (doc.data_envio_proposta) {
+        detalhes['Data de Envio'] = format(new Date(doc.data_envio_proposta), 'dd/MM/yyyy HH:mm');
+      } else if (doc.data_envio_resposta) {
+        detalhes['Data de Envio'] = format(new Date(doc.data_envio_resposta), 'dd/MM/yyyy HH:mm');
+      } else if (doc.data_envio_recurso) {
+        detalhes['Data de Envio'] = format(new Date(doc.data_envio_recurso), 'dd/MM/yyyy HH:mm');
+      } else if (doc.data_resposta) {
+        detalhes['Data de Resposta'] = format(new Date(doc.data_resposta), 'dd/MM/yyyy HH:mm');
       }
 
-      // 3. Planilhas Consolidadas (sempre pegar a mais recente)
-      const { data: planilha, error: errorPlan } = await supabase
-        .from('planilhas_consolidadas')
-        .select('*')
-        .eq('protocolo', prot)
-        .order('data_geracao', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      console.log('Planilha:', planilha, errorPlan);
-
-      if (planilha) {
-        const detalhes: any = {
-          'Protocolo': planilha.protocolo,
-          'Data de Geração': format(new Date(planilha.data_geracao), 'dd/MM/yyyy HH:mm'),
-          'Arquivo': planilha.nome_arquivo,
-        };
-
-        // Mostrar fornecedores incluídos se existir
-        if (planilha.fornecedores_incluidos && Array.isArray(planilha.fornecedores_incluidos) && planilha.fornecedores_incluidos.length > 0) {
-          detalhes['Fornecedores Incluídos'] = planilha.fornecedores_incluidos.join(', ');
-        }
-
-        setResultado({
-          encontrado: true,
-          tipo: 'Planilha Consolidada',
-          icone: FileSpreadsheet,
-          data: planilha,
-          detalhes
-        });
-        return;
+      if (doc.tipo_autorizacao) {
+        detalhes['Tipo de Autorização'] = doc.tipo_autorizacao === 'compra_direta' ? 'Compra Direta' : 'Seleção de Fornecedores';
       }
 
-      // 4. Encaminhamentos de Processo
-      const { data: encaminhamento, error: errorEnc } = await supabase
-        .from('encaminhamentos_processo')
-        .select('*')
-        .eq('protocolo', prot)
-        .maybeSingle();
-
-      console.log('Encaminhamento:', encaminhamento, errorEnc);
-
-      if (encaminhamento) {
-        setResultado({
-          encontrado: true,
-          tipo: 'Encaminhamento de Processo',
-          icone: FileBox,
-          data: encaminhamento,
-          detalhes: {
-            'Protocolo': encaminhamento.protocolo,
-            'Data de Geração': format(new Date(encaminhamento.created_at), 'dd/MM/yyyy HH:mm'),
-            'Processo': encaminhamento.processo_numero,
-          }
-        });
-        return;
+      if (doc.nome_arquivo) {
+        detalhes['Arquivo'] = doc.nome_arquivo;
       }
 
-      // Se não encontrou em nenhuma tabela
+      if (doc.processo_numero) {
+        detalhes['Processo'] = doc.processo_numero;
+      }
+
+      if (doc.fornecedores?.razao_social) {
+        detalhes['Fornecedor'] = doc.fornecedores.razao_social;
+      }
+
+      if (doc.valor_total_proposta) {
+        detalhes['Valor Total'] = `R$ ${doc.valor_total_proposta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+      } else if (doc.valor_total_anual_ofertado) {
+        detalhes['Valor Total'] = `R$ ${doc.valor_total_anual_ofertado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+      }
+
+      if (doc.resultado) {
+        detalhes['Resultado'] = doc.resultado;
+      }
+
+      if (doc.fornecedores_incluidos && Array.isArray(doc.fornecedores_incluidos) && doc.fornecedores_incluidos.length > 0) {
+        detalhes['Fornecedores Incluídos'] = doc.fornecedores_incluidos.join(', ');
+      }
+
+      // URL do arquivo
+      const urlArquivo = doc.url_arquivo || doc.url || doc.url_pdf_recurso || doc.url_documento || doc.url_pdf_proposta;
+
       setResultado({
-        encontrado: false
+        encontrado: true,
+        tipo: tipoInfo.label,
+        icone: tipoInfo.icone,
+        data: { ...doc, url_arquivo: urlArquivo },
+        detalhes
       });
 
     } catch (error) {
