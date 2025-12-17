@@ -23,7 +23,7 @@ export function DialogEnviarSelecao({
 }: DialogEnviarSelecaoProps) {
   const [copiado, setCopiado] = useState(false);
 
-  const linkSelecao = `${window.location.origin}/participar-selecao?id=${selecaoId}`;
+  const linkSelecao = `${window.location.origin}/participar-selecao?id=${selecaoId}&modo=publico`;
   
   // Evita problema de timezone ao parsear data
   const [ano, mes, dia] = dataDisputa.split('-');
