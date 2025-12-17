@@ -632,7 +632,10 @@ const ProcessosCompras = () => {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => setEtapaConfirmacaoContrato(2)}
+              onClick={(e) => {
+                e.preventDefault();
+                setEtapaConfirmacaoContrato(2);
+              }}
               className="bg-destructive hover:bg-destructive/90"
             >
               Entendo os riscos, continuar
