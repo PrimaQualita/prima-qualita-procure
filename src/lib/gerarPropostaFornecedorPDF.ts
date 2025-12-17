@@ -445,10 +445,10 @@ export async function gerarPropostaFornecedorPDF(
     
     const columnStylesPreco: any = {
       0: { cellWidth: 12, halign: 'center', valign: 'middle' },
-      1: { cellWidth: 58, halign: 'justify', valign: 'middle' },
+      1: { cellWidth: 60, halign: 'left', valign: 'middle' },
       2: { cellWidth: 20, halign: 'center', valign: 'middle' },
-      3: { cellWidth: 16, halign: 'center', valign: 'middle' },
-      4: { cellWidth: 20, halign: 'center', valign: 'middle' },
+      3: { cellWidth: 15, halign: 'center', valign: 'middle' },
+      4: { cellWidth: 17, halign: 'center', valign: 'middle' },
       5: { cellWidth: 26, halign: 'right', valign: 'middle' },
       6: { cellWidth: 26, halign: 'right', valign: 'middle' }
     };
