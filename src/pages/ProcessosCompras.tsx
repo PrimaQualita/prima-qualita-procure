@@ -654,7 +654,7 @@ const ProcessosCompras = () => {
           }
         }}
       >
-        <AlertDialogContent className="border-destructive border-4 max-w-md">
+        <AlertDialogContent className="border-destructive border-4 max-w-md px-6">
           <AlertDialogHeader>
             <div className="flex flex-col items-center gap-2 mb-2">
               <div className="p-3 rounded-full bg-destructive animate-pulse">
