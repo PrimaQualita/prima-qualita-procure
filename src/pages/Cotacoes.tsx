@@ -12,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet, AlertCircle, FileText, Send } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit, ChevronRight, Upload, FileSpreadsheet, AlertCircle, FileText, Send, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { DialogItemCotacao } from "@/components/cotacoes/DialogItemCotacao";
 import { DialogEnviarCotacao } from "@/components/cotacoes/DialogEnviarCotacao";
@@ -131,10 +132,28 @@ const Cotacoes = () => {
   const [autorizacaoSelecaoId, setAutorizacaoSelecaoId] = useState('');
   const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState('');
   const [emailsSalvos, setEmailsSalvos] = useState<Array<{id: string; nome_arquivo: string; url_arquivo: string}>>([]);
+  const [anexosProcessoObrigatorios, setAnexosProcessoObrigatorios] = useState<string[]>([]);
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
     data_limite_resposta: "",
+  });
+
+  // Tipos de anexos obrigatórios para criar cotação
+  const TIPOS_ANEXOS_OBRIGATORIOS = ["capa_processo", "requisicao", "autorizacao_despesa", "termo_referencia"];
+  
+  // Verificar se todos os anexos obrigatórios estão presentes
+  const anexosObrigatoriosCompletos = TIPOS_ANEXOS_OBRIGATORIOS.every(tipo => anexosProcessoObrigatorios.includes(tipo));
+  
+  // Lista de anexos faltantes para exibir no tooltip
+  const anexosFaltantes = TIPOS_ANEXOS_OBRIGATORIOS.filter(tipo => !anexosProcessoObrigatorios.includes(tipo)).map(tipo => {
+    const labels: Record<string, string> = {
+      capa_processo: "Capa do Processo",
+      requisicao: "Requisição",
+      autorizacao_despesa: "Autorização da Despesa",
+      termo_referencia: "Termo de Referência"
+    };
+    return labels[tipo] || tipo;
   });
 
   useEffect(() => {
@@ -240,6 +259,9 @@ const Cotacoes = () => {
   useEffect(() => {
     if (processoSelecionado) {
       loadCotacoes(processoSelecionado.id);
+      loadAnexosProcesso(processoSelecionado.id);
+    } else {
+      setAnexosProcessoObrigatorios([]);
     }
   }, [processoSelecionado]);
 
@@ -411,6 +433,21 @@ const Cotacoes = () => {
       })));
     }
     setLoadingCotacoes(false);
+  };
+
+  const loadAnexosProcesso = async (processoId: string) => {
+    const { data, error } = await supabase
+      .from("anexos_processo_compra")
+      .select("tipo_anexo")
+      .eq("processo_compra_id", processoId);
+
+    if (error) {
+      console.error("Erro ao carregar anexos do processo:", error);
+      setAnexosProcessoObrigatorios([]);
+    } else {
+      const tipos = data?.map(a => a.tipo_anexo) || [];
+      setAnexosProcessoObrigatorios(tipos);
+    }
   };
 
   const loadItensAndRelated = async (cotacaoId: string) => {
@@ -1540,17 +1577,46 @@ const Cotacoes = () => {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={() => {
-                    setNovaCotacao({
-                      titulo_cotacao: processoSelecionado.numero_processo_interno,
-                      descricao_cotacao: stripHtml(processoSelecionado.objeto_resumido),
-                      data_limite_resposta: "",
-                    });
-                    setDialogCotacaoOpen(true);
-                  }}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nova Cotação
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>
+                          <Button 
+                            onClick={() => {
+                              setNovaCotacao({
+                                titulo_cotacao: processoSelecionado.numero_processo_interno,
+                                descricao_cotacao: stripHtml(processoSelecionado.objeto_resumido),
+                                data_limite_resposta: "",
+                              });
+                              setDialogCotacaoOpen(true);
+                            }}
+                            disabled={!anexosObrigatoriosCompletos}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Nova Cotação
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {!anexosObrigatoriosCompletos && (
+                        <TooltipContent className="max-w-xs">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
+                            <div>
+                              <p className="font-semibold mb-1">Anexos obrigatórios pendentes:</p>
+                              <ul className="list-disc list-inside text-sm">
+                                {anexosFaltantes.map(anexo => (
+                                  <li key={anexo}>{anexo}</li>
+                                ))}
+                              </ul>
+                              <p className="text-xs mt-2 text-muted-foreground">
+                                Acesse "Anexos" no menu Processos de Compras para adicionar.
+                              </p>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                   <Button variant="outline" onClick={() => setProcessoSelecionado(null)}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Voltar
