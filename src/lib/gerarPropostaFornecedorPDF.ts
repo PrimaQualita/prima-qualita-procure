@@ -444,13 +444,13 @@ export async function gerarPropostaFornecedorPDF(
     };
     
     const columnStylesPreco: any = {
-      0: { cellWidth: 12, halign: 'center', valign: 'middle' },
-      1: { cellWidth: 60, halign: 'justify', valign: 'middle' },
-      2: { cellWidth: 20, halign: 'center', valign: 'middle' },
-      3: { cellWidth: 15, halign: 'center', valign: 'middle' },
-      4: { cellWidth: 17, halign: 'center', valign: 'middle' },
-      5: { cellWidth: 26, halign: 'right', valign: 'middle' },
-      6: { cellWidth: 26, halign: 'right', valign: 'middle' }
+      0: { cellWidth: 11, halign: 'center', valign: 'middle' },
+      1: { cellWidth: 66, halign: 'justify', valign: 'middle' },
+      2: { cellWidth: 19, halign: 'center', valign: 'middle' },
+      3: { cellWidth: 14, halign: 'center', valign: 'middle' },
+      4: { cellWidth: 16, halign: 'center', valign: 'middle' },
+      5: { cellWidth: 25, halign: 'right', valign: 'middle' },
+      6: { cellWidth: 25, halign: 'right', valign: 'middle' }
     };
     
     autoTable(doc, {
@@ -486,7 +486,7 @@ export async function gerarPropostaFornecedorPDF(
       showHead: 'everyPage',
       didParseCell: (data) => {
         if (data.column.index === 1 && data.section === 'body') {
-          data.cell.styles.cellWidth = ehDesconto ? 92 : 58;
+          data.cell.styles.cellWidth = ehDesconto ? 92 : 66;
           // Adicionar padding extra na altura para compensar o bug de cálculo
           const textLines = data.cell.text.length;
           const extraPadding = Math.ceil(textLines * 0.5);
