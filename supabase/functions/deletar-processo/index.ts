@@ -442,6 +442,23 @@ Deno.serve(async (req) => {
           });
         }
       }
+
+      // 3.8 Propostas realinhadas
+      const { data: propostasRealinhadas } = await supabase
+        .from('propostas_realinhadas')
+        .select('url_pdf_proposta')
+        .in('selecao_id', selecaoIds);
+
+      if (propostasRealinhadas) {
+        console.log(`📄 Propostas realinhadas encontradas: ${propostasRealinhadas.length}`);
+        propostasRealinhadas.forEach(p => {
+          const path = extractPath(p.url_pdf_proposta, 'processo-anexos');
+          if (path) {
+            console.log(`   Proposta realinhada: ${path}`);
+            arquivosProcessoAnexos.push(path);
+          }
+        });
+      }
     }
 
     // 4. Buscar arquivos do processo completo na pasta processos/ do bucket documents
