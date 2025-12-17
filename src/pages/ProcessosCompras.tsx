@@ -710,16 +710,46 @@ const ProcessosCompras = () => {
       </AlertDialog>
 
       <AlertDialog open={!!processoParaExcluir} onOpenChange={() => setProcessoParaExcluir(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="border-destructive/50 border-2">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este processo? Esta ação não pode ser desfeita.
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-3 rounded-full bg-destructive/10">
+                <AlertTriangle className="h-8 w-8 text-destructive" />
+              </div>
+              <AlertDialogTitle className="text-xl text-destructive">
+                ⚠️ ATENÇÃO: Excluir Processo
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-base space-y-3">
+              <p className="font-semibold text-foreground">
+                Você está prestes a excluir um <span className="text-destructive">Processo de Compras</span>.
+              </p>
+              <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/30">
+                <p className="font-bold text-destructive mb-2">
+                  Esta ação irá DELETAR PERMANENTEMENTE:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-foreground">
+                  <li>O processo de compras selecionado</li>
+                  <li><strong>TODAS as cotações</strong> e respostas de fornecedores</li>
+                  <li><strong>TODOS os documentos</strong> anexados ao processo</li>
+                  <li><strong>TODAS as seleções de fornecedores</strong> relacionadas</li>
+                </ul>
+              </div>
+              <p className="text-destructive font-semibold text-center">
+                Esta ação NÃO pode ser desfeita!
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteProcesso}>Excluir</AlertDialogAction>
+            <AlertDialogCancel onClick={() => setProcessoParaExcluir(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteProcesso}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              🗑️ Excluir Processo
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
