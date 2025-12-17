@@ -665,7 +665,7 @@ const ProcessosCompras = () => {
               </AlertDialogTitle>
             </div>
             <AlertDialogDescription asChild>
-              <div className="text-base space-y-3 mx-2">
+              <div className="text-base space-y-3 mx-4">
                 <div className="p-3 bg-destructive/20 rounded-lg border-2 border-destructive">
                   <p className="text-center font-bold text-destructive mb-2">
                     ÚLTIMA CHANCE DE CANCELAR!
@@ -686,7 +686,7 @@ const ProcessosCompras = () => {
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-2">
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-2 mx-4">
             <AlertDialogCancel 
               onClick={() => {
                 setContratoParaExcluir(null);
@@ -703,7 +703,7 @@ const ProcessosCompras = () => {
               }}
               className="bg-destructive hover:bg-destructive/90 w-full sm:w-auto font-bold text-sm"
             >
-              🗑️ EXCLUIR PERMANENTEMENTE
+              🗑️ EXCLUIR
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
