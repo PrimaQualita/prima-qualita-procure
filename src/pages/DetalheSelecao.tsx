@@ -1020,7 +1020,9 @@ const [itens, setItens] = useState<Item[]>([]);
                   {atasGeradas.map((ata) => (
                     <div key={ata.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div className="flex-1">
-                        <p className="font-medium text-sm">{ata.nome_arquivo}</p>
+                        <p className="font-medium text-sm">
+                          Ata de Seleção - {selecao?.numero_selecao || "N/A"}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           Gerada em: {new Date(ata.data_geracao).toLocaleString("pt-BR")}
                           {ata.enviada_fornecedores && (
@@ -1134,7 +1136,9 @@ const [itens, setItens] = useState<Item[]>([]);
                   {homologacoesGeradas.map((homologacao) => (
                     <div key={homologacao.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div className="flex-1">
-                        <p className="font-medium text-sm">{homologacao.nome_arquivo}</p>
+                        <p className="font-medium text-sm">
+                          Homologação - Seleção {selecao?.numero_selecao || "N/A"}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           Gerada em: {new Date(homologacao.data_geracao).toLocaleString("pt-BR")}
                         </p>

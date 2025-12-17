@@ -62,6 +62,10 @@ Deno.serve(async (req) => {
     const totalArquivos = arquivosStorage.size;
     const tamanhoTotal = Array.from(arquivosStorage.values()).reduce((acc, file) => acc + file.size, 0);
     console.log(`✅ Storage: ${totalArquivos} arquivos | ${(tamanhoTotal / (1024 * 1024)).toFixed(2)} MB | ${Date.now() - startTime}ms`);
+    
+    // Log diagnóstico: arquivos em propostas_realinhadas
+    const arquivosPropostasRealinhadas = Array.from(arquivosStorage.keys()).filter(p => p.includes('propostas_realinhadas'));
+    console.log(`📁 Arquivos em propostas_realinhadas no storage: ${arquivosPropostasRealinhadas.length}`, arquivosPropostasRealinhadas);
 
     // Buscar nomes "bonitos" dos documentos do banco de dados - QUERIES EM PARALELO
     const nomesBonitos = new Map<string, string>();
@@ -308,6 +312,10 @@ Deno.serve(async (req) => {
       }
     }
     console.log(`📋 Propostas realinhadas mapeadas: ${propostasRealinhadasMap.size}`);
+    // Log das chaves do mapa para diagnóstico
+    if (propostasRealinhadasMap.size > 0) {
+      console.log(`🔑 Chaves do mapa propostas realinhadas:`, Array.from(propostasRealinhadasMap.keys()));
+    }
 
     if (planilhas) {
       for (const plan of planilhas) {
@@ -1161,6 +1169,12 @@ Deno.serve(async (req) => {
     for (const [path, metadata] of arquivosStorage) {
       // Normalizar path sem o prefixo do bucket para comparação
       const pathSemBucket = path.replace(/^(processo-anexos|documents)\//, '');
+      
+      // Log diagnóstico para propostas realinhadas
+      if (pathSemBucket.startsWith('propostas_realinhadas/')) {
+        console.log(`🔍 DIAGNÓSTICO: Arquivo propostas_realinhadas encontrado: ${pathSemBucket}`);
+        console.log(`   Existe no mapa? ${propostasRealinhadasMap.has(pathSemBucket)}`);
+      }
       
       // Usar nome bonito do banco de dados se disponível, senão usar nome do arquivo
       const pathParts = path.split('/');
