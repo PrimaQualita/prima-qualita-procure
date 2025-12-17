@@ -20,6 +20,7 @@ interface ItemVencedor {
   unidade: string;
   valor_total_ganho: number; // Valor total que ganhou (para dividir entre itens se for lote/global)
   marca?: string;
+  valor_unitario_lance?: number; // Valor unitário do lance (para critério por_item e desconto)
 }
 
 interface RespostaItem {
@@ -318,11 +319,13 @@ const PropostaRealinhada = () => {
         });
       });
     } else {
-      // Por item
+      // Por item ou desconto - cada lance já é o valor unitário do item
       lancesVencedores.forEach((lance: any) => {
         const itemOriginal = itensCotacao.find((i: any) => i.numero_item === lance.numero_item);
         if (itemOriginal) {
-          const valorTotal = lance.valor_lance * itemOriginal.quantidade;
+          // Em por_item/desconto, lance.valor_lance é o valor UNITÁRIO
+          const valorUnitario = lance.valor_lance;
+          const valorTotal = valorUnitario * itemOriginal.quantidade;
           totalGanho += valorTotal;
           
           itensProcessados.push({
@@ -333,6 +336,7 @@ const PropostaRealinhada = () => {
             unidade: itemOriginal.unidade,
             valor_total_ganho: valorTotal,
             marca: buscarMarcaPorDescricao(itemOriginal.descricao) || itemOriginal.marca || "",
+            valor_unitario_lance: valorUnitario, // Guardar valor unitário do lance
           });
         }
       });
@@ -341,14 +345,29 @@ const PropostaRealinhada = () => {
     setItensVencedores(itensProcessados);
     setValorTotalGanho(totalGanho);
 
-    // Inicializar respostas
+    // Inicializar respostas baseado no critério
     const respostasIniciais: RespostaItem = {};
-    itensProcessados.forEach((item) => {
-      respostasIniciais[item.numero_item] = {
-        valor_unitario: 0,
-        marca: item.marca || "",
-        valor_display: "",
-      };
+    
+    // Para critérios por_item e desconto: preencher valores automaticamente (readonly)
+    // Para critérios global e por_lote: preencher apenas marcas
+    const preencherValoresAutomaticamente = criterio === "por_item" || criterio === "desconto";
+    
+    itensProcessados.forEach((item: any) => {
+      if (preencherValoresAutomaticamente && item.valor_unitario_lance) {
+        // Critério por_item ou desconto: valores já definidos na sessão de lances
+        respostasIniciais[item.numero_item] = {
+          valor_unitario: item.valor_unitario_lance,
+          marca: item.marca || "",
+          valor_display: item.valor_unitario_lance.toFixed(2).replace(".", ","),
+        };
+      } else {
+        // Critério global ou por_lote: apenas marcas preenchidas
+        respostasIniciais[item.numero_item] = {
+          valor_unitario: 0,
+          marca: item.marca || "",
+          valor_display: "",
+        };
+      }
     });
     setRespostas(respostasIniciais);
   };
@@ -652,6 +671,36 @@ const PropostaRealinhada = () => {
           </CardContent>
         </Card>
 
+        {/* Mensagem informativa sobre preenchimento */}
+        {(criterioJulgamento === "por_item" || criterioJulgamento === "desconto") && (
+          <Card className="mb-4 border-green-500 bg-green-50 dark:bg-green-950/20">
+            <CardContent className="py-3">
+              <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                <Check className="h-5 w-5" />
+                <span className="text-sm font-medium">
+                  Os valores unitários já foram preenchidos automaticamente com base nos lances vencedores da sessão.
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {(criterioJulgamento === "global" || criterioJulgamento === "por_lote") && (
+          <Card className="mb-4 border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+            <CardContent className="py-3">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                <AlertCircle className="h-5 w-5" />
+                <span className="text-sm font-medium">
+                  {criterioJulgamento === "global" 
+                    ? `Preencha os valores unitários de cada item. O total deve ser igual a ${formatCurrency(valorTotalGanho)}.`
+                    : "Preencha os valores unitários de cada item. O total de cada lote deve ser igual ao valor ganho."
+                  }
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Itens agrupados */}
         {itensAgrupados.map(([numeroLote, itensDoLote]) => (
           <Card key={numeroLote} className="mb-6">
@@ -688,6 +737,7 @@ const PropostaRealinhada = () => {
                   {itensDoLote.map((item) => {
                     const resposta = respostas[item.numero_item];
                     const valorTotal = (resposta?.valor_unitario || 0) * item.quantidade;
+                    const valorReadonly = criterioJulgamento === "por_item" || criterioJulgamento === "desconto";
                     
                     return (
                       <TableRow key={item.numero_item}>
@@ -701,13 +751,19 @@ const PropostaRealinhada = () => {
                           </TableCell>
                         )}
                         <TableCell>
-                          <Input
-                            type="text"
-                            value={resposta?.valor_display || ""}
-                            onChange={(e) => handleValorChange(item.numero_item, e.target.value)}
-                            placeholder="0,00"
-                            className="h-8"
-                          />
+                          {valorReadonly ? (
+                            <span className="text-sm font-medium text-foreground">
+                              {resposta?.valor_display || formatCurrency(resposta?.valor_unitario || 0).replace("R$", "").trim()}
+                            </span>
+                          ) : (
+                            <Input
+                              type="text"
+                              value={resposta?.valor_display || ""}
+                              onChange={(e) => handleValorChange(item.numero_item, e.target.value)}
+                              placeholder="0,00"
+                              className="h-8"
+                            />
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(valorTotal)}
