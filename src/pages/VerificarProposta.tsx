@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { supabasePublic as supabaseAnon } from "@/integrations/supabase/public-client";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { toast } from "sonner";
 
 interface RespostaVerificada {
   id: string;
@@ -46,135 +45,75 @@ const VerificarProposta = () => {
     try {
       console.log('Verificando protocolo:', protocolo);
 
-      // Buscar proposta de seleção
-      const { data: selecaoData } = await supabaseAnon
-        .from("selecao_propostas_fornecedor")
-        .select(`
-          id,
-          protocolo,
-          valor_total_proposta,
-          data_envio_proposta,
-          fornecedores (
-            razao_social,
-            cnpj
-          ),
-          selecoes_fornecedores (
-            titulo_selecao,
-            processos_compras (
-              numero_processo_interno
-            )
-          )
-        `)
-        .eq("protocolo", protocolo)
-        .maybeSingle();
+      // Usar edge function para bypass de RLS
+      const { data: payload, error } = await supabase.functions.invoke(
+        "verificar-documento",
+        { body: { protocolo } }
+      );
 
-      if (selecaoData) {
-        console.log('✅ Proposta de seleção encontrada');
+      if (error) throw error;
+
+      const doc = payload?.documento;
+      const tipo = payload?.tipo;
+
+      if (!doc) {
+        setErro("Proposta não encontrada com este protocolo");
+        setLoading(false);
+        return;
+      }
+
+      // Verificar se é um tipo de proposta
+      if (tipo === "proposta_selecao") {
         setResposta({
-          id: selecaoData.id,
-          protocolo: selecaoData.protocolo,
+          id: doc.id,
+          protocolo: doc.protocolo,
           tipo: 'selecao',
-          valor_total_anual_ofertado: selecaoData.valor_total_proposta,
-          data_envio_resposta: selecaoData.data_envio_proposta,
+          valor_total_anual_ofertado: doc.valor_total_proposta,
+          data_envio_resposta: doc.data_envio_proposta,
           fornecedor: {
-            razao_social: (selecaoData.fornecedores as any)?.razao_social || "N/A",
-            cnpj: (selecaoData.fornecedores as any)?.cnpj || "N/A",
+            razao_social: doc.fornecedores?.razao_social || "N/A",
+            cnpj: doc.fornecedores?.cnpj || "N/A",
           },
           processo: {
-            titulo: (selecaoData.selecoes_fornecedores as any)?.titulo_selecao || "N/A",
-            numero: (selecaoData.selecoes_fornecedores as any)?.processos_compras?.numero_processo_interno || "N/A",
+            titulo: doc.selecoes_fornecedores?.titulo_selecao || "N/A",
+            numero: doc.selecoes_fornecedores?.processos_compras?.numero_processo_interno || "N/A",
           },
         });
-        return;
-      }
-
-      // Se não encontrou em seleção, tentar proposta realinhada
-      const { data: realinhadaData } = await supabaseAnon
-        .from("propostas_realinhadas")
-        .select(`
-          id,
-          protocolo,
-          valor_total_proposta,
-          data_envio,
-          fornecedores (
-            razao_social,
-            cnpj
-          ),
-          selecoes_fornecedores (
-            titulo_selecao,
-            processos_compras (
-              numero_processo_interno
-            )
-          )
-        `)
-        .eq("protocolo", protocolo)
-        .maybeSingle();
-
-      if (realinhadaData) {
-        console.log('✅ Proposta realinhada encontrada');
+      } else if (tipo === "proposta_realinhada") {
         setResposta({
-          id: realinhadaData.id,
-          protocolo: realinhadaData.protocolo,
+          id: doc.id,
+          protocolo: doc.protocolo,
           tipo: 'realinhada',
-          valor_total_anual_ofertado: realinhadaData.valor_total_proposta,
-          data_envio_resposta: realinhadaData.data_envio,
+          valor_total_anual_ofertado: doc.valor_total_proposta,
+          data_envio_resposta: doc.data_envio,
           fornecedor: {
-            razao_social: (realinhadaData.fornecedores as any)?.razao_social || "N/A",
-            cnpj: (realinhadaData.fornecedores as any)?.cnpj || "N/A",
+            razao_social: doc.fornecedores?.razao_social || "N/A",
+            cnpj: doc.fornecedores?.cnpj || "N/A",
           },
           processo: {
-            titulo: (realinhadaData.selecoes_fornecedores as any)?.titulo_selecao || "N/A",
-            numero: (realinhadaData.selecoes_fornecedores as any)?.processos_compras?.numero_processo_interno || "N/A",
+            titulo: doc.selecoes_fornecedores?.titulo_selecao || "N/A",
+            numero: doc.selecoes_fornecedores?.processos_compras?.numero_processo_interno || "N/A",
           },
         });
-        return;
-      }
-
-      // Se não encontrou em proposta realinhada, tentar cotação
-      const { data: cotacaoData } = await supabaseAnon
-        .from("cotacao_respostas_fornecedor")
-        .select(`
-          id,
-          protocolo,
-          valor_total_anual_ofertado,
-          data_envio_resposta,
-          fornecedores (
-            razao_social,
-            cnpj
-          ),
-          cotacoes_precos (
-            titulo_cotacao,
-            processos_compras (
-              numero_processo_interno
-            )
-          )
-        `)
-        .eq("protocolo", protocolo)
-        .maybeSingle();
-
-      if (cotacaoData) {
-        console.log('✅ Proposta de cotação encontrada');
+      } else if (tipo === "proposta_cotacao") {
         setResposta({
-          id: cotacaoData.id,
-          protocolo: cotacaoData.protocolo,
+          id: doc.id,
+          protocolo: doc.protocolo,
           tipo: 'cotacao',
-          valor_total_anual_ofertado: cotacaoData.valor_total_anual_ofertado,
-          data_envio_resposta: cotacaoData.data_envio_resposta,
+          valor_total_anual_ofertado: doc.valor_total_anual_ofertado,
+          data_envio_resposta: doc.data_envio_resposta,
           fornecedor: {
-            razao_social: (cotacaoData.fornecedores as any)?.razao_social || "N/A",
-            cnpj: (cotacaoData.fornecedores as any)?.cnpj || "N/A",
+            razao_social: doc.fornecedores?.razao_social || "N/A",
+            cnpj: doc.fornecedores?.cnpj || "N/A",
           },
           processo: {
-            titulo: (cotacaoData.cotacoes_precos as any)?.titulo_cotacao || "N/A",
-            numero: (cotacaoData.cotacoes_precos as any)?.processos_compras?.numero_processo_interno || "N/A",
+            titulo: doc.cotacoes_precos?.titulo_cotacao || "N/A",
+            numero: doc.cotacoes_precos?.processos_compras?.numero_processo_interno || "N/A",
           },
         });
-        return;
+      } else {
+        setErro("Documento encontrado não é uma proposta");
       }
-
-      // Não encontrou nenhuma proposta
-      console.log('❌ Proposta não encontrada');
-      setErro("Proposta não encontrada com este protocolo");
     } catch (error: any) {
       console.error("Erro na verificação:", error);
       setErro("Erro ao verificar: " + (error?.message || "Erro desconhecido"));
