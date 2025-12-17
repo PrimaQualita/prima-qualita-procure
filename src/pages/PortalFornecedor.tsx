@@ -576,17 +576,57 @@ export default function PortalFornecedor() {
 
         const propostaOriginalId = propostaIdPorSelecao.get(selecaoId) || null;
 
-        // CRÍTICO: Verificar se o fornecedor venceu algum item/lote nesta seleção
-        // Buscar lances vencedores deste fornecedor para esta seleção
-        const { data: lancesVencedores } = await supabase
+        // CRÍTICO: Calcular DINAMICAMENTE se o fornecedor venceu algum item/lote
+        // NÃO confiar em indicativo_lance_vencedor (pode estar desatualizado)
+        
+        // Buscar critério de julgamento via processo de compras
+        const { data: selecaoData } = await supabase
+          .from("selecoes_fornecedores")
+          .select("processo_compra_id, processos_compras(criterio_julgamento)")
+          .eq("id", selecaoId)
+          .single();
+        
+        const criterio = (selecaoData?.processos_compras as any)?.criterio_julgamento || "por_item";
+        const ehDesconto = criterio === "maior_percentual_desconto" || criterio === "desconto";
+        
+        // Buscar TODOS os lances da seleção para calcular vencedores
+        const { data: todosLances } = await supabase
           .from("lances_fornecedores")
-          .select("id, numero_item")
-          .eq("selecao_id", selecaoId)
-          .eq("fornecedor_id", fornecedorId)
-          .eq("indicativo_lance_vencedor", true);
-
-        // Se não tem nenhum lance vencedor, não precisa enviar proposta realinhada
-        if (!lancesVencedores || lancesVencedores.length === 0) {
+          .select("id, numero_item, fornecedor_id, valor_lance")
+          .eq("selecao_id", selecaoId);
+        
+        if (!todosLances || todosLances.length === 0) {
+          console.log(`⚠️ Nenhum lance na seleção ${selecaoId} - ignorando`);
+          continue;
+        }
+        
+        // Agrupar lances por item e identificar vencedor dinamicamente
+        const lancesPorItem = new Map<number, typeof todosLances>();
+        for (const lance of todosLances) {
+          const numItem = lance.numero_item || 0;
+          if (!lancesPorItem.has(numItem)) {
+            lancesPorItem.set(numItem, []);
+          }
+          lancesPorItem.get(numItem)!.push(lance);
+        }
+        
+        // Verificar se o fornecedor é vencedor em algum item
+        let fornecedorVenceuAlgumItem = false;
+        
+        for (const [_numItem, lancesItem] of lancesPorItem) {
+          // Ordenar: desconto = descendente (maior vence), preço = ascendente (menor vence)
+          const lancesOrdenados = [...lancesItem].sort((a, b) => 
+            ehDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance
+          );
+          
+          const vencedor = lancesOrdenados[0];
+          if (vencedor && vencedor.fornecedor_id === fornecedorId) {
+            fornecedorVenceuAlgumItem = true;
+            break;
+          }
+        }
+        
+        if (!fornecedorVenceuAlgumItem) {
           console.log(`⚠️ Fornecedor não venceu nenhum item na seleção ${selecaoId} - ignorando proposta realinhada`);
           continue;
         }
