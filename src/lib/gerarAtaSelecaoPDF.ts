@@ -1827,8 +1827,22 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   console.log('>>> Upload concluído com sucesso');
 
-  // NÃO deletar arquivo original - precisamos dele para futuras atualizações
-  // Apenas deletar versões anteriores "-assinado" se o path mudou
+  // Deletar arquivo original (sem assinatura) - a versão assinada será a única no storage
+  // A função já sabe reconstruir a partir da versão assinada removendo o termo anterior
+  if (storagePathOriginal !== newStoragePath) {
+    console.log('>>> Deletando arquivo original (sem assinatura):', storagePathOriginal);
+    const { error: deleteOriginalError } = await supabase.storage
+      .from('processo-anexos')
+      .remove([storagePathOriginal]);
+    
+    if (deleteOriginalError) {
+      console.warn('Aviso: Não foi possível deletar arquivo original:', deleteOriginalError);
+    } else {
+      console.log('>>> Arquivo original deletado com sucesso');
+    }
+  }
+  
+  // Também deletar versões anteriores "-assinado" se o path mudou
   if (storagePath !== newStoragePath && storagePath.includes('-assinado')) {
     console.log('>>> Deletando versão anterior assinada:', storagePath);
     const { error: deleteError } = await supabase.storage
@@ -1851,12 +1865,14 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const finalUrl = publicUrl + cacheBust;
   console.log('>>> URL final com cache bust:', finalUrl);
 
-  // Atualizar registro da ata com nova URL (MANTER url_arquivo_original para futuras atualizações)
+  // Atualizar registro da ata com nova URL
+  // Atualizar url_arquivo_original também para a versão assinada, pois a função sabe 
+  // reconstruir a partir dela removendo o termo de aceite anterior
   const { error: updateError } = await supabase
     .from('atas_selecao')
     .update({ 
-      url_arquivo: finalUrl
-      // NÃO limpar url_arquivo_original - precisamos dele para futuras atualizações
+      url_arquivo: finalUrl,
+      url_arquivo_original: finalUrl
     })
     .eq('id', ataId);
 
