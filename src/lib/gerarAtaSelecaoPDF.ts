@@ -1804,18 +1804,17 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const modifiedPdfBytes = await pdfDoc.save();
   const modifiedBlob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
 
-  // Usar caminho fixo para o arquivo assinado (evitar múltiplos "-assinado")
-  // Remover qualquer "-assinado" existente e adicionar apenas um
-  let baseStoragePath = storagePath.replace(/-assinado(-assinado)*/g, '').replace('.pdf', '');
-  const newStoragePath = `${baseStoragePath}-assinado.pdf`;
-  
-  console.log('>>> Fazendo upload do PDF modificado');
-  console.log('>>> Path original:', storagePath);
-  console.log('>>> Path novo (assinado):', newStoragePath);
-  
+  // Sobrescrever o arquivo original com a versão assinada (não manter cópia sem assinatura)
+  // e remover qualquer versão legada "-assinado" para evitar duplicação no storage.
+  const targetStoragePath = storagePathOriginal.replace(/-assinado(-assinado)*/g, '');
+  const legacySignedPath = targetStoragePath.replace(/\.pdf$/i, '-assinado.pdf');
+
+  console.log('>>> Fazendo upload do PDF modificado (sobrescrevendo arquivo original)');
+  console.log('>>> Path alvo:', targetStoragePath);
+
   const { error: uploadError } = await supabase.storage
     .from('processo-anexos')
-    .upload(newStoragePath, modifiedBlob, {
+    .upload(targetStoragePath, modifiedBlob, {
       contentType: 'application/pdf',
       upsert: true,
     });
@@ -1827,41 +1826,24 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
 
   console.log('>>> Upload concluído com sucesso');
 
-  // Deletar arquivo original (sem assinatura) - a versão assinada será a única no storage
-  // A função já sabe reconstruir a partir da versão assinada removendo o termo anterior
-  if (storagePathOriginal !== newStoragePath) {
-    console.log('>>> Deletando arquivo original (sem assinatura):', storagePathOriginal);
-    const { error: deleteOriginalError } = await supabase.storage
+  // Limpar eventual cópia antiga "-assinado" (gerada por versões anteriores)
+  if (legacySignedPath !== targetStoragePath) {
+    console.log('>>> Removendo cópia legada assinada (se existir):', legacySignedPath);
+    const { error: deleteLegacyError } = await supabase.storage
       .from('processo-anexos')
-      .remove([storagePathOriginal]);
-    
-    if (deleteOriginalError) {
-      console.warn('Aviso: Não foi possível deletar arquivo original:', deleteOriginalError);
-    } else {
-      console.log('>>> Arquivo original deletado com sucesso');
-    }
-  }
-  
-  // Também deletar versões anteriores "-assinado" se o path mudou
-  if (storagePath !== newStoragePath && storagePath.includes('-assinado')) {
-    console.log('>>> Deletando versão anterior assinada:', storagePath);
-    const { error: deleteError } = await supabase.storage
-      .from('processo-anexos')
-      .remove([storagePath]);
-    
-    if (deleteError) {
-      console.warn('Aviso: Não foi possível deletar versão anterior:', deleteError);
-    } else {
-      console.log('>>> Versão anterior deletada com sucesso');
+      .remove([legacySignedPath]);
+
+    if (deleteLegacyError) {
+      console.warn('Aviso: Não foi possível remover cópia legada assinada:', deleteLegacyError);
     }
   }
 
-  // Obter URL pública do novo PDF com cache bust
+  // Obter URL pública do PDF (agora sempre no path original) com cache bust
   const cacheBust = `?t=${Date.now()}`;
   const { data: { publicUrl } } = supabase.storage
     .from('processo-anexos')
-    .getPublicUrl(newStoragePath);
-  
+    .getPublicUrl(targetStoragePath);
+
   const finalUrl = publicUrl + cacheBust;
   console.log('>>> URL final com cache bust:', finalUrl);
 
