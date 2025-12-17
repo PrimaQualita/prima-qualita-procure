@@ -40,6 +40,21 @@ interface Item {
   valor_total: number;
 }
 
+// Helper para converter número para numeral romano
+const toRoman = (num: number): string => {
+  const romanNumerals: [number, string][] = [
+    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+  ];
+  let result = '';
+  for (const [value, symbol] of romanNumerals) {
+    while (num >= value) {
+      result += symbol;
+      num -= value;
+    }
+  }
+  return result;
+};
+
 const DetalheSelecao = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1017,11 +1032,11 @@ const [itens, setItens] = useState<Item[]>([]);
               </CardHeader>
               <CardContent className="py-2">
                 <div className="space-y-2">
-                  {atasGeradas.map((ata) => (
+                {atasGeradas.map((ata, index) => (
                     <div key={ata.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div className="flex-1">
                         <p className="font-medium text-sm">
-                          Ata de Seleção - {selecao?.numero_selecao || "N/A"}
+                          Ata de Seleção - {selecao?.numero_selecao || "N/A"}{index > 0 ? ` ${toRoman(index + 1)}` : ''}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Gerada em: {new Date(ata.data_geracao).toLocaleString("pt-BR")}
@@ -1133,11 +1148,11 @@ const [itens, setItens] = useState<Item[]>([]);
               </CardHeader>
               <CardContent className="py-2">
                 <div className="space-y-2">
-                  {homologacoesGeradas.map((homologacao) => (
+                {homologacoesGeradas.map((homologacao, index) => (
                     <div key={homologacao.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div className="flex-1">
                         <p className="font-medium text-sm">
-                          Homologação - Seleção {selecao?.numero_selecao || "N/A"}
+                          Homologação - Seleção {selecao?.numero_selecao || "N/A"}{index > 0 ? ` ${toRoman(index + 1)}` : ''}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Gerada em: {new Date(homologacao.data_geracao).toLocaleString("pt-BR")}
