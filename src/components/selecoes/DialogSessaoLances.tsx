@@ -80,10 +80,26 @@ interface DialogSessaoLancesProps {
   lotes?: Lote[];
   criterioJulgamento: string;
   tituloSelecao?: string;
+  numeroSelecao?: string;
   sessaoFinalizada?: boolean;
   onFinalizarSessao?: () => void;
   onVencedoresAtualizados?: () => void;
 }
+
+// Helper para converter número para numeral romano
+const toRoman = (num: number): string => {
+  const romanNumerals: [number, string][] = [
+    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+  ];
+  let result = '';
+  for (const [value, symbol] of romanNumerals) {
+    while (num >= value) {
+      result += symbol;
+      num -= value;
+    }
+  }
+  return result;
+};
 
 export function DialogSessaoLances({
   open,
@@ -94,6 +110,7 @@ export function DialogSessaoLances({
   lotes = [],
   criterioJulgamento,
   tituloSelecao = "Seleção de Fornecedores",
+  numeroSelecao,
   sessaoFinalizada = false,
   onFinalizarSessao,
 }: DialogSessaoLancesProps) {
@@ -2766,14 +2783,20 @@ export function DialogSessaoLances({
                   <div className="mt-3 pt-3 border-t">
                     <p className="text-xs font-medium mb-2">Planilhas de Lances Geradas ({planilhasGeradas.length}):</p>
                     <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
-                      {planilhasGeradas.map((planilha) => (
+                      {planilhasGeradas.map((planilha, index) => {
+                        // Nome bonito: "Planilha de Lances - Seleção XXX/YYYY" + numeral romano se > 1
+                        const nomeBonito = numeroSelecao 
+                          ? `Planilha de Lances - Seleção ${numeroSelecao}${index > 0 ? ` ${toRoman(index + 1)}` : ''}`
+                          : `Planilha de Lances${index > 0 ? ` ${toRoman(index + 1)}` : ''}`;
+                        
+                        return (
                         <Card key={planilha.id} className="bg-muted/50">
                           <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <FileSpreadsheet className="h-4 w-4 text-primary flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium truncate">{planilha.nome_arquivo}</p>
+                                  <p className="text-xs font-medium truncate">{nomeBonito}</p>
                                   <p className="text-[10px] text-muted-foreground">
                                     {new Date(planilha.data_geracao).toLocaleString('pt-BR')}
                                   </p>
@@ -2800,7 +2823,8 @@ export function DialogSessaoLances({
                             </div>
                           </CardContent>
                         </Card>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

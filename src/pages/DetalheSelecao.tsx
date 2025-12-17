@@ -1318,6 +1318,7 @@ const [itens, setItens] = useState<Item[]>([]);
         itens={itens}
         lotes={lotes}
         criterioJulgamento={selecao?.criterios_julgamento || processo?.criterio_julgamento || "Menor Preço Global"}
+        numeroSelecao={selecao?.numero_selecao}
         sessaoFinalizada={selecao?.sessao_finalizada || false}
         onFinalizarSessao={handleFinalizarSessao}
         onVencedoresAtualizados={() => {
