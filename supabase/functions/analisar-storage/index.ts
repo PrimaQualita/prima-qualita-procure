@@ -85,7 +85,8 @@ Deno.serve(async (req) => {
       { data: anexosProcessoTipos },
       { data: fornecedores },
       { data: avaliacoes },
-      { data: propostasSelecaoDB }
+      { data: propostasSelecaoDB },
+      { data: propostasRealinhadasDB }
     ] = await Promise.all([
       supabase.from('atas_selecao').select(`
         url_arquivo, 
@@ -137,6 +138,18 @@ Deno.serve(async (req) => {
       supabase.from('fornecedores').select('id, razao_social'),
       supabase.from('avaliacoes_cadastro_fornecedor').select('id, fornecedor_id'),
       supabase.from('selecao_propostas_fornecedor').select(`
+        url_pdf_proposta,
+        selecao_id,
+        fornecedor_id,
+        fornecedores!inner(razao_social),
+        selecoes_fornecedores!inner(
+          numero_selecao,
+          titulo_selecao,
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno, objeto_resumido, credenciamento)
+        )
+      `),
+      supabase.from('propostas_realinhadas').select(`
         url_pdf_proposta,
         selecao_id,
         fornecedor_id,
@@ -257,6 +270,44 @@ Deno.serve(async (req) => {
       }
     }
     console.log(`📋 Propostas de seleção mapeadas: ${propostasSelecaoMap.size}`);
+
+    // Processar propostas realinhadas - criar mapa com detalhes para categorização
+    const propostasRealinhadasMap = new Map<string, { 
+      selecaoId: string;
+      selecaoNumero: string;
+      processoId: string;
+      processoNumero: string;
+      processoObjeto: string;
+      credenciamento: boolean;
+      fornecedorId: string;
+      fornecedorNome: string;
+    }>();
+    if (propostasRealinhadasDB) {
+      for (const prop of propostasRealinhadasDB) {
+        if (!prop.url_pdf_proposta) continue;
+        const path = prop.url_pdf_proposta.split('processo-anexos/')[1]?.split('?')[0] || prop.url_pdf_proposta;
+        
+        const selecaoData = (prop as any).selecoes_fornecedores;
+        const processoData = selecaoData?.processos_compras;
+        const fornecedorData = (prop as any).fornecedores;
+        
+        let objetoLimpo = processoData?.objeto_resumido || '';
+        objetoLimpo = objetoLimpo.replace(/<[^>]+>/g, '').trim();
+        
+        propostasRealinhadasMap.set(path, {
+          selecaoId: prop.selecao_id,
+          selecaoNumero: selecaoData?.numero_selecao || '',
+          processoId: selecaoData?.processo_compra_id || '',
+          processoNumero: processoData?.numero_processo_interno || '',
+          processoObjeto: objetoLimpo,
+          credenciamento: processoData?.credenciamento || false,
+          fornecedorId: prop.fornecedor_id,
+          fornecedorNome: fornecedorData?.razao_social || 'Desconhecido'
+        });
+        nomesBonitos.set(path, `Proposta Realinhada ${fornecedorData?.razao_social || 'Desconhecido'}`);
+      }
+    }
+    console.log(`📋 Propostas realinhadas mapeadas: ${propostasRealinhadasMap.size}`);
 
     if (planilhas) {
       for (const plan of planilhas) {
@@ -981,7 +1032,21 @@ Deno.serve(async (req) => {
           documentos: Array<{ path: string; fileName: string; size: number; fornecedorNome?: string }>;
         }>() 
       },
-      avisos_certame: { 
+      propostas_realinhadas: { 
+        arquivos: 0, 
+        tamanho: 0, 
+        detalhes: [] as any[], 
+        porProcesso: new Map<string, { 
+          processoId: string; 
+          processoNumero: string; 
+          processoObjeto: string;
+          tipoSelecao: string;
+          selecaoNumero: string;
+          credenciamento: boolean;
+          documentos: Array<{ path: string; fileName: string; size: number; fornecedorNome?: string }>;
+        }>() 
+      },
+      avisos_certame: {
         arquivos: 0, 
         tamanho: 0, 
         detalhes: [] as any[], 
@@ -2421,6 +2486,35 @@ Deno.serve(async (req) => {
             fornecedorNome: propostaInfo.fornecedorNome
           });
           console.log(`   ✅ Categorizado como PROPOSTA DE SELEÇÃO - ${propostaInfo.fornecedorNome}`);
+        } else if (propostasRealinhadasMap.has(pathSemBucket)) {
+          // Verificar se é uma proposta realinhada pelo mapa
+          arquivosJaCategorizados.add(path);
+          estatisticasPorCategoria.propostas_realinhadas.arquivos++;
+          estatisticasPorCategoria.propostas_realinhadas.tamanho += metadata.size;
+          
+          const propostaInfo = propostasRealinhadasMap.get(pathSemBucket)!;
+          const processoKey = propostaInfo.processoId;
+          const tipoSelecao = propostaInfo.credenciamento ? 'Credenciamento' : 'Seleção de Fornecedores';
+          
+          if (!estatisticasPorCategoria.propostas_realinhadas.porProcesso!.has(processoKey)) {
+            estatisticasPorCategoria.propostas_realinhadas.porProcesso!.set(processoKey, {
+              processoId: processoKey,
+              processoNumero: propostaInfo.processoNumero,
+              processoObjeto: propostaInfo.processoObjeto,
+              tipoSelecao,
+              selecaoNumero: propostaInfo.selecaoNumero,
+              credenciamento: propostaInfo.credenciamento,
+              documentos: []
+            });
+          }
+          
+          estatisticasPorCategoria.propostas_realinhadas.porProcesso!.get(processoKey)!.documentos.push({
+            path,
+            fileName: `Proposta Realinhada ${propostaInfo.fornecedorNome}`,
+            size: metadata.size,
+            fornecedorNome: propostaInfo.fornecedorNome
+          });
+          console.log(`   ✅ Categorizado como PROPOSTA REALINHADA - ${propostaInfo.fornecedorNome}`);
         } else {
           // Outros - SOMENTE se arquivo tem referência no banco
           // Se não tiver referência, deixar para lógica de órfãos
@@ -3352,6 +3446,12 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.propostas_selecao.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.propostas_selecao.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.propostas_selecao.porProcesso!.values())
+        },
+        propostas_realinhadas: {
+          arquivos: estatisticasPorCategoria.propostas_realinhadas.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.propostas_realinhadas.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.propostas_realinhadas.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.propostas_realinhadas.porProcesso!.values())
         },
         avisos_certame: {
           arquivos: estatisticasPorCategoria.avisos_certame.arquivos,

@@ -493,6 +493,21 @@ export default function GestaoStorage() {
                   }),
                   showView: resultado.estatisticasPorCategoria?.propostas_selecao?.arquivos > 0
                 },
+                // Propostas Realinhadas
+                {
+                  key: 'propostas_realinhadas',
+                  title: 'Propostas Realinhadas',
+                  colorClass: 'border-cyan-200 bg-cyan-50/50',
+                  description: 'PDFs realinhados',
+                  data: resultado.estatisticasPorCategoria?.propostas_realinhadas,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Propostas Realinhadas',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.propostas_realinhadas?.porProcesso || [],
+                    categoria: 'propostas_realinhadas'
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.propostas_realinhadas?.arquivos > 0
+                },
                 // Recursos
                 {
                   key: 'recursos',
