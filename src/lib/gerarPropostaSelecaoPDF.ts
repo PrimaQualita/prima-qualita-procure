@@ -445,9 +445,10 @@ export async function gerarPropostaSelecaoPDF(
       // Usar autoTable para renderização robusta com quebra de página
       autoTable(doc, {
         startY: y,
-        margin: { left: margemEsquerda, right: 15 },
+        margin: { left: margemEsquerda, right: 15, bottom: 30 },
         tableWidth: larguraUtil,
         rowPageBreak: 'auto',
+        showHead: 'everyPage',
         styles: {
           fontSize: 8,
           cellPadding: 2,
@@ -660,12 +661,26 @@ export async function gerarPropostaSelecaoPDF(
     // Linhas da tabela com sombras alternadas
     let itemIndex = 0;
     let yInicio = y;
+    const margemInferior = 30; // Espaço para rodapé
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const limitePagina = pageHeight - margemInferior;
+    
     for (const item of itensOrdenados) {
-      if (y > 270) {
+      // Calcular altura necessária para este item
+      const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
+      const alturaLinhaItem = Math.max(6 + ((descLines.length - 1) * espacamentoLinhaDescTexto), 7);
+      
+      // Verificar se o item inteiro cabe na página atual
+      if (y + alturaLinhaItem > limitePagina) {
         // Fechar tabela na página atual antes de mudar
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.3);
         doc.rect(margemEsquerda, tabelaY, larguraUtil, y - tabelaY, 'S');
+        
+        // Linhas verticais completas até o ponto atual
+        colPositions.forEach(xPos => {
+          doc.line(xPos, tabelaY, xPos, y);
+        });
         
         doc.addPage();
         y = 20;
@@ -674,9 +689,8 @@ export async function gerarPropostaSelecaoPDF(
 
       const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
       
-      const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
-      // Altura mínima de 7, e cada linha adicional soma espacamentoLinhaDescTexto
-      const alturaLinha = Math.max(6 + ((descLines.length - 1) * espacamentoLinhaDescTexto), 7);
+      // Usar alturaLinhaItem já calculado acima
+      const alturaLinha = alturaLinhaItem;
       
       // Sombra azul claro alternada (zebra striping)
       if (itemIndex % 2 === 1) {
