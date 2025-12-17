@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip, ChevronRight } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip, ChevronRight, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogContrato } from "@/components/contratos/DialogContrato";
 import { DialogProcesso } from "@/components/processos/DialogProcesso";
@@ -77,6 +77,7 @@ const ProcessosCompras = () => {
   const [dialogContratoOpen, setDialogContratoOpen] = useState(false);
   const [contratoParaEditar, setContratoParaEditar] = useState<Contrato | null>(null);
   const [contratoParaExcluir, setContratoParaExcluir] = useState<string | null>(null);
+  const [etapaConfirmacaoContrato, setEtapaConfirmacaoContrato] = useState<1 | 2>(1);
   
   // Estados para processos
   const [processos, setProcessos] = useState<Processo[]>([]);
@@ -582,17 +583,123 @@ const ProcessosCompras = () => {
         onSave={handleSaveProcesso}
       />
 
-      <AlertDialog open={!!contratoParaExcluir} onOpenChange={() => setContratoParaExcluir(null)}>
-        <AlertDialogContent>
+      {/* Primeira janela de confirmação - Aviso inicial */}
+      <AlertDialog 
+        open={!!contratoParaExcluir && etapaConfirmacaoContrato === 1} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setContratoParaExcluir(null);
+            setEtapaConfirmacaoContrato(1);
+          }
+        }}
+      >
+        <AlertDialogContent className="border-destructive/50 border-2">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este contrato? Esta ação não pode ser desfeita.
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-3 rounded-full bg-destructive/10">
+                <AlertTriangle className="h-8 w-8 text-destructive" />
+              </div>
+              <AlertDialogTitle className="text-xl text-destructive">
+                ⚠️ ATENÇÃO: Ação de Alto Risco!
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-base space-y-3">
+              <p className="font-semibold text-foreground">
+                Você está prestes a excluir um <span className="text-destructive">Contrato de Gestão</span>.
+              </p>
+              <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/30">
+                <p className="font-bold text-destructive mb-2">
+                  Esta ação irá DELETAR PERMANENTEMENTE:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-foreground">
+                  <li>O contrato de gestão selecionado</li>
+                  <li><strong>TODOS os processos de compra</strong> vinculados a este contrato</li>
+                  <li><strong>TODAS as cotações</strong> e respostas de fornecedores</li>
+                  <li><strong>TODOS os documentos</strong> anexados aos processos</li>
+                  <li><strong>TODAS as seleções de fornecedores</strong> relacionadas</li>
+                </ul>
+              </div>
+              <p className="text-destructive font-semibold text-center">
+                Esta ação NÃO pode ser desfeita!
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteContrato}>Excluir</AlertDialogAction>
+            <AlertDialogCancel onClick={() => {
+              setContratoParaExcluir(null);
+              setEtapaConfirmacaoContrato(1);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => setEtapaConfirmacaoContrato(2)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Entendo os riscos, continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Segunda janela de confirmação - Confirmação final */}
+      <AlertDialog 
+        open={!!contratoParaExcluir && etapaConfirmacaoContrato === 2} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setContratoParaExcluir(null);
+            setEtapaConfirmacaoContrato(1);
+          }
+        }}
+      >
+        <AlertDialogContent className="border-destructive border-4">
+          <AlertDialogHeader>
+            <div className="flex flex-col items-center gap-3 mb-2">
+              <div className="p-4 rounded-full bg-destructive animate-pulse">
+                <AlertTriangle className="h-12 w-12 text-destructive-foreground" />
+              </div>
+              <AlertDialogTitle className="text-2xl text-destructive text-center">
+                🚨 CONFIRMAÇÃO FINAL 🚨
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-base space-y-4">
+              <div className="p-4 bg-destructive/20 rounded-lg border-2 border-destructive">
+                <p className="text-center font-bold text-destructive text-lg mb-3">
+                  ÚLTIMA CHANCE DE CANCELAR!
+                </p>
+                <p className="text-center text-foreground">
+                  Ao clicar em <strong>"EXCLUIR PERMANENTEMENTE"</strong>, você confirma que:
+                </p>
+                <ul className="list-disc list-inside space-y-2 mt-3 text-sm text-foreground">
+                  <li>Entende que <strong>TODOS os dados serão perdidos</strong></li>
+                  <li>Não há backup disponível para recuperação</li>
+                  <li>Assume total responsabilidade por esta ação</li>
+                </ul>
+              </div>
+              <p className="text-center text-muted-foreground text-sm">
+                Recomendação: Antes de excluir, certifique-se de ter exportado 
+                todos os documentos importantes.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel 
+              onClick={() => {
+                setContratoParaExcluir(null);
+                setEtapaConfirmacaoContrato(1);
+              }}
+              className="w-full sm:w-auto"
+            >
+              Cancelar e manter o contrato
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                handleDeleteContrato();
+                setEtapaConfirmacaoContrato(1);
+              }}
+              className="bg-destructive hover:bg-destructive/90 w-full sm:w-auto font-bold"
+            >
+              🗑️ EXCLUIR PERMANENTEMENTE
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
