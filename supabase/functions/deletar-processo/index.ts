@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
     const numeroProcesso = processoData?.numero_processo_interno;
     console.log(`📋 Número do processo: ${numeroProcesso}`);
 
-    // 1. Buscar anexos do processo
+    // 1. Buscar anexos do processo (podem estar em processo-anexos OU documents)
     const { data: anexosProcesso } = await supabase
       .from('anexos_processo_compra')
       .select('url_arquivo')
@@ -89,8 +89,17 @@ Deno.serve(async (req) => {
     
     if (anexosProcesso) {
       anexosProcesso.forEach(a => {
-        const path = extractPath(a.url_arquivo, 'processo-anexos');
-        if (path) arquivosProcessoAnexos.push(path);
+        // Verificar qual bucket o arquivo está
+        if (a.url_arquivo?.includes('/documents/') || a.url_arquivo?.includes('documents/processos')) {
+          const path = extractPath(a.url_arquivo, 'documents');
+          if (path) {
+            console.log(`   📎 Anexo processo (documents): ${path}`);
+            arquivosDocuments.push(path);
+          }
+        } else {
+          const path = extractPath(a.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
+        }
       });
     }
 
@@ -171,7 +180,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      // 2.5 Análises de compliance
+      // 2.5 Análises de compliance (estão no bucket documents)
       const { data: analises } = await supabase
         .from('analises_compliance')
         .select('url_documento')
@@ -181,9 +190,10 @@ Deno.serve(async (req) => {
         console.log(`📊 Análises de compliance encontradas: ${analises.length}`);
         analises.forEach(a => {
           console.log(`   URL análise: ${a.url_documento}`);
-          const path = extractPath(a.url_documento, 'processo-anexos');
-          console.log(`   Path extraído: ${path}`);
-          if (path) arquivosProcessoAnexos.push(path);
+          // Análises de compliance estão no bucket 'documents' na pasta compliance/
+          const path = extractPath(a.url_documento, 'documents');
+          console.log(`   Path extraído (documents): ${path}`);
+          if (path) arquivosDocuments.push(path);
         });
       }
 
