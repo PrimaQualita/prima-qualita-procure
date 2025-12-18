@@ -514,7 +514,10 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     // 12. DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES (vencedores E inabilitados)
     console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES ===");
     
-    // Buscar TODOS os fornecedores que tiveram documentos solicitados
+    // Criar set único de fornecedores para incluir documentos
+    const fornecedoresParaDocumentos = new Set<string>();
+    
+    // 12a. Buscar fornecedores que tiveram documentos solicitados na análise documental
     const { data: fornecedoresComDocumentos, error: fornecedoresDocError } = await supabase
       .from("campos_documentos_finalizacao")
       .select("fornecedor_id")
@@ -523,11 +526,59 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     if (fornecedoresDocError) {
       console.error("Erro ao buscar fornecedores com documentos:", fornecedoresDocError);
     }
+    
+    fornecedoresComDocumentos?.forEach(f => {
+      if (f.fornecedor_id) fornecedoresParaDocumentos.add(f.fornecedor_id);
+    });
+    console.log(`  📄 Fornecedores com documentos solicitados: ${fornecedoresComDocumentos?.length || 0}`);
 
-    // Criar set único de fornecedores
-    const fornecedoresParaDocumentos = new Set(
-      fornecedoresComDocumentos?.map(f => f.fornecedor_id) || []
-    );
+    // 12b. Buscar TODOS os fornecedores VENCEDORES (identificados por lances)
+    const { data: lancesVencedores, error: lancesError } = await supabase
+      .from("lances_fornecedores")
+      .select("fornecedor_id")
+      .eq("selecao_id", selecaoId);
+
+    if (lancesError) {
+      console.error("Erro ao buscar lances:", lancesError);
+    }
+
+    // Adicionar todos os fornecedores que deram lances (potenciais vencedores)
+    const fornecedoresComLances = new Set(lancesVencedores?.map(l => l.fornecedor_id) || []);
+    fornecedoresComLances.forEach(id => {
+      if (id) fornecedoresParaDocumentos.add(id);
+    });
+    console.log(`  🏆 Fornecedores com lances: ${fornecedoresComLances.size}`);
+
+    // 12c. Buscar fornecedores INABILITADOS (mesmo sem documentos solicitados)
+    const { data: fornecedoresInabilitados, error: inabilitadosError } = await supabase
+      .from("fornecedores_inabilitados_selecao")
+      .select("fornecedor_id")
+      .eq("selecao_id", selecaoId)
+      .eq("revertido", false);
+
+    if (inabilitadosError) {
+      console.error("Erro ao buscar fornecedores inabilitados:", inabilitadosError);
+    }
+
+    fornecedoresInabilitados?.forEach(f => {
+      if (f.fornecedor_id) fornecedoresParaDocumentos.add(f.fornecedor_id);
+    });
+    console.log(`  ❌ Fornecedores inabilitados: ${fornecedoresInabilitados?.length || 0}`);
+
+    // 12d. Buscar fornecedores que enviaram PROPOSTAS (mesmo sem lances ainda)
+    const { data: fornecedoresPropostas, error: propostasError } = await supabase
+      .from("selecao_propostas_fornecedor")
+      .select("fornecedor_id")
+      .eq("selecao_id", selecaoId);
+
+    if (propostasError) {
+      console.error("Erro ao buscar fornecedores com propostas:", propostasError);
+    }
+
+    fornecedoresPropostas?.forEach(f => {
+      if (f.fornecedor_id) fornecedoresParaDocumentos.add(f.fornecedor_id);
+    });
+    console.log(`  📝 Fornecedores com propostas: ${fornecedoresPropostas?.length || 0}`);
     
     console.log(`👥 Total de fornecedores para incluir documentos: ${fornecedoresParaDocumentos.size}`);
 
