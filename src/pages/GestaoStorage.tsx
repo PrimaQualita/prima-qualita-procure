@@ -595,32 +595,6 @@ export default function GestaoStorage() {
                   </Card>
                 );
               })}
-              <Card className="border-stone-200 bg-stone-50/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-1">
-                        <Archive className="h-4 w-4 text-stone-600" />
-                        <p className="text-xs font-medium text-stone-900">Documentos Antigos</p>
-                      </div>
-                      <p className="text-2xl font-bold text-stone-700">{resultado.estatisticasPorCategoria?.documentos_antigos?.arquivos || 0}</p>
-                      <p className="text-sm font-semibold text-stone-600">
-                        {resultado.estatisticasPorCategoria?.documentos_antigos?.tamanhoMB || 0} MB
-                      </p>
-                      <p className="text-xs text-stone-700/70">Certidões substituídas</p>
-                    </div>
-                    {resultado.estatisticasPorCategoria?.documentos_antigos?.porFornecedor?.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDialogDocumentosAntigosAberto(true)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
 
               <Card className="lg:col-span-3 border-orange-200 bg-orange-50/30">
                 <CardContent className="pt-6 space-y-4">
