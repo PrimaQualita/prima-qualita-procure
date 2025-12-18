@@ -1046,7 +1046,8 @@ const RespostaCotacao = () => {
         arquivosComprovantes,
         undefined,
         undefined,
-        processoCompra?.criterio_julgamento
+        processoCompra?.criterio_julgamento,
+        supabaseAnon // Passar o cliente público para funcionar sem autenticação
       );
 
       // Atualizar resposta com protocolo, hash e URL do PDF

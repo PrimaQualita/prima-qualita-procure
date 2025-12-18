@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from '@/integrations/supabase/client';
 import { gerarHashDocumento } from './certificacaoDigital';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Função para formatar CNPJ
 const formatarCNPJ = (cnpj: string): string => {
@@ -133,8 +134,11 @@ export async function gerarPropostaFornecedorPDF(
   comprovantes: File[] = [],
   usuarioNome?: string,
   usuarioCpf?: string,
-  criterioJulgamento?: string
+  criterioJulgamento?: string,
+  supabaseClient?: SupabaseClient<any, any, any>
 ): Promise<{ url: string; path: string; nome: string; hash: string; protocolo: string }> {
+  // Usar cliente passado por parâmetro ou o default
+  const sb = supabaseClient || supabase;
   try {
     console.log('📄 Dados recebidos no gerarPropostaFornecedorPDF:', {
       fornecedor,
@@ -150,7 +154,7 @@ export async function gerarPropostaFornecedorPDF(
     console.log('🔍 Buscando itens para resposta ID:', respostaId);
     console.log('📋 Critério de julgamento:', criterioJulgamento);
     
-    const { data: itens, error: itensError } = await supabase
+    const { data: itens, error: itensError } = await sb
       .from('respostas_itens_fornecedor')
       .select(`
         valor_unitario_ofertado,
@@ -717,7 +721,7 @@ export async function gerarPropostaFornecedorPDF(
     const nomeArquivo = `proposta_${fornecedor.cnpj.replace(/[^\d]/g, '')}_${Date.now()}.pdf`;
 
     // Upload para o storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await sb.storage
       .from('processo-anexos')
       .upload(nomeArquivo, pdfFinalBlob, {
         contentType: 'application/pdf',
@@ -727,7 +731,7 @@ export async function gerarPropostaFornecedorPDF(
     if (uploadError) throw uploadError;
 
     // Obter URL pública completa do storage
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = sb.storage
       .from('processo-anexos')
       .getPublicUrl(uploadData.path);
 
