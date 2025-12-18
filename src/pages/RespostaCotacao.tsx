@@ -1050,25 +1050,20 @@ const RespostaCotacao = () => {
         supabaseAnon // Passar o cliente público para funcionar sem autenticação
       );
 
-      // Atualizar resposta com protocolo, hash e URL do PDF
-      await supabaseAnon
-        .from('cotacao_respostas_fornecedor')
-        .update({
-          protocolo: protocolo,
-          hash_certificacao: hashProposta,
-          url_pdf_proposta: pdfUrl
-        })
-        .eq('id', respostaCriada.id);
+      // Finalizar resposta via função no backend (bypass das regras de atualização para usuário público)
+      const { error: finalizarError } = await supabaseAnon.rpc('finalizar_resposta_cotacao_fornecedor', {
+        p_resposta_id: respostaCriada.id,
+        p_protocolo: protocolo,
+        p_hash: hashProposta,
+        p_url_pdf_proposta: pdfUrl,
+        p_pdf_path: pdfPath,
+        p_pdf_nome: pdfNome,
+        p_comprovantes_urls: []
+      });
 
-      // Salvar anexo da proposta no banco (usando PATH para signed URLs funcionarem)
-      await supabaseAnon
-        .from('anexos_cotacao_fornecedor')
-        .insert({
-          cotacao_resposta_fornecedor_id: respostaCriada.id,
-          tipo_anexo: 'PROPOSTA',
-          url_arquivo: pdfPath, // Usar PATH, não URL pública
-          nome_arquivo: pdfNome,
-        });
+      if (finalizarError) {
+        throw finalizarError;
+      }
 
       toast.success("Resposta enviada com sucesso!");
       
