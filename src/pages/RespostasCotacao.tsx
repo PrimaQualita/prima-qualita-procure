@@ -262,6 +262,19 @@ export default function RespostasCotacao() {
         .eq('id', anexoParaExcluir.id);
       
       if (error) throw error;
+
+      // Se o anexo deletado era o PDF da PROPOSTA, limpar o campo url_pdf_proposta
+      // (senão fica referência órfã no banco quando o arquivo é deletado)
+      if (anexoParaExcluir.tipo_anexo === 'PROPOSTA' && anexoParaExcluir.respostaId) {
+        const { error: clearError } = await supabase
+          .from('cotacao_respostas_fornecedor')
+          .update({ url_pdf_proposta: null, protocolo: null })
+          .eq('id', anexoParaExcluir.respostaId);
+
+        if (clearError) {
+          console.warn('⚠️ Erro ao limpar url_pdf_proposta/protocolo:', clearError);
+        }
+      }
       
       setConfirmDeleteAnexoOpen(false);
       setAnexoParaExcluir(null);
@@ -500,6 +513,12 @@ export default function RespostasCotacao() {
           const oldPath = extractStoragePath(propostaPDFAntigo.url_arquivo);
           await supabase.storage.from('processo-anexos').remove([oldPath]);
           await supabase.from('anexos_cotacao_fornecedor').delete().eq('id', propostaPDFAntigo.id);
+
+          // Limpar referência no registro principal para não virar referência órfã
+          await supabase
+            .from('cotacao_respostas_fornecedor')
+            .update({ url_pdf_proposta: null, protocolo: null })
+            .eq('id', respostaId);
         }
       }
 
@@ -1100,7 +1119,7 @@ export default function RespostasCotacao() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => {
-                                    setAnexoParaExcluir(anexo);
+                                    setAnexoParaExcluir({ ...anexo, respostaId: resposta.id });
                                     setConfirmDeleteAnexoOpen(true);
                                   }}
                                 >
