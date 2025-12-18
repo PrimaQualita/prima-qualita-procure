@@ -769,7 +769,7 @@ const IncluirPrecosPublicos = () => {
         }
       }
 
-      const { url: urlProposta, nome: nomeProposta, hash: hashProposta, protocolo } = await gerarPropostaFornecedorPDF(
+      const { url: urlProposta, path: pathProposta, nome: nomeProposta, hash: hashProposta, protocolo } = await gerarPropostaFornecedorPDF(
         respostaCotacao.id,
         dadosFornecedor,
         valorTotal,
@@ -792,12 +792,12 @@ const IncluirPrecosPublicos = () => {
         })
         .eq("id", respostaCotacao.id);
 
-      // Salvar anexo da proposta com comprovantes mesclados
+      // Salvar anexo da proposta com comprovantes mesclados (usando PATH para signed URLs)
       await supabase.from("anexos_cotacao_fornecedor").insert({
         cotacao_resposta_fornecedor_id: respostaCotacao.id,
         tipo_anexo: "PROPOSTA",
         nome_arquivo: nomeProposta,
-        url_arquivo: urlProposta,
+        url_arquivo: pathProposta, // Usar PATH, não URL pública
       });
 
       toast.success("Preços públicos incluídos com sucesso!");

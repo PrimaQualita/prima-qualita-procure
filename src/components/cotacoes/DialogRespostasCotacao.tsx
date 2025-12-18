@@ -722,6 +722,7 @@ export function DialogRespostasCotacao({
 
       console.log('✅ PDF GERADO - Resultado completo:', { 
         url: resultado.url, 
+        path: resultado.path,
         nome: resultado.nome, 
         hash: resultado.hash, 
         protocolo: resultado.protocolo 
@@ -803,14 +804,14 @@ export function DialogRespostasCotacao({
         .eq('cotacao_resposta_fornecedor_id', resposta.id)
         .eq('tipo_anexo', 'PROPOSTA');
 
-      // Salvar novo anexo
-      console.log('💾 Salvando novo anexo com URL:', resultado.url);
+      // Salvar novo anexo (usando PATH para signed URLs funcionarem)
+      console.log('💾 Salvando novo anexo com PATH:', resultado.path);
       const { error: anexoError } = await supabase
         .from('anexos_cotacao_fornecedor')
         .insert({
           cotacao_resposta_fornecedor_id: resposta.id,
           nome_arquivo: resultado.nome,
-          url_arquivo: resultado.url,
+          url_arquivo: resultado.path, // Usar PATH, não URL pública
           tipo_anexo: 'PROPOSTA'
         });
 
