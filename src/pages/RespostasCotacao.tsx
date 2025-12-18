@@ -668,7 +668,31 @@ export default function RespostasCotacao() {
     if (!respostaParaExcluir) return;
     
     try {
-      // Buscar todos os anexos da resposta
+      // Função auxiliar para limpar paths - remove query params, prefixo do bucket E URLs completas
+      const cleanStoragePath = (url: string): string => {
+        return url
+          .split('?')[0]
+          .replace(/^processo-anexos\//, '')
+          .replace(/^.*\/processo-anexos\//, ''); // Remover URL completa se houver
+      };
+
+      const arquivosParaDeletar: string[] = [];
+
+      // 1. Buscar url_pdf_proposta direto da resposta
+      const { data: respostaData, error: fetchRespostaError } = await supabase
+        .from('cotacao_respostas_fornecedor')
+        .select('url_pdf_proposta')
+        .eq('id', respostaParaExcluir)
+        .single();
+
+      if (fetchRespostaError) throw fetchRespostaError;
+
+      // Adicionar url_pdf_proposta se existir
+      if (respostaData?.url_pdf_proposta) {
+        arquivosParaDeletar.push(cleanStoragePath(respostaData.url_pdf_proposta));
+      }
+
+      // 2. Buscar todos os anexos da resposta
       const { data: anexos, error: fetchError } = await supabase
         .from('anexos_cotacao_fornecedor')
         .select('id, url_arquivo')
@@ -676,20 +700,48 @@ export default function RespostasCotacao() {
 
       if (fetchError) throw fetchError;
 
+      // Adicionar anexos se existirem
       if (anexos && anexos.length > 0) {
-        // Deletar arquivos do storage
-        const paths = anexos.map(a => a.url_arquivo);
-        await supabase.storage
-          .from('processo-anexos')
-          .remove(paths);
+        anexos.forEach(a => {
+          if (a.url_arquivo) {
+            arquivosParaDeletar.push(cleanStoragePath(a.url_arquivo));
+          }
+        });
+      }
 
-        // Deletar registros de anexos
+      // 3. Deletar TODOS os arquivos do storage PRIMEIRO (evita órfãos)
+      if (arquivosParaDeletar.length > 0) {
+        console.log(`🗑️ Deletando ${arquivosParaDeletar.length} arquivos do storage:`, arquivosParaDeletar);
+        const { error: storageError } = await supabase.storage
+          .from('processo-anexos')
+          .remove(arquivosParaDeletar);
+
+        if (storageError) {
+          console.error("⚠️ Erro ao deletar arquivos do storage:", storageError);
+          // Não bloqueia - continua para limpar referências
+        }
+      }
+
+      // 4. Deletar registros de anexos
+      if (anexos && anexos.length > 0) {
         const { error: deleteError } = await supabase
           .from('anexos_cotacao_fornecedor')
           .delete()
           .eq('cotacao_resposta_fornecedor_id', respostaParaExcluir);
 
-        if (deleteError) throw deleteError;
+        if (deleteError) {
+          console.error("⚠️ Erro ao deletar registros de anexos:", deleteError);
+        }
+      }
+
+      // 5. Limpar url_pdf_proposta e protocolo da resposta
+      const { error: updateError } = await supabase
+        .from('cotacao_respostas_fornecedor')
+        .update({ url_pdf_proposta: null, protocolo: null })
+        .eq('id', respostaParaExcluir);
+
+      if (updateError) {
+        console.error("⚠️ Erro ao limpar URL do PDF:", updateError);
       }
 
       toast.success("Proposta excluída com sucesso! Você pode regenerá-la.");
