@@ -6,7 +6,7 @@ import { User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-
+import { clearCotacoesCache } from "@/pages/Cotacoes";
 const getPageTitle = (pathname: string) => {
   const routes: Record<string, string> = {
     "/dashboard": "Dashboard",
@@ -67,6 +67,9 @@ export function DashboardLayout() {
         setIsGestor(false);
         setIsCompliance(false);
         setIsResponsavelLegal(false);
+        
+        // Limpa cache de outras páginas
+        clearCotacoesCache();
       }
     });
 
