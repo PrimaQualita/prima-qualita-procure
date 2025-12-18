@@ -719,11 +719,12 @@ export async function gerarPropostaFornecedorPDF(
     const pdfFinalBlob = new Blob([pdfFinalBytes as unknown as BlobPart], { type: 'application/pdf' });
 
     const nomeArquivo = `proposta_${fornecedor.cnpj.replace(/[^\d]/g, '')}_${Date.now()}.pdf`;
+    const storagePath = `propostas/${nomeArquivo}`;
 
-    // Upload para o storage
+    // Upload para o storage (pasta "propostas" é necessária para upload público)
     const { data: uploadData, error: uploadError } = await sb.storage
       .from('processo-anexos')
-      .upload(nomeArquivo, pdfFinalBlob, {
+      .upload(storagePath, pdfFinalBlob, {
         contentType: 'application/pdf',
         cacheControl: '3600',
       });
