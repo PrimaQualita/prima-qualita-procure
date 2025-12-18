@@ -552,13 +552,13 @@ export default function RespostasCotacao() {
       }
       console.log('✅ Protocolo salvo com sucesso');
 
-      // Criar registro do anexo em anexos_cotacao_fornecedor
+      // Criar registro do anexo em anexos_cotacao_fornecedor (usando PATH para signed URLs)
       const { error: anexoError } = await supabase
         .from('anexos_cotacao_fornecedor')
         .insert({
           cotacao_resposta_fornecedor_id: respostaId,
           nome_arquivo: resultado.nome,
-          url_arquivo: resultado.url,
+          url_arquivo: resultado.path, // Usar PATH, não URL pública
           tipo_anexo: 'PROPOSTA'
         });
 
@@ -570,15 +570,10 @@ export default function RespostasCotacao() {
       // Recarregar dados para atualizar interface ANTES de abrir
       await loadRespostas();
       
-      // Buscar o arquivo do storage e abrir em nova guia
-      // Extrair caminho relativo se resultado.url contiver URL completa
-      const storagePath = resultado.url.includes('processo-anexos/') 
-        ? resultado.url.split('processo-anexos/').pop() 
-        : resultado.url;
-      
+      // Buscar o arquivo do storage usando PATH e abrir em nova guia
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('processo-anexos')
-        .download(storagePath || resultado.nome);
+        .download(resultado.path);
 
       if (downloadError) throw downloadError;
 
@@ -654,10 +649,10 @@ export default function RespostasCotacao() {
       }
       console.log('✅ [Baixar] Protocolo salvo com sucesso');
 
-      // Buscar o arquivo do storage
+      // Buscar o arquivo do storage usando PATH
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('processo-anexos')
-        .download(resultado.url);
+        .download(resultado.path);
 
       if (downloadError) throw downloadError;
 

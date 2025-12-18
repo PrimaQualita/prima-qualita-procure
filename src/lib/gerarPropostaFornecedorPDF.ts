@@ -134,7 +134,7 @@ export async function gerarPropostaFornecedorPDF(
   usuarioNome?: string,
   usuarioCpf?: string,
   criterioJulgamento?: string
-): Promise<{ url: string; nome: string; hash: string; protocolo: string }> {
+): Promise<{ url: string; path: string; nome: string; hash: string; protocolo: string }> {
   try {
     console.log('📄 Dados recebidos no gerarPropostaFornecedorPDF:', {
       fornecedor,
@@ -733,6 +733,7 @@ export async function gerarPropostaFornecedorPDF(
 
     return {
       url: publicUrl,
+      path: uploadData.path, // Path do storage para uso em signed URLs
       nome: nomeArquivo,
       hash: hash,
       protocolo: protocolo

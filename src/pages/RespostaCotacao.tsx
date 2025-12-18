@@ -1033,7 +1033,7 @@ const RespostaCotacao = () => {
         console.log(`  ${index + 1}. ${arquivo.name} (${arquivo.type})`);
       });
       
-      const { url: pdfUrl, nome: pdfNome, hash: hashProposta, protocolo } = await gerarPropostaFornecedorPDF(
+      const { url: pdfUrl, path: pdfPath, nome: pdfNome, hash: hashProposta, protocolo } = await gerarPropostaFornecedorPDF(
         respostaCriada.id,
         {
           razao_social: dadosEmpresa.razao_social,
@@ -1059,13 +1059,13 @@ const RespostaCotacao = () => {
         })
         .eq('id', respostaCriada.id);
 
-      // Salvar anexo da proposta no banco
+      // Salvar anexo da proposta no banco (usando PATH para signed URLs funcionarem)
       await supabaseAnon
         .from('anexos_cotacao_fornecedor')
         .insert({
           cotacao_resposta_fornecedor_id: respostaCriada.id,
           tipo_anexo: 'PROPOSTA',
-          url_arquivo: pdfUrl,
+          url_arquivo: pdfPath, // Usar PATH, não URL pública
           nome_arquivo: pdfNome,
         });
 
