@@ -3105,6 +3105,18 @@ export type Database = {
             }
             Returns: Json
           }
+      finalizar_resposta_cotacao_fornecedor: {
+        Args: {
+          p_comprovantes_urls: string[]
+          p_hash: string
+          p_pdf_nome: string
+          p_pdf_path: string
+          p_protocolo: string
+          p_resposta_id: string
+          p_url_pdf_proposta: string
+        }
+        Returns: undefined
+      }
       fornecedor_has_proposta_cotacao: {
         Args: { _cotacao_id: string; _user_id: string }
         Returns: boolean
