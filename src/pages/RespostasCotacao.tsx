@@ -244,9 +244,17 @@ export default function RespostasCotacao() {
     if (!anexoParaExcluir) return;
     
     try {
-      await supabase.storage
+      // Deletar arquivo do storage PRIMEIRO (evita órfãos)
+      const raw = (anexoParaExcluir.url_arquivo || "").split("?")[0];
+      const match = raw.match(/processo-anexos\/(.+)$/);
+      const relativePath = decodeURIComponent(match ? match[1] : raw.replace(/^processo-anexos\//, ""));
+      if (!relativePath) throw new Error("Caminho do arquivo inválido");
+
+      const { error: storageError } = await supabase.storage
         .from('processo-anexos')
-        .remove([anexoParaExcluir.url_arquivo]);
+        .remove([relativePath]);
+
+      if (storageError) throw storageError;
       
       const { error } = await supabase
         .from('anexos_cotacao_fornecedor')
@@ -269,7 +277,10 @@ export default function RespostasCotacao() {
     if (!planilhaParaExcluir) return;
     
     try {
-      const filePath = planilhaParaExcluir.url_arquivo;
+      const raw = (planilhaParaExcluir.url_arquivo || "").split("?")[0];
+      const match = raw.match(/processo-anexos\/(.+)$/);
+      const filePath = decodeURIComponent(match ? match[1] : raw.replace(/^processo-anexos\//, ""));
+      if (!filePath) throw new Error("Caminho do arquivo inválido");
 
       const { error: storageError } = await supabase.storage
         .from("processo-anexos")
