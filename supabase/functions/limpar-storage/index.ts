@@ -93,9 +93,11 @@ Deno.serve(async (req) => {
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
         { tabela: 'respostas_recursos', coluna: 'url_documento' },
-        // Propostas de cotação - limpar apenas campos de URL, não deleta o registro inteiro
+        { tabela: 'documentos_antigos', coluna: 'url_arquivo' },
+        // Propostas de cotação/seleção - limpar apenas campos de URL, não deleta o registro inteiro
         { tabela: 'cotacao_respostas_fornecedor', coluna: 'url_pdf_proposta', apenasLimparUrl: true },
         { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta', apenasLimparUrl: true },
+        { tabela: 'propostas_realinhadas', coluna: 'url_pdf_proposta', apenasLimparUrl: true },
       ];
 
       for (let i = 0; i < limite; i++) {

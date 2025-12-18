@@ -697,12 +697,33 @@ export default function GestaoStorage() {
                   </div>
 
                   {resultado.referenciasOrfas?.length > 0 && (
-                    <div className="text-xs text-muted-foreground max-h-32 overflow-y-auto">
-                      {resultado.referenciasOrfas.slice(0, 10).map((ref: string, i: number) => (
-                        <div key={i}>{ref}</div>
-                      ))}
+                    <div className="text-xs text-muted-foreground max-h-40 overflow-y-auto space-y-1 bg-red-100/50 p-2 rounded border border-red-200">
+                      {resultado.referenciasOrfas.slice(0, 10).map((ref: string, i: number) => {
+                        // Identificar tipo de referência pelo path
+                        let tipo = 'Desconhecido';
+                        if (ref.includes('propostas/')) tipo = 'Proposta de Cotação';
+                        else if (ref.includes('propostas_realinhadas/')) tipo = 'Proposta Realinhada';
+                        else if (ref.includes('selecao_propostas/')) tipo = 'Proposta de Seleção';
+                        else if (ref.includes('atas/')) tipo = 'Ata de Seleção';
+                        else if (ref.includes('planilhas/')) tipo = 'Planilha';
+                        else if (ref.includes('emails/')) tipo = 'Email Anexado';
+                        else if (ref.includes('documentos_fornecedor/')) tipo = 'Documento Fornecedor';
+                        else if (ref.includes('anexos_processo/')) tipo = 'Anexo de Processo';
+                        else if (ref.includes('autorizacoes/')) tipo = 'Autorização';
+                        else if (ref.includes('habilitacao/')) tipo = 'Habilitação';
+                        else if (ref.includes('recursos/')) tipo = 'Recurso';
+                        
+                        return (
+                          <div key={i} className="flex items-center justify-between gap-2 py-1 border-b border-red-200/50 last:border-0">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-red-800 font-medium text-[10px] bg-red-200 px-1.5 py-0.5 rounded mr-2">{tipo}</span>
+                              <span className="truncate">{ref.split('/').pop()}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
                       {resultado.totalReferenciasOrfas > 10 && (
-                        <div>... e mais {resultado.totalReferenciasOrfas - 10}</div>
+                        <div className="text-center pt-1 text-red-600">... e mais {resultado.totalReferenciasOrfas - 10}</div>
                       )}
                     </div>
                   )}
