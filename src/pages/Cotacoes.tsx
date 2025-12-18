@@ -34,6 +34,14 @@ let cachedUserData: { isResponsavelLegal: boolean; nome: string; cpf: string } |
 let contratosLoaded = false;
 let userDataLoaded = false;
 
+// Função exportada para limpar o cache no logout
+export const clearCotacoesCache = () => {
+  cachedContratos = null;
+  cachedUserData = null;
+  contratosLoaded = false;
+  userDataLoaded = false;
+};
+
 interface Contrato {
   id: string;
   nome_contrato: string;
@@ -155,6 +163,17 @@ const Cotacoes = () => {
     };
     return labels[tipo] || tipo;
   });
+
+  // Listener para limpar cache no logout (funciona mesmo se DashboardLayout não estiver montado)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        clearCotacoesCache();
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const init = async () => {
