@@ -128,22 +128,17 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   // Carregar dados do usuário quando for edição
   useEffect(() => {
     const loadUserData = async () => {
+      if (!open) return;
+      
       if (usuarioEdit) {
+        // Primeiro resetar todos os campos para evitar dados antigos
+        resetForm();
+        
+        // Definir os campos básicos do perfil
         setNomeCompleto(usuarioEdit.nome_completo);
         setEmail(usuarioEdit.email);
         setCpf(mascaraCPF(usuarioEdit.cpf));
         setDataNascimento(usuarioEdit.data_nascimento || "");
-        
-        // Carregar roles do usuário
-        const { data: userRoles } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", usuarioEdit.id);
-        
-        const roles = userRoles?.map(r => r.role) || [];
-        setGestor(roles.includes("gestor"));
-        setColaborador(roles.includes("colaborador"));
-        
         setResponsavelLegal(usuarioEdit.responsavel_legal || false);
         setCompliance((usuarioEdit as any).compliance || false);
         setCargo((usuarioEdit as any).cargo || "");
@@ -152,6 +147,18 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         setSuperintendenteExecutivo(
           (usuarioEdit as any).superintendente_executivo || (usuarioEdit as any).gerente_financeiro || false
         );
+        
+        // Carregar roles do usuário de forma síncrona com o restante
+        const { data: userRoles, error: rolesError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", usuarioEdit.id);
+        
+        if (!rolesError && userRoles) {
+          const roles = userRoles.map(r => r.role);
+          setGestor(roles.includes("gestor"));
+          setColaborador(roles.includes("colaborador"));
+        }
 
         // Carregar contratos vinculados ao gerente
         if ((usuarioEdit as any).gerente_contratos) {
@@ -170,7 +177,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     };
 
     loadUserData();
-  }, [usuarioEdit, open]);
+  }, [usuarioEdit?.id, open]);
 
   const resetForm = () => {
     setNomeCompleto("");
