@@ -11,8 +11,10 @@ import { DialogDocumentosSimples } from "@/components/storage/DialogDocumentosSi
 import { DialogHabilitacao } from "@/components/storage/DialogHabilitacao";
 import { DialogRecursos } from "@/components/storage/DialogRecursos";
 import { DialogDocumentosAntigos } from "@/components/storage/DialogDocumentosAntigos";
+import { useCanEdit } from "@/hooks/useUserContext";
 
 export default function GestaoStorage() {
+  const canEdit = useCanEdit();
   const [analisando, setAnalisando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [limpando, setLimpando] = useState(false);
@@ -659,7 +661,7 @@ export default function GestaoStorage() {
                       <Button
                         variant="destructive"
                         onClick={limparReferencias}
-                        disabled={limpando}
+                        disabled={limpando || !canEdit}
                       >
                         {limpando ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

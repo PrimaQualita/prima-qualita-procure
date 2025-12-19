@@ -38,6 +38,7 @@ import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircl
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
+import { useCanEdit } from "@/hooks/useUserContext";
 
 interface Pergunta {
   id: string;
@@ -76,6 +77,7 @@ interface RespostaDueDiligence {
 
 export default function Fornecedores() {
   const navigate = useNavigate();
+  const canEdit = useCanEdit();
   const [loading, setLoading] = useState(true);
   const [perguntas, setPerguntas] = useState<Pergunta[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -595,7 +597,7 @@ export default function Fornecedores() {
                 <CardTitle>Perguntas Ativas</CardTitle>
                 <CardDescription>Perguntas de Due Diligence para fornecedores</CardDescription>
               </div>
-              <Button onClick={() => handleAbrirDialogPergunta()}>
+              <Button onClick={() => handleAbrirDialogPergunta()} disabled={!canEdit}>
                 <Plus className="mr-2 h-4 w-4" />
                 Nova Pergunta
               </Button>
@@ -618,14 +620,16 @@ export default function Fornecedores() {
                     </Badge>
                   </div>
                 </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => handleAbrirDialogPergunta(pergunta)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setPerguntaParaExcluir(pergunta.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
+                {canEdit && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => handleAbrirDialogPergunta(pergunta)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setPerguntaParaExcluir(pergunta.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
             {perguntas.length === 0 && (
@@ -718,7 +722,7 @@ export default function Fornecedores() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {isGestor && (
+                          {isGestor && canEdit && (
                             <Button
                               variant="ghost"
                               size="icon"
