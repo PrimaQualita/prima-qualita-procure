@@ -71,7 +71,13 @@ const Usuarios = () => {
       return;
     }
 
-    // Verificar se é gestor
+    // Verificar se é gestor ou compliance
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("compliance")
+      .eq("id", session.user.id)
+      .single();
+
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -79,17 +85,20 @@ const Usuarios = () => {
       .eq("role", "gestor")
       .maybeSingle();
 
-    if (!roleData) {
+    const isGestorCheck = !!roleData;
+    const isCompliance = profile?.compliance === true;
+
+    if (!isGestorCheck && !isCompliance) {
       toast({
         title: "Acesso negado",
-        description: "Apenas gestores podem acessar esta página.",
+        description: "Apenas gestores e compliance podem acessar esta página.",
         variant: "destructive",
       });
       navigate("/dashboard");
       return;
     }
 
-    setIsGestor(true);
+    setIsGestor(isGestorCheck);
     loadUsuarios();
     setLoading(false);
   };
