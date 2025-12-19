@@ -204,8 +204,8 @@ export function DashboardLayout() {
       cachedIsColaborador = !!colaboradorRole;
       setIsColaborador(cachedIsColaborador);
 
-      // Verificar se é gerente de contratos (apenas se não for gestor/colaborador)
-      if (profileData?.gerente_contratos && !isUsuarioInterno) {
+      // Verificar se é gerente de contratos (sempre verifica, independente de outros papéis)
+      if (profileData?.gerente_contratos) {
         const { data: vinculos } = await supabase
           .from("gerentes_contratos_gestao")
           .select("contrato_gestao_id")
