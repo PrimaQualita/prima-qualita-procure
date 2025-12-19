@@ -33,7 +33,7 @@ const createUserSchema = z.object({
   nomeCompleto: z.string().min(1).max(200),
   cpf: z.string().regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/),
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  role: z.enum(['gestor', 'colaborador']),
+  role: z.enum(['gestor', 'colaborador']).optional(), // Agora é opcional
   responsavelLegal: z.boolean().optional(),
   compliance: z.boolean().optional(),
   cargo: z.string().max(100).optional(),
@@ -215,32 +215,14 @@ serve(async (req) => {
       if (profileError) throw profileError;
     }
 
-    // Verificar se role já existe
-    const { data: existingRole } = await supabaseAdmin
+    // Deletar role existente primeiro
+    await supabaseAdmin
       .from("user_roles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
+      .delete()
+      .eq("user_id", userId);
 
-    if (!existingRole) {
-      // Criar role
-      const { error: roleError } = await supabaseAdmin.from("user_roles").insert([
-        {
-          user_id: userId,
-          role,
-        },
-      ]);
-
-      if (roleError) throw roleError;
-    } else {
-      // Atualizar role existente
-      const { error: deleteError } = await supabaseAdmin
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
-
-      if (deleteError) throw deleteError;
-
+    // Só insere role se for gestor ou colaborador (não apenas gerente de contratos)
+    if (role) {
       const { error: roleError } = await supabaseAdmin.from("user_roles").insert([
         {
           user_id: userId,
