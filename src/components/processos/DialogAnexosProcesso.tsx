@@ -73,8 +73,10 @@ export function DialogAnexosProcesso({
   // Permissões do usuário
   const [isGerenteContratos, setIsGerenteContratos] = useState(false);
   const [isGerenteFinanceiro, setIsGerenteFinanceiro] = useState(false);
+  const [isGestorOuColaborador, setIsGestorOuColaborador] = useState(false);
   const [contratoProcessoId, setContratoProcessoId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<{ nome_completo: string; cargo?: string } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && processoId) {
@@ -87,6 +89,18 @@ export function DialogAnexosProcesso({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      setCurrentUserId(user.id);
+
+      // Verificar se é gestor ou colaborador
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .in("role", ["gestor", "colaborador"])
+        .maybeSingle();
+
+      setIsGestorOuColaborador(!!userRole);
 
       // Buscar perfil do usuário
       const { data: profile } = await supabase
@@ -329,6 +343,20 @@ export function DialogAnexosProcesso({
 
   const getAnexoPorTipo = (tipo: string) => {
     return anexos.find((a) => a.tipo_anexo === tipo);
+  };
+
+  // Função para verificar se o usuário pode excluir um anexo
+  const canDeleteAnexo = (anexo: AnexoProcesso) => {
+    // Gestores e colaboradores podem excluir qualquer anexo
+    if (isGestorOuColaborador) return true;
+    
+    // Gerente de Contratos só pode excluir Requisição que ele mesmo gerou
+    if (isGerenteContratos && !isGestorOuColaborador) {
+      return anexo.tipo_anexo === "requisicao" && anexo.usuario_upload_id === currentUserId;
+    }
+    
+    // Outros usuários não podem excluir
+    return false;
   };
 
   const handleGerarCapa = async () => {
@@ -636,14 +664,16 @@ export function DialogAnexosProcesso({
                     >
                       <Download className="h-4 w-4" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setAnexoToDelete(anexo)}
-                      title="Excluir documento"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    {canDeleteAnexo(anexo) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setAnexoToDelete(anexo)}
+                        title="Excluir documento"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -686,14 +716,16 @@ export function DialogAnexosProcesso({
                       >
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setAnexoToDelete(anexo)}
-                        title="Excluir anexo"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      {canDeleteAnexo(anexo) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setAnexoToDelete(anexo)}
+                          title="Excluir anexo"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ) : (
