@@ -42,6 +42,10 @@ interface Usuario {
   cargo?: string;
   responsavel_legal?: boolean;
   compliance?: boolean;
+  gerente_contratos?: boolean;
+  superintendente_executivo?: boolean;
+  // legado
+  gerente_financeiro?: boolean;
 }
 
 const Usuarios = () => {
