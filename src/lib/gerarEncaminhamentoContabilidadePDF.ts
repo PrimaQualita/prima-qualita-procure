@@ -156,56 +156,86 @@ export const gerarEncaminhamentoContabilidadePDF = async (
   doc.text('Para:', 20, yPos);
   doc.setFont('helvetica', 'normal');
   doc.text('Departamento de Contabilidade', 32, yPos);
-  yPos += 15;
+  yPos += 12;
 
-  // Processo
+  // Processo - alinhado à esquerda
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Processo ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 12;
+  doc.text(`Processo ${dados.numeroProcesso}`, 20, yPos);
+  yPos += 8;
+
+  // Espaçamento entre linhas (1.25 = 6.25mm para fonte 11)
+  const lineHeight = 6.25;
 
   // Objeto
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text('OBJETO:', 20, yPos);
-  yPos += 6;
+  yPos += lineHeight;
   
   doc.setFont('helvetica', 'normal');
   const textoObjeto = extractTextFromHTML(dados.objetoProcesso);
   const linhasObjeto = doc.splitTextToSize(textoObjeto, 170);
-  doc.text(linhasObjeto, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasObjeto.length * 5 + 10;
+  // Renderizar linha por linha para evitar justificação ruim na última linha
+  linhasObjeto.forEach((linha: string, index: number) => {
+    if (index < linhasObjeto.length - 1) {
+      doc.text(linha, 20, yPos, { align: 'justify', maxWidth: 170 });
+    } else {
+      // Última linha: alinhada à esquerda
+      doc.text(linha, 20, yPos);
+    }
+    yPos += lineHeight;
+  });
+  yPos += 4;
 
   // Assunto
   doc.setFont('helvetica', 'bold');
   doc.text('Assunto:', 20, yPos);
-  yPos += 6;
+  yPos += lineHeight;
   
   doc.setFont('helvetica', 'normal');
   const textoAssunto = 'Tipo de Operação para lançamento de Contrato (CIGAM).';
   doc.text(textoAssunto, 20, yPos);
-  yPos += 12;
+  yPos += 8;
 
   // Fornecedores
   doc.setFont('helvetica', 'bold');
   doc.text('Fornecedor(es):', 20, yPos);
-  yPos += 6;
+  yPos += lineHeight;
   
   doc.setFont('helvetica', 'normal');
   dados.fornecedoresVencedores.forEach((fornecedor, index) => {
     const textoFornecedor = `${index + 1}. ${fornecedor.razaoSocial} - CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`;
     const linhasFornecedor = doc.splitTextToSize(textoFornecedor, 170);
-    doc.text(linhasFornecedor, 20, yPos);
-    yPos += linhasFornecedor.length * 5 + 2;
+    linhasFornecedor.forEach((linha: string) => {
+      doc.text(linha, 20, yPos);
+      yPos += lineHeight;
+    });
   });
-  yPos += 8;
+  yPos += 4;
 
   // Texto do corpo
   doc.setFontSize(11);
-  const paragrafo = 'Prezados(as),\n\nEncaminhamos o presente processo para análise e verificação, a fim de determinar qual tipo de operação deve ser utilizada para o lançamento no sistema CIGAM, de maneira a garantir a continuidade do processo e assegurar que o registro seja efetuado corretamente, em conformidade com os procedimentos contábeis e fiscais.\n\nAgradecemos antecipadamente pelo atendimento.';
   
-  const linhasParagrafo = doc.splitTextToSize(paragrafo, 170);
-  doc.text(linhasParagrafo, 20, yPos, { align: 'justify', maxWidth: 170 });
+  // Parágrafo 1: Prezados
+  doc.text('Prezados(as),', 20, yPos);
+  yPos += lineHeight * 2;
+  
+  // Parágrafo 2: Corpo principal
+  const corpoTexto = 'Encaminhamos o presente processo para análise e verificação, a fim de determinar qual tipo de operação deve ser utilizada para o lançamento no sistema CIGAM, de maneira a garantir a continuidade do processo e assegurar que o registro seja efetuado corretamente, em conformidade com os procedimentos contábeis e fiscais.';
+  const linhasCorpo = doc.splitTextToSize(corpoTexto, 170);
+  linhasCorpo.forEach((linha: string, index: number) => {
+    if (index < linhasCorpo.length - 1) {
+      doc.text(linha, 20, yPos, { align: 'justify', maxWidth: 170 });
+    } else {
+      doc.text(linha, 20, yPos);
+    }
+    yPos += lineHeight;
+  });
+  yPos += lineHeight;
+  
+  // Parágrafo 3: Agradecimento
+  doc.text('Agradecemos antecipadamente pelo atendimento.', 20, yPos);
 
   // Posicionar certificação acima do rodapé
   const alturaCertificacao = 45;

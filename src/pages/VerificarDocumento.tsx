@@ -59,6 +59,7 @@ const VerificarDocumento = () => {
         relatorio_final: { label: 'Relatório Final', icone: FileText },
         planilha_consolidada: { label: 'Planilha Consolidada', icone: FileSpreadsheet },
         encaminhamento: { label: 'Encaminhamento de Processo', icone: FileBox },
+        encaminhamento_contabilidade: { label: 'Encaminhamento para Contabilidade', icone: FileBox },
         planilha_habilitacao: { label: 'Planilha de Habilitação', icone: FileSpreadsheet },
         planilha_lances: { label: 'Planilha de Lances', icone: FileSpreadsheet },
         ata_selecao: { label: 'Ata de Seleção', icone: Gavel },
