@@ -2148,6 +2148,7 @@ export type Database = {
           data_nascimento: string | null
           data_ultimo_login: string | null
           email: string
+          genero: string | null
           gerente_contratos: boolean | null
           gerente_financeiro: boolean | null
           gestor: boolean | null
@@ -2170,6 +2171,7 @@ export type Database = {
           data_nascimento?: string | null
           data_ultimo_login?: string | null
           email: string
+          genero?: string | null
           gerente_contratos?: boolean | null
           gerente_financeiro?: boolean | null
           gestor?: boolean | null
@@ -2192,6 +2194,7 @@ export type Database = {
           data_nascimento?: string | null
           data_ultimo_login?: string | null
           email?: string
+          genero?: string | null
           gerente_contratos?: boolean | null
           gerente_financeiro?: boolean | null
           gestor?: boolean | null

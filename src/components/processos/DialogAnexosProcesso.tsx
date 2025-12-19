@@ -76,7 +76,7 @@ export function DialogAnexosProcesso({
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [isGestorOuColaborador, setIsGestorOuColaborador] = useState(false);
   const [contratoProcessoId, setContratoProcessoId] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<{ nome_completo: string; cargo?: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ nome_completo: string; cargo?: string; genero?: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -106,12 +106,12 @@ export function DialogAnexosProcesso({
       // Buscar perfil do usuário
       const { data: profile } = await supabase
         .from("profiles")
-        .select("nome_completo, cargo, gerente_contratos, superintendente_executivo, responsavel_legal")
+        .select("nome_completo, cargo, gerente_contratos, superintendente_executivo, responsavel_legal, genero")
         .eq("id", user.id)
         .single();
 
       if (profile) {
-        setUserProfile({ nome_completo: profile.nome_completo, cargo: profile.cargo });
+        setUserProfile({ nome_completo: profile.nome_completo, cargo: profile.cargo, genero: profile.genero });
         setIsSuperintendenteExecutivo(profile.superintendente_executivo || false);
         setIsResponsavelLegal(profile.responsavel_legal || false);
 
@@ -355,6 +355,11 @@ export function DialogAnexosProcesso({
     // Gerente de Contratos só pode excluir Requisição que ele mesmo gerou
     if (isGerenteContratos && !isGestorOuColaborador) {
       return anexo.tipo_anexo === "requisicao" && anexo.usuario_upload_id === currentUserId;
+    }
+    
+    // Superintendente Executivo pode excluir Autorização de Despesa que ele mesmo gerou
+    if (isSuperintendenteExecutivo && anexo.tipo_anexo === "AUTORIZACAO_DESPESA" && anexo.usuario_upload_id === currentUserId) {
+      return true;
     }
     
     // Outros usuários não podem excluir
@@ -601,6 +606,7 @@ export function DialogAnexosProcesso({
         objetoProcesso: processo.objeto_resumido,
         centroCusto: processo.centro_custo,
         superintendenteNome: userProfile?.nome_completo || 'Superintendente Executivo',
+        superintendenteGenero: userProfile?.genero || 'feminino',
         protocolo: protocolo,
       });
 
