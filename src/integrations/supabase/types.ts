@@ -1123,6 +1123,80 @@ export type Database = {
           },
         ]
       }
+      encaminhamentos_contabilidade: {
+        Row: {
+          cotacao_id: string
+          created_at: string | null
+          data_envio_contabilidade: string | null
+          data_geracao: string
+          data_resposta_contabilidade: string | null
+          enviado_contabilidade: boolean | null
+          fornecedores_vencedores: Json
+          id: string
+          nome_arquivo: string
+          objeto_processo: string
+          processo_numero: string
+          protocolo: string
+          respondido_contabilidade: boolean | null
+          resposta_contabilidade: string | null
+          storage_path: string | null
+          url_arquivo: string
+          usuario_gerador_id: string | null
+          usuario_gerador_nome: string
+          usuario_resposta_id: string | null
+        }
+        Insert: {
+          cotacao_id: string
+          created_at?: string | null
+          data_envio_contabilidade?: string | null
+          data_geracao?: string
+          data_resposta_contabilidade?: string | null
+          enviado_contabilidade?: boolean | null
+          fornecedores_vencedores?: Json
+          id?: string
+          nome_arquivo: string
+          objeto_processo: string
+          processo_numero: string
+          protocolo: string
+          respondido_contabilidade?: boolean | null
+          resposta_contabilidade?: string | null
+          storage_path?: string | null
+          url_arquivo: string
+          usuario_gerador_id?: string | null
+          usuario_gerador_nome: string
+          usuario_resposta_id?: string | null
+        }
+        Update: {
+          cotacao_id?: string
+          created_at?: string | null
+          data_envio_contabilidade?: string | null
+          data_geracao?: string
+          data_resposta_contabilidade?: string | null
+          enviado_contabilidade?: boolean | null
+          fornecedores_vencedores?: Json
+          id?: string
+          nome_arquivo?: string
+          objeto_processo?: string
+          processo_numero?: string
+          protocolo?: string
+          respondido_contabilidade?: boolean | null
+          resposta_contabilidade?: string | null
+          storage_path?: string | null
+          url_arquivo?: string
+          usuario_gerador_id?: string | null
+          usuario_gerador_nome?: string
+          usuario_resposta_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encaminhamentos_contabilidade_cotacao_id_fkey"
+            columns: ["cotacao_id"]
+            isOneToOne: false
+            referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       encaminhamentos_processo: {
         Row: {
           cotacao_id: string | null

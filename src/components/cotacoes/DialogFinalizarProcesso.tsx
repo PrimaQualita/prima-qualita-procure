@@ -25,6 +25,7 @@ import { gerarRelatorioFinal } from "@/lib/gerarRelatorioFinalPDF";
 import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
 import { gerarPlanilhaHabilitacaoPDF } from "@/lib/gerarPlanilhaHabilitacaoPDF";
 import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
+import { gerarEncaminhamentoContabilidadePDF, gerarProtocoloContabilidade } from "@/lib/gerarEncaminhamentoContabilidadePDF";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { stripHtml } from "@/lib/htmlUtils";
 import { identificarVencedoresPorCriterio, carregarItensVencedoresPorFornecedor } from "@/lib/identificadorVencedores";
@@ -137,6 +138,7 @@ export function DialogFinalizarProcesso({
   const [confirmDeletePlanilhaHabOpen, setConfirmDeletePlanilhaHabOpen] = useState(false);
   const [planilhaHabParaExcluir, setPlanilhaHabParaExcluir] = useState<any>(null);
   const [foiEnviadoParaSelecao, setFoiEnviadoParaSelecao] = useState(false);
+  const [encaminhamentosContabilidade, setEncaminhamentosContabilidade] = useState<any[]>([]);
   
   // Estados para rejeição por item/lote
   const [criterioJulgamento, setCriterioJulgamento] = useState<string>("global");
@@ -170,8 +172,81 @@ export function DialogFinalizarProcesso({
       loadRecursos();
       loadItensCotacao();
       loadLotesCotacao();
+      loadEncaminhamentosContabilidade();
     }
   }, [open, cotacaoId]);
+
+  const loadEncaminhamentosContabilidade = async () => {
+    if (!cotacaoId) return;
+    const { data } = await supabase
+      .from("encaminhamentos_contabilidade")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_geracao", { ascending: false });
+    setEncaminhamentosContabilidade(data || []);
+  };
+
+  const gerarEncaminhamentoContabilidade = async () => {
+    try {
+      setLoading(true);
+      const { data: cotacao } = await supabase
+        .from("cotacoes_precos")
+        .select("processos_compras!inner(numero_processo_interno, objeto_resumido)")
+        .eq("id", cotacaoId)
+        .single();
+      if (!cotacao) throw new Error("Cotação não encontrada");
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from("profiles").select("nome_completo").eq("id", user?.id).single();
+      
+      const fornecedoresVencedores = fornecedoresData
+        .filter(f => !f.rejeitado && f.itensVencedores.length > 0)
+        .map(f => ({ razaoSocial: f.fornecedor.razao_social, cnpj: (f.fornecedor as any).cnpj || "" }));
+      
+      const protocolo = gerarProtocoloContabilidade();
+      const resultado = await gerarEncaminhamentoContabilidadePDF({
+        numeroProcesso: cotacao.processos_compras.numero_processo_interno,
+        objetoProcesso: cotacao.processos_compras.objeto_resumido,
+        fornecedoresVencedores,
+        usuarioNome: profile?.nome_completo || "Usuário",
+        protocolo
+      });
+      
+      await supabase.from("encaminhamentos_contabilidade").insert({
+        cotacao_id: cotacaoId,
+        processo_numero: cotacao.processos_compras.numero_processo_interno,
+        objeto_processo: cotacao.processos_compras.objeto_resumido,
+        fornecedores_vencedores: fornecedoresVencedores,
+        protocolo,
+        url_arquivo: resultado.url,
+        nome_arquivo: resultado.fileName,
+        storage_path: resultado.storagePath,
+        usuario_gerador_id: user?.id,
+        usuario_gerador_nome: profile?.nome_completo || "Usuário"
+      });
+      
+      toast.success("Encaminhamento para Contabilidade gerado!");
+      await loadEncaminhamentosContabilidade();
+    } catch (error: any) {
+      console.error("Erro:", error);
+      toast.error("Erro ao gerar encaminhamento");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const enviarParaContabilidade = async (encaminhamentoId: string) => {
+    try {
+      await supabase.from("encaminhamentos_contabilidade").update({
+        enviado_contabilidade: true,
+        data_envio_contabilidade: new Date().toISOString()
+      }).eq("id", encaminhamentoId);
+      toast.success("Enviado à Contabilidade!");
+      await loadEncaminhamentosContabilidade();
+    } catch (error) {
+      toast.error("Erro ao enviar");
+    }
+  };
 
   const loadItensCotacao = async () => {
     if (!cotacaoId) return;

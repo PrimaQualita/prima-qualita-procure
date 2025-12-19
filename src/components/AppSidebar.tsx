@@ -15,6 +15,7 @@ import {
   LogOut,
   UserCircle,
   Camera,
+  Calculator,
 } from "lucide-react";
 import {
   Sidebar,
@@ -52,6 +53,7 @@ interface AppSidebarProps {
   isGerenteContratos?: boolean;
   isSuperintendenteExecutivo?: boolean;
   isColaborador?: boolean;
+  isGerenteFinanceiro?: boolean;
 }
 
 export function AppSidebar({ 
@@ -61,7 +63,8 @@ export function AppSidebar({
   isResponsavelLegal = false, 
   isGerenteContratos = false,
   isSuperintendenteExecutivo = false,
-  isColaborador = false
+  isColaborador = false,
+  isGerenteFinanceiro = false
 }: AppSidebarProps) {
   const { open } = useSidebar();
   const navigate = useNavigate();
@@ -184,6 +187,15 @@ export function AppSidebar({
       title: "Gestão de Storage",
       icon: Camera,
       href: "/gestao-storage",
+    });
+  }
+
+  // Gerente Financeiro tem acesso a Contabilidade
+  if (!apenasGerenteContratos && isGerenteFinanceiro) {
+    menuItems.push({
+      title: "Contabilidade",
+      icon: Calculator,
+      href: "/contabilidade",
     });
   }
 

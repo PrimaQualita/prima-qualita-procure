@@ -1,0 +1,267 @@
+import { jsPDF } from 'jspdf';
+import capaLogo from '@/assets/capa-processo-logo.png';
+import capaRodape from '@/assets/capa-processo-rodape.png';
+import logoMarcaDagua from '@/assets/prima-qualita-logo.png';
+import { adicionarCertificacaoSimplificada } from './certificacaoSimplificada';
+import { supabase } from '@/integrations/supabase/client';
+
+interface FornecedorVencedor {
+  razaoSocial: string;
+  cnpj: string;
+  itensVencedores?: number[];
+}
+
+interface DadosEncaminhamentoContabilidade {
+  numeroProcesso: string;
+  objetoProcesso: string;
+  fornecedoresVencedores: FornecedorVencedor[];
+  usuarioNome: string;
+  protocolo: string;
+}
+
+export interface EncaminhamentoContabilidadeResult {
+  url: string;
+  fileName: string;
+  protocolo: string;
+  storagePath: string;
+  blob?: Blob;
+}
+
+// Função para extrair texto limpo de HTML
+const extractTextFromHTML = (html: string): string => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+};
+
+// Função para formatar CNPJ
+const formatarCNPJ = (cnpj: string): string => {
+  const numeros = cnpj.replace(/\D/g, '');
+  if (numeros.length !== 14) return cnpj;
+  return `${numeros.slice(0,2)}.${numeros.slice(2,5)}.${numeros.slice(5,8)}/${numeros.slice(8,12)}-${numeros.slice(12,14)}`;
+};
+
+export const gerarEncaminhamentoContabilidadePDF = async (
+  dados: DadosEncaminhamentoContabilidade
+): Promise<EncaminhamentoContabilidadeResult> => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Carregar logo da capa
+  const base64CapaLogo = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar canvas'));
+      }
+    };
+    img.onerror = () => reject(new Error('Erro ao carregar logo'));
+    img.src = capaLogo;
+  });
+
+  // Carregar marca d'água
+  const base64MarcaDagua = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar canvas'));
+      }
+    };
+    img.onerror = () => reject(new Error('Erro ao carregar marca d\'água'));
+    img.src = logoMarcaDagua;
+  });
+
+  // Carregar rodapé
+  const base64Rodape = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Erro ao criar canvas'));
+      }
+    };
+    img.onerror = () => reject(new Error('Erro ao carregar rodapé'));
+    img.src = capaRodape;
+  });
+
+  // Adicionar marca d'água
+  doc.saveGraphicsState();
+  const gState = doc.GState({ opacity: 0.08 });
+  doc.setGState(gState);
+  const marcaDaguaWidth = 160;
+  const marcaDaguaHeight = 80;
+  doc.addImage(
+    base64MarcaDagua,
+    'PNG',
+    (pageWidth - marcaDaguaWidth) / 2,
+    (pageHeight - marcaDaguaHeight) / 2,
+    marcaDaguaWidth,
+    marcaDaguaHeight
+  );
+  doc.restoreGraphicsState();
+
+  // Logo no topo
+  const logoHeight = 40;
+  doc.addImage(base64CapaLogo, 'PNG', 1.5, 0, pageWidth - 3, logoHeight);
+
+  // Rodapé no fundo
+  const rodapeHeight = 25;
+  const yRodape = pageHeight - rodapeHeight;
+  doc.addImage(base64Rodape, 'PNG', 1.5, yRodape, pageWidth - 3, rodapeHeight);
+
+  // Conteúdo
+  let yPos = logoHeight + 15;
+
+  // De: / Para:
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('De:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Departamento de Compras', 30, yPos);
+  yPos += 7;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Para:', 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Departamento de Contabilidade', 32, yPos);
+  yPos += 15;
+
+  // Processo
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Processo ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 12;
+
+  // Objeto
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('OBJETO:', 20, yPos);
+  yPos += 6;
+  
+  doc.setFont('helvetica', 'normal');
+  const textoObjeto = extractTextFromHTML(dados.objetoProcesso);
+  const linhasObjeto = doc.splitTextToSize(textoObjeto, 170);
+  doc.text(linhasObjeto, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhasObjeto.length * 5 + 10;
+
+  // Assunto
+  doc.setFont('helvetica', 'bold');
+  doc.text('Assunto:', 20, yPos);
+  yPos += 6;
+  
+  doc.setFont('helvetica', 'normal');
+  const textoAssunto = 'Tipo de Operação para lançamento de Contrato (CIGAM).';
+  doc.text(textoAssunto, 20, yPos);
+  yPos += 12;
+
+  // Fornecedores
+  doc.setFont('helvetica', 'bold');
+  doc.text('Fornecedor(es):', 20, yPos);
+  yPos += 6;
+  
+  doc.setFont('helvetica', 'normal');
+  dados.fornecedoresVencedores.forEach((fornecedor, index) => {
+    const textoFornecedor = `${index + 1}. ${fornecedor.razaoSocial} - CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`;
+    const linhasFornecedor = doc.splitTextToSize(textoFornecedor, 170);
+    doc.text(linhasFornecedor, 20, yPos);
+    yPos += linhasFornecedor.length * 5 + 2;
+  });
+  yPos += 8;
+
+  // Texto do corpo
+  doc.setFontSize(11);
+  const paragrafo = 'Prezados(as),\n\nEncaminhamos o presente processo para análise e verificação, a fim de determinar qual tipo de operação deve ser utilizada para o lançamento no sistema CIGAM, de maneira a garantir a continuidade do processo e assegurar que o registro seja efetuado corretamente, em conformidade com os procedimentos contábeis e fiscais.\n\nAgradecemos antecipadamente pelo atendimento.';
+  
+  const linhasParagrafo = doc.splitTextToSize(paragrafo, 170);
+  doc.text(linhasParagrafo, 20, yPos, { align: 'justify', maxWidth: 170 });
+
+  // Posicionar certificação acima do rodapé
+  const alturaCertificacao = 45;
+  const yPosCertificacao = pageHeight - rodapeHeight - alturaCertificacao - 5;
+
+  // Adicionar certificação simplificada
+  const linkVerificacao = `${window.location.origin}/verificar-documento?protocolo=${dados.protocolo}`;
+  adicionarCertificacaoSimplificada(doc, {
+    protocolo: dados.protocolo,
+    responsavel: dados.usuarioNome,
+    linkVerificacao: linkVerificacao
+  }, yPosCertificacao);
+
+  // Gerar blob
+  const pdfBlob = doc.output('blob');
+  
+  // Salvar no storage
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const fileName = `encaminhamento-contabilidade-${dados.numeroProcesso.replace(/\//g, '-')}-${timestamp}.pdf`;
+  const storagePath = `encaminhamentos-contabilidade/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('processo-anexos')
+    .upload(storagePath, pdfBlob, {
+      contentType: 'application/pdf',
+      upsert: false
+    });
+
+  if (uploadError) {
+    console.error('Erro ao fazer upload:', uploadError);
+    throw new Error(`Erro ao salvar PDF: ${uploadError.message}`);
+  }
+
+  // Obter URL pública
+  const { data: urlData } = supabase.storage
+    .from('processo-anexos')
+    .getPublicUrl(storagePath);
+
+  return {
+    url: urlData.publicUrl,
+    fileName,
+    protocolo: dados.protocolo,
+    storagePath,
+    blob: pdfBlob
+  };
+};
+
+// Função para gerar protocolo único
+export const gerarProtocoloContabilidade = (): string => {
+  const chars = '0123456789';
+  let result = '';
+  for (let i = 0; i < 16; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    if ((i + 1) % 4 === 0 && i < 15) {
+      result += '-';
+    }
+  }
+  return result;
+};
