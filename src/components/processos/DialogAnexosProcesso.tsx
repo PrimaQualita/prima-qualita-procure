@@ -454,7 +454,8 @@ export function DialogAnexosProcesso({
         .select(`
           *,
           contratos_gestao:contrato_gestao_id (
-            nome_contrato
+            nome_contrato,
+            ente_federativo
           )
         `)
         .eq("id", processoId)
@@ -465,6 +466,14 @@ export function DialogAnexosProcesso({
 
       const contrato = processo.contratos_gestao as any;
 
+      // Gerar protocolo no formato XXXX-XXXX-XXXX-XXXX
+      const gerarProtocolo = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        const gerarBloco = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+        return `${gerarBloco()}-${gerarBloco()}-${gerarBloco()}-${gerarBloco()}`;
+      };
+      const protocolo = gerarProtocolo();
+
       // Gerar PDF da requisição
       const pdfBlob = await gerarRequisicaoPDF({
         numeroProcesso: processo.numero_processo_interno,
@@ -473,6 +482,7 @@ export function DialogAnexosProcesso({
         objetoProcesso: processo.objeto_resumido,
         gerenteNome: userProfile?.nome_completo || 'Gerente de Contratos',
         gerenteCargo: userProfile?.cargo || 'Gerente de Contratos',
+        protocolo: protocolo,
       });
 
       // Upload para storage
