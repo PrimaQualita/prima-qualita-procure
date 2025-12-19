@@ -173,9 +173,8 @@ export function AppSidebar({
     });
   }
 
-  // Compliance tem acesso a TODOS os menus (incluindo Auditoria e Storage)
-  // Gestor também tem acesso a esses menus
-  if (!apenasGerenteContratos && (isGestor || isCompliance)) {
+  // Apenas Compliance tem acesso a Auditoria e Storage
+  if (!apenasGerenteContratos && isCompliance) {
     menuItems.push({
       title: "Log de Auditoria",
       icon: Home,
