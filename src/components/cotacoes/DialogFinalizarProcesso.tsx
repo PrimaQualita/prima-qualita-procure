@@ -4082,7 +4082,6 @@ export function DialogFinalizarProcesso({
                   onClick={gerarEncaminhamentoContabilidade}
                   disabled={loading}
                   className="w-full"
-                  variant="secondary"
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Gerar Encaminhamento para Contabilidade
