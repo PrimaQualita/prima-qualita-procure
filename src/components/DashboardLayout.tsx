@@ -271,7 +271,16 @@ export function DashboardLayout() {
               <h1 className="text-2xl font-bold text-foreground">{getPageTitle(location.pathname)}</h1>
             </header>
             <main className="flex-1">
-              <Outlet />
+              <Outlet context={{ 
+                isGestor: isGestor || cachedIsGestor, 
+                isCompliance: isCompliance || cachedIsCompliance,
+                isResponsavelLegal: isResponsavelLegal || cachedIsResponsavelLegal,
+                isColaborador: isColaborador || cachedIsColaborador,
+                isSuperintendenteExecutivo: isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo,
+                isGerenteContratos: isGerenteContratos || cachedIsGerenteContratos,
+                profile: profile || cachedProfile,
+                userId: user?.id || cachedUser?.id
+              }} />
             </main>
           </div>
         </div>
@@ -306,7 +315,16 @@ export function DashboardLayout() {
             <h1 className="text-2xl font-bold text-foreground">{getPageTitle(location.pathname)}</h1>
           </header>
           <main className="flex-1">
-            <Outlet />
+            <Outlet context={{ 
+              isGestor, 
+              isCompliance,
+              isResponsavelLegal,
+              isColaborador,
+              isSuperintendenteExecutivo,
+              isGerenteContratos,
+              profile,
+              userId: user?.id
+            }} />
           </main>
         </div>
       </div>

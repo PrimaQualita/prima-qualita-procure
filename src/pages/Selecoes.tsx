@@ -21,6 +21,7 @@ import { ArrowLeft, ChevronRight, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEditarSelecao } from "@/components/selecoes/DialogEditarSelecao";
+import { useCanEdit } from "@/hooks/useUserContext";
 
 interface Contrato {
   id: string;
@@ -55,6 +56,7 @@ const Selecoes = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const processoIdParam = searchParams.get("processo");
+  const canEdit = useCanEdit();
   
   const [loading, setLoading] = useState(true);
   const [loadingProcessos, setLoadingProcessos] = useState(false);
@@ -444,14 +446,16 @@ const Selecoes = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelecaoParaEditar(selecao)}
-                              title="Editar Seleção"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
+                            {canEdit && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelecaoParaEditar(selecao)}
+                                title="Editar Seleção"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button 
                               variant="outline" 
                               size="sm"
@@ -460,13 +464,15 @@ const Selecoes = () => {
                               <ChevronRight className="h-4 w-4 mr-2" />
                               Ver Seleção
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setConfirmDeleteSelecao(selecao.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {canEdit && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setConfirmDeleteSelecao(selecao.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

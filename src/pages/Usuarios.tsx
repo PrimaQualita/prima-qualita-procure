@@ -29,6 +29,7 @@ import { ArrowLeft, Plus, RotateCcw, Trash2, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogUsuario } from "@/components/usuarios/DialogUsuario";
 import { mascaraCPF } from "@/lib/validators";
+import { useCanEdit } from "@/hooks/useUserContext";
 
 
 interface Usuario {
@@ -52,6 +53,7 @@ interface Usuario {
 const Usuarios = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const canEdit = useCanEdit();
   const [loading, setLoading] = useState(true);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [filtro, setFiltro] = useState("");
@@ -229,7 +231,7 @@ const Usuarios = () => {
                   Gerencie gestores e colaboradores do sistema
                 </CardDescription>
               </div>
-              <Button onClick={() => setDialogOpen(true)}>
+              <Button onClick={() => setDialogOpen(true)} disabled={!canEdit}>
                 <Plus className="mr-2 h-4 w-4" />
                 Novo Usuário
               </Button>
@@ -275,33 +277,35 @@ const Usuarios = () => {
                         )}
                       </TableCell>
                       <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setUsuarioParaEditar(usuario)}
-                            title="Editar usuário"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleResetSenha(usuario.id, usuario.data_nascimento)}
-                            title="Resetar senha para data de nascimento"
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setUsuarioParaExcluir(usuario.id)}
-                            title="Excluir usuário"
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        {canEdit && (
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setUsuarioParaEditar(usuario)}
+                              title="Editar usuário"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResetSenha(usuario.id, usuario.data_nascimento)}
+                              title="Resetar senha para data de nascimento"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setUsuarioParaExcluir(usuario.id)}
+                              title="Excluir usuário"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -27,6 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import DOMPurify from "dompurify";
 import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/gerarAutorizacaoPDF";
+import { useCanEdit, useUserContext } from "@/hooks/useUserContext";
 
 // Cache global para evitar recarregamentos desnecessários
 let cachedContratos: Contrato[] | null = null;
@@ -90,6 +91,7 @@ interface ItemCotacao {
 const Cotacoes = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const canEdit = useCanEdit();
   
   // Começa como false se já temos cache
   const [loading, setLoading] = useState(!contratosLoaded);
@@ -1669,7 +1671,7 @@ const Cotacoes = () => {
                               });
                               setDialogCotacaoOpen(true);
                             }}
-                            disabled={!anexosObrigatoriosCompletos}
+                            disabled={!anexosObrigatoriosCompletos || !canEdit}
                           >
                             <Plus className="h-4 w-4 mr-2" />
                             Nova Cotação
@@ -1742,28 +1744,32 @@ const Cotacoes = () => {
                               <ChevronRight className="h-4 w-4 mr-2" />
                               Gerenciar Itens
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setCotacaoEditando(cotacao);
-                                setDialogEditarCotacaoOpen(true);
-                              }}
-                              title="Editar cotação"
-                            >
-                              <Edit className="h-4 w-4 text-primary" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setCotacaoParaExcluir(cotacao.id);
-                                setConfirmDeleteCotacaoOpen(true);
-                              }}
-                              title="Excluir cotação"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {canEdit && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setCotacaoEditando(cotacao);
+                                    setDialogEditarCotacaoOpen(true);
+                                  }}
+                                  title="Editar cotação"
+                                >
+                                  <Edit className="h-4 w-4 text-primary" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setCotacaoParaExcluir(cotacao.id);
+                                    setConfirmDeleteCotacaoOpen(true);
+                                  }}
+                                  title="Excluir cotação"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
