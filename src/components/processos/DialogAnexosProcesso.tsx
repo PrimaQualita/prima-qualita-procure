@@ -73,6 +73,7 @@ export function DialogAnexosProcesso({
   // Permissões do usuário
   const [isGerenteContratos, setIsGerenteContratos] = useState(false);
   const [isGerenteFinanceiro, setIsGerenteFinanceiro] = useState(false);
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [isGestorOuColaborador, setIsGestorOuColaborador] = useState(false);
   const [contratoProcessoId, setContratoProcessoId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<{ nome_completo: string; cargo?: string } | null>(null);
@@ -105,13 +106,14 @@ export function DialogAnexosProcesso({
       // Buscar perfil do usuário
       const { data: profile } = await supabase
         .from("profiles")
-        .select("nome_completo, cargo, gerente_contratos, gerente_financeiro")
+        .select("nome_completo, cargo, gerente_contratos, gerente_financeiro, responsavel_legal")
         .eq("id", user.id)
         .single();
 
       if (profile) {
         setUserProfile({ nome_completo: profile.nome_completo, cargo: profile.cargo });
         setIsGerenteFinanceiro(profile.gerente_financeiro || false);
+        setIsResponsavelLegal(profile.responsavel_legal || false);
 
         // Se for gerente de contratos, verificar se tem acesso ao contrato deste processo
         if (profile.gerente_contratos) {
@@ -775,8 +777,8 @@ export function DialogAnexosProcesso({
                         {gerandoCapa ? "Gerando Capa..." : "Gerar Capa do Processo"}
                       </Button>
                     )}
-                    {/* Botão Gerar Requisição - para gerente de contratos OU gestor/colaborador */}
-                    {isRequisicao && (isGerenteContratos || isGestorOuColaborador) && (
+                    {/* Botão Gerar Requisição - para gerente de contratos, responsável legal OU gestor/colaborador */}
+                    {isRequisicao && (isGerenteContratos || isResponsavelLegal || isGestorOuColaborador) && (
                       <Button
                         size="sm"
                         variant="default"
@@ -802,8 +804,8 @@ export function DialogAnexosProcesso({
                       </Button>
                     )}
                     {/* Botão Anexar PDF - apenas gestor/colaborador pode anexar capa, autorização e termo */}
-                    {/* Gerente de contratos só pode anexar requisição */}
-                    {(isGestorOuColaborador || (isGerenteContratos && isRequisicao)) && (
+                    {/* Gerente de contratos e responsável legal só podem anexar requisição */}
+                    {(isGestorOuColaborador || ((isGerenteContratos || isResponsavelLegal) && isRequisicao)) && (
                       <>
                         <input
                           type="file"
@@ -828,10 +830,10 @@ export function DialogAnexosProcesso({
                         </Button>
                       </>
                     )}
-                    {/* Mensagem para gerente de contratos sem acesso */}
-                    {isGerenteContratos && !isGestorOuColaborador && !isRequisicao && (
+                    {/* Mensagem para gerente de contratos ou responsável legal sem acesso */}
+                    {(isGerenteContratos || isResponsavelLegal) && !isGestorOuColaborador && !isRequisicao && (
                       <p className="text-sm text-muted-foreground italic">
-                        Documento não disponível para gerente de contratos
+                        Documento não disponível para seu perfil
                       </p>
                     )}
                   </div>
