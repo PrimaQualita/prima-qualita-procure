@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import capaLogo from '@/assets/capa-processo-logo.png';
 import capaRodape from '@/assets/capa-processo-rodape.png';
 import logoMarcaDagua from '@/assets/prima-qualita-logo.png';
+import { adicionarCertificacaoSimplificada } from './certificacaoSimplificada';
 
 interface DadosRequisicao {
   numeroProcesso: string;
@@ -10,6 +11,7 @@ interface DadosRequisicao {
   objetoProcesso: string;
   gerenteNome: string;
   gerenteCargo?: string;
+  protocolo: string;
 }
 
 // Função para extrair texto limpo de HTML
@@ -137,8 +139,10 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   doc.text(' Abertura de Processo', 42, yPos);
   yPos += 15;
 
-  // Texto do objeto
-  const textoObjeto = extractTextFromHTML(dados.objetoProcesso);
+  // Texto do objeto - removendo ponto final se existir para complementar com vírgula
+  let textoObjeto = extractTextFromHTML(dados.objetoProcesso);
+  // Remove ponto final do objeto se existir
+  textoObjeto = textoObjeto.replace(/\.\s*$/, '');
   const paragrafo1 = `Solicitamos a abertura de processo para ${textoObjeto}, conforme Termo de Referência que segue anexo.`;
   
   doc.setFontSize(11);
@@ -146,7 +150,7 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   doc.text(linhasParagrafo1, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasParagrafo1.length * 6 + 10;
 
-  // Texto da justificativa
+  // Texto da justificativa - usando o ente federativo do contrato de gestão
   const paragrafo2 = `A presente aquisição se faz necessária, para atender ao Contrato de Gestão Nº ${dados.numeroContrato} firmado com o município de ${dados.enteFederativo}, por intermédio da Secretaria Municipal de Saúde.`;
   
   const linhasParagrafo2 = doc.splitTextToSize(paragrafo2, 170);
@@ -170,6 +174,15 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   yPos += 5;
   doc.setFont('helvetica', 'normal');
   doc.text(dados.gerenteCargo || 'Gerente de Contratos', pageWidth / 2, yPos, { align: 'center' });
+  yPos += 20;
+
+  // Adicionar certificação simplificada
+  const linkVerificacao = `${window.location.origin}/verificar-documento?protocolo=${dados.protocolo}`;
+  adicionarCertificacaoSimplificada(doc, {
+    protocolo: dados.protocolo,
+    responsavel: dados.gerenteNome,
+    linkVerificacao: linkVerificacao
+  }, yPos);
 
   return doc.output('blob');
 };
