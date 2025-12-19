@@ -371,7 +371,24 @@ serve(async (req) => {
       );
     }
 
-    // 16. Protocolos de Documentos de Processo (requisição, capa, etc.)
+    // 16. Encaminhamentos para Contabilidade
+    const { data: encaminhamentoContabilidade } = await supabase
+      .from("encaminhamentos_contabilidade")
+      .select(`
+        id, protocolo, processo_numero, objeto_processo, fornecedores_vencedores,
+        data_geracao, nome_arquivo, url_arquivo, usuario_gerador_nome
+      `)
+      .eq("protocolo", protocolo)
+      .maybeSingle();
+
+    if (encaminhamentoContabilidade) {
+      return new Response(
+        JSON.stringify({ documento: encaminhamentoContabilidade, tipo: "encaminhamento_contabilidade" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 17. Protocolos de Documentos de Processo (requisição, capa, etc.)
     const { data: protocoloDocumento } = await supabase
       .from("protocolos_documentos_processo")
       .select(`
