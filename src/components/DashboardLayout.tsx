@@ -35,6 +35,7 @@ let cachedIsResponsavelLegal: boolean = false;
 let cachedIsGerenteContratos: boolean = false;
 let cachedIsGerenteFinanceiro: boolean = false;
 let cachedContratosVinculados: string[] = [];
+let cachedIsColaborador: boolean = false;
 let profileLoaded: boolean = false;
 
 export function DashboardLayout() {
@@ -51,6 +52,7 @@ export function DashboardLayout() {
   const [isGerenteContratos, setIsGerenteContratos] = useState(cachedIsGerenteContratos);
   const [isGerenteFinanceiro, setIsGerenteFinanceiro] = useState(cachedIsGerenteFinanceiro);
   const [contratosVinculados, setContratosVinculados] = useState<string[]>(cachedContratosVinculados);
+  const [isColaborador, setIsColaborador] = useState(cachedIsColaborador);
   const [loading, setLoading] = useState(!profileLoaded);
 
   useEffect(() => {
@@ -71,6 +73,7 @@ export function DashboardLayout() {
         cachedIsGerenteContratos = false;
         cachedIsGerenteFinanceiro = false;
         cachedContratosVinculados = [];
+        cachedIsColaborador = false;
         profileLoaded = false;
         setProfile(null);
         setIsGestor(false);
@@ -79,6 +82,7 @@ export function DashboardLayout() {
         setIsGerenteContratos(false);
         setIsGerenteFinanceiro(false);
         setContratosVinculados([]);
+        setIsColaborador(false);
         
         // Limpa cache de outras páginas
         clearCotacoesCache();
@@ -188,6 +192,17 @@ export function DashboardLayout() {
         .maybeSingle();
 
       const isUsuarioInterno = !!colaboradorData;
+      
+      // Verificar se é colaborador
+      const { data: colaboradorRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "colaborador")
+        .maybeSingle();
+      
+      cachedIsColaborador = !!colaboradorRole;
+      setIsColaborador(cachedIsColaborador);
 
       // Verificar se é gerente de contratos (apenas se não for gestor/colaborador)
       if (profileData?.gerente_contratos && !isUsuarioInterno) {
@@ -247,6 +262,8 @@ export function DashboardLayout() {
             isCompliance={isCompliance || cachedIsCompliance}
             isResponsavelLegal={isResponsavelLegal || cachedIsResponsavelLegal}
             isGerenteContratos={isGerenteContratos || cachedIsGerenteContratos}
+            isGerenteFinanceiro={isGerenteFinanceiro || cachedIsGerenteFinanceiro}
+            isColaborador={isColaborador || cachedIsColaborador}
           />
           <div className="flex-1 flex flex-col">
             <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
@@ -280,6 +297,8 @@ export function DashboardLayout() {
           isCompliance={isCompliance}
           isResponsavelLegal={isResponsavelLegal}
           isGerenteContratos={isGerenteContratos}
+          isGerenteFinanceiro={isGerenteFinanceiro}
+          isColaborador={isColaborador}
         />
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b bg-background flex items-center px-6 gap-4">

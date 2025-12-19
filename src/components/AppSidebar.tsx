@@ -50,9 +50,19 @@ interface AppSidebarProps {
   isCompliance?: boolean;
   isResponsavelLegal?: boolean;
   isGerenteContratos?: boolean;
+  isGerenteFinanceiro?: boolean;
+  isColaborador?: boolean;
 }
 
-export function AppSidebar({ isGestor, profile, isCompliance = false, isResponsavelLegal = false, isGerenteContratos = false }: AppSidebarProps) {
+export function AppSidebar({ 
+  isGestor, 
+  profile, 
+  isCompliance = false, 
+  isResponsavelLegal = false, 
+  isGerenteContratos = false,
+  isGerenteFinanceiro = false,
+  isColaborador = false
+}: AppSidebarProps) {
   const { open } = useSidebar();
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -147,11 +157,15 @@ export function AppSidebar({ isGestor, profile, isCompliance = false, isResponsa
     },
   ];
 
+  // Verifica se o usuário é APENAS gerente de contratos (sem outros papéis)
+  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isGerenteFinanceiro;
+  const apenasGerenteContratos = isGerenteContratos && !temOutrosPapeis;
+  
   // Seleciona o menu correto baseado no tipo de usuário
-  const menuItems = isGerenteContratos ? [...menuGerenteContratos] : [...menuCompleto];
+  const menuItems = apenasGerenteContratos ? [...menuGerenteContratos] : [...menuCompleto];
 
-  // Adicionar menu Compliance se for Responsável Legal ou Compliance
-  if (!isGerenteContratos && (isResponsavelLegal || isCompliance)) {
+  // Adicionar menu Compliance se for Responsável Legal ou Compliance (e não for apenas gerente de contratos)
+  if (!apenasGerenteContratos && (isResponsavelLegal || isCompliance)) {
     menuItems.push({
       title: "Compliance",
       icon: FileCheck,
@@ -159,7 +173,7 @@ export function AppSidebar({ isGestor, profile, isCompliance = false, isResponsa
     });
   }
 
-  if (!isGerenteContratos && isGestor) {
+  if (!apenasGerenteContratos && isGestor) {
     menuItems.push({
       title: "Log de Auditoria",
       icon: Home,
@@ -252,7 +266,7 @@ export function AppSidebar({ isGestor, profile, isCompliance = false, isResponsa
                         {profile?.nome_completo || "Usuário"}
                       </span>
                       <span className="text-xs text-sidebar-foreground/70 font-medium">
-                        {isGerenteContratos ? "Gerente de Contratos" : isGestor ? "Gestor" : "Colaborador"}
+                        {isGestor ? "Gestor" : isColaborador ? "Colaborador" : apenasGerenteContratos ? "Gerente de Contratos" : "Usuário"}
                       </span>
                     </div>
                   )}
