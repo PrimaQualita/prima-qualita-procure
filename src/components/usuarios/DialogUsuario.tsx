@@ -85,17 +85,27 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         .eq("role", "gestor")
         .maybeSingle();
 
-      if (!roleData) {
+      // Verificar se é compliance
+      const { data: profileCheck } = await supabase
+        .from("profiles")
+        .select("compliance")
+        .eq("id", session.user.id)
+        .single();
+
+      const isGestorCheck = !!roleData;
+      const isComplianceCheck = profileCheck?.compliance === true;
+
+      if (!isGestorCheck && !isComplianceCheck) {
         toast({
           title: "Acesso negado",
-          description: "Apenas gestores podem criar ou editar usuários.",
+          description: "Apenas gestores e compliance podem criar ou editar usuários.",
           variant: "destructive",
         });
         onOpenChange(false);
         return;
       }
 
-      setIsUserGestor(true);
+      setIsUserGestor(isGestorCheck || isComplianceCheck);
 
       // Verificar se é responsável legal
       const { data: profile } = await supabase
