@@ -176,10 +176,23 @@ export const gerarEncaminhamentoContabilidadePDF = async (
   doc.setFont('helvetica', 'normal');
   const textoObjeto = extractTextFromHTML(dados.objetoProcesso);
   const linhasObjeto = doc.splitTextToSize(textoObjeto, 170);
-  // Renderizar linha por linha para evitar justificação ruim na última linha
+  // Renderizar linha por linha - justificar exceto última linha
   linhasObjeto.forEach((linha: string, index: number) => {
-    if (index < linhasObjeto.length - 1) {
-      doc.text(linha, 20, yPos, { align: 'justify', maxWidth: 170 });
+    if (index < linhasObjeto.length - 1 && linhasObjeto.length > 1) {
+      // Linhas intermediárias: justificado
+      const palavras = linha.split(' ');
+      if (palavras.length > 1) {
+        const textoWidth = 170;
+        const textWidth = doc.getTextWidth(linha);
+        const espacoExtra = (textoWidth - textWidth) / (palavras.length - 1);
+        let xPos = 20;
+        palavras.forEach((palavra, i) => {
+          doc.text(palavra, xPos, yPos);
+          xPos += doc.getTextWidth(palavra) + doc.getTextWidth(' ') + espacoExtra;
+        });
+      } else {
+        doc.text(linha, 20, yPos);
+      }
     } else {
       // Última linha: alinhada à esquerda
       doc.text(linha, 20, yPos);
@@ -221,13 +234,27 @@ export const gerarEncaminhamentoContabilidadePDF = async (
   doc.text('Prezados(as),', 20, yPos);
   yPos += lineHeight * 2;
   
-  // Parágrafo 2: Corpo principal
+  // Parágrafo 2: Corpo principal - justificado exceto última linha
   const corpoTexto = 'Encaminhamos o presente processo para análise e verificação, a fim de determinar qual tipo de operação deve ser utilizada para o lançamento no sistema CIGAM, de maneira a garantir a continuidade do processo e assegurar que o registro seja efetuado corretamente, em conformidade com os procedimentos contábeis e fiscais.';
   const linhasCorpo = doc.splitTextToSize(corpoTexto, 170);
   linhasCorpo.forEach((linha: string, index: number) => {
-    if (index < linhasCorpo.length - 1) {
-      doc.text(linha, 20, yPos, { align: 'justify', maxWidth: 170 });
+    if (index < linhasCorpo.length - 1 && linhasCorpo.length > 1) {
+      // Linhas intermediárias: justificado manual
+      const palavras = linha.split(' ');
+      if (palavras.length > 1) {
+        const textoWidth = 170;
+        const textWidth = doc.getTextWidth(linha);
+        const espacoExtra = (textoWidth - textWidth) / (palavras.length - 1);
+        let xPos = 20;
+        palavras.forEach((palavra) => {
+          doc.text(palavra, xPos, yPos);
+          xPos += doc.getTextWidth(palavra) + doc.getTextWidth(' ') + espacoExtra;
+        });
+      } else {
+        doc.text(linha, 20, yPos);
+      }
     } else {
+      // Última linha: alinhada à esquerda
       doc.text(linha, 20, yPos);
     }
     yPos += lineHeight;
