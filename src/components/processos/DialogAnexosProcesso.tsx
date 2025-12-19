@@ -358,7 +358,7 @@ export function DialogAnexosProcesso({
     }
     
     // Superintendente Executivo pode excluir Autorização de Despesa que ele mesmo gerou
-    if (isSuperintendenteExecutivo && anexo.tipo_anexo === "AUTORIZACAO_DESPESA" && anexo.usuario_upload_id === currentUserId) {
+    if (isSuperintendenteExecutivo && anexo.tipo_anexo === "autorizacao_despesa" && anexo.usuario_upload_id === currentUserId) {
       return true;
     }
     
