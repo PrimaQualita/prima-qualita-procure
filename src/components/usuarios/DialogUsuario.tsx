@@ -248,13 +248,33 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setLoading(true);
 
     try {
+      const cpfLimpo = cpf.replace(/\D/g, "");
+      
       if (usuarioEdit) {
+        // Verificar se o CPF já existe em outro usuário
+        const { data: existingCpf } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("cpf", cpfLimpo)
+          .neq("id", usuarioEdit.id)
+          .maybeSingle();
+
+        if (existingCpf) {
+          toast({
+            title: "CPF já cadastrado",
+            description: "Este CPF já está sendo usado por outro usuário.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
         // Modo edição - atualizar usuário existente
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
             nome_completo: nomeCompleto,
-            cpf: cpf.replace(/\D/g, ""),
+            cpf: cpfLimpo,
             data_nascimento: dataNascimento,
             responsavel_legal: responsavelLegal,
             compliance: compliance,
