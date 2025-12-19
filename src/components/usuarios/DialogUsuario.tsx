@@ -131,7 +131,10 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         setEmail(usuarioEdit.email);
         setCpf(mascaraCPF(usuarioEdit.cpf));
         setDataNascimento(usuarioEdit.data_nascimento || "");
-        setRole((usuarioEdit.role as "gestor" | "colaborador") || "colaborador");
+        const roleEdit = usuarioEdit.role;
+        const normalizedRole: "gestor" | "colaborador" =
+          roleEdit === "gestor" || roleEdit === "colaborador" ? roleEdit : "colaborador";
+        setRole(normalizedRole);
         setResponsavelLegal(usuarioEdit.responsavel_legal || false);
         setCompliance((usuarioEdit as any).compliance || false);
         setCargo((usuarioEdit as any).cargo || "");
@@ -244,24 +247,24 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
 
         if (profileError) throw profileError;
 
-        // Verificar se o usuário deve ter role (gestor/colaborador) ou é apenas gerente de contratos
-        const deveSerUsuarioInterno = role === 'gestor' || role === 'colaborador';
-        const isApenasGerenteExterno = gerenteContratos && !deveSerUsuarioInterno;
+        // Mantém o comportamento existente: "Gerente de Contratos" pode ser um usuário externo (sem role interna)
+        // Apenas quando NÃO acumula outros perfis internos.
+        const isApenasGerenteExterno =
+          gerenteContratos &&
+          role === "colaborador" &&
+          !responsavelLegal &&
+          !compliance &&
+          !superintendenteExecutivo;
 
-        // Deletar role atual sempre
-        await supabase
-          .from("user_roles")
-          .delete()
-          .eq("user_id", usuarioEdit.id);
+        // Deletar roles atuais
+        await supabase.from("user_roles").delete().eq("user_id", usuarioEdit.id);
 
-        // Só insere role se for gestor ou colaborador interno
-        if (deveSerUsuarioInterno && !isApenasGerenteExterno) {
-          await supabase
-            .from("user_roles")
-            .insert({
-              user_id: usuarioEdit.id,
-              role: role,
-            });
+        // Inserir role (gestor/colaborador) somente se NÃO for apenas gerente externo
+        if (!isApenasGerenteExterno) {
+          await supabase.from("user_roles").insert({
+            user_id: usuarioEdit.id,
+            role,
+          });
         }
 
         // Atualizar contratos vinculados ao gerente
@@ -315,7 +318,12 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         const senhaTemporaria = `${dia}${mes}${ano}`;
 
         // Determinar se deve enviar role (apenas para gestores/colaboradores internos)
-        const isApenasGerenteExterno = gerenteContratos && role === 'colaborador' && !responsavelLegal && !compliance;
+        const isApenasGerenteExterno =
+          gerenteContratos &&
+          role === "colaborador" &&
+          !responsavelLegal &&
+          !compliance &&
+          !superintendenteExecutivo;
         const roleParaEnviar = isApenasGerenteExterno ? undefined : role;
 
         // Chamar edge function para criar usuário via Admin API
