@@ -469,9 +469,8 @@ export function DialogAnexosProcesso({
       const pdfBlob = await gerarRequisicaoPDF({
         numeroProcesso: processo.numero_processo_interno,
         numeroContrato: contrato?.nome_contrato || 'Não informado',
+        enteFederativo: contrato?.ente_federativo || 'Não informado',
         objetoProcesso: processo.objeto_resumido,
-        valorEstimado: processo.valor_estimado_anual || 0,
-        centroCusto: processo.centro_custo,
         gerenteNome: userProfile?.nome_completo || 'Gerente de Contratos',
         gerenteCargo: userProfile?.cargo || 'Gerente de Contratos',
       });
