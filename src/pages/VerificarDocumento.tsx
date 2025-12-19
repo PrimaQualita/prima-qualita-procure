@@ -69,6 +69,7 @@ const VerificarDocumento = () => {
         recurso_fornecedor: { label: 'Recurso de Fornecedor', icone: ScrollText },
         recurso_inabilitacao: { label: 'Recurso de Inabilitação', icone: ScrollText },
         resposta_recurso: { label: 'Resposta de Recurso', icone: ScrollText },
+        resposta_recurso_inabilitacao: { label: 'Resposta de Recurso de Inabilitação', icone: ScrollText },
         requisicao_compras: { label: 'Requisição de Compras', icone: FileText },
         capa_processo: { label: 'Capa do Processo', icone: FileText },
         autorizacao_despesa: { label: 'Autorização de Despesa', icone: FileCheck },
@@ -78,7 +79,7 @@ const VerificarDocumento = () => {
       
       // Montar detalhes baseado no tipo
       const detalhes: Record<string, string> = {
-        'Protocolo': doc.protocolo || doc.protocolo_recurso || prot,
+        'Protocolo': doc.protocolo || doc.protocolo_recurso || doc.protocolo_resposta || prot,
       };
 
       if (doc.data_geracao) {
@@ -95,28 +96,61 @@ const VerificarDocumento = () => {
         detalhes['Data de Envio'] = format(new Date(doc.data_envio_recurso), 'dd/MM/yyyy HH:mm');
       } else if (doc.data_resposta) {
         detalhes['Data de Resposta'] = format(new Date(doc.data_resposta), 'dd/MM/yyyy HH:mm');
+      } else if (doc.data_resposta_gestor) {
+        detalhes['Data de Resposta'] = format(new Date(doc.data_resposta_gestor), 'dd/MM/yyyy HH:mm');
       }
 
       if (doc.tipo_autorizacao) {
         detalhes['Tipo de Autorização'] = doc.tipo_autorizacao === 'compra_direta' ? 'Compra Direta' : 'Seleção de Fornecedores';
       }
 
-      if (doc.nome_arquivo) {
-        detalhes['Arquivo'] = doc.nome_arquivo;
+      if (doc.nome_arquivo || doc.nome_arquivo_recurso || doc.nome_arquivo_resposta) {
+        detalhes['Arquivo'] = doc.nome_arquivo || doc.nome_arquivo_recurso || doc.nome_arquivo_resposta;
       }
 
       if (doc.processo_numero) {
         detalhes['Processo'] = doc.processo_numero;
       }
 
+      // Fornecedor - buscar em diferentes estruturas
       if (doc.fornecedores?.razao_social) {
         detalhes['Fornecedor'] = doc.fornecedores.razao_social;
+      } else if (doc.recursos_fornecedor?.fornecedores?.razao_social) {
+        detalhes['Fornecedor'] = doc.recursos_fornecedor.fornecedores.razao_social;
+      }
+
+      // Processo - buscar em diferentes estruturas
+      if (doc.processos_compras?.numero_processo_interno) {
+        detalhes['Processo'] = doc.processos_compras.numero_processo_interno;
+      } else if (doc.selecoes_fornecedores?.processos_compras?.numero_processo_interno) {
+        detalhes['Processo'] = doc.selecoes_fornecedores.processos_compras.numero_processo_interno;
+      } else if (doc.fornecedores_rejeitados_cotacao?.cotacoes_precos?.processos_compras?.numero_processo_interno) {
+        detalhes['Processo'] = doc.fornecedores_rejeitados_cotacao.cotacoes_precos.processos_compras.numero_processo_interno;
+      } else if (doc.recursos_fornecedor?.fornecedores_rejeitados_cotacao?.cotacoes_precos?.processos_compras?.numero_processo_interno) {
+        detalhes['Processo'] = doc.recursos_fornecedor.fornecedores_rejeitados_cotacao.cotacoes_precos.processos_compras.numero_processo_interno;
       }
 
       if (doc.valor_total_proposta) {
         detalhes['Valor Total'] = `R$ ${doc.valor_total_proposta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
       } else if (doc.valor_total_anual_ofertado) {
         detalhes['Valor Total'] = `R$ ${doc.valor_total_anual_ofertado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+      }
+
+      // Decisão para resposta de recurso
+      if (doc.decisao) {
+        const decisaoMap: Record<string, string> = {
+          'provimento': 'Provimento Total',
+          'provimento_parcial': 'Provimento Parcial',
+          'negado': 'Negado'
+        };
+        detalhes['Decisão'] = decisaoMap[doc.decisao] || doc.decisao;
+      } else if (doc.status_recurso) {
+        const statusMap: Record<string, string> = {
+          'deferido': 'Deferido',
+          'indeferido': 'Indeferido',
+          'parcial': 'Deferido Parcialmente'
+        };
+        detalhes['Decisão'] = statusMap[doc.status_recurso] || doc.status_recurso;
       }
 
       if (doc.resultado) {
@@ -127,16 +161,12 @@ const VerificarDocumento = () => {
         detalhes['Responsável'] = doc.responsavel_nome;
       }
 
-      if (doc.processos_compras?.numero_processo_interno) {
-        detalhes['Processo'] = doc.processos_compras.numero_processo_interno;
-      }
-
       if (doc.fornecedores_incluidos && Array.isArray(doc.fornecedores_incluidos) && doc.fornecedores_incluidos.length > 0) {
         detalhes['Fornecedores Incluídos'] = doc.fornecedores_incluidos.join(', ');
       }
 
       // URL do arquivo
-      const urlArquivo = doc.url_arquivo || doc.url || doc.url_pdf_recurso || doc.url_documento || doc.url_pdf_proposta;
+      const urlArquivo = doc.url_arquivo || doc.url || doc.url_pdf_recurso || doc.url_documento || doc.url_pdf_proposta || doc.url_pdf_resposta;
 
       setResultado({
         encontrado: true,
