@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FileText, Eye, Download, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSquare, Send } from "lucide-react";
+import { FileText, Eye, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSquare, Send, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
 import {
@@ -213,6 +213,11 @@ export default function Contabilidade() {
     return (processos[contratoId] || []).filter(p => !p.respondido_contabilidade).length;
   };
 
+  // Contar respondidos por contrato
+  const contarRespondidos = (contratoId: string): number => {
+    return (processos[contratoId] || []).filter(p => p.respondido_contabilidade).length;
+  };
+
   // Total de pendentes
   const totalPendentes = Object.values(processos).flat().filter(p => !p.respondido_contabilidade).length;
 
@@ -227,10 +232,8 @@ export default function Contabilidade() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
+                <FolderOpen className="h-5 w-5" />
                 Contabilidade
-                {totalPendentes > 0 && (
-                  <Badge variant="destructive">{totalPendentes} pendente(s)</Badge>
-                )}
               </CardTitle>
               <CardDescription>
                 Gerencie os encaminhamentos recebidos do Departamento de Compras
@@ -248,15 +251,16 @@ export default function Contabilidade() {
                   <TableRow>
                     <TableHead>Nome do Contrato</TableHead>
                     <TableHead>Ente Federativo</TableHead>
-                    <TableHead className="text-center">Pendentes</TableHead>
-                    <TableHead className="text-center">Total</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead className="text-center">Processos Pendentes</TableHead>
+                    <TableHead className="text-center">Processos Respondidos</TableHead>
+                    <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {contratosFiltrados.map((contrato) => {
                     const pendentes = contarPendentes(contrato.id);
-                    const total = (processos[contrato.id] || []).length;
+                    const respondidos = contarRespondidos(contrato.id);
+                    const total = pendentes + respondidos;
                     
                     return (
                       <TableRow key={contrato.id}>
@@ -269,14 +273,22 @@ export default function Contabilidade() {
                             <span className="text-muted-foreground">0</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">{total}</TableCell>
+                        <TableCell className="text-center">
+                          {respondidos > 0 ? (
+                            <Badge className="bg-primary">{respondidos}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
                             onClick={() => setContratoSelecionado(contrato)}
                             disabled={total === 0}
+                            className="flex items-center gap-1"
                           >
+                            Ver Processos
                             <ChevronRight className="h-4 w-4" />
                           </Button>
                         </TableCell>
