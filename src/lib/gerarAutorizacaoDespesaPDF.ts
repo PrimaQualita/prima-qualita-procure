@@ -133,12 +133,12 @@ export const gerarAutorizacaoDespesaPDF = async (dados: DadosAutorizacaoDespesa)
   // Objeto
   doc.setFont('helvetica', 'bold');
   doc.text('OBJETO:', 20, yPos);
+  yPos += 6;
   doc.setFont('helvetica', 'normal');
   const textoObjeto = extractTextFromHTML(dados.objetoProcesso);
-  const objetoX = 42;
-  const linhasObjeto = doc.splitTextToSize(textoObjeto, pageWidth - objetoX - 20);
-  doc.text(linhasObjeto, objetoX, yPos);
-  yPos += linhasObjeto.length * 5 + 10;
+  const linhasObjeto = doc.splitTextToSize(textoObjeto, 170);
+  doc.text(linhasObjeto, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhasObjeto.length * 5 + 6;
 
   // Rubrica (Centro de Custo)
   const rubrica = dados.centroCusto?.toUpperCase() || 'NÃO INFORMADO';
@@ -146,13 +146,13 @@ export const gerarAutorizacaoDespesaPDF = async (dados: DadosAutorizacaoDespesa)
   const textoRubrica = `As despesas decorrentes da contratação em tela deverão ocorrer de acordo com o Programa de Trabalho, na rubrica de ${rubrica}.`;
   const linhasRubrica = doc.splitTextToSize(textoRubrica, 170);
   doc.text(linhasRubrica, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasRubrica.length * 5 + 10;
+  yPos += linhasRubrica.length * 5 + 6;
 
   // Texto de autorização
   const textoAutorizacao = `Na qualidade de Superintendente Executiva da PRIMA QUALITÁ SAÚDE, autorizo a presente despesa na rubrica indicada, conforme requisição e termo de referência anexos.`;
   const linhasAutorizacao = doc.splitTextToSize(textoAutorizacao, 170);
   doc.text(linhasAutorizacao, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasAutorizacao.length * 5 + 10;
+  yPos += linhasAutorizacao.length * 5 + 6;
 
   // Encaminhamento
   const textoEncaminhamento = `Encaminha-se ao Departamento de Compras, para as providências cabíveis.`;
