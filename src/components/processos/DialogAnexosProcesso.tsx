@@ -518,7 +518,7 @@ export function DialogAnexosProcesso({
       if (dbError) throw dbError;
 
       // Salvar protocolo para verificação
-      await supabase
+      const { error: protocoloError } = await supabase
         .from("protocolos_documentos_processo")
         .insert({
           protocolo: protocolo,
@@ -529,6 +529,8 @@ export function DialogAnexosProcesso({
           url_arquivo: urlArquivo,
           responsavel_nome: userProfile?.nome_completo || 'Gerente de Contratos',
         });
+
+      if (protocoloError) throw protocoloError;
 
       toast({ 
         title: "Requisição gerada com sucesso!",
