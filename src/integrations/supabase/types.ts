@@ -2216,6 +2216,7 @@ export type Database = {
           avatar_url: string | null
           cargo: string | null
           compliance: boolean | null
+          contabilidade: boolean | null
           cpf: string
           created_at: string | null
           data_criacao: string | null
@@ -2239,6 +2240,7 @@ export type Database = {
           avatar_url?: string | null
           cargo?: string | null
           compliance?: boolean | null
+          contabilidade?: boolean | null
           cpf: string
           created_at?: string | null
           data_criacao?: string | null
@@ -2262,6 +2264,7 @@ export type Database = {
           avatar_url?: string | null
           cargo?: string | null
           compliance?: boolean | null
+          contabilidade?: boolean | null
           cpf?: string
           created_at?: string | null
           data_criacao?: string | null
