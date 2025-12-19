@@ -13,8 +13,6 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validarCPF, mascaraCPF } from "@/lib/validators";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 
 interface Usuario {
   id: string;
@@ -53,7 +51,8 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [email, setEmail] = useState("");
   const [cpf, setCpf] = useState("");
   const [dataNascimento, setDataNascimento] = useState("");
-  const [role, setRole] = useState<"gestor" | "colaborador">("colaborador");
+  const [gestor, setGestor] = useState(false);
+  const [colaborador, setColaborador] = useState(false);
   const [responsavelLegal, setResponsavelLegal] = useState(false);
   const [compliance, setCompliance] = useState(false);
   const [cargo, setCargo] = useState("");
@@ -131,10 +130,17 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         setEmail(usuarioEdit.email);
         setCpf(mascaraCPF(usuarioEdit.cpf));
         setDataNascimento(usuarioEdit.data_nascimento || "");
-        const roleEdit = usuarioEdit.role;
-        const normalizedRole: "gestor" | "colaborador" =
-          roleEdit === "gestor" || roleEdit === "colaborador" ? roleEdit : "colaborador";
-        setRole(normalizedRole);
+        
+        // Carregar roles do usuário
+        const { data: userRoles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", usuarioEdit.id);
+        
+        const roles = userRoles?.map(r => r.role) || [];
+        setGestor(roles.includes("gestor"));
+        setColaborador(roles.includes("colaborador"));
+        
         setResponsavelLegal(usuarioEdit.responsavel_legal || false);
         setCompliance((usuarioEdit as any).compliance || false);
         setCargo((usuarioEdit as any).cargo || "");
@@ -167,7 +173,8 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setEmail("");
     setCpf("");
     setDataNascimento("");
-    setRole("colaborador");
+    setGestor(false);
+    setColaborador(false);
     setResponsavelLegal(false);
     setCompliance(false);
     setCargo("");
@@ -247,24 +254,20 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
 
         if (profileError) throw profileError;
 
-        // Mantém o comportamento existente: "Gerente de Contratos" pode ser um usuário externo (sem role interna)
-        // Apenas quando NÃO acumula outros perfis internos.
-        const isApenasGerenteExterno =
-          gerenteContratos &&
-          role === "colaborador" &&
-          !responsavelLegal &&
-          !compliance &&
-          !superintendenteExecutivo;
-
         // Deletar roles atuais
         await supabase.from("user_roles").delete().eq("user_id", usuarioEdit.id);
 
-        // Inserir role (gestor/colaborador) somente se NÃO for apenas gerente externo
-        if (!isApenasGerenteExterno) {
-          await supabase.from("user_roles").insert({
-            user_id: usuarioEdit.id,
-            role,
-          });
+        // Inserir novas roles
+        const rolesToInsert: { user_id: string; role: "gestor" | "colaborador" }[] = [];
+        if (gestor) {
+          rolesToInsert.push({ user_id: usuarioEdit.id, role: "gestor" });
+        }
+        if (colaborador) {
+          rolesToInsert.push({ user_id: usuarioEdit.id, role: "colaborador" });
+        }
+        
+        if (rolesToInsert.length > 0) {
+          await supabase.from("user_roles").insert(rolesToInsert);
         }
 
         // Atualizar contratos vinculados ao gerente
@@ -317,14 +320,8 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         const [ano, mes, dia] = dataNascimento.split("-");
         const senhaTemporaria = `${dia}${mes}${ano}`;
 
-        // Determinar se deve enviar role (apenas para gestores/colaboradores internos)
-        const isApenasGerenteExterno =
-          gerenteContratos &&
-          role === "colaborador" &&
-          !responsavelLegal &&
-          !compliance &&
-          !superintendenteExecutivo;
-        const roleParaEnviar = isApenasGerenteExterno ? undefined : role;
+        // Determinar a role principal para enviar (gestor tem prioridade)
+        const roleParaEnviar = gestor ? "gestor" : colaborador ? "colaborador" : undefined;
 
         // Chamar edge function para criar usuário via Admin API
         const { data: functionData, error: functionError } = await supabase.functions.invoke(
@@ -353,7 +350,25 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
           throw new Error(functionData.error);
         }
 
-        const tipoUsuario = isApenasGerenteExterno ? 'gerente de contratos' : role;
+        // Se marcou colaborador também, adicionar essa role
+        if (gestor && colaborador && functionData?.userId) {
+          await supabase.from("user_roles").insert({
+            user_id: functionData.userId,
+            role: "colaborador",
+          });
+        }
+
+        // Descrição do tipo de usuário criado
+        const perfis: string[] = [];
+        if (gestor) perfis.push("Gestor");
+        if (colaborador) perfis.push("Colaborador");
+        if (responsavelLegal) perfis.push("Responsável Legal");
+        if (compliance) perfis.push("Compliance");
+        if (gerenteContratos) perfis.push("Gerente de Contratos");
+        if (superintendenteExecutivo) perfis.push("Superintendente Executivo");
+        
+        const tipoUsuario = perfis.length > 0 ? perfis.join(", ") : "sem perfil específico";
+        
         toast({
           title: "Usuário criado com sucesso!",
           description: `${nomeCompleto} foi cadastrado como ${tipoUsuario}. A senha temporária é a data de nascimento (${senhaTemporaria}).`,
@@ -383,7 +398,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
           <DialogDescription>
             {usuarioEdit 
               ? "Edite as informações do usuário no sistema."
-              : "Cadastre um novo gestor ou colaborador no sistema. A senha temporária será a data de nascimento."
+              : "Cadastre um novo usuário no sistema. A senha temporária será a data de nascimento."
             }
           </DialogDescription>
         </DialogHeader>
@@ -458,145 +473,150 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label>Perfil *</Label>
-              <RadioGroup value={role} onValueChange={(value) => setRole(value as "gestor" | "colaborador")}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="colaborador" id="colaborador" />
-                  <Label htmlFor="colaborador" className="font-normal cursor-pointer">
-                    Colaborador
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="gestor" id="gestor" />
-                  <Label htmlFor="gestor" className="font-normal cursor-pointer">
-                    Gestor
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="responsavel-legal"
-                checked={responsavelLegal}
-                onChange={(e) => setResponsavelLegal(e.target.checked)}
-                disabled={!isUserResponsavelLegal && !isUserGestor}
-                className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
-              />
-              <Label 
-                htmlFor="responsavel-legal" 
-                className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
-              >
-                Responsável Legal
-              </Label>
-            </div>
-            {!isUserResponsavelLegal && !isUserGestor && (
-              <p className="text-xs text-muted-foreground ml-6">
-                Apenas Gestores e Responsáveis Legais podem alterar esta permissão
-              </p>
-            )}
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="compliance"
-                checked={compliance}
-                onChange={(e) => setCompliance(e.target.checked)}
-                disabled={!isUserResponsavelLegal && !isUserGestor}
-                className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
-              />
-              <Label 
-                htmlFor="compliance" 
-                className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
-              >
-                Compliance
-              </Label>
-            </div>
-            {!isUserResponsavelLegal && !isUserGestor && (
-              <p className="text-xs text-muted-foreground ml-6">
-                Apenas Gestores e Responsáveis Legais podem alterar esta permissão
-              </p>
-            )}
-
-            {/* Gerente de Contratos */}
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <Label>Perfis</Label>
+              
+              {/* Colaborador */}
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  id="gerente-contratos"
-                  checked={gerenteContratos}
-                  onChange={(e) => {
-                    setGerenteContratos(e.target.checked);
-                    if (!e.target.checked) {
-                      setContratosSelecionados([]);
-                    }
-                  }}
+                  id="colaborador"
+                  checked={colaborador}
+                  onChange={(e) => setColaborador(e.target.checked)}
+                  className="h-4 w-4 rounded-full border-gray-300 accent-primary"
+                />
+                <Label htmlFor="colaborador" className="font-normal cursor-pointer">
+                  Colaborador
+                </Label>
+              </div>
+
+              {/* Gestor */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="gestor"
+                  checked={gestor}
+                  onChange={(e) => setGestor(e.target.checked)}
+                  className="h-4 w-4 rounded-full border-gray-300 accent-primary"
+                />
+                <Label htmlFor="gestor" className="font-normal cursor-pointer">
+                  Gestor
+                </Label>
+              </div>
+
+              {/* Responsável Legal */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="responsavel-legal"
+                  checked={responsavelLegal}
+                  onChange={(e) => setResponsavelLegal(e.target.checked)}
                   disabled={!isUserResponsavelLegal && !isUserGestor}
                   className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
                 />
                 <Label 
-                  htmlFor="gerente-contratos" 
+                  htmlFor="responsavel-legal" 
                   className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
                 >
-                  Gerente de Contratos
+                  Responsável Legal
                 </Label>
               </div>
-              
-              {/* Lista de contratos quando Gerente de Contratos estiver marcado */}
-              {gerenteContratos && contratosDisponiveis.length > 0 && (
-                <div className="ml-6 mt-2 space-y-2 p-3 border rounded-md bg-muted/50">
-                  <p className="text-xs text-muted-foreground font-medium">
-                    Selecione os Contratos de Gestão que este usuário gerencia:
-                  </p>
-                  {contratosDisponiveis.map((contrato) => (
-                    <div key={contrato.id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`contrato-${contrato.id}`}
-                        checked={contratosSelecionados.includes(contrato.id)}
-                        onChange={() => handleContratoToggle(contrato.id)}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                      <Label 
-                        htmlFor={`contrato-${contrato.id}`} 
-                        className="font-normal cursor-pointer text-sm"
-                      >
-                        {contrato.nome_contrato} - {contrato.ente_federativo}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {gerenteContratos && contratosDisponiveis.length === 0 && (
-                <p className="text-xs text-destructive ml-6">
-                  Nenhum contrato de gestão ativo encontrado
-                </p>
-              )}
-            </div>
 
-            {/* Superintendente Executivo */}
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="superintendente-executivo"
-                checked={superintendenteExecutivo}
-                onChange={(e) => setSuperintendenteExecutivo(e.target.checked)}
-                disabled={!isUserResponsavelLegal && !isUserGestor}
-                className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
-              />
-              <Label
-                htmlFor="superintendente-executivo"
-                className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
-              >
-                Superintendente Executivo
-              </Label>
+              {/* Compliance */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="compliance"
+                  checked={compliance}
+                  onChange={(e) => setCompliance(e.target.checked)}
+                  disabled={!isUserResponsavelLegal && !isUserGestor}
+                  className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
+                />
+                <Label 
+                  htmlFor="compliance" 
+                  className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                >
+                  Compliance
+                </Label>
+              </div>
+
+              {/* Gerente de Contratos */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="gerente-contratos"
+                    checked={gerenteContratos}
+                    onChange={(e) => {
+                      setGerenteContratos(e.target.checked);
+                      if (!e.target.checked) {
+                        setContratosSelecionados([]);
+                      }
+                    }}
+                    disabled={!isUserResponsavelLegal && !isUserGestor}
+                    className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
+                  />
+                  <Label 
+                    htmlFor="gerente-contratos" 
+                    className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                  >
+                    Gerente de Contratos
+                  </Label>
+                </div>
+                
+                {/* Lista de contratos quando Gerente de Contratos estiver marcado - SUB-CHECKBOXES QUADRADOS */}
+                {gerenteContratos && contratosDisponiveis.length > 0 && (
+                  <div className="ml-6 mt-2 space-y-2 p-3 border rounded-md bg-muted/50">
+                    <p className="text-xs text-muted-foreground font-medium">
+                      Selecione os Contratos de Gestão que este usuário gerencia:
+                    </p>
+                    {contratosDisponiveis.map((contrato) => (
+                      <div key={contrato.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`contrato-${contrato.id}`}
+                          checked={contratosSelecionados.includes(contrato.id)}
+                          onChange={() => handleContratoToggle(contrato.id)}
+                          className="h-4 w-4 rounded border-gray-300 accent-primary"
+                        />
+                        <Label 
+                          htmlFor={`contrato-${contrato.id}`} 
+                          className="font-normal cursor-pointer text-sm"
+                        >
+                          {contrato.nome_contrato} - {contrato.ente_federativo}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {gerenteContratos && contratosDisponiveis.length === 0 && (
+                  <p className="text-xs text-destructive ml-6">
+                    Nenhum contrato de gestão ativo encontrado
+                  </p>
+                )}
+              </div>
+
+              {/* Superintendente Executivo */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="superintendente-executivo"
+                  checked={superintendenteExecutivo}
+                  onChange={(e) => setSuperintendenteExecutivo(e.target.checked)}
+                  disabled={!isUserResponsavelLegal && !isUserGestor}
+                  className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
+                />
+                <Label
+                  htmlFor="superintendente-executivo"
+                  className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                >
+                  Superintendente Executivo
+                </Label>
+              </div>
             </div>
 
           </div>
-
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
