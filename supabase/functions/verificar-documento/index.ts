@@ -285,8 +285,14 @@ serve(async (req) => {
     const { data: recursoFornecedor } = await supabase
       .from("recursos_fornecedor")
       .select(`
-        id, protocolo, data_envio, nome_arquivo, url_arquivo, motivo_recurso,
-        fornecedores (razao_social, cnpj)
+        id, protocolo, data_envio, nome_arquivo, url_arquivo, mensagem_fornecedor,
+        fornecedores (razao_social, cnpj),
+        fornecedores_rejeitados_cotacao:rejeicao_id (
+          cotacoes_precos (
+            titulo_cotacao,
+            processos_compras (numero_processo_interno)
+          )
+        )
       `)
       .eq("protocolo", protocolo)
       .maybeSingle();
@@ -298,12 +304,16 @@ serve(async (req) => {
       );
     }
 
-    // 13. Recursos de Inabilitação (Seleção)
+    // 13. Recursos de Inabilitação (Seleção) - por protocolo_recurso
     const { data: recursoInabilitacao } = await supabase
       .from("recursos_inabilitacao_selecao")
       .select(`
-        id, protocolo_recurso, data_envio_recurso, motivo_recurso, url_pdf_recurso,
-        fornecedores (razao_social, cnpj)
+        id, protocolo_recurso, data_envio_recurso, motivo_recurso, url_pdf_recurso, nome_arquivo_recurso,
+        fornecedores (razao_social, cnpj),
+        selecoes_fornecedores:selecao_id (
+          titulo_selecao,
+          processos_compras (numero_processo_interno)
+        )
       `)
       .eq("protocolo_recurso", protocolo)
       .maybeSingle();
@@ -315,10 +325,42 @@ serve(async (req) => {
       );
     }
 
-    // 14. Respostas de Recursos
+    // 14. Respostas de Recursos de Inabilitação (Seleção) - por protocolo_resposta
+    const { data: respostaRecursoInab } = await supabase
+      .from("recursos_inabilitacao_selecao")
+      .select(`
+        id, protocolo_resposta, data_resposta_gestor, resposta_gestor, url_pdf_resposta, nome_arquivo_resposta, status_recurso, tipo_provimento,
+        fornecedores (razao_social, cnpj),
+        selecoes_fornecedores:selecao_id (
+          titulo_selecao,
+          processos_compras (numero_processo_interno)
+        )
+      `)
+      .eq("protocolo_resposta", protocolo)
+      .maybeSingle();
+
+    if (respostaRecursoInab) {
+      return new Response(
+        JSON.stringify({ documento: respostaRecursoInab, tipo: "resposta_recurso_inabilitacao" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 15. Respostas de Recursos (Compra Direta)
     const { data: respostaRecurso } = await supabase
       .from("respostas_recursos")
-      .select("id, protocolo, data_resposta, resultado, justificativa, url_documento")
+      .select(`
+        id, protocolo, data_resposta, decisao, texto_resposta, url_documento, nome_arquivo, tipo_provimento,
+        recursos_fornecedor:recurso_id (
+          fornecedores (razao_social, cnpj),
+          fornecedores_rejeitados_cotacao:rejeicao_id (
+            cotacoes_precos (
+              titulo_cotacao,
+              processos_compras (numero_processo_interno)
+            )
+          )
+        )
+      `)
       .eq("protocolo", protocolo)
       .maybeSingle();
 
@@ -329,7 +371,7 @@ serve(async (req) => {
       );
     }
 
-    // 15. Protocolos de Documentos de Processo (requisição, capa, etc.)
+    // 16. Protocolos de Documentos de Processo (requisição, capa, etc.)
     const { data: protocoloDocumento } = await supabase
       .from("protocolos_documentos_processo")
       .select(`
