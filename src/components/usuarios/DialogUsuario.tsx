@@ -26,6 +26,7 @@ interface Usuario {
   responsavel_legal?: boolean;
   compliance?: boolean;
   cargo?: string;
+  genero?: string;
   gerente_contratos?: boolean;
   superintendente_executivo?: boolean;
   // legado (não usar mais)
@@ -57,6 +58,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [responsavelLegal, setResponsavelLegal] = useState(false);
   const [compliance, setCompliance] = useState(false);
   const [cargo, setCargo] = useState("");
+  const [genero, setGenero] = useState("feminino");
   const [isUserResponsavelLegal, setIsUserResponsavelLegal] = useState(false);
   const [isUserGestor, setIsUserGestor] = useState(false);
   
@@ -145,6 +147,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         setResponsavelLegal(usuarioEdit.responsavel_legal || false);
         setCompliance((usuarioEdit as any).compliance || false);
         setCargo((usuarioEdit as any).cargo || "");
+        setGenero((usuarioEdit as any).genero || "feminino");
         setGerenteContratos((usuarioEdit as any).gerente_contratos || false);
         setSuperintendenteExecutivo(
           (usuarioEdit as any).superintendente_executivo || (usuarioEdit as any).gerente_financeiro || false
@@ -179,6 +182,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setResponsavelLegal(false);
     setCompliance(false);
     setCargo("");
+    setGenero("feminino");
     setGerenteContratos(false);
     setSuperintendenteExecutivo(false);
     setContratosSelecionados([]);
@@ -248,6 +252,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             responsavel_legal: responsavelLegal,
             compliance: compliance,
             cargo: cargo || null,
+            genero: genero,
             gerente_contratos: gerenteContratos,
             superintendente_executivo: superintendenteExecutivo,
           })
@@ -338,6 +343,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               responsavelLegal,
               compliance,
               cargo,
+              genero,
               gerenteContratos,
               superintendenteExecutivo,
               contratosVinculados: gerenteContratos ? contratosSelecionados : [],
@@ -471,6 +477,22 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               />
               <p className="text-xs text-muted-foreground">
                 O cargo será exibido nas assinaturas digitais
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="genero">Gênero</Label>
+              <select
+                id="genero"
+                value={genero}
+                onChange={(e) => setGenero(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="feminino">Feminino</option>
+                <option value="masculino">Masculino</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Usado para personalizar textos em documentos oficiais
               </p>
             </div>
 
