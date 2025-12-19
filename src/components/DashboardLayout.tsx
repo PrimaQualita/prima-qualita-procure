@@ -32,6 +32,9 @@ let cachedProfile: any = null;
 let cachedIsGestor: boolean = false;
 let cachedIsCompliance: boolean = false;
 let cachedIsResponsavelLegal: boolean = false;
+let cachedIsGerenteContratos: boolean = false;
+let cachedIsGerenteFinanceiro: boolean = false;
+let cachedContratosVinculados: string[] = [];
 let profileLoaded: boolean = false;
 
 export function DashboardLayout() {
@@ -45,6 +48,9 @@ export function DashboardLayout() {
   const [isGestor, setIsGestor] = useState(cachedIsGestor);
   const [isCompliance, setIsCompliance] = useState(cachedIsCompliance);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(cachedIsResponsavelLegal);
+  const [isGerenteContratos, setIsGerenteContratos] = useState(cachedIsGerenteContratos);
+  const [isGerenteFinanceiro, setIsGerenteFinanceiro] = useState(cachedIsGerenteFinanceiro);
+  const [contratosVinculados, setContratosVinculados] = useState<string[]>(cachedContratosVinculados);
   const [loading, setLoading] = useState(!profileLoaded);
 
   useEffect(() => {
@@ -62,11 +68,17 @@ export function DashboardLayout() {
         cachedIsGestor = false;
         cachedIsCompliance = false;
         cachedIsResponsavelLegal = false;
+        cachedIsGerenteContratos = false;
+        cachedIsGerenteFinanceiro = false;
+        cachedContratosVinculados = [];
         profileLoaded = false;
         setProfile(null);
         setIsGestor(false);
         setIsCompliance(false);
         setIsResponsavelLegal(false);
+        setIsGerenteContratos(false);
+        setIsGerenteFinanceiro(false);
+        setContratosVinculados([]);
         
         // Limpa cache de outras páginas
         clearCotacoesCache();
@@ -143,10 +155,12 @@ export function DashboardLayout() {
       cachedProfile = profileData;
       cachedIsCompliance = profileData?.compliance || false;
       cachedIsResponsavelLegal = profileData?.responsavel_legal || false;
+      cachedIsGerenteFinanceiro = profileData?.gerente_financeiro || false;
       
       setProfile(profileData);
       setIsCompliance(cachedIsCompliance);
       setIsResponsavelLegal(cachedIsResponsavelLegal);
+      setIsGerenteFinanceiro(cachedIsGerenteFinanceiro);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
@@ -164,6 +178,31 @@ export function DashboardLayout() {
       
       cachedIsGestor = !!roleData;
       setIsGestor(cachedIsGestor);
+
+      // Verificar se é gestor ou colaborador (usuário interno com permissões completas)
+      const { data: colaboradorData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .in("role", ["gestor", "colaborador"])
+        .maybeSingle();
+
+      const isUsuarioInterno = !!colaboradorData;
+
+      // Verificar se é gerente de contratos (apenas se não for gestor/colaborador)
+      if (profileData?.gerente_contratos && !isUsuarioInterno) {
+        const { data: vinculos } = await supabase
+          .from("gerentes_contratos_gestao")
+          .select("contrato_gestao_id")
+          .eq("usuario_id", user.id);
+
+        if (vinculos && vinculos.length > 0) {
+          cachedIsGerenteContratos = true;
+          cachedContratosVinculados = vinculos.map(v => v.contrato_gestao_id);
+          setIsGerenteContratos(true);
+          setContratosVinculados(cachedContratosVinculados);
+        }
+      }
       
       // Marca como carregado GLOBALMENTE
       profileLoaded = true;
@@ -207,6 +246,7 @@ export function DashboardLayout() {
             profile={profile || cachedProfile} 
             isCompliance={isCompliance || cachedIsCompliance}
             isResponsavelLegal={isResponsavelLegal || cachedIsResponsavelLegal}
+            isGerenteContratos={isGerenteContratos || cachedIsGerenteContratos}
           />
           <div className="flex-1 flex flex-col">
             <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
@@ -239,6 +279,7 @@ export function DashboardLayout() {
           profile={profile} 
           isCompliance={isCompliance}
           isResponsavelLegal={isResponsavelLegal}
+          isGerenteContratos={isGerenteContratos}
         />
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
