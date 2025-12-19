@@ -150,14 +150,14 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text('À Divisão de Compras', 20, yPos);
-  yPos += 12;
+  yPos += 10;
 
-  // Assunto
+  // Assunto - posição ajustada para ficar próximo ao texto
   doc.setFont('helvetica', 'bold');
   doc.text('Assunto:', 20, yPos);
   doc.setFont('helvetica', 'normal');
-  doc.text(' Abertura de Processo', 42, yPos);
-  yPos += 15;
+  doc.text('Abertura de Processo', 38, yPos);
+  yPos += 10;
 
   // Texto do objeto - removendo ponto final se existir para complementar com vírgula
   let textoObjeto = extractTextFromHTML(dados.objetoProcesso);
@@ -168,7 +168,7 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   doc.setFontSize(11);
   const linhasParagrafo1 = doc.splitTextToSize(paragrafo1, 170);
   doc.text(linhasParagrafo1, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasParagrafo1.length * 6 + 10;
+  yPos += linhasParagrafo1.length * 5 + 6;
 
   // Texto da justificativa - usando o ente federativo formatado
   const enteFederativoFormatado = formatarNomeProprio(dados.enteFederativo);
@@ -176,7 +176,7 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   
   const linhasParagrafo2 = doc.splitTextToSize(paragrafo2, 170);
   doc.text(linhasParagrafo2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasParagrafo2.length * 6 + 30;
+  yPos += linhasParagrafo2.length * 5 + 15;
 
   // Local e data
   const dataAtual = new Date().toLocaleDateString('pt-BR', {
