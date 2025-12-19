@@ -2,15 +2,14 @@ import { jsPDF } from 'jspdf';
 import capaLogo from '@/assets/capa-processo-logo.png';
 import capaRodape from '@/assets/capa-processo-rodape.png';
 import logoMarcaDagua from '@/assets/prima-qualita-logo.png';
+import { adicionarCertificacaoSimplificada } from './certificacaoSimplificada';
 
 interface DadosAutorizacaoDespesa {
   numeroProcesso: string;
-  numeroContrato: string;
   objetoProcesso: string;
-  valorEstimado: number;
   centroCusto?: string;
-  gerenteNome: string;
-  gerenteCargo?: string;
+  superintendenteNome: string;
+  protocolo: string;
 }
 
 // Função para extrair texto limpo de HTML
@@ -18,11 +17,6 @@ const extractTextFromHTML = (html: string): string => {
   const div = document.createElement('div');
   div.innerHTML = html;
   return div.textContent || div.innerText || '';
-};
-
-// Formatar valor em reais
-const formatarValor = (valor: number): string => {
-  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 export const gerarAutorizacaoDespesaPDF = async (dados: DadosAutorizacaoDespesa): Promise<Blob> => {
@@ -121,89 +115,60 @@ export const gerarAutorizacaoDespesaPDF = async (dados: DadosAutorizacaoDespesa)
   doc.addImage(base64Rodape, 'PNG', 1.5, yRodape, pageWidth - 3, rodapeHeight);
 
   // Conteúdo
-  let yPos = logoHeight + 20;
+  let yPos = logoHeight + 25;
 
   // Título
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text('AUTORIZAÇÃO DE DESPESA', pageWidth / 2, yPos, { align: 'center' });
-  yPos += 15;
+  doc.text('AUTORIZAÇÃO DA DESPESA', pageWidth / 2, yPos, { align: 'center' });
+  yPos += 20;
 
   // Processo
   doc.setFontSize(12);
-  doc.text(`Processo: ${dados.numeroProcesso}`, 20, yPos);
-  yPos += 8;
-
-  // Contrato
-  doc.text(`Contrato de Gestão: ${dados.numeroContrato}`, 20, yPos);
-  yPos += 8;
-
-  // Data
-  doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 20, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Processo nº ${dados.numeroProcesso}`, 20, yPos);
   yPos += 15;
 
-  // Linha separadora
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.5);
-  doc.line(20, yPos, pageWidth - 20, yPos);
-  yPos += 10;
-
   // Objeto
-  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text('OBJETO:', 20, yPos);
-  yPos += 6;
-
   doc.setFont('helvetica', 'normal');
   const textoObjeto = extractTextFromHTML(dados.objetoProcesso);
-  const linhasObjeto = doc.splitTextToSize(textoObjeto, 170);
-  doc.text(linhasObjeto, 20, yPos, { align: 'justify', maxWidth: 170 });
+  const objetoX = 42;
+  const linhasObjeto = doc.splitTextToSize(textoObjeto, pageWidth - objetoX - 20);
+  doc.text(linhasObjeto, objetoX, yPos);
   yPos += linhasObjeto.length * 5 + 10;
 
-  // Valor Autorizado
-  doc.setFont('helvetica', 'bold');
-  doc.text('VALOR AUTORIZADO:', 20, yPos);
-  doc.setFont('helvetica', 'normal');
-  doc.text(formatarValor(dados.valorEstimado), 75, yPos);
-  yPos += 8;
-
-  // Centro de Custo
-  if (dados.centroCusto) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('CENTRO DE CUSTO:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(dados.centroCusto, 70, yPos);
-    yPos += 8;
-  }
+  // Rubrica (Centro de Custo)
+  const rubrica = dados.centroCusto?.toUpperCase() || 'NÃO INFORMADO';
+  doc.setFontSize(11);
+  const textoRubrica = `As despesas decorrentes da contratação em tela deverão ocorrer de acordo com o Programa de Trabalho, na rubrica de ${rubrica}.`;
+  const linhasRubrica = doc.splitTextToSize(textoRubrica, 170);
+  doc.text(linhasRubrica, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhasRubrica.length * 5 + 10;
 
   // Texto de autorização
-  yPos += 10;
-  doc.setFont('helvetica', 'bold');
-  doc.text('AUTORIZAÇÃO:', 20, yPos);
-  yPos += 6;
-
-  doc.setFont('helvetica', 'normal');
-  const textoAutorizacao = `Autorizo a realização da despesa acima especificada, no valor de ${formatarValor(dados.valorEstimado)}, em conformidade com a disponibilidade orçamentária e financeira do Contrato de Gestão, observadas as normas e regulamentos aplicáveis.`;
+  const textoAutorizacao = `Na qualidade de Superintendente Executiva da PRIMA QUALITÁ SAÚDE, autorizo a presente despesa na rubrica indicada, conforme requisição e termo de referência anexos.`;
   const linhasAutorizacao = doc.splitTextToSize(textoAutorizacao, 170);
   doc.text(linhasAutorizacao, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasAutorizacao.length * 5 + 10;
 
-  // Declaração de conformidade
-  const declaracao = `Declaro que esta despesa está em conformidade com o Plano de Trabalho aprovado e atende aos objetivos do Contrato de Gestão.`;
-  const linhasDeclaracao = doc.splitTextToSize(declaracao, 170);
-  doc.text(linhasDeclaracao, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasDeclaracao.length * 5 + 25;
+  // Encaminhamento
+  const textoEncaminhamento = `Encaminha-se ao Departamento de Compras, para as providências cabíveis.`;
+  doc.text(textoEncaminhamento, 20, yPos);
 
-  // Assinatura do Gerente Financeiro
-  doc.setFont('helvetica', 'normal');
-  doc.text('_'.repeat(50), pageWidth / 2, yPos, { align: 'center' });
-  yPos += 5;
-  doc.setFont('helvetica', 'bold');
-  doc.text(dados.gerenteNome, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.text(dados.gerenteCargo || 'Gerente Financeiro', pageWidth / 2, yPos, { align: 'center' });
+  // Posicionar certificação acima do rodapé
+  const alturaCertificacao = 45;
+  const yPosCertificacao = pageHeight - rodapeHeight - alturaCertificacao - 5;
+
+  // Adicionar certificação simplificada
+  const linkVerificacao = `${window.location.origin}/verificar-documento?protocolo=${dados.protocolo}`;
+  adicionarCertificacaoSimplificada(doc, {
+    protocolo: dados.protocolo,
+    responsavel: dados.superintendenteNome,
+    linkVerificacao: linkVerificacao
+  }, yPosCertificacao);
 
   return doc.output('blob');
 };

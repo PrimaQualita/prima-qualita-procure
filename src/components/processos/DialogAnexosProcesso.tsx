@@ -46,8 +46,8 @@ interface DialogAnexosProcessoProps {
 const TIPOS_ANEXOS_OBRIGATORIOS = [
   { tipo: "capa_processo", label: "Capa do Processo" },
   { tipo: "requisicao", label: "Requisição" },
-  { tipo: "autorizacao_despesa", label: "Autorização da Despesa" },
   { tipo: "termo_referencia", label: "Termo de Referência" },
+  { tipo: "autorizacao_despesa", label: "Autorização da Despesa" },
 ];
 
 const TIPOS_ANEXOS_GERADOS = [
@@ -72,7 +72,7 @@ export function DialogAnexosProcesso({
   
   // Permissões do usuário
   const [isGerenteContratos, setIsGerenteContratos] = useState(false);
-  const [isGerenteFinanceiro, setIsGerenteFinanceiro] = useState(false);
+  const [isSuperintendenteExecutivo, setIsSuperintendenteExecutivo] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [isGestorOuColaborador, setIsGestorOuColaborador] = useState(false);
   const [contratoProcessoId, setContratoProcessoId] = useState<string | null>(null);
@@ -106,13 +106,13 @@ export function DialogAnexosProcesso({
       // Buscar perfil do usuário
       const { data: profile } = await supabase
         .from("profiles")
-        .select("nome_completo, cargo, gerente_contratos, gerente_financeiro, responsavel_legal")
+        .select("nome_completo, cargo, gerente_contratos, superintendente_executivo, responsavel_legal")
         .eq("id", user.id)
         .single();
 
       if (profile) {
         setUserProfile({ nome_completo: profile.nome_completo, cargo: profile.cargo });
-        setIsGerenteFinanceiro(profile.gerente_financeiro || false);
+        setIsSuperintendenteExecutivo(profile.superintendente_executivo || false);
         setIsResponsavelLegal(profile.responsavel_legal || false);
 
         // Se for gerente de contratos, verificar se tem acesso ao contrato deste processo
@@ -556,10 +556,10 @@ export function DialogAnexosProcesso({
   };
 
   const handleGerarAutorizacaoDespesa = async () => {
-    if (!isGerenteFinanceiro) {
+    if (!isSuperintendenteExecutivo) {
       toast({
         title: "Acesso negado",
-        description: "Apenas Gerentes Financeiros podem gerar a Autorização de Despesa.",
+        description: "Apenas Superintendentes Executivos podem gerar a Autorização de Despesa.",
         variant: "destructive",
       });
       return;
@@ -587,15 +587,21 @@ export function DialogAnexosProcesso({
 
       const contrato = processo.contratos_gestao as any;
 
+      // Gerar protocolo no formato XXXX-XXXX-XXXX-XXXX
+      const gerarProtocolo = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        const gerarBloco = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+        return `${gerarBloco()}-${gerarBloco()}-${gerarBloco()}-${gerarBloco()}`;
+      };
+      const protocolo = gerarProtocolo();
+
       // Gerar PDF da autorização de despesa
       const pdfBlob = await gerarAutorizacaoDespesaPDF({
         numeroProcesso: processo.numero_processo_interno,
-        numeroContrato: contrato?.nome_contrato || 'Não informado',
         objetoProcesso: processo.objeto_resumido,
-        valorEstimado: processo.valor_estimado_anual || 0,
         centroCusto: processo.centro_custo,
-        gerenteNome: userProfile?.nome_completo || 'Gerente Financeiro',
-        gerenteCargo: userProfile?.cargo || 'Gerente Financeiro',
+        superintendenteNome: userProfile?.nome_completo || 'Superintendente Executivo',
+        protocolo: protocolo,
       });
 
       // Upload para storage
@@ -609,8 +615,14 @@ export function DialogAnexosProcesso({
 
       if (uploadError) throw uploadError;
 
-      // Salvar no banco
-      const { error: dbError } = await supabase
+      // Obter URL pública do arquivo
+      const { data: publicUrlData } = supabase.storage
+        .from("processo-anexos")
+        .getPublicUrl(fileName);
+      const urlArquivo = publicUrlData?.publicUrl || fileName;
+
+      // Salvar no banco - anexo
+      const { data: anexoData, error: dbError } = await supabase
         .from("anexos_processo_compra")
         .insert({
           processo_compra_id: processoId,
@@ -618,9 +630,26 @@ export function DialogAnexosProcesso({
           nome_arquivo: `Autorizacao_Despesa_${processo.numero_processo_interno}.pdf`,
           url_arquivo: fileName,
           usuario_upload_id: user.id,
-        });
+        })
+        .select('id')
+        .single();
 
       if (dbError) throw dbError;
+
+      // Salvar protocolo para verificação
+      const { error: protocoloError } = await supabase
+        .from("protocolos_documentos_processo")
+        .insert({
+          protocolo: protocolo,
+          tipo_documento: "autorizacao_despesa",
+          processo_compra_id: processoId,
+          anexo_id: anexoData.id,
+          nome_arquivo: `Autorizacao_Despesa_${processo.numero_processo_interno}.pdf`,
+          url_arquivo: urlArquivo,
+          responsavel_nome: userProfile?.nome_completo || 'Superintendente Executivo',
+        });
+
+      if (protocoloError) throw protocoloError;
 
       toast({ 
         title: "Autorização de Despesa gerada com sucesso!",
@@ -793,8 +822,8 @@ export function DialogAnexosProcesso({
                         {gerandoRequisicao ? "Gerando..." : "Gerar Requisição"}
                       </Button>
                     )}
-                    {/* Botão Gerar Autorização - apenas para gerente financeiro */}
-                    {isAutorizacaoDespesa && isGerenteFinanceiro && (
+                    {/* Botão Gerar Autorização - apenas para superintendente executivo */}
+                    {isAutorizacaoDespesa && isSuperintendenteExecutivo && (
                       <Button
                         size="sm"
                         variant="default"
@@ -826,7 +855,7 @@ export function DialogAnexosProcesso({
                           variant="outline"
                           onClick={() => document.getElementById(`file-${tipo}`)?.click()}
                           disabled={isUploading}
-                          className={(isCapaProcesso && isGestorOuColaborador) || ((isRequisicao && (isGerenteContratos || isGestorOuColaborador))) || (isAutorizacaoDespesa && isGerenteFinanceiro) ? "flex-1" : "w-full"}
+                          className={(isCapaProcesso && isGestorOuColaborador) || ((isRequisicao && (isGerenteContratos || isGestorOuColaborador))) || (isAutorizacaoDespesa && isSuperintendenteExecutivo) ? "flex-1" : "w-full"}
                         >
                           <FileUp className="h-4 w-4 mr-2" />
                           {isUploading ? "Enviando..." : "Anexar PDF"}
