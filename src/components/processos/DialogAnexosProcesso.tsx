@@ -436,10 +436,13 @@ export function DialogAnexosProcesso({
   };
 
   const handleGerarRequisicao = async () => {
-    if (!isGerenteContratos) {
+    const canGerarRequisicao = isGerenteContratos || isResponsavelLegal || isGestorOuColaborador;
+
+    if (!canGerarRequisicao) {
       toast({
         title: "Acesso negado",
-        description: "Apenas Gerentes de Contratos podem gerar a Requisição.",
+        description:
+          "Apenas Gerentes de Contratos, Responsáveis Legais, Gestores ou Colaboradores podem gerar a Requisição.",
         variant: "destructive",
       });
       return;
