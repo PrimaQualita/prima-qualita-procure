@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { User, Mail, Lock, Calendar, Camera } from "lucide-react";
 import primaLogo from "@/assets/prima-qualita-logo.png";
@@ -137,6 +144,7 @@ const Perfil = () => {
           nome_completo: profile.nome_completo,
           cpf: profile.cpf,
           data_nascimento: profile.data_nascimento,
+          genero: profile.genero || 'feminino',
         })
         .eq("id", profile.id);
 
@@ -307,6 +315,25 @@ const Perfil = () => {
                     onChange={(e) => setProfile({ ...profile, data_nascimento: e.target.value })}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="genero">Gênero</Label>
+                <Select
+                  value={(profile?.genero as string) || "feminino"}
+                  onValueChange={(value) => setProfile({ ...profile, genero: value })}
+                >
+                  <SelectTrigger id="genero">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="feminino">Feminino</SelectItem>
+                    <SelectItem value="masculino">Masculino</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Usado para personalizar textos em documentos oficiais
+                </p>
               </div>
 
               <Button onClick={handleSaveProfile} disabled={saving}>
