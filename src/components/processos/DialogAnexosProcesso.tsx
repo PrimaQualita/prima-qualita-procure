@@ -730,7 +730,8 @@ export function DialogAnexosProcesso({
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    {isCapaProcesso && (
+                    {/* Botão Gerar Capa - apenas para gestor/colaborador */}
+                    {isCapaProcesso && isGestorOuColaborador && (
                       <Button
                         size="sm"
                         variant="default"
@@ -742,7 +743,8 @@ export function DialogAnexosProcesso({
                         {gerandoCapa ? "Gerando Capa..." : "Gerar Capa do Processo"}
                       </Button>
                     )}
-                    {isRequisicao && isGerenteContratos && (
+                    {/* Botão Gerar Requisição - para gerente de contratos OU gestor/colaborador */}
+                    {isRequisicao && (isGerenteContratos || isGestorOuColaborador) && (
                       <Button
                         size="sm"
                         variant="default"
@@ -754,6 +756,7 @@ export function DialogAnexosProcesso({
                         {gerandoRequisicao ? "Gerando..." : "Gerar Requisição"}
                       </Button>
                     )}
+                    {/* Botão Gerar Autorização - apenas para gerente financeiro */}
                     {isAutorizacaoDespesa && isGerenteFinanceiro && (
                       <Button
                         size="sm"
@@ -766,27 +769,39 @@ export function DialogAnexosProcesso({
                         {gerandoAutorizacao ? "Gerando..." : "Gerar Autorização"}
                       </Button>
                     )}
-                    <input
-                      type="file"
-                      id={`file-${tipo}`}
-                      className="hidden"
-                      accept=".pdf"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleFileUpload(tipo, file);
-                      }}
-                      disabled={isUploading}
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => document.getElementById(`file-${tipo}`)?.click()}
-                      disabled={isUploading}
-                      className={(isCapaProcesso || (isRequisicao && isGerenteContratos) || (isAutorizacaoDespesa && isGerenteFinanceiro)) ? "flex-1" : "w-full"}
-                    >
-                      <FileUp className="h-4 w-4 mr-2" />
-                      {isUploading ? "Enviando..." : "Anexar PDF"}
-                    </Button>
+                    {/* Botão Anexar PDF - apenas gestor/colaborador pode anexar capa, autorização e termo */}
+                    {/* Gerente de contratos só pode anexar requisição */}
+                    {(isGestorOuColaborador || (isGerenteContratos && isRequisicao)) && (
+                      <>
+                        <input
+                          type="file"
+                          id={`file-${tipo}`}
+                          className="hidden"
+                          accept=".pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(tipo, file);
+                          }}
+                          disabled={isUploading}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => document.getElementById(`file-${tipo}`)?.click()}
+                          disabled={isUploading}
+                          className={(isCapaProcesso && isGestorOuColaborador) || ((isRequisicao && (isGerenteContratos || isGestorOuColaborador))) || (isAutorizacaoDespesa && isGerenteFinanceiro) ? "flex-1" : "w-full"}
+                        >
+                          <FileUp className="h-4 w-4 mr-2" />
+                          {isUploading ? "Enviando..." : "Anexar PDF"}
+                        </Button>
+                      </>
+                    )}
+                    {/* Mensagem para gerente de contratos sem acesso */}
+                    {isGerenteContratos && !isGestorOuColaborador && !isRequisicao && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Documento não disponível para gerente de contratos
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
