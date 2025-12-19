@@ -37,6 +37,7 @@ const createUserSchema = z.object({
   responsavelLegal: z.boolean().optional(),
   compliance: z.boolean().optional(),
   cargo: z.string().max(100).optional(),
+  genero: z.enum(['masculino', 'feminino']).optional(),
   gerenteContratos: z.boolean().optional(),
   // legado (não usar mais)
   gerenteFinanceiro: z.boolean().optional(),
@@ -126,6 +127,7 @@ serve(async (req) => {
       responsavelLegal, 
       compliance, 
       cargo,
+      genero,
       gerenteContratos,
       gerenteFinanceiro,
       superintendenteExecutivo,
@@ -192,6 +194,7 @@ serve(async (req) => {
           responsavel_legal: responsavelLegal || false,
           compliance: compliance || false,
           cargo: cargo || null,
+          genero: genero || 'feminino',
           gerente_contratos: gerenteContratos || false,
           superintendente_executivo: superintendenteExecutivoFinal,
         },
@@ -212,6 +215,7 @@ serve(async (req) => {
           responsavel_legal: responsavelLegal || false,
           compliance: compliance || false,
           cargo: cargo || null,
+          genero: genero || 'feminino',
           gerente_contratos: gerenteContratos || false,
           superintendente_executivo: superintendenteExecutivoFinal,
         })
