@@ -21,6 +21,22 @@ const extractTextFromHTML = (html: string): string => {
   return div.textContent || div.innerText || '';
 };
 
+// Função para formatar texto com apenas primeiras letras maiúsculas
+const formatarNomeProprio = (texto: string): string => {
+  return texto
+    .toLowerCase()
+    .split(' ')
+    .map(palavra => {
+      // Palavras que devem ficar em minúsculas (preposições e artigos)
+      const minusculas = ['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'na', 'no', 'nas', 'nos'];
+      if (minusculas.includes(palavra)) {
+        return palavra;
+      }
+      return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+    })
+    .join(' ');
+};
+
 export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -150,8 +166,9 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   doc.text(linhasParagrafo1, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasParagrafo1.length * 6 + 10;
 
-  // Texto da justificativa - usando o ente federativo do contrato de gestão
-  const paragrafo2 = `A presente aquisição se faz necessária, para atender ao Contrato de Gestão Nº ${dados.numeroContrato} firmado com o município de ${dados.enteFederativo}, por intermédio da Secretaria Municipal de Saúde.`;
+  // Texto da justificativa - usando o ente federativo formatado
+  const enteFederativoFormatado = formatarNomeProprio(dados.enteFederativo);
+  const paragrafo2 = `A presente aquisição se faz necessária, para atender ao Contrato de Gestão Nº ${dados.numeroContrato} firmado com o município de ${enteFederativoFormatado}, por intermédio da Secretaria Municipal de Saúde.`;
   
   const linhasParagrafo2 = doc.splitTextToSize(paragrafo2, 170);
   doc.text(linhasParagrafo2, 20, yPos, { align: 'justify', maxWidth: 170 });
@@ -163,18 +180,11 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
     month: 'long',
     year: 'numeric'
   });
-  doc.text(`${dados.enteFederativo}, ${dataAtual}`, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 25;
+  doc.text(`${enteFederativoFormatado}, ${dataAtual}`, pageWidth / 2, yPos, { align: 'center' });
 
-  // Assinatura do Gerente de Contratos
-  doc.text('_'.repeat(50), pageWidth / 2, yPos, { align: 'center' });
-  yPos += 5;
-  doc.setFont('helvetica', 'bold');
-  doc.text(dados.gerenteNome, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.text(dados.gerenteCargo || 'Gerente de Contratos', pageWidth / 2, yPos, { align: 'center' });
-  yPos += 20;
+  // Posicionar certificação acima do rodapé (rodapeHeight já definido = 25)
+  const alturaCertificacao = 45; // altura aproximada da certificação
+  const yPosCertificacao = pageHeight - rodapeHeight - alturaCertificacao - 5;
 
   // Adicionar certificação simplificada
   const linkVerificacao = `${window.location.origin}/verificar-documento?protocolo=${dados.protocolo}`;
@@ -182,7 +192,7 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
     protocolo: dados.protocolo,
     responsavel: dados.gerenteNome,
     linkVerificacao: linkVerificacao
-  }, yPos);
+  }, yPosCertificacao);
 
   return doc.output('blob');
 };

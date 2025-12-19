@@ -496,8 +496,14 @@ export function DialogAnexosProcesso({
 
       if (uploadError) throw uploadError;
 
-      // Salvar no banco
-      const { error: dbError } = await supabase
+      // Obter URL pública do arquivo
+      const { data: publicUrlData } = supabase.storage
+        .from("processo-anexos")
+        .getPublicUrl(fileName);
+      const urlArquivo = publicUrlData?.publicUrl || fileName;
+
+      // Salvar no banco - anexo
+      const { data: anexoData, error: dbError } = await supabase
         .from("anexos_processo_compra")
         .insert({
           processo_compra_id: processoId,
@@ -505,9 +511,24 @@ export function DialogAnexosProcesso({
           nome_arquivo: `Requisicao_${processo.numero_processo_interno}.pdf`,
           url_arquivo: fileName,
           usuario_upload_id: user.id,
-        });
+        })
+        .select('id')
+        .single();
 
       if (dbError) throw dbError;
+
+      // Salvar protocolo para verificação
+      await supabase
+        .from("protocolos_documentos_processo")
+        .insert({
+          protocolo: protocolo,
+          tipo_documento: "requisicao",
+          processo_compra_id: processoId,
+          anexo_id: anexoData.id,
+          nome_arquivo: `Requisicao_${processo.numero_processo_interno}.pdf`,
+          url_arquivo: urlArquivo,
+          responsavel_nome: userProfile?.nome_completo || 'Gerente de Contratos',
+        });
 
       toast({ 
         title: "Requisição gerada com sucesso!",
