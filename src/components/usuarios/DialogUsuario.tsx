@@ -239,21 +239,18 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
 
         if (profileError) throw profileError;
 
-        // Atualizar role se necessário
-        const { data: currentRole } = await supabase
+        // Verificar se o usuário deve ter role (gestor/colaborador) ou é apenas gerente de contratos
+        const deveSerUsuarioInterno = role === 'gestor' || role === 'colaborador';
+        const isApenasGerenteExterno = gerenteContratos && !deveSerUsuarioInterno;
+
+        // Deletar role atual sempre
+        await supabase
           .from("user_roles")
-          .select("role")
-          .eq("user_id", usuarioEdit.id)
-          .maybeSingle();
+          .delete()
+          .eq("user_id", usuarioEdit.id);
 
-        if (currentRole?.role !== role) {
-          // Deletar role atual
-          await supabase
-            .from("user_roles")
-            .delete()
-            .eq("user_id", usuarioEdit.id);
-
-          // Inserir nova role
+        // Só insere role se for gestor ou colaborador interno
+        if (deveSerUsuarioInterno && !isApenasGerenteExterno) {
           await supabase
             .from("user_roles")
             .insert({
@@ -312,6 +309,10 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         const [ano, mes, dia] = dataNascimento.split("-");
         const senhaTemporaria = `${dia}${mes}${ano}`;
 
+        // Determinar se deve enviar role (apenas para gestores/colaboradores internos)
+        const isApenasGerenteExterno = gerenteContratos && role === 'colaborador' && !responsavelLegal && !compliance;
+        const roleParaEnviar = isApenasGerenteExterno ? undefined : role;
+
         // Chamar edge function para criar usuário via Admin API
         const { data: functionData, error: functionError } = await supabase.functions.invoke(
           "criar-usuario-admin",
@@ -322,7 +323,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               nomeCompleto,
               cpf,
               dataNascimento,
-              role,
+              role: roleParaEnviar,
               responsavelLegal,
               compliance,
               cargo,
@@ -339,9 +340,10 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
           throw new Error(functionData.error);
         }
 
+        const tipoUsuario = isApenasGerenteExterno ? 'gerente de contratos' : role;
         toast({
           title: "Usuário criado com sucesso!",
-          description: `${nomeCompleto} foi cadastrado como ${role}. A senha temporária é a data de nascimento (${senhaTemporaria}).`,
+          description: `${nomeCompleto} foi cadastrado como ${tipoUsuario}. A senha temporária é a data de nascimento (${senhaTemporaria}).`,
         });
       }
 
