@@ -835,9 +835,10 @@ export function DialogAnexosProcesso({
                         {gerandoAutorizacao ? "Gerando..." : "Gerar Autorização"}
                       </Button>
                     )}
-                    {/* Botão Anexar PDF - apenas gestor/colaborador pode anexar capa, autorização e termo */}
+                    {/* Botão Anexar PDF - gestor/colaborador pode anexar capa e termo */}
                     {/* Gerente de contratos e responsável legal só podem anexar requisição */}
-                    {(isGestorOuColaborador || ((isGerenteContratos || isResponsavelLegal) && isRequisicao)) && (
+                    {/* Autorização de despesa NÃO pode ser anexada manualmente - apenas gerada */}
+                    {!isAutorizacaoDespesa && (isGestorOuColaborador || ((isGerenteContratos || isResponsavelLegal) && isRequisicao)) && (
                       <>
                         <input
                           type="file"
@@ -855,7 +856,7 @@ export function DialogAnexosProcesso({
                           variant="outline"
                           onClick={() => document.getElementById(`file-${tipo}`)?.click()}
                           disabled={isUploading}
-                          className={(isCapaProcesso && isGestorOuColaborador) || ((isRequisicao && (isGerenteContratos || isGestorOuColaborador))) || (isAutorizacaoDespesa && isSuperintendenteExecutivo) ? "flex-1" : "w-full"}
+                          className={(isCapaProcesso && isGestorOuColaborador) || ((isRequisicao && (isGerenteContratos || isGestorOuColaborador))) ? "flex-1" : "w-full"}
                         >
                           <FileUp className="h-4 w-4 mr-2" />
                           {isUploading ? "Enviando..." : "Anexar PDF"}
@@ -863,9 +864,15 @@ export function DialogAnexosProcesso({
                       </>
                     )}
                     {/* Mensagem para gerente de contratos ou responsável legal sem acesso */}
-                    {(isGerenteContratos || isResponsavelLegal) && !isGestorOuColaborador && !isRequisicao && (
+                    {(isGerenteContratos || isResponsavelLegal) && !isGestorOuColaborador && !isRequisicao && !isAutorizacaoDespesa && (
                       <p className="text-sm text-muted-foreground italic">
                         Documento não disponível para seu perfil
+                      </p>
+                    )}
+                    {/* Mensagem para quem não é superintendente executivo na autorização */}
+                    {isAutorizacaoDespesa && !isSuperintendenteExecutivo && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Apenas Superintendente Executivo pode gerar a Autorização de Despesa
                       </p>
                     )}
                   </div>

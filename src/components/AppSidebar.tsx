@@ -50,7 +50,7 @@ interface AppSidebarProps {
   isCompliance?: boolean;
   isResponsavelLegal?: boolean;
   isGerenteContratos?: boolean;
-  isGerenteFinanceiro?: boolean;
+  isSuperintendenteExecutivo?: boolean;
   isColaborador?: boolean;
 }
 
@@ -60,7 +60,7 @@ export function AppSidebar({
   isCompliance = false, 
   isResponsavelLegal = false, 
   isGerenteContratos = false,
-  isGerenteFinanceiro = false,
+  isSuperintendenteExecutivo = false,
   isColaborador = false
 }: AppSidebarProps) {
   const { open } = useSidebar();
@@ -158,7 +158,7 @@ export function AppSidebar({
   ];
 
   // Verifica se o usuário é APENAS gerente de contratos (sem outros papéis)
-  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isGerenteFinanceiro;
+  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo;
   const apenasGerenteContratos = isGerenteContratos && !temOutrosPapeis;
   
   // Seleciona o menu correto baseado no tipo de usuário
