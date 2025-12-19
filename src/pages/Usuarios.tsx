@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -139,42 +139,6 @@ const Usuarios = () => {
     }
   };
 
-  const handleToggleRole = async (userId: string, currentRole: string) => {
-    try {
-      const newRole = currentRole === "gestor" ? "colaborador" : "gestor";
-
-      // Deletar role atual
-      const { error: deleteError } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
-
-      if (deleteError) throw deleteError;
-
-      // Criar nova role
-      const { error: insertError } = await supabase
-        .from("user_roles")
-        .insert([{ user_id: userId, role: newRole }]);
-
-      if (insertError) throw insertError;
-
-      toast({
-        title: "Perfil atualizado",
-        description: `Usuário agora é ${newRole}.`,
-      });
-
-      loadUsuarios();
-    } catch (error: any) {
-      toast({
-        title: "Erro ao atualizar perfil",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-
-
   const handleResetSenha = async (userId: string, dataNascimento: string | undefined) => {
     if (!dataNascimento) {
       toast({
@@ -293,7 +257,6 @@ const Usuarios = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>CPF</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-center">Gestor</TableHead>
                     <TableHead className="text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -310,12 +273,6 @@ const Usuarios = () => {
                         ) : (
                           <Badge variant="secondary">Inativo</Badge>
                         )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={usuario.role === "gestor"}
-                          onCheckedChange={() => handleToggleRole(usuario.id, usuario.role || "colaborador")}
-                        />
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-2">
