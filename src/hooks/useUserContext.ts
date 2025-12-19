@@ -15,22 +15,22 @@ export function useUserContext() {
   return useOutletContext<UserContextType>();
 }
 
-// Helper para verificar se o usuário pode editar/excluir (não é apenas Responsável Legal)
+// Helper para verificar se o usuário pode editar/excluir (não é apenas Responsável Legal ou Gerente de Contratos)
 export function useCanEdit() {
   const context = useOutletContext<UserContextType>();
   
   // Se não tem contexto, assume que pode editar (fallback)
   if (!context) return true;
   
-  const { isResponsavelLegal, isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo } = context;
+  const { isResponsavelLegal, isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo, isGerenteContratos } = context;
   
-  // Se tem algum outro papel além de Responsável Legal, pode editar
+  // Gestor, Compliance, Colaborador e Superintendente Executivo podem editar tudo
   if (isGestor || isCompliance || isColaborador || isSuperintendenteExecutivo) {
     return true;
   }
   
-  // Se é APENAS Responsável Legal, não pode editar
-  if (isResponsavelLegal) {
+  // Responsável Legal e Gerente de Contratos não podem editar (apenas visualizar)
+  if (isResponsavelLegal || isGerenteContratos) {
     return false;
   }
   
