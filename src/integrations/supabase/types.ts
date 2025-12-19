@@ -1390,6 +1390,42 @@ export type Database = {
           },
         ]
       }
+      gerentes_contratos_gestao: {
+        Row: {
+          contrato_gestao_id: string
+          created_at: string | null
+          id: string
+          usuario_id: string
+        }
+        Insert: {
+          contrato_gestao_id: string
+          created_at?: string | null
+          id?: string
+          usuario_id: string
+        }
+        Update: {
+          contrato_gestao_id?: string
+          created_at?: string | null
+          id?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gerentes_contratos_gestao_contrato_gestao_id_fkey"
+            columns: ["contrato_gestao_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_gestao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gerentes_contratos_gestao_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       homologacoes_selecao: {
         Row: {
           created_at: string
@@ -2112,6 +2148,8 @@ export type Database = {
           data_nascimento: string | null
           data_ultimo_login: string | null
           email: string
+          gerente_contratos: boolean | null
+          gerente_financeiro: boolean | null
           gestor: boolean | null
           id: string
           nome_completo: string
@@ -2131,6 +2169,8 @@ export type Database = {
           data_nascimento?: string | null
           data_ultimo_login?: string | null
           email: string
+          gerente_contratos?: boolean | null
+          gerente_financeiro?: boolean | null
           gestor?: boolean | null
           id: string
           nome_completo: string
@@ -2150,6 +2190,8 @@ export type Database = {
           data_nascimento?: string | null
           data_ultimo_login?: string | null
           email?: string
+          gerente_contratos?: boolean | null
+          gerente_financeiro?: boolean | null
           gestor?: boolean | null
           id?: string
           nome_completo?: string
