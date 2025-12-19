@@ -152,11 +152,10 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   doc.text('À Divisão de Compras', 20, yPos);
   yPos += 10;
 
-  // Assunto - posição ajustada para ficar próximo ao texto
   doc.setFont('helvetica', 'bold');
   doc.text('Assunto:', 20, yPos);
   doc.setFont('helvetica', 'normal');
-  doc.text('Abertura de Processo', 38, yPos);
+  doc.text('Abertura de Processo', 40, yPos);
   yPos += 10;
 
   // Texto do objeto - removendo ponto final se existir para complementar com vírgula
