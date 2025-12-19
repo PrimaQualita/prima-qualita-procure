@@ -25,7 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Shield, User, RotateCcw, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, RotateCcw, Trash2, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogUsuario } from "@/components/usuarios/DialogUsuario";
 import { mascaraCPF } from "@/lib/validators";
@@ -282,7 +282,6 @@ const Usuarios = () => {
                     <TableHead>Cargo</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>CPF</TableHead>
-                    <TableHead>Perfil</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-center">Gestor</TableHead>
                     <TableHead className="text-center">Ações</TableHead>
@@ -295,21 +294,6 @@ const Usuarios = () => {
                       <TableCell className="text-muted-foreground">{usuario.cargo || '-'}</TableCell>
                       <TableCell>{usuario.email}</TableCell>
                       <TableCell>{mascaraCPF(usuario.cpf)}</TableCell>
-                      <TableCell>
-                        {usuario.role === "gestor" ? (
-                          <Badge variant="default" className="gap-1">
-                            <Shield className="h-3 w-3" />
-                            Gestor
-                          </Badge>
-                        ) : usuario.role === "colaborador" ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <User className="h-3 w-3" />
-                            Colaborador
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">Sem perfil</Badge>
-                        )}
-                      </TableCell>
                       <TableCell>
                         {usuario.ativo ? (
                           <Badge variant="default">Ativo</Badge>

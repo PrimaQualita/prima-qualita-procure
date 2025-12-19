@@ -483,7 +483,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 checked={responsavelLegal}
                 onChange={(e) => setResponsavelLegal(e.target.checked)}
                 disabled={!isUserResponsavelLegal && !isUserGestor}
-                className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
               />
               <Label 
                 htmlFor="responsavel-legal" 
@@ -505,7 +505,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 checked={compliance}
                 onChange={(e) => setCompliance(e.target.checked)}
                 disabled={!isUserResponsavelLegal && !isUserGestor}
-                className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
               />
               <Label 
                 htmlFor="compliance" 
@@ -534,7 +534,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                     }
                   }}
                   disabled={!isUserResponsavelLegal && !isUserGestor}
-                  className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
                 />
                 <Label 
                   htmlFor="gerente-contratos" 
@@ -585,7 +585,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 checked={superintendenteExecutivo}
                 onChange={(e) => setSuperintendenteExecutivo(e.target.checked)}
                 disabled={!isUserResponsavelLegal && !isUserGestor}
-                className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
               />
               <Label
                 htmlFor="superintendente-executivo"
