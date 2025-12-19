@@ -69,6 +69,9 @@ const VerificarDocumento = () => {
         recurso_fornecedor: { label: 'Recurso de Fornecedor', icone: ScrollText },
         recurso_inabilitacao: { label: 'Recurso de Inabilitação', icone: ScrollText },
         resposta_recurso: { label: 'Resposta de Recurso', icone: ScrollText },
+        requisicao_compras: { label: 'Requisição de Compras', icone: FileText },
+        capa_processo: { label: 'Capa do Processo', icone: FileText },
+        autorizacao_despesa: { label: 'Autorização de Despesa', icone: FileCheck },
       };
 
       const tipoInfo = tipoMap[tipo] || { label: 'Documento', icone: FileText };
@@ -118,6 +121,14 @@ const VerificarDocumento = () => {
 
       if (doc.resultado) {
         detalhes['Resultado'] = doc.resultado;
+      }
+
+      if (doc.responsavel_nome) {
+        detalhes['Responsável'] = doc.responsavel_nome;
+      }
+
+      if (doc.processos_compras?.numero_processo_interno) {
+        detalhes['Processo'] = doc.processos_compras.numero_processo_interno;
       }
 
       if (doc.fornecedores_incluidos && Array.isArray(doc.fornecedores_incluidos) && doc.fornecedores_incluidos.length > 0) {

@@ -2312,6 +2312,60 @@ export type Database = {
           },
         ]
       }
+      protocolos_documentos_processo: {
+        Row: {
+          anexo_id: string | null
+          created_at: string
+          data_geracao: string
+          id: string
+          nome_arquivo: string | null
+          processo_compra_id: string | null
+          protocolo: string
+          responsavel_nome: string | null
+          tipo_documento: string
+          url_arquivo: string | null
+        }
+        Insert: {
+          anexo_id?: string | null
+          created_at?: string
+          data_geracao?: string
+          id?: string
+          nome_arquivo?: string | null
+          processo_compra_id?: string | null
+          protocolo: string
+          responsavel_nome?: string | null
+          tipo_documento: string
+          url_arquivo?: string | null
+        }
+        Update: {
+          anexo_id?: string | null
+          created_at?: string
+          data_geracao?: string
+          id?: string
+          nome_arquivo?: string | null
+          processo_compra_id?: string | null
+          protocolo?: string
+          responsavel_nome?: string | null
+          tipo_documento?: string
+          url_arquivo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocolos_documentos_processo_anexo_id_fkey"
+            columns: ["anexo_id"]
+            isOneToOne: false
+            referencedRelation: "anexos_processo_compra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocolos_documentos_processo_processo_compra_id_fkey"
+            columns: ["processo_compra_id"]
+            isOneToOne: false
+            referencedRelation: "processos_compras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recursos_fornecedor: {
         Row: {
           created_at: string | null

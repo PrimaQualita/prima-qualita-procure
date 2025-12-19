@@ -329,6 +329,32 @@ serve(async (req) => {
       );
     }
 
+    // 15. Protocolos de Documentos de Processo (requisição, capa, etc.)
+    const { data: protocoloDocumento } = await supabase
+      .from("protocolos_documentos_processo")
+      .select(`
+        id, protocolo, tipo_documento, nome_arquivo, url_arquivo, 
+        responsavel_nome, data_geracao,
+        processos_compras (numero_processo_interno)
+      `)
+      .eq("protocolo", protocolo)
+      .maybeSingle();
+
+    if (protocoloDocumento) {
+      // Mapear tipo para label
+      const tipoMap: Record<string, string> = {
+        requisicao: "requisicao_compras",
+        capa_processo: "capa_processo",
+        autorizacao_despesa: "autorizacao_despesa"
+      };
+      const tipoRetorno = tipoMap[protocoloDocumento.tipo_documento] || protocoloDocumento.tipo_documento;
+      
+      return new Response(
+        JSON.stringify({ documento: protocoloDocumento, tipo: tipoRetorno }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Não encontrou
     return new Response(
       JSON.stringify({ documento: null, tipo: null, error: "Documento não encontrado" }),
