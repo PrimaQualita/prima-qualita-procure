@@ -65,44 +65,53 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.session) {
-        // Verificar se é fornecedor (independente do status de aprovação)
-        const { data: fornecedorData, error: fornecedorError } = await supabase
+        // Verificar se é fornecedor - com timeout de segurança
+        const fornecedorPromise = supabase
           .from("fornecedores")
           .select("id, status_aprovacao")
           .eq("user_id", data.session.user.id)
           .maybeSingle();
 
-        if (fornecedorError) {
-          console.error("Erro ao verificar fornecedor:", fornecedorError);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Timeout")), 5000)
+        );
+
+        let fornecedorData = null;
+        try {
+          const result = await Promise.race([fornecedorPromise, timeoutPromise]) as any;
+          fornecedorData = result?.data;
+        } catch (err) {
+          console.warn("Verificação de fornecedor falhou ou timeout:", err);
         }
 
         if (fornecedorData) {
-          // É fornecedor - permitir acesso ao portal mesmo se pendente
-          const statusMsg = fornecedorData.status_aprovacao === 'pendente' 
-            ? 'Seu cadastro está em análise, mas você já pode acessar o portal.'
-            : 'Bem-vindo ao Portal do Fornecedor.';
-          
+          // É fornecedor - permitir acesso ao portal
           toast({
             title: "Login realizado com sucesso!",
-            description: statusMsg,
+            description: fornecedorData.status_aprovacao === 'pendente' 
+              ? 'Seu cadastro está em análise, mas você já pode acessar o portal.'
+              : 'Bem-vindo ao Portal do Fornecedor.',
           });
           setLoading(false);
           navigate("/portal-fornecedor");
           return;
         }
 
-        // Não é fornecedor - verificar se é primeiro acesso de usuário interno
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("primeiro_acesso, senha_temporaria")
-          .eq("id", data.session.user.id)
-          .maybeSingle();
+        // Não é fornecedor - verificar se é primeiro acesso
+        let primeiroAcesso = false;
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("primeiro_acesso, senha_temporaria")
+            .eq("id", data.session.user.id)
+            .maybeSingle();
 
-        if (profileError) {
-          console.error("Erro ao buscar perfil:", profileError);
+          primeiroAcesso = profile?.primeiro_acesso || profile?.senha_temporaria || false;
+        } catch (err) {
+          console.warn("Erro ao verificar primeiro acesso:", err);
         }
 
-        if (profile?.primeiro_acesso || profile?.senha_temporaria) {
+        if (primeiroAcesso) {
           toast({
             title: "Primeiro acesso detectado",
             description: "Por favor, crie uma nova senha.",
@@ -112,11 +121,13 @@ const Auth = () => {
           return;
         }
 
-        // Update last login
-        await supabase
-          .from("profiles")
-          .update({ data_ultimo_login: new Date().toISOString() })
-          .eq("id", data.session.user.id);
+        // Update last login (não bloqueia navegação)
+        Promise.resolve(
+          supabase
+            .from("profiles")
+            .update({ data_ultimo_login: new Date().toISOString() })
+            .eq("id", data.session.user.id)
+        ).catch((err) => console.warn("Erro ao atualizar last login:", err));
 
         toast({
           title: "Login realizado com sucesso!",
@@ -132,7 +143,6 @@ const Auth = () => {
         description: error.message || "Email/CPF ou senha incorretos.",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
