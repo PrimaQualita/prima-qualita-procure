@@ -40,6 +40,7 @@ interface Usuario {
   ativo: boolean;
   role?: string;
   cargo?: string;
+  genero?: string;
   responsavel_legal?: boolean;
   compliance?: boolean;
   gerente_contratos?: boolean;
