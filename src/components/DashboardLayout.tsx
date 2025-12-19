@@ -33,7 +33,7 @@ let cachedIsGestor: boolean = false;
 let cachedIsCompliance: boolean = false;
 let cachedIsResponsavelLegal: boolean = false;
 let cachedIsGerenteContratos: boolean = false;
-let cachedIsGerenteFinanceiro: boolean = false;
+let cachedIsSuperintendenteExecutivo: boolean = false;
 let cachedContratosVinculados: string[] = [];
 let cachedIsColaborador: boolean = false;
 let profileLoaded: boolean = false;
@@ -50,7 +50,7 @@ export function DashboardLayout() {
   const [isCompliance, setIsCompliance] = useState(cachedIsCompliance);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(cachedIsResponsavelLegal);
   const [isGerenteContratos, setIsGerenteContratos] = useState(cachedIsGerenteContratos);
-  const [isGerenteFinanceiro, setIsGerenteFinanceiro] = useState(cachedIsGerenteFinanceiro);
+  const [isSuperintendenteExecutivo, setIsSuperintendenteExecutivo] = useState(cachedIsSuperintendenteExecutivo);
   const [contratosVinculados, setContratosVinculados] = useState<string[]>(cachedContratosVinculados);
   const [isColaborador, setIsColaborador] = useState(cachedIsColaborador);
   const [loading, setLoading] = useState(!profileLoaded);
@@ -71,7 +71,7 @@ export function DashboardLayout() {
         cachedIsCompliance = false;
         cachedIsResponsavelLegal = false;
         cachedIsGerenteContratos = false;
-        cachedIsGerenteFinanceiro = false;
+        cachedIsSuperintendenteExecutivo = false;
         cachedContratosVinculados = [];
         cachedIsColaborador = false;
         profileLoaded = false;
@@ -80,7 +80,7 @@ export function DashboardLayout() {
         setIsCompliance(false);
         setIsResponsavelLegal(false);
         setIsGerenteContratos(false);
-        setIsGerenteFinanceiro(false);
+        setIsSuperintendenteExecutivo(false);
         setContratosVinculados([]);
         setIsColaborador(false);
         
@@ -159,12 +159,12 @@ export function DashboardLayout() {
       cachedProfile = profileData;
       cachedIsCompliance = profileData?.compliance || false;
       cachedIsResponsavelLegal = profileData?.responsavel_legal || false;
-      cachedIsGerenteFinanceiro = profileData?.gerente_financeiro || false;
+      cachedIsSuperintendenteExecutivo = profileData?.superintendente_executivo || profileData?.gerente_financeiro || false;
       
       setProfile(profileData);
       setIsCompliance(cachedIsCompliance);
       setIsResponsavelLegal(cachedIsResponsavelLegal);
-      setIsGerenteFinanceiro(cachedIsGerenteFinanceiro);
+      setIsSuperintendenteExecutivo(cachedIsSuperintendenteExecutivo);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
@@ -262,7 +262,7 @@ export function DashboardLayout() {
             isCompliance={isCompliance || cachedIsCompliance}
             isResponsavelLegal={isResponsavelLegal || cachedIsResponsavelLegal}
             isGerenteContratos={isGerenteContratos || cachedIsGerenteContratos}
-            isGerenteFinanceiro={isGerenteFinanceiro || cachedIsGerenteFinanceiro}
+            isSuperintendenteExecutivo={isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo}
             isColaborador={isColaborador || cachedIsColaborador}
           />
           <div className="flex-1 flex flex-col">
@@ -297,7 +297,7 @@ export function DashboardLayout() {
           isCompliance={isCompliance}
           isResponsavelLegal={isResponsavelLegal}
           isGerenteContratos={isGerenteContratos}
-          isGerenteFinanceiro={isGerenteFinanceiro}
+          isSuperintendenteExecutivo={isSuperintendenteExecutivo}
           isColaborador={isColaborador}
         />
         <div className="flex-1 flex flex-col">
