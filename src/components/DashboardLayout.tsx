@@ -22,9 +22,13 @@ const getPageTitle = (pathname: string) => {
     "/auditoria": "Log de Auditoria",
     "/compliance": "Compliance",
     "/perfil": "Meu Perfil",
+    "/gestao-storage": "Gestão de Storage",
   };
   return routes[pathname] || "Sistema de Compras";
 };
+
+// Rotas permitidas para Gerente de Contratos (quando é APENAS gerente de contratos)
+const rotasGerenteContratos = ["/dashboard", "/processos-compras", "/contatos", "/perfil"];
 
 // Cache GLOBAL do perfil para evitar flash de loading entre páginas
 let cachedUser: User | null = null;
@@ -251,8 +255,41 @@ export function DashboardLayout() {
     }
   };
 
+  // Verifica se é APENAS gerente de contratos (sem outros papéis)
+  const temOutrosPapeis = (isGestor || cachedIsGestor) || 
+                          (isColaborador || cachedIsColaborador) || 
+                          (isCompliance || cachedIsCompliance) || 
+                          (isResponsavelLegal || cachedIsResponsavelLegal) || 
+                          (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo);
+  
+  const apenasGerenteContratos = (isGerenteContratos || cachedIsGerenteContratos) && !temOutrosPapeis;
+
+  // Proteção de rota para Gerente de Contratos
+  useEffect(() => {
+    if (profileLoaded && apenasGerenteContratos) {
+      const rotaAtual = location.pathname;
+      if (!rotasGerenteContratos.includes(rotaAtual)) {
+        toast({
+          title: "Acesso não autorizado",
+          description: "Você não tem permissão para acessar esta página.",
+          variant: "destructive",
+        });
+        navigate("/dashboard");
+      }
+    }
+  }, [location.pathname, profileLoaded, apenasGerenteContratos]);
+
   // Se tem cache, renderiza imediatamente sem loading
   if (profileLoaded && cachedProfile) {
+    // Bloqueia renderização se gerente de contratos tentando acessar rota não permitida
+    if (apenasGerenteContratos && !rotasGerenteContratos.includes(location.pathname)) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <p className="text-muted-foreground">Redirecionando...</p>
+        </div>
+      );
+    }
+
     return (
       <SidebarProvider>
         <div className="min-h-screen flex w-full">
@@ -293,6 +330,18 @@ export function DashboardLayout() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+
+  // Proteção também para estado não cacheado
+  const apenasGerenteContratosAtual = isGerenteContratos && 
+    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo;
+
+  if (apenasGerenteContratosAtual && !rotasGerenteContratos.includes(location.pathname)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Redirecionando...</p>
       </div>
     );
   }
