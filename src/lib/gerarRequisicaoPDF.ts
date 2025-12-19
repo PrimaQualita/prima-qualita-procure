@@ -32,6 +32,10 @@ const formatarNomeProprio = (texto: string): string => {
       if (minusculas.includes(palavra)) {
         return palavra;
       }
+      // Siglas/UF (ex: RJ, SP) devem ficar em maiúsculas
+      if (palavra.length === 2) {
+        return palavra.toUpperCase();
+      }
       return palavra.charAt(0).toUpperCase() + palavra.slice(1);
     })
     .join(' ');
@@ -139,7 +143,7 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text('REQUISIÇÃO DE COMPRAS', pageWidth / 2, yPos, { align: 'center' });
+  doc.text('REQUISIÇÃO', pageWidth / 2, yPos, { align: 'center' });
   yPos += 20;
 
   // Destinatário
