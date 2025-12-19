@@ -606,7 +606,7 @@ export function DialogAnexosProcesso({
         objetoProcesso: processo.objeto_resumido,
         centroCusto: processo.centro_custo,
         superintendenteNome: userProfile?.nome_completo || 'Superintendente Executivo',
-        superintendenteGenero: userProfile?.genero || 'feminino',
+        superintendenteGenero: String(userProfile?.genero ?? 'feminino').toLowerCase(),
         protocolo: protocolo,
       });
 

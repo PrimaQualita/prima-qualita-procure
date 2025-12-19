@@ -20,6 +20,13 @@ const extractTextFromHTML = (html: string): string => {
   return div.textContent || div.innerText || '';
 };
 
+const normalizarGenero = (genero?: string): 'masculino' | 'feminino' => {
+  const v = (genero ?? '').trim().toLowerCase();
+  if (v.startsWith('m')) return 'masculino';
+  if (v.startsWith('f')) return 'feminino';
+  return 'feminino';
+};
+
 export const gerarAutorizacaoDespesaPDF = async (dados: DadosAutorizacaoDespesa): Promise<Blob> => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -143,14 +150,15 @@ export const gerarAutorizacaoDespesaPDF = async (dados: DadosAutorizacaoDespesa)
 
   // Rubrica (Centro de Custo)
   const rubrica = dados.centroCusto?.toUpperCase() || 'NÃO INFORMADO';
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   const textoRubrica = `As despesas decorrentes da contratação em tela deverão ocorrer de acordo com o Programa de Trabalho, na rubrica de ${rubrica}.`;
   const linhasRubrica = doc.splitTextToSize(textoRubrica, 170);
   doc.text(linhasRubrica, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasRubrica.length * 5 + 6;
 
   // Texto de autorização - ajustar gênero baseado no usuário
-  const generoTermo = dados.superintendenteGenero === 'masculino' ? 'Executivo' : 'Executiva';
+  const generoNorm = normalizarGenero(dados.superintendenteGenero);
+  const generoTermo = generoNorm === 'masculino' ? 'Executivo' : 'Executiva';
   const textoAutorizacao = `Na qualidade de Superintendente ${generoTermo} da PRIMA QUALITÁ SAÚDE, autorizo a presente despesa na rubrica indicada, conforme requisição e termo de referência anexos.`;
   const linhasAutorizacao = doc.splitTextToSize(textoAutorizacao, 170);
   doc.text(linhasAutorizacao, 20, yPos, { align: 'justify', maxWidth: 170 });
