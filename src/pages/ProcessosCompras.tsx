@@ -68,6 +68,8 @@ const ProcessosCompras = () => {
   const [loading, setLoading] = useState(true);
   const [isGestor, setIsGestor] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
+  const [isGerenteContratos, setIsGerenteContratos] = useState(false);
+  const [contratosVinculados, setContratosVinculados] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   
   // Estados para contratos
@@ -88,15 +90,18 @@ const ProcessosCompras = () => {
   const [dialogAnexosOpen, setDialogAnexosOpen] = useState(false);
   const [processoParaAnexos, setProcessoParaAnexos] = useState<Processo | null>(null);
 
+  // Verifica se é usuário interno (gestor ou colaborador) com permissões completas
+  const isUsuarioInterno = !isGerenteContratos;
+
   useEffect(() => {
     checkAuth();
   }, []);
 
   useEffect(() => {
-    if (userId) {
+    if (userId && !loading) {
       loadContratos();
     }
-  }, [userId]);
+  }, [userId, loading, contratosVinculados]);
 
   useEffect(() => {
     if (contratoSelecionado) {
@@ -123,23 +128,54 @@ const ProcessosCompras = () => {
 
     setIsGestor(!!roleData);
 
+    // Verificar se é gestor ou colaborador (usuário interno)
+    const { data: colaboradorData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .in("role", ["gestor", "colaborador"])
+      .maybeSingle();
+
+    const isUsuarioInternoCheck = !!colaboradorData;
+
     // Verificar se é responsável legal
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("responsavel_legal")
+      .select("responsavel_legal, gerente_contratos")
       .eq("id", session.user.id)
       .maybeSingle();
 
     setIsResponsavelLegal(!!profileData?.responsavel_legal);
+
+    // Se é gerente de contratos e NÃO é usuário interno (gestor/colaborador)
+    if (profileData?.gerente_contratos && !isUsuarioInternoCheck) {
+      const { data: vinculos } = await supabase
+        .from("gerentes_contratos_gestao")
+        .select("contrato_gestao_id")
+        .eq("usuario_id", session.user.id);
+
+      if (vinculos && vinculos.length > 0) {
+        setIsGerenteContratos(true);
+        setContratosVinculados(vinculos.map(v => v.contrato_gestao_id));
+      }
+    }
+
     setLoading(false);
   };
 
   const loadContratos = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("contratos_gestao")
         .select("*")
         .order("created_at", { ascending: false });
+
+      // Gerente de Contratos só vê seus contratos vinculados
+      if (isGerenteContratos && contratosVinculados.length > 0) {
+        query = query.in("id", contratosVinculados);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setContratos(data || []);
@@ -360,16 +396,18 @@ const ProcessosCompras = () => {
                 <div>
                   <CardTitle>Contratos de Gestão</CardTitle>
                   <CardDescription>
-                    Gerencie todos os contratos de gestão
+                    {isGerenteContratos ? "Contratos vinculados à sua gestão" : "Gerencie todos os contratos de gestão"}
                   </CardDescription>
                 </div>
-                <Button onClick={() => {
-                  setContratoParaEditar(null);
-                  setDialogContratoOpen(true);
-                }}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Contrato
-                </Button>
+                {isUsuarioInterno && (
+                  <Button onClick={() => {
+                    setContratoParaEditar(null);
+                    setDialogContratoOpen(true);
+                  }}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo Contrato
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -418,18 +456,20 @@ const ProcessosCompras = () => {
                               <ChevronRight className="h-4 w-4 mr-2" />
                               Ver Processos
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setContratoParaEditar(contrato);
-                                setDialogContratoOpen(true);
-                              }}
-                              title="Editar"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {isResponsavelLegal && (
+                            {isUsuarioInterno && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setContratoParaEditar(contrato);
+                                  setDialogContratoOpen(true);
+                                }}
+                                title="Editar"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {isUsuarioInterno && isResponsavelLegal && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -459,13 +499,15 @@ const ProcessosCompras = () => {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={() => {
-                    setProcessoParaEditar(null);
-                    setDialogProcessoOpen(true);
-                  }}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo Processo
-                  </Button>
+                  {isUsuarioInterno && (
+                    <Button onClick={() => {
+                      setProcessoParaEditar(null);
+                      setDialogProcessoOpen(true);
+                    }}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Novo Processo
+                    </Button>
+                  )}
                   <Button variant="outline" onClick={() => setContratoSelecionado(null)}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Voltar
@@ -499,7 +541,7 @@ const ProcessosCompras = () => {
                       <TableHead>Valor Total</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Anexos</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                      {isUsuarioInterno && <TableHead className="text-right">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -533,31 +575,33 @@ const ProcessosCompras = () => {
                             <Paperclip className="h-4 w-4" />
                           </Button>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setProcessoParaEditar(processo);
-                                setDialogProcessoOpen(true);
-                              }}
-                              title="Editar"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {isGestor && (
+                        {isUsuarioInterno && (
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => setProcessoParaExcluir(processo.id)}
-                                title="Excluir"
+                                onClick={() => {
+                                  setProcessoParaEditar(processo);
+                                  setDialogProcessoOpen(true);
+                                }}
+                                title="Editar"
                               >
-                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <Edit className="h-4 w-4" />
                               </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                              {isGestor && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setProcessoParaExcluir(processo.id)}
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
