@@ -36,6 +36,7 @@ import Credenciamentos from "./pages/Credenciamentos";
 import ContratacoesEspecificas from "./pages/ContratacoesEspecificas";
 import Contratos from "./pages/Contratos";
 import Compliance from "./pages/Compliance";
+import Contabilidade from "./pages/Contabilidade";
 import DetalheSelecao from "./pages/DetalheSelecao";
 import ParticiparSelecao from "./pages/ParticiparSelecao";
 import PropostasSelecao from "./pages/PropostasSelecao";
@@ -116,6 +117,7 @@ const App = () => {
               <Route path="/contratacoes-especificas" element={<ContratacoesEspecificas />} />
               <Route path="/contratos" element={<Contratos />} />
               <Route path="/compliance" element={<Compliance />} />
+              <Route path="/contabilidade" element={<Contabilidade />} />
               <Route path="/detalhe-selecao" element={<DetalheSelecao />} />
             </Route>
             
