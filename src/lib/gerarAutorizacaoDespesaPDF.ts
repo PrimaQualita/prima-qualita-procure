@@ -9,6 +9,7 @@ interface DadosAutorizacaoDespesa {
   objetoProcesso: string;
   centroCusto?: string;
   superintendenteNome: string;
+  superintendenteGenero?: string;
   protocolo: string;
 }
 
@@ -148,8 +149,9 @@ export const gerarAutorizacaoDespesaPDF = async (dados: DadosAutorizacaoDespesa)
   doc.text(linhasRubrica, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasRubrica.length * 5 + 6;
 
-  // Texto de autorização
-  const textoAutorizacao = `Na qualidade de Superintendente Executiva da PRIMA QUALITÁ SAÚDE, autorizo a presente despesa na rubrica indicada, conforme requisição e termo de referência anexos.`;
+  // Texto de autorização - ajustar gênero baseado no usuário
+  const generoTermo = dados.superintendenteGenero === 'masculino' ? 'Executivo' : 'Executiva';
+  const textoAutorizacao = `Na qualidade de Superintendente ${generoTermo} da PRIMA QUALITÁ SAÚDE, autorizo a presente despesa na rubrica indicada, conforme requisição e termo de referência anexos.`;
   const linhasAutorizacao = doc.splitTextToSize(textoAutorizacao, 170);
   doc.text(linhasAutorizacao, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasAutorizacao.length * 5 + 6;
