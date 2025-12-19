@@ -50,7 +50,7 @@ const Auditoria = () => {
     // Verificar se é gestor ou compliance
     const { data: profile } = await supabase
       .from("profiles")
-      .select("compliance")
+      .select("compliance, superintendente_executivo")
       .eq("id", session.user.id)
       .single();
 
@@ -63,11 +63,12 @@ const Auditoria = () => {
 
     const isGestor = !!roleData;
     const isCompliance = profile?.compliance === true;
+    const isSuperintendenteExecutivo = profile?.superintendente_executivo === true;
 
-    if (!isGestor && !isCompliance) {
+    if (!isGestor && !isCompliance && !isSuperintendenteExecutivo) {
       toast({
         title: "Acesso negado",
-        description: "Apenas gestores e compliance podem acessar esta página.",
+        description: "Apenas gestores, compliance e superintendentes executivos podem acessar esta página.",
         variant: "destructive",
       });
       navigate("/dashboard");

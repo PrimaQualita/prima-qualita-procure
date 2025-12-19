@@ -24,6 +24,7 @@ const Dashboard = () => {
   const [processos, setProcessos] = useState<any[]>([]);
   const [isCompliance, setIsCompliance] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
+  const [isSuperintendenteExecutivo, setIsSuperintendenteExecutivo] = useState(false);
   const [processosPendentesCompliance, setProcessosPendentesCompliance] = useState(0);
   const [avaliacoesCadastroPendentes, setAvaliacoesCadastroPendentes] = useState(0);
   const [atasPendentesAssinatura, setAtasPendentesAssinatura] = useState<any[]>([]);
@@ -59,15 +60,16 @@ const Dashboard = () => {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("compliance, responsavel_legal")
+        .select("compliance, responsavel_legal, superintendente_executivo")
         .eq("id", user.id)
         .single();
 
       if (profileData) {
         setIsCompliance(profileData.compliance || false);
         setIsResponsavelLegal(profileData.responsavel_legal || false);
+        setIsSuperintendenteExecutivo(profileData.superintendente_executivo || false);
         
-        if (profileData.compliance || profileData.responsavel_legal) {
+        if (profileData.compliance || profileData.responsavel_legal || profileData.superintendente_executivo) {
           loadProcessosPendentesCompliance();
           loadAvaliacoesCadastroPendentes();
         }
@@ -519,7 +521,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        {isCompliance && processosPendentesCompliance > 0 && (
+        {(isCompliance || isSuperintendenteExecutivo) && processosPendentesCompliance > 0 && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Processos Pendentes de Compliance</AlertTitle>
@@ -529,7 +531,7 @@ const Dashboard = () => {
           </Alert>
         )}
 
-        {isCompliance && avaliacoesCadastroPendentes > 0 && (
+        {(isCompliance || isSuperintendenteExecutivo) && avaliacoesCadastroPendentes > 0 && (
           <Alert className="mb-6 border-orange-500 bg-orange-50 text-orange-900 dark:bg-orange-950/50 dark:text-orange-100 dark:border-orange-700">
             <AlertCircle className="h-4 w-4 text-orange-500" />
             <AlertTitle className="text-orange-900 dark:text-orange-100">Cadastros de Fornecedores Pendentes</AlertTitle>
