@@ -37,6 +37,9 @@ const createUserSchema = z.object({
   responsavelLegal: z.boolean().optional(),
   compliance: z.boolean().optional(),
   cargo: z.string().max(100).optional(),
+  gerenteContratos: z.boolean().optional(),
+  gerenteFinanceiro: z.boolean().optional(),
+  contratosVinculados: z.array(z.string().uuid()).optional(),
 });
 
 serve(async (req) => {
@@ -111,7 +114,20 @@ serve(async (req) => {
       );
     }
 
-    const { email, password, nomeCompleto, cpf, dataNascimento, role, responsavelLegal, compliance, cargo } = createUserSchema.parse(await req.json());
+    const { 
+      email, 
+      password, 
+      nomeCompleto, 
+      cpf, 
+      dataNascimento, 
+      role, 
+      responsavelLegal, 
+      compliance, 
+      cargo,
+      gerenteContratos,
+      gerenteFinanceiro,
+      contratosVinculados
+    } = createUserSchema.parse(await req.json());
 
     // Verificar se o usuário já existe
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
@@ -171,6 +187,8 @@ serve(async (req) => {
           responsavel_legal: responsavelLegal || false,
           compliance: compliance || false,
           cargo: cargo || null,
+          gerente_contratos: gerenteContratos || false,
+          gerente_financeiro: gerenteFinanceiro || false,
         },
       ]);
 
@@ -189,6 +207,8 @@ serve(async (req) => {
           responsavel_legal: responsavelLegal || false,
           compliance: compliance || false,
           cargo: cargo || null,
+          gerente_contratos: gerenteContratos || false,
+          gerente_financeiro: gerenteFinanceiro || false,
         })
         .eq("id", userId);
 
@@ -229,6 +249,27 @@ serve(async (req) => {
       ]);
 
       if (roleError) throw roleError;
+    }
+
+    // Gerenciar contratos vinculados para gerente de contratos
+    // Primeiro deletar todos os vínculos existentes
+    await supabaseAdmin
+      .from("gerentes_contratos_gestao")
+      .delete()
+      .eq("usuario_id", userId);
+
+    // Se for gerente de contratos e tiver contratos vinculados, inserir
+    if (gerenteContratos && contratosVinculados && contratosVinculados.length > 0) {
+      const vinculos = contratosVinculados.map(contratoId => ({
+        usuario_id: userId,
+        contrato_gestao_id: contratoId,
+      }));
+
+      const { error: vinculoError } = await supabaseAdmin
+        .from("gerentes_contratos_gestao")
+        .insert(vinculos);
+
+      if (vinculoError) throw vinculoError;
     }
 
     return new Response(

@@ -26,6 +26,14 @@ interface Usuario {
   role?: string;
   responsavel_legal?: boolean;
   cargo?: string;
+  gerente_contratos?: boolean;
+  gerente_financeiro?: boolean;
+}
+
+interface ContratoGestao {
+  id: string;
+  nome_contrato: string;
+  ente_federativo: string;
 }
 
 interface DialogUsuarioProps {
@@ -48,6 +56,12 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [cargo, setCargo] = useState("");
   const [isUserResponsavelLegal, setIsUserResponsavelLegal] = useState(false);
   const [isUserGestor, setIsUserGestor] = useState(false);
+  
+  // Novos campos para gerentes
+  const [gerenteContratos, setGerenteContratos] = useState(false);
+  const [gerenteFinanceiro, setGerenteFinanceiro] = useState(false);
+  const [contratosDisponiveis, setContratosDisponiveis] = useState<ContratoGestao[]>([]);
+  const [contratosSelecionados, setContratosSelecionados] = useState<string[]>([]);
 
   // Verificar se o usuário logado é responsável legal e gestor
   useEffect(() => {
@@ -88,6 +102,17 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
       if (profile) {
         setIsUserResponsavelLegal(profile.responsavel_legal === true);
       }
+
+      // Carregar contratos de gestão disponíveis
+      const { data: contratos } = await supabase
+        .from("contratos_gestao")
+        .select("id, nome_contrato, ente_federativo")
+        .eq("status", "ativo")
+        .order("nome_contrato");
+
+      if (contratos) {
+        setContratosDisponiveis(contratos);
+      }
     };
 
     if (open) {
@@ -97,18 +122,36 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
 
   // Carregar dados do usuário quando for edição
   useEffect(() => {
-    if (usuarioEdit) {
-      setNomeCompleto(usuarioEdit.nome_completo);
-      setEmail(usuarioEdit.email);
-      setCpf(mascaraCPF(usuarioEdit.cpf));
-      setDataNascimento(usuarioEdit.data_nascimento || "");
-      setRole((usuarioEdit.role as "gestor" | "colaborador") || "colaborador");
-      setResponsavelLegal(usuarioEdit.responsavel_legal || false);
-      setCompliance((usuarioEdit as any).compliance || false);
-      setCargo((usuarioEdit as any).cargo || "");
-    } else {
-      resetForm();
-    }
+    const loadUserData = async () => {
+      if (usuarioEdit) {
+        setNomeCompleto(usuarioEdit.nome_completo);
+        setEmail(usuarioEdit.email);
+        setCpf(mascaraCPF(usuarioEdit.cpf));
+        setDataNascimento(usuarioEdit.data_nascimento || "");
+        setRole((usuarioEdit.role as "gestor" | "colaborador") || "colaborador");
+        setResponsavelLegal(usuarioEdit.responsavel_legal || false);
+        setCompliance((usuarioEdit as any).compliance || false);
+        setCargo((usuarioEdit as any).cargo || "");
+        setGerenteContratos((usuarioEdit as any).gerente_contratos || false);
+        setGerenteFinanceiro((usuarioEdit as any).gerente_financeiro || false);
+
+        // Carregar contratos vinculados ao gerente
+        if ((usuarioEdit as any).gerente_contratos) {
+          const { data: contratosVinculados } = await supabase
+            .from("gerentes_contratos_gestao")
+            .select("contrato_gestao_id")
+            .eq("usuario_id", usuarioEdit.id);
+
+          if (contratosVinculados) {
+            setContratosSelecionados(contratosVinculados.map(c => c.contrato_gestao_id));
+          }
+        }
+      } else {
+        resetForm();
+      }
+    };
+
+    loadUserData();
   }, [usuarioEdit, open]);
 
   const resetForm = () => {
@@ -120,6 +163,17 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setResponsavelLegal(false);
     setCompliance(false);
     setCargo("");
+    setGerenteContratos(false);
+    setGerenteFinanceiro(false);
+    setContratosSelecionados([]);
+  };
+
+  const handleContratoToggle = (contratoId: string) => {
+    setContratosSelecionados(prev => 
+      prev.includes(contratoId)
+        ? prev.filter(id => id !== contratoId)
+        : [...prev, contratoId]
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,6 +208,16 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
       return;
     }
 
+    // Validar que gerente de contratos tem pelo menos um contrato selecionado
+    if (gerenteContratos && contratosSelecionados.length === 0) {
+      toast({
+        title: "Selecione ao menos um contrato",
+        description: "O Gerente de Contratos precisa ter pelo menos um Contrato de Gestão vinculado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -168,6 +232,8 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             responsavel_legal: responsavelLegal,
             compliance: compliance,
             cargo: cargo || null,
+            gerente_contratos: gerenteContratos,
+            gerente_financeiro: gerenteFinanceiro,
           })
           .eq("id", usuarioEdit.id);
 
@@ -194,6 +260,27 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               user_id: usuarioEdit.id,
               role: role,
             });
+        }
+
+        // Atualizar contratos vinculados ao gerente
+        // Primeiro deletar todos os vínculos existentes
+        await supabase
+          .from("gerentes_contratos_gestao")
+          .delete()
+          .eq("usuario_id", usuarioEdit.id);
+
+        // Se for gerente de contratos, inserir os novos vínculos
+        if (gerenteContratos && contratosSelecionados.length > 0) {
+          const vinculos = contratosSelecionados.map(contratoId => ({
+            usuario_id: usuarioEdit.id,
+            contrato_gestao_id: contratoId,
+          }));
+
+          const { error: vinculoError } = await supabase
+            .from("gerentes_contratos_gestao")
+            .insert(vinculos);
+
+          if (vinculoError) throw vinculoError;
         }
 
         toast({
@@ -239,6 +326,9 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               responsavelLegal,
               compliance,
               cargo,
+              gerenteContratos,
+              gerenteFinanceiro,
+              contratosVinculados: gerenteContratos ? contratosSelecionados : [],
             },
           }
         );
@@ -414,6 +504,81 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 Apenas Gestores e Responsáveis Legais podem alterar esta permissão
               </p>
             )}
+
+            {/* Gerente de Contratos */}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="gerente-contratos"
+                  checked={gerenteContratos}
+                  onChange={(e) => {
+                    setGerenteContratos(e.target.checked);
+                    if (!e.target.checked) {
+                      setContratosSelecionados([]);
+                    }
+                  }}
+                  disabled={!isUserResponsavelLegal && !isUserGestor}
+                  className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <Label 
+                  htmlFor="gerente-contratos" 
+                  className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                >
+                  Gerente de Contratos
+                </Label>
+              </div>
+              
+              {/* Lista de contratos quando Gerente de Contratos estiver marcado */}
+              {gerenteContratos && contratosDisponiveis.length > 0 && (
+                <div className="ml-6 mt-2 space-y-2 p-3 border rounded-md bg-muted/50">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Selecione os Contratos de Gestão que este usuário gerencia:
+                  </p>
+                  {contratosDisponiveis.map((contrato) => (
+                    <div key={contrato.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`contrato-${contrato.id}`}
+                        checked={contratosSelecionados.includes(contrato.id)}
+                        onChange={() => handleContratoToggle(contrato.id)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label 
+                        htmlFor={`contrato-${contrato.id}`} 
+                        className="font-normal cursor-pointer text-sm"
+                      >
+                        {contrato.nome_contrato} - {contrato.ente_federativo}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {gerenteContratos && contratosDisponiveis.length === 0 && (
+                <p className="text-xs text-destructive ml-6">
+                  Nenhum contrato de gestão ativo encontrado
+                </p>
+              )}
+            </div>
+
+            {/* Gerente Financeiro */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="gerente-financeiro"
+                checked={gerenteFinanceiro}
+                onChange={(e) => setGerenteFinanceiro(e.target.checked)}
+                disabled={!isUserResponsavelLegal && !isUserGestor}
+                className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <Label 
+                htmlFor="gerente-financeiro" 
+                className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+              >
+                Gerente Financeiro
+              </Label>
+            </div>
 
           </div>
 

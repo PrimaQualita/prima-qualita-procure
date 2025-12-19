@@ -23,6 +23,8 @@ import { useToast } from "@/hooks/use-toast";
 import { FileUp, Download, Trash2, CheckCircle, XCircle, FileText } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { gerarCapaProcessoPDF } from "@/lib/gerarCapaProcessoPDF";
+import { gerarRequisicaoPDF } from "@/lib/gerarRequisicaoPDF";
+import { gerarAutorizacaoDespesaPDF } from "@/lib/gerarAutorizacaoDespesaPDF";
 
 interface AnexoProcesso {
   id: string;
@@ -65,12 +67,66 @@ export function DialogAnexosProcesso({
   const [uploading, setUploading] = useState<string | null>(null);
   const [anexoToDelete, setAnexoToDelete] = useState<AnexoProcesso | null>(null);
   const [gerandoCapa, setGerandoCapa] = useState(false);
+  const [gerandoRequisicao, setGerandoRequisicao] = useState(false);
+  const [gerandoAutorizacao, setGerandoAutorizacao] = useState(false);
+  
+  // Permissões do usuário
+  const [isGerenteContratos, setIsGerenteContratos] = useState(false);
+  const [isGerenteFinanceiro, setIsGerenteFinanceiro] = useState(false);
+  const [contratoProcessoId, setContratoProcessoId] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<{ nome_completo: string; cargo?: string } | null>(null);
 
   useEffect(() => {
     if (open && processoId) {
       loadAnexos();
+      checkUserPermissions();
     }
   }, [open, processoId]);
+
+  const checkUserPermissions = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Buscar perfil do usuário
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("nome_completo, cargo, gerente_contratos, gerente_financeiro")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        setUserProfile({ nome_completo: profile.nome_completo, cargo: profile.cargo });
+        setIsGerenteFinanceiro(profile.gerente_financeiro || false);
+
+        // Se for gerente de contratos, verificar se tem acesso ao contrato deste processo
+        if (profile.gerente_contratos) {
+          // Buscar o contrato_gestao_id do processo
+          const { data: processo } = await supabase
+            .from("processos_compras")
+            .select("contrato_gestao_id")
+            .eq("id", processoId)
+            .single();
+
+          if (processo) {
+            setContratoProcessoId(processo.contrato_gestao_id);
+
+            // Verificar se o usuário tem acesso a este contrato
+            const { data: vinculo } = await supabase
+              .from("gerentes_contratos_gestao")
+              .select("id")
+              .eq("usuario_id", user.id)
+              .eq("contrato_gestao_id", processo.contrato_gestao_id)
+              .maybeSingle();
+
+            setIsGerenteContratos(!!vinculo);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao verificar permissões:", error);
+    }
+  };
 
   const loadAnexos = async () => {
     setLoading(true);
@@ -349,6 +405,176 @@ export function DialogAnexosProcesso({
     }
   };
 
+  const handleGerarRequisicao = async () => {
+    if (!isGerenteContratos) {
+      toast({
+        title: "Acesso negado",
+        description: "Apenas Gerentes de Contratos podem gerar a Requisição.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGerandoRequisicao(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Buscar dados do processo e contrato
+      const { data: processo, error: processoError } = await supabase
+        .from("processos_compras")
+        .select(`
+          *,
+          contratos_gestao:contrato_gestao_id (
+            nome_contrato
+          )
+        `)
+        .eq("id", processoId)
+        .single();
+
+      if (processoError) throw processoError;
+      if (!processo) throw new Error("Processo não encontrado");
+
+      const contrato = processo.contratos_gestao as any;
+
+      // Gerar PDF da requisição
+      const pdfBlob = await gerarRequisicaoPDF({
+        numeroProcesso: processo.numero_processo_interno,
+        numeroContrato: contrato?.nome_contrato || 'Não informado',
+        objetoProcesso: processo.objeto_resumido,
+        valorEstimado: processo.valor_estimado_anual || 0,
+        centroCusto: processo.centro_custo,
+        gerenteNome: userProfile?.nome_completo || 'Gerente de Contratos',
+        gerenteCargo: userProfile?.cargo || 'Gerente de Contratos',
+      });
+
+      // Upload para storage
+      const fileName = `${processoId}/requisicao_${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from("processo-anexos")
+        .upload(fileName, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Salvar no banco
+      const { error: dbError } = await supabase
+        .from("anexos_processo_compra")
+        .insert({
+          processo_compra_id: processoId,
+          tipo_anexo: "requisicao",
+          nome_arquivo: `Requisicao_${processo.numero_processo_interno}.pdf`,
+          url_arquivo: fileName,
+          usuario_upload_id: user.id,
+        });
+
+      if (dbError) throw dbError;
+
+      toast({ 
+        title: "Requisição gerada com sucesso!",
+        description: "O documento foi criado e anexado ao processo."
+      });
+      
+      await loadAnexos();
+    } catch (error: any) {
+      console.error("Erro ao gerar requisição:", error);
+      toast({
+        title: "Erro ao gerar requisição",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGerandoRequisicao(false);
+    }
+  };
+
+  const handleGerarAutorizacaoDespesa = async () => {
+    if (!isGerenteFinanceiro) {
+      toast({
+        title: "Acesso negado",
+        description: "Apenas Gerentes Financeiros podem gerar a Autorização de Despesa.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGerandoAutorizacao(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Buscar dados do processo e contrato
+      const { data: processo, error: processoError } = await supabase
+        .from("processos_compras")
+        .select(`
+          *,
+          contratos_gestao:contrato_gestao_id (
+            nome_contrato
+          )
+        `)
+        .eq("id", processoId)
+        .single();
+
+      if (processoError) throw processoError;
+      if (!processo) throw new Error("Processo não encontrado");
+
+      const contrato = processo.contratos_gestao as any;
+
+      // Gerar PDF da autorização de despesa
+      const pdfBlob = await gerarAutorizacaoDespesaPDF({
+        numeroProcesso: processo.numero_processo_interno,
+        numeroContrato: contrato?.nome_contrato || 'Não informado',
+        objetoProcesso: processo.objeto_resumido,
+        valorEstimado: processo.valor_estimado_anual || 0,
+        centroCusto: processo.centro_custo,
+        gerenteNome: userProfile?.nome_completo || 'Gerente Financeiro',
+        gerenteCargo: userProfile?.cargo || 'Gerente Financeiro',
+      });
+
+      // Upload para storage
+      const fileName = `${processoId}/autorizacao_despesa_${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from("processo-anexos")
+        .upload(fileName, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Salvar no banco
+      const { error: dbError } = await supabase
+        .from("anexos_processo_compra")
+        .insert({
+          processo_compra_id: processoId,
+          tipo_anexo: "autorizacao_despesa",
+          nome_arquivo: `Autorizacao_Despesa_${processo.numero_processo_interno}.pdf`,
+          url_arquivo: fileName,
+          usuario_upload_id: user.id,
+        });
+
+      if (dbError) throw dbError;
+
+      toast({ 
+        title: "Autorização de Despesa gerada com sucesso!",
+        description: "O documento foi criado e anexado ao processo."
+      });
+      
+      await loadAnexos();
+    } catch (error: any) {
+      console.error("Erro ao gerar autorização de despesa:", error);
+      toast({
+        title: "Erro ao gerar autorização de despesa",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGerandoAutorizacao(false);
+    }
+  };
+
   if (loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -429,6 +655,8 @@ export function DialogAnexosProcesso({
             const anexo = getAnexoPorTipo(tipo);
             const isUploading = uploading === tipo;
             const isCapaProcesso = tipo === "capa_processo";
+            const isRequisicao = tipo === "requisicao";
+            const isAutorizacaoDespesa = tipo === "autorizacao_despesa";
 
             return (
               <div key={tipo} className="border rounded-lg p-4">
@@ -482,6 +710,30 @@ export function DialogAnexosProcesso({
                         {gerandoCapa ? "Gerando Capa..." : "Gerar Capa do Processo"}
                       </Button>
                     )}
+                    {isRequisicao && isGerenteContratos && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={handleGerarRequisicao}
+                        disabled={gerandoRequisicao}
+                        className="flex-1"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {gerandoRequisicao ? "Gerando..." : "Gerar Requisição"}
+                      </Button>
+                    )}
+                    {isAutorizacaoDespesa && isGerenteFinanceiro && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={handleGerarAutorizacaoDespesa}
+                        disabled={gerandoAutorizacao}
+                        className="flex-1"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {gerandoAutorizacao ? "Gerando..." : "Gerar Autorização"}
+                      </Button>
+                    )}
                     <input
                       type="file"
                       id={`file-${tipo}`}
@@ -498,7 +750,7 @@ export function DialogAnexosProcesso({
                       variant="outline"
                       onClick={() => document.getElementById(`file-${tipo}`)?.click()}
                       disabled={isUploading}
-                      className={isCapaProcesso ? "flex-1" : "w-full"}
+                      className={(isCapaProcesso || (isRequisicao && isGerenteContratos) || (isAutorizacaoDespesa && isGerenteFinanceiro)) ? "flex-1" : "w-full"}
                     >
                       <FileUp className="h-4 w-4 mr-2" />
                       {isUploading ? "Enviando..." : "Anexar PDF"}
