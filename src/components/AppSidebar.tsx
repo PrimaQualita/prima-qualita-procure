@@ -54,6 +54,7 @@ interface AppSidebarProps {
   isSuperintendenteExecutivo?: boolean;
   isColaborador?: boolean;
   isGerenteFinanceiro?: boolean;
+  isContabilidade?: boolean;
 }
 
 export function AppSidebar({ 
@@ -64,7 +65,8 @@ export function AppSidebar({
   isGerenteContratos = false,
   isSuperintendenteExecutivo = false,
   isColaborador = false,
-  isGerenteFinanceiro = false
+  isGerenteFinanceiro = false,
+  isContabilidade = false
 }: AppSidebarProps) {
   const { open } = useSidebar();
   const navigate = useNavigate();
@@ -103,6 +105,25 @@ export function AppSidebar({
       title: "Processos de Compras",
       icon: FileText,
       href: "/processos-compras",
+    },
+    {
+      title: "Contato",
+      icon: MessageSquare,
+      href: "/contatos",
+    },
+  ];
+
+  // Menu para Contabilidade (apenas 3 opções: Dashboard, Contabilidade, Contato)
+  const menuContabilidade = [
+    {
+      title: "Dashboard",
+      icon: LayoutDashboard,
+      href: "/dashboard",
+    },
+    {
+      title: "Contabilidade",
+      icon: Calculator,
+      href: "/contabilidade",
     },
     {
       title: "Contato",
@@ -161,11 +182,19 @@ export function AppSidebar({
   ];
 
   // Verifica se o usuário é APENAS gerente de contratos (sem outros papéis)
-  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo;
+  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isContabilidade;
   const apenasGerenteContratos = isGerenteContratos && !temOutrosPapeis;
   
+  // Verifica se o usuário é APENAS contabilidade (sem outros papéis)
+  const temOutrosPapeisAlemContabilidade = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos;
+  const apenasContabilidade = isContabilidade && !temOutrosPapeisAlemContabilidade;
+  
   // Seleciona o menu correto baseado no tipo de usuário
-  const menuItems = apenasGerenteContratos ? [...menuGerenteContratos] : [...menuCompleto];
+  const menuItems = apenasGerenteContratos 
+    ? [...menuGerenteContratos] 
+    : apenasContabilidade 
+      ? [...menuContabilidade] 
+      : [...menuCompleto];
 
   // Adicionar menu Compliance se for Responsável Legal, Compliance ou Superintendente Executivo (e não for apenas gerente de contratos)
   if (!apenasGerenteContratos && (isResponsavelLegal || isCompliance || isSuperintendenteExecutivo)) {
@@ -190,8 +219,8 @@ export function AppSidebar({
     });
   }
 
-  // Gerente Financeiro tem acesso a Contabilidade
-  if (!apenasGerenteContratos && isGerenteFinanceiro) {
+  // Contabilidade aparece para gestores, colaboradores, ou usuários com perfil contabilidade
+  if (!apenasGerenteContratos && !apenasContabilidade && (isGestor || isColaborador || isGerenteFinanceiro || isContabilidade)) {
     menuItems.push({
       title: "Contabilidade",
       icon: Calculator,
@@ -279,7 +308,7 @@ export function AppSidebar({
                         {profile?.nome_completo || "Usuário"}
                       </span>
                       <span className="text-xs text-sidebar-foreground/70 font-medium">
-                        {isGestor ? "Gestor" : isColaborador ? "Colaborador" : apenasGerenteContratos ? "Gerente de Contratos" : "Usuário"}
+                        {isGestor ? "Gestor" : isColaborador ? "Colaborador" : apenasGerenteContratos ? "Gerente de Contratos" : apenasContabilidade ? "Contabilidade" : "Usuário"}
                       </span>
                     </div>
                   )}

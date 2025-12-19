@@ -30,6 +30,9 @@ const getPageTitle = (pathname: string) => {
 // Rotas permitidas para Gerente de Contratos (quando é APENAS gerente de contratos)
 const rotasGerenteContratos = ["/dashboard", "/processos-compras", "/contatos", "/perfil"];
 
+// Rotas permitidas para Contabilidade (quando é APENAS contabilidade)
+const rotasContabilidade = ["/dashboard", "/contabilidade", "/contatos", "/perfil"];
+
 // Cache GLOBAL do perfil para evitar flash de loading entre páginas
 let cachedUser: User | null = null;
 let cachedProfile: any = null;
@@ -40,6 +43,7 @@ let cachedIsGerenteContratos: boolean = false;
 let cachedIsSuperintendenteExecutivo: boolean = false;
 let cachedContratosVinculados: string[] = [];
 let cachedIsColaborador: boolean = false;
+let cachedIsContabilidade: boolean = false;
 let profileLoaded: boolean = false;
 
 export function DashboardLayout() {
@@ -57,6 +61,7 @@ export function DashboardLayout() {
   const [isSuperintendenteExecutivo, setIsSuperintendenteExecutivo] = useState(cachedIsSuperintendenteExecutivo);
   const [contratosVinculados, setContratosVinculados] = useState<string[]>(cachedContratosVinculados);
   const [isColaborador, setIsColaborador] = useState(cachedIsColaborador);
+  const [isContabilidade, setIsContabilidade] = useState(cachedIsContabilidade);
   const [loading, setLoading] = useState(!profileLoaded);
 
   useEffect(() => {
@@ -78,6 +83,7 @@ export function DashboardLayout() {
         cachedIsSuperintendenteExecutivo = false;
         cachedContratosVinculados = [];
         cachedIsColaborador = false;
+        cachedIsContabilidade = false;
         profileLoaded = false;
         setProfile(null);
         setIsGestor(false);
@@ -87,6 +93,7 @@ export function DashboardLayout() {
         setIsSuperintendenteExecutivo(false);
         setContratosVinculados([]);
         setIsColaborador(false);
+        setIsContabilidade(false);
         
         // Limpa cache de outras páginas
         clearCotacoesCache();
@@ -164,11 +171,13 @@ export function DashboardLayout() {
       cachedIsCompliance = profileData?.compliance || false;
       cachedIsResponsavelLegal = profileData?.responsavel_legal || false;
       cachedIsSuperintendenteExecutivo = profileData?.superintendente_executivo || profileData?.gerente_financeiro || false;
+      cachedIsContabilidade = profileData?.contabilidade || false;
       
       setProfile(profileData);
       setIsCompliance(cachedIsCompliance);
       setIsResponsavelLegal(cachedIsResponsavelLegal);
       setIsSuperintendenteExecutivo(cachedIsSuperintendenteExecutivo);
+      setIsContabilidade(cachedIsContabilidade);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
@@ -260,15 +269,36 @@ export function DashboardLayout() {
                           (isColaborador || cachedIsColaborador) || 
                           (isCompliance || cachedIsCompliance) || 
                           (isResponsavelLegal || cachedIsResponsavelLegal) || 
-                          (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo);
+                          (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo) ||
+                          (isContabilidade || cachedIsContabilidade);
   
   const apenasGerenteContratos = (isGerenteContratos || cachedIsGerenteContratos) && !temOutrosPapeis;
 
-  // Proteção de rota para Gerente de Contratos
+  // Verifica se é APENAS contabilidade (sem outros papéis)
+  const temOutrosPapeisAlemContabilidade = (isGestor || cachedIsGestor) || 
+                          (isColaborador || cachedIsColaborador) || 
+                          (isCompliance || cachedIsCompliance) || 
+                          (isResponsavelLegal || cachedIsResponsavelLegal) || 
+                          (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo) ||
+                          (isGerenteContratos || cachedIsGerenteContratos);
+  
+  const apenasContabilidade = (isContabilidade || cachedIsContabilidade) && !temOutrosPapeisAlemContabilidade;
+
+  // Proteção de rota para Gerente de Contratos e Contabilidade
   useEffect(() => {
-    if (profileLoaded && apenasGerenteContratos) {
+    if (profileLoaded) {
       const rotaAtual = location.pathname;
-      if (!rotasGerenteContratos.includes(rotaAtual)) {
+      
+      if (apenasGerenteContratos && !rotasGerenteContratos.includes(rotaAtual)) {
+        toast({
+          title: "Acesso não autorizado",
+          description: "Você não tem permissão para acessar esta página.",
+          variant: "destructive",
+        });
+        navigate("/dashboard");
+      }
+      
+      if (apenasContabilidade && !rotasContabilidade.includes(rotaAtual)) {
         toast({
           title: "Acesso não autorizado",
           description: "Você não tem permissão para acessar esta página.",
@@ -277,12 +307,13 @@ export function DashboardLayout() {
         navigate("/dashboard");
       }
     }
-  }, [location.pathname, profileLoaded, apenasGerenteContratos]);
+  }, [location.pathname, profileLoaded, apenasGerenteContratos, apenasContabilidade]);
 
   // Se tem cache, renderiza imediatamente sem loading
   if (profileLoaded && cachedProfile) {
-    // Bloqueia renderização se gerente de contratos tentando acessar rota não permitida
-    if (apenasGerenteContratos && !rotasGerenteContratos.includes(location.pathname)) {
+    // Bloqueia renderização se gerente de contratos ou contabilidade tentando acessar rota não permitida
+    if ((apenasGerenteContratos && !rotasGerenteContratos.includes(location.pathname)) ||
+        (apenasContabilidade && !rotasContabilidade.includes(location.pathname))) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-background">
           <p className="text-muted-foreground">Redirecionando...</p>
@@ -301,6 +332,7 @@ export function DashboardLayout() {
             isGerenteContratos={isGerenteContratos || cachedIsGerenteContratos}
             isSuperintendenteExecutivo={isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo}
             isColaborador={isColaborador || cachedIsColaborador}
+            isContabilidade={isContabilidade || cachedIsContabilidade}
           />
           <div className="flex-1 flex flex-col">
             <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
@@ -315,6 +347,7 @@ export function DashboardLayout() {
                 isColaborador: isColaborador || cachedIsColaborador,
                 isSuperintendenteExecutivo: isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo,
                 isGerenteContratos: isGerenteContratos || cachedIsGerenteContratos,
+                isContabilidade: isContabilidade || cachedIsContabilidade,
                 profile: profile || cachedProfile,
                 userId: user?.id || cachedUser?.id
               }} />
@@ -336,9 +369,13 @@ export function DashboardLayout() {
 
   // Proteção também para estado não cacheado
   const apenasGerenteContratosAtual = isGerenteContratos && 
-    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo;
+    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isContabilidade;
+  
+  const apenasContabilidadeAtual = isContabilidade && 
+    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isGerenteContratos;
 
-  if (apenasGerenteContratosAtual && !rotasGerenteContratos.includes(location.pathname)) {
+  if ((apenasGerenteContratosAtual && !rotasGerenteContratos.includes(location.pathname)) ||
+      (apenasContabilidadeAtual && !rotasContabilidade.includes(location.pathname))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Redirecionando...</p>
@@ -357,6 +394,7 @@ export function DashboardLayout() {
           isGerenteContratos={isGerenteContratos}
           isSuperintendenteExecutivo={isSuperintendenteExecutivo}
           isColaborador={isColaborador}
+          isContabilidade={isContabilidade}
         />
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
@@ -371,6 +409,7 @@ export function DashboardLayout() {
               isColaborador,
               isSuperintendenteExecutivo,
               isGerenteContratos,
+              isContabilidade,
               profile,
               userId: user?.id
             }} />
