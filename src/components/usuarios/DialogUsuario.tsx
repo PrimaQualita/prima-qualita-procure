@@ -25,8 +25,11 @@ interface Usuario {
   ativo: boolean;
   role?: string;
   responsavel_legal?: boolean;
+  compliance?: boolean;
   cargo?: string;
   gerente_contratos?: boolean;
+  superintendente_executivo?: boolean;
+  // legado (não usar mais)
   gerente_financeiro?: boolean;
 }
 
@@ -57,9 +60,9 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [isUserResponsavelLegal, setIsUserResponsavelLegal] = useState(false);
   const [isUserGestor, setIsUserGestor] = useState(false);
   
-  // Novos campos para gerentes
+  // Perfis adicionais
   const [gerenteContratos, setGerenteContratos] = useState(false);
-  const [gerenteFinanceiro, setGerenteFinanceiro] = useState(false);
+  const [superintendenteExecutivo, setSuperintendenteExecutivo] = useState(false);
   const [contratosDisponiveis, setContratosDisponiveis] = useState<ContratoGestao[]>([]);
   const [contratosSelecionados, setContratosSelecionados] = useState<string[]>([]);
 
@@ -133,7 +136,9 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         setCompliance((usuarioEdit as any).compliance || false);
         setCargo((usuarioEdit as any).cargo || "");
         setGerenteContratos((usuarioEdit as any).gerente_contratos || false);
-        setGerenteFinanceiro((usuarioEdit as any).gerente_financeiro || false);
+        setSuperintendenteExecutivo(
+          (usuarioEdit as any).superintendente_executivo || (usuarioEdit as any).gerente_financeiro || false
+        );
 
         // Carregar contratos vinculados ao gerente
         if ((usuarioEdit as any).gerente_contratos) {
@@ -164,7 +169,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setCompliance(false);
     setCargo("");
     setGerenteContratos(false);
-    setGerenteFinanceiro(false);
+    setSuperintendenteExecutivo(false);
     setContratosSelecionados([]);
   };
 
@@ -233,7 +238,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             compliance: compliance,
             cargo: cargo || null,
             gerente_contratos: gerenteContratos,
-            gerente_financeiro: gerenteFinanceiro,
+            superintendente_executivo: superintendenteExecutivo,
           })
           .eq("id", usuarioEdit.id);
 
@@ -328,7 +333,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               compliance,
               cargo,
               gerenteContratos,
-              gerenteFinanceiro,
+              superintendenteExecutivo,
               contratosVinculados: gerenteContratos ? contratosSelecionados : [],
             },
           }
@@ -564,21 +569,21 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               )}
             </div>
 
-            {/* Gerente Financeiro */}
+            {/* Superintendente Executivo */}
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
-                id="gerente-financeiro"
-                checked={gerenteFinanceiro}
-                onChange={(e) => setGerenteFinanceiro(e.target.checked)}
+                id="superintendente-executivo"
+                checked={superintendenteExecutivo}
+                onChange={(e) => setSuperintendenteExecutivo(e.target.checked)}
                 disabled={!isUserResponsavelLegal && !isUserGestor}
                 className="h-4 w-4 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <Label 
-                htmlFor="gerente-financeiro" 
+              <Label
+                htmlFor="superintendente-executivo"
                 className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
               >
-                Gerente Financeiro
+                Superintendente Executivo
               </Label>
             </div>
 

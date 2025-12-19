@@ -38,7 +38,9 @@ const createUserSchema = z.object({
   compliance: z.boolean().optional(),
   cargo: z.string().max(100).optional(),
   gerenteContratos: z.boolean().optional(),
+  // legado (não usar mais)
   gerenteFinanceiro: z.boolean().optional(),
+  superintendenteExecutivo: z.boolean().optional(),
   contratosVinculados: z.array(z.string().uuid()).optional(),
 });
 
@@ -126,8 +128,11 @@ serve(async (req) => {
       cargo,
       gerenteContratos,
       gerenteFinanceiro,
+      superintendenteExecutivo,
       contratosVinculados
     } = createUserSchema.parse(await req.json());
+
+    const superintendenteExecutivoFinal = (superintendenteExecutivo ?? gerenteFinanceiro) || false;
 
     // Verificar se o usuário já existe
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
@@ -188,7 +193,7 @@ serve(async (req) => {
           compliance: compliance || false,
           cargo: cargo || null,
           gerente_contratos: gerenteContratos || false,
-          gerente_financeiro: gerenteFinanceiro || false,
+          superintendente_executivo: superintendenteExecutivoFinal,
         },
       ]);
 
@@ -208,7 +213,7 @@ serve(async (req) => {
           compliance: compliance || false,
           cargo: cargo || null,
           gerente_contratos: gerenteContratos || false,
-          gerente_financeiro: gerenteFinanceiro || false,
+          superintendente_executivo: superintendenteExecutivoFinal,
         })
         .eq("id", userId);
 
