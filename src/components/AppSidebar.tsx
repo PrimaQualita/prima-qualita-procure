@@ -164,8 +164,8 @@ export function AppSidebar({
   // Seleciona o menu correto baseado no tipo de usuário
   const menuItems = apenasGerenteContratos ? [...menuGerenteContratos] : [...menuCompleto];
 
-  // Adicionar menu Compliance se for Responsável Legal ou Compliance (e não for apenas gerente de contratos)
-  if (!apenasGerenteContratos && (isResponsavelLegal || isCompliance)) {
+  // Adicionar menu Compliance se for Responsável Legal, Compliance ou Superintendente Executivo (e não for apenas gerente de contratos)
+  if (!apenasGerenteContratos && (isResponsavelLegal || isCompliance || isSuperintendenteExecutivo)) {
     menuItems.push({
       title: "Compliance",
       icon: FileCheck,
@@ -173,8 +173,8 @@ export function AppSidebar({
     });
   }
 
-  // Apenas Compliance tem acesso a Auditoria e Storage
-  if (!apenasGerenteContratos && isCompliance) {
+  // Compliance e Superintendente Executivo têm acesso a Auditoria e Storage
+  if (!apenasGerenteContratos && (isCompliance || isSuperintendenteExecutivo)) {
     menuItems.push({
       title: "Log de Auditoria",
       icon: Home,
