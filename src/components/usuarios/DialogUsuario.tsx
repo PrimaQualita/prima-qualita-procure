@@ -85,27 +85,28 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         .eq("role", "gestor")
         .maybeSingle();
 
-      // Verificar se é compliance
+      // Verificar se é compliance ou superintendente executivo
       const { data: profileCheck } = await supabase
         .from("profiles")
-        .select("compliance")
+        .select("compliance, superintendente_executivo")
         .eq("id", session.user.id)
         .single();
 
       const isGestorCheck = !!roleData;
       const isComplianceCheck = profileCheck?.compliance === true;
+      const isSuperintendenteCheck = profileCheck?.superintendente_executivo === true;
 
-      if (!isGestorCheck && !isComplianceCheck) {
+      if (!isGestorCheck && !isComplianceCheck && !isSuperintendenteCheck) {
         toast({
           title: "Acesso negado",
-          description: "Apenas gestores e compliance podem criar ou editar usuários.",
+          description: "Apenas gestores, compliance e superintendentes executivos podem criar ou editar usuários.",
           variant: "destructive",
         });
         onOpenChange(false);
         return;
       }
 
-      setIsUserGestor(isGestorCheck || isComplianceCheck);
+      setIsUserGestor(isGestorCheck || isComplianceCheck || isSuperintendenteCheck);
 
       // Verificar se é responsável legal
       const { data: profile } = await supabase

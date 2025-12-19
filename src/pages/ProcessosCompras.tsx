@@ -69,6 +69,8 @@ const ProcessosCompras = () => {
   const [isGestor, setIsGestor] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [isGerenteContratos, setIsGerenteContratos] = useState(false);
+  const [isCompliance, setIsCompliance] = useState(false);
+  const [isSuperintendenteExecutivo, setIsSuperintendenteExecutivo] = useState(false);
   const [contratosVinculados, setContratosVinculados] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   
@@ -138,14 +140,16 @@ const ProcessosCompras = () => {
 
     const isUsuarioInternoCheck = !!colaboradorData;
 
-    // Verificar se é responsável legal
+    // Verificar se é responsável legal, compliance ou superintendente executivo
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("responsavel_legal, gerente_contratos")
+      .select("responsavel_legal, gerente_contratos, compliance, superintendente_executivo")
       .eq("id", session.user.id)
       .maybeSingle();
 
     setIsResponsavelLegal(!!profileData?.responsavel_legal);
+    setIsCompliance(!!profileData?.compliance);
+    setIsSuperintendenteExecutivo(!!profileData?.superintendente_executivo);
 
     // Se é gerente de contratos e NÃO é usuário interno (gestor/colaborador)
     if (profileData?.gerente_contratos && !isUsuarioInternoCheck) {
@@ -469,7 +473,7 @@ const ProcessosCompras = () => {
                                 <Edit className="h-4 w-4" />
                               </Button>
                             )}
-                            {isUsuarioInterno && isResponsavelLegal && (
+                            {isUsuarioInterno && (isGestor || isCompliance || isSuperintendenteExecutivo) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -589,7 +593,7 @@ const ProcessosCompras = () => {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              {isGestor && (
+                              {(isGestor || isCompliance || isSuperintendenteExecutivo) && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
