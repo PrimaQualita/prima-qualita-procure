@@ -21,6 +21,7 @@ import {
 
 // Cores predefinidas para os contratos
 const CORES_PREDEFINIDAS = [
+  { nome: "Sem Cor", valor: "none" },
   { nome: "Azul Claro", valor: "#E3F2FD" },
   { nome: "Verde Claro", valor: "#E8F5E9" },
   { nome: "Amarelo Claro", valor: "#FFF8E1" },
@@ -29,7 +30,6 @@ const CORES_PREDEFINIDAS = [
   { nome: "Laranja Claro", valor: "#FFF3E0" },
   { nome: "Ciano Claro", valor: "#E0F7FA" },
   { nome: "Cinza Claro", valor: "#ECEFF1" },
-  { nome: "Sem Cor", valor: "" },
 ];
 
 interface Contrato {
@@ -170,12 +170,12 @@ export function DialogContrato({ open, onOpenChange, contrato, onSave }: DialogC
               <div className="grid gap-2">
                 <Label htmlFor="cor_fundo">Cor de Fundo</Label>
                 <Select
-                  value={formData.cor_fundo || ""}
-                  onValueChange={(value) => setFormData({ ...formData, cor_fundo: value })}
+                  value={formData.cor_fundo || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, cor_fundo: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
                     <div className="flex items-center gap-2">
-                      {formData.cor_fundo && (
+                      {formData.cor_fundo && formData.cor_fundo !== "none" && (
                         <div 
                           className="w-4 h-4 rounded border border-border" 
                           style={{ backgroundColor: formData.cor_fundo }}
@@ -186,9 +186,9 @@ export function DialogContrato({ open, onOpenChange, contrato, onSave }: DialogC
                   </SelectTrigger>
                   <SelectContent>
                     {CORES_PREDEFINIDAS.map((cor) => (
-                      <SelectItem key={cor.valor || "sem-cor"} value={cor.valor}>
+                      <SelectItem key={cor.valor} value={cor.valor}>
                         <div className="flex items-center gap-2">
-                          {cor.valor && (
+                          {cor.valor !== "none" && (
                             <div 
                               className="w-4 h-4 rounded border border-border" 
                               style={{ backgroundColor: cor.valor }}
