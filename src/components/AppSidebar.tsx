@@ -113,7 +113,7 @@ export function AppSidebar({
     },
   ];
 
-  // Menu para Contabilidade (apenas 3 opções: Dashboard, Contabilidade, Contato)
+  // Menu para Contabilidade (visualização + menu Contabilidade com ações)
   const menuContabilidade = [
     {
       title: "Dashboard",
@@ -121,14 +121,49 @@ export function AppSidebar({
       href: "/dashboard",
     },
     {
-      title: "Contabilidade",
-      icon: Calculator,
-      href: "/contabilidade",
+      title: "Processos de Compras",
+      icon: FileText,
+      href: "/processos-compras",
+    },
+    {
+      title: "Cotação de Preços",
+      icon: DollarSign,
+      href: "/cotacoes",
+    },
+    {
+      title: "Seleção de Fornecedores",
+      icon: Users,
+      href: "/selecoes",
+    },
+    {
+      title: "Credenciamento",
+      icon: ClipboardList,
+      href: "/credenciamentos",
+    },
+    {
+      title: "Contratações Específicas",
+      icon: FileCheck,
+      href: "/contratacoes-especificas",
+    },
+    {
+      title: "Cadastro de Usuários",
+      icon: UserCog,
+      href: "/usuarios",
+    },
+    {
+      title: "Cadastro de Fornecedores",
+      icon: Building2,
+      href: "/fornecedores",
     },
     {
       title: "Contato",
       icon: MessageSquare,
       href: "/contatos",
+    },
+    {
+      title: "Contabilidade",
+      icon: Calculator,
+      href: "/contabilidade",
     },
   ];
 
