@@ -163,6 +163,14 @@ export default function Contabilidade() {
         }
       });
 
+      // Ordenar processos em cada contrato por processo_numero crescente
+      Object.keys(processosAgrupados).forEach((contratoId) => {
+        processosAgrupados[contratoId].sort((a, b) => {
+          // Ordenar por número do processo crescente
+          return (a.processo_numero || "").localeCompare(b.processo_numero || "", 'pt-BR', { numeric: true });
+        });
+      });
+
       setContratos(contratosData || []);
       setProcessos(processosAgrupados);
       
