@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useUserContext } from "@/hooks/useUserContext";
 import { FileText, Eye, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSquare, Send, FolderOpen, FileDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
@@ -73,6 +74,7 @@ interface ProcessoContabilidade {
 }
 
 export default function Contabilidade() {
+  const { isContabilidade } = useUserContext();
   const [contratos, setContratos] = useState<ContratoGestao[]>([]);
   const [contratoSelecionado, setContratoSelecionado] = useState<ContratoGestao | null>(null);
   const [processos, setProcessos] = useState<Record<string, ProcessoContabilidade[]>>({});
@@ -515,24 +517,28 @@ export default function Contabilidade() {
                                 <FileDown className="h-4 w-4 mr-1" />
                                 Ver Resposta
                               </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => abrirDialogExcluir(processo)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Excluir
-                              </Button>
+                              {isContabilidade && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => abrirDialogExcluir(processo)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Excluir
+                                </Button>
+                              )}
                             </>
                           ) : (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => abrirDialogResposta(processo)}
-                            >
-                              <MessageSquare className="h-4 w-4 mr-1" />
-                              Responder
-                            </Button>
+                            isContabilidade && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => abrirDialogResposta(processo)}
+                              >
+                                <MessageSquare className="h-4 w-4 mr-1" />
+                                Responder
+                              </Button>
+                            )
                           )}
                         </div>
                       </TableCell>
