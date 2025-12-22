@@ -22,14 +22,38 @@ import {
 // Cores predefinidas para os contratos
 const CORES_PREDEFINIDAS = [
   { nome: "Sem Cor", valor: "none" },
+  // Azuis
   { nome: "Azul Claro", valor: "#E3F2FD" },
+  { nome: "Azul Médio", valor: "#BBDEFB" },
+  { nome: "Azul Céu", valor: "#B3E5FC" },
+  // Verdes
   { nome: "Verde Claro", valor: "#E8F5E9" },
+  { nome: "Verde Menta", valor: "#C8E6C9" },
+  { nome: "Verde Água", valor: "#B2DFDB" },
+  // Amarelos e Laranjas
   { nome: "Amarelo Claro", valor: "#FFF8E1" },
-  { nome: "Rosa Claro", valor: "#FCE4EC" },
-  { nome: "Roxo Claro", valor: "#F3E5F5" },
+  { nome: "Amarelo Médio", valor: "#FFECB3" },
   { nome: "Laranja Claro", valor: "#FFF3E0" },
+  { nome: "Pêssego", valor: "#FFE0B2" },
+  // Rosas e Roxos
+  { nome: "Rosa Claro", valor: "#FCE4EC" },
+  { nome: "Rosa Médio", valor: "#F8BBD9" },
+  { nome: "Roxo Claro", valor: "#F3E5F5" },
+  { nome: "Lavanda", valor: "#E1BEE7" },
+  // Cianos e Turquesas
   { nome: "Ciano Claro", valor: "#E0F7FA" },
+  { nome: "Turquesa", valor: "#B2EBF2" },
+  { nome: "Teal Claro", valor: "#E0F2F1" },
+  // Neutros
   { nome: "Cinza Claro", valor: "#ECEFF1" },
+  { nome: "Cinza Azulado", valor: "#CFD8DC" },
+  { nome: "Bege Claro", valor: "#EFEBE9" },
+  { nome: "Marrom Claro", valor: "#D7CCC8" },
+  // Especiais
+  { nome: "Limão", valor: "#F0F4C3" },
+  { nome: "Verde Lima", valor: "#DCEDC8" },
+  { nome: "Índigo Claro", valor: "#C5CAE9" },
+  { nome: "Coral Claro", valor: "#FFCCBC" },
 ];
 
 interface Contrato {
