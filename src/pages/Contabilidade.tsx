@@ -569,7 +569,7 @@ export default function Contabilidade() {
                 Informe o tipo de operação (números e letras maiúsculas) para cada fornecedor
               </p>
               
-              <ScrollArea className="max-h-[400px] pr-4">
+              <ScrollArea type="always" className="h-[400px] pr-4">
                 <div className="space-y-4">
                   {processoSelecionado?.fornecedores_vencedores?.map((f: FornecedorVencedor, i: number) => (
                     <div key={i} className="p-4 border rounded-lg space-y-2">
