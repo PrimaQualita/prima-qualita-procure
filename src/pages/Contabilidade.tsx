@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FileText, Eye, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSquare, Send, FolderOpen, FileDown } from "lucide-react";
+import { FileText, Eye, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSquare, Send, FolderOpen, FileDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
 import { gerarRespostaContabilidadePDF, gerarProtocoloRespostaContabilidade } from "@/lib/gerarRespostaContabilidadePDF";
@@ -25,6 +25,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ContratoGestao {
   id: string;
@@ -56,6 +66,7 @@ interface ProcessoContabilidade {
   tipos_operacao_fornecedores: { cnpj: string; tipoOperacao: string }[] | null;
   url_resposta_pdf: string | null;
   protocolo_resposta: string | null;
+  storage_path_resposta?: string | null;
   contrato_gestao_id?: string;
 }
 
@@ -69,6 +80,9 @@ export default function Contabilidade() {
   const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoContabilidade | null>(null);
   const [tiposOperacao, setTiposOperacao] = useState<Record<string, string>>({});
   const [salvando, setSalvando] = useState(false);
+  const [dialogExcluirOpen, setDialogExcluirOpen] = useState(false);
+  const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoContabilidade | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -262,6 +276,52 @@ export default function Contabilidade() {
     }
   };
 
+  const abrirDialogExcluir = (processo: ProcessoContabilidade) => {
+    setProcessoParaExcluir(processo);
+    setDialogExcluirOpen(true);
+  };
+
+  const excluirResposta = async () => {
+    if (!processoParaExcluir) return;
+
+    setExcluindo(true);
+    try {
+      // Deletar arquivo do storage se existir
+      if (processoParaExcluir.storage_path_resposta) {
+        await supabase.storage
+          .from('processo-anexos')
+          .remove([processoParaExcluir.storage_path_resposta]);
+      }
+
+      // Limpar campos de resposta no encaminhamento
+      const { error } = await supabase
+        .from("encaminhamentos_contabilidade")
+        .update({
+          respondido_contabilidade: false,
+          data_resposta_contabilidade: null,
+          resposta_contabilidade: null,
+          tipos_operacao_fornecedores: null,
+          url_resposta_pdf: null,
+          protocolo_resposta: null,
+          storage_path_resposta: null,
+          usuario_resposta_id: null
+        })
+        .eq("id", processoParaExcluir.id);
+
+      if (error) throw error;
+
+      toast.success("Resposta excluída com sucesso! O processo voltou para pendente.");
+      setDialogExcluirOpen(false);
+      setProcessoParaExcluir(null);
+      loadData();
+    } catch (error: any) {
+      console.error("Erro ao excluir resposta:", error);
+      toast.error("Erro ao excluir resposta");
+    } finally {
+      setExcluindo(false);
+    }
+  };
+
   const formatarData = (data: string) => {
     return new Date(data).toLocaleDateString("pt-BR", {
       day: "2-digit",
@@ -444,14 +504,24 @@ export default function Contabilidade() {
                             Ver
                           </Button>
                           {processo.respondido_contabilidade && processo.url_resposta_pdf ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => visualizarDocumento(processo.url_resposta_pdf!)}
-                            >
-                              <FileDown className="h-4 w-4 mr-1" />
-                              Ver Resposta
-                            </Button>
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => visualizarDocumento(processo.url_resposta_pdf!)}
+                              >
+                                <FileDown className="h-4 w-4 mr-1" />
+                                Ver Resposta
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => abrirDialogExcluir(processo)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Excluir
+                              </Button>
+                            </>
                           ) : (
                             <Button
                               variant="default"
@@ -533,6 +603,38 @@ export default function Contabilidade() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <AlertDialog open={dialogExcluirOpen} onOpenChange={setDialogExcluirOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Confirmar Exclusão
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Você está prestes a excluir a resposta do processo <strong>{processoParaExcluir?.processo_numero}</strong>.
+              </p>
+              <p className="text-amber-600 font-medium">
+                O processo voltará para a lista de pendentes e será necessário responder novamente.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindo}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={excluirResposta}
+              disabled={excluindo}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {excluindo ? "Excluindo..." : "Confirmar Exclusão"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

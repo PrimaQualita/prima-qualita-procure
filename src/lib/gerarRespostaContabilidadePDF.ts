@@ -233,22 +233,33 @@ export const gerarRespostaContabilidadePDF = async (
   // Linhas da tabela
   doc.setFont('helvetica', 'normal');
   dados.fornecedores.forEach((fornecedor) => {
-    const textoFornecedor = `${fornecedor.razaoSocial} - CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`;
-    const linhasFornecedor = doc.splitTextToSize(textoFornecedor, colWidth1 - cellPadding * 2);
-    const alturaLinha = Math.max(linhasFornecedor.length * 5, 8);
+    // Linha 1: Nome da empresa
+    const linhasNome = doc.splitTextToSize(fornecedor.razaoSocial, colWidth1 - cellPadding * 2);
+    // Linha 2: CNPJ
+    const textoCNPJ = `CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`;
+    
+    // Calcular altura: linhas do nome + 1 linha do CNPJ + padding
+    const alturaLinha = (linhasNome.length * 5) + 5 + 4;
     
     // Bordas das células
     doc.rect(tableStartX, yPos, colWidth1, alturaLinha, 'S');
     doc.rect(tableStartX + colWidth1, yPos, colWidth2, alturaLinha, 'S');
     
-    // Texto do fornecedor
+    // Texto do nome da empresa
     let textoY = yPos + 5;
-    linhasFornecedor.forEach((linha: string) => {
+    doc.setFont('helvetica', 'bold');
+    linhasNome.forEach((linha: string) => {
       doc.text(linha, tableStartX + cellPadding, textoY);
       textoY += 5;
     });
     
-    // Tipo de operação (centralizado)
+    // CNPJ abaixo do nome
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(textoCNPJ, tableStartX + cellPadding, textoY);
+    doc.setFontSize(10);
+    
+    // Tipo de operação (centralizado verticalmente)
     doc.setFont('helvetica', 'bold');
     const tipoOpWidth = doc.getTextWidth(fornecedor.tipoOperacao);
     doc.text(fornecedor.tipoOperacao, tableStartX + colWidth1 + (colWidth2 - tipoOpWidth) / 2, yPos + alturaLinha / 2 + 2);

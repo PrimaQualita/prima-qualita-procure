@@ -371,7 +371,7 @@ serve(async (req) => {
       );
     }
 
-    // 16. Encaminhamentos para Contabilidade
+    // 16. Encaminhamentos para Contabilidade (pelo protocolo do encaminhamento)
     const { data: encaminhamentoContabilidade } = await supabase
       .from("encaminhamentos_contabilidade")
       .select(`
@@ -384,6 +384,31 @@ serve(async (req) => {
     if (encaminhamentoContabilidade) {
       return new Response(
         JSON.stringify({ documento: encaminhamentoContabilidade, tipo: "encaminhamento_contabilidade" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 17. Respostas da Contabilidade (pelo protocolo_resposta)
+    const { data: respostaContabilidade } = await supabase
+      .from("encaminhamentos_contabilidade")
+      .select(`
+        id, protocolo_resposta, processo_numero, objeto_processo, fornecedores_vencedores,
+        tipos_operacao_fornecedores, data_resposta_contabilidade, url_resposta_pdf
+      `)
+      .eq("protocolo_resposta", protocolo)
+      .maybeSingle();
+
+    if (respostaContabilidade) {
+      return new Response(
+        JSON.stringify({ 
+          documento: { 
+            ...respostaContabilidade, 
+            protocolo: respostaContabilidade.protocolo_resposta,
+            url_arquivo: respostaContabilidade.url_resposta_pdf,
+            data_geracao: respostaContabilidade.data_resposta_contabilidade
+          }, 
+          tipo: "resposta_contabilidade" 
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
