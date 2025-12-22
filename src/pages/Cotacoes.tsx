@@ -128,6 +128,8 @@ const Cotacoes = () => {
   const [loteParaExcluir, setLoteParaExcluir] = useState<string | null>(null);
   const [confirmDeleteItemOpen, setConfirmDeleteItemOpen] = useState(false);
   const [itemParaExcluir, setItemParaExcluir] = useState<string | null>(null);
+  const [confirmDeleteEmailOpen, setConfirmDeleteEmailOpen] = useState(false);
+  const [emailParaExcluir, setEmailParaExcluir] = useState<string | null>(null);
   const [savingCotacao, setSavingCotacao] = useState(false);
   const [criterioJulgamento, setCriterioJulgamento] = useState<'por_item' | 'global' | 'por_lote' | 'desconto'>('global');
   const [naoRequerSelecao, setNaoRequerSelecao] = useState(false);
@@ -694,13 +696,20 @@ const Cotacoes = () => {
     }
   };
 
-  const deletarEmailAnexado = async (emailId: string) => {
+  const handleDeleteEmail = (emailId: string) => {
+    setEmailParaExcluir(emailId);
+    setConfirmDeleteEmailOpen(true);
+  };
+
+  const confirmarDeleteEmail = async () => {
+    if (!emailParaExcluir) return;
+    
     try {
       // Buscar o email para pegar a URL antes de deletar
       const { data: email, error: fetchError } = await (supabase as any)
         .from("emails_cotacao_anexados")
         .select("url_arquivo")
-        .eq("id", emailId)
+        .eq("id", emailParaExcluir)
         .single();
 
       if (fetchError) throw fetchError;
@@ -721,7 +730,7 @@ const Cotacoes = () => {
       const { error } = await (supabase as any)
         .from("emails_cotacao_anexados")
         .delete()
-        .eq("id", emailId);
+        .eq("id", emailParaExcluir);
 
       if (error) throw error;
 
@@ -732,6 +741,9 @@ const Cotacoes = () => {
     } catch (error) {
       console.error("Erro ao deletar e-mail:", error);
       toast.error("Erro ao deletar e-mail");
+    } finally {
+      setConfirmDeleteEmailOpen(false);
+      setEmailParaExcluir(null);
     }
   };
 
@@ -1938,7 +1950,7 @@ const Cotacoes = () => {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => deletarEmailAnexado(email.id)}
+                                    onClick={() => handleDeleteEmail(email.id)}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -2946,6 +2958,27 @@ const Cotacoes = () => {
             <AlertDialogCancel onClick={() => setItemParaExcluir(null)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmarDeleteItem}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para exclusão de e-mail */}
+      <AlertDialog open={confirmDeleteEmailOpen} onOpenChange={setConfirmDeleteEmailOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja realmente excluir este e-mail anexado?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setEmailParaExcluir(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmarDeleteEmail}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
