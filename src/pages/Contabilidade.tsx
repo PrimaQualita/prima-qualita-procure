@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ContratoGestao {
   id: string;
@@ -568,25 +569,29 @@ export default function Contabilidade() {
                 Informe o tipo de operação (números e letras maiúsculas) para cada fornecedor
               </p>
               
-              {processoSelecionado?.fornecedores_vencedores?.map((f: FornecedorVencedor, i: number) => (
-                <div key={i} className="p-4 border rounded-lg space-y-2">
-                  <div>
-                    <p className="font-medium text-sm">{f.razaoSocial}</p>
-                    <p className="text-xs text-muted-foreground">CNPJ: {formatarCNPJ(f.cnpj)}</p>
-                  </div>
-                  <div>
-                    <Label htmlFor={`tipo-${f.cnpj}`}>Tipo de Operação</Label>
-                    <Input
-                      id={`tipo-${f.cnpj}`}
-                      placeholder="Ex: 001.01"
-                      value={tiposOperacao[f.cnpj] || ""}
-                      onChange={(e) => handleTipoOperacaoChange(f.cnpj, e.target.value)}
-                      className="mt-1 font-mono uppercase"
-                      maxLength={20}
-                    />
-                  </div>
+              <ScrollArea className="max-h-[400px] pr-4">
+                <div className="space-y-4">
+                  {processoSelecionado?.fornecedores_vencedores?.map((f: FornecedorVencedor, i: number) => (
+                    <div key={i} className="p-4 border rounded-lg space-y-2">
+                      <div>
+                        <p className="font-medium text-sm">{f.razaoSocial}</p>
+                        <p className="text-xs text-muted-foreground">CNPJ: {formatarCNPJ(f.cnpj)}</p>
+                      </div>
+                      <div>
+                        <Label htmlFor={`tipo-${f.cnpj}`}>Tipo de Operação</Label>
+                        <Input
+                          id={`tipo-${f.cnpj}`}
+                          placeholder="Ex: 001.01"
+                          value={tiposOperacao[f.cnpj] || ""}
+                          onChange={(e) => handleTipoOperacaoChange(f.cnpj, e.target.value)}
+                          className="mt-1 font-mono uppercase"
+                          maxLength={20}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </ScrollArea>
             </div>
           </div>
 
