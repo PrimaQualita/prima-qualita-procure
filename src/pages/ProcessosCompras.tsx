@@ -450,8 +450,8 @@ const ProcessosCompras = () => {
                         <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
                         <TableCell>{contrato.ente_federativo}</TableCell>
                         <TableCell>
-                          {new Date(contrato.data_inicio).toLocaleDateString()} até{" "}
-                          {new Date(contrato.data_fim).toLocaleDateString()}
+                          {contrato.data_inicio.split('-').reverse().join('/')} até{" "}
+                          {contrato.data_fim.split('-').reverse().join('/')}
                         </TableCell>
                         <TableCell>{getStatusBadge(contrato.status)}</TableCell>
                         <TableCell className="text-right">
