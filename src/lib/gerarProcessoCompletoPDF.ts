@@ -315,7 +315,55 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 7. Buscar TODOS os relatórios finais
+    // 6b. Buscar TODOS os encaminhamentos à contabilidade
+    const { data: encaminhamentosContabilidade, error: encContabError } = await supabase
+      .from("encaminhamentos_contabilidade")
+      .select("*")
+      .eq("cotacao_id", cotacaoId)
+      .order("data_geracao", { ascending: true });
+
+    if (encContabError) {
+      console.error("Erro ao buscar encaminhamentos à contabilidade:", encContabError);
+    }
+
+    console.log(`Encaminhamentos à contabilidade encontrados: ${encaminhamentosContabilidade?.length || 0}`);
+    
+    if (encaminhamentosContabilidade && encaminhamentosContabilidade.length > 0) {
+      encaminhamentosContabilidade.forEach(enc => {
+        // Adicionar encaminhamento
+        if (enc.url_arquivo || enc.storage_path) {
+          let storagePath = enc.storage_path || enc.url_arquivo;
+          if (storagePath?.startsWith('processo-anexos/')) {
+            storagePath = storagePath.replace('processo-anexos/', '');
+          }
+          
+          documentosOrdenados.push({
+            tipo: "Encaminhamento à Contabilidade",
+            data: enc.data_geracao,
+            nome: enc.nome_arquivo || `Encaminhamento Contabilidade ${enc.protocolo}`,
+            storagePath: storagePath,
+            bucket: "processo-anexos"
+          });
+        }
+        
+        // Adicionar resposta da contabilidade se existir
+        if (enc.respondido_contabilidade && enc.url_resposta_pdf) {
+          let storagePathResposta = enc.storage_path_resposta || enc.url_resposta_pdf;
+          if (storagePathResposta?.startsWith('processo-anexos/')) {
+            storagePathResposta = storagePathResposta.replace('processo-anexos/', '');
+          }
+          
+          documentosOrdenados.push({
+            tipo: "Resposta da Contabilidade",
+            data: enc.data_resposta_contabilidade || enc.data_geracao,
+            nome: `Resposta Contabilidade ${enc.protocolo_resposta || enc.protocolo}`,
+            storagePath: storagePathResposta,
+            bucket: "processo-anexos"
+          });
+        }
+      });
+    }
+
     const { data: relatorios, error: relatoriosError } = await supabase
       .from("relatorios_finais")
       .select("*")
