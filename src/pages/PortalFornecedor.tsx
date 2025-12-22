@@ -1411,6 +1411,11 @@ export default function PortalFornecedor() {
                                       </Badge>
                                     )}
                                   </div>
+                                  {campo.descricao && campo.status_solicitacao !== "rejeitado" && !(campo.status_solicitacao === "pendente" && campo.enviado) && (
+                                    <p className="text-sm text-muted-foreground mb-2">
+                                      {campo.descricao}
+                                    </p>
+                                  )}
                                   {campo.descricao && campo.status_solicitacao === "rejeitado" && (
                                     <p className="text-sm text-red-600 dark:text-red-400 mb-3">
                                       <strong>Motivo da rejeição:</strong> {campo.descricao}
@@ -1591,6 +1596,11 @@ export default function PortalFornecedor() {
                                       </Badge>
                                     )}
                                   </div>
+                                  {campo.descricao && campo.status_solicitacao !== "rejeitado" && !(campo.status_solicitacao === "pendente" && campo.enviado) && (
+                                    <p className="text-sm text-muted-foreground mb-2">
+                                      {campo.descricao}
+                                    </p>
+                                  )}
                                   {campo.descricao && campo.status_solicitacao === "rejeitado" && (
                                     <p className="text-sm text-red-600 dark:text-red-400 mb-3">
                                       <strong>Motivo da rejeição:</strong> {campo.descricao}
