@@ -210,25 +210,67 @@ export const gerarRespostaContabilidadePDF = async (
   yPos += 8;
 
   // Tabela de fornecedores com tipos de operação
-  const tableStartY = yPos;
   const colWidth1 = 120; // Fornecedor
   const colWidth2 = 50;  // Tipo de Operação
   const cellPadding = 3;
   const tableWidth = colWidth1 + colWidth2;
   const tableStartX = 20;
+  const headerHeight = 8;
+  const maxYBeforeBreak = pageHeight - rodapeHeight - 50; // Margem antes do rodapé
 
-  // Cabeçalho da tabela
-  doc.setFillColor(240, 240, 240);
-  doc.rect(tableStartX, yPos, tableWidth, 8, 'F');
-  doc.setDrawColor(200, 200, 200);
-  doc.rect(tableStartX, yPos, tableWidth, 8, 'S');
-  doc.line(tableStartX + colWidth1, yPos, tableStartX + colWidth1, yPos + 8);
-  
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Fornecedor', tableStartX + cellPadding, yPos + 5.5);
-  doc.text('Tipo de Operação', tableStartX + colWidth1 + cellPadding, yPos + 5.5);
-  yPos += 8;
+  // Função para desenhar cabeçalho da tabela
+  const desenharCabecalhoTabela = (yPosition: number): number => {
+    doc.setFillColor(240, 240, 240);
+    doc.rect(tableStartX, yPosition, tableWidth, headerHeight, 'F');
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(tableStartX, yPosition, tableWidth, headerHeight, 'S');
+    doc.line(tableStartX + colWidth1, yPosition, tableStartX + colWidth1, yPosition + headerHeight);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    
+    // Centralizar textos do cabeçalho
+    const textoFornecedor = 'Fornecedor';
+    const textoTipoOp = 'Tipo de Operação';
+    const larguraFornecedor = doc.getTextWidth(textoFornecedor);
+    const larguraTipoOp = doc.getTextWidth(textoTipoOp);
+    
+    doc.text(textoFornecedor, tableStartX + (colWidth1 - larguraFornecedor) / 2, yPosition + 5.5);
+    doc.text(textoTipoOp, tableStartX + colWidth1 + (colWidth2 - larguraTipoOp) / 2, yPosition + 5.5);
+    
+    return yPosition + headerHeight;
+  };
+
+  // Função para adicionar nova página com cabeçalho, logo, rodapé e marca d'água
+  const adicionarNovaPagina = (): number => {
+    doc.addPage();
+    
+    // Adicionar marca d'água
+    doc.saveGraphicsState();
+    const gState2 = doc.GState({ opacity: 0.08 });
+    doc.setGState(gState2);
+    doc.addImage(
+      base64MarcaDagua,
+      'PNG',
+      (pageWidth - 160) / 2,
+      (pageHeight - 80) / 2,
+      160,
+      80
+    );
+    doc.restoreGraphicsState();
+    
+    // Logo no topo
+    doc.addImage(base64CapaLogo, 'PNG', 1.5, 0, pageWidth - 3, logoHeight);
+    
+    // Rodapé no fundo
+    doc.addImage(base64Rodape, 'PNG', 1.5, yRodape, pageWidth - 3, rodapeHeight);
+    
+    // Retornar posição Y após o logo
+    return logoHeight + 15;
+  };
+
+  // Desenhar cabeçalho inicial
+  yPos = desenharCabecalhoTabela(yPos);
 
   // Linhas da tabela
   doc.setFont('helvetica', 'normal');
@@ -241,7 +283,14 @@ export const gerarRespostaContabilidadePDF = async (
     // Calcular altura: linhas do nome + 1 linha do CNPJ + padding
     const alturaLinha = (linhasNome.length * 5) + 5 + 4;
     
+    // Verificar se precisa quebrar para próxima página
+    if (yPos + alturaLinha > maxYBeforeBreak) {
+      yPos = adicionarNovaPagina();
+      yPos = desenharCabecalhoTabela(yPos);
+    }
+    
     // Bordas das células
+    doc.setDrawColor(200, 200, 200);
     doc.rect(tableStartX, yPos, colWidth1, alturaLinha, 'S');
     doc.rect(tableStartX + colWidth1, yPos, colWidth2, alturaLinha, 'S');
     
