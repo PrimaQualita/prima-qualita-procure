@@ -1137,10 +1137,14 @@ export type Database = {
           objeto_processo: string
           processo_numero: string
           protocolo: string
+          protocolo_resposta: string | null
           respondido_contabilidade: boolean | null
           resposta_contabilidade: string | null
           storage_path: string | null
+          storage_path_resposta: string | null
+          tipos_operacao_fornecedores: Json | null
           url_arquivo: string
+          url_resposta_pdf: string | null
           usuario_gerador_id: string | null
           usuario_gerador_nome: string
           usuario_resposta_id: string | null
@@ -1158,10 +1162,14 @@ export type Database = {
           objeto_processo: string
           processo_numero: string
           protocolo: string
+          protocolo_resposta?: string | null
           respondido_contabilidade?: boolean | null
           resposta_contabilidade?: string | null
           storage_path?: string | null
+          storage_path_resposta?: string | null
+          tipos_operacao_fornecedores?: Json | null
           url_arquivo: string
+          url_resposta_pdf?: string | null
           usuario_gerador_id?: string | null
           usuario_gerador_nome: string
           usuario_resposta_id?: string | null
@@ -1179,10 +1187,14 @@ export type Database = {
           objeto_processo?: string
           processo_numero?: string
           protocolo?: string
+          protocolo_resposta?: string | null
           respondido_contabilidade?: boolean | null
           resposta_contabilidade?: string | null
           storage_path?: string | null
+          storage_path_resposta?: string | null
+          tipos_operacao_fornecedores?: Json | null
           url_arquivo?: string
+          url_resposta_pdf?: string | null
           usuario_gerador_id?: string | null
           usuario_gerador_nome?: string
           usuario_resposta_id?: string | null
