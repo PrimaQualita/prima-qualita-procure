@@ -60,6 +60,7 @@ const VerificarDocumento = () => {
         planilha_consolidada: { label: 'Planilha Consolidada', icone: FileSpreadsheet },
         encaminhamento: { label: 'Encaminhamento de Processo', icone: FileBox },
         encaminhamento_contabilidade: { label: 'Encaminhamento para Contabilidade', icone: FileBox },
+        resposta_contabilidade: { label: 'Resposta da Contabilidade', icone: FileCheck },
         planilha_habilitacao: { label: 'Planilha de Habilitação', icone: FileSpreadsheet },
         planilha_lances: { label: 'Planilha de Lances', icone: FileSpreadsheet },
         ata_selecao: { label: 'Ata de Seleção', icone: Gavel },
