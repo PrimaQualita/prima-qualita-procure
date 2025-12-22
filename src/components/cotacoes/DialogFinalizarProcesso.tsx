@@ -777,10 +777,54 @@ export function DialogFinalizarProcesso({
           const valorTotalA = calcularValorTotal(a.itensVencedores);
           const valorTotalB = calcularValorTotal(b.itensVencedores);
           return valorTotalA - valorTotalB;
+        } else if (criterioJulgamento === 'por_item') {
+          // Para critério por_item: ordenar pelo menor número de item VENCIDO
+          // Quem venceu o item 1 vem primeiro, depois quem venceu o item 2, etc.
+          const getMenorItemVencido = (fornecedorData: any): number => {
+            const itensVencidosNums: number[] = [];
+            
+            fornecedorData.itensVencedores?.forEach((item: any) => {
+              if (item.itens_cotacao?.numero_item) {
+                itensVencidosNums.push(item.itens_cotacao.numero_item);
+              }
+            });
+            
+            // Se não tem itens vencedores, usar participados/rejeitados para posicionar após os vencedores
+            if (itensVencidosNums.length === 0) {
+              fornecedorData.itensRejeitados?.forEach((numItem: number) => {
+                itensVencidosNums.push(numItem);
+              });
+              
+              fornecedorData.itensParticipados?.forEach((item: any) => {
+                if (item.itens_cotacao?.numero_item) {
+                  itensVencidosNums.push(item.itens_cotacao.numero_item);
+                }
+              });
+            }
+            
+            return itensVencidosNums.length > 0 ? Math.min(...itensVencidosNums) : 9999;
+          };
+          
+          const menorItemA = getMenorItemVencido(a);
+          const menorItemB = getMenorItemVencido(b);
+          
+          if (menorItemA !== menorItemB) {
+            return menorItemA - menorItemB;
+          }
+          
+          // Se mesmo item: vencedores primeiro, depois inabilitados
+          if (!a.rejeitado && b.rejeitado) return -1;
+          if (a.rejeitado && !b.rejeitado) return 1;
+          
+          return a.fornecedor.razao_social.localeCompare(b.fornecedor.razao_social);
         } else {
-          // Para critérios por_item, desconto, etc: ordenar pelo menor número de ITEM
-          const menorItemA = Math.min(...a.itensVencedores.map(item => item.itens_cotacao.numero_item));
-          const menorItemB = Math.min(...b.itensVencedores.map(item => item.itens_cotacao.numero_item));
+          // Para critério desconto: ordenar pelo menor número de item
+          const menorItemA = a.itensVencedores.length > 0 
+            ? Math.min(...a.itensVencedores.map(item => item.itens_cotacao.numero_item)) 
+            : 9999;
+          const menorItemB = b.itensVencedores.length > 0 
+            ? Math.min(...b.itensVencedores.map(item => item.itens_cotacao.numero_item)) 
+            : 9999;
           return menorItemA - menorItemB;
         }
       });
