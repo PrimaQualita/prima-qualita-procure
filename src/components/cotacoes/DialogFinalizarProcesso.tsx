@@ -4091,18 +4091,21 @@ export function DialogFinalizarProcesso({
                   <div className="flex flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
                     <Label className="text-sm font-semibold">Encaminhamentos para Contabilidade:</Label>
                     {encaminhamentosContabilidade.map((enc) => (
-                      <div key={enc.id} className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                      <div key={enc.id} className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
                         <div className="flex-1 text-sm">
                           <div className="font-medium">Protocolo: {enc.protocolo}</div>
                           <div className="text-muted-foreground">
                             {new Date(enc.data_geracao).toLocaleString('pt-BR')}
                           </div>
-                          {enc.enviado_contabilidade && (
-                            <Badge variant="default" className="mt-1">Enviado à Contabilidade</Badge>
-                          )}
-                          {enc.respondido_contabilidade && (
-                            <Badge variant="outline" className="mt-1 ml-1">Respondido</Badge>
-                          )}
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {enc.enviado_contabilidade && (
+                              <Badge variant="default">Enviado à Contabilidade</Badge>
+                            )}
+                            {enc.respondido_contabilidade && (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Respondido</Badge>
+                            )}
+                          </div>
                         </div>
                         <Button
                           onClick={async () => {
@@ -4195,6 +4198,83 @@ export function DialogFinalizarProcesso({
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                      </div>
+                      
+                      {/* PDF de Resposta da Contabilidade */}
+                      {enc.respondido_contabilidade && enc.url_resposta_pdf && (
+                        <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md ml-4">
+                          <div className="flex-1 text-sm">
+                            <div className="font-medium text-green-700">📄 Resposta da Contabilidade</div>
+                            <div className="text-green-600 text-xs">
+                              Protocolo: {enc.protocolo_resposta}
+                            </div>
+                            {enc.data_resposta_contabilidade && (
+                              <div className="text-green-600 text-xs">
+                                {new Date(enc.data_resposta_contabilidade).toLocaleString('pt-BR')}
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            onClick={async () => {
+                              try {
+                                let filePath = enc.storage_path_resposta || enc.url_resposta_pdf;
+                                if (filePath.includes('https://')) {
+                                  const urlParts = filePath.split('/processo-anexos/');
+                                  filePath = urlParts[1] || filePath;
+                                }
+                                const { data, error } = await supabase.storage
+                                  .from('processo-anexos')
+                                  .createSignedUrl(filePath, 3600);
+                                if (error) throw error;
+                                if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                              } catch (error) {
+                                console.error('Erro:', error);
+                                toast.error('Erro ao visualizar resposta');
+                              }
+                            }}
+                            variant="outline"
+                            size="icon"
+                            title="Ver Resposta"
+                            className="border-green-300 hover:bg-green-100"
+                          >
+                            <Eye className="h-4 w-4 text-green-700" />
+                          </Button>
+                          <Button
+                            onClick={async () => {
+                              try {
+                                let filePath = enc.storage_path_resposta || enc.url_resposta_pdf;
+                                if (filePath.includes('https://')) {
+                                  const urlParts = filePath.split('/processo-anexos/');
+                                  filePath = urlParts[1] || filePath;
+                                }
+                                const { data, error } = await supabase.storage
+                                  .from('processo-anexos')
+                                  .download(filePath);
+                                if (error) throw error;
+                                if (data) {
+                                  const url = URL.createObjectURL(data);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `resposta_contabilidade_${enc.protocolo_resposta}.pdf`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  URL.revokeObjectURL(url);
+                                }
+                              } catch (error) {
+                                console.error('Erro:', error);
+                                toast.error('Erro ao baixar resposta');
+                              }
+                            }}
+                            variant="outline"
+                            size="icon"
+                            title="Baixar Resposta"
+                            className="border-green-300 hover:bg-green-100"
+                          >
+                            <Download className="h-4 w-4 text-green-700" />
+                          </Button>
+                        </div>
+                      )}
                       </div>
                     ))}
                   </div>
