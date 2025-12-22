@@ -637,42 +637,59 @@ export const gerarProcessoCompletoPDF = async (
       todosFornecedoresProcesso = Array.from(todosFornecedoresProcessoSet);
     }
 
-    // Garantir que fornecedores com DOCUMENTOS ADICIONAIS enviados entrem na mesclagem,
-    // mesmo que não tenham entrado na lista por critério de julgamento (evita “sumir” no PDF final).
+    // ============================================
+    // GARANTIR QUE FORNECEDORES COM DOCUMENTOS ADICIONAIS ENTREM NA MESCLAGEM
+    // ============================================
     try {
-      const { data: docsAdicionaisFornecedores, error: docsAdicionaisError } = await supabase
-        .from("documentos_finalizacao_fornecedor")
-        .select(
-          `
-          fornecedor_id,
-          campos_documentos_finalizacao!inner(
-            cotacao_id
-          )
-        `
-        )
-        .eq("campos_documentos_finalizacao.cotacao_id", cotacaoId);
+      console.log(`  🔍 Buscando fornecedores com documentos adicionais para cotação ${cotacaoId}...`);
+      
+      // PRIMEIRO: Buscar campos de documentos desta cotação (com fornecedor_id definido)
+      const { data: camposComFornecedor, error: camposError } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("id, fornecedor_id")
+        .eq("cotacao_id", cotacaoId)
+        .not("fornecedor_id", "is", null);
+      
+      if (camposError) {
+        console.error("❌ Erro ao buscar campos de documentos adicionais:", camposError);
+      } else if (camposComFornecedor && camposComFornecedor.length > 0) {
+        const campoIds = camposComFornecedor.map(c => c.id);
+        console.log(`  📋 Campos de documentos encontrados: ${camposComFornecedor.length}`);
+        
+        // SEGUNDO: Buscar documentos que foram enviados para esses campos
+        const { data: docsEnviados, error: docsError } = await supabase
+          .from("documentos_finalizacao_fornecedor")
+          .select("fornecedor_id, campo_documento_id")
+          .in("campo_documento_id", campoIds);
+        
+        if (docsError) {
+          console.error("❌ Erro ao buscar documentos enviados:", docsError);
+        } else {
+          // Identificar fornecedores únicos que enviaram documentos
+          const fornecedoresComDocsAdicionais = Array.from(
+            new Set((docsEnviados || []).map((d: any) => d.fornecedor_id).filter(Boolean))
+          ) as string[];
+          
+          console.log(`  📄 Fornecedores com docs adicionais encontrados: ${fornecedoresComDocsAdicionais.length}`);
 
-      if (docsAdicionaisError) {
-        console.error("❌ Erro ao buscar fornecedores com documentos adicionais:", docsAdicionaisError);
-      } else {
-        const fornecedoresComDocsAdicionais = Array.from(
-          new Set((docsAdicionaisFornecedores || []).map((d: any) => d.fornecedor_id).filter(Boolean))
-        ) as string[];
+          if (fornecedoresComDocsAdicionais.length > 0) {
+            const antes = [...todosFornecedoresProcesso];
+            for (const fornecedorIdDoc of fornecedoresComDocsAdicionais) {
+              if (!todosFornecedoresProcesso.includes(fornecedorIdDoc)) {
+                todosFornecedoresProcesso.push(fornecedorIdDoc);
+                console.log(`    ➕ Adicionado fornecedor ${fornecedorIdDoc} por ter docs adicionais`);
+              }
+            }
 
-        if (fornecedoresComDocsAdicionais.length > 0) {
-          const antes = [...todosFornecedoresProcesso];
-          for (const fornecedorId of fornecedoresComDocsAdicionais) {
-            if (!todosFornecedoresProcesso.includes(fornecedorId)) {
-              todosFornecedoresProcesso.push(fornecedorId);
+            if (todosFornecedoresProcesso.length !== antes.length) {
+              console.log(
+                `  ✅ Total de fornecedores adicionados por terem docs adicionais: ${todosFornecedoresProcesso.length - antes.length}`
+              );
             }
           }
-
-          if (todosFornecedoresProcesso.length !== antes.length) {
-            console.log(
-              `  ➕ Fornecedores adicionados por terem docs adicionais: ${todosFornecedoresProcesso.length - antes.length}`
-            );
-          }
         }
+      } else {
+        console.log(`  ℹ️ Nenhum campo de documentos adicionais encontrado para esta cotação`);
       }
     } catch (e) {
       console.error("❌ Erro inesperado ao incluir fornecedores com docs adicionais:", e);
@@ -780,27 +797,54 @@ export const gerarProcessoCompletoPDF = async (
         }
       }
 
-      // Buscar documentos faltantes/adicionais
-      const { data: docsFaltantes, error: faltantesError } = await supabase
-        .from("documentos_finalizacao_fornecedor")
-        .select(`
-          *,
-          campos_documentos_finalizacao!inner(
-            nome_campo,
-            cotacao_id
-          )
-        `)
-        .eq("fornecedor_id", fornecedorId)
-        .order("data_upload", { ascending: true });
-
-      if (faltantesError) {
-        console.error(`    ❌ Erro ao buscar documentos faltantes:`, faltantesError);
+      // ============================================
+      // BUSCAR E MESCLAR DOCUMENTOS ADICIONAIS/FALTANTES
+      // ============================================
+      console.log(`    🔍 Buscando documentos adicionais para fornecedor ${fornecedorId} na cotação ${cotacaoId}...`);
+      
+      // PRIMEIRO: Buscar os campos de documentos finalizacao desta cotação para este fornecedor
+      const { data: camposDocsCotacao, error: camposError } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("id, nome_campo, fornecedor_id")
+        .eq("cotacao_id", cotacaoId)
+        .eq("fornecedor_id", fornecedorId);
+      
+      if (camposError) {
+        console.error(`    ❌ Erro ao buscar campos de documentos:`, camposError);
       }
+      
+      console.log(`    📋 Campos de documentos encontrados: ${camposDocsCotacao?.length || 0}`);
+      
+      let docsFaltantesFiltrados: any[] = [];
+      
+      if (camposDocsCotacao && camposDocsCotacao.length > 0) {
+        const campoIds = camposDocsCotacao.map(c => c.id);
+        
+        // SEGUNDO: Buscar os documentos enviados para esses campos
+        const { data: docsFaltantes, error: faltantesError } = await supabase
+          .from("documentos_finalizacao_fornecedor")
+          .select("*")
+          .in("campo_documento_id", campoIds)
+          .order("data_upload", { ascending: true });
 
-      const docsFaltantesFiltrados = docsFaltantes?.filter(doc => {
-        const campo = doc.campos_documentos_finalizacao as any;
-        return campo?.cotacao_id === cotacaoId;
-      }) || [];
+        if (faltantesError) {
+          console.error(`    ❌ Erro ao buscar documentos faltantes:`, faltantesError);
+        }
+        
+        console.log(`    📄 Documentos adicionais encontrados: ${docsFaltantes?.length || 0}`);
+        
+        // Associar o nome do campo a cada documento
+        docsFaltantesFiltrados = (docsFaltantes || []).map(doc => {
+          const campo = camposDocsCotacao.find(c => c.id === doc.campo_documento_id);
+          return {
+            ...doc,
+            campos_documentos_finalizacao: {
+              nome_campo: campo?.nome_campo || 'Documento Adicional',
+              cotacao_id: cotacaoId
+            }
+          };
+        });
+      }
 
       // Mesclar documentos faltantes
       for (const doc of docsFaltantesFiltrados) {
