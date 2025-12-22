@@ -637,6 +637,47 @@ export const gerarProcessoCompletoPDF = async (
       todosFornecedoresProcesso = Array.from(todosFornecedoresProcessoSet);
     }
 
+    // Garantir que fornecedores com DOCUMENTOS ADICIONAIS enviados entrem na mesclagem,
+    // mesmo que não tenham entrado na lista por critério de julgamento (evita “sumir” no PDF final).
+    try {
+      const { data: docsAdicionaisFornecedores, error: docsAdicionaisError } = await supabase
+        .from("documentos_finalizacao_fornecedor")
+        .select(
+          `
+          fornecedor_id,
+          campos_documentos_finalizacao!inner(
+            cotacao_id
+          )
+        `
+        )
+        .eq("campos_documentos_finalizacao.cotacao_id", cotacaoId);
+
+      if (docsAdicionaisError) {
+        console.error("❌ Erro ao buscar fornecedores com documentos adicionais:", docsAdicionaisError);
+      } else {
+        const fornecedoresComDocsAdicionais = Array.from(
+          new Set((docsAdicionaisFornecedores || []).map((d: any) => d.fornecedor_id).filter(Boolean))
+        ) as string[];
+
+        if (fornecedoresComDocsAdicionais.length > 0) {
+          const antes = [...todosFornecedoresProcesso];
+          for (const fornecedorId of fornecedoresComDocsAdicionais) {
+            if (!todosFornecedoresProcesso.includes(fornecedorId)) {
+              todosFornecedoresProcesso.push(fornecedorId);
+            }
+          }
+
+          if (todosFornecedoresProcesso.length !== antes.length) {
+            console.log(
+              `  ➕ Fornecedores adicionados por terem docs adicionais: ${todosFornecedoresProcesso.length - antes.length}`
+            );
+          }
+        }
+      }
+    } catch (e) {
+      console.error("❌ Erro inesperado ao incluir fornecedores com docs adicionais:", e);
+    }
+
     console.log(`  👥 Fornecedores vencedores: ${fornecedoresVencedores.length}`);
     console.log(`  👥 Total de fornecedores para documentos: ${todosFornecedoresProcesso.length}`);
 
