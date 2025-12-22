@@ -548,6 +548,20 @@ export default function GestaoStorage() {
                   }),
                   showView: resultado.estatisticasPorCategoria?.requisicoes?.porProcesso?.length > 0
                 },
+                // Respostas da Contabilidade
+                {
+                  key: 'respostas_contabilidade',
+                  title: 'Respostas da Contabilidade',
+                  colorClass: 'border-teal-200 bg-teal-50/50',
+                  description: 'Respostas recebidas',
+                  data: resultado.estatisticasPorCategoria?.respostas_contabilidade,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Respostas da Contabilidade',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.respostas_contabilidade?.porProcesso || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.respostas_contabilidade?.porProcesso?.length > 0
+                },
                 // Termos de Referência
                 {
                   key: 'termos_referencia',
