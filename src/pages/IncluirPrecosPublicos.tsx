@@ -119,14 +119,25 @@ const IncluirPrecosPublicos = () => {
       let colunas: { header: string; key: string; width: number }[];
       
       if (isDesconto) {
-        // Template para critério de desconto: apenas coluna de percentual
-        colunas = [
-          { header: 'Item', key: 'item', width: 10 },
-          { header: 'Descrição', key: 'descricao', width: 50 },
-          { header: 'Quantidade', key: 'quantidade', width: 12 },
-          { header: 'Unidade de Medida', key: 'unidade', width: 18 },
-          { header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 }
-        ];
+        // Template para critério de desconto: apenas coluna de percentual (sem valor total)
+        if (mostrarMarca) {
+          colunas = [
+            { header: 'Item', key: 'item', width: 10 },
+            { header: 'Descrição', key: 'descricao', width: 50 },
+            { header: 'Quantidade', key: 'quantidade', width: 12 },
+            { header: 'Unidade de Medida', key: 'unidade', width: 18 },
+            { header: 'Marca', key: 'marca', width: 30 },
+            { header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 }
+          ];
+        } else {
+          colunas = [
+            { header: 'Item', key: 'item', width: 10 },
+            { header: 'Descrição', key: 'descricao', width: 50 },
+            { header: 'Quantidade', key: 'quantidade', width: 12 },
+            { header: 'Unidade de Medida', key: 'unidade', width: 18 },
+            { header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 }
+          ];
+        }
       } else if (mostrarMarca) {
         colunas = [
           { header: 'Item', key: 'item', width: 10 },
@@ -151,8 +162,20 @@ const IncluirPrecosPublicos = () => {
       worksheet.columns = colunas;
       
       // Índices das colunas variam conforme o tipo de template
-      const colValor = isDesconto ? 5 : (mostrarMarca ? 6 : 5);
-      const colValorTotal = isDesconto ? -1 : (mostrarMarca ? 7 : 6); // -1 quando não existe
+      // Desconto com marca: Item(1), Desc(2), Qtd(3), Unid(4), Marca(5), Desconto(6)
+      // Desconto sem marca: Item(1), Desc(2), Qtd(3), Unid(4), Desconto(5)
+      // Valor com marca: Item(1), Desc(2), Qtd(3), Unid(4), Marca(5), Valor(6), Total(7)
+      // Valor sem marca: Item(1), Desc(2), Qtd(3), Unid(4), Valor(5), Total(6)
+      let colValor: number;
+      let colValorTotal: number;
+      
+      if (isDesconto) {
+        colValor = mostrarMarca ? 6 : 5;
+        colValorTotal = -1; // Não existe coluna de valor total para desconto
+      } else {
+        colValor = mostrarMarca ? 6 : 5;
+        colValorTotal = mostrarMarca ? 7 : 6;
+      }
       const colQuantidade = 3;
 
       // Se critério for por_lote, agrupar itens por lote
@@ -181,11 +204,12 @@ const IncluirPrecosPublicos = () => {
               unidade: ''
             };
             if (isDesconto) {
+              if (mostrarMarca) loteRowData.marca = '';
               loteRowData.desconto = '';
             } else {
+              if (mostrarMarca) loteRowData.marca = '';
               loteRowData.valor = '';
               loteRowData.valor_total = '';
-              if (mostrarMarca) loteRowData.marca = '';
             }
             const loteRow = worksheet.addRow(loteRowData);
             
@@ -211,11 +235,12 @@ const IncluirPrecosPublicos = () => {
                 unidade: item.unidade
               };
               if (isDesconto) {
+                if (mostrarMarca) rowData.marca = '';
                 rowData.desconto = '';
               } else {
+                if (mostrarMarca) rowData.marca = '';
                 rowData.valor = '';
                 rowData.valor_total = '';
-                if (mostrarMarca) rowData.marca = '';
               }
               const row = worksheet.addRow(rowData);
               
@@ -309,11 +334,12 @@ const IncluirPrecosPublicos = () => {
             unidade: item.unidade
           };
           if (isDesconto) {
+            if (mostrarMarca) rowData.marca = '';
             rowData.desconto = '';
           } else {
+            if (mostrarMarca) rowData.marca = '';
             rowData.valor = '';
             rowData.valor_total = '';
-            if (mostrarMarca) rowData.marca = '';
           }
           const row = worksheet.addRow(rowData);
           
@@ -411,15 +437,21 @@ const IncluirPrecosPublicos = () => {
       const isDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
       
       // Índices das colunas variam conforme tipo de template
-      // Desconto: Item(0), Desc(1), Qtd(2), Unid(3), Desconto(4)
-      // Com marca: Item(0), Desc(1), Qtd(2), Unid(3), Marca(4), Valor(5)
-      // Sem marca: Item(0), Desc(1), Qtd(2), Unid(3), Valor(4)
+      // Desconto com marca: Item(0), Desc(1), Qtd(2), Unid(3), Marca(4), Desconto(5)
+      // Desconto sem marca: Item(0), Desc(1), Qtd(2), Unid(3), Desconto(4)
+      // Valor com marca: Item(0), Desc(1), Qtd(2), Unid(3), Marca(4), Valor(5)
+      // Valor sem marca: Item(0), Desc(1), Qtd(2), Unid(3), Valor(4)
       let colMarcaIdx: number;
       let colValorIdx: number;
       
       if (isDesconto) {
-        colMarcaIdx = -1; // Não há coluna de marca no template de desconto
-        colValorIdx = 4;  // Coluna de percentual de desconto
+        if (mostrarMarca) {
+          colMarcaIdx = 4;
+          colValorIdx = 5; // Coluna de percentual de desconto
+        } else {
+          colMarcaIdx = -1;
+          colValorIdx = 4; // Coluna de percentual de desconto
+        }
       } else if (mostrarMarca) {
         colMarcaIdx = 4;
         colValorIdx = 5;
