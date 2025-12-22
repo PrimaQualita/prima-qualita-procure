@@ -195,27 +195,6 @@ export const gerarAutorizacaoCompraDireta = async (
     console.log('[PDF] Gerando tabela com', fornecedoresVencedores.length, 'fornecedores');
     doc.setFontSize(8);
     
-    // Cabeçalho da tabela (Empresa, CNPJ e Valor Total ou Desconto %)
-    doc.setFillColor(0, 51, 102);
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    doc.rect(20, yPos, 80, 8, 'FD');
-    doc.rect(100, yPos, 50, 8, 'FD');
-    doc.rect(150, yPos, 40, 8, 'FD');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Empresa', 60, yPos + 5, { align: 'center' });
-    doc.text('CNPJ', 125, yPos + 5, { align: 'center' });
-    doc.text(isDesconto ? 'Desconto (%)' : 'Valor Total', 170, yPos + 5, { align: 'center' });
-    yPos += 8;
-    
-    // Conteúdo da tabela
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal');
-    
-    let totalGeral = 0;
-    
-    // Função para formatar CNPJ
     const formatarCNPJ = (cnpj: string) => {
       const apenasNumeros = cnpj.replace(/\D/g, '');
       if (apenasNumeros.length === 14) {
@@ -224,48 +203,101 @@ export const gerarAutorizacaoCompraDireta = async (
       return cnpj;
     };
     
-    for (const fornecedor of fornecedoresVencedores) {
-      const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 75);
-      const alturaLinha = Math.max(8, razaoSocialSplit.length * 4 + 2);
+    // Layout diferente para desconto (apenas Empresa + CNPJ) vs preço (Empresa + CNPJ + Valor)
+    if (isDesconto) {
+      // CRITÉRIO DESCONTO: Apenas Empresa e CNPJ (2 colunas)
+      doc.setFillColor(0, 51, 102);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.rect(20, yPos, 100, 8, 'FD');
+      doc.rect(120, yPos, 70, 8, 'FD');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Empresa', 70, yPos + 5, { align: 'center' });
+      doc.text('CNPJ', 155, yPos + 5, { align: 'center' });
+      yPos += 8;
       
-      // Verificar se precisa de nova página
-      if (yPos + alturaLinha > pageHeight - 30) {
-        doc.addPage();
-        await adicionarLogoERodape(doc.getNumberOfPages());
-        yPos = 50; // Posicionar abaixo do logo (40mm de altura + margem)
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      
+      for (const fornecedor of fornecedoresVencedores) {
+        const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 95);
+        const alturaLinha = Math.max(8, razaoSocialSplit.length * 4 + 2);
+        
+        if (yPos + alturaLinha > pageHeight - 30) {
+          doc.addPage();
+          await adicionarLogoERodape(doc.getNumberOfPages());
+          yPos = 50;
+        }
+        
+        doc.rect(20, yPos, 100, alturaLinha);
+        doc.rect(120, yPos, 70, alturaLinha);
+        
+        const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
+        razaoSocialSplit.forEach((linha: string, index: number) => {
+          doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 96 });
+        });
+        
+        const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
+        doc.text(cnpjFormatado, 155, yPos + (alturaLinha / 2) + 1, { align: 'center' });
+        
+        yPos += alturaLinha;
       }
       
-      doc.rect(20, yPos, 80, alturaLinha);
-      doc.rect(100, yPos, 50, alturaLinha);
-      doc.rect(150, yPos, 40, alturaLinha);
+      yPos += 8;
+    } else {
+      // OUTROS CRITÉRIOS: Empresa, CNPJ e Valor Total (3 colunas)
+      doc.setFillColor(0, 51, 102);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.rect(20, yPos, 80, 8, 'FD');
+      doc.rect(100, yPos, 50, 8, 'FD');
+      doc.rect(150, yPos, 40, 8, 'FD');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Empresa', 60, yPos + 5, { align: 'center' });
+      doc.text('CNPJ', 125, yPos + 5, { align: 'center' });
+      doc.text('Valor Total', 170, yPos + 5, { align: 'center' });
+      yPos += 8;
       
-      // Razão social
-      const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
-      razaoSocialSplit.forEach((linha: string, index: number) => {
-        doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 76 });
-      });
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
       
-      // CNPJ (centralizado)
-      const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
-      const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 48);
-      const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
-      cnpjSplit.forEach((linha: string, index: number) => {
-        doc.text(linha, 125, yPos + offsetVerticalCNPJ + (index * 4), { align: 'center', maxWidth: 48 });
-      });
+      let totalGeral = 0;
       
-      // Valor total ou Desconto % do fornecedor
-      if (isDesconto) {
-        doc.text(`${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
-      } else {
+      for (const fornecedor of fornecedoresVencedores) {
+        const razaoSocialSplit = doc.splitTextToSize(fornecedor.razaoSocial, 75);
+        const alturaLinha = Math.max(8, razaoSocialSplit.length * 4 + 2);
+        
+        if (yPos + alturaLinha > pageHeight - 30) {
+          doc.addPage();
+          await adicionarLogoERodape(doc.getNumberOfPages());
+          yPos = 50;
+        }
+        
+        doc.rect(20, yPos, 80, alturaLinha);
+        doc.rect(100, yPos, 50, alturaLinha);
+        doc.rect(150, yPos, 40, alturaLinha);
+        
+        const offsetVerticalEmpresa = (alturaLinha - (razaoSocialSplit.length * 4)) / 2 + 3;
+        razaoSocialSplit.forEach((linha: string, index: number) => {
+          doc.text(linha, 22, yPos + offsetVerticalEmpresa + (index * 4), { align: 'left', maxWidth: 76 });
+        });
+        
+        const cnpjFormatado = formatarCNPJ(fornecedor.cnpj);
+        const cnpjSplit = doc.splitTextToSize(cnpjFormatado, 48);
+        const offsetVerticalCNPJ = (alturaLinha - (cnpjSplit.length * 4)) / 2 + 3;
+        cnpjSplit.forEach((linha: string, index: number) => {
+          doc.text(linha, 125, yPos + offsetVerticalCNPJ + (index * 4), { align: 'center', maxWidth: 48 });
+        });
+        
         doc.text(`R$ ${fornecedor.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + (alturaLinha / 2) + 1, { align: 'right' });
+        
+        yPos += alturaLinha;
+        totalGeral += fornecedor.valorTotal;
       }
       
-      yPos += alturaLinha;
-      totalGeral += fornecedor.valorTotal;
-    }
-    
-    // Linha de Total Geral (apenas para critérios de preço, não para desconto)
-    if (!isDesconto) {
+      // Linha de Total Geral
       doc.setFillColor(240, 240, 240);
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.5);
@@ -276,11 +308,9 @@ export const gerarAutorizacaoCompraDireta = async (
       doc.text('TOTAL GERAL', 22, yPos + 5);
       doc.text(`R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 187, yPos + 5, { align: 'right' });
       yPos += 16;
-    } else {
-      yPos += 8;
     }
     
-    console.log('[PDF] Tabela gerada com sucesso. Total geral:', totalGeral);
+    console.log('[PDF] Tabela gerada com sucesso');
   } else {
     console.log('[PDF] AVISO: Nenhum fornecedor vencedor para gerar tabela!');
   }
