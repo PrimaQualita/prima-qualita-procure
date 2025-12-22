@@ -1236,6 +1236,75 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
+    // 12a. Buscar e adicionar documentos adicionais de finalização dos fornecedores
+    console.log("\n📄 === BUSCANDO DOCUMENTOS ADICIONAIS DE FINALIZAÇÃO ===");
+    
+    const { data: camposFinalizacao, error: camposFinError } = await supabase
+      .from("campos_documentos_finalizacao")
+      .select(`
+        *,
+        fornecedor:fornecedores(razao_social)
+      `)
+      .eq("cotacao_id", cotacaoId);
+
+    if (camposFinError) {
+      console.error("Erro ao buscar campos de finalização:", camposFinError);
+    }
+
+    console.log(`Campos de finalização encontrados: ${camposFinalizacao?.length || 0}`);
+
+    // Buscar documentos de finalização enviados
+    const { data: docsFinalizacao, error: docsFinError } = await supabase
+      .from("documentos_finalizacao_fornecedor")
+      .select(`
+        *,
+        campo:campos_documentos_finalizacao(nome_campo, fornecedor_id, cotacao_id),
+        fornecedor:fornecedores(razao_social)
+      `);
+
+    if (docsFinError) {
+      console.error("Erro ao buscar documentos de finalização:", docsFinError);
+    }
+
+    // Filtrar apenas documentos desta cotação
+    const docsFinalizacaoCotacao = docsFinalizacao?.filter(doc => 
+      doc.campo?.cotacao_id === cotacaoId
+    ) || [];
+
+    console.log(`Documentos de finalização desta cotação: ${docsFinalizacaoCotacao.length}`);
+
+    if (docsFinalizacaoCotacao.length > 0) {
+      const dataDocsFinalizacao = new Date(new Date(dataPlanilhasHab).getTime() + ((planilhasHabilitacao?.length || 0) * 100) + 600).toISOString();
+      
+      docsFinalizacaoCotacao.forEach((doc, idx) => {
+        // Extrair storage path da URL
+        let storagePath = doc.url_arquivo;
+        if (storagePath.includes('/storage/v1/object/')) {
+          const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
+          if (match) {
+            storagePath = match[1].split('?')[0];
+          }
+        }
+        if (storagePath?.startsWith('processo-anexos/')) {
+          storagePath = storagePath.replace('processo-anexos/', '');
+        }
+        
+        const razaoSocial = doc.fornecedor?.razao_social || 'Fornecedor';
+        const nomeCampo = doc.campo?.nome_campo || 'Documento Adicional';
+        const dataDoc = new Date(new Date(dataDocsFinalizacao).getTime() + (idx * 10)).toISOString();
+        
+        documentosOrdenados.push({
+          tipo: `Documento Adicional - ${nomeCampo}`,
+          data: dataDoc,
+          nome: doc.nome_arquivo || `${nomeCampo} - ${razaoSocial}`,
+          url: doc.url_arquivo,
+          storagePath: storagePath,
+          bucket: "processo-anexos"
+        });
+        console.log(`  📄 Documento Adicional: ${nomeCampo} - ${razaoSocial}`);
+      });
+    }
+
     // 12b. Adicionar encaminhamentos à contabilidade APÓS relatórios finais
     if (encaminhamentosContabilidade && encaminhamentosContabilidade.length > 0) {
       const dataContabilidade = new Date(new Date(dataPlanilhasHab).getTime() + ((planilhasHabilitacao?.length || 0) * 100) + 750).toISOString();
