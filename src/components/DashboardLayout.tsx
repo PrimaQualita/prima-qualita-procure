@@ -31,7 +31,21 @@ const getPageTitle = (pathname: string) => {
 const rotasGerenteContratos = ["/dashboard", "/processos-compras", "/contatos", "/perfil"];
 
 // Rotas permitidas para Contabilidade (quando é APENAS contabilidade)
-const rotasContabilidade = ["/dashboard", "/contabilidade", "/contatos", "/perfil"];
+// Visualização: Dashboard, Processos de Compras, Cotação, Seleção, Credenciamento, Contratações, Usuários, Fornecedores, Contato
+// Ação completa: Contabilidade
+const rotasContabilidade = [
+  "/dashboard", 
+  "/processos-compras", 
+  "/cotacoes", 
+  "/selecoes", 
+  "/credenciamentos", 
+  "/contratacoes-especificas", 
+  "/usuarios", 
+  "/fornecedores", 
+  "/contatos", 
+  "/contabilidade", 
+  "/perfil"
+];
 
 // Cache GLOBAL do perfil para evitar flash de loading entre páginas
 let cachedUser: User | null = null;
