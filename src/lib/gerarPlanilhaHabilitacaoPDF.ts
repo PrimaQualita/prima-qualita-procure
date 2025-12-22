@@ -1052,12 +1052,23 @@ export async function gerarPlanilhaHabilitacaoPDF(
   console.log("📋 HABILITAÇÃO - finalY:", finalY, "currentY inicial:", currentY, "pageHeight:", pageHeight);
   
   if (empresasInabilitadas.length > 0) {
-    // Verificar se cabe pelo menos o título na página atual
-    if (currentY > pageHeight - 30) {
+    // Usar mais do espaço da página: a seção de certificação já faz a própria quebra depois.
+    const bottomMargin = 15;
+    const limiteY = pageHeight - bottomMargin;
+
+    // Garantir que o título NÃO fique “órfão”: título + 1ª empresa precisam caber juntos.
+    const primeira = empresasInabilitadas[0];
+    const motivoPrimeira = primeira.motivo_rejeicao
+      ? doc.splitTextToSize(`  Motivo: ${primeira.motivo_rejeicao}`, larguraUtil - 10)
+      : null;
+    const alturaPrimeira = 5 + 5 + 5 + (motivoPrimeira ? motivoPrimeira.length * 4 + 2 : 0) + 4;
+    const alturaMinimaSecao = 8 + alturaPrimeira; // título (8) + 1ª empresa
+
+    if (currentY + alturaMinimaSecao > limiteY) {
       doc.addPage();
       adicionarCabecalho();
       currentY = 40;
-      console.log("📋 HABILITAÇÃO - Nova página para título");
+      console.log("📋 HABILITAÇÃO - Nova página para evitar título órfão");
     }
 
     doc.setFontSize(11);
@@ -1073,20 +1084,21 @@ export async function gerarPlanilhaHabilitacaoPDF(
     empresasInabilitadas.forEach((empresa, index) => {
       console.log(`📋 HABILITAÇÃO - Renderizando empresa ${index + 1}/${empresasInabilitadas.length}: ${empresa.fornecedor.razao_social}`);
       console.log(`📋 HABILITAÇÃO - currentY antes: ${currentY}, pageHeight: ${pageHeight}`);
-      // Calcular espaço necessário para esta empresa específica
-      let espacoEmpresa = 20; // Razão + CNPJ + Status + margem
-      if (empresa.motivo_rejeicao) {
-        const linhasMotivo = Math.ceil(empresa.motivo_rejeicao.length / 80);
-        espacoEmpresa += linhasMotivo * 4;
-      }
-      
+
+      const motivoLinhas = empresa.motivo_rejeicao
+        ? doc.splitTextToSize(`  Motivo: ${empresa.motivo_rejeicao}`, larguraUtil - 10)
+        : null;
+
+      // Altura real do bloco, alinhada com o que é efetivamente renderizado abaixo.
+      const espacoEmpresa = 5 + 5 + 5 + (motivoLinhas ? motivoLinhas.length * 4 + 2 : 0) + 4;
+
       // Verificar se precisa de nova página para esta empresa
-      if (currentY + espacoEmpresa > pageHeight - 45) {
+      if (currentY + espacoEmpresa > limiteY) {
         doc.addPage();
         adicionarCabecalho();
         currentY = 40;
-        
-        // CRÍTICO: Resetar estilos após adicionar cabeçalho
+
+        // Resetar estilos após adicionar cabeçalho
         doc.setFontSize(9);
         doc.setTextColor(0, 0, 0);
       }
@@ -1096,7 +1108,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
       doc.text(`• ${empresa.fornecedor.razao_social}`, margemEsquerda, currentY);
       doc.setFont("helvetica", "normal");
       currentY += 5;
-      
+
       doc.text(`  CNPJ: ${formatarCNPJ(empresa.fornecedor.cnpj)}`, margemEsquerda, currentY);
       currentY += 5;
 
@@ -1108,8 +1120,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
         currentY += 5;
       }
 
-      if (empresa.motivo_rejeicao) {
-        const motivoLinhas = doc.splitTextToSize(`  Motivo: ${empresa.motivo_rejeicao}`, larguraUtil - 10);
+      if (motivoLinhas) {
         doc.text(motivoLinhas, margemEsquerda, currentY);
         currentY += motivoLinhas.length * 4 + 2;
       }
