@@ -2591,23 +2591,6 @@ export function DialogFinalizarProcesso({
 
       if (insertError) throw insertError;
 
-      // TAMBÉM inserir na tabela autorizacoes_processo para que a verificação funcione
-      const { error: autorizacaoInsertError } = await supabase
-        .from("autorizacoes_processo")
-        .insert({
-          cotacao_id: cotacaoId,
-          protocolo: resultado.protocolo,
-          nome_arquivo: resultado.fileName,
-          url_arquivo: resultado.url,
-          usuario_gerador_id: currentSession!.user.id,
-          tipo_autorizacao: "relatorio_final",
-          data_geracao: new Date().toISOString()
-        });
-
-      if (autorizacaoInsertError) {
-        console.error("Erro ao inserir autorização para verificação:", autorizacaoInsertError);
-        // Não lança erro para não impedir o fluxo principal
-      }
 
       // Recarregar a lista de relatórios
       await loadRelatorioFinal();

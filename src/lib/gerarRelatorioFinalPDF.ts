@@ -398,7 +398,8 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   doc.text(`Hash de Verificação: ${hash}`, 25, yPos + 31);
   
   doc.setTextColor(0, 0, 255);
-  const urlVerificacao = `${window.location.origin}/verificar-autorizacao?protocolo=${protocolo}`;
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const urlVerificacao = `${baseUrl}/verificar-relatorio-final?protocolo=${protocolo}`;
   const linkTexto = `Verificar autenticidade em: ${urlVerificacao}`;
   const linkQuebrado = doc.splitTextToSize(linkTexto, 160);
   
