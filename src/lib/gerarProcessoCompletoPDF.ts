@@ -608,7 +608,8 @@ export const gerarProcessoCompletoPDF = async (
       
       const fornecedoresParaIncluir: string[] = [];
       for (const f of totaisGlobais) {
-        fornecedoresParaIncluir.push(f.id);
+        // CRÍTICO: usar o fornecedorId (não existe f.id aqui)
+        fornecedoresParaIncluir.push(f.fornecedorId);
         if (!f.inabilitado) {
           fornecedoresVencedores = [f.fornecedorId];
           break;
