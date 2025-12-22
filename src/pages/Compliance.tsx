@@ -38,6 +38,7 @@ interface ContratoGestao {
   id: string;
   nome_contrato: string;
   ente_federativo: string;
+  cor_fundo?: string | null;
 }
 
 interface ProcessoCompliance {
@@ -495,7 +496,7 @@ export default function Compliance() {
                     const respondidos = processosContrato.filter(p => p.respondido_compliance).length;
                     
                     return (
-                      <TableRow key={contrato.id}>
+                      <TableRow key={contrato.id} style={contrato.cor_fundo ? { backgroundColor: contrato.cor_fundo } : undefined}>
                         <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
                         <TableCell>{contrato.ente_federativo}</TableCell>
                         <TableCell>
