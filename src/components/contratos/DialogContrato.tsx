@@ -23,6 +23,12 @@ import {
 const CORES_PREDEFINIDAS = [
   { nome: "Sem Cor", valor: "none" },
   { nome: "Branco", valor: "#FFFFFF" },
+  // Vermelhos
+  { nome: "Vermelho Claro", valor: "#FFCDD2" },
+  { nome: "Vermelho Médio", valor: "#EF9A9A" },
+  // Cinzas/Pretos
+  { nome: "Cinza Claro", valor: "#E0E0E0" },
+  { nome: "Cinza Médio", valor: "#BDBDBD" },
   // Azuis
   { nome: "Azul Claro", valor: "#E3F2FD" },
   { nome: "Azul Médio", valor: "#BBDEFB" },
