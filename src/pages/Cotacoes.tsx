@@ -48,6 +48,7 @@ interface Contrato {
   nome_contrato: string;
   ente_federativo: string;
   status: string;
+  cor_fundo?: string | null;
 }
 
 interface Processo {
@@ -1542,7 +1543,7 @@ const Cotacoes = () => {
                       </TableRow>
                     ) : (
                       contratosFiltrados.map((contrato) => (
-                        <TableRow key={contrato.id}>
+                        <TableRow key={contrato.id} style={contrato.cor_fundo ? { backgroundColor: contrato.cor_fundo } : undefined}>
                           <TableCell className="font-medium text-xs sm:text-sm">{contrato.nome_contrato}</TableCell>
                           <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
                           <TableCell>
