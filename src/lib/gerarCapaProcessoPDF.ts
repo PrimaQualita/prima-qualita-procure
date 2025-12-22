@@ -123,9 +123,12 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   doc.text(`PROCESSO: ${dados.numeroProcesso}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 18;
 
-  // Contrato - CAIXA ALTA
-  doc.text(`CONTRATO DE GESTÃO: ${dados.numeroContrato}`, pageWidth / 2, yPos, { align: 'center' });
-  yPos += 30;
+  // Contrato - CAIXA ALTA (com quebra de linha para textos longos)
+  const textoContrato = `CONTRATO DE GESTÃO: ${dados.numeroContrato}`;
+  const maxWidthContrato = pageWidth - 30; // Margem de 15mm de cada lado
+  const linhasContrato = doc.splitTextToSize(textoContrato, maxWidthContrato);
+  doc.text(linhasContrato, pageWidth / 2, yPos, { align: 'center' });
+  yPos += linhasContrato.length * 8 + 15;
 
   // Objeto - texto justificado
   doc.setFontSize(15);
