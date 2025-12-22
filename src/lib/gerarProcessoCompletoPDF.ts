@@ -62,12 +62,6 @@ export const gerarProcessoCompletoPDF = async (
       nome: string
     ): Promise<boolean> => {
       try {
-        // Verificar se é PDF
-        if (!nome.toLowerCase().endsWith('.pdf')) {
-          console.log(`  ⚠️ AVISO: ${nome} não é PDF. Apenas PDFs podem ser mesclados.`);
-          return false;
-        }
-
         // Limpar o path se necessário
         let cleanPath = storagePath;
         if (cleanPath.startsWith(`${bucket}/`)) {
@@ -96,6 +90,16 @@ export const gerarProcessoCompletoPDF = async (
         }
         
         const arrayBuffer = await response.arrayBuffer();
+        
+        // Verificar se é PDF pelo conteúdo (magic bytes), não pelo nome
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const header = String.fromCharCode(...uint8Array.slice(0, 5));
+        
+        if (!header.startsWith('%PDF')) {
+          console.log(`  ⚠️ AVISO: ${nome} não é PDF válido (header: ${header}). Apenas PDFs podem ser mesclados.`);
+          return false;
+        }
+        
         const paginas = await mesclarPDF(arrayBuffer, nome);
         return paginas > 0;
       } catch (error) {
