@@ -1034,8 +1034,10 @@ export async function gerarPlanilhaConsolidadaPDF(
   const finalY = (doc as any).lastAutoTable.finalY;
 
   // Verificar se precisa de nova página para certificação
+  const alturaCertificacao = 35;
+  const margemInferior = 10;
   let y2 = finalY + 10;
-  if (y2 > pageHeight - 50) {
+  if (y2 + alturaCertificacao > pageHeight - margemInferior) {
     doc.addPage();
     y2 = 20;
   }

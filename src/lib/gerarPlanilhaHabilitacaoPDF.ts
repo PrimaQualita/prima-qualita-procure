@@ -1130,10 +1130,12 @@ export async function gerarPlanilhaHabilitacaoPDF(
   }
 
   // Certificação Digital - usar currentY diretamente (já rastreia posição correta)
+  const alturaCertificacao = 35;
+  const margemInferior = 10;
   let certY = currentY + 10;
   
-  // Verificar se precisa de nova página para certificação
-  if (certY > pageHeight - 50) {
+  // Verificar se precisa de nova página para certificação (só quebra se NÃO couber o quadro inteiro)
+  if (certY + alturaCertificacao > pageHeight - margemInferior) {
     doc.addPage();
     adicionarCabecalho();
     certY = 40;
