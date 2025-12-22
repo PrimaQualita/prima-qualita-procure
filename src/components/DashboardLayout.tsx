@@ -31,19 +31,10 @@ const getPageTitle = (pathname: string) => {
 const rotasGerenteContratos = ["/dashboard", "/processos-compras", "/contatos", "/perfil"];
 
 // Rotas permitidas para Contabilidade (quando é APENAS contabilidade)
-// Visualização: Dashboard, Processos de Compras, Cotação, Seleção, Credenciamento, Contratações, Usuários, Fornecedores, Contato
-// Ação completa: Contabilidade
 const rotasContabilidade = [
   "/dashboard", 
-  "/processos-compras", 
-  "/cotacoes", 
-  "/selecoes", 
-  "/credenciamentos", 
-  "/contratacoes-especificas", 
-  "/usuarios", 
-  "/fornecedores", 
-  "/contatos", 
   "/contabilidade", 
+  "/contatos", 
   "/perfil"
 ];
 
