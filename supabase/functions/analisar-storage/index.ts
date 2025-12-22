@@ -2715,6 +2715,10 @@ Deno.serve(async (req) => {
       if (propostasRealinhadasMap.has(pathSemBucket)) {
         continue;
       }
+      // Verificar se está no mapa de encaminhamentos à contabilidade
+      if (encContabilidadeMap.has(pathSemBucket)) {
+        continue;
+      }
       
       const fileName = arquivo.split('/').pop() || arquivo;
       
