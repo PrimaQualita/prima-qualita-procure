@@ -79,7 +79,16 @@ export function SolicitacoesAutorizacao() {
 
       if (error) throw error;
 
-      setSolicitacoes(data || []);
+      // Agrupar por cotacao_id para evitar duplicatas - mostrar apenas a mais recente de cada processo
+      const solicitacoesUnicas = (data || []).reduce((acc: Solicitacao[], curr) => {
+        const existe = acc.find(s => s.cotacao_id === curr.cotacao_id);
+        if (!existe) {
+          acc.push(curr);
+        }
+        return acc;
+      }, []);
+
+      setSolicitacoes(solicitacoesUnicas);
     } catch (error) {
       console.error("Erro ao carregar solicitações:", error);
     }
