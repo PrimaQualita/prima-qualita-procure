@@ -1131,7 +1131,8 @@ export async function gerarPlanilhaHabilitacaoPDF(
 
   // Certificação Digital - usar currentY diretamente (já rastreia posição correta)
   const alturaCertificacao = 35;
-  const margemInferior = 10;
+  // Não há rodapé nesta planilha; usar margem inferior pequena só para evitar corte visual.
+  const margemInferior = 5;
   let certY = currentY + 10;
   
   // Verificar se precisa de nova página para certificação (só quebra se NÃO couber o quadro inteiro)
