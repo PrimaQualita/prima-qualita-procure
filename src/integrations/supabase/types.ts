@@ -626,6 +626,7 @@ export type Database = {
       }
       contratos_gestao: {
         Row: {
+          cor_fundo: string | null
           created_at: string | null
           data_fim: string
           data_inicio: string
@@ -637,6 +638,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          cor_fundo?: string | null
           created_at?: string | null
           data_fim: string
           data_inicio: string
@@ -648,6 +650,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          cor_fundo?: string | null
           created_at?: string | null
           data_fim?: string
           data_inicio?: string

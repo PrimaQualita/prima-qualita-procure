@@ -19,6 +19,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Cores predefinidas para os contratos
+const CORES_PREDEFINIDAS = [
+  { nome: "Azul Claro", valor: "#E3F2FD" },
+  { nome: "Verde Claro", valor: "#E8F5E9" },
+  { nome: "Amarelo Claro", valor: "#FFF8E1" },
+  { nome: "Rosa Claro", valor: "#FCE4EC" },
+  { nome: "Roxo Claro", valor: "#F3E5F5" },
+  { nome: "Laranja Claro", valor: "#FFF3E0" },
+  { nome: "Ciano Claro", valor: "#E0F7FA" },
+  { nome: "Cinza Claro", valor: "#ECEFF1" },
+  { nome: "Sem Cor", valor: "" },
+];
+
 interface Contrato {
   id?: string;
   nome_contrato: string;
@@ -27,6 +40,7 @@ interface Contrato {
   data_fim: string;
   status: string;
   observacoes?: string;
+  cor_fundo?: string;
 }
 
 interface DialogContratoProps {
@@ -44,6 +58,7 @@ export function DialogContrato({ open, onOpenChange, contrato, onSave }: DialogC
     data_fim: "",
     status: "ativo",
     observacoes: "",
+    cor_fundo: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +71,7 @@ export function DialogContrato({ open, onOpenChange, contrato, onSave }: DialogC
         data_fim: contrato.data_fim,
         status: contrato.status,
         observacoes: contrato.observacoes || "",
+        cor_fundo: contrato.cor_fundo || "",
       });
     } else {
       setFormData({
@@ -65,6 +81,7 @@ export function DialogContrato({ open, onOpenChange, contrato, onSave }: DialogC
         data_fim: "",
         status: "ativo",
         observacoes: "",
+        cor_fundo: "",
       });
     }
   }, [contrato, open]);
@@ -133,21 +150,57 @@ export function DialogContrato({ open, onOpenChange, contrato, onSave }: DialogC
                 />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="encerrado">Encerrado</SelectItem>
-                  <SelectItem value="suspenso">Suspenso</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="status">Status *</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ativo">Ativo</SelectItem>
+                    <SelectItem value="encerrado">Encerrado</SelectItem>
+                    <SelectItem value="suspenso">Suspenso</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="cor_fundo">Cor de Fundo</Label>
+                <Select
+                  value={formData.cor_fundo || ""}
+                  onValueChange={(value) => setFormData({ ...formData, cor_fundo: value })}
+                >
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      {formData.cor_fundo && (
+                        <div 
+                          className="w-4 h-4 rounded border border-border" 
+                          style={{ backgroundColor: formData.cor_fundo }}
+                        />
+                      )}
+                      <SelectValue placeholder="Selecione uma cor" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CORES_PREDEFINIDAS.map((cor) => (
+                      <SelectItem key={cor.valor || "sem-cor"} value={cor.valor}>
+                        <div className="flex items-center gap-2">
+                          {cor.valor && (
+                            <div 
+                              className="w-4 h-4 rounded border border-border" 
+                              style={{ backgroundColor: cor.valor }}
+                            />
+                          )}
+                          <span>{cor.nome}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="observacoes">Observações</Label>

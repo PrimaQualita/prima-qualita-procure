@@ -39,6 +39,7 @@ interface Contrato {
   data_fim: string;
   status: "ativo" | "encerrado" | "suspenso";
   observacoes?: string;
+  cor_fundo?: string;
 }
 
 interface Processo {
@@ -442,7 +443,10 @@ const ProcessosCompras = () => {
                   </TableHeader>
                   <TableBody>
                     {contratosFiltrados.map((contrato) => (
-                      <TableRow key={contrato.id}>
+                      <TableRow 
+                        key={contrato.id}
+                        style={contrato.cor_fundo ? { backgroundColor: contrato.cor_fundo } : undefined}
+                      >
                         <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
                         <TableCell>{contrato.ente_federativo}</TableCell>
                         <TableCell>
