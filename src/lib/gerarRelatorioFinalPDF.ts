@@ -301,8 +301,14 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   
   // Observações sobre fornecedores rejeitados
   if (dados.fornecedoresRejeitados && dados.fornecedoresRejeitados.length > 0) {
-    // Verificar espaço para o título
-    if (yPos + 7 > pageHeight - 23) {
+    // Calcular altura do primeiro fornecedor rejeitado para verificar se cabe junto com o título
+    const primeiroFornRej = dados.fornecedoresRejeitados[0];
+    const textoPrimeiroRejeicao = `A Empresa ${primeiroFornRej.razaoSocial} foi Inabilitada/Rejeitada por conta: ${primeiroFornRej.motivoRejeicao}`;
+    const linhasPrimeiroRejeicao = doc.splitTextToSize(textoPrimeiroRejeicao, 170);
+    const alturaTituloEPrimeiro = 7 + (linhasPrimeiroRejeicao.length * 3.5 + 4);
+    
+    // Verificar espaço para o título E pelo menos o primeiro item
+    if (yPos + alturaTituloEPrimeiro > pageHeight - 23) {
       doc.addPage();
       yPos = 20;
       await adicionarLogoERodape();
