@@ -1035,7 +1035,8 @@ export async function gerarPlanilhaConsolidadaPDF(
 
   // Verificar se precisa de nova página para certificação
   const alturaCertificacao = 35;
-  const margemInferior = 10;
+  // Não há rodapé nesta planilha; usar margem inferior pequena só para evitar corte visual.
+  const margemInferior = 5;
   let y2 = finalY + 10;
   if (y2 + alturaCertificacao > pageHeight - margemInferior) {
     doc.addPage();
