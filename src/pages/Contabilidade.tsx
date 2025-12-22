@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FileText, Eye, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSquare, Send, FolderOpen } from "lucide-react";
+import { FileText, Eye, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSquare, Send, FolderOpen, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
+import { gerarRespostaContabilidadePDF, gerarProtocoloRespostaContabilidade } from "@/lib/gerarRespostaContabilidadePDF";
 import {
   Table,
   TableBody,
@@ -14,8 +15,8 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -31,12 +32,17 @@ interface ContratoGestao {
   ente_federativo: string;
 }
 
+interface FornecedorVencedor {
+  razaoSocial: string;
+  cnpj: string;
+}
+
 interface ProcessoContabilidade {
   id: string;
   cotacao_id: string;
   processo_numero: string;
   objeto_processo: string;
-  fornecedores_vencedores: any[];
+  fornecedores_vencedores: FornecedorVencedor[];
   protocolo: string;
   url_arquivo: string;
   nome_arquivo: string;
@@ -47,6 +53,9 @@ interface ProcessoContabilidade {
   respondido_contabilidade: boolean;
   data_resposta_contabilidade: string | null;
   resposta_contabilidade: string | null;
+  tipos_operacao_fornecedores: { cnpj: string; tipoOperacao: string }[] | null;
+  url_resposta_pdf: string | null;
+  protocolo_resposta: string | null;
   contrato_gestao_id?: string;
 }
 
@@ -58,7 +67,7 @@ export default function Contabilidade() {
   const [filtro, setFiltro] = useState("");
   const [dialogRespostaOpen, setDialogRespostaOpen] = useState(false);
   const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoContabilidade | null>(null);
-  const [respostaTexto, setRespostaTexto] = useState("");
+  const [tiposOperacao, setTiposOperacao] = useState<Record<string, string>>({});
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -154,37 +163,97 @@ export default function Contabilidade() {
 
   const abrirDialogResposta = (processo: ProcessoContabilidade) => {
     setProcessoSelecionado(processo);
-    setRespostaTexto(processo.resposta_contabilidade || "");
+    
+    // Inicializar tipos de operação a partir dos dados salvos ou vazio
+    const tiposIniciais: Record<string, string> = {};
+    if (processo.tipos_operacao_fornecedores && Array.isArray(processo.tipos_operacao_fornecedores)) {
+      processo.tipos_operacao_fornecedores.forEach((item) => {
+        tiposIniciais[item.cnpj] = item.tipoOperacao;
+      });
+    }
+    setTiposOperacao(tiposIniciais);
     setDialogRespostaOpen(true);
   };
 
+  const handleTipoOperacaoChange = (cnpj: string, valor: string) => {
+    // Permitir apenas números e letras maiúsculas
+    const valorFormatado = valor.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+    setTiposOperacao(prev => ({
+      ...prev,
+      [cnpj]: valorFormatado
+    }));
+  };
+
+  const todosCamposPreenchidos = (): boolean => {
+    if (!processoSelecionado) return false;
+    return processoSelecionado.fornecedores_vencedores.every(
+      f => tiposOperacao[f.cnpj] && tiposOperacao[f.cnpj].trim().length > 0
+    );
+  };
+
   const salvarResposta = async () => {
-    if (!processoSelecionado || !respostaTexto.trim()) {
-      toast.error("Digite uma resposta");
+    if (!processoSelecionado || !todosCamposPreenchidos()) {
+      toast.error("Preencha o tipo de operação para todos os fornecedores");
       return;
     }
 
     setSalvando(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
-      
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("nome_completo")
+        .eq("id", userData?.user?.id)
+        .single();
+
+      // Preparar dados dos tipos de operação
+      const tiposOperacaoArray = processoSelecionado.fornecedores_vencedores.map(f => ({
+        cnpj: f.cnpj,
+        tipoOperacao: tiposOperacao[f.cnpj] || ""
+      }));
+
+      // Preparar fornecedores para o PDF
+      const fornecedoresParaPDF = processoSelecionado.fornecedores_vencedores.map(f => ({
+        razaoSocial: f.razaoSocial,
+        cnpj: f.cnpj,
+        tipoOperacao: tiposOperacao[f.cnpj] || ""
+      }));
+
+      // Gerar protocolo e PDF
+      const protocolo = gerarProtocoloRespostaContabilidade();
+      const resultado = await gerarRespostaContabilidadePDF({
+        numeroProcesso: processoSelecionado.processo_numero,
+        objetoProcesso: processoSelecionado.objeto_processo,
+        fornecedores: fornecedoresParaPDF,
+        usuarioNome: profileData?.nome_completo || "Usuário",
+        protocolo
+      });
+
+      // Atualizar encaminhamento
       const { error } = await supabase
         .from("encaminhamentos_contabilidade")
         .update({
           respondido_contabilidade: true,
           data_resposta_contabilidade: new Date().toISOString(),
-          resposta_contabilidade: respostaTexto.trim(),
+          resposta_contabilidade: fornecedoresParaPDF.map(f => `${f.razaoSocial}: ${f.tipoOperacao}`).join("; "),
+          tipos_operacao_fornecedores: tiposOperacaoArray,
+          url_resposta_pdf: resultado.url,
+          protocolo_resposta: resultado.protocolo,
+          storage_path_resposta: resultado.storagePath,
           usuario_resposta_id: userData?.user?.id
         })
         .eq("id", processoSelecionado.id);
 
       if (error) throw error;
 
-      toast.success("Resposta salva com sucesso!");
+      toast.success("Resposta salva e PDF gerado com sucesso!");
       setDialogRespostaOpen(false);
       setProcessoSelecionado(null);
-      setRespostaTexto("");
+      setTiposOperacao({});
       loadData();
+
+      // Abrir PDF em nova aba
+      window.open(resultado.url, '_blank');
     } catch (error: any) {
       console.error("Erro ao salvar resposta:", error);
       toast.error("Erro ao salvar resposta");
@@ -201,6 +270,12 @@ export default function Contabilidade() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const formatarCNPJ = (cnpj: string): string => {
+    const numeros = cnpj.replace(/\D/g, '');
+    if (numeros.length !== 14) return cnpj;
+    return `${numeros.slice(0,2)}.${numeros.slice(2,5)}.${numeros.slice(5,8)}/${numeros.slice(8,12)}-${numeros.slice(12,14)}`;
   };
 
   const contratosFiltrados = contratos.filter((contrato) =>
@@ -336,7 +411,7 @@ export default function Contabilidade() {
                         {stripHtml(processo.objeto_processo).substring(0, 50)}...
                       </TableCell>
                       <TableCell>
-                        {processo.fornecedores_vencedores?.map((f: any, i: number) => (
+                        {processo.fornecedores_vencedores?.map((f: FornecedorVencedor, i: number) => (
                           <div key={i} className="text-sm">
                             {f.razaoSocial}
                           </div>
@@ -368,14 +443,25 @@ export default function Contabilidade() {
                             <Eye className="h-4 w-4 mr-1" />
                             Ver
                           </Button>
-                          <Button
-                            variant={processo.respondido_contabilidade ? "outline" : "default"}
-                            size="sm"
-                            onClick={() => abrirDialogResposta(processo)}
-                          >
-                            <MessageSquare className="h-4 w-4 mr-1" />
-                            {processo.respondido_contabilidade ? "Ver Resposta" : "Responder"}
-                          </Button>
+                          {processo.respondido_contabilidade && processo.url_resposta_pdf ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => visualizarDocumento(processo.url_resposta_pdf!)}
+                            >
+                              <FileDown className="h-4 w-4 mr-1" />
+                              Ver Resposta
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => abrirDialogResposta(processo)}
+                            >
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Responder
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -391,9 +477,7 @@ export default function Contabilidade() {
       <Dialog open={dialogRespostaOpen} onOpenChange={setDialogRespostaOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {processoSelecionado?.respondido_contabilidade ? "Resposta da Contabilidade" : "Responder Encaminhamento"}
-            </DialogTitle>
+            <DialogTitle>Responder Encaminhamento</DialogTitle>
             <DialogDescription>
               Processo: {processoSelecionado?.processo_numero}
             </DialogDescription>
@@ -407,43 +491,45 @@ export default function Contabilidade() {
               </p>
             </div>
 
-            <div>
-              <h4 className="font-medium mb-2">Fornecedor(es):</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                {processoSelecionado?.fornecedores_vencedores?.map((f: any, i: number) => (
-                  <li key={i}>{f.razaoSocial} - CNPJ: {f.cnpj}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-medium mb-2">Tipo de Operação / Resposta:</h4>
-              <Textarea
-                value={respostaTexto}
-                onChange={(e) => setRespostaTexto(e.target.value)}
-                placeholder="Digite o tipo de operação que deve ser utilizada no CIGAM..."
-                rows={4}
-                disabled={processoSelecionado?.respondido_contabilidade}
-              />
-            </div>
-
-            {processoSelecionado?.respondido_contabilidade && processoSelecionado?.data_resposta_contabilidade && (
-              <p className="text-sm text-muted-foreground">
-                Respondido em: {formatarData(processoSelecionado.data_resposta_contabilidade)}
+            <div className="space-y-4">
+              <h4 className="font-medium">Tipo de Operação por Fornecedor:</h4>
+              <p className="text-sm text-muted-foreground mb-2">
+                Informe o tipo de operação (números e letras maiúsculas) para cada fornecedor
               </p>
-            )}
+              
+              {processoSelecionado?.fornecedores_vencedores?.map((f: FornecedorVencedor, i: number) => (
+                <div key={i} className="p-4 border rounded-lg space-y-2">
+                  <div>
+                    <p className="font-medium text-sm">{f.razaoSocial}</p>
+                    <p className="text-xs text-muted-foreground">CNPJ: {formatarCNPJ(f.cnpj)}</p>
+                  </div>
+                  <div>
+                    <Label htmlFor={`tipo-${f.cnpj}`}>Tipo de Operação</Label>
+                    <Input
+                      id={`tipo-${f.cnpj}`}
+                      placeholder="Ex: 001.01"
+                      value={tiposOperacao[f.cnpj] || ""}
+                      onChange={(e) => handleTipoOperacaoChange(f.cnpj, e.target.value)}
+                      className="mt-1 font-mono uppercase"
+                      maxLength={20}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogRespostaOpen(false)}>
-              Fechar
+              Cancelar
             </Button>
-            {!processoSelecionado?.respondido_contabilidade && (
-              <Button onClick={salvarResposta} disabled={salvando || !respostaTexto.trim()}>
-                <Send className="h-4 w-4 mr-2" />
-                {salvando ? "Salvando..." : "Enviar Resposta"}
-              </Button>
-            )}
+            <Button 
+              onClick={salvarResposta} 
+              disabled={salvando || !todosCamposPreenchidos()}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {salvando ? "Gerando PDF..." : "Enviar Resposta e Gerar PDF"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
