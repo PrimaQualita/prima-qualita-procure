@@ -713,64 +713,58 @@ export function DialogFinalizarProcesso({
       // Ordenar fornecedores conforme critério de julgamento
       const fornecedoresOrdenados = fornecedoresComDados.sort((a, b) => {
         if (criterioJulgamento === 'por_lote') {
-          // Para critério por_lote: ordenar por número do lote, e dentro do lote: por classificação (menor valor primeiro)
-          const getLotesNumeros = (fornecedorData: any) => {
-            const lotesIds = new Set<string>();
+          // Para critério por_lote: ordenar pelo MENOR número de lote VENCIDO
+          // Quem venceu o lote 1 vem primeiro, depois quem venceu o lote 2, etc.
+          const getMenorLoteVencido = (fornecedorData: any): number => {
+            // Prioridade: itens vencedores (são os lotes que VENCEU)
+            const lotesVencidosNums: number[] = [];
             
-            // Lotes dos itens vencedores
             fornecedorData.itensVencedores?.forEach((item: any) => {
               const loteId = item.itens_cotacao?.lote_id;
-              if (loteId) lotesIds.add(loteId);
-            });
-            
-            // Também considerar lotes dos itens participados (para inabilitados)
-            fornecedorData.itensParticipados?.forEach((item: any) => {
-              const loteId = item.itens_cotacao?.lote_id;
-              if (loteId) lotesIds.add(loteId);
-            });
-            
-            // Também considerar lotes dos itens rejeitados
-            fornecedorData.itensRejeitados?.forEach((numItem: number) => {
-              const itemCotacao = itensCotacao.find(ic => ic.numero_item === numItem);
-              if (itemCotacao?.lote_id) lotesIds.add(itemCotacao.lote_id);
-            });
-            
-            return Array.from(lotesIds)
-              .map(loteId => {
+              if (loteId) {
                 const lote = lotesCotacao.find(l => l.id === loteId);
-                return lote?.numero_lote || 999;
-              })
-              .filter(n => n > 0);
-          };
-          
-          // Calcular valor total da proposta do fornecedor para ordenação por classificação
-          const calcularValorTotalProposta = (fornecedorData: any) => {
-            const itensParaCalculo = fornecedorData.itensVencedores?.length > 0 
-              ? fornecedorData.itensVencedores 
-              : fornecedorData.itensParticipados || [];
+                if (lote?.numero_lote) lotesVencidosNums.push(lote.numero_lote);
+              }
+            });
             
-            return itensParaCalculo.reduce((total: number, item: any) => {
-              const valorUnitario = Number(item.valor_unitario_ofertado || 0);
-              const quantidade = Number(item.itens_cotacao?.quantidade || 0);
-              return total + (valorUnitario * quantidade);
-            }, 0);
+            // Se não tem itens vencedores, usar participados/rejeitados para posicionar no final
+            if (lotesVencidosNums.length === 0) {
+              // Fornecedor inabilitado - verificar lotes dos itens rejeitados para mostrar depois dos vencedores do lote
+              fornecedorData.itensRejeitados?.forEach((numItem: number) => {
+                const itemCotacao = itensCotacao.find(ic => ic.numero_item === numItem);
+                if (itemCotacao?.lote_id) {
+                  const lote = lotesCotacao.find(l => l.id === itemCotacao.lote_id);
+                  if (lote?.numero_lote) lotesVencidosNums.push(lote.numero_lote);
+                }
+              });
+              
+              fornecedorData.itensParticipados?.forEach((item: any) => {
+                const loteId = item.itens_cotacao?.lote_id;
+                if (loteId) {
+                  const lote = lotesCotacao.find(l => l.id === loteId);
+                  if (lote?.numero_lote) lotesVencidosNums.push(lote.numero_lote);
+                }
+              });
+            }
+            
+            // Retornar menor lote, ou 9999 se não tem lotes
+            return lotesVencidosNums.length > 0 ? Math.min(...lotesVencidosNums) : 9999;
           };
           
-          const lotesA = getLotesNumeros(a);
-          const lotesB = getLotesNumeros(b);
-          const menorLoteA = lotesA.length > 0 ? Math.min(...lotesA) : 999;
-          const menorLoteB = lotesB.length > 0 ? Math.min(...lotesB) : 999;
+          const menorLoteA = getMenorLoteVencido(a);
+          const menorLoteB = getMenorLoteVencido(b);
           
-          // Primeiro critério: número do lote
+          // Ordenar pelo menor lote vencido
           if (menorLoteA !== menorLoteB) {
             return menorLoteA - menorLoteB;
           }
           
-          // Segundo critério dentro do mesmo lote: por classificação (menor valor = primeiro colocado)
-          // O primeiro colocado vem primeiro, mesmo que inabilitado
-          const valorA = calcularValorTotalProposta(a);
-          const valorB = calcularValorTotalProposta(b);
-          return valorA - valorB;
+          // Se mesmo lote: vencedores (não rejeitados) primeiro, depois inabilitados
+          if (!a.rejeitado && b.rejeitado) return -1;
+          if (a.rejeitado && !b.rejeitado) return 1;
+          
+          // Se empate completo, ordenar por nome
+          return a.fornecedor.razao_social.localeCompare(b.fornecedor.razao_social);
         } else if (criterioJulgamento === 'global') {
           // Ordenar pelo menor valor total (global) - fornecedor com menor valor primeiro
           const calcularValorTotal = (itensVenc: any[]) => {
