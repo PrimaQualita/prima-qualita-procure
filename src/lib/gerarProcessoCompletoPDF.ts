@@ -315,7 +315,7 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 6b. Buscar TODOS os encaminhamentos à contabilidade
+    // 6b. Buscar encaminhamentos à contabilidade (serão adicionados após o Relatório Final)
     const { data: encaminhamentosContabilidade, error: encContabError } = await supabase
       .from("encaminhamentos_contabilidade")
       .select("*")
@@ -327,42 +327,6 @@ export const gerarProcessoCompletoPDF = async (
     }
 
     console.log(`Encaminhamentos à contabilidade encontrados: ${encaminhamentosContabilidade?.length || 0}`);
-    
-    if (encaminhamentosContabilidade && encaminhamentosContabilidade.length > 0) {
-      encaminhamentosContabilidade.forEach(enc => {
-        // Adicionar encaminhamento
-        if (enc.url_arquivo || enc.storage_path) {
-          let storagePath = enc.storage_path || enc.url_arquivo;
-          if (storagePath?.startsWith('processo-anexos/')) {
-            storagePath = storagePath.replace('processo-anexos/', '');
-          }
-          
-          documentosOrdenados.push({
-            tipo: "Encaminhamento à Contabilidade",
-            data: enc.data_geracao,
-            nome: enc.nome_arquivo || `Encaminhamento Contabilidade ${enc.protocolo}`,
-            storagePath: storagePath,
-            bucket: "processo-anexos"
-          });
-        }
-        
-        // Adicionar resposta da contabilidade se existir
-        if (enc.respondido_contabilidade && enc.url_resposta_pdf) {
-          let storagePathResposta = enc.storage_path_resposta || enc.url_resposta_pdf;
-          if (storagePathResposta?.startsWith('processo-anexos/')) {
-            storagePathResposta = storagePathResposta.replace('processo-anexos/', '');
-          }
-          
-          documentosOrdenados.push({
-            tipo: "Resposta da Contabilidade",
-            data: enc.data_resposta_contabilidade || enc.data_geracao,
-            nome: `Resposta Contabilidade ${enc.protocolo_resposta || enc.protocolo}`,
-            storagePath: storagePathResposta,
-            bucket: "processo-anexos"
-          });
-        }
-      });
-    }
 
     const { data: relatorios, error: relatoriosError } = await supabase
       .from("relatorios_finais")
@@ -1272,7 +1236,50 @@ export const gerarProcessoCompletoPDF = async (
       });
     }
 
-    // 13. Adicionar autorizações APÓS relatórios finais
+    // 12b. Adicionar encaminhamentos à contabilidade APÓS relatórios finais
+    if (encaminhamentosContabilidade && encaminhamentosContabilidade.length > 0) {
+      const dataContabilidade = new Date(new Date(dataPlanilhasHab).getTime() + ((planilhasHabilitacao?.length || 0) * 100) + 750).toISOString();
+      
+      encaminhamentosContabilidade.forEach((enc, idx) => {
+        // Adicionar encaminhamento
+        if (enc.url_arquivo || enc.storage_path) {
+          let storagePath = enc.storage_path || enc.url_arquivo;
+          if (storagePath?.startsWith('processo-anexos/')) {
+            storagePath = storagePath.replace('processo-anexos/', '');
+          }
+          
+          const dataEnc = new Date(new Date(dataContabilidade).getTime() + (idx * 10)).toISOString();
+          
+          documentosOrdenados.push({
+            tipo: "Encaminhamento à Contabilidade",
+            data: dataEnc,
+            nome: enc.nome_arquivo || `Encaminhamento Contabilidade ${enc.protocolo}`,
+            storagePath: storagePath,
+            bucket: "processo-anexos"
+          });
+        }
+        
+        // Adicionar resposta da contabilidade se existir
+        if (enc.respondido_contabilidade && enc.url_resposta_pdf) {
+          let storagePathResposta = enc.storage_path_resposta || enc.url_resposta_pdf;
+          if (storagePathResposta?.startsWith('processo-anexos/')) {
+            storagePathResposta = storagePathResposta.replace('processo-anexos/', '');
+          }
+          
+          const dataResposta = new Date(new Date(dataContabilidade).getTime() + (idx * 10) + 5).toISOString();
+          
+          documentosOrdenados.push({
+            tipo: "Resposta da Contabilidade",
+            data: dataResposta,
+            nome: `Resposta Contabilidade ${enc.protocolo_resposta || enc.protocolo}`,
+            storagePath: storagePathResposta,
+            bucket: "processo-anexos"
+          });
+        }
+      });
+    }
+
+    // 13. Adicionar autorizações APÓS encaminhamentos à contabilidade
     if (autorizacoes && autorizacoes.length > 0) {
       // Adicionar após os relatórios
       const dataAutorizacoes = new Date(new Date(dataPlanilhasHab).getTime() + ((planilhasHabilitacao?.length || 0) * 100) + 1000).toISOString();
