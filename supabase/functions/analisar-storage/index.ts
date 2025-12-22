@@ -90,7 +90,8 @@ Deno.serve(async (req) => {
       { data: fornecedores },
       { data: avaliacoes },
       { data: propostasSelecaoDB },
-      { data: propostasRealinhadasDB }
+      { data: propostasRealinhadasDB },
+      { data: encaminhamentosContabilidadeDB }
     ] = await Promise.all([
       supabase.from('atas_selecao').select(`
         url_arquivo, 
@@ -161,6 +162,22 @@ Deno.serve(async (req) => {
         selecoes_fornecedores!inner(
           numero_selecao,
           titulo_selecao,
+          processo_compra_id,
+          processos_compras!inner(numero_processo_interno, objeto_resumido, credenciamento)
+        )
+      `),
+      supabase.from('encaminhamentos_contabilidade').select(`
+        id,
+        url_arquivo,
+        storage_path,
+        nome_arquivo,
+        processo_numero,
+        url_resposta_pdf,
+        storage_path_resposta,
+        protocolo_resposta,
+        respondido_contabilidade,
+        cotacao_id,
+        cotacoes_precos!inner(
           processo_compra_id,
           processos_compras!inner(numero_processo_interno, objeto_resumido, credenciamento)
         )
@@ -392,6 +409,61 @@ Deno.serve(async (req) => {
         nomesBonitos.set(enc.storage_path, nomeBonito);
       }
     }
+
+    // Processar encaminhamentos à contabilidade - criar mapa com detalhes
+    const encContabilidadeMap = new Map<string, {
+      processoId: string;
+      processoNumero: string;
+      processoObjeto: string;
+      credenciamento: boolean;
+      nomeArquivo: string;
+      tipo: 'encaminhamento' | 'resposta';
+    }>();
+    if (encaminhamentosContabilidadeDB) {
+      for (const enc of encaminhamentosContabilidadeDB) {
+        const cotacao = (enc as any).cotacoes_precos;
+        const processo = cotacao?.processos_compras;
+        
+        let objetoLimpo = processo?.objeto_resumido || '';
+        objetoLimpo = objetoLimpo.replace(/<[^>]+>/g, '').trim();
+        
+        // Mapear o encaminhamento
+        if (enc.storage_path || enc.url_arquivo) {
+          let path = enc.storage_path || enc.url_arquivo;
+          if (path.includes('processo-anexos/')) {
+            path = path.split('processo-anexos/')[1]?.split('?')[0] || path;
+          }
+          encContabilidadeMap.set(path, {
+            processoId: cotacao?.processo_compra_id || '',
+            processoNumero: enc.processo_numero || processo?.numero_processo_interno || '',
+            processoObjeto: objetoLimpo,
+            credenciamento: processo?.credenciamento || false,
+            nomeArquivo: `Encaminhamento para Contabilidade`,
+            tipo: 'encaminhamento'
+          });
+          nomesBonitos.set(path, `Encaminhamento para Contabilidade`);
+        }
+        
+        // Mapear a resposta se existir
+        if (enc.respondido_contabilidade && (enc.storage_path_resposta || enc.url_resposta_pdf)) {
+          let respostaPath = enc.storage_path_resposta || enc.url_resposta_pdf;
+          if (respostaPath.includes('processo-anexos/')) {
+            respostaPath = respostaPath.split('processo-anexos/')[1]?.split('?')[0] || respostaPath;
+          }
+          const numeroProcesso = enc.processo_numero || processo?.numero_processo_interno || '';
+          encContabilidadeMap.set(respostaPath, {
+            processoId: cotacao?.processo_compra_id || '',
+            processoNumero: numeroProcesso,
+            processoObjeto: objetoLimpo,
+            credenciamento: processo?.credenciamento || false,
+            nomeArquivo: `Resposta Contabilidade ${numeroProcesso}`,
+            tipo: 'resposta'
+          });
+          nomesBonitos.set(respostaPath, `Resposta Contabilidade ${numeroProcesso}`);
+        }
+      }
+    }
+    console.log(`📋 Encaminhamentos à contabilidade mapeados: ${encContabilidadeMap.size}`);
 
     // Processar análises de Compliance
     if (analisesCompliance) {
@@ -1161,6 +1233,7 @@ Deno.serve(async (req) => {
           fornecedores: Map<string, { fornecedorId: string; fornecedorNome: string; documentos: Array<{ path: string; fileName: string; size: number }> }>;
         }>()
       },
+      respostas_contabilidade: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       outros: { arquivos: 0, tamanho: 0, detalhes: [] as any[] }
     };
     // Set para rastrear arquivos já categorizados - cada arquivo deve aparecer em APENAS UMA categoria
@@ -2066,7 +2139,65 @@ Deno.serve(async (req) => {
             }
           }
         }
-       } else if (pathSemBucket.startsWith('encaminhamentos/')) {
+       } 
+       
+       // === VERIFICAR ENCAMINHAMENTOS À CONTABILIDADE (ANTES de verificar encaminhamentos normais) ===
+       const encContabInfo = encContabilidadeMap.get(pathSemBucket);
+       if (encContabInfo) {
+         if (encContabInfo.tipo === 'encaminhamento') {
+           // Encaminhamento para Contabilidade vai para a categoria "Encaminhamentos"
+           estatisticasPorCategoria.encaminhamentos.arquivos++;
+           estatisticasPorCategoria.encaminhamentos.tamanho += metadata.size;
+           estatisticasPorCategoria.encaminhamentos.detalhes.push({ path, fileName: encContabInfo.nomeArquivo, size: metadata.size });
+           
+           const processoId = encContabInfo.processoId;
+           if (processoId) {
+             if (!estatisticasPorCategoria.encaminhamentos.porProcesso!.has(processoId)) {
+               estatisticasPorCategoria.encaminhamentos.porProcesso!.set(processoId, {
+                 processoId,
+                 processoNumero: encContabInfo.processoNumero,
+                 processoObjeto: encContabInfo.processoObjeto,
+                 credenciamento: encContabInfo.credenciamento,
+                 documentos: []
+               });
+             }
+             estatisticasPorCategoria.encaminhamentos.porProcesso!.get(processoId)!.documentos.push({
+               path,
+               fileName: encContabInfo.nomeArquivo,
+               size: metadata.size
+             });
+           }
+           console.log(`✅ Encaminhamento para Contabilidade: ${encContabInfo.nomeArquivo} -> Processo ${encContabInfo.processoNumero}`);
+         } else if (encContabInfo.tipo === 'resposta') {
+           // Resposta da Contabilidade vai para a nova categoria "Respostas da Contabilidade"
+           estatisticasPorCategoria.respostas_contabilidade.arquivos++;
+           estatisticasPorCategoria.respostas_contabilidade.tamanho += metadata.size;
+           estatisticasPorCategoria.respostas_contabilidade.detalhes.push({ path, fileName: encContabInfo.nomeArquivo, size: metadata.size });
+           
+           const processoId = encContabInfo.processoId;
+           if (processoId) {
+             if (!estatisticasPorCategoria.respostas_contabilidade.porProcesso!.has(processoId)) {
+               estatisticasPorCategoria.respostas_contabilidade.porProcesso!.set(processoId, {
+                 processoId,
+                 processoNumero: encContabInfo.processoNumero,
+                 processoObjeto: encContabInfo.processoObjeto,
+                 credenciamento: encContabInfo.credenciamento,
+                 documentos: []
+               });
+             }
+             estatisticasPorCategoria.respostas_contabilidade.porProcesso!.get(processoId)!.documentos.push({
+               path,
+               fileName: encContabInfo.nomeArquivo,
+               size: metadata.size
+             });
+           }
+           console.log(`✅ Resposta Contabilidade: ${encContabInfo.nomeArquivo} -> Processo ${encContabInfo.processoNumero}`);
+         }
+         arquivosJaCategorizados.add(path);
+         continue;
+       }
+       
+       if (pathSemBucket.startsWith('encaminhamentos/')) {
         // Encaminhamentos - agrupar por processo
         estatisticasPorCategoria.encaminhamentos.arquivos++;
         estatisticasPorCategoria.encaminhamentos.tamanho += metadata.size;
@@ -3607,6 +3738,12 @@ Deno.serve(async (req) => {
             credenciamento: proc.credenciamento,
             fornecedores: Array.from(proc.fornecedores.values())
           }))
+        },
+        respostas_contabilidade: {
+          arquivos: estatisticasPorCategoria.respostas_contabilidade.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.respostas_contabilidade.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.respostas_contabilidade.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.respostas_contabilidade.porProcesso!.values())
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,
