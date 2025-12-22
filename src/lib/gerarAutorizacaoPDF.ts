@@ -177,14 +177,15 @@ export const gerarAutorizacaoCompraDireta = async (
   
   // Calcular posição do texto principal baseado no tamanho do assunto
   doc.setFontSize(11);
+  doc.setLineHeightFactor(1.25); // Espaçamento entre linhas de 1.25
   const espacamentoAposAssunto = 15; // Espaçamento fixo após o assunto
   let yPos = 72 + (linhasAssunto.length * 6) + espacamentoAposAssunto;
   
   const texto1 = 'Na qualidade de representante legal da PRIMA QUALITÁ SAÚDE, ratifico a realização da presente despesa, e a contratação por NÃO OBRIGATORIEDADE DE SELEÇÃO DE FORNECEDORES, conforme requisição, aferição da economicidade e justificativas anexas, nos termos do Art. 12, Inciso VI do Regulamento para Aquisição de Bens, Contratação de Obras, Serviços e Locações da Instituição, em favor da(s) empresa(s):';
   
   const linhas1 = doc.splitTextToSize(texto1, 170);
-  doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhas1.length * 6 + 2; // Reduzido para aproximar da tabela
+  doc.text(linhas1, 20, yPos, { align: 'justify', maxWidth: 170, lineHeightFactor: 1.25 });
+  yPos += linhas1.length * 6 * 1.25 + 2; // Ajustado para espaçamento 1.25
   
   // Tabela de fornecedores vencedores com itens detalhados
   const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
