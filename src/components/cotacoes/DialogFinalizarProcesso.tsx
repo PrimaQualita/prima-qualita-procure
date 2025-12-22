@@ -92,6 +92,7 @@ interface DialogFinalizarProcessoProps {
   onOpenChange: (open: boolean) => void;
   cotacaoId: string;
   onSuccess: () => void;
+  canEdit?: boolean;
 }
 
 export function DialogFinalizarProcesso({
@@ -99,6 +100,7 @@ export function DialogFinalizarProcesso({
   onOpenChange,
   cotacaoId,
   onSuccess,
+  canEdit = true,
 }: DialogFinalizarProcessoProps) {
   const [loading, setLoading] = useState(false);
   const [fornecedoresData, setFornecedoresData] = useState<FornecedorData[]>([]);
@@ -3235,7 +3237,7 @@ export function DialogFinalizarProcesso({
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {!fornData.rejeitado && (
+                        {canEdit && !fornData.rejeitado && (
                           <Button
                             size="sm"
                             variant="destructive"
@@ -3445,6 +3447,7 @@ export function DialogFinalizarProcesso({
                                 
                                 {campo.status_solicitacao === "em_analise" && (
                                   <div className="flex gap-2">
+                                  {canEdit && (
                                     <Button
                                       size="sm"
                                       variant="default"
@@ -3453,6 +3456,8 @@ export function DialogFinalizarProcesso({
                                       <CheckCircle className="h-4 w-4 mr-1" />
                                       Aprovar
                                     </Button>
+                                  )}
+                                  {canEdit && (
                                     <Button
                                       size="sm"
                                       variant="destructive"
@@ -3461,6 +3466,7 @@ export function DialogFinalizarProcesso({
                                       <AlertCircle className="h-4 w-4 mr-1" />
                                       Rejeitar
                                     </Button>
+                                  )}
                                   </div>
                                 )}
                                 
@@ -3712,17 +3718,19 @@ export function DialogFinalizarProcesso({
                           Status Recurso: {rejeicao.status_recurso.replace('_', ' ').toUpperCase()}
                         </Badge>
                       )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setRejeicaoParaReverter(rejeicao.id);
-                          setDialogReversaoOpen(true);
-                        }}
-                        className="mt-2"
-                      >
-                        Reverter Rejeição
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setRejeicaoParaReverter(rejeicao.id);
+                            setDialogReversaoOpen(true);
+                          }}
+                          className="mt-2"
+                        >
+                          Reverter Rejeição
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -3784,20 +3792,22 @@ export function DialogFinalizarProcesso({
                             Visualizar Recurso
                           </Button>
                           
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              setRecursoParaExcluir(recurso);
-                              setConfirmDeleteRecursoOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Apagar Recurso
-                          </Button>
+                          {canEdit && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setRecursoParaExcluir(recurso);
+                                setConfirmDeleteRecursoOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Apagar Recurso
+                            </Button>
+                          )}
                           
                           {/* Verificar se já existe resposta */}
-                          {!(recurso as any).respostas_recursos?.length ? (
+                          {canEdit && !(recurso as any).respostas_recursos?.length ? (
                             <div className="flex flex-wrap gap-2">
                               <Button
                                 variant="default"
@@ -3853,7 +3863,7 @@ export function DialogFinalizarProcesso({
                                 Negar Provimento
                               </Button>
                             </div>
-                          ) : (
+                          ) : (recurso as any).respostas_recursos?.length > 0 && (
                             <div className="w-full space-y-2 border-t pt-3 mt-2">
                               <div className="flex items-center justify-between">
                                 <Badge variant={
@@ -3940,41 +3950,45 @@ export function DialogFinalizarProcesso({
                                   <Download className="h-4 w-4 mr-2" />
                                   Baixar
                                 </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={async () => {
-                                    // Buscar rejeição associada ao recurso
-                                    const { data: rej } = await supabase
-                                      .from('fornecedores_rejeitados_cotacao')
-                                      .select('id, itens_afetados')
-                                      .eq('id', recurso.rejeicao_id)
-                                      .single();
-                                    setRejeicaoDoRecurso(rej);
-                                    setRecursoSelecionado(recurso.id);
-                                    // Setar com valores da resposta existente para edição
-                                    const respostaAtual = (recurso as any).respostas_recursos[0];
-                                    setDecisaoRecurso(respostaAtual.decisao);
-                                    setTipoProvimento(respostaAtual.tipo_provimento || 'total');
-                                    setTextoRespostaRecurso(respostaAtual.texto_resposta || '');
-                                    setItensParaReabilitar(respostaAtual.itens_reabilitados || []);
-                                    setDialogRespostaRecursoOpen(true);
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Editar
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setRespostaRecursoParaExcluir(recurso);
-                                    setConfirmDeleteRespostaRecursoOpen(true);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Apagar Resposta
-                                </Button>
+                                {canEdit && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={async () => {
+                                      // Buscar rejeição associada ao recurso
+                                      const { data: rej } = await supabase
+                                        .from('fornecedores_rejeitados_cotacao')
+                                        .select('id, itens_afetados')
+                                        .eq('id', recurso.rejeicao_id)
+                                        .single();
+                                      setRejeicaoDoRecurso(rej);
+                                      setRecursoSelecionado(recurso.id);
+                                      // Setar com valores da resposta existente para edição
+                                      const respostaAtual = (recurso as any).respostas_recursos[0];
+                                      setDecisaoRecurso(respostaAtual.decisao);
+                                      setTipoProvimento(respostaAtual.tipo_provimento || 'total');
+                                      setTextoRespostaRecurso(respostaAtual.texto_resposta || '');
+                                      setItensParaReabilitar(respostaAtual.itens_reabilitados || []);
+                                      setDialogRespostaRecursoOpen(true);
+                                    }}
+                                  >
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Editar
+                                  </Button>
+                                )}
+                                {canEdit && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => {
+                                      setRespostaRecursoParaExcluir(recurso);
+                                      setConfirmDeleteRespostaRecursoOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Apagar Resposta
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           )}
@@ -3992,14 +4006,16 @@ export function DialogFinalizarProcesso({
           <div className="flex flex-col w-full gap-3">
             {/* Planilha de Habilitação - Acima do Relatório Final */}
             <div className="flex flex-col gap-2">
-              <Button
-                onClick={gerarPlanilhaHabilitacao}
-                disabled={loading}
-                className="w-full"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Gerar Planilha Final
-              </Button>
+              {canEdit && (
+                <Button
+                  onClick={gerarPlanilhaHabilitacao}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Gerar Planilha Final
+                </Button>
+              )}
               
               {planilhasHabilitacao.length > 0 && (
                 <div className="flex flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
@@ -4033,17 +4049,19 @@ export function DialogFinalizarProcesso({
                       >
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button
-                        onClick={() => {
-                          setPlanilhaHabParaExcluir(planilha);
-                          setConfirmDeletePlanilhaHabOpen(true);
-                        }}
-                        variant="destructive"
-                        size="icon"
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          onClick={() => {
+                            setPlanilhaHabParaExcluir(planilha);
+                            setConfirmDeletePlanilhaHabOpen(true);
+                          }}
+                          variant="destructive"
+                          size="icon"
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -4052,14 +4070,16 @@ export function DialogFinalizarProcesso({
 
             {/* Relatórios Finais - Qualquer gestor/colaborador pode gerar e deletar */}
             <div className="flex flex-col gap-2">
-              <Button
-                onClick={gerarRelatorio}
-                disabled={loading || !todosDocumentosAprovados}
-                className="w-full"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Gerar Relatório Final
-              </Button>
+              {canEdit && (
+                <Button
+                  onClick={gerarRelatorio}
+                  disabled={loading || !todosDocumentosAprovados}
+                  className="w-full"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Gerar Relatório Final
+                </Button>
+              )}
               
               {relatoriosFinais.length > 0 && (
                 <div className="flex flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
@@ -4093,17 +4113,19 @@ export function DialogFinalizarProcesso({
                       >
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button
-                        onClick={() => {
-                          setRelatorioParaExcluir(relatorio);
-                          setConfirmDeleteRelatorioOpen(true);
-                        }}
-                        variant="destructive"
-                        size="icon"
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          onClick={() => {
+                            setRelatorioParaExcluir(relatorio);
+                            setConfirmDeleteRelatorioOpen(true);
+                          }}
+                          variant="destructive"
+                          size="icon"
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -4113,14 +4135,16 @@ export function DialogFinalizarProcesso({
             {/* Encaminhamento para Contabilidade - Após Relatório Final */}
             {relatoriosFinais.length > 0 && (
               <div className="flex flex-col gap-2">
-                <Button
-                  onClick={gerarEncaminhamentoContabilidade}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Gerar Encaminhamento para Contabilidade
-                </Button>
+                {canEdit && (
+                  <Button
+                    onClick={gerarEncaminhamentoContabilidade}
+                    disabled={loading}
+                    className="w-full"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Gerar Encaminhamento para Contabilidade
+                  </Button>
+                )}
                 
                 {encaminhamentosContabilidade.length > 0 && (
                   <div className="flex flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
@@ -4199,7 +4223,7 @@ export function DialogFinalizarProcesso({
                         >
                           <Download className="h-4 w-4" />
                         </Button>
-                        {!enc.enviado_contabilidade && (
+                        {canEdit && !enc.enviado_contabilidade && (
                           <Button
                             onClick={() => enviarParaContabilidade(enc.id)}
                             variant="default"
@@ -4210,17 +4234,19 @@ export function DialogFinalizarProcesso({
                             Enviar
                           </Button>
                         )}
-                        <Button
-                          onClick={() => {
-                            setEncContabParaExcluir(enc);
-                            setConfirmDeleteEncContabOpen(true);
-                          }}
-                          variant="destructive"
-                          size="icon"
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                          <Button
+                            onClick={() => {
+                              setEncContabParaExcluir(enc);
+                              setConfirmDeleteEncContabOpen(true);
+                            }}
+                            variant="destructive"
+                            size="icon"
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                       
                       {/* PDF de Resposta da Contabilidade */}
