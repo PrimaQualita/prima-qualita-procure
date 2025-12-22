@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      // 2.8 Encaminhamentos
+      // 2.8 Encaminhamentos de processo
       const { data: encaminhamentos } = await supabase
         .from('encaminhamentos_processo')
         .select('url')
@@ -233,6 +233,26 @@ Deno.serve(async (req) => {
         encaminhamentos.forEach(e => {
           const path = extractPath(e.url, 'processo-anexos');
           if (path) arquivosProcessoAnexos.push(path);
+        });
+      }
+
+      // 2.8b Encaminhamentos à contabilidade (encaminhamento + resposta)
+      const { data: encaminhamentosContabilidade } = await supabase
+        .from('encaminhamentos_contabilidade')
+        .select('url_arquivo, storage_path, url_resposta_pdf, storage_path_resposta')
+        .in('cotacao_id', cotacaoIds);
+
+      if (encaminhamentosContabilidade) {
+        encaminhamentosContabilidade.forEach(enc => {
+          // Arquivo do encaminhamento
+          const path = extractPath(enc.storage_path || enc.url_arquivo, 'processo-anexos');
+          if (path) arquivosProcessoAnexos.push(path);
+          
+          // Arquivo da resposta se existir
+          if (enc.url_resposta_pdf || enc.storage_path_resposta) {
+            const respostaPath = extractPath(enc.storage_path_resposta || enc.url_resposta_pdf, 'processo-anexos');
+            if (respostaPath) arquivosProcessoAnexos.push(respostaPath);
+          }
         });
       }
 
@@ -572,6 +592,18 @@ Deno.serve(async (req) => {
         console.error('❌ Erro ao deletar analises_compliance:', analisesError);
       } else {
         console.log('✅ Registros de análises de compliance deletados');
+      }
+
+      // 5.3 Deletar encaminhamentos à contabilidade
+      const { error: encContabError } = await supabase
+        .from('encaminhamentos_contabilidade')
+        .delete()
+        .in('cotacao_id', cotacaoIds);
+      
+      if (encContabError) {
+        console.error('❌ Erro ao deletar encaminhamentos_contabilidade:', encContabError);
+      } else {
+        console.log('✅ Registros de encaminhamentos à contabilidade deletados');
       }
     }
 
