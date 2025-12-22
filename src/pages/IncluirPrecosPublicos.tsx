@@ -113,30 +113,46 @@ const IncluirPrecosPublicos = () => {
       const worksheet = workbook.addWorksheet('Preços Públicos');
       const criterio = processoCompra?.criterio_julgamento;
       const mostrarMarca = processoCompra?.tipo === "material";
+      const isDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
 
-      // Definir colunas dinamicamente baseado no tipo do processo
-      const colunas = mostrarMarca ? [
-        { header: 'Item', key: 'item', width: 10 },
-        { header: 'Descrição', key: 'descricao', width: 50 },
-        { header: 'Quantidade', key: 'quantidade', width: 12 },
-        { header: 'Unidade de Medida', key: 'unidade', width: 18 },
-        { header: 'Marca', key: 'marca', width: 30 },
-        { header: 'Valor Unitário', key: 'valor', width: 15 },
-        { header: 'Valor Total', key: 'valor_total', width: 15 }
-      ] : [
-        { header: 'Item', key: 'item', width: 10 },
-        { header: 'Descrição', key: 'descricao', width: 50 },
-        { header: 'Quantidade', key: 'quantidade', width: 12 },
-        { header: 'Unidade de Medida', key: 'unidade', width: 18 },
-        { header: 'Valor Unitário', key: 'valor', width: 15 },
-        { header: 'Valor Total', key: 'valor_total', width: 15 }
-      ];
+      // Definir colunas dinamicamente baseado no tipo do processo e critério
+      let colunas: { header: string; key: string; width: number }[];
+      
+      if (isDesconto) {
+        // Template para critério de desconto: apenas coluna de percentual
+        colunas = [
+          { header: 'Item', key: 'item', width: 10 },
+          { header: 'Descrição', key: 'descricao', width: 50 },
+          { header: 'Quantidade', key: 'quantidade', width: 12 },
+          { header: 'Unidade de Medida', key: 'unidade', width: 18 },
+          { header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 }
+        ];
+      } else if (mostrarMarca) {
+        colunas = [
+          { header: 'Item', key: 'item', width: 10 },
+          { header: 'Descrição', key: 'descricao', width: 50 },
+          { header: 'Quantidade', key: 'quantidade', width: 12 },
+          { header: 'Unidade de Medida', key: 'unidade', width: 18 },
+          { header: 'Marca', key: 'marca', width: 30 },
+          { header: 'Valor Unitário', key: 'valor', width: 15 },
+          { header: 'Valor Total', key: 'valor_total', width: 15 }
+        ];
+      } else {
+        colunas = [
+          { header: 'Item', key: 'item', width: 10 },
+          { header: 'Descrição', key: 'descricao', width: 50 },
+          { header: 'Quantidade', key: 'quantidade', width: 12 },
+          { header: 'Unidade de Medida', key: 'unidade', width: 18 },
+          { header: 'Valor Unitário', key: 'valor', width: 15 },
+          { header: 'Valor Total', key: 'valor_total', width: 15 }
+        ];
+      }
       
       worksheet.columns = colunas;
       
-      // Índices das colunas de valor e valor total variam conforme presença da coluna Marca
-      const colValor = mostrarMarca ? 6 : 5;
-      const colValorTotal = mostrarMarca ? 7 : 6;
+      // Índices das colunas variam conforme o tipo de template
+      const colValor = isDesconto ? 5 : (mostrarMarca ? 6 : 5);
+      const colValorTotal = isDesconto ? -1 : (mostrarMarca ? 7 : 6); // -1 quando não existe
       const colQuantidade = 3;
 
       // Se critério for por_lote, agrupar itens por lote
@@ -162,11 +178,15 @@ const IncluirPrecosPublicos = () => {
               item: `LOTE ${lote.numero_lote}`,
               descricao: lote.descricao_lote,
               quantidade: '',
-              unidade: '',
-              valor: '',
-              valor_total: ''
+              unidade: ''
             };
-            if (mostrarMarca) loteRowData.marca = '';
+            if (isDesconto) {
+              loteRowData.desconto = '';
+            } else {
+              loteRowData.valor = '';
+              loteRowData.valor_total = '';
+              if (mostrarMarca) loteRowData.marca = '';
+            }
             const loteRow = worksheet.addRow(loteRowData);
             
             // Estilizar linha do lote (negrito, fundo cinza)
@@ -188,88 +208,97 @@ const IncluirPrecosPublicos = () => {
                 item: item.numero_item,
                 descricao: item.descricao,
                 quantidade: item.quantidade,
-                unidade: item.unidade,
-                valor: '',
-                valor_total: ''
+                unidade: item.unidade
               };
-              if (mostrarMarca) rowData.marca = '';
+              if (isDesconto) {
+                rowData.desconto = '';
+              } else {
+                rowData.valor = '';
+                rowData.valor_total = '';
+                if (mostrarMarca) rowData.marca = '';
+              }
               const row = worksheet.addRow(rowData);
               
-              // Fórmula para calcular Valor Total (Quantidade * Valor Unitário)
-              const rowNumber = row.number;
-              const colLetraValor = mostrarMarca ? 'F' : 'E';
-              const colLetraTotal = mostrarMarca ? 'G' : 'F';
-              row.getCell(colValorTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
+              // Fórmula para calcular Valor Total (apenas quando não é desconto)
+              if (!isDesconto) {
+                const rowNumber = row.number;
+                const colLetraValor = mostrarMarca ? 'F' : 'E';
+                row.getCell(colValorTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
+              }
             });
             
             const ultimaLinhaItens = worksheet.rowCount;
             
-            // Adicionar linha de subtotal do lote
-            const subtotalRowData: any = {
-              item: '',
-              descricao: '',
-              quantidade: '',
-              unidade: '',
-              valor: `SUBTOTAL LOTE ${lote.numero_lote}:`,
-              valor_total: ''
-            };
-            if (mostrarMarca) subtotalRowData.marca = '';
-            const subtotalRow = worksheet.addRow(subtotalRowData);
-            
-            // Fórmula para somar valores totais do lote
-            const colLetraTotal = mostrarMarca ? 'G' : 'F';
-            subtotalRow.getCell(colValorTotal).value = { formula: `SUM(${colLetraTotal}${primeiraLinhaItens}:${colLetraTotal}${ultimaLinhaItens})` };
-            
-            // Estilizar linha de subtotal
-            subtotalRow.eachCell((cell) => {
-              cell.font = { bold: true };
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFDDEEFF' }
+            // Adicionar linha de subtotal do lote (apenas quando não é desconto)
+            if (!isDesconto) {
+              const subtotalRowData: any = {
+                item: '',
+                descricao: '',
+                quantidade: '',
+                unidade: '',
+                valor: `SUBTOTAL LOTE ${lote.numero_lote}:`,
+                valor_total: ''
               };
-              cell.protection = { locked: true };
-            });
+              if (mostrarMarca) subtotalRowData.marca = '';
+              const subtotalRow = worksheet.addRow(subtotalRowData);
+              
+              // Fórmula para somar valores totais do lote
+              const colLetraTotal = mostrarMarca ? 'G' : 'F';
+              subtotalRow.getCell(colValorTotal).value = { formula: `SUM(${colLetraTotal}${primeiraLinhaItens}:${colLetraTotal}${ultimaLinhaItens})` };
+              
+              // Estilizar linha de subtotal
+              subtotalRow.eachCell((cell) => {
+                cell.font = { bold: true };
+                cell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFDDEEFF' }
+                };
+                cell.protection = { locked: true };
+              });
+            }
           }
         });
         
-        // Adicionar linha de total geral
-        const totalGeralRowData: any = {
-          item: '',
-          descricao: '',
-          quantidade: '',
-          unidade: '',
-          valor: 'VALOR TOTAL GERAL:',
-          valor_total: ''
-        };
-        if (mostrarMarca) totalGeralRowData.marca = '';
-        const totalGeralRow = worksheet.addRow(totalGeralRowData);
-        
-        // Soma de todos os subtotais
-        const linhasSubtotal: number[] = [];
-        worksheet.eachRow((row, rowNumber) => {
-          const cell = row.getCell(colValor);
-          if (cell.value && String(cell.value).includes('SUBTOTAL LOTE')) {
-            linhasSubtotal.push(rowNumber);
-          }
-        });
-        
-        const colLetraTotal = mostrarMarca ? 'G' : 'F';
-        if (linhasSubtotal.length > 0) {
-          const formula = linhasSubtotal.map(r => `${colLetraTotal}${r}`).join('+');
-          totalGeralRow.getCell(colValorTotal).value = { formula };
-        }
-        
-        // Estilizar linha de total geral
-        totalGeralRow.eachCell((cell) => {
-          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FF1E40AF' }
+        // Adicionar linha de total geral (apenas quando não é desconto)
+        if (!isDesconto) {
+          const totalGeralRowData: any = {
+            item: '',
+            descricao: '',
+            quantidade: '',
+            unidade: '',
+            valor: 'VALOR TOTAL GERAL:',
+            valor_total: ''
           };
-          cell.protection = { locked: true };
-        });
+          if (mostrarMarca) totalGeralRowData.marca = '';
+          const totalGeralRow = worksheet.addRow(totalGeralRowData);
+          
+          // Soma de todos os subtotais
+          const linhasSubtotal: number[] = [];
+          worksheet.eachRow((row, rowNumber) => {
+            const cell = row.getCell(colValor);
+            if (cell.value && String(cell.value).includes('SUBTOTAL LOTE')) {
+              linhasSubtotal.push(rowNumber);
+            }
+          });
+          
+          const colLetraTotal = mostrarMarca ? 'G' : 'F';
+          if (linhasSubtotal.length > 0) {
+            const formula = linhasSubtotal.map(r => `${colLetraTotal}${r}`).join('+');
+            totalGeralRow.getCell(colValorTotal).value = { formula };
+          }
+          
+          // Estilizar linha de total geral
+          totalGeralRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FF1E40AF' }
+            };
+            cell.protection = { locked: true };
+          });
+        }
       } else {
         // Adicionar dados dos itens sem agrupamento
         itens.forEach(item => {
@@ -277,17 +306,23 @@ const IncluirPrecosPublicos = () => {
             item: item.numero_item,
             descricao: item.descricao,
             quantidade: item.quantidade,
-            unidade: item.unidade,
-            valor: '',
-            valor_total: ''
+            unidade: item.unidade
           };
-          if (mostrarMarca) rowData.marca = '';
+          if (isDesconto) {
+            rowData.desconto = '';
+          } else {
+            rowData.valor = '';
+            rowData.valor_total = '';
+            if (mostrarMarca) rowData.marca = '';
+          }
           const row = worksheet.addRow(rowData);
           
-          // Fórmula para calcular Valor Total
-          const rowNumber = row.number;
-          const colLetraValor = mostrarMarca ? 'F' : 'E';
-          row.getCell(colValorTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
+          // Fórmula para calcular Valor Total (apenas quando não é desconto)
+          if (!isDesconto) {
+            const rowNumber = row.number;
+            const colLetraValor = mostrarMarca ? 'F' : 'E';
+            row.getCell(colValorTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
+          }
         });
       }
 
@@ -298,12 +333,22 @@ const IncluirPrecosPublicos = () => {
         });
       });
 
-      // Proteger colunas que não devem ser editadas (1-Item, 2-Descrição, 3-Quantidade, 4-Unidade, colValorTotal)
-      const colunasProtegidas = [1, 2, 3, 4, colValorTotal];
+      // Proteger colunas que não devem ser editadas
+      let colunasProtegidas: number[];
+      if (isDesconto) {
+        // Para desconto: proteger Item, Descrição, Quantidade, Unidade (apenas coluna de desconto editável)
+        colunasProtegidas = [1, 2, 3, 4];
+      } else {
+        // Para outros critérios: proteger Item, Descrição, Quantidade, Unidade e Valor Total
+        colunasProtegidas = [1, 2, 3, 4, colValorTotal];
+      }
+      
       colunasProtegidas.forEach(colNum => {
-        worksheet.getColumn(colNum).eachCell((cell) => {
-          cell.protection = { locked: true };
-        });
+        if (colNum > 0) {
+          worksheet.getColumn(colNum).eachCell((cell) => {
+            cell.protection = { locked: true };
+          });
+        }
       });
 
       // Aplicar proteção na planilha
@@ -331,7 +376,14 @@ const IncluirPrecosPublicos = () => {
       link.click();
       window.URL.revokeObjectURL(url);
 
-      toast.success(mostrarMarca ? "Template baixado! Apenas 'Marca' e 'Valor Unitário' são editáveis." : "Template baixado! Apenas 'Valor Unitário' é editável.");
+      // Mensagem de sucesso baseada no tipo de template
+      if (isDesconto) {
+        toast.success("Template baixado! Apenas 'Percentual de Desconto (%)' é editável.");
+      } else if (mostrarMarca) {
+        toast.success("Template baixado! Apenas 'Marca' e 'Valor Unitário' são editáveis.");
+      } else {
+        toast.success("Template baixado! Apenas 'Valor Unitário' é editável.");
+      }
     } catch (error) {
       console.error("Erro ao gerar template:", error);
       toast.error("Erro ao gerar template");
@@ -356,12 +408,25 @@ const IncluirPrecosPublicos = () => {
       const criterio = processoCompra?.criterio_julgamento;
       const isPorLote = criterio === "lote" || criterio === "por_lote";
       const mostrarMarca = processoCompra?.tipo === "material";
+      const isDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
       
-      // Índices das colunas variam conforme presença da coluna Marca
+      // Índices das colunas variam conforme tipo de template
+      // Desconto: Item(0), Desc(1), Qtd(2), Unid(3), Desconto(4)
       // Com marca: Item(0), Desc(1), Qtd(2), Unid(3), Marca(4), Valor(5)
       // Sem marca: Item(0), Desc(1), Qtd(2), Unid(3), Valor(4)
-      const colMarcaIdx = mostrarMarca ? 4 : -1;
-      const colValorIdx = mostrarMarca ? 5 : 4;
+      let colMarcaIdx: number;
+      let colValorIdx: number;
+      
+      if (isDesconto) {
+        colMarcaIdx = -1; // Não há coluna de marca no template de desconto
+        colValorIdx = 4;  // Coluna de percentual de desconto
+      } else if (mostrarMarca) {
+        colMarcaIdx = 4;
+        colValorIdx = 5;
+      } else {
+        colMarcaIdx = -1;
+        colValorIdx = 4;
+      }
       
       // Variável para rastrear o lote atual durante a importação
       let loteAtualId: string | null = null;
@@ -372,7 +437,7 @@ const IncluirPrecosPublicos = () => {
         if (!row || row.length === 0) continue;
         
         const itemCol = row[0];
-        const marcaCol = mostrarMarca ? row[colMarcaIdx] : '';
+        const marcaCol = colMarcaIdx >= 0 ? row[colMarcaIdx] : '';
         const valorCol = row[colValorIdx];
         
         // Detectar linha de título de lote e atualizar lote atual
