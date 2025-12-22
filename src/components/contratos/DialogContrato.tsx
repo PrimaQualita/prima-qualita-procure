@@ -22,6 +22,7 @@ import {
 // Cores predefinidas para os contratos
 const CORES_PREDEFINIDAS = [
   { nome: "Sem Cor", valor: "none" },
+  { nome: "Branco", valor: "#FFFFFF" },
   // Azuis
   { nome: "Azul Claro", valor: "#E3F2FD" },
   { nome: "Azul Médio", valor: "#BBDEFB" },
