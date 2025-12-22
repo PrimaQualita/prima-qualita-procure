@@ -1800,14 +1800,18 @@ const Cotacoes = () => {
                     </Button>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-end ml-auto">
-                    <Button
-                      variant="outline"
-                      onClick={() => setDialogImportarOpen(true)}
-                      size="sm"
-                    >
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Importar Excel
-                    </Button>
+                    {canEdit && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => setDialogImportarOpen(true)}
+                          size="sm"
+                        >
+                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+                          Importar Excel
+                        </Button>
+                      </>
+                    )}
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1848,31 +1852,35 @@ const Cotacoes = () => {
                     >
                       Incluir Preços Públicos
                     </Button>
-                    <Button 
-                      variant="default"
-                      onClick={() => setDialogEnviarOpen(true)}
-                      disabled={itens.length === 0}
-                      size="sm"
-                    >
-                      Enviar para Fornecedores
-                    </Button>
-                    {itens.length > 0 && (
-                      <Button 
-                        variant="destructive"
-                        onClick={() => setConfirmDeleteAllOpen(true)}
-                        size="sm"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir Itens
-                      </Button>
+                    {canEdit && (
+                      <>
+                        <Button 
+                          variant="default"
+                          onClick={() => setDialogEnviarOpen(true)}
+                          disabled={itens.length === 0}
+                          size="sm"
+                        >
+                          Enviar para Fornecedores
+                        </Button>
+                        {itens.length > 0 && (
+                          <Button 
+                            variant="destructive"
+                            onClick={() => setConfirmDeleteAllOpen(true)}
+                            size="sm"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir Itens
+                          </Button>
+                        )}
+                        <Button onClick={() => {
+                          setItemEditando(null);
+                          setDialogItemOpen(true);
+                        }} size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Novo Item
+                        </Button>
+                      </>
                     )}
-                    <Button onClick={() => {
-                      setItemEditando(null);
-                      setDialogItemOpen(true);
-                    }} size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Novo Item
-                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -2669,6 +2677,7 @@ const Cotacoes = () => {
           open={dialogFinalizarOpen}
           onOpenChange={setDialogFinalizarOpen}
           cotacaoId={cotacaoSelecionada.id}
+          canEdit={canEdit}
           onSuccess={() => {
             if (processoSelecionado) {
               loadCotacoes(processoSelecionado.id);
