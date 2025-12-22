@@ -469,7 +469,6 @@ export default function Contabilidade() {
                   <TableRow>
                     <TableHead>Processo</TableHead>
                     <TableHead>Objeto</TableHead>
-                    <TableHead>Fornecedor(es)</TableHead>
                     <TableHead>Enviado em</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Ações</TableHead>
@@ -479,15 +478,8 @@ export default function Contabilidade() {
                   {(processos[contratoSelecionado.id] || []).map((processo) => (
                     <TableRow key={processo.id}>
                       <TableCell className="font-medium">{processo.processo_numero}</TableCell>
-                      <TableCell className="max-w-xs truncate" title={stripHtml(processo.objeto_processo)}>
-                        {stripHtml(processo.objeto_processo).substring(0, 50)}...
-                      </TableCell>
-                      <TableCell>
-                        {processo.fornecedores_vencedores?.map((f: FornecedorVencedor, i: number) => (
-                          <div key={i} className="text-sm">
-                            {f.razaoSocial}
-                          </div>
-                        ))}
+                      <TableCell className="max-w-md whitespace-normal break-words">
+                        {stripHtml(processo.objeto_processo)}
                       </TableCell>
                       <TableCell>
                         {processo.data_envio_contabilidade && formatarData(processo.data_envio_contabilidade)}
