@@ -160,10 +160,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   // Título
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('RELATÓRIO FINAL', pageWidth / 2, 45, { align: 'center' });
-  
-  doc.setFontSize(14);
-  doc.text('COTAÇÃO DE PREÇOS', pageWidth / 2, 52, { align: 'center' });
+  doc.text('RELATÓRIO FINAL', pageWidth / 2, 50, { align: 'center' });
   
   // Processo
   doc.setFontSize(12);
