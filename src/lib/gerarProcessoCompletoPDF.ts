@@ -143,7 +143,11 @@ export const gerarProcessoCompletoPDF = async (
     // 1 - CAPA DO PROCESSO
     // ============================================
     console.log("\n📋 1. MESCLANDO CAPA DO PROCESSO...");
-    const capa = anexosProcesso.find(a => a.tipo_anexo === 'CAPA DO PROCESSO');
+    const capa = anexosProcesso.find(a => 
+      a.tipo_anexo === 'capa_processo' || 
+      a.tipo_anexo === 'CAPA DO PROCESSO' || 
+      a.tipo_anexo?.toLowerCase() === 'capa do processo'
+    );
     if (capa) {
       await buscarEMesclarDocumento(capa.url_arquivo, 'processo-anexos', capa.nome_arquivo);
     } else {
@@ -154,7 +158,11 @@ export const gerarProcessoCompletoPDF = async (
     // 2 - REQUISIÇÃO
     // ============================================
     console.log("\n📋 2. MESCLANDO REQUISIÇÃO...");
-    const requisicao = anexosProcesso.find(a => a.tipo_anexo === 'REQUISIÇÃO');
+    const requisicao = anexosProcesso.find(a => 
+      a.tipo_anexo === 'requisicao' || 
+      a.tipo_anexo === 'REQUISIÇÃO' || 
+      a.tipo_anexo?.toLowerCase() === 'requisição'
+    );
     if (requisicao) {
       await buscarEMesclarDocumento(requisicao.url_arquivo, 'processo-anexos', requisicao.nome_arquivo);
     } else {
@@ -165,7 +173,11 @@ export const gerarProcessoCompletoPDF = async (
     // 3 - TERMO DE REFERÊNCIA
     // ============================================
     console.log("\n📋 3. MESCLANDO TERMO DE REFERÊNCIA...");
-    const termoReferencia = anexosProcesso.find(a => a.tipo_anexo === 'TERMO DE REFERÊNCIA');
+    const termoReferencia = anexosProcesso.find(a => 
+      a.tipo_anexo === 'termo_referencia' || 
+      a.tipo_anexo === 'TERMO DE REFERÊNCIA' || 
+      a.tipo_anexo?.toLowerCase() === 'termo de referência'
+    );
     if (termoReferencia) {
       await buscarEMesclarDocumento(termoReferencia.url_arquivo, 'processo-anexos', termoReferencia.nome_arquivo);
     } else {
@@ -176,7 +188,11 @@ export const gerarProcessoCompletoPDF = async (
     // 4 - AUTORIZAÇÃO DE DESPESA
     // ============================================
     console.log("\n📋 4. MESCLANDO AUTORIZAÇÃO DE DESPESA...");
-    const autorizacaoDespesa = anexosProcesso.find(a => a.tipo_anexo === 'AUTORIZAÇÃO DE DESPESA');
+    const autorizacaoDespesa = anexosProcesso.find(a => 
+      a.tipo_anexo === 'autorizacao_despesa' || 
+      a.tipo_anexo === 'AUTORIZAÇÃO DE DESPESA' || 
+      a.tipo_anexo?.toLowerCase() === 'autorização de despesa'
+    );
     if (autorizacaoDespesa) {
       await buscarEMesclarDocumento(autorizacaoDespesa.url_arquivo, 'processo-anexos', autorizacaoDespesa.nome_arquivo);
     } else {
@@ -754,59 +770,75 @@ export const gerarProcessoCompletoPDF = async (
     // ============================================
     console.log("\n📝 8. MESCLANDO RECURSOS E RESPOSTAS...");
     
-    for (const fornecedorId of todosFornecedoresProcesso) {
-      const { data: recursosFornecedor, error: recursosFornError } = await supabase
+    // Buscar todas as rejeições desta cotação
+    const { data: rejeicoesProcesso, error: rejeicoesError } = await supabase
+      .from("fornecedores_rejeitados_cotacao")
+      .select("id, fornecedor_id")
+      .eq("cotacao_id", cotacaoId);
+    
+    if (rejeicoesError) {
+      console.error("  ❌ Erro ao buscar rejeições:", rejeicoesError);
+    }
+    
+    const rejeicoesIds = rejeicoesProcesso?.map(r => r.id) || [];
+    const rejeicoesMap = new Map(rejeicoesProcesso?.map(r => [r.id, r.fornecedor_id]) || []);
+    
+    if (rejeicoesIds.length > 0) {
+      // Buscar recursos vinculados às rejeições desta cotação
+      const { data: recursosProcesso, error: recursosError } = await supabase
         .from("recursos_fornecedor")
         .select(`
           *,
-          fornecedores(razao_social),
-          fornecedores_rejeitados_cotacao!inner(
-            cotacao_id
-          )
+          fornecedores(razao_social)
         `)
-        .eq("fornecedor_id", fornecedorId)
+        .in("rejeicao_id", rejeicoesIds)
         .order("data_envio", { ascending: true });
       
-      if (recursosFornError) {
-        console.error(`  ❌ Erro ao buscar recursos do fornecedor:`, recursosFornError);
-        continue;
+      if (recursosError) {
+        console.error("  ❌ Erro ao buscar recursos:", recursosError);
       }
       
-      const recursosFiltrados = recursosFornecedor?.filter(r => {
-        const rejeicao = r.fornecedores_rejeitados_cotacao as any;
-        return rejeicao?.cotacao_id === cotacaoId;
-      }) || [];
-      
-      if (recursosFiltrados.length === 0) continue;
-      
-      const recursosIds = recursosFiltrados.map(r => r.id);
-      let respostasRecursos: any[] = [];
-      
-      if (recursosIds.length > 0) {
-        const { data: respostas, error: respostasError } = await supabase
+      if (recursosProcesso && recursosProcesso.length > 0) {
+        // Buscar todas as respostas dos recursos
+        const recursosIds = recursosProcesso.map(r => r.id);
+        const { data: respostasRecursos, error: respostasError } = await supabase
           .from("respostas_recursos")
           .select("*")
           .in("recurso_id", recursosIds);
         
-        if (!respostasError && respostas) {
-          respostasRecursos = respostas;
-        }
-      }
-      
-      for (const recurso of recursosFiltrados) {
-        const razaoSocial = (recurso.fornecedores as any)?.razao_social || 'Fornecedor';
-        
-        // Mesclar recurso
-        if (recurso.url_arquivo) {
-          await buscarEMesclarDocumento(recurso.url_arquivo, 'processo-anexos', `Recurso - ${razaoSocial}`);
+        if (respostasError) {
+          console.error("  ❌ Erro ao buscar respostas de recursos:", respostasError);
         }
         
-        // Mesclar resposta do recurso
-        const resposta = respostasRecursos.find(r => r.recurso_id === recurso.id);
-        if (resposta?.url_documento) {
-          await buscarEMesclarDocumento(resposta.url_documento, 'processo-anexos', `Resposta Recurso - ${razaoSocial}`);
+        for (const recurso of recursosProcesso) {
+          const razaoSocial = (recurso.fornecedores as any)?.razao_social || 'Fornecedor';
+          
+          // Mesclar recurso
+          if (recurso.url_arquivo) {
+            await buscarEMesclarDocumento(recurso.url_arquivo, 'processo-anexos', `Recurso - ${razaoSocial}`);
+          }
+          
+          // Mesclar resposta do recurso
+          const resposta = respostasRecursos?.find(r => r.recurso_id === recurso.id);
+          if (resposta?.url_documento) {
+            // url_documento pode ser URL pública completa, extrair o path
+            let respostaPath = resposta.url_documento;
+            if (respostaPath.includes('/storage/v1/object/public/processo-anexos/')) {
+              respostaPath = respostaPath.split('/storage/v1/object/public/processo-anexos/')[1];
+            } else if (respostaPath.includes('/storage/v1/object/sign/processo-anexos/')) {
+              const match = respostaPath.match(/\/processo-anexos\/(.+?)(\?|$)/);
+              if (match) {
+                respostaPath = match[1];
+              }
+            }
+            await buscarEMesclarDocumento(respostaPath, 'processo-anexos', `Resposta Recurso - ${razaoSocial}`);
+          }
         }
+      } else {
+        console.log("  ⚠️ Nenhum recurso encontrado para esta cotação");
       }
+    } else {
+      console.log("  ⚠️ Nenhuma rejeição com recurso encontrada");
     }
 
     // ============================================
@@ -855,11 +887,20 @@ export const gerarProcessoCompletoPDF = async (
     if (relatorios && relatorios.length > 0) {
       for (const relatorio of relatorios) {
         let storagePath = relatorio.url_arquivo;
+        
+        // Se for URL completa, extrair o path
         if (storagePath.includes('/storage/v1/object/')) {
-          const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
-          if (match) {
-            storagePath = `relatorios-finais/${match[1].split('?')[0]}`;
+          // Pode ser signed URL ou public URL
+          if (storagePath.includes('/storage/v1/object/sign/processo-anexos/')) {
+            const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
+            if (match) {
+              storagePath = match[1].split('?')[0];
+            }
+          } else if (storagePath.includes('/storage/v1/object/public/processo-anexos/')) {
+            storagePath = storagePath.split('/storage/v1/object/public/processo-anexos/')[1];
           }
+        } else if (storagePath.startsWith('processo-anexos/')) {
+          storagePath = storagePath.replace('processo-anexos/', '');
         }
         
         await buscarEMesclarDocumento(storagePath, 'processo-anexos', relatorio.nome_arquivo);
@@ -898,11 +939,20 @@ export const gerarProcessoCompletoPDF = async (
         // ============================================
         // 12 - RESPOSTA DA CONTABILIDADE
         // ============================================
-        if (enc.respondido_contabilidade && enc.url_resposta_pdf) {
+        if (enc.respondido_contabilidade && (enc.url_resposta_pdf || enc.storage_path_resposta)) {
           console.log("\n📬 12. MESCLANDO RESPOSTA DA CONTABILIDADE...");
           
           let storagePathResposta = enc.storage_path_resposta || enc.url_resposta_pdf;
-          if (storagePathResposta?.startsWith('processo-anexos/')) {
+          
+          // Se for URL completa, extrair o path
+          if (storagePathResposta?.includes('/storage/v1/object/public/processo-anexos/')) {
+            storagePathResposta = storagePathResposta.split('/storage/v1/object/public/processo-anexos/')[1];
+          } else if (storagePathResposta?.includes('/storage/v1/object/sign/processo-anexos/')) {
+            const match = storagePathResposta.match(/\/processo-anexos\/(.+?)(\?|$)/);
+            if (match) {
+              storagePathResposta = match[1].split('?')[0];
+            }
+          } else if (storagePathResposta?.startsWith('processo-anexos/')) {
             storagePathResposta = storagePathResposta.replace('processo-anexos/', '');
           }
           
