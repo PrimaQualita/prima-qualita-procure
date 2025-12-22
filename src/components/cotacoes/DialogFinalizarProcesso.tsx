@@ -128,6 +128,8 @@ export function DialogFinalizarProcesso({
   const [motivoAtualizacao, setMotivoAtualizacao] = useState("");
   const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
   const [encaminhamentoParaExcluir, setEncaminhamentoParaExcluir] = useState<any>(null);
+  const [confirmDeleteEncContabOpen, setConfirmDeleteEncContabOpen] = useState(false);
+  const [encContabParaExcluir, setEncContabParaExcluir] = useState<any>(null);
   const [confirmDeleteAutorizacaoOpen, setConfirmDeleteAutorizacaoOpen] = useState(false);
   const [autorizacaoParaExcluir, setAutorizacaoParaExcluir] = useState<any>(null);
   const [confirmDeleteRelatorioOpen, setConfirmDeleteRelatorioOpen] = useState(false);
@@ -245,6 +247,39 @@ export function DialogFinalizarProcesso({
       await loadEncaminhamentosContabilidade();
     } catch (error) {
       toast.error("Erro ao enviar");
+    }
+  };
+
+  const deletarEncaminhamentoContabilidade = async () => {
+    if (!encContabParaExcluir) return;
+    try {
+      // 1. Deletar o arquivo do encaminhamento
+      let filePath = encContabParaExcluir.storage_path || encContabParaExcluir.url_arquivo;
+      if (filePath.includes('https://')) {
+        const urlParts = filePath.split('/processo-anexos/');
+        filePath = urlParts[1] || filePath;
+      }
+      await supabase.storage.from('processo-anexos').remove([filePath]);
+      
+      // 2. Deletar também a resposta da contabilidade se existir
+      if (encContabParaExcluir.url_resposta_pdf || encContabParaExcluir.storage_path_resposta) {
+        let respostaPath = encContabParaExcluir.storage_path_resposta || encContabParaExcluir.url_resposta_pdf;
+        if (respostaPath.includes('https://')) {
+          const urlParts = respostaPath.split('/processo-anexos/');
+          respostaPath = urlParts[1] || respostaPath;
+        }
+        await supabase.storage.from('processo-anexos').remove([respostaPath]);
+      }
+      
+      // 3. Deletar o registro do banco
+      await supabase.from('encaminhamentos_contabilidade').delete().eq('id', encContabParaExcluir.id);
+      toast.success('Encaminhamento excluído');
+      setConfirmDeleteEncContabOpen(false);
+      setEncContabParaExcluir(null);
+      await loadEncaminhamentosContabilidade();
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error('Erro ao excluir');
     }
   };
 
@@ -4176,34 +4211,9 @@ export function DialogFinalizarProcesso({
                           </Button>
                         )}
                         <Button
-                          onClick={async () => {
-                            try {
-                              // 1. Deletar o arquivo do encaminhamento
-                              let filePath = enc.storage_path || enc.url_arquivo;
-                              if (filePath.includes('https://')) {
-                                const urlParts = filePath.split('/processo-anexos/');
-                                filePath = urlParts[1] || filePath;
-                              }
-                              await supabase.storage.from('processo-anexos').remove([filePath]);
-                              
-                              // 2. Deletar também a resposta da contabilidade se existir
-                              if (enc.url_resposta_pdf || enc.storage_path_resposta) {
-                                let respostaPath = enc.storage_path_resposta || enc.url_resposta_pdf;
-                                if (respostaPath.includes('https://')) {
-                                  const urlParts = respostaPath.split('/processo-anexos/');
-                                  respostaPath = urlParts[1] || respostaPath;
-                                }
-                                await supabase.storage.from('processo-anexos').remove([respostaPath]);
-                              }
-                              
-                              // 3. Deletar o registro do banco
-                              await supabase.from('encaminhamentos_contabilidade').delete().eq('id', enc.id);
-                              toast.success('Encaminhamento excluído');
-                              await loadEncaminhamentosContabilidade();
-                            } catch (error) {
-                              console.error('Erro:', error);
-                              toast.error('Erro ao excluir');
-                            }
+                          onClick={() => {
+                            setEncContabParaExcluir(enc);
+                            setConfirmDeleteEncContabOpen(true);
                           }}
                           variant="destructive"
                           size="icon"
@@ -5265,6 +5275,21 @@ export function DialogFinalizarProcesso({
           title="Confirmar Exclusão de Recurso"
           description="Tem certeza que deseja apagar este recurso? Esta ação não pode ser desfeita."
           confirmText="Excluir Recurso"
+          cancelText="Cancelar"
+          variant="destructive"
+        />
+
+        <ConfirmDialog
+          open={confirmDeleteEncContabOpen}
+          onOpenChange={setConfirmDeleteEncContabOpen}
+          onConfirm={deletarEncaminhamentoContabilidade}
+          title="Confirmar Exclusão de Encaminhamento"
+          description={
+            encContabParaExcluir 
+              ? `Tem certeza que deseja excluir este encaminhamento para contabilidade?\n\nProtocolo: ${encContabParaExcluir.protocolo}${encContabParaExcluir.respondido_contabilidade ? '\n\n⚠️ A resposta da contabilidade também será excluída.' : ''}\n\nEsta ação não pode ser desfeita.`
+              : ""
+          }
+          confirmText="Excluir Encaminhamento"
           cancelText="Cancelar"
           variant="destructive"
         />
