@@ -27,6 +27,7 @@ import RespostasCotacao from "./pages/RespostasCotacao";
 import IncluirPrecosPublicos from "./pages/IncluirPrecosPublicos";
 import VerificarProposta from "./pages/VerificarProposta";
 import VerificarAutorizacao from "./pages/VerificarAutorizacao";
+import VerificarRelatorioFinal from "./pages/VerificarRelatorioFinal";
 import VerificarPlanilha from "./pages/VerificarPlanilha";
 import VerificarDocumento from "./pages/VerificarDocumento";
 import VerificarEncaminhamento from "./pages/VerificarEncaminhamento";
@@ -95,11 +96,11 @@ const App = () => {
             <Route path="/incluir-precos-publicos" element={<IncluirPrecosPublicos />} />
             <Route path="/verificar-proposta" element={<VerificarProposta />} />
             <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
+            <Route path="/verificar-relatorio-final" element={<VerificarRelatorioFinal />} />
             <Route path="/verificar-documento" element={<VerificarDocumento />} />
             <Route path="/verificar-planilha" element={<VerificarPlanilha />} />
             <Route path="/verificar-encaminhamento" element={<VerificarEncaminhamento />} />
             <Route path="/verificar-analise-compliance" element={<VerificarAnaliseCompliance />} />
-            <Route path="/verificar-ata" element={<VerificarAta />} />
             
             {/* Rotas com sidebar */}
             <Route element={<DashboardLayout />}>
