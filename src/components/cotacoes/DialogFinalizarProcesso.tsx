@@ -4178,12 +4178,25 @@ export function DialogFinalizarProcesso({
                         <Button
                           onClick={async () => {
                             try {
+                              // 1. Deletar o arquivo do encaminhamento
                               let filePath = enc.storage_path || enc.url_arquivo;
                               if (filePath.includes('https://')) {
                                 const urlParts = filePath.split('/processo-anexos/');
                                 filePath = urlParts[1] || filePath;
                               }
                               await supabase.storage.from('processo-anexos').remove([filePath]);
+                              
+                              // 2. Deletar também a resposta da contabilidade se existir
+                              if (enc.url_resposta_pdf || enc.storage_path_resposta) {
+                                let respostaPath = enc.storage_path_resposta || enc.url_resposta_pdf;
+                                if (respostaPath.includes('https://')) {
+                                  const urlParts = respostaPath.split('/processo-anexos/');
+                                  respostaPath = urlParts[1] || respostaPath;
+                                }
+                                await supabase.storage.from('processo-anexos').remove([respostaPath]);
+                              }
+                              
+                              // 3. Deletar o registro do banco
                               await supabase.from('encaminhamentos_contabilidade').delete().eq('id', enc.id);
                               toast.success('Encaminhamento excluído');
                               await loadEncaminhamentosContabilidade();
@@ -4321,7 +4334,8 @@ export function DialogFinalizarProcesso({
                   </div>
                 )}
 
-                {isResponsavelLegal && autorizacoes.length > 0 && (
+                {/* Autorizações - VISÍVEL para QUALQUER usuário interno, excluir apenas Responsável Legal */}
+                {autorizacoes.length > 0 && (
                   <div className="flex flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
                     <Label className="text-sm font-semibold">Autorizações Geradas:</Label>
                     {autorizacoes.map((aut) => (
@@ -4380,7 +4394,7 @@ export function DialogFinalizarProcesso({
               </Button>
               <Button
                 onClick={() => setConfirmFinalizarOpen(true)}
-                disabled={loading || relatoriosFinais.length === 0 || !isResponsavelLegal}
+                disabled={loading || relatoriosFinais.length === 0 || autorizacoes.length === 0}
                 className="flex-1"
               >
                 Finalizar Processo
