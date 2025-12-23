@@ -2516,6 +2516,9 @@ const SistemaLancesFornecedor = () => {
                       .sort((a, b) => a - b)
                       .slice(0, 10)
                       .map((numeroItem) => {
+                      // Para critério global, mostrar "Total Global" ao invés de "Item 0"
+                      const isGlobalCriterio = selecao?.processos_compras?.criterio_julgamento === "global";
+                      const labelItem = isGlobalCriterio && numeroItem === 0 ? "Total Global" : `${selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "Lote" : "Item"} ${numeroItem}`;
                       const tempoExpiracao = itensEmFechamento.get(numeroItem);
                       const emFechamento = tempoExpiracao !== undefined;
                       const segundosRestantes = emFechamento ? Math.max(0, Math.ceil((tempoExpiracao - Date.now()) / 1000)) : 0;
@@ -2547,7 +2550,7 @@ const SistemaLancesFornecedor = () => {
                               ) : (
                                 <Unlock className="h-3.5 w-3.5 text-primary" />
                               )}
-                              <span className="font-semibold text-sm">{selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "Lote" : "Item"} {numeroItem}</span>
+                              <span className="font-semibold text-sm">{labelItem}</span>
                             </div>
                             {emFechamento && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-400 text-orange-600 bg-orange-100">
@@ -2562,7 +2565,7 @@ const SistemaLancesFornecedor = () => {
                           </div>
                           
                           {/* Status de participação */}
-                          {!podeParticipar ? (
+                          {!podeParticipar && !isGlobalCriterio ? (
                             <div className="text-center py-2 px-1 bg-muted/50 rounded text-[11px] text-muted-foreground">
                               Sem proposta neste {selecao?.processos_compras?.criterio_julgamento === "por_lote" ? "lote" : "item"}
                             </div>
