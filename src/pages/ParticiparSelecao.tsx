@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, FileText, Gavel, Send, Upload, LogIn } from "lucide-react";
+import { ArrowLeft, FileText, Gavel, Send, Upload, LogIn, X } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
@@ -195,6 +195,7 @@ const ParticiparSelecao = () => {
   const [respostas, setRespostas] = useState<RespostaItem>({});
   const [observacoes, setObservacoes] = useState("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [arquivosComprovantes, setArquivosComprovantes] = useState<File[]>([]);
 
   const verificarCnpjExistente = async (cnpj: string) => {
     const cnpjLimpo = cnpj.replace(/\D/g, '');
@@ -1099,7 +1100,8 @@ const ParticiparSelecao = () => {
           selecao.titulo_selecao,
           new Date().toISOString(),
           undefined,
-          criterioJulgamento
+          criterioJulgamento,
+          arquivosComprovantes
         );
 
         // Atualizar proposta com URL do PDF
@@ -1673,6 +1675,82 @@ const ParticiparSelecao = () => {
                       placeholder="Observações sobre a proposta (opcional)"
                       rows={4}
                     />
+                  </div>
+
+                  {/* Área de Upload de Anexos */}
+                  <div className="space-y-2">
+                    <Label>Anexos em PDF (Opcional)</Label>
+                    <p className="text-xs text-muted-foreground">Apenas arquivos PDF serão mesclados à proposta certificada</p>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        type="file"
+                        id="upload-anexos-selecao"
+                        multiple
+                        accept=".pdf,application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          
+                          const arquivosPDF = files.filter(file => 
+                            file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+                          );
+                          
+                          const arquivosInvalidos = files.length - arquivosPDF.length;
+                          
+                          if (arquivosInvalidos > 0) {
+                            toast.error(`${arquivosInvalidos} arquivo(s) ignorado(s). Apenas PDFs são aceitos.`);
+                          }
+                          
+                          if (arquivosPDF.length > 0) {
+                            setArquivosComprovantes([...arquivosComprovantes, ...arquivosPDF]);
+                            toast.success(`${arquivosPDF.length} arquivo(s) PDF adicionado(s)`);
+                          }
+                          
+                          // Limpar input para permitir selecionar mesmo arquivo novamente
+                          e.target.value = '';
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => document.getElementById('upload-anexos-selecao')?.click()}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Adicionar PDFs
+                      </Button>
+                    </div>
+                    
+                    {arquivosComprovantes.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          {arquivosComprovantes.length} arquivo(s) anexado(s):
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {arquivosComprovantes.map((arquivo, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm"
+                            >
+                              <FileText className="h-4 w-4" />
+                              <span className="max-w-[200px] truncate">{arquivo.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setArquivosComprovantes(
+                                    arquivosComprovantes.filter((_, i) => i !== index)
+                                  );
+                                  toast.success("Arquivo removido");
+                                }}
+                                className="hover:text-destructive"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <Button onClick={handleSubmit} disabled={submitting} className="w-full" size="lg">
