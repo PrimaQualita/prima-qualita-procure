@@ -1129,23 +1129,22 @@ const SistemaLancesFornecedor = () => {
               console.log('✅ [loadProposta] Estimado por LOTE (subtotal):', Object.fromEntries(mapaSubtotalLote));
               setItensEstimados(mapaSubtotalLote);
             } else if (criterioJulgamento === "global") {
-              // CRITÉRIO GLOBAL: somar todas as estimativas para o item virtual 0
+              // CRITÉRIO GLOBAL: somar todas as estimativas × quantidades para o item virtual 0
               const mapaEstimados = new Map<number, number>();
               let totalGlobal = 0;
               
               // Buscar itens da cotação para calcular o total global (estimativa × quantidade)
-              if (itensCotacaoLocal.length > 0) {
-                itensCotacaoLocal.forEach((ci) => {
-                  const key = `${ci.numero_lote}_${ci.numero_item}`;
-                  const estimativaUnit = Number(estimativas[key] || 0);
+              const { data: itensCotacaoGlobal } = await supabase
+                .from("itens_cotacao")
+                .select("numero_item, quantidade")
+                .eq("cotacao_id", cotacaoId);
+              
+              if (itensCotacaoGlobal && itensCotacaoGlobal.length > 0) {
+                itensCotacaoGlobal.forEach((item) => {
+                  const estimativaUnit = Number(estimativas[String(item.numero_item)] || 0);
                   if (estimativaUnit > 0) {
-                    totalGlobal += estimativaUnit * Number(ci.quantidade);
+                    totalGlobal += estimativaUnit * Number(item.quantidade);
                   }
-                });
-              } else {
-                // Fallback: somar todos os valores diretamente
-                Object.values(estimativas).forEach((valor) => {
-                  totalGlobal += Number(valor);
                 });
               }
               
