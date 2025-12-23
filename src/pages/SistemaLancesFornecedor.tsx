@@ -1133,17 +1133,25 @@ const SistemaLancesFornecedor = () => {
               const mapaEstimados = new Map<number, number>();
               let totalGlobal = 0;
               
+              console.log('🔍 [GLOBAL] cotacaoId:', cotacaoId);
+              console.log('🔍 [GLOBAL] estimativas brutas:', estimativas);
+              
               // Buscar itens da cotação para calcular o total global (estimativa × quantidade)
-              const { data: itensCotacaoGlobal } = await supabase
+              const { data: itensCotacaoGlobal, error: erroItens } = await supabase
                 .from("itens_cotacao")
                 .select("numero_item, quantidade")
                 .eq("cotacao_id", cotacaoId);
               
+              console.log('🔍 [GLOBAL] itensCotacaoGlobal:', itensCotacaoGlobal);
+              console.log('🔍 [GLOBAL] erro busca itens:', erroItens);
+              
               if (itensCotacaoGlobal && itensCotacaoGlobal.length > 0) {
                 itensCotacaoGlobal.forEach((item) => {
                   const estimativaUnit = Number(estimativas[String(item.numero_item)] || 0);
+                  const subtotal = estimativaUnit * Number(item.quantidade);
+                  console.log(`  - Item ${item.numero_item}: ${estimativaUnit} × ${item.quantidade} = ${subtotal}`);
                   if (estimativaUnit > 0) {
-                    totalGlobal += estimativaUnit * Number(item.quantidade);
+                    totalGlobal += subtotal;
                   }
                 });
               }
