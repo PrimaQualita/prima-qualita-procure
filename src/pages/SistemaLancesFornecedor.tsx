@@ -209,6 +209,45 @@ const SistemaLancesFornecedor = () => {
       return menorPorLote;
     }
 
+    // CRITÉRIO GLOBAL: menor valor total (soma de todos os itens da proposta)
+    if (criterioJulgamento === "global") {
+      const mapaGlobal = new Map<number, number>();
+      let menorTotalGlobal: number | null = null;
+
+      todasPropostas.forEach((prop: any) => {
+        const fornecedorIdStr = String(prop.fornecedor_id);
+        const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
+
+        let totalProposta = 0;
+        let temItensValidos = false;
+
+        (prop.selecao_respostas_itens_fornecedor || []).forEach((item: any) => {
+          if (itensInabilitados.includes(item.numero_item)) return;
+
+          if (Number(item.valor_unitario_ofertado) > 0) {
+            temItensValidos = true;
+            const totalItem =
+              Number(item.valor_total_item) > 0
+                ? Number(item.valor_total_item)
+                : Number(item.valor_unitario_ofertado) * Number(item.quantidade || 0);
+            totalProposta += totalItem;
+          }
+        });
+
+        if (temItensValidos && totalProposta > 0) {
+          if (menorTotalGlobal === null || totalProposta < menorTotalGlobal) {
+            menorTotalGlobal = totalProposta;
+          }
+        }
+      });
+
+      if (menorTotalGlobal !== null) {
+        mapaGlobal.set(0, menorTotalGlobal);
+      }
+
+      return mapaGlobal;
+    }
+
     // Demais critérios: manter exatamente a lógica atual (por item / desconto)
     const isDesconto = criterioJulgamento === "desconto";
     const mapaMenorValor = new Map<number, number>();
@@ -1089,6 +1128,32 @@ const SistemaLancesFornecedor = () => {
 
               console.log('✅ [loadProposta] Estimado por LOTE (subtotal):', Object.fromEntries(mapaSubtotalLote));
               setItensEstimados(mapaSubtotalLote);
+            } else if (criterioJulgamento === "global") {
+              // CRITÉRIO GLOBAL: somar todas as estimativas para o item virtual 0
+              const mapaEstimados = new Map<number, number>();
+              let totalGlobal = 0;
+              
+              // Buscar itens da cotação para calcular o total global (estimativa × quantidade)
+              if (itensCotacaoLocal.length > 0) {
+                itensCotacaoLocal.forEach((ci) => {
+                  const key = `${ci.numero_lote}_${ci.numero_item}`;
+                  const estimativaUnit = Number(estimativas[key] || 0);
+                  if (estimativaUnit > 0) {
+                    totalGlobal += estimativaUnit * Number(ci.quantidade);
+                  }
+                });
+              } else {
+                // Fallback: somar todos os valores diretamente
+                Object.values(estimativas).forEach((valor) => {
+                  totalGlobal += Number(valor);
+                });
+              }
+              
+              // Mapear para o item 0 (item virtual do critério global)
+              mapaEstimados.set(0, totalGlobal);
+              
+              console.log('✅ [loadProposta] Estimado GLOBAL (total):', totalGlobal);
+              setItensEstimados(mapaEstimados);
             } else {
               // Demais critérios: manter comportamento atual (chave numérica)
               const mapaEstimados = new Map<number, number>();
@@ -1403,11 +1468,27 @@ const SistemaLancesFornecedor = () => {
     return total;
   };
 
+  // Helper para calcular o total global da proposta do fornecedor
+  const getTotalGlobalProposta = (): number => {
+    let total = 0;
+    itens.forEach((it) => {
+      if (Number(it.valor_unitario_ofertado) > 0) {
+        total += Number(it.valor_unitario_ofertado) * Number(it.quantidade);
+      }
+    });
+    return total;
+  };
+
   const fornecedorApresentouPropostaNoItem = (numeroItem: number): boolean => {
     const criterio = selecao?.processos_compras?.criterio_julgamento;
 
     if (criterio === "por_lote") {
       return getSubtotalPropostaDoLote(numeroItem) > 0;
+    }
+
+    // Para critério global (item 0), verifica se tem itens com valor na proposta
+    if (criterio === "global" && numeroItem === 0) {
+      return getTotalGlobalProposta() > 0;
     }
 
     const itemProposta = itens.find((i) => i.numero_item === numeroItem);
@@ -1426,6 +1507,13 @@ const SistemaLancesFornecedor = () => {
       const subtotal = getSubtotalPropostaDoLote(numeroItem);
       if (!subtotal) return false;
       return subtotal > valorEstimado;
+    }
+
+    // Para critério global (item 0), compara o total da proposta com o estimado global
+    if (criterio === "global" && numeroItem === 0) {
+      const totalGlobal = getTotalGlobalProposta();
+      if (!totalGlobal) return false;
+      return totalGlobal > valorEstimado;
     }
 
     const itemProposta = itens.find((i) => i.numero_item === numeroItem);
@@ -1768,6 +1856,16 @@ const SistemaLancesFornecedor = () => {
       return false;
     }
 
+    // Para critério global (item 0), verificar pelo total da proposta
+    if (criterio === "global" && numeroItem === 0) {
+      const meuTotal = getTotalGlobalProposta();
+      if (meuTotal > 0 && melhorValorProposta) {
+        const isClassificado = meuTotal <= valorEstimado;
+        return isClassificado && meuTotal === melhorValorProposta;
+      }
+      return false;
+    }
+
     const itemProposta = itens.find((i) => i.numero_item === numeroItem);
     if (itemProposta && itemProposta.valor_unitario_ofertado > 0 && melhorValorProposta) {
       return itemProposta.valor_unitario_ofertado === melhorValorProposta;
@@ -1831,6 +1929,15 @@ const SistemaLancesFornecedor = () => {
           if (meuSubtotal > 0 && melhorValor) {
             const isClassificado = meuSubtotal <= valorEstimado;
             if (isClassificado && meuSubtotal === melhorValor) {
+              itensVencidos.push(numeroItem);
+            }
+          }
+        } else if (criterio === "global" && numeroItem === 0) {
+          // Para critério global (item 0), verificar pelo total da proposta
+          const meuTotal = getTotalGlobalProposta();
+          if (meuTotal > 0 && melhorValor) {
+            const isClassificado = meuTotal <= valorEstimado;
+            if (isClassificado && meuTotal === melhorValor) {
               itensVencidos.push(numeroItem);
             }
           }
@@ -2580,6 +2687,8 @@ const SistemaLancesFornecedor = () => {
                               <p className="text-[10px] text-muted-foreground">
                                 {selecao?.processos_compras?.criterio_julgamento === "por_lote" ? (
                                   <>Seu subtotal: {formatarMoeda(getSubtotalPropostaDoLote(numeroItem))}</>
+                                ) : isGlobalCriterio && numeroItem === 0 ? (
+                                  <>Seu total: {formatarMoeda(getTotalGlobalProposta())}</>
                                 ) : (
                                   <>Sua proposta: {formatarMoeda(itens.find(i => i.numero_item === numeroItem)?.valor_unitario_ofertado || 0)}</>
                                 )}
