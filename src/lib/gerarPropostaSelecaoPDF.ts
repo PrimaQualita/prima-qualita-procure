@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { PDFDocument } from 'pdf-lib';
 import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
@@ -117,9 +118,14 @@ export async function gerarPropostaSelecaoPDF(
   tituloSelecao: string,
   dataEnvioProposta: string,
   itensAtualizados?: Array<{ numero_item: number; descricao: string; quantidade: number; unidade: string; marca: string | null; valor_unitario_ofertado: number; lote_id?: string; numero_lote?: number; descricao_lote?: string }>,
-  criterioJulgamento?: string
+  criterioJulgamento?: string,
+  comprovantes: File[] = []
 ): Promise<{ url: string; nome: string; hash: string }> {
   try {
+    console.log('📎 Comprovantes recebidos na função:', comprovantes.length);
+    comprovantes.forEach((arquivo, index) => {
+      console.log(`  ${index + 1}. ${arquivo.name} (${arquivo.type})`);
+    });
     // Verificar se já existe protocolo para esta proposta
     const { data: propostaExistente } = await supabase
       .from('selecao_propostas_fornecedor')
@@ -882,13 +888,54 @@ export async function gerarPropostaSelecaoPDF(
     // Gerar PDF como blob
     const pdfBlob = doc.output('blob');
     
+    // Carregar PDF base com pdf-lib para mesclar comprovantes se houver
+    const pdfBaseBytes = await pdfBlob.arrayBuffer();
+    let pdfFinal = await PDFDocument.load(pdfBaseBytes);
+    
+    // Se houver comprovantes PDF, mesclar ao documento
+    console.log('🔄 Verificando comprovantes para mesclar...', comprovantes.length);
+    if (comprovantes.length > 0) {
+      console.log('✅ Iniciando mesclagem de', comprovantes.length, 'comprovantes');
+      
+      for (const comprovante of comprovantes) {
+        try {
+          console.log('📄 Processando comprovante:', comprovante.name, 'tipo:', comprovante.type);
+          // Só tenta mesclar se for PDF
+          if (comprovante.type === 'application/pdf' || comprovante.name.toLowerCase().endsWith('.pdf')) {
+            console.log('✅ Arquivo é PDF, mesclando...');
+            const comprovanteBytes = await comprovante.arrayBuffer();
+            const pdfComprovante = await PDFDocument.load(comprovanteBytes);
+            
+            const pageIndices = pdfComprovante.getPageIndices();
+            const copiedPages = await pdfFinal.copyPages(pdfComprovante, pageIndices);
+            
+            copiedPages.forEach((page) => {
+              pdfFinal.addPage(page);
+            });
+            
+            console.log('✅ Comprovante mesclado com sucesso:', comprovante.name);
+          } else {
+            console.log('⚠️ Comprovante não-PDF será ignorado:', comprovante.name);
+          }
+        } catch (error) {
+          console.error('❌ Erro ao mesclar comprovante:', comprovante.name, error);
+        }
+      }
+    } else {
+      console.log('ℹ️ Nenhum comprovante para mesclar');
+    }
+    
+    // Salvar PDF final (com comprovantes se houver)
+    const pdfFinalBytes = await pdfFinal.save();
+    const pdfFinalBlob = new Blob([pdfFinalBytes as unknown as BlobPart], { type: 'application/pdf' });
+    
     // Upload para Supabase Storage
     const nomeArquivo = `proposta-selecao-${propostaId}-${Date.now()}.pdf`;
     const filePath = `propostas-selecao/${nomeArquivo}`;
 
     const { error: uploadError } = await supabase.storage
       .from('processo-anexos')
-      .upload(filePath, pdfBlob, {
+      .upload(filePath, pdfFinalBlob, {
         contentType: 'application/pdf',
         upsert: true
       });
