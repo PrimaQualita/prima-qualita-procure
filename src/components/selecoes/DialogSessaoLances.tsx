@@ -115,6 +115,12 @@ export function DialogSessaoLances({
   onFinalizarSessao,
 }: DialogSessaoLancesProps) {
   const isPorLote = criterioJulgamento === "por_lote";
+  const isGlobal = criterioJulgamento === "global";
+  
+  // Para critério global, criar um "item virtual" que representa o valor total
+  const itensParaControle = isGlobal 
+    ? [{ numero_item: 0, descricao: "Total Global da Proposta", quantidade: 1, unidade: "GL", lote_id: undefined }] 
+    : itens;
   
   // Estado - Controle de Itens
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
@@ -981,6 +987,8 @@ export function DialogSessaoLances({
   const handleSelecionarTodos = () => {
     if (isPorLote) {
       setLotesSelecionados(new Set(lotes.map((lote) => lote.numero_lote)));
+    } else if (isGlobal) {
+      setItensSelecionados(new Set([0])); // Item virtual 0 para global
     } else {
       setItensSelecionados(new Set(itens.map((item) => item.numero_item)));
     }
@@ -2667,7 +2675,7 @@ export function DialogSessaoLances({
                       })
                     ) : (
                       // === RENDERIZAÇÃO POR ITENS ===
-                      itens.map((item) => {
+                      (isGlobal ? itensParaControle : itens).map((item) => {
                         const estaAberto = itensAbertos.has(item.numero_item);
                         const estaSelecionado = itensSelecionados.has(item.numero_item);
                         const lancesItem = getLancesDoItem(item.numero_item);
