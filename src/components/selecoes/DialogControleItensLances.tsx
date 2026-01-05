@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -278,9 +278,21 @@ export function DialogControleItensLances({
     }
   };
 
-  const fecharItemNegociacao = async (numeroItem: number) => {
+  // Set para rastrear itens já fechados e evitar toasts duplicados
+  const itensJaFechados = useRef(new Set<number>());
+
+  const fecharItemNegociacao = async (numeroItem: number, mostrarToast = true) => {
+    // Evitar processar o mesmo item múltiplas vezes
+    if (itensJaFechados.current.has(numeroItem)) {
+      console.log(`⚠️ Item ${numeroItem} já foi processado, ignorando...`);
+      return;
+    }
+
     try {
       console.log("🔒 Fechando item de negociação automaticamente:", numeroItem);
+      
+      // Marcar como em processamento antes de atualizar
+      itensJaFechados.current.add(numeroItem);
       
       const { error } = await supabase
         .from("itens_abertos_lances")
@@ -291,19 +303,29 @@ export function DialogControleItensLances({
           data_fechamento: new Date().toISOString()
         })
         .eq("selecao_id", selecaoId)
-        .eq("numero_item", numeroItem);
+        .eq("numero_item", numeroItem)
+        .eq("em_negociacao", true); // Só atualiza se ainda estiver em negociação
 
       if (error) {
         console.error("Erro ao fechar item de negociação:", error);
+        itensJaFechados.current.delete(numeroItem); // Remover do set se deu erro
         throw error;
       }
 
       console.log("✅ Item de negociação fechado com sucesso");
-      toast.success(`Item ${numeroItem} fechado automaticamente após negociação`);
+      
+      if (mostrarToast) {
+        toast.success(`Item ${numeroItem} fechado automaticamente após negociação`);
+      }
       
       // Recarregar dados
       loadItensAbertos();
       loadVencedoresPorItem();
+      
+      // Remover do set após 5 segundos para permitir reprocessamento futuro se necessário
+      setTimeout(() => {
+        itensJaFechados.current.delete(numeroItem);
+      }, 5000);
     } catch (error) {
       console.error("Erro ao fechar item de negociação:", error);
       toast.error("Erro ao fechar item de negociação");
