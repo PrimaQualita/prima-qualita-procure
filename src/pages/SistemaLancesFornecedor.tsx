@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X, AlertCircle, Clock, FileX, CheckCircle, XCircle, FileText } from "lucide-react";
+import { ArrowLeft, Lock, Save, Eye, Gavel, Trophy, Unlock, Send, TrendingDown, MessageSquare, X, AlertCircle, Clock, FileX, CheckCircle, XCircle, FileText, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -76,6 +76,7 @@ const SistemaLancesFornecedor = () => {
   const [motivoRecurso, setMotivoRecurso] = useState("");
   const [enviandoRecurso, setEnviandoRecurso] = useState(false);
   const [tempoRestanteRecurso, setTempoRestanteRecurso] = useState<number | null>(null);
+  const [excluindoRecurso, setExcluindoRecurso] = useState(false);
   
   // Estados para intenção de recurso (janela de 5 minutos)
   const [habilitacaoEncerrada, setHabilitacaoEncerrada] = useState(false);
@@ -1031,6 +1032,57 @@ const SistemaLancesFornecedor = () => {
     }
   };
 
+  const handleExcluirRecurso = async () => {
+    if (!meuRecurso?.url_pdf_recurso) return;
+    
+    try {
+      setExcluindoRecurso(true);
+      
+      // Extrair path do storage
+      const urlParts = meuRecurso.url_pdf_recurso.split("/storage/v1/object/public/");
+      if (urlParts.length > 1) {
+        const fullPath = urlParts[1];
+        const bucketEnd = fullPath.indexOf("/");
+        const bucket = fullPath.substring(0, bucketEnd);
+        const filePath = fullPath.substring(bucketEnd + 1);
+        
+        await supabase.storage.from(bucket).remove([filePath]);
+      }
+      
+      // Atualizar registro removendo o PDF
+      const { error } = await supabase
+        .from("recursos_inabilitacao_selecao")
+        .update({
+          url_pdf_recurso: null,
+          nome_arquivo_recurso: null,
+          protocolo_recurso: null,
+          status_recurso: "aguardando_envio",
+          data_envio_recurso: null,
+          motivo_recurso: null,
+        })
+        .eq("id", meuRecurso.id);
+      
+      if (error) throw error;
+      
+      // Atualizar estado local
+      setMeuRecurso((prev: any) => prev ? {
+        ...prev,
+        url_pdf_recurso: null,
+        nome_arquivo_recurso: null,
+        protocolo_recurso: null,
+        status_recurso: "aguardando_envio",
+        data_envio_recurso: null,
+        motivo_recurso: null,
+      } : null);
+      
+      toast.success("Recurso excluído com sucesso!");
+    } catch (err) {
+      console.error("Erro ao excluir recurso:", err);
+      toast.error("Erro ao excluir recurso");
+    } finally {
+      setExcluindoRecurso(false);
+    }
+  };
   const formatarTempoRestante = (segundos: number): string => {
     const horas = Math.floor(segundos / 3600);
     const minutos = Math.floor((segundos % 3600) / 60);
@@ -2680,6 +2732,27 @@ const SistemaLancesFornecedor = () => {
                     <p className="text-xs text-muted-foreground mb-1">Suas razões:</p>
                     <p className="text-sm whitespace-pre-wrap">{meuRecurso.motivo_recurso}</p>
                   </div>
+                  {meuRecurso.url_pdf_recurso && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(meuRecurso.url_pdf_recurso, "_blank")}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar PDF
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleExcluirRecurso}
+                        disabled={excluindoRecurso}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {excluindoRecurso ? "Excluindo..." : "Excluir Recurso"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : meuRecurso.status_recurso === "deferido" ? (
                 <div className="bg-green-50 p-3 rounded-lg">
