@@ -411,15 +411,20 @@ export const gerarPropostaRealinhadaPDF = async (
     }
   });
 
-  // Observações (se houver)
+  // Observações (se houver) - logo abaixo da tabela
   let finalY = (doc as any).lastAutoTable?.finalY || yPos + 50;
   
   if (observacoes && observacoes.trim()) {
-    if (finalY + 30 > pageHeight - 60) {
+    // Verificar se cabe na página atual (observações + certificação)
+    const obsLines = doc.splitTextToSize(sanitizarTexto(observacoes), pageWidth - margin * 2);
+    const alturaObservacoes = 10 + obsLines.length * 4;
+    const alturaCertificacao = 50;
+    
+    if (finalY + alturaObservacoes + alturaCertificacao > pageHeight - 15) {
       doc.addPage();
       finalY = margin;
     } else {
-      finalY += 10;
+      finalY += 5; // Espaçamento reduzido após tabela
     }
 
     doc.setFont('helvetica', 'bold');
@@ -429,9 +434,8 @@ export const gerarPropostaRealinhadaPDF = async (
     
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    const obsLines = doc.splitTextToSize(sanitizarTexto(observacoes), pageWidth - margin * 2);
     doc.text(obsLines, margin, finalY);
-    finalY += obsLines.length * 4 + 5;
+    finalY += obsLines.length * 4 + 3;
   }
 
   // Certificação Digital Simplificada
@@ -481,7 +485,7 @@ export const gerarPropostaRealinhadaPDF = async (
   doc.setFontSize(7);
   doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margin + 5, finalY + 40);
 
-  // Rodapé em todas as páginas
+  // Rodapé em todas as páginas - apenas paginação
   const totalPagesAfter = doc.getNumberOfPages();
   for (let i = 1; i <= totalPagesAfter; i++) {
     doc.setPage(i);
@@ -492,11 +496,6 @@ export const gerarPropostaRealinhadaPDF = async (
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }
-    );
-    doc.text(
-      `Protocolo: ${protocolo}`,
-      margin,
-      pageHeight - 10
     );
   }
 
