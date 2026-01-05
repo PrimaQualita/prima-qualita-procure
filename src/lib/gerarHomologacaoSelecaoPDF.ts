@@ -1,12 +1,20 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
-import { v4 as uuidv4 } from "uuid";
+
 import capaLogo from "@/assets/capa-processo-logo.png";
 import capaRodape from "@/assets/capa-processo-rodape.png";
 
-const formatarProtocoloExibicao = (uuid: string): string => {
-  const limpo = uuid.replace(/-/g, '').toUpperCase().substring(0, 16);
-  return `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+// Função para gerar protocolo no formato XXXX-XXXX-XXXX-XXXX (apenas números)
+const gerarProtocoloHomologacao = (): string => {
+  const chars = '0123456789';
+  let result = '';
+  for (let i = 0; i < 16; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    if ((i + 1) % 4 === 0 && i < 15) {
+      result += '-';
+    }
+  }
+  return result;
 };
 
 export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPrecos: boolean = true) {
@@ -389,8 +397,7 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
     yPosition += 20;
 
     // CERTIFICAÇÃO DIGITAL (igual à Ata)
-    const protocolo = uuidv4();
-    const protocoloFormatado = formatarProtocoloExibicao(protocolo);
+    const protocolo = gerarProtocoloHomologacao();
     
     // Buscar nome do responsável legal (usuário logado)
     const { data: userData } = await supabase.auth.getUser();
@@ -432,7 +439,7 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
     let certTextY = certY + 13;
     
     // Protocolo
-    doc.text(`Protocolo:  ${protocoloFormatado}`, marginLeft + 5, certTextY);
+    doc.text(`Protocolo:  ${protocolo}`, marginLeft + 5, certTextY);
     certTextY += 4;
     
     // Responsável
