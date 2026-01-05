@@ -3255,7 +3255,10 @@ export function DialogSessaoLances({
                 );
               }
 
-              const itensParaNegociacao = itens
+              // Para critério global, usar itensParaControle (item virtual 0), senão usar itens normais
+              const itensBase = isGlobal ? itensParaControle : itens;
+              
+              const itensParaNegociacao = itensBase
                 .filter((item) => {
                   // Item em negociação ativa sempre aparece
                   if (itensEmNegociacao.has(item.numero_item)) return true;
@@ -3300,7 +3303,7 @@ export function DialogSessaoLances({
                                     Em Negociação
                                   </Badge>
                                   <div className="min-w-0">
-                                    <span className="font-semibold text-xs">Item {numeroItem}</span>
+                                    <span className="font-semibold text-xs">{isGlobal ? "Total Global" : `Item ${numeroItem}`}</span>
                                     <p className="text-xs text-amber-700 dark:text-amber-300 truncate">
                                       {nomeFornecedor}
                                     </p>
@@ -3357,7 +3360,7 @@ export function DialogSessaoLances({
                               <div className="flex items-start gap-2 mb-2">
                                 <Trophy className="h-3 w-3 text-yellow-600 shrink-0 mt-0.5" />
                                 <div className="min-w-0 flex-1">
-                                  <span className="font-semibold">Item {numeroItem}</span>
+                                  <span className="font-semibold">{isGlobal ? "Total Global" : `Item ${numeroItem}`}</span>
                                   <p className="text-muted-foreground truncate text-[10px]">
                                     {vencedor?.razaoSocial}
                                   </p>
@@ -3457,7 +3460,10 @@ export function DialogSessaoLances({
                 );
               }
 
-              const itensConcluidos = itens
+              // Para critério global, usar itensParaControle (item virtual 0), senão usar itens normais
+              const itensBaseConc = isGlobal ? itensParaControle : itens;
+              
+              const itensConcluidos = itensBaseConc
                 .filter(
                   (item) =>
                     itensNegociacaoConcluida.has(item.numero_item) &&
@@ -3490,7 +3496,7 @@ export function DialogSessaoLances({
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <Badge variant="outline" className="bg-gray-100 text-gray-700 text-[10px] shrink-0">
-                                  Item {numeroItem}
+                                  {isGlobal ? "Total Global" : `Item ${numeroItem}`}
                                 </Badge>
                                 <span className="text-muted-foreground truncate text-[10px]">
                                   {vencedor?.razaoSocial}
