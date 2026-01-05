@@ -801,7 +801,23 @@ const SistemaLancesFornecedor = () => {
 
   // Registrar intenção de recurso (Sim ou Não) via RPC para funcionar sem sessão autenticada
   const handleRegistrarIntencaoRecurso = async (desejaRecorrer: boolean, motivo?: string) => {
-    if (!selecao?.id || !proposta?.fornecedor_id || !proposta?.codigo_acesso) return;
+    console.log("handleRegistrarIntencaoRecurso chamado:", { 
+      selecaoId: selecao?.id, 
+      fornecedorId: proposta?.fornecedor_id, 
+      codigoAcesso: proposta?.codigo_acesso 
+    });
+    
+    if (!selecao?.id || !proposta?.fornecedor_id) {
+      toast.error("Dados incompletos. Recarregue a página.");
+      setEnviandoIntencao(false);
+      return;
+    }
+    
+    if (!proposta?.codigo_acesso) {
+      toast.error("Código de acesso não encontrado. Recarregue a página.");
+      setEnviandoIntencao(false);
+      return;
+    }
 
     setEnviandoIntencao(true);
     try {
@@ -812,6 +828,8 @@ const SistemaLancesFornecedor = () => {
         p_deseja_recorrer: desejaRecorrer,
         p_motivo_intencao: motivo || null
       });
+
+      console.log("Resultado da RPC:", { data, error });
 
       if (error) throw error;
       
