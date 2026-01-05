@@ -2768,30 +2768,80 @@ const SistemaLancesFornecedor = () => {
                   )}
                 </div>
               ) : meuRecurso.status_recurso === "deferido" ? (
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <p className="text-sm font-medium text-green-700 mb-1">✅ Recurso Deferido</p>
-                  <p className="text-sm text-green-600">
-                    Seu recurso foi aceito pelo gestor.
-                  </p>
-                  {meuRecurso.resposta_gestor && (
-                    <div className="mt-2 pt-2 border-t border-green-200">
-                      <p className="text-xs text-green-600 mb-1">Resposta do gestor:</p>
-                      <p className="text-sm text-green-700 whitespace-pre-wrap">{meuRecurso.resposta_gestor}</p>
-                    </div>
-                  )}
+                <div className="space-y-3">
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <p className="text-sm font-medium text-green-700 mb-1">✅ Recurso Deferido</p>
+                    <p className="text-sm text-green-600">
+                      Seu recurso foi aceito pelo gestor.
+                    </p>
+                    {meuRecurso.resposta_gestor && (
+                      <div className="mt-2 pt-2 border-t border-green-200">
+                        <p className="text-xs text-green-600 mb-1">Resposta do gestor:</p>
+                        <p className="text-sm text-green-700 whitespace-pre-wrap">{meuRecurso.resposta_gestor}</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* PDFs do Recurso e Resposta */}
+                  <div className="flex flex-wrap gap-2">
+                    {meuRecurso.url_pdf_recurso && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(meuRecurso.url_pdf_recurso, "_blank")}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver Recurso Enviado
+                      </Button>
+                    )}
+                    {meuRecurso.url_pdf_resposta && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(meuRecurso.url_pdf_resposta, "_blank")}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver Resposta do Gestor
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : meuRecurso.status_recurso === "indeferido" ? (
-                <div className="bg-red-50 p-3 rounded-lg">
-                  <p className="text-sm font-medium text-red-700 mb-1">❌ Recurso Indeferido</p>
-                  <p className="text-sm text-red-600">
-                    Seu recurso foi rejeitado pelo gestor.
-                  </p>
-                  {meuRecurso.resposta_gestor && (
-                    <div className="mt-2 pt-2 border-t border-red-200">
-                      <p className="text-xs text-red-600 mb-1">Resposta do gestor:</p>
-                      <p className="text-sm text-red-700 whitespace-pre-wrap">{meuRecurso.resposta_gestor}</p>
-                    </div>
-                  )}
+                <div className="space-y-3">
+                  <div className="bg-red-50 p-3 rounded-lg">
+                    <p className="text-sm font-medium text-red-700 mb-1">❌ Recurso Indeferido</p>
+                    <p className="text-sm text-red-600">
+                      Seu recurso foi rejeitado pelo gestor.
+                    </p>
+                    {meuRecurso.resposta_gestor && (
+                      <div className="mt-2 pt-2 border-t border-red-200">
+                        <p className="text-xs text-red-600 mb-1">Resposta do gestor:</p>
+                        <p className="text-sm text-red-700 whitespace-pre-wrap">{meuRecurso.resposta_gestor}</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* PDFs do Recurso e Resposta */}
+                  <div className="flex flex-wrap gap-2">
+                    {meuRecurso.url_pdf_recurso && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(meuRecurso.url_pdf_recurso, "_blank")}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver Recurso Enviado
+                      </Button>
+                    )}
+                    {meuRecurso.url_pdf_resposta && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(meuRecurso.url_pdf_resposta, "_blank")}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver Resposta do Gestor
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </CardContent>
