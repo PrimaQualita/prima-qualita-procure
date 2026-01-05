@@ -106,6 +106,17 @@ interface DialogAnaliseDocumentalSelecaoProps {
   onReabrirNegociacao?: (itens: number[], fornecedorId: string) => void;
 }
 
+// Helper para gerar nome bonito do recurso
+const getNomeBonitRecurso = (recurso: any, fornecedor?: FornecedorVencedor | null, tipo: 'recurso' | 'resposta' = 'recurso'): string => {
+  const razaoSocial = recurso?.fornecedores?.razao_social || fornecedor?.razao_social || "Fornecedor";
+  // Truncar razão social se muito longa
+  const nomeResumido = razaoSocial.length > 40 ? razaoSocial.substring(0, 37) + "..." : razaoSocial;
+  if (tipo === 'resposta') {
+    return `Resposta Recurso - ${nomeResumido}`;
+  }
+  return `Recurso - ${nomeResumido}`;
+};
+
 export function DialogAnaliseDocumentalSelecao({
   open,
   onOpenChange,
@@ -2153,13 +2164,13 @@ export function DialogAnaliseDocumentalSelecao({
                     {recurso.url_pdf_recurso && (
                       <div className="flex items-center gap-2 bg-white p-2 rounded border">
                         <FileText className="h-4 w-4 text-primary" />
-                        <span className="text-sm flex-1">{recurso.nome_arquivo_recurso || "Recurso do Fornecedor"}</span>
+                        <span className="text-sm flex-1">{getNomeBonitRecurso(recurso, data.fornecedor)}</span>
                         <Button size="sm" variant="outline" onClick={() => (recurso.nome_arquivo_recurso?.startsWith("recurso_v2_") ? window.open(recurso.url_pdf_recurso, "_blank") : handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor))}>
                           <Eye className="h-3 w-3 mr-1" />
                           Ver
                         </Button>
                         <Button size="sm" variant="outline" asChild>
-                          <a href={recurso.url_pdf_recurso} download={recurso.nome_arquivo_recurso}>
+                          <a href={recurso.url_pdf_recurso} download={getNomeBonitRecurso(recurso, data.fornecedor) + ".pdf"}>
                             <Download className="h-3 w-3 mr-1" />
                             Baixar
                           </a>
@@ -2233,7 +2244,7 @@ export function DialogAnaliseDocumentalSelecao({
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_recurso} download><Download className="h-3 w-3" /></a>
+                            <a href={recurso.url_pdf_recurso} download={getNomeBonitRecurso(recurso, data.fornecedor) + ".pdf"}><Download className="h-3 w-3" /></a>
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
                             setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'recurso' });
@@ -2253,7 +2264,7 @@ export function DialogAnaliseDocumentalSelecao({
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_resposta} download><Download className="h-3 w-3" /></a>
+                            <a href={recurso.url_pdf_resposta} download={getNomeBonitRecurso(recurso, data.fornecedor, 'resposta') + ".pdf"}><Download className="h-3 w-3" /></a>
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
                             setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'resposta' });
@@ -2316,7 +2327,7 @@ export function DialogAnaliseDocumentalSelecao({
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_recurso} download><Download className="h-3 w-3" /></a>
+                            <a href={recurso.url_pdf_recurso} download={getNomeBonitRecurso(recurso, data.fornecedor) + ".pdf"}><Download className="h-3 w-3" /></a>
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
                             setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'recurso' });
@@ -2336,7 +2347,7 @@ export function DialogAnaliseDocumentalSelecao({
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_resposta} download><Download className="h-3 w-3" /></a>
+                            <a href={recurso.url_pdf_resposta} download={getNomeBonitRecurso(recurso, data.fornecedor, 'resposta') + ".pdf"}><Download className="h-3 w-3" /></a>
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
                             setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'resposta' });
