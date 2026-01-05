@@ -996,7 +996,11 @@ export function DialogAnaliseDocumentalSelecao({
         fornecedor.cnpj,
         selecaoInfo?.numeroProcesso || "",
         inabilitacao.motivo_inabilitacao,
-        selecaoInfo?.numero || ""
+        selecaoInfo?.numero || "",
+        undefined,
+        undefined,
+        undefined,
+        "recurso_fmt_"
       );
       await supabase.from("recursos_inabilitacao_selecao").update({
         url_pdf_recurso: pdfResult.url,
@@ -2130,7 +2134,7 @@ export function DialogAnaliseDocumentalSelecao({
                       <div className="flex items-center gap-2 bg-white p-2 rounded border">
                         <FileText className="h-4 w-4 text-primary" />
                         <span className="text-sm flex-1">{recurso.nome_arquivo_recurso || "Recurso do Fornecedor"}</span>
-                        <Button size="sm" variant="outline" onClick={() => window.open(recurso.url_pdf_recurso, '_blank')}>
+                        <Button size="sm" variant="outline" onClick={() => (recurso.nome_arquivo_recurso?.startsWith("recurso_fmt_") ? window.open(recurso.url_pdf_recurso, "_blank") : handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor))}>
                           <Eye className="h-3 w-3 mr-1" />
                           Ver
                         </Button>
@@ -2187,7 +2191,7 @@ export function DialogAnaliseDocumentalSelecao({
                         <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
                           <FileText className="h-3 w-3 text-amber-600" />
                           <span>Recurso</span>
-                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => window.open(recurso.url_pdf_recurso, '_blank')}>
+                           <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => (recurso.nome_arquivo_recurso?.startsWith("recurso_fmt_") ? window.open(recurso.url_pdf_recurso, "_blank") : handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor))}>
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
@@ -2270,7 +2274,7 @@ export function DialogAnaliseDocumentalSelecao({
                         <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
                           <FileText className="h-3 w-3 text-amber-600" />
                           <span>Recurso</span>
-                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => window.open(recurso.url_pdf_recurso, '_blank')}>
+                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => (recurso.nome_arquivo_recurso?.startsWith("recurso_fmt_") ? window.open(recurso.url_pdf_recurso, "_blank") : handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor))}>
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
