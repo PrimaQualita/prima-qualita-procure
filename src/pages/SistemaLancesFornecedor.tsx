@@ -1449,18 +1449,49 @@ const SistemaLancesFornecedor = () => {
         }
       }
 
-      const { data, error } = await supabase
-        .from("lances_fornecedores")
-        .select(`
-          *,
-          fornecedores (
-            razao_social,
-            cnpj
-          )
-        `)
-        .eq("selecao_id", selecao.id)
-        .order("valor_lance", { ascending: true })
-        .order("data_hora_lance", { ascending: true });
+      // Buscar lances: quando temos `codigo_acesso`, usar RPC (funciona mesmo sem sessão autenticada)
+      const codigoAcesso = (proposta?.codigo_acesso as string | null) || null;
+
+      let data: any[] | null = null;
+      let error: any = null;
+
+      if (codigoAcesso) {
+        const res = await supabase.rpc("get_lances_por_codigo", {
+          p_selecao_id: selecao.id,
+          p_codigo_acesso: codigoAcesso,
+        });
+
+        data = (res.data as any[]) || [];
+        error = res.error;
+
+        // Garantir ordenação consistente com o critério
+        data = [...data].sort((a: any, b: any) => {
+          const av = Number(a.valor_lance || 0);
+          const bv = Number(b.valor_lance || 0);
+
+          if (criterioJulgamento === "desconto") {
+            return bv - av;
+          }
+
+          return av - bv;
+        });
+      } else {
+        const res = await supabase
+          .from("lances_fornecedores")
+          .select(`
+            *,
+            fornecedores (
+              razao_social,
+              cnpj
+            )
+          `)
+          .eq("selecao_id", selecao.id)
+          .order("valor_lance", { ascending: criterioJulgamento === "desconto" ? false : true })
+          .order("data_hora_lance", { ascending: true });
+
+        data = res.data as any;
+        error = res.error;
+      }
 
       if (error) throw error;
 
@@ -1674,6 +1705,30 @@ const SistemaLancesFornecedor = () => {
       return;
     }
 
+    // Impedir piora: se você já enviou um lance melhor, não pode enviar um pior depois.
+    // (Isso também resolve o problema do "mínimo" não atualizar a tempo entre envios.)
+    if (lancesDoFornecedorNoItem.length > 0) {
+      const meuMelhorAteAgora = isDesconto
+        ? Math.max(...lancesDoFornecedorNoItem.map((l) => Number(l.valor_lance)))
+        : Math.min(...lancesDoFornecedorNoItem.map((l) => Number(l.valor_lance)));
+
+      if (isDesconto) {
+        if (valorNumerico <= meuMelhorAteAgora) {
+          toast.error(
+            `Você já ofertou ${meuMelhorAteAgora.toFixed(2).replace(".", ",")}% neste item. Envie um desconto maior.`
+          );
+          return;
+        }
+      } else {
+        if (valorNumerico >= meuMelhorAteAgora) {
+          toast.error(
+            `Você já ofertou ${formatarMoeda(meuMelhorAteAgora)} neste item. Envie um valor menor.`
+          );
+          return;
+        }
+      }
+    }
+
     // Validações apenas para lances normais (não negociação)
     if (!isNegociacao) {
       const valorEstimado = itensEstimados.get(numeroItem) || 0;
@@ -1779,6 +1834,28 @@ const SistemaLancesFornecedor = () => {
 
         if (error) throw error;
       }
+
+
+      // Otimista: atualizar lista local imediatamente para o "mínimo" refletir o último lance
+      setLances((prev) => [
+        ...prev,
+        {
+          id: (globalThis.crypto as any)?.randomUUID?.() || `local-${Date.now()}`,
+          selecao_id: selecao.id,
+          fornecedor_id: proposta.fornecedor_id,
+          numero_item: numeroItem,
+          valor_lance: valorNumerico,
+          tipo_lance: tipoLance,
+          data_hora_lance: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          fornecedores: proposta?.fornecedores
+            ? {
+                razao_social: proposta.fornecedores.razao_social,
+                cnpj: proposta.fornecedores.cnpj,
+              }
+            : undefined,
+        },
+      ]);
 
       console.log("🔥 Lance inserido com sucesso. tipo_lance:", tipoLance);
 
