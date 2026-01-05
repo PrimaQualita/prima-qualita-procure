@@ -3271,6 +3271,15 @@ export type Database = {
         }
         Returns: Json
       }
+      criar_recurso_inabilitacao_por_codigo: {
+        Args: {
+          p_codigo_acesso: string
+          p_data_limite: string
+          p_inabilitacao_id: string
+          p_selecao_id: string
+        }
+        Returns: Json
+      }
       delete_analise_compliance: {
         Args: { p_cotacao_id: string }
         Returns: undefined
@@ -3384,6 +3393,15 @@ export type Database = {
       pode_inserir_resposta_item: {
         Args: { p_resposta_id: string }
         Returns: boolean
+      }
+      registrar_intencao_recurso_por_codigo: {
+        Args: {
+          p_codigo_acesso: string
+          p_deseja_recorrer: boolean
+          p_motivo_intencao?: string
+          p_selecao_id: string
+        }
+        Returns: Json
       }
       verificar_cnpj_existe: { Args: { p_cnpj: string }; Returns: boolean }
       verificar_fornecedor_participacao: {
