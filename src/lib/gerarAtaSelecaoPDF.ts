@@ -828,10 +828,10 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   } else {
     currentY = drawJustifiedText(doc, "Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY, contentWidth, lineHeight);
   }
-  currentY += espacoEntreSecoes;
 
   // 6.2 - INABILITADOS (apenas se houver)
   if (fornecedoresInabilitados.length > 0) {
+    currentY += espacoEntreSecoes;
     checkNewPage(10);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
