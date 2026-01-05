@@ -1381,7 +1381,7 @@ export function DialogAnaliseDocumentalSelecao({
       // 1. Buscar dados do recurso antes de deletar
       const { data: recursoData } = await supabase
         .from("recursos_inabilitacao_selecao")
-        .select("url_pdf_recurso, url_pdf_resposta, selecao_id, fornecedor_id")
+        .select("url_pdf_recurso, url_pdf_resposta, data_limite_fornecedor")
         .eq("id", confirmDeleteRecurso.recursoId)
         .single();
       
@@ -1404,24 +1404,29 @@ export function DialogAnaliseDocumentalSelecao({
         }
       }
       
-      // 3. Deletar o registro do recurso
+      // 3. Resetar o recurso para aguardando_envio, mantendo o prazo original
+      // NÃO deletamos o registro nem a intenção - assim o prazo original continua valendo
       const { error } = await supabase
         .from("recursos_inabilitacao_selecao")
-        .delete()
+        .update({
+          url_pdf_recurso: null,
+          nome_arquivo_recurso: null,
+          protocolo_recurso: null,
+          url_pdf_resposta: null,
+          nome_arquivo_resposta: null,
+          protocolo_resposta: null,
+          status_recurso: "aguardando_envio",
+          data_envio_recurso: null,
+          data_resposta: null,
+          motivo_recurso: "",
+          resposta_gestor: null,
+          usuario_resposta_id: null
+        })
         .eq("id", confirmDeleteRecurso.recursoId);
       
       if (error) throw error;
       
-      // 4. Deletar a intenção de recurso correspondente para evitar recriação automática
-      if (recursoData?.selecao_id && recursoData?.fornecedor_id) {
-        await supabase
-          .from("intencoes_recurso_selecao")
-          .delete()
-          .eq("selecao_id", recursoData.selecao_id)
-          .eq("fornecedor_id", recursoData.fornecedor_id);
-      }
-      
-      toast.success("Recurso excluído com sucesso");
+      toast.success("Recurso excluído com sucesso. Prazo original mantido.");
       loadRecursosInabilitacao();
     } catch (error) {
       console.error("Erro ao excluir recurso:", error);
