@@ -1656,7 +1656,7 @@ export function DialogAnaliseDocumentalSelecao({
       if (removeVencedorError) throw removeVencedorError;
 
       if (reabrirParaNegociacao && onReabrirNegociacao) {
-        // Reabrir itens para negociação com o segundo colocado
+        // Reabrir itens APENAS para negociação com o segundo colocado (NÃO reabrir lances)
         for (const item of itensAfetados) {
           const segundoColocado = segundosAtualizados.find(s => s.numero_item === item);
           console.log(`Item ${item}: segundo colocado = `, segundoColocado);
@@ -1664,7 +1664,8 @@ export function DialogAnaliseDocumentalSelecao({
           await supabase
             .from("itens_abertos_lances")
             .update({
-              aberto: true,
+              // CRÍTICO: NÃO reabrir para lances (aberto: false), apenas para negociação
+              aberto: false,
               em_negociacao: segundoColocado ? true : false,
               nao_negociar: !segundoColocado,
               data_fechamento: segundoColocado ? null : new Date().toISOString(),
@@ -1703,6 +1704,7 @@ export function DialogAnaliseDocumentalSelecao({
                 .eq("numero_item", segundoColocado.numero_item);
 
               // Atualizar o fornecedor de negociação para o segundo colocado
+              // CRÍTICO: NÃO reabrir para lances (aberto: false), apenas para negociação
               console.log(`Atualizando item ${item} para fornecedor_negociacao_id = ${segundoColocado.fornecedor_id}`);
               const { error: updateItemError } = await supabase
                 .from("itens_abertos_lances")
@@ -1710,7 +1712,7 @@ export function DialogAnaliseDocumentalSelecao({
                   fornecedor_negociacao_id: segundoColocado.fornecedor_id,
                   em_negociacao: true,
                   negociacao_concluida: false,
-                  aberto: true,
+                  aberto: false, // Mantém fechado para lances, apenas negociação
                   data_fechamento: null,
                 })
                 .eq("selecao_id", selecaoId)
