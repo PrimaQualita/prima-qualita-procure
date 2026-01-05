@@ -1378,33 +1378,48 @@ export function DialogAnaliseDocumentalSelecao({
     if (!confirmDeleteRecurso.recursoId) return;
     
     try {
-      // 1. Buscar as URLs dos arquivos antes de deletar
+      // 1. Buscar dados do recurso antes de deletar
       const { data: recursoData } = await supabase
         .from("recursos_inabilitacao_selecao")
-        .select("url_pdf_recurso, url_pdf_resposta")
+        .select("url_pdf_recurso, url_pdf_resposta, selecao_id, fornecedor_id")
         .eq("id", confirmDeleteRecurso.recursoId)
         .single();
       
       // 2. Deletar arquivos do storage PRIMEIRO
       const filesToDelete: string[] = [];
       if (recursoData?.url_pdf_recurso) {
-        filesToDelete.push(extractStoragePath(recursoData.url_pdf_recurso));
+        const path = extractStoragePath(recursoData.url_pdf_recurso);
+        if (path) filesToDelete.push(path);
       }
       if (recursoData?.url_pdf_resposta) {
-        filesToDelete.push(extractStoragePath(recursoData.url_pdf_resposta));
+        const path = extractStoragePath(recursoData.url_pdf_resposta);
+        if (path) filesToDelete.push(path);
       }
       
       if (filesToDelete.length > 0) {
-        await supabase.storage.from("processo-anexos").remove(filesToDelete);
+        console.log("Deletando arquivos do storage:", filesToDelete);
+        const { error: storageError } = await supabase.storage.from("processo-anexos").remove(filesToDelete);
+        if (storageError) {
+          console.error("Erro ao deletar arquivos do storage:", storageError);
+        }
       }
       
-      // 3. DEPOIS deletar o registro do banco
+      // 3. Deletar o registro do recurso
       const { error } = await supabase
         .from("recursos_inabilitacao_selecao")
         .delete()
         .eq("id", confirmDeleteRecurso.recursoId);
       
       if (error) throw error;
+      
+      // 4. Deletar a intenção de recurso correspondente para evitar recriação automática
+      if (recursoData?.selecao_id && recursoData?.fornecedor_id) {
+        await supabase
+          .from("intencoes_recurso_selecao")
+          .delete()
+          .eq("selecao_id", recursoData.selecao_id)
+          .eq("fornecedor_id", recursoData.fornecedor_id);
+      }
       
       toast.success("Recurso excluído com sucesso");
       loadRecursosInabilitacao();
