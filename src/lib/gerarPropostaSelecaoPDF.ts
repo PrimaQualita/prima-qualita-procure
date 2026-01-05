@@ -653,13 +653,18 @@ export async function gerarPropostaSelecaoPDF(
     // Espaçamento entre linhas de texto da descrição (mais espaço para legibilidade)
     const espacamentoLinhaDescTexto = 4.2;
     
+    // Largura da coluna de unidade para cálculo de quebra de linha
+    const unidadeLargura = colPositions[3] - colPositions[2] - 4; // 15 - 4 de padding = 11
+    
     // Calcular altura total da tabela primeiro
     let alturaTotal = 0;
     const alturasPorItem: number[] = [];
     for (const item of itensOrdenados) {
       const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
+      const unidadeLines = doc.splitTextToSize(sanitizarTexto(item.unidade), unidadeLargura);
+      const maxLinhas = Math.max(descLines.length, unidadeLines.length);
       // Altura mínima de 7, e cada linha adicional soma espacamentoLinhaDescTexto
-      const alturaLinha = Math.max(6 + ((descLines.length - 1) * espacamentoLinhaDescTexto), 7);
+      const alturaLinha = Math.max(6 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 7);
       alturasPorItem.push(alturaLinha);
       alturaTotal += alturaLinha;
     }
@@ -672,9 +677,11 @@ export async function gerarPropostaSelecaoPDF(
     const limitePagina = pageHeight - margemInferior;
     
     for (const item of itensOrdenados) {
-      // Calcular altura necessária para este item
+      // Calcular altura necessária para este item (considerando descrição e unidade)
       const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
-      const alturaLinhaItem = Math.max(6 + ((descLines.length - 1) * espacamentoLinhaDescTexto), 7);
+      const unidadeLines = doc.splitTextToSize(sanitizarTexto(item.unidade), unidadeLargura);
+      const maxLinhas = Math.max(descLines.length, unidadeLines.length);
+      const alturaLinhaItem = Math.max(6 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 7);
       
       // Verificar se o item inteiro cabe na página atual
       if (y + alturaLinhaItem > limitePagina) {
@@ -737,10 +744,25 @@ export async function gerarPropostaSelecaoPDF(
         }
       });
       
-      // Quantidade, Unidade, Marca - centralizados horizontalmente
+      // Quantidade e Marca - centralizados horizontalmente
       doc.text(item.quantidade.toString(), colQtdCenter, yVerticalCenter, { align: 'center' });
-      doc.text(sanitizarTexto(item.unidade), colUniCenter, yVerticalCenter, { align: 'center' });
       doc.text(sanitizarTexto(item.marca || ''), colMarcaCenter, yVerticalCenter, { align: 'center' });
+      
+      // Unidade - com quebra de linha se necessário, centralizada verticalmente
+      const unidadeLinhas = doc.splitTextToSize(sanitizarTexto(item.unidade), unidadeLargura);
+      if (unidadeLinhas.length === 1) {
+        doc.text(unidadeLinhas[0], colUniCenter, yVerticalCenter, { align: 'center' });
+      } else {
+        // Múltiplas linhas - calcular posição inicial para centralizar verticalmente
+        const alturaTextoUnidade = unidadeLinhas.length * espacamentoLinhaDescTexto;
+        const yInicioUnidade = y + (alturaLinha - alturaTextoUnidade) / 2 + 2.5;
+        unidadeLinhas.forEach((linha: string, idx: number) => {
+          const yLinhaUnidade = yInicioUnidade + (idx * espacamentoLinhaDescTexto);
+          if (yLinhaUnidade <= y + alturaLinha - 1) {
+            doc.text(linha.trim(), colUniCenter, yLinhaUnidade, { align: 'center' });
+          }
+        });
+      }
       
       // Valores conforme critério
       if (isDesconto) {
