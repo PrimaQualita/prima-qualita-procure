@@ -723,9 +723,10 @@ export async function gerarPropostaSelecaoPDF(
       // Item - centralizado horizontalmente
       doc.text(item.numero_item.toString(), colItemCenter, yVerticalCenter, { align: 'center' });
       
-      // Descrição com alinhamento justificado - começando do topo da célula com padding
+      // Descrição com alinhamento justificado - centralizada verticalmente
       const descricaoX = colDesc;
-      const descricaoYInicio = y + 3.5;
+      const alturaTextoDescricao = descLines.length * espacamentoLinhaDescTexto;
+      const descricaoYInicio = y + (alturaLinha - alturaTextoDescricao) / 2 + 2.5;
       
       // Renderizar cada linha da descrição com justificação
       descLines.forEach((linha: string, index: number) => {
