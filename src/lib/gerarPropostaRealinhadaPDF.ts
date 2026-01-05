@@ -299,12 +299,12 @@ export const gerarPropostaRealinhadaPDF = async (
     },
     columnStyles: {
       0: { cellWidth: 12, halign: 'center', valign: 'middle' },  // Item
-      1: { cellWidth: 65, halign: 'left', valign: 'middle' },    // Descrição
+      1: { cellWidth: 60, halign: 'left', valign: 'middle' },    // Descrição (reduzida de 65 para 60)
       2: { cellWidth: 15, halign: 'center', valign: 'middle' },  // Qtd
       3: { cellWidth: 15, halign: 'center', valign: 'middle' },  // Un
       4: { cellWidth: 25, halign: 'center', valign: 'middle' },  // Marca
       5: { cellWidth: 25, halign: 'right', valign: 'middle' },   // Vlr Unit
-      6: { cellWidth: 23, halign: 'right', valign: 'middle' },   // Vlr Total
+      6: { cellWidth: 28, halign: 'right', valign: 'middle' },   // Vlr Total (aumentada de 23 para 28)
     },
     rowPageBreak: 'auto',
     didParseCell: (data) => {
