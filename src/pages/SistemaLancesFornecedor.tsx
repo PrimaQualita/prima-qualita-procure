@@ -336,9 +336,11 @@ const SistemaLancesFornecedor = () => {
   }, [lances, fornecedoresInabilitados]);
 
   useEffect(() => {
+    console.log('🔄 [useEffect loadProposta] propostaId:', propostaId);
     if (propostaId) {
       loadProposta();
     } else {
+      console.log('⚠️ propostaId não encontrado nos parâmetros de URL');
       // Se não tem propostaId, não fica em loading infinito
       setLoading(false);
     }
