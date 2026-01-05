@@ -2144,20 +2144,38 @@ export function DialogAnaliseDocumentalSelecao({
                             Baixar
                           </a>
                         </Button>
+                        <Button size="sm" variant="outline" className="text-destructive" onClick={() => {
+                          setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'recurso' });
+                        }}>
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Excluir
+                        </Button>
                       </div>
                     )}
                     
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setRecursoParaResponder(recurso);
-                        setRespostaRecurso("");
-                        setDialogResponderRecurso(true);
-                      }}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-1" />
-                      Responder Recurso
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setRecursoParaResponder(recurso);
+                          setRespostaRecurso("");
+                          setDialogResponderRecurso(true);
+                        }}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                        Responder Recurso
+                      </Button>
+                      
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-destructive border-destructive hover:bg-destructive/10"
+                        onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Excluir Tudo
+                      </Button>
+                    </div>
                   </div>
                 )}
                 
