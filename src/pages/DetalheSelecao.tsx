@@ -576,27 +576,96 @@ const [itens, setItens] = useState<Item[]>([]);
   };
 
   const buscarVencedoresSelecao = async (): Promise<{ razaoSocial: string; cnpj: string }[]> => {
-    if (!selecaoId) return [];
+    if (!selecaoId || !processo) return [];
     
-    // Buscar lances vencedores
+    const criterioJulgamento = processo.criterio_julgamento || 'por_item';
+    
+    // Buscar todos os lances da seleção
     const { data: lances, error } = await supabase
       .from("lances_fornecedores")
-      .select("fornecedor_id, indicativo_lance_vencedor, fornecedores(razao_social, cnpj)")
+      .select("fornecedor_id, numero_item, valor_lance, fornecedores(razao_social, cnpj)")
       .eq("selecao_id", selecaoId)
-      .eq("indicativo_lance_vencedor", true);
+      .order("numero_item", { ascending: true })
+      .order("valor_lance", { ascending: criterioJulgamento !== 'desconto' && criterioJulgamento !== 'maior_percentual_desconto' });
 
-    if (error || !lances) return [];
+    if (error || !lances || lances.length === 0) return [];
 
-    // Agrupar por fornecedor único
+    // Buscar fornecedores inabilitados
+    const { data: inabilitados } = await supabase
+      .from("fornecedores_inabilitados_selecao")
+      .select("fornecedor_id")
+      .eq("selecao_id", selecaoId)
+      .eq("revertido", false);
+
+    const inabilitadosIds = new Set((inabilitados || []).map(i => i.fornecedor_id));
+
+    // Filtrar lances de fornecedores inabilitados
+    const lancesValidos = lances.filter((l: any) => !inabilitadosIds.has(l.fornecedor_id));
+
+    // Identificar vencedores dinamicamente
     const fornecedoresMap = new Map<string, { razaoSocial: string; cnpj: string }>();
-    lances.forEach((lance: any) => {
-      if (lance.fornecedores) {
-        fornecedoresMap.set(lance.fornecedor_id, {
-          razaoSocial: lance.fornecedores.razao_social,
-          cnpj: lance.fornecedores.cnpj || ""
+    
+    if (criterioJulgamento === 'global') {
+      // Global: item 0 representa total, menor valor global vence
+      const lancesGlobal = lancesValidos.filter((l: any) => l.numero_item === 0);
+      if (lancesGlobal.length > 0) {
+        // Ordenar por valor (menor primeiro para preço, maior primeiro para desconto)
+        const sorted = lancesGlobal.sort((a: any, b: any) => {
+          return criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto' 
+            ? b.valor_lance - a.valor_lance 
+            : a.valor_lance - b.valor_lance;
         });
+        const vencedor = sorted[0];
+        if (vencedor.fornecedores) {
+          fornecedoresMap.set(vencedor.fornecedor_id, {
+            razaoSocial: vencedor.fornecedores.razao_social,
+            cnpj: vencedor.fornecedores.cnpj || ""
+          });
+        }
       }
-    });
+    } else if (criterioJulgamento === 'por_lote') {
+      // Por lote: agrupar por numero_item (que representa o lote)
+      const loteMap = new Map<number, any[]>();
+      lancesValidos.forEach((l: any) => {
+        if (!loteMap.has(l.numero_item)) loteMap.set(l.numero_item, []);
+        loteMap.get(l.numero_item)!.push(l);
+      });
+      
+      // Para cada lote, encontrar vencedor
+      loteMap.forEach((lancesLote: any[]) => {
+        const sorted = lancesLote.sort((a, b) => a.valor_lance - b.valor_lance);
+        const vencedor = sorted[0];
+        if (vencedor?.fornecedores) {
+          fornecedoresMap.set(vencedor.fornecedor_id, {
+            razaoSocial: vencedor.fornecedores.razao_social,
+            cnpj: vencedor.fornecedores.cnpj || ""
+          });
+        }
+      });
+    } else {
+      // Por item: agrupar por numero_item
+      const itemMap = new Map<number, any[]>();
+      lancesValidos.forEach((l: any) => {
+        if (!itemMap.has(l.numero_item)) itemMap.set(l.numero_item, []);
+        itemMap.get(l.numero_item)!.push(l);
+      });
+      
+      // Para cada item, encontrar vencedor
+      itemMap.forEach((lancesItem: any[]) => {
+        const sorted = lancesItem.sort((a, b) => {
+          return criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto'
+            ? b.valor_lance - a.valor_lance
+            : a.valor_lance - b.valor_lance;
+        });
+        const vencedor = sorted[0];
+        if (vencedor?.fornecedores) {
+          fornecedoresMap.set(vencedor.fornecedor_id, {
+            razaoSocial: vencedor.fornecedores.razao_social,
+            cnpj: vencedor.fornecedores.cnpj || ""
+          });
+        }
+      });
+    }
 
     return Array.from(fornecedoresMap.values());
   };
