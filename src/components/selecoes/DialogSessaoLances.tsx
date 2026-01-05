@@ -1842,12 +1842,18 @@ export function DialogSessaoLances({
       // Buscar dados da seleção para o título
       const { data: selecaoInfo } = await supabase
         .from("selecoes_fornecedores")
-        .select("numero_selecao, processos_compras(numero_processo_interno)")
+        .select("numero_selecao, processos_compras(numero_processo_interno, objeto_resumido)")
         .eq("id", selecaoId)
         .single();
       
       const numSelecao = selecaoInfo?.numero_selecao || "-";
       const numProcesso = (selecaoInfo?.processos_compras as any)?.numero_processo_interno || "-";
+      const objetoProcesso = (selecaoInfo?.processos_compras as any)?.objeto_resumido || "Objeto do Processo";
+      
+      // Função para remover tags HTML
+      const stripHtml = (html: string) => {
+        return html?.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() || '';
+      };
 
       // Cabeçalho de texto
       doc.setTextColor(0, 128, 128); // Verde do logo
@@ -1883,23 +1889,38 @@ export function DialogSessaoLances({
 
       // Quando critério for "por_lote", usar lotes ao invés de itens
       const isPorLoteLocal = criterioJulgamento === "por_lote";
+      const isGlobalLocal = criterioJulgamento === "global";
       
-      // Preparar dados para iteração - usar lotes quando for por_lote
-      const elementosParaIterar = isPorLoteLocal && lotes.length > 0
-        ? lotes.map(lote => ({
-            numero: lote.numero_lote,
-            descricao: lote.descricao_lote,
-            quantidade: 1, // Lote não tem quantidade individual
-            unidade: "LOTE",
-            isLote: true
-          }))
-        : itens.map(item => ({
-            numero: item.numero_item,
-            descricao: item.descricao,
-            quantidade: item.quantidade || 1,
-            unidade: item.unidade || "UN",
-            isLote: false
-          }));
+      // Preparar dados para iteração - usar lotes quando for por_lote, item único quando global
+      let elementosParaIterar: { numero: number; descricao: string; quantidade: number; unidade: string; isLote: boolean; isGlobal?: boolean }[];
+      
+      if (isGlobalLocal) {
+        // Para critério global: um único item com a descrição do objeto do processo
+        elementosParaIterar = [{
+          numero: 0,
+          descricao: stripHtml(objetoProcesso),
+          quantidade: 1,
+          unidade: "GL",
+          isLote: false,
+          isGlobal: true
+        }];
+      } else if (isPorLoteLocal && lotes.length > 0) {
+        elementosParaIterar = lotes.map(lote => ({
+          numero: lote.numero_lote,
+          descricao: lote.descricao_lote,
+          quantidade: 1, // Lote não tem quantidade individual
+          unidade: "LOTE",
+          isLote: true
+        }));
+      } else {
+        elementosParaIterar = itens.map(item => ({
+          numero: item.numero_item,
+          descricao: item.descricao,
+          quantidade: item.quantidade || 1,
+          unidade: item.unidade || "UN",
+          isLote: false
+        }));
+      }
 
       // Agrupar lances por item/lote - USANDO TODOS OS LANCES (incluindo inabilitados)
       const lancesGroupedByItem = elementosParaIterar.map(elemento => {
@@ -1911,15 +1932,26 @@ export function DialogSessaoLances({
       let temInabilitado = false; // Flag para legenda de inabilitados
 
       lancesGroupedByItem.forEach(({ elemento, lances: lancesDoItem }) => {
-        // Título baseado em lote ou item
+        // Título baseado em lote, global ou item
         // Remover prefixo "Lote XX - " da descrição se existir para evitar duplicação
         const descricaoLimpa = elemento.isLote 
           ? elemento.descricao.replace(/^Lote\s*\d+\s*[-–:]\s*/i, '')
           : elemento.descricao;
-        const tituloTexto = elemento.isLote 
-          ? `Lote ${toRoman(elemento.numero)} - ${descricaoLimpa}`
-          : `Item ${elemento.numero}: ${elemento.descricao}`;
-        const termoSemLances = elemento.isLote ? "Nenhum lance registrado para este lote" : "Nenhum lance registrado para este item";
+        
+        let tituloTexto: string;
+        let termoSemLances: string;
+        
+        if ((elemento as any).isGlobal) {
+          // Para critério global: usar título com descrição do objeto
+          tituloTexto = `Total Global: ${descricaoLimpa}`;
+          termoSemLances = "Nenhum lance registrado";
+        } else if (elemento.isLote) {
+          tituloTexto = `Lote ${toRoman(elemento.numero)} - ${descricaoLimpa}`;
+          termoSemLances = "Nenhum lance registrado para este lote";
+        } else {
+          tituloTexto = `Item ${elemento.numero}: ${elemento.descricao}`;
+          termoSemLances = "Nenhum lance registrado para este item";
+        }
 
         if (lancesDoItem.length === 0) {
           // Para itens/lotes sem lances, criar tabela apenas com título
