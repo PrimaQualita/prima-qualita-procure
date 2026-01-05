@@ -170,6 +170,7 @@ export function DialogSessaoLances({
 
   // Estado - Planilhas de Lances geradas (múltiplas)
   const [planilhasGeradas, setPlanilhasGeradas] = useState<{ id: string; nome_arquivo: string; url_arquivo: string; data_geracao: string; protocolo: string }[]>([]);
+  const [gerandoPlanilha, setGerandoPlanilha] = useState(false);
 
   // Estado - Fornecedores online (Presença em tempo real)
   const [fornecedoresOnline, setFornecedoresOnline] = useState<{ fornecedor_id: string; razao_social: string; online_at: string }[]>([]);
@@ -1748,11 +1749,15 @@ export function DialogSessaoLances({
 
   // ========== GERAR PLANILHA DE LANCES ==========
   const handleGerarPlanilhaLances = async () => {
+    if (gerandoPlanilha) return; // Evitar cliques duplos
+    
     try {
       if (lancesCompletos.length === 0) {
         toast.error("Nenhum lance registrado para gerar planilha");
         return;
       }
+      
+      setGerandoPlanilha(true);
 
       const doc = new jsPDF("portrait");
       const pageWidth = doc.internal.pageSize.width;
@@ -2611,6 +2616,8 @@ export function DialogSessaoLances({
     } catch (error) {
       console.error("Erro ao gerar planilha:", error);
       toast.error("Erro ao gerar planilha de lances");
+    } finally {
+      setGerandoPlanilha(false);
     }
   };
 
@@ -2829,9 +2836,19 @@ export function DialogSessaoLances({
                     <Button variant="outline" size="sm" onClick={loadLances}>
                       <RefreshCw className="h-3 w-3" />
                     </Button>
-                    <Button variant="default" size="sm" onClick={handleGerarPlanilhaLances} className="text-xs">
-                      <FileSpreadsheet className="h-3 w-3 mr-1" />
-                      Gerar Planilha
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={handleGerarPlanilhaLances} 
+                      className="text-xs"
+                      disabled={gerandoPlanilha}
+                    >
+                      {gerandoPlanilha ? (
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="h-3 w-3 mr-1" />
+                      )}
+                      {gerandoPlanilha ? "Gerando..." : "Gerar Planilha"}
                     </Button>
                   </div>
                 </div>
