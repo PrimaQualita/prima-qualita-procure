@@ -1281,7 +1281,11 @@ const SistemaLancesFornecedor = () => {
   };
 
   const loadItensAbertos = async () => {
-    if (!selecao?.id) return;
+    console.log('🔄 loadItensAbertos chamado, selecao?.id:', selecao?.id);
+    if (!selecao?.id) {
+      console.log('⚠️ loadItensAbertos: selecao.id não disponível');
+      return;
+    }
     
     try {
       // Buscar TODOS os registros de itens para esta seleção
@@ -1290,6 +1294,7 @@ const SistemaLancesFornecedor = () => {
         .select("*")
         .eq("selecao_id", selecao.id);
 
+      console.log('📦 Dados retornados de itens_abertos_lances:', data);
       if (error) throw error;
 
       // Filtrar APENAS itens com aberto === true (booleano estrito)
