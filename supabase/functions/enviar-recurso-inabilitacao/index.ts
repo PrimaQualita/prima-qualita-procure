@@ -317,7 +317,7 @@ serve(async (req) => {
     drawSection("RAZÕES DO RECURSO", motivoRecurso);
 
     // ===== CERTIFICAÇÃO DIGITAL (igual ao frontend) =====
-    const certHeight = 70;
+    const certHeight = 85;
     ensureSpace(certHeight + 10);
     y -= 15; // espaço antes da certificação
 
