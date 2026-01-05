@@ -1051,15 +1051,22 @@ const SistemaLancesFornecedor = () => {
       setExcluindoRecurso(true);
       setConfirmExcluirRecurso(false);
       
-      // Extrair path do storage
-      const urlParts = meuRecurso.url_pdf_recurso.split("/storage/v1/object/public/");
+      // Extrair path do storage (removendo query strings)
+      let urlClean = meuRecurso.url_pdf_recurso.split('?')[0];
+      const urlParts = urlClean.split("/storage/v1/object/public/");
       if (urlParts.length > 1) {
         const fullPath = urlParts[1];
         const bucketEnd = fullPath.indexOf("/");
         const bucket = fullPath.substring(0, bucketEnd);
         const filePath = fullPath.substring(bucketEnd + 1);
         
-        await supabase.storage.from(bucket).remove([filePath]);
+        console.log(`Deletando arquivo do storage: bucket=${bucket}, path=${filePath}`);
+        const { error: storageError } = await supabase.storage.from(bucket).remove([filePath]);
+        if (storageError) {
+          console.error("Erro ao deletar arquivo do storage:", storageError);
+        } else {
+          console.log("Arquivo deletado com sucesso do storage");
+        }
       }
       
       // Atualizar registro removendo o PDF (motivo_recurso volta para string vazia, não null)

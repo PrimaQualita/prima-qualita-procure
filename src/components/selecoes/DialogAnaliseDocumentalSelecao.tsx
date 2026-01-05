@@ -1338,12 +1338,16 @@ export function DialogAnaliseDocumentalSelecao({
   // Helper para extrair path do storage a partir de URL completa
   const extractStoragePath = (url: string): string => {
     if (!url) return url;
+    
+    // Remover query strings primeiro (como ?token=...)
+    let cleanUrl = url.split('?')[0];
+    
     // Se for URL completa do Supabase, extrair apenas o path relativo
-    if (url.includes('processo-anexos/')) {
-      const parts = url.split('processo-anexos/');
+    if (cleanUrl.includes('processo-anexos/')) {
+      const parts = cleanUrl.split('processo-anexos/');
       return parts[parts.length - 1];
     }
-    return url;
+    return cleanUrl;
   };
 
   // Handler para excluir PDF de recurso/resposta
