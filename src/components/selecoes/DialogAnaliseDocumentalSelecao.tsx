@@ -2127,260 +2127,382 @@ export function DialogAnaliseDocumentalSelecao({
         </div>
       </CardHeader>
       
-      {/* Seção de Recurso para Fornecedores Inabilitados */}
-      {isInabilitado && data.inabilitado && recursosInabilitacao[data.inabilitado.id] && (
-        <CardContent className="pt-0 border-t mt-3">
-          {(() => {
-            const recurso = recursosInabilitacao[data.inabilitado!.id];
-            return (
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm flex items-center gap-2">
-                  <Gavel className="h-4 w-4" />
-                  Recurso de Inabilitação
-                </h4>
-                
-                {recurso.status_recurso === "aguardando_envio" && (
-                  <Badge variant="outline">Aguardando envio do fornecedor</Badge>
-                )}
-                
-                {recurso.status_recurso === "expirado" && (
-                  <Badge variant="secondary">Prazo expirado - Sem recurso</Badge>
-                )}
-                
-                {recurso.status_recurso === "enviado" && (
-                  <div className="space-y-2 bg-amber-50 p-3 rounded-lg border border-amber-200">
-                    <div className="flex items-center justify-between">
-                      <Badge className="bg-amber-500">Recurso Pendente de Análise</Badge>
-                      <span className="text-xs text-muted-foreground">
-                        Enviado em: {format(new Date(recurso.data_envio_recurso), "dd/MM/yyyy 'às' HH:mm")}
+      {/* Seção de Recurso (visível mesmo após provimento/reversão) */}
+      {(() => {
+        const recurso =
+          (data.inabilitado && recursosInabilitacao[data.inabilitado.id]) ||
+          todosRecursos.find((r) => r.fornecedor_id === data.fornecedor.id);
+
+        if (!recurso) return null;
+
+        const inabilitacaoRef = data.inabilitado ?? recurso.fornecedores_inabilitados_selecao;
+
+        return (
+          <CardContent className="pt-0 border-t mt-3">
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <Gavel className="h-4 w-4" />
+                Recurso de Inabilitação
+              </h4>
+
+              {!data.inabilitado && (
+                <Badge variant="outline">Histórico (inabilitação revertida)</Badge>
+              )}
+
+              {recurso.status_recurso === "aguardando_envio" && (
+                <Badge variant="outline">Aguardando envio do fornecedor</Badge>
+              )}
+
+              {recurso.status_recurso === "expirado" && (
+                <Badge variant="secondary">Prazo expirado - Sem recurso</Badge>
+              )}
+
+              {recurso.status_recurso === "enviado" && (
+                <div className="space-y-2 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                  <div className="flex items-center justify-between">
+                    <Badge className="bg-amber-500">Recurso Pendente de Análise</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      Enviado em: {format(new Date(recurso.data_envio_recurso), "dd/MM/yyyy 'às' HH:mm")}
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-700 mb-1">Razões do fornecedor:</p>
+                    <p className="whitespace-pre-wrap text-amber-900">{recurso.motivo_recurso}</p>
+                  </div>
+
+                  {/* PDF do Recurso do Fornecedor */}
+                  {recurso.url_pdf_recurso && (
+                    <div className="flex items-center gap-2 bg-white p-2 rounded border">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span className="text-sm flex-1">
+                        {getNomeBonitRecurso(recurso, data.fornecedor)}
                       </span>
-                    </div>
-                    <div className="text-sm">
-                      <p className="font-medium text-amber-700 mb-1">Razões do fornecedor:</p>
-                      <p className="whitespace-pre-wrap text-amber-900">{recurso.motivo_recurso}</p>
-                    </div>
-                    
-                    {/* PDF do Recurso do Fornecedor */}
-                    {recurso.url_pdf_recurso && (
-                      <div className="flex items-center gap-2 bg-white p-2 rounded border">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <span className="text-sm flex-1">{getNomeBonitRecurso(recurso, data.fornecedor)}</span>
-                        <Button size="sm" variant="outline" onClick={() => (recurso.nome_arquivo_recurso?.startsWith("recurso_v2_") ? window.open(recurso.url_pdf_recurso, "_blank") : handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor))}>
-                          <Eye className="h-3 w-3 mr-1" />
-                          Ver
-                        </Button>
-                        <Button size="sm" variant="outline" asChild>
-                          <a href={recurso.url_pdf_recurso} download={getNomeBonitRecurso(recurso, data.fornecedor) + ".pdf"}>
-                            <Download className="h-3 w-3 mr-1" />
-                            Baixar
-                          </a>
-                        </Button>
-                        <Button size="sm" variant="outline" className="text-destructive" onClick={() => {
-                          setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'recurso' });
-                        }}>
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Excluir
-                        </Button>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center gap-2">
                       <Button
                         size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          recurso.nome_arquivo_recurso?.startsWith("recurso_v2_")
+                            ? window.open(recurso.url_pdf_recurso, "_blank")
+                            : handleGerarPdfRecurso(recurso, inabilitacaoRef, data.fornecedor)
+                        }
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Ver
+                      </Button>
+                      <Button size="sm" variant="outline" asChild>
+                        <a
+                          href={recurso.url_pdf_recurso}
+                          download={getNomeBonitRecurso(recurso, data.fornecedor) + ".pdf"}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Baixar
+                        </a>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive"
                         onClick={() => {
-                          setRecursoParaResponder(recurso);
-                          setRespostaRecurso("");
-                          setDialogResponderRecurso(true);
+                          setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: "recurso" });
                         }}
                       >
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        Responder Recurso
-                      </Button>
-                      
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="text-destructive border-destructive hover:bg-destructive/10"
-                        onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
-                      >
                         <Trash2 className="h-3 w-3 mr-1" />
-                        Excluir Tudo
+                        Excluir
                       </Button>
                     </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setRecursoParaResponder(recurso);
+                        setRespostaRecurso("");
+                        setDialogResponderRecurso(true);
+                      }}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-1" />
+                      Responder Recurso
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive border-destructive hover:bg-destructive/10"
+                      onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Excluir Tudo
+                    </Button>
                   </div>
-                )}
-                
-                {recurso.status_recurso === "deferido" && (
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-200 space-y-3">
-                    <Badge className="bg-green-500">Recurso Deferido</Badge>
-                    
-                    {/* Quadro com texto do Recurso */}
-                    {recurso.motivo_recurso && (
-                      <div className="bg-white p-3 rounded border border-green-300">
-                        <p className="text-xs font-semibold text-green-700 mb-1">Razões do Recurso:</p>
-                        <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
-                          {recurso.motivo_recurso}
-                        </div>
+                </div>
+              )}
+
+              {(recurso.status_recurso === "deferido" || recurso.status_recurso === "deferido_parcial") && (
+                <div className="bg-green-50 p-3 rounded-lg border border-green-200 space-y-3">
+                  <Badge className="bg-green-500">
+                    {recurso.status_recurso === "deferido_parcial"
+                      ? "Recurso Deferido Parcialmente"
+                      : "Recurso Deferido"}
+                  </Badge>
+
+                  {/* Quadro com texto do Recurso */}
+                  {recurso.motivo_recurso && (
+                    <div className="bg-white p-3 rounded border border-green-300">
+                      <p className="text-xs font-semibold text-green-700 mb-1">Razões do Recurso:</p>
+                      <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
+                        {recurso.motivo_recurso}
                       </div>
-                    )}
-                    
-                    {/* Quadro com texto da Resposta */}
-                    {recurso.resposta_gestor && (
-                      <div className="bg-white p-3 rounded border border-green-300">
-                        <p className="text-xs font-semibold text-green-700 mb-1">Resposta do Gestor:</p>
-                        <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
-                          {recurso.resposta_gestor}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* PDFs do Recurso e Resposta */}
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {recurso.url_pdf_recurso ? (
-                        <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
-                          <FileText className="h-3 w-3 text-amber-600" />
-                          <span>Recurso</span>
-                           <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => (recurso.nome_arquivo_recurso?.startsWith("recurso_v2_") ? window.open(recurso.url_pdf_recurso, "_blank") : handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor))}>
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_recurso} download={getNomeBonitRecurso(recurso, data.fornecedor) + ".pdf"}><Download className="h-3 w-3" /></a>
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
-                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'recurso' });
-                          }}><Trash2 className="h-3 w-3" /></Button>
-                        </div>
-                      ) : (
-                        <Button size="sm" variant="outline" onClick={() => handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor)}>
-                          <FileDown className="h-3 w-3 mr-1" />
-                          Gerar PDF Recurso
-                        </Button>
-                      )}
-                      {recurso.url_pdf_resposta ? (
-                        <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
-                          <FileText className="h-3 w-3 text-green-600" />
-                          <span>Resposta</span>
-                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => window.open(recurso.url_pdf_resposta, '_blank')}>
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_resposta} download={getNomeBonitRecurso(recurso, data.fornecedor, 'resposta') + ".pdf"}><Download className="h-3 w-3" /></a>
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
-                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'resposta' });
-                          }}><Trash2 className="h-3 w-3" /></Button>
-                        </div>
-                      ) : (
-                        <Button size="sm" variant="outline" onClick={() => handleGerarPdfResposta(recurso, data.fornecedor)}>
-                          <FileDown className="h-3 w-3 mr-1" />
-                          Gerar PDF Resposta
-                        </Button>
-                      )}
                     </div>
-                    
-                    {/* Botão para excluir recurso completo */}
-                    <div className="flex justify-end mt-2 pt-2 border-t border-green-200">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="text-destructive border-destructive hover:bg-destructive/10"
-                        onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                  )}
+
+                  {/* Quadro com texto da Resposta */}
+                  {recurso.resposta_gestor && (
+                    <div className="bg-white p-3 rounded border border-green-300">
+                      <p className="text-xs font-semibold text-green-700 mb-1">Resposta do Gestor:</p>
+                      <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
+                        {recurso.resposta_gestor}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PDFs do Recurso e Resposta */}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {recurso.url_pdf_recurso ? (
+                      <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
+                        <FileText className="h-3 w-3 text-amber-600" />
+                        <span>Recurso</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1"
+                          onClick={() =>
+                            recurso.nome_arquivo_recurso?.startsWith("recurso_v2_")
+                              ? window.open(recurso.url_pdf_recurso, "_blank")
+                              : handleGerarPdfRecurso(recurso, inabilitacaoRef, data.fornecedor)
+                          }
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
+                          <a
+                            href={recurso.url_pdf_recurso}
+                            download={getNomeBonitRecurso(recurso, data.fornecedor) + ".pdf"}
+                          >
+                            <Download className="h-3 w-3" />
+                          </a>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1 text-destructive"
+                          onClick={() => {
+                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: "recurso" });
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleGerarPdfRecurso(recurso, inabilitacaoRef, data.fornecedor)}
                       >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Excluir Recurso Completo
+                        <FileDown className="h-3 w-3 mr-1" />
+                        Gerar PDF Recurso
                       </Button>
-                    </div>
-                  </div>
-                )}
-                
-                {recurso.status_recurso === "indeferido" && (
-                  <div className="bg-red-50 p-3 rounded-lg border border-red-200 space-y-3">
-                    <Badge variant="destructive">Recurso Indeferido</Badge>
-                    
-                    {/* Quadro com texto do Recurso */}
-                    {recurso.motivo_recurso && (
-                      <div className="bg-white p-3 rounded border border-red-300">
-                        <p className="text-xs font-semibold text-red-700 mb-1">Razões do Recurso:</p>
-                        <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
-                          {recurso.motivo_recurso}
-                        </div>
-                      </div>
                     )}
-                    
-                    {/* Quadro com texto da Resposta */}
-                    {recurso.resposta_gestor && (
-                      <div className="bg-white p-3 rounded border border-red-300">
-                        <p className="text-xs font-semibold text-red-700 mb-1">Resposta do Gestor:</p>
-                        <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
-                          {recurso.resposta_gestor}
-                        </div>
+                    {recurso.url_pdf_resposta ? (
+                      <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
+                        <FileText className="h-3 w-3 text-green-600" />
+                        <span>Resposta</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1"
+                          onClick={() => window.open(recurso.url_pdf_resposta, "_blank")}
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
+                          <a
+                            href={recurso.url_pdf_resposta}
+                            download={getNomeBonitRecurso(recurso, data.fornecedor, "resposta") + ".pdf"}
+                          >
+                            <Download className="h-3 w-3" />
+                          </a>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1 text-destructive"
+                          onClick={() => {
+                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: "resposta" });
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
-                    )}
-                    
-                    {/* PDFs do Recurso e Resposta */}
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {recurso.url_pdf_recurso ? (
-                        <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
-                          <FileText className="h-3 w-3 text-amber-600" />
-                          <span>Recurso</span>
-                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => (recurso.nome_arquivo_recurso?.startsWith("recurso_v2_") ? window.open(recurso.url_pdf_recurso, "_blank") : handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor))}>
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_recurso} download={getNomeBonitRecurso(recurso, data.fornecedor) + ".pdf"}><Download className="h-3 w-3" /></a>
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
-                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'recurso' });
-                          }}><Trash2 className="h-3 w-3" /></Button>
-                        </div>
-                      ) : (
-                        <Button size="sm" variant="outline" onClick={() => handleGerarPdfRecurso(recurso, data.inabilitado, data.fornecedor)}>
-                          <FileDown className="h-3 w-3 mr-1" />
-                          Gerar PDF Recurso
-                        </Button>
-                      )}
-                      {recurso.url_pdf_resposta ? (
-                        <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
-                          <FileText className="h-3 w-3 text-red-600" />
-                          <span>Resposta</span>
-                          <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => window.open(recurso.url_pdf_resposta, '_blank')}>
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
-                            <a href={recurso.url_pdf_resposta} download={getNomeBonitRecurso(recurso, data.fornecedor, 'resposta') + ".pdf"}><Download className="h-3 w-3" /></a>
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1 text-destructive" onClick={() => {
-                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: 'resposta' });
-                          }}><Trash2 className="h-3 w-3" /></Button>
-                        </div>
-                      ) : (
-                        <Button size="sm" variant="outline" onClick={() => handleGerarPdfResposta(recurso, data.fornecedor)}>
-                          <FileDown className="h-3 w-3 mr-1" />
-                          Gerar PDF Resposta
-                        </Button>
-                      )}
-                    </div>
-                    
-                    {/* Botão para excluir recurso completo */}
-                    <div className="flex justify-end mt-2 pt-2 border-t border-red-200">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="text-destructive border-destructive hover:bg-destructive/10"
-                        onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleGerarPdfResposta(recurso, data.fornecedor)}
                       >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Excluir Recurso Completo
+                        <FileDown className="h-3 w-3 mr-1" />
+                        Gerar PDF Resposta
                       </Button>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })()}
-        </CardContent>
-      )}
-      
+
+                  {/* Botão para excluir recurso completo */}
+                  <div className="flex justify-end mt-2 pt-2 border-t border-green-200">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive border-destructive hover:bg-destructive/10"
+                      onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Excluir Recurso Completo
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {recurso.status_recurso === "indeferido" && (
+                <div className="bg-red-50 p-3 rounded-lg border border-red-200 space-y-3">
+                  <Badge variant="destructive">Recurso Indeferido</Badge>
+
+                  {/* Quadro com texto do Recurso */}
+                  {recurso.motivo_recurso && (
+                    <div className="bg-white p-3 rounded border border-red-300">
+                      <p className="text-xs font-semibold text-red-700 mb-1">Razões do Recurso:</p>
+                      <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
+                        {recurso.motivo_recurso}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quadro com texto da Resposta */}
+                  {recurso.resposta_gestor && (
+                    <div className="bg-white p-3 rounded border border-red-300">
+                      <p className="text-xs font-semibold text-red-700 mb-1">Resposta do Gestor:</p>
+                      <div className="max-h-24 overflow-y-auto text-sm text-gray-700">
+                        {recurso.resposta_gestor}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PDFs do Recurso e Resposta */}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {recurso.url_pdf_recurso ? (
+                      <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
+                        <FileText className="h-3 w-3 text-amber-600" />
+                        <span>Recurso</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1"
+                          onClick={() =>
+                            recurso.nome_arquivo_recurso?.startsWith("recurso_v2_")
+                              ? window.open(recurso.url_pdf_recurso, "_blank")
+                              : handleGerarPdfRecurso(recurso, inabilitacaoRef, data.fornecedor)
+                          }
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
+                          <a
+                            href={recurso.url_pdf_recurso}
+                            download={getNomeBonitRecurso(recurso, data.fornecedor) + ".pdf"}
+                          >
+                            <Download className="h-3 w-3" />
+                          </a>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1 text-destructive"
+                          onClick={() => {
+                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: "recurso" });
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleGerarPdfRecurso(recurso, inabilitacaoRef, data.fornecedor)}
+                      >
+                        <FileDown className="h-3 w-3 mr-1" />
+                        Gerar PDF Recurso
+                      </Button>
+                    )}
+                    {recurso.url_pdf_resposta ? (
+                      <div className="flex items-center gap-1 bg-white p-2 rounded border text-xs">
+                        <FileText className="h-3 w-3 text-red-600" />
+                        <span>Resposta</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1"
+                          onClick={() => window.open(recurso.url_pdf_resposta, "_blank")}
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-1" asChild>
+                          <a
+                            href={recurso.url_pdf_resposta}
+                            download={getNomeBonitRecurso(recurso, data.fornecedor, "resposta") + ".pdf"}
+                          >
+                            <Download className="h-3 w-3" />
+                          </a>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1 text-destructive"
+                          onClick={() => {
+                            setConfirmDeletePdf({ open: true, recursoId: recurso.id, tipo: "resposta" });
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleGerarPdfResposta(recurso, data.fornecedor)}
+                      >
+                        <FileDown className="h-3 w-3 mr-1" />
+                        Gerar PDF Resposta
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Botão para excluir recurso completo */}
+                  <div className="flex justify-end mt-2 pt-2 border-t border-red-200">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive border-destructive hover:bg-destructive/10"
+                      onClick={() => setConfirmDeleteRecurso({ open: true, recursoId: recurso.id })}
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Excluir Recurso Completo
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        );
+      })()}
       {!isInabilitado && (
         <CardContent className="space-y-4">
           {/* Documentos do Cadastro */}
