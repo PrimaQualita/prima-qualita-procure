@@ -140,20 +140,26 @@ export const gerarRecursoPDF = async (
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
   
-  // Divide APENAS por quebras duplas para formar parágrafos
-  // Quebras simples são substituídas por espaço para manter texto fluindo
-  const textoNormalizado = motivoRecurso.replace(/(?<!\n)\n(?!\n)/g, ' ');
-  const paragraphs = textoNormalizado.split(/\n\s*\n/).filter(p => p.trim() !== '');
-  const espacoNormal = doc.getTextWidth(' ');
-  const espacoMaximo = Infinity; // Mantém justificativa mesmo com espaços maiores
-  const minWordsToJustify = 3; // Permite justificar linhas curtas (ex.: 3 palavras)
+  // Normalizar texto: converter quebras de linha simples em espaços
+  // Manter apenas quebras duplas como separadores de parágrafo
+  const textoNormalizado = motivoRecurso
+    .replace(/\r\n/g, '\n')           // Windows line endings
+    .replace(/\r/g, '\n')             // Old Mac line endings
+    .replace(/\n([^\n])/g, ' $1')     // Single newline followed by non-newline = space
+    .replace(/\n{2,}/g, '\n\n')       // Multiple newlines = double newline
+    .replace(/ {2,}/g, ' ')           // Multiple spaces = single space
+    .trim();
+  
+  const paragraphs = textoNormalizado.split('\n\n').filter(p => p.trim() !== '');
   
   paragraphs.forEach((paragraph, pIndex) => {
     if (pIndex > 0) {
-      y += lineHeight * 1.2; // Espaço entre parágrafos mais visível
+      y += lineHeight * 1.2; // Espaço entre parágrafos
     }
     
-    const lines = doc.splitTextToSize(paragraph.trim(), larguraUtil);
+    // Limpar parágrafo de espaços extras
+    const paragrafoLimpo = paragraph.trim().replace(/ {2,}/g, ' ');
+    const lines = doc.splitTextToSize(paragrafoLimpo, larguraUtil);
     
     lines.forEach((line: string, lineIndex: number) => {
       if (y > maxY) {
@@ -162,30 +168,35 @@ export const gerarRecursoPDF = async (
         y = 30;
       }
       
-      const isLastLine = lineIndex === lines.length - 1;
-      const words = line.trim().split(/\s+/);
+      const isLastLineOfParagraph = lineIndex === lines.length - 1;
+      const linhaLimpa = line.trim();
+      const words = linhaLimpa.split(/\s+/).filter(w => w.length > 0);
       
-      // Justificar apenas se não for última linha e tiver palavras suficientes
-      if (!isLastLine && words.length >= minWordsToJustify) {
-        const textWidth = doc.getTextWidth(words.join(''));
-        const totalSpaceNeeded = larguraUtil - textWidth;
+      // Justificar TODAS as linhas exceto a última do parágrafo
+      // Mínimo 2 palavras para justificar
+      if (!isLastLineOfParagraph && words.length >= 2) {
+        // Calcular largura total das palavras (sem espaços)
+        let totalWordWidth = 0;
+        words.forEach(word => {
+          totalWordWidth += doc.getTextWidth(word);
+        });
+        
+        // Calcular espaço entre palavras para preencher a largura total
         const spaceCount = words.length - 1;
+        const totalSpaceNeeded = larguraUtil - totalWordWidth;
         const spaceWidth = totalSpaceNeeded / spaceCount;
         
-        // Se o espaço ficar muito grande, usar alinhamento normal
-        if (spaceWidth <= espacoMaximo) {
-          let currentX = margemTexto;
-          words.forEach((word, wordIndex) => {
-            doc.text(word, currentX, y);
-            if (wordIndex < words.length - 1) {
-              currentX += doc.getTextWidth(word) + spaceWidth;
-            }
-          });
-        } else {
-          doc.text(line, margemTexto, y);
-        }
+        // Desenhar cada palavra com espaçamento calculado
+        let currentX = margemTexto;
+        words.forEach((word, wordIndex) => {
+          doc.text(word, currentX, y);
+          if (wordIndex < words.length - 1) {
+            currentX += doc.getTextWidth(word) + spaceWidth;
+          }
+        });
       } else {
-        doc.text(line, margemTexto, y);
+        // Última linha do parágrafo: alinhamento à esquerda
+        doc.text(linhaLimpa, margemTexto, y);
       }
       y += lineHeight;
     });
