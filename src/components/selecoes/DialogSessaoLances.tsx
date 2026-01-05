@@ -3598,29 +3598,36 @@ export function DialogSessaoLances({
           {!sessaoFinalizada ? (
             (() => {
               // Validação: todos os itens/lotes devem estar fechados
-              const totalItensOuLotes = isPorLote ? lotes.length : itens.length;
-              const todosItensFechados = itensFechados.size >= totalItensOuLotes && totalItensOuLotes > 0;
-              
+              // Para critério global, a sessão é sempre tratada como 1 único item (Total Global)
+              const totalItensOuLotes = isPorLote ? lotes.length : (isGlobal ? 1 : itens.length);
+
+              // Para critério global, considerar fechado apenas se o item virtual 0 estiver fechado
+              const totalFechadosParaValidacao = isGlobal ? (itensFechados.has(0) ? 1 : 0) : itensFechados.size;
+
+              const todosItensFechados = totalFechadosParaValidacao >= totalItensOuLotes && totalItensOuLotes > 0;
+
               // Validação: pelo menos uma planilha de lances deve ter sido gerada
               const planilhaGerada = planilhasGeradas.length > 0;
-              
+
               // Determinar se pode finalizar
               const podeFinalizarSessao = todosItensFechados && planilhaGerada;
-              
+
               // Mensagens de erro para cada validação
               const mensagensErro: string[] = [];
               if (!todosItensFechados) {
-                const faltam = totalItensOuLotes - itensFechados.size;
+                const faltam = totalItensOuLotes - totalFechadosParaValidacao;
                 mensagensErro.push(
-                  isPorLote 
-                    ? `Faltam ${faltam} lote(s) para fechar` 
-                    : `Faltam ${faltam} item(ns) para fechar`
+                  isPorLote
+                    ? `Faltam ${faltam} lote(s) para fechar`
+                    : isGlobal
+                      ? `Falta fechar o Total Global`
+                      : `Faltam ${faltam} item(ns) para fechar`
                 );
               }
               if (!planilhaGerada) {
                 mensagensErro.push("Planilha de Lances não foi gerada");
               }
-              
+
               return (
                 <>
                   <Button
@@ -3651,9 +3658,11 @@ export function DialogSessaoLances({
                       <ul className="text-xs text-amber-600 mt-1 ml-4 list-disc">
                         {!todosItensFechados && (
                           <li>
-                            {isPorLote 
-                              ? `Feche todos os ${totalItensOuLotes} lotes (${itensFechados.size} fechados)` 
-                              : `Feche todos os ${totalItensOuLotes} itens (${itensFechados.size} fechados)`
+                            {isPorLote
+                              ? `Feche todos os ${totalItensOuLotes} lotes (${totalFechadosParaValidacao} fechados)`
+                              : isGlobal
+                                ? `Feche o Total Global (${totalFechadosParaValidacao} fechado)`
+                                : `Feche todos os ${totalItensOuLotes} itens (${totalFechadosParaValidacao} fechados)`
                             }
                           </li>
                         )}
