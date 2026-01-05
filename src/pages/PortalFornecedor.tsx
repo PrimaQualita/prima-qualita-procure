@@ -477,9 +477,10 @@ export default function PortalFornecedor() {
 
       if (error) throw error;
 
-      // Verificar quais têm recurso já enviado
+      // Verificar quais têm recurso já enviado ou intenção de não recorrer
       const inabilitacoesComRecurso = await Promise.all(
         (inabilitacoes || []).map(async (inab) => {
+          // Verificar se tem recurso enviado
           const { data: recursos } = await supabase
             .from("recursos_inabilitacao_selecao")
             .select("id, status_recurso")
@@ -487,19 +488,42 @@ export default function PortalFornecedor() {
             .order("created_at", { ascending: false })
             .limit(1);
 
+          // Verificar se fornecedor declarou intenção (recorrer ou declinar)
+          const { data: intencoes } = await supabase
+            .from("intencoes_recurso_selecao")
+            .select("id, deseja_recorrer, data_intencao")
+            .eq("fornecedor_id", fornecedorId)
+            .eq("selecao_id", inab.selecao_id)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
           const recurso = recursos?.[0];
+          const intencao = intencoes?.[0];
+          
           return {
             ...inab,
             recurso_id: recurso?.id || null,
-            status_recurso: recurso?.status_recurso || null
+            status_recurso: recurso?.status_recurso || null,
+            intencao_declarada: !!intencao,
+            deseja_recorrer: intencao?.deseja_recorrer ?? null
           };
         })
       );
 
-      // Filtrar apenas os que ainda podem recorrer (sem recurso ou recurso em aberto para envio)
-      const pendentes = inabilitacoesComRecurso.filter(
-        inab => !inab.status_recurso || inab.status_recurso === 'aguardando_recurso'
-      );
+      // Filtrar apenas os que ainda podem recorrer:
+      // - Sem intenção declarada (ainda pode decidir)
+      // - OU com intenção de recorrer mas sem recurso enviado ainda (aguardando_recurso)
+      const pendentes = inabilitacoesComRecurso.filter(inab => {
+        // Se declinou (deseja_recorrer = false), não mostrar
+        if (inab.intencao_declarada && inab.deseja_recorrer === false) {
+          return false;
+        }
+        // Se já tem recurso enviado/respondido, não mostrar
+        if (inab.status_recurso && inab.status_recurso !== 'aguardando_recurso') {
+          return false;
+        }
+        return true;
+      });
       
       console.log("✅ Inabilitações seleção encontradas:", pendentes);
       setInabilitacoesSelecaoPendentes(pendentes);
