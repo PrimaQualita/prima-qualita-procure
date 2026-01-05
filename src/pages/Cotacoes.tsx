@@ -2084,127 +2084,133 @@ const Cotacoes = () => {
                           <Label htmlFor="autorizacao-selecao-upload">
                             Autorização *
                           </Label>
-                          {isResponsavelLegal ? (
-                            <div className="space-y-2 mt-1">
-                              <div className="mb-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
-                                ✓ Você tem permissão para gerar Autorização
-                              </div>
-                              <Button
-                                onClick={async () => {
-                                  if (!processoSelecionado || !cotacaoSelecionada) return;
-                                  try {
-                                    const result = await gerarAutorizacaoSelecao(
-                                      processoSelecionado.numero_processo_interno,
-                                      processoSelecionado.objeto_resumido,
-                                      usuarioNome,
-                                      usuarioCpf
-                                    );
-                                    setAutorizacaoSelecaoUrl(result.url);
-                                    
-                                    // Salvar autorização no banco
-                                    const { data: { session } } = await supabase.auth.getSession();
-                                    const { data: autorizacao, error: saveError } = await (supabase as any)
-                                      .from("autorizacoes_processo")
-                                      .insert({
-                                        cotacao_id: cotacaoSelecionada.id,
-                                        tipo_autorizacao: 'selecao_fornecedores',
-                                        url_arquivo: result.url,
-                                        nome_arquivo: result.fileName,
-                                        protocolo: result.protocolo,
-                                        usuario_gerador_id: session?.user.id
-                                      })
-                                      .select()
-                                      .single();
-                                    
-                                    if (saveError) throw saveError;
-                                    setAutorizacaoSelecaoId(autorizacao.id);
-                                    
-                                    // Atualizar status da solicitação se existir
-                                    const { error: updateError } = await supabase
-                                      .from("solicitacoes_autorizacao_selecao")
-                                      .update({
-                                        status: "aprovada",
-                                        data_resposta: new Date().toISOString()
-                                      })
-                                      .eq("cotacao_id", cotacaoSelecionada.id)
-                                      .eq("status", "pendente");
-
-                                    if (updateError) {
-                                      console.error("Erro ao atualizar solicitação:", updateError);
-                                    }
-                                    
-                                    toast.success("Autorização gerada e salva com sucesso");
-                                  } catch (error) {
-                                    console.error("Erro ao gerar autorização:", error);
-                                    toast.error("Erro ao gerar autorização");
-                                  }
-                                }}
-                                variant="default"
-                                className="w-full"
-                              >
-                                <FileText className="mr-2 h-4 w-4" />
-                                Gerar Autorização de Seleção
-                              </Button>
-                              {autorizacaoSelecaoUrl && (
-                                <div className="flex flex-col gap-2">
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="secondary"
-                                      onClick={async () => {
-                                        try {
-                                          window.open(autorizacaoSelecaoUrl, '_blank');
-                                        } catch (error) {
-                                          toast.error("Erro ao visualizar: Verifique se há bloqueadores de anúncios ativos no navegador");
-                                        }
-                                      }}
-                                      className="flex-1"
-                                    >
-                                      <FileText className="mr-2 h-4 w-4" />
-                                      Visualizar
-                                    </Button>
-                                    <Button
-                                      variant="secondary"
-                                      onClick={async () => {
-                                        try {
-                                          const response = await fetch(autorizacaoSelecaoUrl);
-                                          const blob = await response.blob();
-                                          const url = window.URL.createObjectURL(blob);
-                                          const link = document.createElement('a');
-                                          link.href = url;
-                                          link.download = `autorizacao-selecao-${processoSelecionado?.numero_processo_interno}.pdf`;
-                                          link.click();
-                                          window.URL.revokeObjectURL(url);
-                                        } catch (error) {
-                                          toast.error("Erro ao baixar: Verifique se há bloqueadores de anúncios ativos no navegador");
-                                        }
-                                      }}
-                                      className="flex-1"
-                                    >
-                                      <FileText className="mr-2 h-4 w-4" />
-                                      Baixar
-                                    </Button>
-                                  </div>
-                                  {isResponsavelLegal && autorizacaoSelecaoId && (
-                                    <Button
-                                      variant="destructive"
-                                      onClick={() => deletarAutorizacao(autorizacaoSelecaoId, 'selecao_fornecedores')}
-                                      size="sm"
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Deletar Autorização
-                                    </Button>
-                                  )}
+                          <div className="space-y-2 mt-1">
+                            {/* Se já existe autorização, mostra para todos visualizarem */}
+                            {autorizacaoSelecaoUrl ? (
+                              <div className="flex flex-col gap-2">
+                                <div className="mb-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
+                                  ✓ Autorização de Seleção gerada
                                 </div>
-                              )}
-                            </div>
-                           ) : (
-                            <div className="mt-1 p-3 bg-muted rounded-lg border border-dashed">
-                              <p className="text-sm text-muted-foreground flex items-center">
-                                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                                Apenas Responsáveis Legais podem gerar Autorização de Seleção
-                              </p>
-                            </div>
-                          )}
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="secondary"
+                                    onClick={async () => {
+                                      try {
+                                        window.open(autorizacaoSelecaoUrl, '_blank');
+                                      } catch (error) {
+                                        toast.error("Erro ao visualizar: Verifique se há bloqueadores de anúncios ativos no navegador");
+                                      }
+                                    }}
+                                    className="flex-1"
+                                  >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Visualizar
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    onClick={async () => {
+                                      try {
+                                        const response = await fetch(autorizacaoSelecaoUrl);
+                                        const blob = await response.blob();
+                                        const url = window.URL.createObjectURL(blob);
+                                        const link = document.createElement('a');
+                                        link.href = url;
+                                        link.download = `autorizacao-selecao-${processoSelecionado?.numero_processo_interno}.pdf`;
+                                        link.click();
+                                        window.URL.revokeObjectURL(url);
+                                      } catch (error) {
+                                        toast.error("Erro ao baixar: Verifique se há bloqueadores de anúncios ativos no navegador");
+                                      }
+                                    }}
+                                    className="flex-1"
+                                  >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Baixar
+                                  </Button>
+                                </div>
+                                {/* Apenas Responsável Legal pode deletar */}
+                                {isResponsavelLegal && autorizacaoSelecaoId && (
+                                  <Button
+                                    variant="destructive"
+                                    onClick={() => deletarAutorizacao(autorizacaoSelecaoId, 'selecao_fornecedores')}
+                                    size="sm"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Deletar Autorização
+                                  </Button>
+                                )}
+                              </div>
+                            ) : isResponsavelLegal ? (
+                              <>
+                                <div className="mb-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
+                                  ✓ Você tem permissão para gerar Autorização
+                                </div>
+                                <Button
+                                  onClick={async () => {
+                                    if (!processoSelecionado || !cotacaoSelecionada) return;
+                                    try {
+                                      const result = await gerarAutorizacaoSelecao(
+                                        processoSelecionado.numero_processo_interno,
+                                        processoSelecionado.objeto_resumido,
+                                        usuarioNome,
+                                        usuarioCpf
+                                      );
+                                      setAutorizacaoSelecaoUrl(result.url);
+                                      
+                                      // Salvar autorização no banco
+                                      const { data: { session } } = await supabase.auth.getSession();
+                                      const { data: autorizacao, error: saveError } = await (supabase as any)
+                                        .from("autorizacoes_processo")
+                                        .insert({
+                                          cotacao_id: cotacaoSelecionada.id,
+                                          tipo_autorizacao: 'selecao_fornecedores',
+                                          url_arquivo: result.url,
+                                          nome_arquivo: result.fileName,
+                                          protocolo: result.protocolo,
+                                          usuario_gerador_id: session?.user.id
+                                        })
+                                        .select()
+                                        .single();
+                                      
+                                      if (saveError) throw saveError;
+                                      setAutorizacaoSelecaoId(autorizacao.id);
+                                      
+                                      // Atualizar status da solicitação se existir
+                                      const { error: updateError } = await supabase
+                                        .from("solicitacoes_autorizacao_selecao")
+                                        .update({
+                                          status: "aprovada",
+                                          data_resposta: new Date().toISOString()
+                                        })
+                                        .eq("cotacao_id", cotacaoSelecionada.id)
+                                        .eq("status", "pendente");
+
+                                      if (updateError) {
+                                        console.error("Erro ao atualizar solicitação:", updateError);
+                                      }
+                                      
+                                      toast.success("Autorização gerada e salva com sucesso");
+                                    } catch (error) {
+                                      console.error("Erro ao gerar autorização:", error);
+                                      toast.error("Erro ao gerar autorização");
+                                    }
+                                  }}
+                                  variant="default"
+                                  className="w-full"
+                                >
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  Gerar Autorização de Seleção
+                                </Button>
+                              </>
+                            ) : (
+                              <div className="mt-1 p-3 bg-muted rounded-lg border border-dashed">
+                                <p className="text-sm text-muted-foreground flex items-center">
+                                  <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                                  Apenas Responsáveis Legais podem gerar Autorização de Seleção
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <Button
                           onClick={() => setDialogCriarSelecaoOpen(true)}
