@@ -2245,12 +2245,13 @@ export function DialogSessaoLances({
           ? elemento.descricao.replace(/^Lote\s*\d+\s*[-–:]\s*/i, '')
           : elemento.descricao;
         
-        // Para critério global, retornar colunas diferentes (sem vencedor, valor unit, valor total)
+        // Para critério global, retornar colunas com Vencedor entre Descrição e Unidade
         // Usar "-" quando unidade ou quantidade não estiverem definidos
         if (isGlobalLocal) {
           return [
             identificador,
             descricaoLimpaResumo,
+            vencedor?.fornecedores?.razao_social || "Sem lances",
             elemento.unidade && elemento.unidade.trim() !== "" ? elemento.unidade : "-",
             elemento.quantidade && elemento.quantidade > 0 ? quantidade.toString() : "-",
           ];
@@ -2299,8 +2300,8 @@ export function DialogSessaoLances({
       
       const ocultarColunasMarcaQtdUn = isPorLoteLocal;
 
-      // Cabeçalho e colunas específicos para critério global
-      const headGlobal = [["Item", "Descrição", "Unidade", "Quantidade"]];
+      // Cabeçalho e colunas específicos para critério global (com coluna Vencedor)
+      const headGlobal = [["Item", "Descrição", "Vencedor", "Unidade", "Quantidade"]];
       const headPadrao = [[
         colunaIdentificador, 
         "Descrição", 
@@ -2315,12 +2316,13 @@ export function DialogSessaoLances({
       // Largura total da tabela (paisagem A4 = ~297mm, com margens de 14mm cada lado = 269mm úteis)
       const larguraTotalTabela = landscapeWidth - 28; // 28 = 14 + 14 de margem
       
-      // Larguras ajustadas para critério global (soma = 262mm, ajustado proporcionalmente)
+      // Larguras ajustadas para critério global (5 colunas: Item, Descrição, Vencedor, Unidade, Quantidade)
       const columnStylesGlobal = {
         0: { cellWidth: 15, halign: "center" as const, fontStyle: "bold" as const },
-        1: { cellWidth: larguraTotalTabela - 15 - 35 - 35, halign: "left" as const }, // Descrição ocupa o restante
-        2: { cellWidth: 35, halign: "center" as const },
+        1: { cellWidth: larguraTotalTabela - 15 - 60 - 35 - 35, halign: "left" as const }, // Descrição ocupa o restante
+        2: { cellWidth: 60, halign: "left" as const }, // Vencedor
         3: { cellWidth: 35, halign: "center" as const },
+        4: { cellWidth: 35, halign: "center" as const },
       };
 
       const columnStylesPadrao = {
