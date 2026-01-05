@@ -1000,6 +1000,7 @@ const SistemaLancesFornecedor = () => {
         numero_processo: numeroProcesso || "",
         motivo_inabilitacao: minhaInabilitacao?.motivo_inabilitacao || "",
         numero_selecao: selecao?.numero_selecao || "",
+        site_url: window.location.origin,
       };
 
       const { data, error } = await supabase.functions.invoke("enviar-recurso-inabilitacao", {
