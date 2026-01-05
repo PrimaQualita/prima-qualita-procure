@@ -2254,13 +2254,24 @@ export function DialogSessaoLances({
           ? elemento.descricao.replace(/^Lote\s*\d+\s*[-–:]\s*/i, '')
           : elemento.descricao;
         
+        // Determinar status quando não há vencedor:
+        // DESERTO = nenhum lance foi recebido para o item/lote
+        // FRACASSADO = houve lances, mas todos os fornecedores foram inabilitados
+        let statusSemVencedor = "DESERTO";
+        if (!vencedor) {
+          const lancesDoElemento = getLancesCompletosDoItem(elemento.numero);
+          if (lancesDoElemento.length > 0) {
+            statusSemVencedor = "FRACASSADO";
+          }
+        }
+        
         // Para critério global, retornar colunas com Vencedor entre Descrição e Unidade
         // Usar "-" quando unidade ou quantidade não estiverem definidos
         if (isGlobalLocal) {
           return [
             identificador,
             descricaoLimpaResumo,
-            vencedor?.fornecedores?.razao_social || "DESERTO",
+            vencedor?.fornecedores?.razao_social || statusSemVencedor,
             elemento.unidade && elemento.unidade.trim() !== "" ? elemento.unidade : "-",
             elemento.quantidade && elemento.quantidade > 0 ? quantidade.toString() : "-",
           ];
@@ -2269,7 +2280,7 @@ export function DialogSessaoLances({
         return [
           identificador,
           descricaoLimpaResumo, // Descrição sem duplicação
-          vencedor?.fornecedores?.razao_social || "DESERTO",
+          vencedor?.fornecedores?.razao_social || statusSemVencedor,
           marca,
           (elemento.isLote) ? "-" : quantidade.toString(),
           (elemento.isLote) ? "LOTE" : (elemento.unidade || "UN"),
