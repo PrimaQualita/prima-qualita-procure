@@ -3325,6 +3325,33 @@ export type Database = {
           url: string
         }[]
       }
+      get_itens_abertos_lances_por_codigo: {
+        Args: { p_codigo_acesso: string; p_selecao_id: string }
+        Returns: {
+          aberto: boolean
+          data_inicio_fechamento: string
+          em_negociacao: boolean
+          iniciando_fechamento: boolean
+          nao_negociar: boolean
+          negociacao_concluida: boolean
+          negociacao_para_mim: boolean
+          numero_item: number
+          segundos_para_fechar: number
+        }[]
+      }
+      get_lances_por_codigo: {
+        Args: { p_codigo_acesso: string; p_selecao_id: string }
+        Returns: {
+          created_at: string
+          data_hora_lance: string
+          fornecedor_id: string
+          id: string
+          numero_item: number
+          selecao_id: string
+          tipo_lance: string
+          valor_lance: number
+        }[]
+      }
       get_perguntas_due_diligence_publicas: {
         Args: never
         Returns: {
