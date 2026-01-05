@@ -1234,7 +1234,15 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   
-  if (itensNegociados.length > 0) {
+  if (criterioJulgamento === 'global') {
+    // Para critério global, texto geral sobre negociação
+    if (itensNegociados.length > 0) {
+      const textoNegociacao = `Houve negociação durante esta seleção de fornecedores.`;
+      currentY = drawJustifiedText(doc, textoNegociacao, marginLeft, currentY, contentWidth, lineHeight);
+    } else {
+      currentY = drawJustifiedText(doc, "Não houve negociações durante esta seleção de fornecedores.", marginLeft, currentY, contentWidth, lineHeight);
+    }
+  } else if (itensNegociados.length > 0) {
     const itensNegociadosStr = itensNegociados.join(', ');
     const termoNegociacao = criterioJulgamento === 'por_lote' ? 'lotes' : 'itens';
     const textoNegociacao = `Foram realizadas negociações nos seguintes ${termoNegociacao}: ${itensNegociadosStr}.`;
