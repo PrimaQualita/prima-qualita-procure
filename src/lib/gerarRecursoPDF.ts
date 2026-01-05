@@ -15,12 +15,12 @@ export const gerarRecursoPDF = async (
   numeroProcesso: string,
   motivoInabilitacao: string,
   numeroSelecao?: string,
-  tituloCotacao?: string
+  tituloCotacao?: string, protocoloOverride?: string, dataHoraOverride?: string, fileNamePrefix?: string
 ): Promise<RecursoResult> => {
   console.log('[PDF] Iniciando geração - Recurso de Inabilitação');
   
   const agora = new Date();
-  const dataHora = agora.toLocaleString('pt-BR', { 
+  const dataHora = dataHoraOverride ?? agora.toLocaleString('pt-BR', { 
     dateStyle: 'long', 
     timeStyle: 'medium' 
   });
@@ -28,7 +28,7 @@ export const gerarRecursoPDF = async (
   // Gerar protocolo numérico no formato XXXX-XXXX-XXXX-XXXX
   const timestamp = agora.getTime();
   const protocoloNumerico = timestamp.toString().padStart(16, '0');
-  const protocolo = protocoloNumerico.match(/.{1,4}/g)?.join('-') || protocoloNumerico;
+  const protocolo = protocoloOverride ?? (protocoloNumerico.match(/.{1,4}/g)?.join('-') || protocoloNumerico);
   
   // Criar PDF
   const doc = new jsPDF({
@@ -208,7 +208,9 @@ export const gerarRecursoPDF = async (
   
   // Gerar PDF como blob
   const pdfBlob = doc.output('blob');
-  const fileName = `recurso_${numeroProcesso.replace(/\//g, '-')}_${Date.now()}.pdf`;
+  const safeNumeroProcesso = (numeroProcesso || 'processo').replace(/\//g, '-');
+  const prefix = fileNamePrefix ?? 'recurso_';
+  const fileName = `${prefix}${safeNumeroProcesso}_${Date.now()}.pdf`;
   const storagePath = `recursos/enviados/${fileName}`;
   
   console.log('[PDF] Fazendo upload para storage:', storagePath);
