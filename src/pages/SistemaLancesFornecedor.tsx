@@ -799,51 +799,39 @@ const SistemaLancesFornecedor = () => {
     return () => clearInterval(interval);
   }, [habilitacaoEncerrada, dataEncerramentoHabilitacao, minhaIntencaoRecurso]);
 
-  // Registrar intenção de recurso (Sim ou Não)
+  // Registrar intenção de recurso (Sim ou Não) via RPC para funcionar sem sessão autenticada
   const handleRegistrarIntencaoRecurso = async (desejaRecorrer: boolean, motivo?: string) => {
-    if (!selecao?.id || !proposta?.fornecedor_id) return;
+    if (!selecao?.id || !proposta?.fornecedor_id || !proposta?.codigo_acesso) return;
 
     setEnviandoIntencao(true);
     try {
-      const { error } = await supabase
-        .from("intencoes_recurso_selecao")
-        .insert({
-          selecao_id: selecao.id,
-          fornecedor_id: proposta.fornecedor_id,
-          deseja_recorrer: desejaRecorrer,
-          motivo_intencao: motivo || null
-        });
+      // Usar RPC para inserir via código de acesso (sem precisar de sessão autenticada)
+      const { data, error } = await supabase.rpc('registrar_intencao_recurso_por_codigo', {
+        p_selecao_id: selecao.id,
+        p_codigo_acesso: proposta.codigo_acesso,
+        p_deseja_recorrer: desejaRecorrer,
+        p_motivo_intencao: motivo || null
+      });
 
       if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string } | null;
+      if (result && !result.success) throw new Error(result.error || 'Erro desconhecido');
 
       if (desejaRecorrer) {
         toast.success("Intenção de recorrer registrada com sucesso!");
         setDialogIntencaoRecurso(false);
         setMotivoIntencao("");
         
-        // Se fornecedor foi inabilitado, verificar se já existe recurso antes de criar
+        // Se fornecedor foi inabilitado, criar recurso via RPC
         if (minhaInabilitacao) {
-          // Verificar se já existe recurso
-          const { data: recursosExistentes } = await supabase
-            .from("recursos_inabilitacao_selecao")
-            .select("id")
-            .eq("inabilitacao_id", minhaInabilitacao.id)
-            .limit(1);
-          
-          // Só criar se não existir nenhum recurso
-          if (!recursosExistentes || recursosExistentes.length === 0) {
-            const dataLimite = calcularProximoDiaUtil(new Date(), 1);
-            await supabase
-              .from("recursos_inabilitacao_selecao")
-              .insert({
-                inabilitacao_id: minhaInabilitacao.id,
-                selecao_id: selecao.id,
-                fornecedor_id: proposta.fornecedor_id,
-                motivo_recurso: "",
-                data_limite_fornecedor: dataLimite.toISOString(),
-                status_recurso: "aguardando_envio"
-              });
-          }
+          const dataLimite = calcularProximoDiaUtil(new Date(), 1);
+          await supabase.rpc('criar_recurso_inabilitacao_por_codigo', {
+            p_selecao_id: selecao.id,
+            p_codigo_acesso: proposta.codigo_acesso,
+            p_inabilitacao_id: minhaInabilitacao.id,
+            p_data_limite: dataLimite.toISOString()
+          });
           loadMinhaInabilitacao();
         }
       } else {
