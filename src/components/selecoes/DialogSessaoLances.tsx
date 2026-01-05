@@ -118,8 +118,9 @@ export function DialogSessaoLances({
   const isGlobal = criterioJulgamento === "global";
   
   // Para critério global, criar um "item virtual" que representa o valor total
-  const itensParaControle = isGlobal 
-    ? [{ numero_item: 0, descricao: "Total Global da Proposta", quantidade: 1, unidade: "GL", lote_id: undefined }] 
+  // Unidade/Quantidade só devem existir quando realmente houver essa informação (senão deve aparecer "-")
+  const itensParaControle = isGlobal
+    ? [{ numero_item: 0, descricao: "Total Global da Proposta", lote_id: undefined }]
     : itens;
   
   // Estado - Controle de Itens
@@ -1902,13 +1903,14 @@ export function DialogSessaoLances({
       
       if (isGlobalLocal) {
         // Para critério global: um único item com a descrição do objeto do processo
+        // Unidade/Quantidade não existem no objeto (no resumo devem aparecer como "-")
         elementosParaIterar = [{
           numero: 0,
           descricao: stripHtml(objetoProcesso),
-          quantidade: 1,
-          unidade: "GL",
+          quantidade: 0,
+          unidade: "",
           isLote: false,
-          isGlobal: true
+          isGlobal: true,
         }];
       } else if (isPorLoteLocal && lotes.length > 0) {
         elementosParaIterar = lotes.map(lote => ({
