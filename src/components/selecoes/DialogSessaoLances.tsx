@@ -55,6 +55,7 @@ interface Lance {
     razao_social: string;
     cnpj: string;
   };
+  _inabilitado?: boolean; // Marcação local para lances de fornecedores inabilitados
 }
 
 interface Mensagem {
@@ -1308,18 +1309,18 @@ export function DialogSessaoLances({
       // Armazenar todos os lances (para planilha)
       setLancesCompletos(data || []);
       
-      // Filtrar lances onde o fornecedor está inabilitado PARA AQUELE ITEM ESPECÍFICO
-      const lancesFiltrados = (data || []).filter((lance: any) => {
-        const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
-        if (!itensInabilitados) return true; // Não está inabilitado
-        return !itensInabilitados.includes(lance.numero_item); // Verificar se o item específico está inabilitado
-      });
-      
       // ORDENAÇÃO CUSTOMIZADA: Priorizar lances de negociação
       // Agrupar lances por item e ordenar cada grupo
       const isDesconto = criterioJulgamento === "desconto";
       
-      const lancesOrdenados = lancesFiltrados.sort((a: any, b: any) => {
+      // Marcar lances de fornecedores inabilitados mas NÃO filtrar - exibir todos
+      const lancesComMarcacao = (data || []).map((lance: any) => {
+        const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
+        const inabilitadoNoItem = itensInabilitados && itensInabilitados.includes(lance.numero_item);
+        return { ...lance, _inabilitado: inabilitadoNoItem };
+      });
+      
+      const lancesOrdenados = lancesComMarcacao.sort((a: any, b: any) => {
         // Primeiro ordenar por número do item
         if (a.numero_item !== b.numero_item) {
           return a.numero_item - b.numero_item;
@@ -1348,8 +1349,13 @@ export function DialogSessaoLances({
   };
 
   const getLancesDoItem = (numeroItem: number) => {
-    // Lances já vem filtrados de fornecedores inabilitados do loadLances
+    // Retorna todos os lances do item (incluindo marcados como inabilitados)
     return lances.filter(l => l.numero_item === numeroItem);
+  };
+
+  // Função para pegar lances válidos (não inabilitados) para cálculo de vencedor
+  const getLancesValidosDoItem = (numeroItem: number) => {
+    return lances.filter(l => l.numero_item === numeroItem && !l._inabilitado);
   };
 
   // Função para pegar TODOS os lances do item (incluindo inabilitados) - para planilha
@@ -1358,7 +1364,8 @@ export function DialogSessaoLances({
   };
 
   const getVencedorItem = (numeroItem: number) => {
-    const lancesItem = getLancesDoItem(numeroItem);
+    // Vencedor é apenas entre lances de fornecedores não inabilitados
+    const lancesItem = getLancesValidosDoItem(numeroItem);
     return lancesItem.length > 0 ? lancesItem[0] : null;
   };
 
