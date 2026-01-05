@@ -3369,6 +3369,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      inserir_lance_por_codigo: {
+        Args: {
+          p_codigo_acesso: string
+          p_numero_item: number
+          p_selecao_id: string
+          p_tipo_lance: string
+          p_valor_lance: number
+        }
+        Returns: Json
+      }
       inserir_respostas_itens: { Args: { p_itens: Json }; Returns: Json }
       is_internal_user: { Args: { _user_id: string }; Returns: boolean }
       pode_inserir_resposta_item: {
