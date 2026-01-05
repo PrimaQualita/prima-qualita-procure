@@ -317,7 +317,7 @@ serve(async (req) => {
     drawSection("RAZÕES DO RECURSO", motivoRecurso);
 
     // ===== CERTIFICAÇÃO DIGITAL (igual ao frontend) =====
-    const certHeight = 55;
+    const certHeight = 70;
     ensureSpace(certHeight + 10);
     y -= 15; // espaço antes da certificação
 
@@ -348,7 +348,7 @@ serve(async (req) => {
     const certTitleSize = 12;
     const certBodySize = 10;
     const certSmallSize = 8;
-    let certY = certBoxY + certHeight - 14;
+    let certY = certBoxY + certHeight - 16;
     
     const titleText = "CERTIFICAÇÃO DIGITAL";
     const titleWidth = fontBold.widthOfTextAtSize(titleText, certTitleSize);
@@ -360,7 +360,7 @@ serve(async (req) => {
       color: rgb(0, 0, 0.545), // azul escuro (0, 0, 139) / 255
     });
 
-    certY -= 14;
+    certY -= 16;
     currentPage.drawText(`Protocolo: ${protocolo}`, {
       x: certX + 8,
       y: certY,
@@ -369,7 +369,7 @@ serve(async (req) => {
       color: rgb(0, 0, 0),
     });
 
-    certY -= 12;
+    certY -= 14;
     currentPage.drawText(`Responsável: ${fornecedorNome}`, {
       x: certX + 8,
       y: certY,
@@ -379,7 +379,7 @@ serve(async (req) => {
     });
 
     // "Verificar autenticidade em:" em negrito
-    certY -= 10;
+    certY -= 12;
     currentPage.drawText("Verificar autenticidade em:", {
       x: certX + 8,
       y: certY,
@@ -389,7 +389,7 @@ serve(async (req) => {
     });
 
     // Link em azul
-    certY -= 10;
+    certY -= 12;
     const siteUrl = Deno.env.get("SITE_URL") || "https://primaqualita.lovable.app";
     const linkUrl = `${siteUrl}/verificar-documento?protocolo=${protocolo}`;
     currentPage.drawText(linkUrl, {
@@ -401,7 +401,7 @@ serve(async (req) => {
     });
 
     // Texto legal
-    certY -= 10;
+    certY -= 12;
     currentPage.drawText("Este documento possui certificação digital conforme Lei 14.063/2020", {
       x: certX + 8,
       y: certY,
