@@ -1736,8 +1736,9 @@ export function DialogSessaoLances({
       
       if (dbError) throw dbError;
       
-      // Recarregar lista de planilhas
+      // Recarregar lista de planilhas e lances
       await loadPlanilhasGeradas();
+      await loadLances();
       toast.success("Planilha deletada com sucesso!");
     } catch (error) {
       console.error("Erro ao deletar planilha:", error);
