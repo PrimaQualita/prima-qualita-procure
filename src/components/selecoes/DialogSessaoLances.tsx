@@ -2246,12 +2246,13 @@ export function DialogSessaoLances({
           : elemento.descricao;
         
         // Para critério global, retornar colunas diferentes (sem vencedor, valor unit, valor total)
+        // Usar "-" quando unidade ou quantidade não estiverem definidos
         if (isGlobalLocal) {
           return [
             identificador,
             descricaoLimpaResumo,
-            elemento.unidade || "UN",
-            quantidade.toString(),
+            elemento.unidade && elemento.unidade.trim() !== "" ? elemento.unidade : "-",
+            elemento.quantidade && elemento.quantidade > 0 ? quantidade.toString() : "-",
           ];
         }
         
@@ -2311,11 +2312,12 @@ export function DialogSessaoLances({
         criterioJulgamento === "desconto" ? "-" : "Valor Total"
       ]];
 
+      // Larguras ajustadas para caber na página paisagem A4 (largura útil ~267mm com margens de 15mm)
       const columnStylesGlobal = {
-        0: { cellWidth: 20, halign: "center" as const, fontStyle: "bold" as const },
-        1: { cellWidth: 180 },
-        2: { cellWidth: 40, halign: "center" as const },
-        3: { cellWidth: 40, halign: "center" as const },
+        0: { cellWidth: 15, halign: "center" as const, fontStyle: "bold" as const },
+        1: { cellWidth: 177 }, // Descrição mais compacta
+        2: { cellWidth: 35, halign: "center" as const },
+        3: { cellWidth: 35, halign: "center" as const },
       };
 
       const columnStylesPadrao = {
