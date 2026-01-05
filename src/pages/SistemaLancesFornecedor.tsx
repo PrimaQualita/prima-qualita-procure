@@ -2482,8 +2482,19 @@ const SistemaLancesFornecedor = () => {
           </Button>
         </div>
 
-        {/* Alerta IMEDIATO de Inabilitação - Aparece assim que fornecedor é inabilitado */}
-        {minhaInabilitacao && !minhaIntencaoRecurso && (
+        {/* Alerta IMEDIATO de Inabilitação - Aparece assim que fornecedor é inabilitado (apenas 5 min após inabilitação) */}
+        {minhaInabilitacao && !minhaIntencaoRecurso && (() => {
+          // Calcular se ainda está dentro do prazo de 5 minutos
+          const dataInabilitacao = new Date(minhaInabilitacao.data_inabilitacao);
+          const limiteIntencao = new Date(dataInabilitacao.getTime() + 5 * 60 * 1000);
+          const dentroDosPrazos = new Date() < limiteIntencao;
+          
+          if (!dentroDosPrazos) return null;
+          
+          const tempoRestanteMs = limiteIntencao.getTime() - Date.now();
+          const tempoRestanteSeg = Math.max(0, Math.floor(tempoRestanteMs / 1000));
+          
+          return (
           <Card className="border-red-500/50 bg-red-500/10">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-red-700">
@@ -2504,6 +2515,13 @@ const SistemaLancesFornecedor = () => {
                 <p className="text-sm text-red-700">
                   <strong>Data da inabilitação:</strong> {format(new Date(minhaInabilitacao.data_inabilitacao), "dd/MM/yyyy 'às' HH:mm")}
                 </p>
+              </div>
+              
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50/50 p-2 rounded-lg border border-amber-200">
+                <Clock className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  Tempo restante para manifestar intenção: {formatarTempoRestante(tempoRestanteSeg)}
+                </span>
               </div>
               
               <div className="bg-amber-50 p-3 rounded-lg">
@@ -2535,7 +2553,8 @@ const SistemaLancesFornecedor = () => {
               </div>
             </CardContent>
           </Card>
-        )}
+          );
+        })()}
 
         {/* Aviso de Intenção de Recurso (5 minutos após encerramento da habilitação) - PARA FORNECEDORES NÃO INABILITADOS */}
         {habilitacaoEncerrada && !minhaInabilitacao && !minhaIntencaoRecurso && tempoRestanteIntencao !== null && tempoRestanteIntencao > 0 && (
