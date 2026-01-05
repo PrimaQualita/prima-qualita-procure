@@ -2709,41 +2709,41 @@ const SistemaLancesFornecedor = () => {
                               {/* Valores */}
                               <div className="space-y-1.5">
                                 {/* Card Mínimo - fica verde quando vencendo */}
-                                <div className={`rounded px-2 py-1.5 ${
+                                <div className={`rounded px-2 py-1.5 relative ${
                                   isFornecedorVencendoItem(numeroItem) 
                                     ? 'bg-green-50 border border-green-200' 
                                     : 'bg-blue-50'
                                 }`}>
-                                  <div className="flex items-start justify-between gap-1">
-                                    <div className="min-w-0">
-                                      <div
-                                        className={`flex items-center gap-1 text-[10px] mb-0.5 ${
-                                          isFornecedorVencendoItem(numeroItem)
-                                            ? "text-green-600"
-                                            : "text-blue-600"
-                                        }`}
-                                      >
-                                        <TrendingDown className="h-3 w-3 shrink-0" />
-                                        <span>{selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Melhor %" : "Mínimo"}</span>
-                                      </div>
-                                      <p
-                                        className={`font-bold text-sm whitespace-nowrap ${
-                                          isFornecedorVencendoItem(numeroItem)
-                                            ? "text-green-700"
-                                            : "text-blue-700"
-                                        }`}
-                                      >
-                                        {selecao?.processos_compras?.criterio_julgamento === "desconto"
-                                          ? `${getValorMinimoAtual(numeroItem).toFixed(2).replace(".", ",")}%`
-                                          : formatarMoeda(getValorMinimoAtual(numeroItem))}
-                                      </p>
+                                  {isFornecedorVencendoItem(numeroItem) && (
+                                    <div className="absolute right-2 top-1 shrink-0 flex flex-col items-center text-green-600">
+                                      <Trophy className="h-4 w-4" />
+                                      <span className="text-[8px] font-semibold whitespace-nowrap">Vencendo!</span>
                                     </div>
-                                    {isFornecedorVencendoItem(numeroItem) && (
-                                      <div className="shrink-0 flex flex-col items-center text-green-600">
-                                        <Trophy className="h-4 w-4" />
-                                        <span className="text-[8px] font-semibold whitespace-nowrap">Vencendo!</span>
-                                      </div>
-                                    )}
+                                  )}
+
+                                  <div className={`min-w-0 ${isFornecedorVencendoItem(numeroItem) ? 'pr-10' : ''}`}>
+                                    <div
+                                      className={`flex items-center gap-1 text-[10px] mb-0.5 ${
+                                        isFornecedorVencendoItem(numeroItem)
+                                          ? "text-green-600"
+                                          : "text-blue-600"
+                                      }`}
+                                    >
+                                      <TrendingDown className="h-3 w-3 shrink-0" />
+                                      <span>{selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Melhor %" : "Mínimo"}</span>
+                                    </div>
+
+                                    <p
+                                      className={`font-bold text-sm whitespace-nowrap ${
+                                        isFornecedorVencendoItem(numeroItem)
+                                          ? "text-green-700"
+                                          : "text-blue-700"
+                                      }`}
+                                    >
+                                      {selecao?.processos_compras?.criterio_julgamento === "desconto"
+                                        ? `${getValorMinimoAtual(numeroItem).toFixed(2).replace(".", ",")}%`
+                                        : formatarMoeda(getValorMinimoAtual(numeroItem))}
+                                    </p>
                                   </div>
                                 </div>
                                 
