@@ -67,12 +67,17 @@ export function DialogControleItensLances({
   const [vencedoresPorLote, setVencedoresPorLote] = useState<Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>>(new Map());
   
   const [salvando, setSalvando] = useState(false);
+  
+  // Itens/Lotes com proposta (não desertos)
+  const [itensComProposta, setItensComProposta] = useState<Set<number>>(new Set());
+  const [lotesComProposta, setLotesComProposta] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     console.log("🔧 USEEFFECT: Executado - open:", open, "selecaoId:", selecaoId);
     
     if (open) {
       console.log("✅ USEEFFECT: Diálogo ABERTO! Iniciando configurações...");
+      loadItensComProposta();
       loadItensAbertos();
       loadVencedoresPorItem();
       
@@ -140,6 +145,63 @@ export function DialogControleItensLances({
       console.log("⚠️ USEEFFECT: Diálogo FECHADO - não configurando recursos");
     }
   }, [open, selecaoId]);
+
+  // Carrega itens/lotes que têm proposta (não são desertos)
+  const loadItensComProposta = async () => {
+    try {
+      // Buscar propostas de fornecedores para esta seleção
+      const { data: propostas, error: propostasError } = await supabase
+        .from("selecao_propostas_fornecedor")
+        .select("id")
+        .eq("selecao_id", selecaoId);
+
+      if (propostasError) throw propostasError;
+
+      if (!propostas || propostas.length === 0) {
+        console.log("⚠️ Nenhuma proposta encontrada para esta seleção");
+        setItensComProposta(new Set());
+        setLotesComProposta(new Set());
+        return;
+      }
+
+      const propostaIds = propostas.map(p => p.id);
+
+      // Buscar itens das propostas com valor maior que zero
+      const { data: itensRespostas, error: itensError } = await supabase
+        .from("selecao_respostas_itens_fornecedor")
+        .select("numero_item, valor_unitario_ofertado")
+        .in("proposta_id", propostaIds)
+        .gt("valor_unitario_ofertado", 0);
+
+      if (itensError) throw itensError;
+
+      // Criar set de itens com proposta válida
+      const itensSet = new Set<number>();
+      const lotesSet = new Set<number>();
+
+      itensRespostas?.forEach(resp => {
+        itensSet.add(resp.numero_item);
+      });
+
+      // Para critério por_lote, verificar quais lotes têm pelo menos um item com proposta
+      if (isPorLote && lotes) {
+        lotes.forEach(lote => {
+          const lotePossuiProposta = lote.itens?.some(item => itensSet.has(item.numero_item));
+          if (lotePossuiProposta) {
+            lotesSet.add(lote.numero_lote);
+          }
+        });
+      }
+
+      console.log("✅ Itens com proposta:", Array.from(itensSet));
+      console.log("✅ Lotes com proposta:", Array.from(lotesSet));
+
+      setItensComProposta(itensSet);
+      setLotesComProposta(lotesSet);
+    } catch (error) {
+      console.error("Erro ao carregar itens com proposta:", error);
+    }
+  };
 
   const verificarFechamentoAutomatico = async () => {
     console.log("🔍 verificarFechamentoAutomatico: INICIANDO verificação...");
@@ -412,9 +474,11 @@ export function DialogControleItensLances({
 
   const handleSelecionarTodos = () => {
     if (isPorLote) {
-      setLotesSelecionados(new Set(lotes.map((lote) => lote.numero_lote)));
+      // Selecionar apenas lotes com proposta (não desertos)
+      setLotesSelecionados(new Set(lotes.filter(lote => lotesComProposta.has(lote.numero_lote)).map((lote) => lote.numero_lote)));
     } else {
-      setItensSelecionados(new Set(itens.map((item) => item.numero_item)));
+      // Selecionar apenas itens com proposta (não desertos)
+      setItensSelecionados(new Set(itens.filter(item => itensComProposta.has(item.numero_item)).map((item) => item.numero_item)));
     }
   };
 
@@ -958,7 +1022,12 @@ export function DialogControleItensLances({
                 <div className="space-y-2">
                   {isPorLote ? (
                     // === RENDERIZAÇÃO POR LOTES ===
-                    lotes.map((lote) => {
+                    lotes.filter(lote => lotesComProposta.has(lote.numero_lote)).length === 0 ? (
+                      <div className="text-center text-muted-foreground py-8">
+                        <p>Nenhum lote recebeu cotação.</p>
+                        <p className="text-sm">Lotes sem proposta são considerados desertos.</p>
+                      </div>
+                    ) : lotes.filter(lote => lotesComProposta.has(lote.numero_lote)).map((lote) => {
                       const estaAberto = lotesAbertos.has(lote.numero_lote);
                       const estaSelecionado = lotesSelecionados.has(lote.numero_lote);
 
@@ -1003,7 +1072,12 @@ export function DialogControleItensLances({
                     })
                   ) : (
                     // === RENDERIZAÇÃO POR ITENS ===
-                    itens.map((item) => {
+                    itens.filter(item => itensComProposta.has(item.numero_item)).length === 0 ? (
+                      <div className="text-center text-muted-foreground py-8">
+                        <p>Nenhum item recebeu cotação.</p>
+                        <p className="text-sm">Itens sem proposta são considerados desertos.</p>
+                      </div>
+                    ) : itens.filter(item => itensComProposta.has(item.numero_item)).map((item) => {
                       const estaAberto = itensAbertos.has(item.numero_item);
                       const estaSelecionado = itensSelecionados.has(item.numero_item);
 
