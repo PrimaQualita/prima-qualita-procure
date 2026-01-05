@@ -1949,11 +1949,12 @@ export function DialogFinalizarProcesso({
       if (respostaExistente) {
         // Deletar arquivo da resposta
         if (respostaExistente.url_documento) {
-          let filePath = respostaExistente.url_documento;
+          let filePath = respostaExistente.url_documento.split('?')[0]; // Remover query strings
           if (filePath.includes('https://')) {
             const urlParts = filePath.split('/processo-anexos/');
             filePath = urlParts[1] || filePath;
           }
+          console.log(`Deletando arquivo da resposta do storage: ${filePath}`);
           await supabase.storage.from('processo-anexos').remove([filePath]);
         }
         
@@ -1980,11 +1981,12 @@ export function DialogFinalizarProcesso({
       
       // Deletar arquivo do recurso
       if (recursoParaExcluir.url_arquivo) {
-        let filePath = recursoParaExcluir.url_arquivo;
+        let filePath = recursoParaExcluir.url_arquivo.split('?')[0]; // Remover query strings
         if (filePath.includes('https://')) {
           const urlParts = filePath.split('/processo-anexos/');
           filePath = urlParts[1] || filePath;
         }
+        console.log(`Deletando arquivo do recurso do storage: ${filePath}`);
         await supabase.storage.from('processo-anexos').remove([filePath]);
       }
       
@@ -2024,11 +2026,12 @@ export function DialogFinalizarProcesso({
       
       // Deletar arquivo do storage
       if (respostaAtual.url_documento) {
-        let filePath = respostaAtual.url_documento;
+        let filePath = respostaAtual.url_documento.split('?')[0]; // Remover query strings
         if (filePath.includes('https://')) {
           const urlParts = filePath.split('/processo-anexos/');
           filePath = urlParts[1] || filePath;
         }
+        console.log(`Deletando arquivo de resposta do storage: ${filePath}`);
         await supabase.storage.from('processo-anexos').remove([filePath]);
       }
       
