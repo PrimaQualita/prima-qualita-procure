@@ -34,33 +34,109 @@ function gerarProtocolo(date: Date): string {
   return protocoloNumerico.match(/.{1,4}/g)?.join("-") || protocoloNumerico;
 }
 
-function wrapText(text: string, maxLen: number): string[] {
-  // Primeiro dividir por quebras de linha para preservar parágrafos
-  const paragraphs = (text || "").split(/\r?\n/);
-  const allLines: string[] = [];
-  
-  for (const paragraph of paragraphs) {
-    if (!paragraph.trim()) {
-      allLines.push(""); // Linha vazia para espaçamento entre parágrafos
+function decodeHtmlEntities(input: string): string {
+  return (input || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+}
+
+function normalizeToParagraphs(text: string): string[] {
+  const normalized = decodeHtmlEntities(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    // converter quebras HTML comuns em quebras reais
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/?p\s*>/gi, "\n\n")
+    // remover demais tags
+    .replace(/<[^>]*>/g, " ")
+    // normalizar múltiplas quebras e espaços
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!normalized) return [""];
+
+  // parágrafos: quebras duplas; dentro do parágrafo, quebras simples viram espaço
+  const paragraphs = normalized
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/\n/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  return paragraphs.length ? paragraphs : [""];
+}
+
+function wrapTextToWidth(text: string, font: any, fontSize: number, maxWidth: number): string[] {
+  const words = (text || "").split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [""];
+
+  const lines: string[] = [];
+  let current = "";
+
+  for (const w of words) {
+    const next = current ? `${current} ${w}` : w;
+    const width = font.widthOfTextAtSize(next, fontSize);
+
+    if (width <= maxWidth) {
+      current = next;
       continue;
     }
-    
-    const words = paragraph.split(/\s+/).filter(Boolean);
-    let current = "";
-    
-    for (const w of words) {
-      const next = current ? `${current} ${w}` : w;
-      if (next.length <= maxLen) {
-        current = next;
-      } else {
-        if (current) allLines.push(current);
-        current = w;
-      }
-    }
-    if (current) allLines.push(current);
+
+    if (current) lines.push(current);
+    current = w;
   }
-  
-  return allLines.length ? allLines : [""];
+
+  if (current) lines.push(current);
+  return lines.length ? lines : [""];
+}
+
+function drawTextLine(
+  page: any,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  font: any,
+  fontSize: number,
+  color: any,
+  justify: boolean,
+) {
+  const line = (text || "").trim();
+  if (!justify) {
+    page.drawText(line, { x, y, size: fontSize, font, color });
+    return;
+  }
+
+  const words = line.split(/\s+/).filter(Boolean);
+  if (words.length <= 1) {
+    page.drawText(line, { x, y, size: fontSize, font, color });
+    return;
+  }
+
+  const normalSpace = font.widthOfTextAtSize(" ", fontSize);
+
+  const wordsWidth = words.reduce((sum: number, w: string) => sum + font.widthOfTextAtSize(w, fontSize), 0);
+  const gaps = words.length - 1;
+  const extra = maxWidth - wordsWidth;
+  const gapWidth = extra / gaps;
+
+  // se ficar “estourado”, não justifica
+  if (!Number.isFinite(gapWidth) || gapWidth > normalSpace * 3 || gapWidth < 0) {
+    page.drawText(line, { x, y, size: fontSize, font, color });
+    return;
+  }
+
+  let cursorX = x;
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    page.drawText(w, { x: cursorX, y, size: fontSize, font, color });
+    cursorX += font.widthOfTextAtSize(w, fontSize);
+    if (i < words.length - 1) cursorX += gapWidth;
+  }
 }
 
 serve(async (req) => {
@@ -151,29 +227,53 @@ serve(async (req) => {
       }
     }
 
-    // Gerar PDF
+    // Gerar PDF (com formatação automática: parágrafos, quebra por largura e justificação)
     const agora = new Date();
     const protocolo = gerarProtocolo(agora);
 
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const marginX = 48;
+    const marginBottom = 72;
+    const maxWidth = pageWidth - marginX * 2;
+
+    const bodyFontSize = 11;
+    const sectionTitleSize = 12;
+    const headerTitleSize = 16;
+    const lineHeight = 14;
+
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595.28, 841.89]); // A4 em pontos
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    const marginX = 48;
-    let y = 841.89 - 48;
+    let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+    let y = 0;
 
-    // Faixa superior (teal)
-    page.drawRectangle({ x: 0, y: 841.89 - 56, width: 595.28, height: 56, color: rgb(0, 0.502, 0.502) });
-    page.drawText("RECURSO DE INABILITAÇÃO", {
-      x: 595.28 / 2 - fontBold.widthOfTextAtSize("RECURSO DE INABILITAÇÃO", 16) / 2,
-      y: 841.89 - 40,
-      size: 16,
-      font: fontBold,
-      color: rgb(1, 1, 1),
-    });
+    const drawHeader = (p: any) => {
+      p.drawRectangle({ x: 0, y: pageHeight - 56, width: pageWidth, height: 56, color: rgb(0, 0.502, 0.502) });
+      const titulo = "RECURSO DE INABILITAÇÃO";
+      p.drawText(titulo, {
+        x: pageWidth / 2 - fontBold.widthOfTextAtSize(titulo, headerTitleSize) / 2,
+        y: pageHeight - 40,
+        size: headerTitleSize,
+        font: fontBold,
+        color: rgb(1, 1, 1),
+      });
+    };
 
-    y -= 72;
+    const newPage = () => {
+      currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+      drawHeader(currentPage);
+      // mesma folga do layout atual (topo + respiro após o cabeçalho)
+      y = pageHeight - 48 - 72;
+    };
+
+    drawHeader(currentPage);
+    y = pageHeight - 48 - 72;
+
+    const ensureSpace = (needed: number) => {
+      if (y - needed < marginBottom) newPage();
+    };
 
     const infoLines: string[] = [
       `Processo: ${numeroProcesso || "-"}`,
@@ -185,39 +285,31 @@ serve(async (req) => {
     ].filter(Boolean);
 
     for (const line of infoLines) {
-      page.drawText(line, { x: marginX, y, size: 11, font });
+      ensureSpace(16);
+      currentPage.drawText(line, { x: marginX, y, size: bodyFontSize, font, color: rgb(0, 0, 0) });
       y -= 16;
     }
 
     y -= 8;
 
     const drawSection = (title: string, content: string) => {
-      page.drawText(title, { x: marginX, y, size: 12, font: fontBold, color: rgb(0, 0.502, 0.502) });
+      ensureSpace(18 + lineHeight);
+      currentPage.drawText(title, { x: marginX, y, size: sectionTitleSize, font: fontBold, color: rgb(0, 0.502, 0.502) });
       y -= 18;
 
-      const lines = wrapText(content || "-", 110);
-      for (const line of lines) {
-        if (y < 72) {
-          // nova página
-          const p = pdfDoc.addPage([595.28, 841.89]);
-          y = 841.89 - 48;
-          p.drawRectangle({ x: 0, y: 841.89 - 56, width: 595.28, height: 56, color: rgb(0, 0.502, 0.502) });
-          p.drawText("RECURSO DE INABILITAÇÃO", {
-            x: 595.28 / 2 - fontBold.widthOfTextAtSize("RECURSO DE INABILITAÇÃO", 16) / 2,
-            y: 841.89 - 40,
-            size: 16,
-            font: fontBold,
-            color: rgb(1, 1, 1),
-          });
-          y -= 72;
+      const paragraphs = normalizeToParagraphs(content || "-");
+      paragraphs.forEach((p, pIndex) => {
+        if (pIndex > 0) y -= lineHeight * 0.6;
 
-          // trocar referência de page por closure hack: desenhar sempre na última página
-        }
+        const lines = wrapTextToWidth(p, font, bodyFontSize, maxWidth);
+        lines.forEach((line, idx) => {
+          ensureSpace(lineHeight);
+          const isLastLine = idx === lines.length - 1;
+          drawTextLine(currentPage, line, marginX, y, maxWidth, font, bodyFontSize, rgb(0, 0, 0), !isLastLine);
+          y -= lineHeight;
+        });
+      });
 
-        const currentPage = pdfDoc.getPages()[pdfDoc.getPageCount() - 1];
-        currentPage.drawText(line, { x: marginX, y, size: 11, font, color: rgb(0, 0, 0) });
-        y -= 14;
-      }
       y -= 12;
     };
 
