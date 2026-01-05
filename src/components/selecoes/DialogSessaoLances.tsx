@@ -2219,12 +2219,20 @@ export function DialogSessaoLances({
         // Somar ao valor total geral
         valorTotalGeral += valorTotal;
         
-        // Buscar marca da proposta do fornecedor vencedor (não aplicável para lotes)
+        // Buscar marca da proposta do fornecedor vencedor (não aplicável para lotes ou global)
         const marcaKey = vencedor ? `${elemento.numero}-${vencedor.fornecedor_id}` : "";
-        const marca = elemento.isLote ? "-" : (marcasPorItemFornecedor[marcaKey] || "-");
+        const isGlobalItem = (elemento as any).isGlobal;
+        const marca = (elemento.isLote || isGlobalItem) ? "-" : (marcasPorItemFornecedor[marcaKey] || "-");
         
-        // Formatar número/identificador
-        const identificador = elemento.isLote ? toRoman(elemento.numero) : elemento.numero.toString();
+        // Formatar número/identificador: "-" para global, romano para lote, número para item
+        let identificador: string;
+        if (isGlobalItem) {
+          identificador = "-";
+        } else if (elemento.isLote) {
+          identificador = toRoman(elemento.numero);
+        } else {
+          identificador = elemento.numero.toString();
+        }
         
         // Remover prefixo "Lote XX - " da descrição se existir para evitar duplicação
         const descricaoLimpaResumo = elemento.isLote 
@@ -2236,8 +2244,8 @@ export function DialogSessaoLances({
           descricaoLimpaResumo, // Descrição sem duplicação
           vencedor?.fornecedores?.razao_social || "Sem lances",
           marca,
-          elemento.isLote ? "-" : quantidade.toString(),
-          elemento.isLote ? "LOTE" : (elemento.unidade || "UN"),
+          (elemento.isLote || isGlobalItem) ? "-" : quantidade.toString(),
+          (elemento.isLote || isGlobalItem) ? (isGlobalItem ? "GLOBAL" : "LOTE") : (elemento.unidade || "UN"),
           isNegociacao ? `${valorUnitarioFormatado} *` : valorUnitarioFormatado,
           isNegociacao ? `${valorTotalFormatado} *` : valorTotalFormatado,
         ];
@@ -2262,8 +2270,17 @@ export function DialogSessaoLances({
       const paginaInicialResumo = doc.internal.pages.length - 1;
       paginasResumoProcessadas.add(paginaInicialResumo);
 
-      // Cabeçalho adaptado para lote ou item
-      const colunaIdentificador = isPorLoteLocal ? "Lote" : "Item";
+      // Cabeçalho adaptado para lote, global ou item
+      let colunaIdentificador: string;
+      if (isGlobalLocal) {
+        colunaIdentificador = "-";
+      } else if (isPorLoteLocal) {
+        colunaIdentificador = "Lote";
+      } else {
+        colunaIdentificador = "Item";
+      }
+      
+      const ocultarColunasMarcaQtdUn = isPorLoteLocal || isGlobalLocal;
 
       autoTable(doc, {
         startY: resumoStartY,
@@ -2271,9 +2288,9 @@ export function DialogSessaoLances({
           colunaIdentificador, 
           "Descrição", 
           "Vencedor", 
-          isPorLoteLocal ? "-" : "Marca", 
-          isPorLoteLocal ? "-" : "Qtd.", 
-          isPorLoteLocal ? "-" : "Un.", 
+          ocultarColunasMarcaQtdUn ? "-" : "Marca", 
+          ocultarColunasMarcaQtdUn ? "-" : "Qtd.", 
+          ocultarColunasMarcaQtdUn ? "-" : "Un.", 
           criterioJulgamento === "desconto" ? "% Desconto" : "Valor Unit.", 
           criterioJulgamento === "desconto" ? "-" : "Valor Total"
         ]],
@@ -2293,13 +2310,13 @@ export function DialogSessaoLances({
           valign: "middle"
         },
         columnStyles: {
-          0: { cellWidth: 15, halign: "center", fontStyle: "bold" },
-          1: { cellWidth: 80, halign: "justify" }, // Descrição justificada
-          2: { cellWidth: 55 },
-          3: { cellWidth: 30, halign: "center" }, // Marca centralizada
-          4: { cellWidth: 18, halign: "center" },
-          5: { cellWidth: 15, halign: "center" },
-          6: { cellWidth: 30, halign: "right", fontStyle: "bold" },
+          0: { cellWidth: isGlobalLocal ? 10 : 15, halign: "center", fontStyle: "bold" },
+          1: { cellWidth: isGlobalLocal ? 120 : 80 }, // Descrição mais larga para global
+          2: { cellWidth: isGlobalLocal ? 70 : 55 },
+          3: { cellWidth: isGlobalLocal ? 15 : 30, halign: "center" }, // Marca comprimida para global
+          4: { cellWidth: isGlobalLocal ? 10 : 18, halign: "center" },
+          5: { cellWidth: isGlobalLocal ? 10 : 15, halign: "center" },
+          6: { cellWidth: isGlobalLocal ? 20 : 30, halign: "right", fontStyle: "bold" },
           7: { cellWidth: 30, halign: "right", fontStyle: "bold" },
         },
         alternateRowStyles: {
