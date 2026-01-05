@@ -35,20 +35,32 @@ function gerarProtocolo(date: Date): string {
 }
 
 function wrapText(text: string, maxLen: number): string[] {
-  const words = (text || "").split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-  for (const w of words) {
-    const next = current ? `${current} ${w}` : w;
-    if (next.length <= maxLen) {
-      current = next;
-    } else {
-      if (current) lines.push(current);
-      current = w;
+  // Primeiro dividir por quebras de linha para preservar parágrafos
+  const paragraphs = (text || "").split(/\r?\n/);
+  const allLines: string[] = [];
+  
+  for (const paragraph of paragraphs) {
+    if (!paragraph.trim()) {
+      allLines.push(""); // Linha vazia para espaçamento entre parágrafos
+      continue;
     }
+    
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    let current = "";
+    
+    for (const w of words) {
+      const next = current ? `${current} ${w}` : w;
+      if (next.length <= maxLen) {
+        current = next;
+      } else {
+        if (current) allLines.push(current);
+        current = w;
+      }
+    }
+    if (current) allLines.push(current);
   }
-  if (current) lines.push(current);
-  return lines.length ? lines : [""];
+  
+  return allLines.length ? allLines : [""];
 }
 
 serve(async (req) => {
