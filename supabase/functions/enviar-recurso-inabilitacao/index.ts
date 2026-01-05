@@ -316,6 +316,68 @@ serve(async (req) => {
     drawSection("MOTIVO DA INABILITAÇÃO", motivoInabilitacao || "-");
     drawSection("RAZÕES DO RECURSO", motivoRecurso);
 
+    // ===== CERTIFICAÇÃO SIMPLIFICADA =====
+    const certHeight = 50;
+    ensureSpace(certHeight);
+    y -= 8; // pequeno respiro antes da certificação
+
+    const certX = marginX;
+    const certWidth = maxWidth;
+    const certBoxY = y - certHeight + 14; // ajustar para caixa ficar abaixo do cursor
+
+    // Fundo cinza claro
+    currentPage.drawRectangle({
+      x: certX,
+      y: certBoxY,
+      width: certWidth,
+      height: certHeight,
+      color: rgb(0.95, 0.95, 0.95),
+      borderColor: rgb(0.8, 0.8, 0.8),
+      borderWidth: 0.5,
+    });
+
+    // Título da certificação
+    const certTitleSize = 9;
+    const certBodySize = 8;
+    let certY = certBoxY + certHeight - 12;
+    currentPage.drawText("CERTIFICAÇÃO DIGITAL SIMPLIFICADA", {
+      x: certX + 8,
+      y: certY,
+      size: certTitleSize,
+      font: fontBold,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+
+    certY -= 12;
+    currentPage.drawText(`Protocolo: ${protocolo}`, {
+      x: certX + 8,
+      y: certY,
+      size: certBodySize,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+
+    certY -= 10;
+    currentPage.drawText(`Responsável: ${fornecedorNome}`, {
+      x: certX + 8,
+      y: certY,
+      size: certBodySize,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+
+    certY -= 10;
+    const linkVerificacao = `Verifique em: ${Deno.env.get("SITE_URL") || "https://primaqualita.lovable.app"}/verificar-documento?protocolo=${protocolo}`;
+    currentPage.drawText(linkVerificacao, {
+      x: certX + 8,
+      y: certY,
+      size: certBodySize,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+
+    y = certBoxY - 8; // atualizar cursor para depois da certificação
+
     // Upload
     const fileName = `recurso_${sanitizeFilePart(numeroProcesso || "processo")}_${Date.now()}.pdf`;
     const storagePath = `recursos/enviados/${fileName}`;
