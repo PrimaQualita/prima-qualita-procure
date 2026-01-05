@@ -2388,13 +2388,14 @@ export function DialogSessaoLances({
       });
 
       // Legenda no resumo (apenas se não for global)
-      let finalY = (doc as any).lastAutoTable.finalY + 10;
+      let finalY = (doc as any).lastAutoTable.finalY + 5;
       if (!isGlobalLocal) {
         doc.setFontSize(8);
         doc.setFont("helvetica", "italic");
         doc.setTextColor(0, 128, 128); // Verde do logo
         doc.text("* Valor obtido por negociação", margin, finalY);
         doc.setTextColor(0, 0, 0);
+        finalY += 5;
       }
 
       // Calcular totais por fornecedor (apenas se não for desconto)
@@ -2439,8 +2440,6 @@ export function DialogSessaoLances({
 
         // Adicionar tabela de resumo por fornecedor
         if (resumoFornecedoresData.length > 0) {
-          finalY += 10;
-
           autoTable(doc, {
             startY: finalY + 5,
             head: [["Fornecedor", "Valor Total"]],
