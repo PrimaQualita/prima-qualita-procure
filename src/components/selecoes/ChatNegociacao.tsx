@@ -94,14 +94,16 @@ export function ChatNegociacao({
 
 
   const loadUserProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
-        .single();
-      
+        .maybeSingle();
+
       if (profile) {
         setUserProfile({ ...profile, tipo: "interno" });
         return;
@@ -111,8 +113,8 @@ export function ChatNegociacao({
         .from("fornecedores")
         .select("*")
         .eq("user_id", user.id)
-        .single();
-      
+        .maybeSingle();
+
       if (fornecedor) {
         setUserProfile({ ...fornecedor, tipo: "fornecedor" });
       }
@@ -142,7 +144,7 @@ export function ChatNegociacao({
               .from("profiles")
               .select("nome_completo")
               .eq("id", msg.usuario_id)
-              .single();
+              .maybeSingle();
             usuario_nome = profile?.nome_completo || "Gestor";
           }
 
@@ -151,7 +153,7 @@ export function ChatNegociacao({
               .from("fornecedores")
               .select("razao_social")
               .eq("id", msg.fornecedor_id)
-              .single();
+              .maybeSingle();
             fornecedor_nome = fornecedor?.razao_social || "Fornecedor";
           }
 
