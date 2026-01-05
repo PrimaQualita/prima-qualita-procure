@@ -145,7 +145,8 @@ export const gerarRecursoPDF = async (
   const textoNormalizado = motivoRecurso.replace(/(?<!\n)\n(?!\n)/g, ' ');
   const paragraphs = textoNormalizado.split(/\n\s*\n/).filter(p => p.trim() !== '');
   const espacoNormal = doc.getTextWidth(' ');
-  const espacoMaximo = espacoNormal * 3; // Máximo 3x o espaço normal
+  const espacoMaximo = Infinity; // Mantém justificativa mesmo com espaços maiores
+  const minWordsToJustify = 3; // Permite justificar linhas curtas (ex.: 3 palavras)
   
   paragraphs.forEach((paragraph, pIndex) => {
     if (pIndex > 0) {
@@ -164,9 +165,8 @@ export const gerarRecursoPDF = async (
       const isLastLine = lineIndex === lines.length - 1;
       const words = line.trim().split(/\s+/);
       
-      // Justificar apenas se não for última linha, tiver mais de 3 palavras, 
-      // e o espaço calculado não for exagerado
-      if (!isLastLine && words.length > 3) {
+      // Justificar apenas se não for última linha e tiver palavras suficientes
+      if (!isLastLine && words.length >= minWordsToJustify) {
         const textWidth = doc.getTextWidth(words.join(''));
         const totalSpaceNeeded = larguraUtil - textWidth;
         const spaceCount = words.length - 1;
