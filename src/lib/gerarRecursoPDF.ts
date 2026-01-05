@@ -140,13 +140,14 @@ export const gerarRecursoPDF = async (
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
   
-  const paragraphs = motivoRecurso.split('\n\n');
+  // Divide por quebras duplas OU simples para formar parágrafos
+  const paragraphs = motivoRecurso.split(/\n\s*\n|\n/).filter(p => p.trim() !== '');
   const espacoNormal = doc.getTextWidth(' ');
   const espacoMaximo = espacoNormal * 3; // Máximo 3x o espaço normal
   
   paragraphs.forEach((paragraph, pIndex) => {
     if (pIndex > 0) {
-      y += lineHeight * 0.5;
+      y += lineHeight * 1.2; // Espaço entre parágrafos mais visível
     }
     
     const lines = doc.splitTextToSize(paragraph.trim(), larguraUtil);
